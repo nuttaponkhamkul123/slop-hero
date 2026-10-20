@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Slop Hero - Isometric Web MMORPG</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚔️</text></svg>">
+</head>
+<body>
+  <!-- Fullscreen Game Canvas -->
+  <canvas id="gameCanvas"></canvas>
+
+  <!-- Interactive MMORPG HUD -->
+  <div id="ui-container">
+    <!-- Top HUD Row -->
+    <div class="top-hud">
+      <!-- Player Info Frame (Top-Left) -->
+      <div class="hud-panel player-frame interactive" id="playerFrame">
+        <div class="avatar-wrapper">
+          <span class="avatar-icon" id="playerAvatarIcon">⚔️</span>
+          <span class="level-badge" id="playerLevelBadge">Lv. 1</span>
+        </div>
+        <div class="player-info">
+          <div class="player-header">
+            <span class="player-name" id="hudPlayerName">Hero</span>
+            <span class="player-class-tag" id="hudPlayerClass">Warrior</span>
+          </div>
+
+          <!-- Health Bar -->
+          <div class="stat-bar-container">
+            <div class="stat-bar-fill hp-fill" id="hudHpFill" style="width: 100%;"></div>
+            <span class="stat-bar-text" id="hudHpText">180 / 180 HP</span>
+          </div>
+
+          <!-- Mana Bar -->
+          <div class="stat-bar-container">
+            <div class="stat-bar-fill mp-fill" id="hudMpFill" style="width: 100%;"></div>
+            <span class="stat-bar-text" id="hudMpText">50 / 50 MP</span>
+          </div>
+
+          <!-- EXP Bar -->
+          <div class="stat-bar-container exp-bar-mini">
+            <div class="stat-bar-fill exp-fill" id="hudExpFill" style="width: 0%;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Target HUD (Top-Center) -->
+      <div class="hud-panel target-hud interactive" id="targetHud">
+        <div class="avatar-wrapper" style="width: 44px; height: 44px; border-color: #ef4444;">
+          <span class="avatar-icon" id="targetIcon" style="font-size: 22px;">👾</span>
+        </div>
+        <div class="target-info">
+          <div class="target-name" id="targetName">Meadow Slime (Lv. 1)</div>
+          <div class="stat-bar-container" style="height: 10px;">
+            <div class="stat-bar-fill hp-fill" id="targetHpFill" style="width: 100%;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top-Right Group: Radar Minimap & Status -->
+      <div class="top-right-group">
+        <div class="minimap-panel interactive">
+          <canvas id="minimapCanvas" width="140" height="140"></canvas>
+        </div>
+
+        <div class="meta-info-row interactive">
+          <div class="info-chip" id="zoneBadge">
+            <span id="zoneIcon">🏰</span> <span id="zoneText">Town of Slop Hero</span>
+          </div>
+          <div class="info-chip" id="onlineCounter">
+            <span>🟢</span> <span id="onlineCountText">1 Hero Online</span>
+          </div>
+          <div class="info-chip" id="goldCounter">
+            <span>🪙</span> <span id="goldCountText">50 Gold</span>
+          </div>
+          <button class="btn-icon-hud" id="btnAudioToggle" title="Toggle Sound (M)">🔊</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom HUD Row -->
+    <div class="bottom-hud">
+      <!-- MMORPG Chat Box (Bottom-Left) -->
+      <div class="hud-panel chat-container interactive" id="chatContainer">
+        <div class="chat-messages" id="chatMessages">
+          <div class="chat-msg system">⚔️ Welcome to Slop Hero! Enter the Dungeon Portal to delve for relics, then sell them in town!</div>
+        </div>
+        <div class="chat-input-bar">
+          <input type="text" class="chat-input" id="chatInput" placeholder="Press Enter to chat..." maxlength="100">
+        </div>
+      </div>
+
+      <!-- Hotbar / Action Bar (Bottom-Center) -->
+      <div class="action-bar-container interactive">
+        <div class="action-bar">
+          <!-- Target Cycling -->
+          <div class="action-slot" id="slotTarget" title="Lock-on & Cycle Nearest Enemy (Tab Key)">
+            <span class="slot-key">TAB</span>
+            <span class="slot-icon">🎯</span>
+          </div>
+
+          <!-- Basic Attack -->
+          <div class="action-slot" id="slotAttack" title="Smart Auto-Attack / Hit Nearest Enemy (Spacebar)">
+            <span class="slot-key">SPC</span>
+            <span class="slot-icon">⚔️</span>
+            <div class="slot-cooldown-overlay" id="cdOverlayAttack"></div>
+          </div>
+
+          <!-- Class Skill -->
+          <div class="action-slot" id="slotSkill" title="Class Ability (Q Key)">
+            <span class="slot-key">Q</span>
+            <span class="slot-icon" id="slotSkillIcon">🌪️</span>
+            <div class="slot-cooldown-overlay" id="cdOverlaySkill"></div>
+          </div>
+
+          <!-- Health Potion -->
+          <div class="action-slot" id="slotHealthPotion" title="Drink Health Potion (Key 1)">
+            <span class="slot-key">1</span>
+            <span class="slot-icon">🧪</span>
+            <span class="slot-badge" id="badgeHealthPotion">3</span>
+          </div>
+
+          <!-- Mana Potion -->
+          <div class="action-slot" id="slotManaPotion" title="Drink Mana Potion (Key 2)">
+            <span class="slot-key">2</span>
+            <span class="slot-icon">🔮</span>
+            <span class="slot-badge" id="badgeManaPotion">2</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Menu (Bottom-Right) -->
+      <div class="quick-menu-group interactive">
+        <button class="menu-btn" id="btnOpenReforge">🔨 Forge [R]</button>
+        <button class="menu-btn" id="btnOpenShop">🏪 Shop [P]</button>
+        <button class="menu-btn" id="btnOpenStats">📊 Stats [C]</button>
+        <button class="menu-btn" id="btnOpenInventory">🎒 Bag [I]</button>
+        <button class="menu-btn" id="btnOpenHelp">❓ Help [H]</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Character Creation / Join Modal -->
+  <div class="modal-overlay" id="joinModal">
+    <div class="hud-panel modal-card">
+      <div class="modal-header">
+        <h1 class="modal-title">SLOP HERO</h1>
+        <p class="modal-subtitle">Choose your Hero and enter the persistent isometric realm</p>
+      </div>
+
+      <div style="margin-bottom: 12px;">
+        <label style="font-size: 13px; color: var(--gold-light); font-weight: 600;">HERO NAME</label>
+        <input type="text" class="input-field" id="inputHeroName" placeholder="Enter hero name..." maxlength="15" value="SlopHero" style="margin-top: 6px;">
+      </div>
+
+      <label style="font-size: 13px; color: var(--gold-light); font-weight: 600;">CHOOSE CLASS</label>
+      <div class="class-grid">
+        <div class="class-card selected" data-class="warrior">
+          <div class="class-icon">🛡️</div>
+          <div class="class-title">Warrior</div>
+          <div class="class-desc">High HP & Defense. Melee master with Whirlwind AoE.</div>
+        </div>
+
+        <div class="class-card" data-class="mage">
+          <div class="class-icon">🧙‍♂️</div>
+          <div class="class-title">Mage</div>
+          <div class="class-desc">High Ranged Burst. Casts Fireballs and Firestorm meteors.</div>
+        </div>
+
+        <div class="class-card" data-class="rogue">
+          <div class="class-icon">🗡️</div>
+          <div class="class-title">Rogue</div>
+          <div class="class-desc">Agile & Swift. Dual daggers and lethal Shadow Strike teleport.</div>
+        </div>
+      </div>
+
+      <button class="btn-primary" id="btnJoinGame">⚔️ ENTER REALM</button>
+    </div>
+  </div>
+
+  <!-- Character Stats Modal -->
+  <div class="modal-overlay" id="statsModal" style="display: none;">
+    <div class="hud-panel modal-card" style="width: 380px;">
+      <button class="modal-close" id="btnCloseStats">✕</button>
+      <div class="modal-header">
+        <h2 class="modal-title">HERO ATTRIBUTES</h2>
+      </div>
+      <table class="stats-table">
+        <tr><td>Class</td><td id="statClass">-</td></tr>
+        <tr><td>Level</td><td id="statLevel">-</td></tr>
+        <tr><td>Experience</td><td id="statExp">-</td></tr>
+        <tr><td>Max Health</td><td id="statHp">-</td></tr>
+        <tr><td>Max Mana</td><td id="statMp">-</td></tr>
+        <tr><td>Attack Power</td><td id="statDmg">-</td></tr>
+        <tr><td>Defense Rating</td><td id="statDef">-</td></tr>
+        <tr><td>Movement Speed</td><td id="statSpeed">-</td></tr>
+        <tr><td>Monsters Slain</td><td id="statKills">-</td></tr>
+        <tr><td>Gold Wealth</td><td id="statGold">-</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- Merchant Shop Modal -->
+  <div class="modal-overlay" id="shopModal" style="display: none;">
+    <div class="hud-panel modal-card" style="width: 580px;">
+      <button class="modal-close" id="btnCloseShop">✕</button>
+      <div class="modal-header">
+        <h2 class="modal-title">OLAF'S TRADING POST</h2>
+        <p class="modal-subtitle">Sell dungeon relics or purchase supplies & weapons</p>
+      </div>
+
+      <!-- Shop Tabs -->
+      <div class="shop-tabs">
+        <button class="shop-tab active" id="tabShopBuy">🛒 BUY GOODS</button>
+        <button class="shop-tab" id="tabShopSell">💰 SELL LOOT</button>
+      </div>
+
+      <!-- Shop Balance Info -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; font-size: 13px; color: var(--gold-light);">
+        <span>Merchant: <strong style="color: #fff;">Olaf the Trader</strong></span>
+        <span>Your Gold: <strong id="shopPlayerGold" style="color: #facc15;">50</strong> 🪙</span>
+      </div>
+
+      <!-- Buy Items Container -->
+      <div class="shop-goods-list" id="shopBuyList">
+        <!-- Injected via game.js -->
+      </div>
+
+      <!-- Sell Items Container -->
+      <div class="shop-goods-list" id="shopSellList" style="display: none;">
+        <!-- Injected via game.js -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Inventory & Equipment Modal -->
+  <div class="modal-overlay" id="inventoryModal" style="display: none;">
+    <div class="hud-panel modal-card inventory-modal-card">
+      <button class="modal-close" id="btnCloseInventory">✕</button>
+      <div class="modal-header" style="margin-bottom: 14px;">
+        <h2 class="modal-title">HERO GEAR & INVENTORY</h2>
+        <p class="modal-subtitle">Equip Weapons, Armor & Manage Dungeon Loot</p>
+      </div>
+
+      <!-- EQUIPPED GEAR SECTION -->
+      <div class="equip-section">
+        <div class="section-title">EQUIPPED GEAR <span class="sub-label">(Click to Unequip)</span></div>
+        <div class="equip-slots-container">
+          <div class="equip-slot" id="eqSlotHelmet" data-slot="helmet" title="Helmet Slot">
+            <span class="slot-placeholder-icon">🪖</span>
+            <div class="equip-item-content"></div>
+            <span class="equip-slot-tag">HELM</span>
+          </div>
+          <div class="equip-slot" id="eqSlotArmor" data-slot="armor" title="Armor Slot">
+            <span class="slot-placeholder-icon">🛡️</span>
+            <div class="equip-item-content"></div>
+            <span class="equip-slot-tag">ARMOR</span>
+          </div>
+          <div class="equip-slot" id="eqSlotWeapon" data-slot="weapon" title="Weapon Slot">
+            <span class="slot-placeholder-icon">🗡️</span>
+            <div class="equip-item-content"></div>
+            <span class="equip-slot-tag">WEAPON</span>
+          </div>
+          <div class="equip-slot" id="eqSlotBoots" data-slot="boots" title="Boots Slot">
+            <span class="slot-placeholder-icon">👢</span>
+            <div class="equip-item-content"></div>
+            <span class="equip-slot-tag">BOOTS</span>
+          </div>
+          <div class="equip-slot" id="eqSlotRing" data-slot="ring" title="Ring Slot">
+            <span class="slot-placeholder-icon">💍</span>
+            <div class="equip-item-content"></div>
+            <span class="equip-slot-tag">RING</span>
+          </div>
+        </div>
+
+        <!-- Gear Stat Bonuses Summary Pill Bar -->
+        <div class="gear-bonuses-bar" id="gearBonusesSummary">
+          <!-- Dynamically populated e.g. +14 DMG, +9 DEF -->
+        </div>
+      </div>
+
+      <!-- Quick Potions Bar -->
+      <div class="quick-potions-row">
+        <div class="action-slot potion-quick-btn" id="invHpSlot" title="Click to Drink Health Potion (1)">
+          <span class="slot-icon">🧪</span>
+          <span class="potion-label">Health Potion</span>
+          <span class="slot-badge" id="invHpCount">3</span>
+        </div>
+        <div class="action-slot potion-quick-btn" id="invMpSlot" title="Click to Drink Mana Potion (2)">
+          <span class="slot-icon">🔮</span>
+          <span class="potion-label">Mana Potion</span>
+          <span class="slot-badge" id="invMpCount">2</span>
+        </div>
+      </div>
+
+      <!-- COMPACT INVENTORY GRID SECTION (6 columns x 4 rows = 24 slots) -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin: 10px 0 6px 0;">
+        <span class="section-title" style="margin: 0;">BAG ITEMS <span class="sub-label">(Click Gear to Equip)</span></span>
+        <span id="invCapacityText" style="font-size: 11px; color: var(--gold-light); font-weight: 700;">1 / 24 Slots</span>
+      </div>
+
+      <div class="inventory-grid-compact" id="invItemsGrid">
+        <!-- Dynamically populated 24 compact slots -->
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="inv-footer">
+        <span style="color: var(--text-muted); font-size: 11px;">💡 Click gear in bag to equip. Visit Olaf to sell treasures.</span>
+        <span style="color: var(--gold-light); font-weight: 800; font-size: 14px;">🪙 <span id="invGoldText">50</span> Gold</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reforge & Enhancement Blacksmith Modal -->
+  <div class="modal-overlay" id="reforgeModal" style="display: none;">
+    <div class="hud-panel modal-card reforge-modal-card">
+      <button class="modal-close" id="btnCloseReforge">✕</button>
+      <div class="modal-header" style="margin-bottom: 12px;">
+        <h2 class="modal-title">BROM'S FORGE & REFORGING</h2>
+        <p class="modal-subtitle">Enhance weapons & armor with powerful +1 to +10 enchantments</p>
+      </div>
+
+      <!-- Left / Right Layout: Selector and Anvil Bench -->
+      <div class="reforge-container">
+        <!-- Left Column: Item Selector -->
+        <div class="reforge-item-selector">
+          <div class="reforge-selector-tabs">
+            <button class="reforge-tab active" id="tabReforgeEquipped">Equipped Gear</button>
+            <button class="reforge-tab" id="tabReforgeBag">Bag Items</button>
+          </div>
+          <div class="reforge-items-list" id="reforgeItemsList">
+            <!-- Injected via game.js -->
+          </div>
+        </div>
+
+        <!-- Right Column: The Anvil Bench / Upgrade Screen -->
+        <div class="reforge-bench" id="reforgeBench">
+          <div class="reforge-empty-prompt" id="reforgeEmptyPrompt">
+            <span style="font-size: 42px;">🔨</span>
+            <p style="margin-top: 8px; color: var(--text-muted); font-size: 13px;">Select a piece of gear on the left to place it on the Anvil.</p>
+          </div>
+
+          <div class="reforge-active-view" id="reforgeActiveView" style="display: none;">
+            <!-- Current Item Header -->
+            <div class="reforge-item-header">
+              <div class="reforge-item-icon" id="rfItemIcon">🗡️</div>
+              <div class="reforge-item-info">
+                <div class="reforge-item-name" id="rfItemName">Knight Broadsword +0</div>
+                <div class="reforge-level-pill" id="rfLevelBadge">Level +0 ➜ +1</div>
+              </div>
+            </div>
+
+            <!-- Stat Comparison Preview -->
+            <div class="reforge-stat-preview" id="rfStatPreview">
+              <!-- e.g. Attack Power: 22 ➜ 26 (+4) -->
+            </div>
+
+            <!-- Success Rate & Risk Info -->
+            <div class="reforge-chance-box">
+              <div class="chance-label-row">
+                <span>Success Chance:</span>
+                <strong id="rfChanceVal" style="color: #4ade80;">100% (Guaranteed)</strong>
+              </div>
+              <div class="reforge-risk-tag" id="rfRiskTag">🛡️ Safe Zone: No loss or downgrade on fail</div>
+            </div>
+
+            <!-- Cost -->
+            <div class="reforge-cost-row">
+              <span style="color: var(--text-muted); font-size: 13px;">Forging Cost:</span>
+              <span style="color: #facc15; font-weight: 800; font-size: 15px;">🪙 <span id="rfCostVal">50</span> Gold</span>
+            </div>
+
+            <!-- Hammer Button -->
+            <button class="btn-primary btn-reforge" id="btnHammerItem">
+              🔨 STRIKE ANVIL & REFORGE
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dungeon Portal Expedition Modal -->
+  <div class="modal-overlay" id="dungeonPortalModal" style="display: none;">
+    <div class="hud-panel modal-card portal-modal-card">
+      <button class="modal-close" id="btnCloseDungeonPortal">✕</button>
+      <div class="modal-header">
+        <h2 class="modal-title" style="color: #67e8f9; text-shadow: 0 0 16px rgba(6, 182, 212, 0.6);">🌀 ABYSSAL EXPEDITION</h2>
+        <p class="modal-subtitle">Configure dungeon depth and hazard difficulty before descending</p>
+      </div>
+
+      <!-- Floor Selection -->
+      <div class="portal-section-label">SELECT DUNGEON FLOOR</div>
+      <div class="floor-select-grid">
+        <div class="floor-card selected" data-floor="1">
+          <div class="floor-num">B1</div>
+          <div class="floor-details">
+            <div class="floor-title">Crypt of Whispers</div>
+            <div class="floor-level-rec">Lv. 1 - 4 • Skeleton & Slime Hordes</div>
+          </div>
+        </div>
+        <div class="floor-card" data-floor="2">
+          <div class="floor-num">B2</div>
+          <div class="floor-details">
+            <div class="floor-title">Sunken Catacombs</div>
+            <div class="floor-level-rec">Lv. 5 - 8 • Golem Sentinels & Traps</div>
+          </div>
+        </div>
+        <div class="floor-card" data-floor="3">
+          <div class="floor-num">B3</div>
+          <div class="floor-details">
+            <div class="floor-title">Infernal Core</div>
+            <div class="floor-level-rec">Lv. 9+ • Abyssal Titan Boss & Relics</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Difficulty Selection -->
+      <div class="portal-section-label" style="margin-top: 14px;">SELECT HAZARD DIFFICULTY</div>
+      <div class="difficulty-select-grid">
+        <div class="diff-card selected" data-diff="normal">
+          <div class="diff-badge badge-normal">🟢 NORMAL</div>
+          <div class="diff-title">Standard Abyss</div>
+          <div class="diff-stats">
+            <div>• Mob Density: <span>1.0x (Standard)</span></div>
+            <div>• Mob HP & DMG: <span>100%</span></div>
+            <div>• Bonus Rewards: <span>Standard</span></div>
+            <div>• Monster Affixes: <span>None</span></div>
+          </div>
+        </div>
+
+        <div class="diff-card" data-diff="hard">
+          <div class="diff-badge badge-hard">🟡 HARD</div>
+          <div class="diff-title">Nightfall Swarm</div>
+          <div class="diff-stats">
+            <div>• Mob Density: <span style="color: #facc15;">1.35x (+35% Density)</span></div>
+            <div>• Mob HP & DMG: <span style="color: #facc15;">+35% Fierce</span></div>
+            <div>• Bonus Rewards: <span style="color: #4ade80;">+65% Gold & EXP</span></div>
+            <div>• Affixes: <span style="color: #facc15;">1-2 Random Buffs</span></div>
+            <div>• Commander: <span style="color: #facc15;">30% Aura Leaders</span></div>
+          </div>
+        </div>
+
+        <div class="diff-card" data-diff="nightmare">
+          <div class="diff-badge badge-nightmare">🔴 NIGHTMARE</div>
+          <div class="diff-title">Infernal Cataclysm</div>
+          <div class="diff-stats">
+            <div>• Mob Density: <span style="color: #ef4444;">1.75x (+75% Swarm!)</span></div>
+            <div>• Mob HP & DMG: <span style="color: #ef4444;">+85% Brutal</span></div>
+            <div>• Bonus Rewards: <span style="color: #f59e0b;">+150% Rewards</span></div>
+            <div>• Affixes: <span style="color: #ef4444;">2-3 Deadly Buffs</span></div>
+            <div>• Commander: <span style="color: #ef4444;">60% War Aura Mobs</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Affix description teaser -->
+      <div class="affix-info-strip">
+        <span class="affix-pill pill-fortified">🛡️ Fortified (-30% Dmg)</span>
+        <span class="affix-pill pill-frostbite">❄️ Frostbite (Freezing Chill)</span>
+        <span class="affix-pill pill-venomous">☠️ Venomous (Poison DoT)</span>
+        <span class="affix-pill pill-ignited">🔥 Ignited (Burn DoT)</span>
+        <span class="affix-pill pill-commander">👑 Commander (Aura Buffs)</span>
+      </div>
+
+      <!-- Enter Button -->
+      <div class="portal-actions">
+        <button class="btn-primary btn-enter-portal" id="btnConfirmEnterDungeon">
+          ⚔️ DESCEND INTO DUNGEON
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Help & Keybindings Modal -->
+  <div class="modal-overlay" id="helpModal" style="display: none;">
+    <div class="hud-panel modal-card" style="width: 450px;">
+      <button class="modal-close" id="btnCloseHelp">✕</button>
+      <div class="modal-header">
+        <h2 class="modal-title">HOW TO PLAY</h2>
+        <p class="modal-subtitle">MMORPG Controls & Mechanics</p>
+      </div>
+      <div class="keys-list">
+        <div class="key-row"><span>Move Character</span><span class="key-tag">Hold/Click Mouse OR WASD</span></div>
+        <div class="key-row"><span>Lock Target / Cycle Enemy</span><span class="key-tag">Tab Key</span></div>
+        <div class="key-row"><span>Smart Attack (Auto-Lock & Hit)</span><span class="key-tag">Spacebar (Spam)</span></div>
+        <div class="key-row"><span>Use Class Skill</span><span class="key-tag">Q Key</span></div>
+        <div class="key-row"><span>Health / Mana Potion</span><span class="key-tag">1 / 2 Keys</span></div>
+        <div class="key-row"><span>Pick Up Ground Loot</span><span class="key-tag">Left Click on Item</span></div>
+        <div class="key-row"><span>Reforge & Upgrade Gear</span><span class="key-tag">R Key</span></div>
+        <div class="key-row"><span>Open Trader Shop</span><span class="key-tag">P Key</span></div>
+        <div class="key-row"><span>Character Stats / Bag</span><span class="key-tag">C / I Keys</span></div>
+        <div class="key-row"><span>Chat with Players</span><span class="key-tag">Enter Key</span></div>
+        <div class="key-row"><span>Zoom Camera In/Out</span><span class="key-tag">Mouse Scroll Wheel</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fallen / Death Screen -->
+  <div id="death-screen">
+    <h2 class="death-title">YOU HAVE FALLEN</h2>
+    <p class="death-timer">Respawning in <span id="respawnCountdown">5</span> seconds...</p>
+    <p style="color: var(--text-muted); font-size: 14px; margin-top: 8px;">Tip: Watch out for boss monsters and drink potions when low on HP!</p>
+  </div>
+
+  <!-- Game Scripts -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/isometric.js"></script>
+  <script src="js/renderer.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>
