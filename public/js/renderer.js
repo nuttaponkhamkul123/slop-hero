@@ -145,6 +145,21 @@ class IsometricRenderer {
     };
     this.animations.skillEffects.push(effect);
 
+    // Elemental Rune Particle Burst!
+    if (fx.rune && fx.rune !== 'none') {
+      const rx = fx.x !== undefined ? fx.x : (fx.startX !== undefined ? fx.startX : 0);
+      const ry = fx.y !== undefined ? fx.y : (fx.startY !== undefined ? fx.startY : 0);
+      if (fx.rune === 'flame') {
+        this.addParticles(rx, ry, 'fire', 26);
+      } else if (fx.rune === 'frost') {
+        this.addParticles(rx, ry, 'ice', 26);
+      } else if (fx.rune === 'tempest') {
+        this.addParticles(rx, ry, 'arcane', 26);
+      } else if (fx.rune === 'vampiric') {
+        this.addParticles(rx, ry, 'shadow', 26);
+      }
+    }
+
     if (fx.type === 'whirlwind') {
       this.addParticles(fx.x, fx.y, 'wind', 36);
       this.triggerScreenShake(6, 0.15);

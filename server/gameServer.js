@@ -346,11 +346,11 @@ const ALL_CLASS_SKILLS = {
 };
 
 const SKILL_RUNES = {
-  none: { id: 'none', name: 'Standard Rune', icon: '⚪', desc: 'Default ability power without elemental modifiers.' },
-  flame: { id: 'flame', name: 'Infernal Rune', icon: '🔴', desc: '+20% Damage and ignites enemies with persistent Burn DoT.' },
-  frost: { id: 'frost', name: 'Glacial Rune', icon: '🔵', desc: 'Adds 50% Chill Slow for 3.5s and 25% chance to Freeze solid.' },
-  tempest: { id: 'tempest', name: 'Tempest Rune', icon: '⚡', desc: '-20% Cooldown reduction and crackles with electric shock.' },
-  vampiric: { id: 'vampiric', name: 'Vampiric Rune', icon: '🟣', desc: 'Restores 15% of skill damage dealt as immediate HP life leech.' }
+  none: { id: 'none', name: 'Standard Rune', icon: '⚪', desc: 'Default ability power without elemental modifiers.', color: '#94a3b8' },
+  flame: { id: 'flame', name: 'Infernal Flame', icon: '🔴', desc: '+25% Damage and ignites enemies with persistent Burn DoT.', color: '#ef4444' },
+  frost: { id: 'frost', name: 'Glacial Frost', icon: '🔵', desc: 'Adds 40% Chill Slow for 3.5s and 25% chance to Freeze solid.', color: '#38bdf8' },
+  tempest: { id: 'tempest', name: 'Tempest Surge', icon: '⚡', desc: '-20% Cooldown reduction and +10% Electric Shock DMG.', color: '#eab308' },
+  vampiric: { id: 'vampiric', name: 'Vampiric Drain', icon: '🟣', desc: 'Restores 25% of all skill damage dealt as immediate HP life leech.', color: '#a855f7' }
 };
 
 const DEFAULT_EQUIPPED_SKILLS = {
@@ -397,171 +397,627 @@ const CLASS_SKILLS = {
 
 const SKILL_TREES = {
   warrior: [
+    // Branch 1: Juggernaut (Defense, Bulk & Fortitude)
     {
       id: 'iron_skin',
+      branch: 'Juggernaut (Defense)',
+      tier: 1,
       name: 'Iron Skin',
       icon: '🛡️',
-      desc: 'Harden body with steel resolve. Grants +10 Armor and +80 Max HP per rank.',
+      desc: 'Harden body with steel resolve. +12 Armor and +80 Max HP per rank.',
       maxRank: 3,
       requires: null,
-      effects: { bonusDef: 10, bonusHp: 80 }
+      effects: { bonusDef: 12, bonusHp: 80 }
     },
     {
+      id: 'hardened_carapace',
+      branch: 'Juggernaut (Defense)',
+      tier: 2,
+      name: 'Hardened Carapace',
+      icon: '🪖',
+      desc: 'Reinforce armor plates with ironclad density. +20 Armor and +120 Max HP per rank.',
+      maxRank: 3,
+      requires: 'iron_skin',
+      effects: { bonusDef: 20, bonusHp: 120 }
+    },
+    {
+      id: 'titan_vitality',
+      branch: 'Juggernaut (Defense)',
+      tier: 3,
+      name: 'Titan Vitality',
+      icon: '❤️',
+      desc: 'Infuse blood with primordial vitality. +250 Max HP per rank.',
+      maxRank: 3,
+      requires: 'hardened_carapace',
+      effects: { bonusHp: 250 }
+    },
+    {
+      id: 'unyielding_thorns',
+      branch: 'Juggernaut (Defense)',
+      tier: 4,
+      name: 'Unyielding Spikes',
+      icon: '🌵',
+      desc: 'Jagged steel counter-attacks. Reflects +20 Thorns damage to attackers per rank.',
+      maxRank: 3,
+      requires: 'titan_vitality',
+      effects: { thorns: 20 }
+    },
+    {
+      id: 'iron_fortress_mastery',
+      branch: 'Juggernaut (Defense)',
+      tier: 4,
+      name: 'Bulwark Aegis',
+      icon: '🏰',
+      desc: 'Mastery of fortress stance: +25 Armor and +150 Max HP per rank.',
+      maxRank: 3,
+      requires: 'titan_vitality',
+      effects: { bonusDef: 25, bonusHp: 150 }
+    },
+    {
+      id: 'colossus_avatar',
+      branch: 'Juggernaut (Defense)',
+      tier: 5,
+      isKeystone: true,
+      name: 'Colossus Avatar',
+      icon: '🗿',
+      desc: 'KEYSTONE: Transform into an immovable stone titan. +600 Max HP, +60 Armor, and +40 Thorns.',
+      maxRank: 1,
+      requires: 'iron_fortress_mastery',
+      effects: { bonusHp: 600, bonusDef: 60, thorns: 40 }
+    },
+
+    // Branch 2: Blademaster (Swipe, Attack Speed & Cyclone)
+    {
       id: 'blade_mastery',
+      branch: 'Blademaster (Cleave & Speed)',
+      tier: 1,
       name: 'Blade Mastery',
       icon: '⚔️',
-      desc: 'Hone edge proficiency. Grants +8 Attack Damage and +0.2 Move Speed per rank.',
+      desc: 'Hone edge proficiency. +10 Attack Damage and +15% Swipe Cleave per rank.',
       maxRank: 3,
       requires: null,
-      effects: { bonusDmg: 8, bonusSpeed: 0.2 }
+      effects: { bonusDmg: 10, bonusSwipe: 15 }
+    },
+    {
+      id: 'sweeping_fury',
+      branch: 'Blademaster (Cleave & Speed)',
+      tier: 2,
+      name: 'Sweeping Fury',
+      icon: '🌊',
+      desc: 'Master the Sweeping Edge arc. +25% Swipe Cleave damage per rank.',
+      maxRank: 3,
+      requires: 'blade_mastery',
+      effects: { bonusSwipe: 25 }
+    },
+    {
+      id: 'flurry_cadence',
+      branch: 'Blademaster (Cleave & Speed)',
+      tier: 3,
+      name: 'Flurry Cadence',
+      icon: '⚡',
+      desc: 'Accelerate basic attack tempo. +15% Attack Speed and +0.3 Move Speed per rank.',
+      maxRank: 3,
+      requires: 'sweeping_fury',
+      effects: { bonusAttackSpeed: 0.15, bonusSpeed: 0.3 }
     },
     {
       id: 'cyclone_cleave',
+      branch: 'Blademaster (Cleave & Speed)',
+      tier: 4,
       name: 'Cyclone Cleave',
       icon: '🌪️',
-      desc: 'Empowers Whirlwind Slash: +25% damage and +0.6m radius per rank.',
+      desc: 'Empowers Whirlwind Slash: +35% damage and +0.8m cyclone radius per rank.',
       maxRank: 3,
-      requires: 'blade_mastery',
-      effects: { whirlwindDmg: 0.25, whirlwindRadius: 0.6 }
+      requires: 'flurry_cadence',
+      effects: { whirlwindDmg: 0.35, whirlwindRadius: 0.8, bonusSwipe: 15 }
     },
     {
-      id: 'seismic_shatter',
-      name: 'Seismic Shatter',
-      icon: '🔨',
-      desc: 'Earthshaker Slam creates shockwaves dealing +30% damage and +1.5s slow per rank.',
+      id: 'razor_tempest',
+      branch: 'Blademaster (Cleave & Speed)',
+      tier: 4,
+      name: 'Razor Tempest',
+      icon: '🌀',
+      desc: 'Blades slice air into vacuum razors. +15 Attack Damage and +12% Attack Speed per rank.',
       maxRank: 3,
-      requires: 'iron_skin',
-      effects: { earthshakerDmg: 0.30, earthshakerSlow: 1.5 }
+      requires: 'flurry_cadence',
+      effects: { bonusDmg: 15, bonusAttackSpeed: 0.12 }
+    },
+    {
+      id: 'blade_singularity',
+      branch: 'Blademaster (Cleave & Speed)',
+      tier: 5,
+      isKeystone: true,
+      name: 'Blade Singularity',
+      icon: '💫',
+      desc: 'KEYSTONE: Transcendent sword perfection. +40% Attack Speed, +60% Swipe Cleave, and +25 Attack Damage.',
+      maxRank: 1,
+      requires: 'cyclone_cleave',
+      effects: { bonusAttackSpeed: 0.40, bonusSwipe: 60, bonusDmg: 25 }
+    },
+
+    // Branch 3: Warlord Executioner (Crits, Dash & Berserk)
+    {
+      id: 'brutal_might',
+      branch: 'Warlord (Crits & Burst)',
+      tier: 1,
+      name: 'Brutal Might',
+      icon: '💥',
+      desc: 'Devastating heavy impact. +12 Attack Damage and +8% Critical Strike Chance per rank.',
+      maxRank: 3,
+      requires: null,
+      effects: { bonusDmg: 12, critChance: 0.08 }
     },
     {
       id: 'sundering_dash',
+      branch: 'Warlord (Crits & Burst)',
+      tier: 2,
       name: 'Sundering Dash',
-      icon: '⚡',
-      desc: 'Blade Charge leaves an armor-breaking trail. +25% charge damage and -0.5s cooldown.',
+      icon: '🏃',
+      desc: 'Blade Charge leaves armor-breaking shockwave. +30% Charge damage and -0.6s cooldown.',
       maxRank: 3,
-      requires: 'cyclone_cleave',
-      effects: { dashDmg: 0.25, dashCdReduce: 0.5 }
+      requires: 'brutal_might',
+      effects: { dashDmg: 0.30, dashCdReduce: 0.6 }
     },
     {
-      id: 'juggernaut',
-      name: 'Juggernaut Resolve',
+      id: 'seismic_shatter',
+      branch: 'Warlord (Crits & Burst)',
+      tier: 3,
+      name: 'Seismic Shatter',
+      icon: '🔨',
+      desc: 'Earthshaker Slam deals +35% damage and inflicts +1.5s slow/stun per rank.',
+      maxRank: 3,
+      requires: 'sundering_dash',
+      effects: { earthshakerDmg: 0.35, earthshakerSlow: 1.5 }
+    },
+    {
+      id: 'bloodlust_frenzy',
+      branch: 'Warlord (Crits & Burst)',
+      tier: 4,
+      name: 'Bloodlust Frenzy',
       icon: '🩸',
-      desc: 'Ultimate survival: +150 Max HP and restores 5% HP on every mob kill per rank.',
+      desc: 'Thirst for carnage: restores 8% Max HP on mob kill and grants 10% Lifesteal per rank.',
       maxRank: 3,
       requires: 'seismic_shatter',
-      effects: { bonusHp: 150, killHealPercent: 0.05 }
+      effects: { killHealPercent: 0.08, lifeSteal: 10 }
+    },
+    {
+      id: 'executioner_strike',
+      branch: 'Warlord (Crits & Burst)',
+      tier: 4,
+      name: 'Executioner Precision',
+      icon: '🗡️',
+      desc: 'Savage decimation: +40% Critical Strike Damage and +15 Attack Damage per rank.',
+      maxRank: 3,
+      requires: 'seismic_shatter',
+      effects: { critDmg: 0.40, bonusDmg: 15 }
+    },
+    {
+      id: 'warlord_supremacy',
+      branch: 'Warlord (Crits & Burst)',
+      tier: 5,
+      isKeystone: true,
+      name: 'Warlord Supremacy',
+      icon: '👑',
+      desc: 'KEYSTONE: Absolute battlefield dominion. +60 Attack Damage, +25% Critical Chance, and +15% Life Leech on all hits.',
+      maxRank: 1,
+      requires: 'bloodlust_frenzy',
+      effects: { bonusDmg: 60, critChance: 0.25, lifeSteal: 15 }
     }
   ],
   mage: [
+    // Branch 1: Pyromancer (Firestorm, Burn & Annihilation)
     {
-      id: 'arcane_intellect',
-      name: 'Arcane Intellect',
-      icon: '📖',
-      desc: 'Channel elder magic wisdom. Grants +12 Magic Damage and +60 Max MP per rank.',
+      id: 'infernal_touch',
+      branch: 'Pyromancer (Fire & Burst)',
+      tier: 1,
+      name: 'Infernal Touch',
+      icon: '🔥',
+      desc: 'Attune spells to elemental flame. +14 Magic Damage and +12 Burn damage per rank.',
       maxRank: 3,
       requires: null,
-      effects: { bonusDmg: 12, bonusMp: 60 }
+      effects: { bonusDmg: 14 }
     },
     {
-      id: 'mana_flow',
-      name: 'Mana Surge',
-      icon: '💧',
-      desc: 'Deepen arcane reserves. Grants +3 MP regen/s and reduces skill MP costs by 15% per rank.',
+      id: 'conflagration',
+      branch: 'Pyromancer (Fire & Burst)',
+      tier: 2,
+      name: 'Conflagration',
+      icon: '☄️',
+      desc: 'Intensify flame eruptions. +25% Fire damage and burns tick 30% faster per rank.',
       maxRank: 3,
-      requires: null,
-      effects: { mpRegenBonus: 3, mpCostDiscount: 0.15 }
+      requires: 'infernal_touch',
+      effects: { bonusDmg: 16 }
     },
     {
       id: 'infernal_cataclysm',
+      branch: 'Pyromancer (Fire & Burst)',
+      tier: 3,
       name: 'Infernal Cataclysm',
-      icon: '☄️',
-      desc: 'Firestorm Meteor erupts with wild fury: +30% damage and +1.0m radius per rank.',
+      icon: '🌋',
+      desc: 'Firestorm Meteor erupts with fury: +35% damage and +1.2m impact radius per rank.',
       maxRank: 3,
-      requires: 'arcane_intellect',
-      effects: { firestormDmg: 0.30, firestormRadius: 1.0 }
+      requires: 'conflagration',
+      effects: { firestormDmg: 0.35, firestormRadius: 1.2 }
+    },
+    {
+      id: 'pyroblast_focus',
+      branch: 'Pyromancer (Fire & Burst)',
+      tier: 4,
+      name: 'Pyroblast Focus',
+      icon: '💥',
+      desc: 'Pyroblast cooldown reduced by 2.0s, and deals +40% direct impact damage per rank.',
+      maxRank: 3,
+      requires: 'infernal_cataclysm',
+      effects: { bonusDmg: 20 }
+    },
+    {
+      id: 'pyromaniac_celerity',
+      branch: 'Pyromancer (Fire & Burst)',
+      tier: 4,
+      name: 'Pyromaniac Haste',
+      icon: '⚡',
+      desc: 'Flames ignite speed. +18% Attack Speed and +0.3 Move Speed per rank.',
+      maxRank: 3,
+      requires: 'infernal_cataclysm',
+      effects: { bonusAttackSpeed: 0.18, bonusSpeed: 0.3 }
+    },
+    {
+      id: 'phoenix_avatar',
+      branch: 'Pyromancer (Fire & Burst)',
+      tier: 5,
+      isKeystone: true,
+      name: 'Phoenix Avatar',
+      icon: '🦅',
+      desc: 'KEYSTONE: Become an avatar of eternal flame. +80 Magic Damage, +30% Burn Intensity, and basic attacks explode.',
+      maxRank: 1,
+      requires: 'pyroblast_focus',
+      effects: { bonusDmg: 80, bonusAttackSpeed: 0.15 }
+    },
+
+    // Branch 2: Cryomancer (Frost Nova, Blizzard & Ice Barrier)
+    {
+      id: 'frost_shroud',
+      branch: 'Cryomancer (Ice & Defense)',
+      tier: 1,
+      name: 'Frost Shroud',
+      icon: '❄️',
+      desc: 'Layer of glacial rime. +12 Armor and +70 Max MP per rank.',
+      maxRank: 3,
+      requires: null,
+      effects: { bonusDef: 12, bonusMp: 70 }
     },
     {
       id: 'glacial_tomb',
+      branch: 'Cryomancer (Ice & Defense)',
+      tier: 2,
       name: 'Glacial Tomb',
-      icon: '❄️',
-      desc: 'Frost Nova freezes targets: +25% damage and +1.5s freeze chill duration per rank.',
+      icon: '🧊',
+      desc: 'Frost Nova freezes deep: +30% damage and +2.0s chill freeze duration per rank.',
       maxRank: 3,
-      requires: 'mana_flow',
-      effects: { frostNovaDmg: 0.25, frostNovaChill: 1.5 }
+      requires: 'frost_shroud',
+      effects: { frostNovaDmg: 0.30, frostNovaChill: 2.0 }
+    },
+    {
+      id: 'absolute_zero',
+      branch: 'Cryomancer (Ice & Defense)',
+      tier: 3,
+      name: 'Absolute Zero',
+      icon: '🌨️',
+      desc: 'Blizzard slows enemies by 75% and inflicts biting frost dealing +25% damage per rank.',
+      maxRank: 3,
+      requires: 'glacial_tomb',
+      effects: { bonusDef: 15, bonusMp: 100 }
+    },
+    {
+      id: 'mana_shield_fortress',
+      branch: 'Cryomancer (Ice & Defense)',
+      tier: 4,
+      name: 'Crystal Aegis',
+      icon: '🛡️',
+      desc: 'Mana Shield absorbs +160 additional damage and grants +20 Armor per rank.',
+      maxRank: 3,
+      requires: 'absolute_zero',
+      effects: { bonusDef: 20, bonusHp: 150 }
+    },
+    {
+      id: 'shatter_strike',
+      branch: 'Cryomancer (Ice & Defense)',
+      tier: 4,
+      name: 'Shatter Strike',
+      icon: '💎',
+      desc: 'Chilled and frozen enemies take +40% Critical Strike damage per rank.',
+      maxRank: 3,
+      requires: 'absolute_zero',
+      effects: { critDmg: 0.40, critChance: 0.08 }
+    },
+    {
+      id: 'permafrost_ascendance',
+      branch: 'Cryomancer (Ice & Defense)',
+      tier: 5,
+      isKeystone: true,
+      name: 'Permafrost Ascendance',
+      icon: '🏔️',
+      desc: 'KEYSTONE: Sovereign of the Frozen Throne. +50 Armor, +500 Max MP, and attackers are instantly chilled.',
+      maxRank: 1,
+      requires: 'mana_shield_fortress',
+      effects: { bonusDef: 50, bonusMp: 500 }
+    },
+
+    // Branch 3: Archmage Void (Mana, Cooldown, Black Hole & Blink)
+    {
+      id: 'arcane_intellect',
+      branch: 'Archmage (Void & Mana)',
+      tier: 1,
+      name: 'Arcane Intellect',
+      icon: '📖',
+      desc: 'Ancient grimoire comprehension. +12 Magic Damage and +80 Max MP per rank.',
+      maxRank: 3,
+      requires: null,
+      effects: { bonusDmg: 12, bonusMp: 80 }
+    },
+    {
+      id: 'mana_surge',
+      branch: 'Archmage (Void & Mana)',
+      tier: 2,
+      name: 'Mana Surge',
+      icon: '💧',
+      desc: 'Deepen arcane wellspring: +4 MP/s regeneration and reduces skill MP costs by 15% per rank.',
+      maxRank: 3,
+      requires: 'arcane_intellect',
+      effects: { mpRegenBonus: 4, mpCostDiscount: 0.15 }
     },
     {
       id: 'arcane_haste',
+      branch: 'Archmage (Void & Mana)',
+      tier: 3,
       name: 'Blink Mastery',
       icon: '🌀',
-      desc: 'Arcane Blink range +1.5m and cooldown reduced by 0.6s per rank.',
+      desc: 'Arcane Blink distance +1.8m and cooldown reduced by 0.8s per rank.',
       maxRank: 3,
-      requires: 'glacial_tomb',
-      effects: { blinkDist: 1.5, blinkCdReduce: 0.6 }
+      requires: 'mana_surge',
+      effects: { blinkDist: 1.8, blinkCdReduce: 0.8 }
     },
     {
       id: 'astral_overload',
+      branch: 'Archmage (Void & Mana)',
+      tier: 4,
       name: 'Astral Overload',
       icon: '🔮',
-      desc: 'Spells cause arcane overload on kill: restores 30 MP and +15 Magic Damage per rank.',
+      desc: 'Spells cause cosmic resonance: restores 40 MP on kill and +20 Magic Damage per rank.',
       maxRank: 3,
-      requires: 'infernal_cataclysm',
-      effects: { killManaRestore: 30, bonusDmg: 15 }
+      requires: 'arcane_haste',
+      effects: { killManaRestore: 40, bonusDmg: 20 }
+    },
+    {
+      id: 'singularity_collapse',
+      branch: 'Archmage (Void & Mana)',
+      tier: 4,
+      name: 'Event Horizon',
+      icon: '🕳️',
+      desc: 'Black Hole pulls 50% stronger, radius +1.2m, and deals +40% crushing damage per rank.',
+      maxRank: 3,
+      requires: 'arcane_haste',
+      effects: { bonusDmg: 22, bonusMp: 120 }
+    },
+    {
+      id: 'cosmic_ascension',
+      branch: 'Archmage (Void & Mana)',
+      tier: 5,
+      isKeystone: true,
+      name: 'Cosmic Ascension',
+      icon: '🌌',
+      desc: 'KEYSTONE: Master of Space and Time. +85 Magic Damage, -25% All Skill Cooldowns, and +30% Attack Speed.',
+      maxRank: 1,
+      requires: 'astral_overload',
+      effects: { bonusDmg: 85, bonusAttackSpeed: 0.30 }
     }
   ],
   rogue: [
+    // Branch 1: Shadow Assassin (Crits, Ambush & Death Blossom)
     {
       id: 'deadly_precision',
+      branch: 'Shadow Assassin (Crits)',
+      tier: 1,
       name: 'Deadly Precision',
       icon: '🎯',
-      desc: 'Strike critical pressure points. Grants +10 Attack Damage and +15% Crit chance.',
+      desc: 'Pierce pressure points. +12 Attack Damage and +12% Critical Strike Chance per rank.',
       maxRank: 3,
       requires: null,
-      effects: { bonusDmg: 10, critChance: 0.15 }
+      effects: { bonusDmg: 12, critChance: 0.12 }
     },
     {
-      id: 'fleet_footwork',
-      name: 'Fleet Footwork',
-      icon: '👟',
-      desc: 'Agile stealth movements. Grants +0.4 Move Speed and +5 Armor per rank.',
+      id: 'lethal_ambush',
+      branch: 'Shadow Assassin (Crits)',
+      tier: 2,
+      name: 'Lethal Ambush',
+      icon: '🗡️',
+      desc: 'Strikes from unseen angles. +40% Critical Strike Damage per rank.',
+      maxRank: 3,
+      requires: 'deadly_precision',
+      effects: { critDmg: 0.40 }
+    },
+    {
+      id: 'shadowstep_strike',
+      branch: 'Shadow Assassin (Crits)',
+      tier: 3,
+      name: 'Shadowstep Strike',
+      icon: '👤',
+      desc: 'Shadowstep deals +45% damage and teleports behind enemy with 100% crit chance per rank.',
+      maxRank: 3,
+      requires: 'lethal_ambush',
+      effects: { bonusDmg: 16 }
+    },
+    {
+      id: 'death_blossom_flurry',
+      branch: 'Shadow Assassin (Crits)',
+      tier: 4,
+      name: 'Death Blossom Flurry',
+      icon: '🌸',
+      desc: 'Death Blossom omnislash +40% damage, +1.2m radius, and -1.5s cooldown per rank.',
+      maxRank: 3,
+      requires: 'shadowstep_strike',
+      effects: { bonusDmg: 22 }
+    },
+    {
+      id: 'assassin_momentum',
+      branch: 'Shadow Assassin (Crits)',
+      tier: 4,
+      name: 'Shadow Momentum',
+      icon: '💨',
+      desc: 'Critical strikes increase Move Speed by 30% for 4s and grant +15% Attack Speed.',
+      maxRank: 3,
+      requires: 'shadowstep_strike',
+      effects: { bonusSpeed: 0.35, bonusAttackSpeed: 0.15 }
+    },
+    {
+      id: 'master_of_shadows',
+      branch: 'Shadow Assassin (Crits)',
+      tier: 5,
+      isKeystone: true,
+      name: 'Master of Shadows',
+      icon: '🖤',
+      desc: 'KEYSTONE: Supreme ghost executioner. +35% Critical Chance, +80% Critical Damage, and kills reset Dash.',
+      maxRank: 1,
+      requires: 'death_blossom_flurry',
+      effects: { critChance: 0.35, critDmg: 0.80, bonusDmg: 40 }
+    },
+
+    // Branch 2: Venomous Saboteur (Poison DoT & Traps)
+    {
+      id: 'toxic_potency',
+      branch: 'Venomous Saboteur (Poison)',
+      tier: 1,
+      name: 'Toxic Potency',
+      icon: '🧪',
+      desc: 'Refine virulent toxins. +10 Poison damage/tick and poison duration +2.0s per rank.',
       maxRank: 3,
       requires: null,
-      effects: { bonusSpeed: 0.4, bonusDef: 5 }
+      effects: { bonusDmg: 10 }
     },
     {
       id: 'venomous_knives',
+      branch: 'Venomous Saboteur (Poison)',
+      tier: 2,
       name: 'Venomous Daggers',
-      icon: '🗡️',
-      desc: 'Fan of Knives fires poisoned blades: +30% damage and applies poison DoT.',
+      icon: '🔪',
+      desc: 'Fan of Knives fires poisoned blades: +35% damage and coats targets in deadly neurotoxin.',
       maxRank: 3,
-      requires: 'deadly_precision',
-      effects: { knivesDmg: 0.30, knivesPoison: true }
+      requires: 'toxic_potency',
+      effects: { knivesDmg: 0.35, knivesPoison: true }
     },
     {
       id: 'noxious_cloud',
+      branch: 'Venomous Saboteur (Poison)',
+      tier: 3,
       name: 'Noxious Cloud',
-      icon: '💨',
-      desc: 'Toxic Smoke Bomb cloud expands: +0.8m radius and +4 poison damage per tick.',
-      maxRank: 3,
-      requires: 'fleet_footwork',
-      effects: { smokeRadius: 0.8, smokePoisonDmg: 4 }
-    },
-    {
-      id: 'shadow_sprint',
-      name: 'Shadow Sprint',
-      icon: '⚡',
-      desc: 'Shadow Dash sprint duration +1.0s and cooldown reduced by 0.5s per rank.',
-      maxRank: 3,
-      requires: 'noxious_cloud',
-      effects: { dashSprintBonus: 1.0, dashCdReduce: 0.5 }
-    },
-    {
-      id: 'vampiric_edge',
-      name: 'Vampiric Edge',
-      icon: '🩸',
-      desc: 'Feast on the blood of the fallen. Restores 35 HP on kill and +8 Attack Damage per rank.',
+      icon: '☠️',
+      desc: 'Toxic Bomb cloud expands: +1.0m radius and +6 poison damage per tick per rank.',
       maxRank: 3,
       requires: 'venomous_knives',
-      effects: { killHealFlat: 35, bonusDmg: 8 }
+      effects: { smokeRadius: 1.0, smokePoisonDmg: 6 }
+    },
+    {
+      id: 'barbed_caltrops_trap',
+      branch: 'Venomous Saboteur (Poison)',
+      tier: 4,
+      name: 'Barbed Caltrops Trap',
+      icon: '⛓️',
+      desc: 'Caltrops slow enemies by 75% and cause severe hemorrhaging bleed for 18 dmg/s.',
+      maxRank: 3,
+      requires: 'noxious_cloud',
+      effects: { bonusDmg: 18, bonusDef: 12 }
+    },
+    {
+      id: 'corrosive_venom',
+      branch: 'Venomous Saboteur (Poison)',
+      tier: 4,
+      name: 'Corrosive Acid',
+      icon: '🟢',
+      desc: 'Acid melts armor: poisoned targets take +25% increased damage from all attacks.',
+      maxRank: 3,
+      requires: 'noxious_cloud',
+      effects: { bonusDmg: 20 }
+    },
+    {
+      id: 'epidemic_catalyst',
+      branch: 'Venomous Saboteur (Poison)',
+      tier: 5,
+      isKeystone: true,
+      name: 'Epidemic Catalyst',
+      icon: '☣️',
+      desc: 'KEYSTONE: Sovereign of biological ruin. +60 Attack Damage, poisons deal double damage, and dying enemies detonate.',
+      maxRank: 1,
+      requires: 'barbed_caltrops_trap',
+      effects: { bonusDmg: 60 }
+    },
+
+    // Branch 3: Windrunner Duelist (Attack Speed, Swipe & Dodge)
+    {
+      id: 'fleet_footwork',
+      branch: 'Windrunner Duelist (Speed & Swipe)',
+      tier: 1,
+      name: 'Fleet Footwork',
+      icon: '👟',
+      desc: 'Agile acrobatic movements. +0.45 Move Speed and +8 Armor per rank.',
+      maxRank: 3,
+      requires: null,
+      effects: { bonusSpeed: 0.45, bonusDef: 8 }
+    },
+    {
+      id: 'wind_flurry',
+      branch: 'Windrunner Duelist (Speed & Swipe)',
+      tier: 2,
+      name: 'Wind Flurry',
+      icon: '🌪️',
+      desc: 'High-velocity twin blade flurries. +20% Attack Speed per rank.',
+      maxRank: 3,
+      requires: 'fleet_footwork',
+      effects: { bonusAttackSpeed: 0.20 }
+    },
+    {
+      id: 'sweeping_daggers',
+      branch: 'Windrunner Duelist (Speed & Swipe)',
+      tier: 3,
+      name: 'Sweeping Daggers',
+      icon: '⚔️',
+      desc: 'Extend basic attack cleave. +30% Swipe Cleave damage per rank.',
+      maxRank: 3,
+      requires: 'wind_flurry',
+      effects: { bonusSwipe: 30 }
+    },
+    {
+      id: 'shadow_sprint_haste',
+      branch: 'Windrunner Duelist (Speed & Swipe)',
+      tier: 4,
+      name: 'Shadow Sprint Haste',
+      icon: '⚡',
+      desc: 'Shadow Dash sprint duration +1.5s and cooldown reduced by 0.7s per rank.',
+      maxRank: 3,
+      requires: 'sweeping_daggers',
+      effects: { dashSprintBonus: 1.5, dashCdReduce: 0.7 }
+    },
+    {
+      id: 'evasive_reflexes',
+      branch: 'Windrunner Duelist (Speed & Swipe)',
+      tier: 4,
+      name: 'Evasive Reflexes',
+      icon: '🍃',
+      desc: 'Instinctive parrying: grants 15% chance to completely Dodge any incoming attack per rank.',
+      maxRank: 3,
+      requires: 'sweeping_daggers',
+      effects: { dodgeChance: 0.15 }
+    },
+    {
+      id: 'phantom_duelist',
+      branch: 'Windrunner Duelist (Speed & Swipe)',
+      tier: 5,
+      isKeystone: true,
+      name: 'Phantom Duelist',
+      icon: '🎭',
+      desc: 'KEYSTONE: Flurry phantom avatar. +40% Attack Speed, +45% Swipe Cleave, and +25% Dodge Chance.',
+      maxRank: 1,
+      requires: 'evasive_reflexes',
+      effects: { bonusAttackSpeed: 0.40, bonusSwipe: 45, dodgeChance: 0.25, bonusDmg: 30 }
     }
   ]
 };
@@ -1235,7 +1691,8 @@ class GameServer {
       player.facing = this.calculateFacing(player.x, player.y, targetInfo.worldX, targetInfo.worldY);
     }
 
-    let isCrit = player.skills && player.skills.deadly_precision ? (Math.random() < 0.25 + player.skills.deadly_precision * 0.15) : (Math.random() < 0.15);
+    const critChance = 0.15 + (player.critChanceBonus || 0);
+    let isCrit = Math.random() < critChance;
     if (player.smokeScreenTimer > 0) {
       isCrit = true;
       player.smokeScreenTimer = 0;
@@ -1356,7 +1813,7 @@ class GameServer {
       }
     }
 
-    if (data.rune) {
+    if (data.rune !== undefined) {
       if (SKILL_RUNES[data.rune]) {
         player.equippedSkills.runes[data.slot] = data.rune;
       }
@@ -1368,12 +1825,19 @@ class GameServer {
       socket.emit('custom_skills_updated', {
         equippedSkills: player.equippedSkills
       });
-      const skillName = ALL_CLASS_SKILLS[player.equippedSkills[data.slot]] ? ALL_CLASS_SKILLS[player.equippedSkills[data.slot]].name : data.skillId;
+      const skillName = ALL_CLASS_SKILLS[player.equippedSkills[data.slot]] ? ALL_CLASS_SKILLS[player.equippedSkills[data.slot]].name : player.equippedSkills[data.slot];
       const slotKey = data.slot === 'slot1' ? 'Q' : data.slot === 'slot2' ? 'E' : data.slot === 'slot3' ? 'R' : 'Shift';
+      const runeDef = SKILL_RUNES[player.equippedSkills.runes[data.slot]] || SKILL_RUNES.none;
+
+      let noticeText = `⚡ Set [${skillName}] to [${slotKey}]!`;
+      if (data.rune !== undefined) {
+        noticeText = `🔮 Inscribed ${runeDef.icon} [${runeDef.name}] into [${slotKey}]!`;
+      }
+
       socket.emit('floating_text', {
         x: player.x,
         y: player.y - 0.7,
-        text: `⚡ Set [${skillName}] to [${slotKey}]!`,
+        text: noticeText,
         color: '#facc15'
       });
     }
@@ -1443,13 +1907,16 @@ class GameServer {
     const applySkillDamage = (mob, baseDmg, isCrit = false) => {
       let dmg = baseDmg;
       if (runeId === 'flame') {
-        dmg = Math.round(dmg * 1.20);
+        dmg = Math.round(dmg * 1.25);
         mob.burnTimer = 3.5;
-        mob.burnDmg = 12;
+        mob.burnDmg = 16;
       }
       if (runeId === 'frost') {
         mob.chillTimer = 3.5;
         if (Math.random() < 0.25) mob.chillTimer = 5.0;
+      }
+      if (runeId === 'tempest') {
+        dmg = Math.round(dmg * 1.10);
       }
       if (player.berserkTimer > 0) {
         dmg = Math.round(dmg * 1.35);
@@ -1496,7 +1963,7 @@ class GameServer {
       case 'whirlwind': {
         const wwRadius = skill.radius + (playerTalents.cyclone_cleave ? playerTalents.cyclone_cleave * 0.6 : 0);
         const wwDmgMult = skill.dmgMult + (playerTalents.cyclone_cleave ? playerTalents.cyclone_cleave * 0.25 : 0);
-        this.io.emit('skill_fx', { type: 'whirlwind', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: wwRadius, playerId: player.id });
+        this.io.emit('skill_fx', { rune: runeId, type: 'whirlwind', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: wwRadius, playerId: player.id });
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
           if (Math.hypot(mob.x - player.x, mob.y - player.y) <= wwRadius) {
@@ -1509,7 +1976,7 @@ class GameServer {
       case 'earthshaker': {
         const slamDmgMult = skill.dmgMult + (playerTalents.seismic_shatter ? playerTalents.seismic_shatter * 0.30 : 0);
         const slowDur = (skill.slowDuration || 2.5) + (playerTalents.seismic_shatter ? playerTalents.seismic_shatter * 1.5 : 0);
-        this.io.emit('skill_fx', { type: 'earthshaker', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
+        this.io.emit('skill_fx', { rune: runeId, type: 'earthshaker', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
           if (Math.hypot(mob.x - player.x, mob.y - player.y) <= skill.radius) {
@@ -1546,7 +2013,7 @@ class GameServer {
             if (!this.isColliding(kx, ky, player.zone)) { mob.x = kx; mob.y = ky; }
           }
         }
-        this.io.emit('skill_fx', { type: 'blade_charge', skillSlot: slot, cooldown, startX, startY, x: newX, y: newY, playerId: player.id });
+        this.io.emit('skill_fx', { rune: runeId, type: 'blade_charge', skillSlot: slot, cooldown, startX, startY, x: newX, y: newY, playerId: player.id });
         break;
       }
 
@@ -1562,7 +2029,7 @@ class GameServer {
         const hitY = targetMob ? targetMob.y : player.y;
         player.shieldHp = (player.shieldHp || 0) + (skill.shieldHp || 80);
         this.io.emit('floating_text', { x: player.x, y: player.y - 0.7, text: `🛡️ Shield Barrier +${skill.shieldHp || 80}!`, color: '#38bdf8' });
-        this.io.emit('skill_fx', { type: 'shield_slam', skillSlot: slot, cooldown, x: hitX, y: hitY, playerId: player.id });
+        this.io.emit('skill_fx', { rune: runeId, type: 'shield_slam', skillSlot: slot, cooldown, x: hitX, y: hitY, playerId: player.id });
         if (targetMob) {
           applySkillDamage(targetMob, Math.round(player.dmg * skill.dmgMult), true);
           targetMob.chillTimer = skill.stunDuration || 2.0;
@@ -1575,14 +2042,14 @@ class GameServer {
         player.hp = Math.max(1, player.hp - hpLoss);
         player.berserkTimer = skill.duration || 6.0;
         this.io.emit('floating_text', { x: player.x, y: player.y - 0.7, text: '🩸 BERSERK RAGE (+35% DMG & 20% Leech)', color: '#ef4444' });
-        this.io.emit('skill_fx', { type: 'blood_rage', skillSlot: slot, cooldown, x: player.x, y: player.y, playerId: player.id });
+        this.io.emit('skill_fx', { rune: runeId, type: 'blood_rage', skillSlot: slot, cooldown, x: player.x, y: player.y, playerId: player.id });
         break;
       }
 
       case 'colossus_strike': {
         const hitX = skillData.targetX !== undefined ? skillData.targetX : player.x;
         const hitY = skillData.targetY !== undefined ? skillData.targetY : player.y;
-        this.io.emit('skill_fx', { type: 'colossus_strike', skillSlot: slot, cooldown, x: hitX, y: hitY, radius: skill.radius, playerId: player.id });
+        this.io.emit('skill_fx', { rune: runeId, type: 'colossus_strike', skillSlot: slot, cooldown, x: hitX, y: hitY, radius: skill.radius, playerId: player.id });
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
           if (Math.hypot(mob.x - hitX, mob.y - hitY) <= skill.radius) {
@@ -1595,12 +2062,12 @@ class GameServer {
       case 'iron_fortress': {
         player.ironFortressTimer = skill.duration || 4.5;
         this.io.emit('floating_text', { x: player.x, y: player.y - 0.7, text: '🏰 IRON FORTRESS (60% Shield & Thorns)', color: '#94a3b8' });
-        this.io.emit('skill_fx', { type: 'iron_fortress', skillSlot: slot, cooldown, x: player.x, y: player.y, playerId: player.id });
+        this.io.emit('skill_fx', { rune: runeId, type: 'iron_fortress', skillSlot: slot, cooldown, x: player.x, y: player.y, playerId: player.id });
         break;
       }
 
       case 'war_stomp': {
-        this.io.emit('skill_fx', { type: 'war_stomp', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
+        this.io.emit('skill_fx', { rune: runeId, type: 'war_stomp', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
           const dist = Math.hypot(mob.x - player.x, mob.y - player.y);
@@ -1620,7 +2087,7 @@ class GameServer {
         const ty = skillData.targetY !== undefined ? skillData.targetY : player.y;
         const meteorRadius = skill.radius + (playerTalents.infernal_cataclysm ? playerTalents.infernal_cataclysm * 1.0 : 0);
         const meteorDmgMult = skill.dmgMult + (playerTalents.infernal_cataclysm ? playerTalents.infernal_cataclysm * 0.30 : 0);
-        this.io.emit('skill_fx', { type: 'firestorm', skillSlot: slot, cooldown, x: tx, y: ty, radius: meteorRadius, playerId: player.id });
+        this.io.emit('skill_fx', { rune: runeId, type: 'firestorm', skillSlot: slot, cooldown, x: tx, y: ty, radius: meteorRadius, playerId: player.id });
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
           if (Math.hypot(mob.x - tx, mob.y - ty) <= meteorRadius) {
@@ -1635,7 +2102,7 @@ class GameServer {
       case 'frost_nova': {
         const novaDmgMult = skill.dmgMult + (playerTalents.glacial_tomb ? playerTalents.glacial_tomb * 0.25 : 0);
         const chillDur = (skill.chillDuration || 3.5) + (playerTalents.glacial_tomb ? playerTalents.glacial_tomb * 1.5 : 0);
-        this.io.emit('skill_fx', { type: 'frost_nova', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
+        this.io.emit('skill_fx', { rune: runeId, type: 'frost_nova', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
           if (Math.hypot(mob.x - player.x, mob.y - player.y) <= skill.radius) {
@@ -1673,7 +2140,7 @@ class GameServer {
             mob.chillTimer = skill.chillDuration || 2.0;
           }
         }
-        this.io.emit('skill_fx', { type: 'arcane_blink', skillSlot: slot, cooldown, startX, startY, x: newX, y: newY, playerId: player.id });
+        this.io.emit('skill_fx', { rune: runeId, type: 'arcane_blink', skillSlot: slot, cooldown, startX, startY, x: newX, y: newY, playerId: player.id });
         break;
       }
 
@@ -1702,21 +2169,21 @@ class GameServer {
           }
           chainTarget = nextTarget;
         }
-        this.io.emit('skill_fx', { type: 'chain_lightning', skillSlot: slot, cooldown, points, playerId: player.id });
+        this.io.emit('skill_fx', { rune: runeId, type: 'chain_lightning', skillSlot: slot, cooldown, points, playerId: player.id });
         break;
       }
 
       case 'mana_shield': {
         player.shieldHp = (player.shieldHp || 0) + (skill.absorbHp || 120);
         this.io.emit('floating_text', { x: player.x, y: player.y - 0.7, text: `✨ Mana Barrier +${skill.absorbHp || 120} Shield!`, color: '#67e8f9' });
-        this.io.emit('skill_fx', { type: 'mana_shield', skillSlot: slot, cooldown, x: player.x, y: player.y, playerId: player.id });
+        this.io.emit('skill_fx', { rune: runeId, type: 'mana_shield', skillSlot: slot, cooldown, x: player.x, y: player.y, playerId: player.id });
         break;
       }
 
       case 'black_hole': {
         const tx = skillData.targetX !== undefined ? skillData.targetX : player.x;
         const ty = skillData.targetY !== undefined ? skillData.targetY : player.y;
-        this.io.emit('skill_fx', { type: 'black_hole', skillSlot: slot, cooldown, x: tx, y: ty, radius: skill.radius, playerId: player.id });
+        this.io.emit('skill_fx', { rune: runeId, type: 'black_hole', skillSlot: slot, cooldown, x: tx, y: ty, radius: skill.radius, playerId: player.id });
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
           const dist = Math.hypot(mob.x - tx, mob.y - ty);
@@ -1732,7 +2199,7 @@ class GameServer {
       case 'blizzard': {
         const tx = skillData.targetX !== undefined ? skillData.targetX : player.x;
         const ty = skillData.targetY !== undefined ? skillData.targetY : player.y;
-        this.io.emit('skill_fx', { type: 'blizzard', skillSlot: slot, cooldown, x: tx, y: ty, radius: skill.radius, playerId: player.id });
+        this.io.emit('skill_fx', { rune: runeId, type: 'blizzard', skillSlot: slot, cooldown, x: tx, y: ty, radius: skill.radius, playerId: player.id });
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
           if (Math.hypot(mob.x - tx, mob.y - ty) <= skill.radius) {
@@ -1747,7 +2214,7 @@ class GameServer {
         const { normX, normY } = computeDashVector();
         const hitX = player.x + normX * 4.5;
         const hitY = player.y + normY * 4.5;
-        this.io.emit('skill_fx', { type: 'pyroblast', skillSlot: slot, cooldown, startX: player.x, startY: player.y, x: hitX, y: hitY, radius: skill.radius, playerId: player.id });
+        this.io.emit('skill_fx', { rune: runeId, type: 'pyroblast', skillSlot: slot, cooldown, startX: player.x, startY: player.y, x: hitX, y: hitY, radius: skill.radius, playerId: player.id });
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
           if (Math.hypot(mob.x - hitX, mob.y - hitY) <= skill.radius) {
@@ -1762,7 +2229,7 @@ class GameServer {
       // === ROGUE SKILLS ===
       case 'fan_of_knives': {
         const knifeDmgMult = skill.dmgMult + (playerTalents.venomous_knives ? playerTalents.venomous_knives * 0.30 : 0);
-        this.io.emit('skill_fx', { type: 'fan_of_knives', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
+        this.io.emit('skill_fx', { rune: runeId, type: 'fan_of_knives', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
           if (Math.hypot(mob.x - player.x, mob.y - player.y) <= skill.radius) {
@@ -1781,7 +2248,7 @@ class GameServer {
         const ty = skillData.targetY !== undefined ? skillData.targetY : player.y;
         const smokeRad = skill.radius + (playerTalents.noxious_cloud ? playerTalents.noxious_cloud * 0.8 : 0);
         const smokeDmg = (skill.poisonDmg || 9) + (playerTalents.noxious_cloud ? playerTalents.noxious_cloud * 4 : 0);
-        this.io.emit('skill_fx', { type: 'toxic_bomb', skillSlot: slot, cooldown, x: tx, y: ty, radius: smokeRad, playerId: player.id });
+        this.io.emit('skill_fx', { rune: runeId, type: 'toxic_bomb', skillSlot: slot, cooldown, x: tx, y: ty, radius: smokeRad, playerId: player.id });
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
           if (Math.hypot(mob.x - tx, mob.y - ty) <= smokeRad) {
@@ -1816,7 +2283,7 @@ class GameServer {
             applySkillDamage(mob, Math.round(player.dmg * skill.dmgMult), true);
           }
         }
-        this.io.emit('skill_fx', { type: 'shadow_dash', skillSlot: slot, cooldown, startX, startY, x: newX, y: newY, playerId: player.id });
+        this.io.emit('skill_fx', { rune: runeId, type: 'shadow_dash', skillSlot: slot, cooldown, startX, startY, x: newX, y: newY, playerId: player.id });
         break;
       }
 
@@ -1837,7 +2304,7 @@ class GameServer {
           }
           player.facing = this.calculateFacing(player.x, player.y, targetMob.x, targetMob.y);
           applySkillDamage(targetMob, Math.round(player.dmg * skill.dmgMult), true);
-          this.io.emit('skill_fx', { type: 'shadowstep', skillSlot: slot, cooldown, startX, startY, x: targetMob.x, y: targetMob.y, playerId: player.id });
+          this.io.emit('skill_fx', { rune: runeId, type: 'shadowstep', skillSlot: slot, cooldown, startX, startY, x: targetMob.x, y: targetMob.y, playerId: player.id });
         }
         break;
       }
@@ -1846,12 +2313,12 @@ class GameServer {
         player.smokeScreenTimer = skill.duration || 3.5;
         player.sprintTimer = skill.duration || 3.5;
         this.io.emit('floating_text', { x: player.x, y: player.y - 0.7, text: '🌫️ VANISH! (Stealth & 100% Crit)', color: '#a855f7' });
-        this.io.emit('skill_fx', { type: 'smoke_screen', skillSlot: slot, cooldown, x: player.x, y: player.y, playerId: player.id });
+        this.io.emit('skill_fx', { rune: runeId, type: 'smoke_screen', skillSlot: slot, cooldown, x: player.x, y: player.y, playerId: player.id });
         break;
       }
 
       case 'death_blossom': {
-        this.io.emit('skill_fx', { type: 'death_blossom', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
+        this.io.emit('skill_fx', { rune: runeId, type: 'death_blossom', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
           if (Math.hypot(mob.x - player.x, mob.y - player.y) <= skill.radius) {
@@ -1863,7 +2330,7 @@ class GameServer {
 
       case 'poison_darts': {
         const { normX, normY } = computeDashVector();
-        this.io.emit('skill_fx', { type: 'poison_darts', skillSlot: slot, cooldown, x: player.x, y: player.y, dirX: normX, dirY: normY, playerId: player.id });
+        this.io.emit('skill_fx', { rune: runeId, type: 'poison_darts', skillSlot: slot, cooldown, x: player.x, y: player.y, dirX: normX, dirY: normY, playerId: player.id });
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
           const dist = Math.hypot(mob.x - player.x, mob.y - player.y);
@@ -1877,7 +2344,7 @@ class GameServer {
       }
 
       case 'caltrops': {
-        this.io.emit('skill_fx', { type: 'caltrops', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
+        this.io.emit('skill_fx', { rune: runeId, type: 'caltrops', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
           if (Math.hypot(mob.x - player.x, mob.y - player.y) <= skill.radius) {
@@ -1891,9 +2358,9 @@ class GameServer {
 
     // Process Vampiric & Berserk heals
     if (runeId === 'vampiric' && totalDmgDealt > 0) {
-      const vHeal = Math.max(1, Math.round(totalDmgDealt * 0.15));
+      const vHeal = Math.max(1, Math.round(totalDmgDealt * 0.25));
       player.hp = Math.min(player.maxHp, player.hp + vHeal);
-      this.io.emit('floating_text', { x: player.x, y: player.y - 0.6, text: `+${vHeal} HP (Vampiric)`, color: '#c084fc' });
+      this.io.emit('floating_text', { x: player.x, y: player.y - 0.6, text: `+${vHeal} HP (Vampiric Drain)`, color: '#c084fc' });
     }
     if (player.berserkTimer > 0 && totalDmgDealt > 0) {
       const bHeal = Math.max(1, Math.round(totalDmgDealt * 0.20));
@@ -1912,6 +2379,11 @@ class GameServer {
     let totalBonusSpeed = 0;
     let totalBonusAttackSpeed = 0;
     let totalBonusSwipe = 0;
+    let totalCritChanceBonus = 0;
+    let totalCritDmgBonus = 0;
+    let totalThorns = 0;
+    let totalDodgeChance = 0;
+    let totalLifeSteal = 0;
 
     if (player.equipment) {
       for (const eq of Object.values(player.equipment)) {
@@ -1939,6 +2411,11 @@ class GameServer {
           if (talent.effects.bonusSpeed) totalBonusSpeed += talent.effects.bonusSpeed * rank;
           if (talent.effects.bonusAttackSpeed) totalBonusAttackSpeed += talent.effects.bonusAttackSpeed * rank;
           if (talent.effects.bonusSwipe) totalBonusSwipe += talent.effects.bonusSwipe * rank;
+          if (talent.effects.critChanceBonus) totalCritChanceBonus += talent.effects.critChanceBonus * rank;
+          if (talent.effects.critDmgBonus) totalCritDmgBonus += talent.effects.critDmgBonus * rank;
+          if (talent.effects.thorns) totalThorns += talent.effects.thorns * rank;
+          if (talent.effects.dodgeChance) totalDodgeChance += talent.effects.dodgeChance * rank;
+          if (talent.effects.lifeSteal) totalLifeSteal += talent.effects.lifeSteal * rank;
         }
       }
     }
@@ -1950,6 +2427,11 @@ class GameServer {
     player.speed = Number((player.baseStats.speed + totalBonusSpeed).toFixed(2));
     player.attackSpeed = Number(((player.baseStats.attackSpeed || 1.0) + totalBonusAttackSpeed).toFixed(2));
     player.swipe = Math.round((player.baseStats.swipe || 0) + totalBonusSwipe);
+    player.critChanceBonus = Number(totalCritChanceBonus.toFixed(3));
+    player.critDmgBonus = Number(totalCritDmgBonus.toFixed(3));
+    player.thorns = Math.round(totalThorns);
+    player.dodgeChance = Number(totalDodgeChance.toFixed(3));
+    player.lifeSteal = Number(totalLifeSteal.toFixed(3));
 
     player.hp = Math.min(player.hp, player.maxHp);
     player.mp = Math.min(player.mp, player.maxMp);
@@ -2458,7 +2940,10 @@ class GameServer {
   applyDamageToMob(player, mob, baseDamage, isCritical = false) {
     const variation = (Math.random() * 0.4) - 0.2;
     let rawDamage = Math.round(baseDamage * (1 + variation));
-    if (isCritical) rawDamage = Math.round(rawDamage * 1.5);
+    if (isCritical) {
+      const critMultiplier = 1.5 + (player && player.critDmgBonus ? player.critDmgBonus : 0);
+      rawDamage = Math.round(rawDamage * critMultiplier);
+    }
 
     // Apply mob defense reduction
     const mobDef = (mob.def || 0) + (mob.hasCommanderBuff ? 8 : 0);
@@ -2472,7 +2957,20 @@ class GameServer {
 
     mob.hp -= damage;
     mob.state = 'chase';
-    mob.targetPlayerId = player.id;
+    mob.targetPlayerId = player ? player.id : null;
+
+    // Apply Talent Life Steal
+    if (player && player.lifeSteal && player.lifeSteal > 0 && damage > 0) {
+      const leech = Math.max(1, Math.round(damage * player.lifeSteal));
+      player.hp = Math.min(player.maxHp, player.hp + leech);
+      this.io.emit('floating_text', {
+        x: player.x,
+        y: player.y - 0.5,
+        text: `+${leech} HP (Leech)`,
+        color: '#c084fc',
+        size: 13
+      });
+    }
 
     this.io.emit('floating_text', {
       x: mob.x,
@@ -3023,14 +3521,25 @@ class GameServer {
               continue;
             }
 
+            // Dodge chance from talents
+            if (targetPlayer.dodgeChance && Math.random() < targetPlayer.dodgeChance) {
+              this.io.emit('floating_text', { x: targetPlayer.x, y: targetPlayer.y - 0.7, text: '💨 DODGE!', color: '#38bdf8' });
+              continue;
+            }
+
             const effectiveDmg = mob.hasCommanderBuff ? Math.round(mob.dmg * 1.35) : mob.dmg;
             let damageDealt = Math.max(1, Math.round(effectiveDmg - (targetPlayer.def * 0.5)));
 
-            // Iron Fortress: -60% damage and 25 Thorns reflect
+            // Thorns reflection (Iron Fortress + passive Unyielding Spikes/Colossus Avatar)
+            const thornsDmg = (targetPlayer.ironFortressTimer > 0 ? 25 : 0) + (targetPlayer.thorns || 0);
+            if (thornsDmg > 0) {
+              this.applyDamageToMob(targetPlayer, mob, thornsDmg, false);
+              this.io.emit('floating_text', { x: mob.x, y: mob.y - 0.7, text: `🌵 ${thornsDmg} Thorns!`, color: '#e2e8f0' });
+            }
+
+            // Iron Fortress: -60% damage
             if (targetPlayer.ironFortressTimer > 0) {
               damageDealt = Math.max(1, Math.round(damageDealt * 0.40));
-              this.applyDamageToMob(targetPlayer, mob, 25, false);
-              this.io.emit('floating_text', { x: mob.x, y: mob.y - 0.7, text: '⚔️ 25 Thorns!', color: '#e2e8f0' });
             }
 
             // Shield Barrier absorption

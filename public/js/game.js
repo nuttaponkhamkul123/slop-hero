@@ -240,24 +240,44 @@ document.addEventListener('DOMContentLoaded', () => {
       const eq = localPlayer.equippedSkills;
       const classSkills = allSkillsCatalog[cls];
 
-      const s1 = classSkills.find(s => s.id === (eq.slot1 && eq.slot1.skillId)) || classSkills[0];
-      const s2 = classSkills.find(s => s.id === (eq.slot2 && eq.slot2.skillId)) || classSkills[1];
-      const s3 = classSkills.find(s => s.id === (eq.slot3 && eq.slot3.skillId)) || classSkills[2];
-      const sd = classSkills.find(s => s.id === (eq.dash && eq.dash.skillId)) || classSkills.find(s => s.isDash) || classSkills[3];
+      const getSlotSkill = (rawSlot, defaultIndex) => {
+        const sid = typeof rawSlot === 'object' && rawSlot !== null ? rawSlot.skillId : rawSlot;
+        return classSkills.find(s => s.id === sid) || classSkills[defaultIndex];
+      };
+
+      const getSlotRune = (slotKey) => {
+        const rKey = (eq.runes && eq.runes[slotKey]) || (typeof eq[slotKey] === 'object' && eq[slotKey]?.rune) || 'none';
+        return (skillRunesCatalog && skillRunesCatalog[rKey]) || { name: 'Standard', icon: '⚪', color: '#94a3b8' };
+      };
+
+      const s1 = getSlotSkill(eq.slot1, 0);
+      const s2 = getSlotSkill(eq.slot2, 1);
+      const s3 = getSlotSkill(eq.slot3, 2);
+      const sd = getSlotSkill(eq.dash, classSkills.findIndex(s => s.isDash) >= 0 ? classSkills.findIndex(s => s.isDash) : 3);
+
+      const r1 = getSlotRune('slot1');
+      const r2 = getSlotRune('slot2');
+      const r3 = getSlotRune('slot3');
+      const rd = getSlotRune('dash');
 
       if (slotSkill1Icon && s1) slotSkill1Icon.textContent = s1.icon;
-      if (slotSkill1 && s1) slotSkill1.title = `${s1.name} [Q] (${s1.mpCost} MP) - ${s1.desc}`;
+      if (slotSkill1 && s1) slotSkill1.title = `${s1.name} [Q] (${s1.mpCost} MP) [${r1.icon} ${r1.name}] - ${s1.desc}`;
       if (slotSkill2Icon && s2) slotSkill2Icon.textContent = s2.icon;
-      if (slotSkill2 && s2) slotSkill2.title = `${s2.name} [E] (${s2.mpCost} MP) - ${s2.desc}`;
+      if (slotSkill2 && s2) slotSkill2.title = `${s2.name} [E] (${s2.mpCost} MP) [${r2.icon} ${r2.name}] - ${s2.desc}`;
       if (slotSkill3Icon && s3) slotSkill3Icon.textContent = s3.icon;
-      if (slotSkill3 && s3) slotSkill3.title = `${s3.name} [R] (${s3.mpCost} MP) - ${s3.desc}`;
+      if (slotSkill3 && s3) slotSkill3.title = `${s3.name} [R] (${s3.mpCost} MP) [${r3.icon} ${r3.name}] - ${s3.desc}`;
       if (slotDashIcon && sd) slotDashIcon.textContent = sd.icon;
-      if (slotDash && sd) slotDash.title = `${sd.name} [Shift] (${sd.mpCost} MP) - ${sd.desc}`;
+      if (slotDash && sd) slotDash.title = `${sd.name} [Shift] (${sd.mpCost} MP) [${rd.icon} ${rd.name}] - ${sd.desc}`;
 
       skill1CooldownMax = s1 ? s1.cooldown : 3.5;
       skill2CooldownMax = s2 ? s2.cooldown : 4.5;
       skill3CooldownMax = s3 ? s3.cooldown : 9.0;
       dashCooldownMax = sd ? sd.cooldown : 3.0;
+
+      if (r1.id === 'tempest') skill1CooldownMax = Math.max(1.0, Number((skill1CooldownMax * 0.8).toFixed(1)));
+      if (r2.id === 'tempest') skill2CooldownMax = Math.max(1.0, Number((skill2CooldownMax * 0.8).toFixed(1)));
+      if (r3.id === 'tempest') skill3CooldownMax = Math.max(1.0, Number((skill3CooldownMax * 0.8).toFixed(1)));
+      if (rd.id === 'tempest') dashCooldownMax = Math.max(1.0, Number((dashCooldownMax * 0.8).toFixed(1)));
       return;
     }
 
@@ -1880,16 +1900,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const cls = localPlayer.characterClass || 'warrior';
     const classSkills = (allSkillsCatalog && allSkillsCatalog[cls]) || [];
-    const equipped = localPlayer.equippedSkills || {
-      slot1: { skillId: classSkills[0]?.id || 'whirlwind', rune: 'none' },
-      slot2: { skillId: classSkills[1]?.id || 'earthshaker', rune: 'none' },
-      slot3: { skillId: classSkills[2]?.id || 'colossus_strike', rune: 'none' },
-      dash:  { skillId: classSkills.find(s => s.isDash)?.id || 'blade_charge', rune: 'none' }
-    };
+    const equipped = localPlayer.equippedSkills || {};
+    if (!equipped.runes) {
+      equipped.runes = { slot1: 'none', slot2: 'none', slot3: 'none', dash: 'none' };
+    }
 
     if (stClassName) {
       stClassName.textContent = `${cls.toUpperCase()} SPELLBOOK & LOADOUT`;
     }
+
+    const getSlotSkillId = (slotKey) => {
+      const val = equipped[slotKey];
+      if (typeof val === 'object' && val !== null) return val.skillId;
+      return val || (slotKey === 'dash' ? (classSkills.find(s => s.isDash)?.id || 'blade_charge') : (classSkills[0]?.id || 'whirlwind'));
+    };
+
+    const getSlotRuneId = (slotKey) => {
+      if (equipped.runes && equipped.runes[slotKey]) return equipped.runes[slotKey];
+      const val = equipped[slotKey];
+      if (typeof val === 'object' && val !== null && val.rune) return val.rune;
+      return 'none';
+    };
 
     // 1. Render the 4 Hotbar Slot Cards
     loadoutSlotsRow.innerHTML = '';
@@ -1902,9 +1933,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     slotsConfig.forEach(sConf => {
       const isSelected = selectedLoadoutSlot === sConf.key;
-      const eqData = equipped[sConf.key] || { skillId: '', rune: 'none' };
-      const skill = classSkills.find(s => s.id === eqData.skillId);
-      const rune = (skillRunesCatalog && skillRunesCatalog[eqData.rune]) || { name: 'Standard', icon: '⚪', color: '#94a3b8' };
+      const skillId = getSlotSkillId(sConf.key);
+      const runeId = getSlotRuneId(sConf.key);
+      const skill = classSkills.find(s => s.id === skillId);
+      const rune = (skillRunesCatalog && skillRunesCatalog[runeId]) || { name: 'Standard', icon: '⚪', color: '#94a3b8' };
 
       const card = document.createElement('div');
       card.className = `hotbar-slot-card ${isSelected ? 'active-slot' : ''}`;
@@ -1913,7 +1945,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="slot-card-icon">${skill ? skill.icon : sConf.icon}</div>
         <div class="slot-card-name">${skill ? skill.name : 'Empty Slot'}</div>
         <div class="slot-card-role">${sConf.label}</div>
-        <div class="slot-card-rune-pill" style="border-color: ${rune.color}; color: ${rune.color};">
+        <div class="slot-card-rune-pill" style="border-color: ${rune.color || '#94a3b8'}; color: ${rune.color || '#94a3b8'};">
           ${rune.icon} ${rune.name}
         </div>
       `;
@@ -1930,17 +1962,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // 2. Render Rune Selector for the currently selected slot
     if (runesSelectorRow) {
       runesSelectorRow.innerHTML = '';
-      const curSlotEq = equipped[selectedLoadoutSlot] || { rune: 'none' };
-      const curRune = curSlotEq.rune || 'none';
+      const curRune = getSlotRuneId(selectedLoadoutSlot);
 
       const runesList = Object.entries(skillRunesCatalog).length > 0 
         ? Object.entries(skillRunesCatalog) 
         : [
-            ['none', { name: 'Standard', icon: '⚪', desc: 'No alteration', color: '#94a3b8' }],
-            ['flame', { name: 'Infernal Flame', icon: '🔴', desc: '+25% Bonus Fire DMG & Burn DoT', color: '#ef4444' }],
-            ['frost', { name: 'Glacial Frost', icon: '🔵', desc: 'Chill slows enemies by 40% & 15% freeze', color: '#38bdf8' }],
-            ['tempest', { name: 'Tempest Surge', icon: '⚡', desc: '-20% Cooldown reduction', color: '#eab308' }],
-            ['vampiric', { name: 'Vampiric Drain', icon: '🟣', desc: 'Heals 25% of damage dealt', color: '#a855f7' }]
+            ['none', { name: 'Standard Rune', icon: '⚪', desc: 'Default ability power without elemental modifiers.', color: '#94a3b8' }],
+            ['flame', { name: 'Infernal Flame', icon: '🔴', desc: '+25% Damage and ignites enemies with persistent Burn DoT.', color: '#ef4444' }],
+            ['frost', { name: 'Glacial Frost', icon: '🔵', desc: 'Adds 40% Chill Slow for 3.5s and 25% chance to Freeze solid.', color: '#38bdf8' }],
+            ['tempest', { name: 'Tempest Surge', icon: '⚡', desc: '-20% Cooldown reduction and +10% Electric Shock DMG.', color: '#eab308' }],
+            ['vampiric', { name: 'Vampiric Drain', icon: '🟣', desc: 'Restores 25% of all skill damage dealt as immediate HP life leech.', color: '#a855f7' }]
           ];
 
       runesList.forEach(([rKey, rDef]) => {
@@ -1948,28 +1979,38 @@ document.addEventListener('DOMContentLoaded', () => {
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = `rune-pill-btn ${isRuneActive ? 'active' : ''}`;
+        if (isRuneActive) {
+          btn.style.borderColor = rDef.color || '#facc15';
+          btn.style.boxShadow = `0 0 12px ${rDef.color || '#facc15'}`;
+        }
         btn.innerHTML = `<span class="rune-icon">${rDef.icon}</span> <span>${rDef.name}</span>`;
         btn.title = `${rDef.name}: ${rDef.desc}`;
 
         btn.addEventListener('click', () => {
+          if (!localPlayer.equippedSkills) localPlayer.equippedSkills = {};
+          if (!localPlayer.equippedSkills.runes) {
+            localPlayer.equippedSkills.runes = { slot1: 'none', slot2: 'none', slot3: 'none', dash: 'none' };
+          }
+          localPlayer.equippedSkills.runes[selectedLoadoutSlot] = rKey;
           socket.emit('customize_skill_slot', {
             slot: selectedLoadoutSlot,
             rune: rKey
           });
           window.soundEngine.playUpgradeSuccess();
+          renderCustomSkillLoadout();
+          setupClassSkillHUD(localPlayer.characterClass);
         });
 
         runesSelectorRow.appendChild(btn);
       });
     }
 
-    // 3. Render Skills Catalog (all 8 class skills)
+    // 3. Render Skills Catalog (all class skills)
     skillsCatalogGrid.innerHTML = '';
     classSkills.forEach(s => {
-      // Check if equipped in any slot
       let equippedInSlot = null;
-      for (const [sKey, sVal] of Object.entries(equipped)) {
-        if (sVal && sVal.skillId === s.id) {
+      for (const sKey of ['slot1', 'slot2', 'slot3', 'dash']) {
+        if (getSlotSkillId(sKey) === s.id) {
           equippedInSlot = sKey;
           break;
         }
@@ -2016,11 +2057,15 @@ document.addEventListener('DOMContentLoaded', () => {
       if (btnEquip) {
         btnEquip.addEventListener('click', (e) => {
           e.stopPropagation();
+          if (!localPlayer.equippedSkills) localPlayer.equippedSkills = {};
+          localPlayer.equippedSkills[selectedLoadoutSlot] = s.id;
           socket.emit('customize_skill_slot', {
             slot: selectedLoadoutSlot,
             skillId: s.id
           });
           window.soundEngine.playBladeCharge();
+          renderCustomSkillLoadout();
+          setupClassSkillHUD(localPlayer.characterClass);
         });
       }
 
@@ -2038,7 +2083,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (stClassName) {
       const clsTitle = cls.toUpperCase();
-      stClassName.textContent = `${clsTitle} TALENT TREE`;
+      stClassName.textContent = `${clsTitle} TALENT TREE (54 TALENTS)`;
     }
 
     if (stAvailablePoints) {
@@ -2059,73 +2104,101 @@ document.addEventListener('DOMContentLoaded', () => {
 
     skillTreeGrid.innerHTML = '';
 
+    // Group talents by specialization branch
+    const branchesMap = new Map();
     tree.forEach(talent => {
-      const curRank = skills[talent.id] || 0;
-      const maxRank = talent.maxRank || 3;
-      const isMaxed = curRank >= maxRank;
+      const bName = talent.branch || 'Specialization Branch';
+      if (!branchesMap.has(bName)) branchesMap.set(bName, []);
+      branchesMap.get(bName).push(talent);
+    });
 
-      let reqMet = true;
-      let reqName = '';
-      if (talent.requires) {
-        const prereq = tree.find(t => t.id === talent.requires);
-        reqName = prereq ? prereq.name : talent.requires;
-        reqMet = (skills[talent.requires] || 0) > 0;
-      }
+    branchesMap.forEach((branchTalents, branchName) => {
+      const col = document.createElement('div');
+      col.className = 'talent-branch-column';
 
-      const canLearn = (availablePoints > 0) && (!isMaxed) && reqMet;
+      let branchPoints = 0;
+      branchTalents.forEach(t => { branchPoints += (skills[t.id] || 0); });
 
-      const card = document.createElement('div');
-      card.className = `talent-card ${isMaxed ? 'is-maxed' : canLearn ? 'can-upgrade' : !reqMet ? 'is-locked' : ''}`;
-
-      card.innerHTML = `
-        <div class="talent-top-row">
-          <div class="talent-icon-box">${talent.icon || '✨'}</div>
-          <div class="talent-main-info">
-            <div class="talent-title-row">
-              <span class="talent-name">${talent.name}</span>
-              <span class="talent-rank-pill ${isMaxed ? 'max-rank' : curRank > 0 ? 'has-rank' : ''}">
-                ${isMaxed ? '★ MAX' : `Rank ${curRank}/${maxRank}`}
-              </span>
-            </div>
-            <div class="talent-desc">${talent.desc}</div>
-          </div>
-        </div>
-        <div class="talent-bottom-row">
-          <div class="talent-req-tag ${talent.requires ? (reqMet ? 'met' : 'unmet') : ''}">
-            ${talent.requires ? (reqMet ? `✓ Req: ${reqName}` : `🔒 Req: ${reqName}`) : '🌱 Tier 1 Starter'}
-          </div>
-          <button class="btn-learn-talent" ${canLearn ? '' : 'disabled'}>
-            ${isMaxed ? 'MAXED' : canLearn ? '+ LEARN (1 SP)' : !reqMet ? 'LOCKED' : 'NEED SP'}
-          </button>
-        </div>
+      const header = document.createElement('div');
+      header.className = 'talent-branch-header';
+      header.innerHTML = `
+        <span class="branch-title">${branchName}</span>
+        <span class="branch-points-pill">${branchPoints} pts</span>
       `;
+      col.appendChild(header);
 
-      if (canLearn) {
-        card.style.cursor = 'pointer';
-        card.addEventListener('click', () => {
+      const talentsList = document.createElement('div');
+      talentsList.className = 'talent-branch-list';
+
+      branchTalents.forEach(talent => {
+        const curRank = skills[talent.id] || 0;
+        const maxRank = talent.maxRank || 3;
+        const isMaxed = curRank >= maxRank;
+
+        let reqMet = true;
+        let reqName = '';
+        if (talent.requires) {
+          const prereq = tree.find(t => t.id === talent.requires);
+          reqName = prereq ? prereq.name : talent.requires;
+          reqMet = (skills[talent.requires] || 0) > 0;
+        }
+
+        const canLearn = (availablePoints > 0) && (!isMaxed) && reqMet;
+
+        const card = document.createElement('div');
+        card.className = `talent-card ${talent.isKeystone ? 'is-keystone' : ''} ${isMaxed ? 'is-maxed' : canLearn ? 'can-upgrade' : !reqMet ? 'is-locked' : ''}`;
+
+        card.innerHTML = `
+          <div class="talent-top-row">
+            <div class="talent-icon-box">${talent.icon || '✨'}</div>
+            <div class="talent-main-info">
+              <div class="talent-title-row">
+                <span class="talent-name">${talent.name} ${talent.isKeystone ? '👑' : ''}</span>
+                <span class="talent-rank-pill ${isMaxed ? 'max-rank' : curRank > 0 ? 'has-rank' : ''}">
+                  ${talent.isKeystone && isMaxed ? '★ KEYSTONE' : isMaxed ? '★ MAX' : `Rank ${curRank}/${maxRank}`}
+                </span>
+              </div>
+              <div class="talent-desc">${talent.desc}</div>
+            </div>
+          </div>
+          <div class="talent-bottom-row">
+            <div class="talent-req-tag ${talent.requires ? (reqMet ? 'met' : 'unmet') : ''}">
+              ${talent.requires ? (reqMet ? `✓ Req: ${reqName}` : `🔒 Req: ${reqName}`) : `🌱 Tier ${talent.tier || 1} Starter`}
+            </div>
+            <button class="btn-learn-talent" ${canLearn ? '' : 'disabled'}>
+              ${isMaxed ? 'MAXED' : canLearn ? '+ LEARN (1 SP)' : !reqMet ? 'LOCKED' : 'NEED SP'}
+            </button>
+          </div>
+        `;
+
+        const triggerLearn = () => {
+          if (!canLearn) return;
           localPlayer.skillPoints = Math.max(0, (localPlayer.skillPoints || 1) - 1);
           localPlayer.skills = localPlayer.skills || {};
           localPlayer.skills[talent.id] = (localPlayer.skills[talent.id] || 0) + 1;
           renderSkillTree();
           socket.emit('allocate_skill_point', { skillId: talent.id });
           window.soundEngine.playLevelUp();
-        });
-      }
+        };
 
-      const btnLearn = card.querySelector('.btn-learn-talent');
-      if (btnLearn && canLearn) {
-        btnLearn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          localPlayer.skillPoints = Math.max(0, (localPlayer.skillPoints || 1) - 1);
-          localPlayer.skills = localPlayer.skills || {};
-          localPlayer.skills[talent.id] = (localPlayer.skills[talent.id] || 0) + 1;
-          renderSkillTree();
-          socket.emit('allocate_skill_point', { skillId: talent.id });
-          window.soundEngine.playLevelUp();
-        });
-      }
+        if (canLearn) {
+          card.style.cursor = 'pointer';
+          card.addEventListener('click', triggerLearn);
+        }
 
-      skillTreeGrid.appendChild(card);
+        const btnLearn = card.querySelector('.btn-learn-talent');
+        if (btnLearn && canLearn) {
+          btnLearn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            triggerLearn();
+          });
+        }
+
+        talentsList.appendChild(card);
+      });
+
+      col.appendChild(talentsList);
+      skillTreeGrid.appendChild(col);
     });
   }
 
