@@ -1,6 +1,6 @@
 // Procedural Dungeon Generator for Aetheria Online
 // Generates randomized rooms, corridors, chests, and dungeon monsters
-const { ITEMS } = require('./items');
+const { ITEMS, generateRandomizedGear } = require('./items');
 
 const DUNGEON_WIDTH = 38;
 const DUNGEON_HEIGHT = 38;
@@ -62,6 +62,20 @@ const AFFIX_POOL = [
   { id: 'frostbite', name: 'Frostbite', icon: '❄️', tag: '❄️ Frostbite', desc: 'Attacks slow player 40%' },
   { id: 'venomous', name: 'Venomous', icon: '☠️', tag: '☠️ Venomous', desc: 'Attacks inflict Poison DoT' },
   { id: 'ignited', name: 'Ignited', icon: '🔥', tag: '🔥 Ignited', desc: 'Attacks inflict Burn DoT' }
+];
+
+// 10 Progressive Dungeon Floors (Every 15 levels up to Level 150)
+const DUNGEON_FLOORS = [
+  { floor: 1, name: 'Crypt of Whispers', minLevel: 1, maxLevel: 15, bossName: 'Grave Overlord Malok', subtitle: 'Lv. 1 - 15 • Skeleton & Slime Hordes' },
+  { floor: 2, name: 'Sunken Catacombs', minLevel: 16, maxLevel: 30, bossName: 'Ancient Crypt Warden', subtitle: 'Lv. 16 - 30 • Tomb Ghouls & Sentinels' },
+  { floor: 3, name: 'Obsidian Caverns', minLevel: 31, maxLevel: 45, bossName: 'Magma Behemoth', subtitle: 'Lv. 31 - 45 • Dark Spiders & Magma Golems' },
+  { floor: 4, name: 'Glacial Abyss', minLevel: 46, maxLevel: 60, bossName: 'Frostbite Colossus', subtitle: 'Lv. 46 - 60 • Frost Elementals & Ice Horrors' },
+  { floor: 5, name: 'Toxic Necropolis', minLevel: 61, maxLevel: 75, bossName: 'Plaguebringer Thok', subtitle: 'Lv. 61 - 75 • Plague Reapers & Wraiths' },
+  { floor: 6, name: 'Infernal Sanctum', minLevel: 76, maxLevel: 90, bossName: 'Arch-Demon Balor', subtitle: 'Lv. 76 - 90 • Hellfire Fiends & Demons' },
+  { floor: 7, name: 'Celestial Void', minLevel: 91, maxLevel: 105, bossName: 'Astral Singularity', subtitle: 'Lv. 91 - 105 • Astral Phantoms & Watchers' },
+  { floor: 8, name: 'Dread Citadel', minLevel: 106, maxLevel: 120, bossName: 'Deathlord Nazgrak', subtitle: 'Lv. 106 - 120 • Death Knights & Shadow Lords' },
+  { floor: 9, name: "Dragon's Maw", minLevel: 121, maxLevel: 135, bossName: 'Ancient Drake Imperator', subtitle: 'Lv. 121 - 135 • Ancient Drakes & Wyrm Berserkers' },
+  { floor: 10, name: 'Throne of Oblivion', minLevel: 136, maxLevel: 150, bossName: 'Primordial Titan of Chaos', subtitle: 'Lv. 136 - 150 • Titan of Chaos & Cataclysm' }
 ];
 
 function generateProceduralDungeon(floorLevel = 1, difficulty = 'normal') {
@@ -263,23 +277,25 @@ function generateProceduralDungeon(floorLevel = 1, difficulty = 'normal') {
 
     if (isBossRoom) {
       // Dungeon Boss!
+      const floorConfig = DUNGEON_FLOORS[floorLevel - 1] || DUNGEON_FLOORS[0];
       const bossAffixes = diff.id === 'normal' ? [] :
                           diff.id === 'hard' ? rollAffixes(2, true) :
                           rollAffixes(3, true);
       const isCommander = diff.id !== 'normal'; // Boss is always commander on Hard & Nightmare
 
-      let bossHp = Math.round((700 + floorLevel * 250) * diff.hpMult);
-      let bossDef = Math.round(18 + floorLevel * 5);
+      const bossLevel = floorConfig.maxLevel + (diff.id === 'nightmare' ? 5 : diff.id === 'hard' ? 2 : 0);
+      let bossHp = Math.round((700 + bossLevel * 160 + Math.pow(bossLevel, 1.25) * 15) * diff.hpMult);
+      let bossDef = Math.round(15 + bossLevel * 2.2);
       if (bossAffixes.includes('fortified')) {
         bossHp = Math.round(bossHp * 1.6);
-        bossDef += 14;
+        bossDef += 15;
       }
 
       mobs.push({
         id: `mob_${nextEntityId++}`,
         type: 'golem',
-        name: `Dungeon Overlord (F${floorLevel} - ${diff.name})`,
-        level: 6 + floorLevel * 2 + (diff.id === 'nightmare' ? 3 : diff.id === 'hard' ? 1 : 0),
+        name: `👑 ${floorConfig.bossName} [Boss Lv. ${bossLevel}]`,
+        level: bossLevel,
         x: r.cx,
         y: r.cy,
         spawnX: r.cx,
@@ -288,11 +304,11 @@ function generateProceduralDungeon(floorLevel = 1, difficulty = 'normal') {
         isBoss: true,
         hp: bossHp,
         maxHp: bossHp,
-        dmg: Math.round((34 + floorLevel * 8) * diff.dmgMult),
+        dmg: Math.round((30 + bossLevel * 4.5) * diff.dmgMult),
         def: bossDef,
-        speed: 2.2,
-        exp: Math.round((300 + floorLevel * 120) * diff.expMult),
-        gold: Math.round((180 + floorLevel * 80) * diff.goldMult),
+        speed: 2.3,
+        exp: Math.round((300 + bossLevel * 90 + Math.pow(bossLevel, 1.35) * 18) * diff.expMult),
+        gold: Math.round((180 + bossLevel * 45) * diff.goldMult),
         buffs: bossAffixes,
         isCommander,
         auraRadius: isCommander ? 6.5 : 0,
@@ -305,7 +321,8 @@ function generateProceduralDungeon(floorLevel = 1, difficulty = 'normal') {
         facing: 'SE'
       });
     } else {
-      // Normal Dungeon Mobs: Crypt Skeletons & Dark Goblins with Affixes
+      // Normal Dungeon Mobs: Scaled according to floor level bracket
+      const floorConfig = DUNGEON_FLOORS[floorLevel - 1] || DUNGEON_FLOORS[0];
       const baseCount = Math.floor(Math.random() * 2) + 2;
       const mobCount = Math.round(baseCount * diff.densityMult);
 
@@ -318,10 +335,8 @@ function generateProceduralDungeon(floorLevel = 1, difficulty = 'normal') {
         const mx = r.x + 1 + Math.random() * (r.w - 2);
         const my = r.y + 1 + Math.random() * (r.h - 2);
 
-        // Substantial base monster stats (no longer 1-hit pushovers!)
-        const baseHp = mobType === 'skeleton' ? 260 : 190;
-        const baseDef = mobType === 'skeleton' ? 12 : 8;
-        const baseDmg = mobType === 'skeleton' ? 24 : 18;
+        // Roll mob level within floor bracket (e.g. Lv. 1-14 on F1, Lv. 136-149 on F10)
+        const mobLvl = Math.floor(floorConfig.minLevel + (Math.random() * (floorConfig.maxLevel - floorConfig.minLevel)));
 
         // Roll Affixes
         const numAffixes = Math.floor(Math.random() * (diff.affixMax - diff.affixMin + 1)) + diff.affixMin;
@@ -333,8 +348,9 @@ function generateProceduralDungeon(floorLevel = 1, difficulty = 'normal') {
           if (!mobAffixes.includes('commander')) mobAffixes.push('commander');
         }
 
-        let hp = Math.round((baseHp + floorLevel * 30) * diff.hpMult);
-        let def = baseDef + floorLevel * 2;
+        const baseHp = mobType === 'skeleton' ? 220 : 160;
+        let hp = Math.round((baseHp + mobLvl * 50 + Math.pow(mobLvl, 1.2) * 8) * diff.hpMult);
+        let def = Math.round(8 + mobLvl * 1.6);
         if (mobAffixes.includes('fortified')) {
           hp = Math.round(hp * 1.7);
           def += 12;
@@ -350,13 +366,13 @@ function generateProceduralDungeon(floorLevel = 1, difficulty = 'normal') {
           prefix = `${affixIcons} `;
         }
 
-        const mobBaseName = mobType === 'skeleton' ? 'Crypt Skeleton' : 'Dungeon Stalker';
+        const mobBaseName = mobType === 'skeleton' ? 'Dungeon Skeleton' : 'Abyssal Stalker';
 
         mobs.push({
           id: `mob_${nextEntityId++}`,
           type: mobType,
-          name: `${prefix}${mobBaseName} (F${floorLevel})`,
-          level: 3 + floorLevel + (diff.id === 'nightmare' ? 2 : diff.id === 'hard' ? 1 : 0),
+          name: `${prefix}${mobBaseName} (Lv. ${mobLvl})`,
+          level: mobLvl,
           x: mx,
           y: my,
           spawnX: mx,
@@ -365,11 +381,11 @@ function generateProceduralDungeon(floorLevel = 1, difficulty = 'normal') {
           isBoss: false,
           hp,
           maxHp: hp,
-          dmg: Math.round((baseDmg + floorLevel * 4) * diff.dmgMult),
+          dmg: Math.round((18 + mobLvl * 2.8) * diff.dmgMult),
           def,
           speed: isCommander ? 3.1 : 2.8,
-          exp: Math.round((70 + floorLevel * 25) * diff.expMult),
-          gold: Math.round((40 + floorLevel * 18) * diff.goldMult),
+          exp: Math.round((60 + mobLvl * 28 + Math.pow(mobLvl, 1.28) * 5) * diff.expMult),
+          gold: Math.round((35 + mobLvl * 10) * diff.goldMult),
           buffs: mobAffixes,
           isCommander,
           auraRadius: isCommander ? 5.5 : 0,
@@ -406,34 +422,44 @@ function rollDungeonLoot(isBoss = false, floorLevel = 1) {
   const drops = [];
 
   // Gold drops
-  const goldAmount = isBoss ? Math.floor(100 + Math.random() * 150 * floorLevel) :
-                              Math.floor(25 + Math.random() * 40 * floorLevel);
+  const goldAmount = isBoss ? Math.floor(120 + Math.random() * 150 * floorLevel) :
+                              Math.floor(20 + Math.random() * 35 * floorLevel);
   drops.push({ type: 'gold', amount: goldAmount, name: `${goldAmount} Gold Coins` });
 
-  // Potions
-  if (Math.random() < 0.7) {
+  // Potions & Consumables
+  if (Math.random() < 0.45) {
     drops.push({ type: 'item', itemId: 'health_potion', amount: 1 });
   }
-  if (Math.random() < 0.5) {
+  if (Math.random() < 0.35) {
     drops.push({ type: 'item', itemId: 'mana_potion', amount: 1 });
   }
+  if (Math.random() < 0.15) {
+    const rareConsumables = ['greater_health_potion', 'greater_mana_potion', 'elixir_of_fury', 'elixir_of_iron', 'town_scroll'];
+    const chosen = rareConsumables[Math.floor(Math.random() * rareConsumables.length)];
+    drops.push({ type: 'item', itemId: chosen, amount: 1 });
+  }
 
-  // Valuable Relics / Treasures to sell in shop
+  // Valuable Relics / Treasures to sell in shop for Gold
   const relicPool = ['ancient_ruby', 'cursed_chalice', 'shadow_essence'];
-  if (isBoss || Math.random() < 0.6) {
-    const relicId = isBoss && Math.random() > 0.4 ?
+  const relicChance = isBoss ? 0.85 : 0.40;
+  if (Math.random() < relicChance) {
+    const relicId = isBoss && Math.random() > 0.35 ?
       (Math.random() > 0.5 ? 'golden_idol' : 'dragon_scale') :
       relicPool[Math.floor(Math.random() * relicPool.length)];
     drops.push({ type: 'item', itemId: relicId, amount: 1 });
   }
 
-  // Rare Equipment Drops
-  if (isBoss || Math.random() < 0.4) {
+  // Rare Equipment Drops (Significantly reduced drop rates + randomized stats!)
+  // Normal chests: ~12% chance (gear is a hard-earned reward!)
+  // Boss chests: ~35% chance
+  const gearChance = isBoss ? 0.35 : 0.12;
+  if (Math.random() < gearChance) {
     const gearPool = isBoss ?
-      ['excalibur', 'ring_of_power', 'mystic_robe', 'plate_cuirass', 'archmage_cowl', 'winged_boots'] :
-      ['iron_blade', 'shadow_daggers', 'leather_tunic', 'iron_helm', 'iron_greaves', 'shadow_hood'];
+      ['excalibur', 'wind_rapier', 'sweeping_claymore', 'ring_of_power', 'mystic_robe', 'plate_cuirass', 'archmage_cowl', 'winged_boots'] :
+      ['iron_blade', 'shadow_daggers', 'sweeping_claymore', 'leather_tunic', 'iron_helm', 'iron_greaves', 'shadow_hood'];
     const gearId = gearPool[Math.floor(Math.random() * gearPool.length)];
-    drops.push({ type: 'item', itemId: gearId, amount: 1 });
+    const customGear = generateRandomizedGear(gearId, floorLevel, isBoss);
+    drops.push({ type: 'item', itemId: gearId, customItemData: customGear, amount: 1 });
   }
 
   return drops;
@@ -445,6 +471,7 @@ module.exports = {
   DUNGEON_TILES,
   DIFFICULTIES,
   AFFIX_POOL,
+  DUNGEON_FLOORS,
   generateProceduralDungeon,
   rollDungeonLoot
 };

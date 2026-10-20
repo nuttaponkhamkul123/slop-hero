@@ -95,21 +95,38 @@ class IsometricRenderer {
     const isWarrior = data.class === 'warrior';
     const isMage = data.class === 'mage';
     const isRogue = data.class === 'rogue';
+    const atkSpeed = Math.max(0.4, data.attackSpeed || 1.0);
+    const baseDuration = isWarrior ? 300 : isRogue ? 260 : 320;
+    const duration = Math.round(baseDuration / atkSpeed);
 
     this.attacks.set(data.attackerId, {
       time: performance.now(),
-      duration: isWarrior ? 300 : isRogue ? 260 : 320,
+      duration: duration,
       class: data.class || 'warrior',
       facing: data.facing || 'SE',
       x: data.x,
-      y: data.y
+      y: data.y,
+      hasSweep: !!data.hasSweep
     });
 
     // Camera punchy impact shake!
     this.triggerScreenShake(isWarrior ? 7 : isRogue ? 5 : 6, 0.16);
 
-    // Dynamic sparks & impact particles
-    if (isMage) {
+    // Minecraft-Style Sweeping Edge Visual Effect
+    if (data.hasSweep && !isMage) {
+      this.animations.skillEffects.push({
+        type: 'sweeping_edge',
+        x: data.x,
+        y: data.y,
+        facing: data.facing || 'SE',
+        life: 0.28,
+        maxLife: 0.28,
+        radius: isWarrior ? 2.5 : 2.0,
+        class: data.class || 'warrior'
+      });
+      this.addParticles(data.x, data.y, 'slash', 22);
+      this.addParticles(data.x, data.y, 'wind', 16);
+    } else if (isMage) {
       this.addParticles(data.x, data.y, 'fire', 14);
     } else if (isRogue) {
       this.addParticles(data.x, data.y, 'shadow', 14);
@@ -123,18 +140,93 @@ class IsometricRenderer {
     if (!fx || !fx.type) return;
     const effect = {
       ...fx,
-      life: fx.type === 'firestorm' ? 0.9 : 0.65,
-      maxLife: fx.type === 'firestorm' ? 0.9 : 0.65
+      life: fx.type === 'firestorm' ? 0.9 : fx.type === 'earthshaker' ? 0.8 : 0.65,
+      maxLife: fx.type === 'firestorm' ? 0.9 : fx.type === 'earthshaker' ? 0.8 : 0.65
     };
     this.animations.skillEffects.push(effect);
 
     if (fx.type === 'whirlwind') {
       this.addParticles(fx.x, fx.y, 'wind', 36);
+      this.triggerScreenShake(6, 0.15);
     } else if (fx.type === 'firestorm') {
       this.addParticles(fx.x, fx.y, 'fire', 48);
+      this.triggerScreenShake(8, 0.22);
+    } else if (fx.type === 'blade_charge') {
+      this.addParticles(fx.startX || fx.x, fx.startY || fx.y, 'slash', 18);
+      this.addParticles(fx.x, fx.y, 'slash', 24);
+      this.triggerScreenShake(7, 0.18);
+    } else if (fx.type === 'earthshaker') {
+      this.addParticles(fx.x, fx.y, 'earth', 45);
+      this.triggerScreenShake(12, 0.26);
+    } else if (fx.type === 'frost_nova') {
+      this.addParticles(fx.x, fx.y, 'ice', 42);
+      this.triggerScreenShake(5, 0.15);
+    } else if (fx.type === 'arcane_blink') {
+      this.addParticles(fx.startX || fx.x, fx.startY || fx.y, 'arcane', 22);
+      this.addParticles(fx.x, fx.y, 'arcane', 28);
+      this.triggerScreenShake(4, 0.12);
+    } else if (fx.type === 'fan_of_knives') {
+      this.addParticles(fx.x, fx.y, 'slash', 28);
+      this.addParticles(fx.x, fx.y, 'shadow', 20);
+      this.triggerScreenShake(6, 0.16);
+    } else if (fx.type === 'toxic_bomb') {
+      this.addParticles(fx.x, fx.y, 'poison', 40);
+      this.triggerScreenShake(5, 0.15);
+    } else if (fx.type === 'shadow_dash') {
+      this.addParticles(fx.startX || fx.x, fx.startY || fx.y, 'shadow', 24);
+      this.addParticles(fx.x, fx.y, 'shadow', 24);
+      this.triggerScreenShake(5, 0.14);
     } else if (fx.type === 'shadow_strike') {
       this.addParticles(fx.startX || fx.x, fx.startY || fx.y, 'shadow', 24);
       this.addParticles(fx.x, fx.y, 'shadow', 24);
+    } else if (fx.type === 'colossus_strike') {
+      this.addParticles(fx.x, fx.y, 'earth', 50);
+      this.addParticles(fx.x, fx.y, 'slash', 35);
+      this.triggerScreenShake(14, 0.3);
+    } else if (fx.type === 'shield_slam') {
+      this.addParticles(fx.x, fx.y, 'shield', 25);
+      this.triggerScreenShake(6, 0.16);
+    } else if (fx.type === 'blood_rage') {
+      this.addParticles(fx.x, fx.y, 'fire', 30);
+      this.triggerScreenShake(5, 0.14);
+    } else if (fx.type === 'iron_fortress') {
+      this.addParticles(fx.x, fx.y, 'shield', 30);
+    } else if (fx.type === 'war_stomp') {
+      this.addParticles(fx.x, fx.y, 'earth', 45);
+      this.addParticles(fx.x, fx.y, 'wind', 25);
+      this.triggerScreenShake(10, 0.22);
+    } else if (fx.type === 'chain_lightning') {
+      if (fx.points) {
+        fx.points.forEach(pt => this.addParticles(pt.x, pt.y, 'arcane', 12));
+      }
+      this.triggerScreenShake(6, 0.18);
+    } else if (fx.type === 'mana_shield') {
+      this.addParticles(fx.x, fx.y, 'arcane', 30);
+    } else if (fx.type === 'black_hole') {
+      this.addParticles(fx.x, fx.y, 'shadow', 50);
+      this.addParticles(fx.x, fx.y, 'arcane', 35);
+      this.triggerScreenShake(12, 0.28);
+    } else if (fx.type === 'blizzard') {
+      this.addParticles(fx.x, fx.y, 'ice', 50);
+      this.triggerScreenShake(6, 0.18);
+    } else if (fx.type === 'pyroblast') {
+      this.addParticles(fx.x, fx.y, 'fire', 45);
+      this.triggerScreenShake(9, 0.22);
+    } else if (fx.type === 'shadowstep') {
+      this.addParticles(fx.startX || fx.x, fx.startY || fx.y, 'shadow', 24);
+      this.addParticles(fx.x, fx.y, 'shadow', 30);
+      this.triggerScreenShake(6, 0.15);
+    } else if (fx.type === 'smoke_screen') {
+      this.addParticles(fx.x, fx.y, 'shadow', 40);
+      this.addParticles(fx.x, fx.y, 'poison', 20);
+    } else if (fx.type === 'death_blossom') {
+      this.addParticles(fx.x, fx.y, 'slash', 40);
+      this.addParticles(fx.x, fx.y, 'shadow', 30);
+      this.triggerScreenShake(10, 0.24);
+    } else if (fx.type === 'poison_darts') {
+      this.addParticles(fx.x, fx.y, 'poison', 25);
+    } else if (fx.type === 'caltrops') {
+      this.addParticles(fx.x, fx.y, 'earth', 20);
     }
   }
 
@@ -162,6 +254,22 @@ class IsometricRenderer {
         const slashColors = ['#ffffff', '#bae6fd', '#38bdf8', '#e2e8f0'];
         color = slashColors[Math.floor(Math.random() * slashColors.length)];
         size = 3 + Math.random() * 3.5;
+      } else if (type === 'ice') {
+        const iceColors = ['#06b6d4', '#67e8f9', '#a5f3fc', '#ffffff', '#e0f2fe'];
+        color = iceColors[Math.floor(Math.random() * iceColors.length)];
+        size = 3.5 + Math.random() * 4.5;
+      } else if (type === 'earth') {
+        const earthColors = ['#d97706', '#b45309', '#f59e0b', '#78350f', '#fde68a'];
+        color = earthColors[Math.floor(Math.random() * earthColors.length)];
+        size = 3.5 + Math.random() * 5.0;
+      } else if (type === 'poison') {
+        const poisonColors = ['#22c55e', '#4ade80', '#16a34a', '#86efac', '#14532d'];
+        color = poisonColors[Math.floor(Math.random() * poisonColors.length)];
+        size = 3.5 + Math.random() * 4.5;
+      } else if (type === 'arcane') {
+        const arcaneColors = ['#c084fc', '#e879f9', '#38bdf8', '#818cf8', '#ffffff'];
+        color = arcaneColors[Math.floor(Math.random() * arcaneColors.length)];
+        size = 3.5 + Math.random() * 4.5;
       } else if (type === 'gold' || type === 'loot') {
         const goldColors = ['#facc15', '#fde047', '#eab308', '#ffffff'];
         color = goldColors[Math.floor(Math.random() * goldColors.length)];
@@ -205,6 +313,7 @@ class IsometricRenderer {
     // PASS 1: VISIBLE GROUND TILES PASS (Base Terrain Layer)
     // Rendered first so flat ground diamond tiles NEVER clip or cover players or mobs walking over them
     const map = gameState.map;
+    this.currentTheme = map.theme || (map.isDungeon ? 'dungeon' : 'town');
     const isDungeon = map.isDungeon || (map.tiles && map.tiles[0] && (map.tiles[0][0] === 8 || map.tiles[0][0] === 7));
     const groundTiles = [];
     const wallTiles = [];
@@ -458,6 +567,29 @@ class IsometricRenderer {
         leftSideColor = '#161922';
         rightSideColor = '#0e1117';
         break;
+      case 9: // Snow (Frostfell Peaks)
+        const snowSeed = (x * 19 + y * 23) % 3;
+        topColor = snowSeed === 0 ? '#f1f5f9' : snowSeed === 1 ? '#e2e8f0' : '#f8fafc';
+        leftSideColor = '#94a3b8';
+        rightSideColor = '#64748b';
+        break;
+      case 10: // Glacial Ice (Frozen Lake)
+        const iceReflect = Math.sin(this.animations.time * 2 + x + y) * 12;
+        topColor = `rgb(56, ${189 + Math.round(iceReflect)}, 248)`;
+        leftSideColor = '#0284c7';
+        rightSideColor = '#0369a1';
+        break;
+      case 11: // Frost Stone Path & Ancient Ruins
+        const fStone = (x * 13 + y * 17) % 3;
+        topColor = fStone === 0 ? '#334155' : fStone === 1 ? '#2d3748' : '#3e4c5e';
+        leftSideColor = '#1e293b';
+        rightSideColor = '#0f172a';
+        break;
+      case 12: // Frost Mountain Cliff Crag
+        topColor = '#475569';
+        leftSideColor = '#334155';
+        rightSideColor = '#1e293b';
+        break;
     }
 
     // 1. Draw 3D Left Depth Face
@@ -526,6 +658,23 @@ class IsometricRenderer {
       ctx.arc(screen.x, screen.y, hw * 0.25, 0, Math.PI * 2);
       ctx.fillStyle = 'rgba(168, 85, 247, 0.35)';
       ctx.fill();
+    } else if (tileType === 10) {
+      // Glacial Ice Surface Glaze & Fracture Lines
+      ctx.beginPath();
+      ctx.moveTo(screen.x - hw * 0.4, screen.y - hh * 0.2);
+      ctx.lineTo(screen.x + hw * 0.1, screen.y + hh * 0.1);
+      ctx.lineTo(screen.x + hw * 0.35, screen.y - hh * 0.1);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+    } else if (tileType === 11) {
+      // Ancient Nordic Frost Rune Glow
+      const runePulse = Math.sin(this.animations.time * 3 + x + y) * 0.2 + 0.8;
+      ctx.strokeStyle = `rgba(103, 232, 249, ${0.45 * runePulse})`;
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.arc(screen.x, screen.y, hw * 0.28, 0, Math.PI * 2);
+      ctx.stroke();
     }
   }
 
@@ -935,6 +1084,200 @@ class IsometricRenderer {
         ctx.fillStyle = '#fef08a';
         ctx.fillRect(screen.x + (Math.sin(this.animations.time * 30) * 8 * z), screen.y - (18 + Math.random() * 8) * z, 2 * z, 2 * z);
       }
+    } else if (obs.type === 'snow_pine') {
+      // Pine tree heavily dusted with winter snow
+      ctx.beginPath();
+      ctx.ellipse(screen.x, screen.y, 18 * z, 9 * z, 0, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+      ctx.fill();
+
+      // Trunk
+      ctx.fillStyle = '#452e23';
+      ctx.fillRect(screen.x - 3.5 * z, screen.y - 20 * z, 7 * z, 20 * z);
+
+      // Conical Snow Pine Layers
+      const layers = [
+        { y: -16 * z, w: 28 * z, h: 16 * z, color: '#133e24', snowColor: '#f1f5f9' },
+        { y: -28 * z, w: 22 * z, h: 14 * z, color: '#1a4e2e', snowColor: '#f8fafc' },
+        { y: -39 * z, w: 15 * z, h: 12 * z, color: '#23653d', snowColor: '#ffffff' }
+      ];
+      layers.forEach(l => {
+        ctx.beginPath();
+        ctx.moveTo(screen.x, screen.y + l.y - l.h);
+        ctx.lineTo(screen.x + l.w / 2, screen.y + l.y);
+        ctx.lineTo(screen.x - l.w / 2, screen.y + l.y);
+        ctx.closePath();
+        ctx.fillStyle = l.color;
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.moveTo(screen.x - l.w / 2, screen.y + l.y);
+        ctx.lineTo(screen.x, screen.y + l.y - 4 * z);
+        ctx.lineTo(screen.x + l.w / 2, screen.y + l.y);
+        ctx.lineTo(screen.x + l.w / 2 - 3 * z, screen.y + l.y + 3 * z);
+        ctx.lineTo(screen.x - l.w / 2 + 3 * z, screen.y + l.y + 3 * z);
+        ctx.closePath();
+        ctx.fillStyle = l.snowColor;
+        ctx.fill();
+      });
+    } else if (obs.type === 'ice_crystal') {
+      // Glacial Ice Crystal Shard Cluster
+      const crystalGlow = ctx.createRadialGradient(screen.x, screen.y - 18 * z, 2 * z, screen.x, screen.y - 18 * z, 24 * z);
+      crystalGlow.addColorStop(0, 'rgba(56, 189, 248, 0.45)');
+      crystalGlow.addColorStop(1, 'rgba(56, 189, 248, 0)');
+      ctx.fillStyle = crystalGlow;
+      ctx.beginPath();
+      ctx.arc(screen.x, screen.y - 18 * z, 24 * z, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Center Spire
+      ctx.beginPath();
+      ctx.moveTo(screen.x, screen.y - 36 * z);
+      ctx.lineTo(screen.x + 8 * z, screen.y - 6 * z);
+      ctx.lineTo(screen.x, screen.y);
+      ctx.lineTo(screen.x - 8 * z, screen.y - 6 * z);
+      ctx.closePath();
+      ctx.fillStyle = '#38bdf8';
+      ctx.fill();
+      ctx.strokeStyle = '#bae6fd';
+      ctx.lineWidth = 1.5 * z;
+      ctx.stroke();
+
+      // Left shard
+      ctx.beginPath();
+      ctx.moveTo(screen.x - 6 * z, screen.y - 24 * z);
+      ctx.lineTo(screen.x - 14 * z, screen.y - 4 * z);
+      ctx.lineTo(screen.x - 4 * z, screen.y);
+      ctx.closePath();
+      ctx.fillStyle = '#0284c7';
+      ctx.fill();
+
+      // Right shard
+      ctx.beginPath();
+      ctx.moveTo(screen.x + 6 * z, screen.y - 22 * z);
+      ctx.lineTo(screen.x + 4 * z, screen.y);
+      ctx.lineTo(screen.x + 13 * z, screen.y - 5 * z);
+      ctx.closePath();
+      ctx.fillStyle = '#0284c7';
+      ctx.fill();
+    } else if (obs.type === 'frost_monolith') {
+      // Ancient Glacial Monolith / Obelisk
+      ctx.fillStyle = '#1e293b';
+      ctx.beginPath();
+      ctx.moveTo(screen.x - 10 * z, screen.y);
+      ctx.lineTo(screen.x + 10 * z, screen.y);
+      ctx.lineTo(screen.x + 6 * z, screen.y - 44 * z);
+      ctx.lineTo(screen.x, screen.y - 52 * z);
+      ctx.lineTo(screen.x - 6 * z, screen.y - 44 * z);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 1.5 * z;
+      ctx.stroke();
+
+      // Glowing Rune Inscriptions
+      const runeFlicker = Math.sin(this.animations.time * 4 + obs.y) * 0.25 + 0.75;
+      ctx.strokeStyle = `rgba(103, 232, 249, ${runeFlicker})`;
+      ctx.lineWidth = 1.8 * z;
+      ctx.beginPath();
+      ctx.moveTo(screen.x, screen.y - 38 * z);
+      ctx.lineTo(screen.x, screen.y - 12 * z);
+      ctx.moveTo(screen.x - 4 * z, screen.y - 30 * z);
+      ctx.lineTo(screen.x + 4 * z, screen.y - 24 * z);
+      ctx.moveTo(screen.x - 4 * z, screen.y - 18 * z);
+      ctx.lineTo(screen.x + 4 * z, screen.y - 22 * z);
+      ctx.stroke();
+    } else if (obs.type === 'frost_portal') {
+      // Gateway from Town to Frostfell Peaks
+      const rot = this.animations.time * 2.0;
+
+      // Base Pedestal
+      ctx.beginPath();
+      ctx.ellipse(screen.x, screen.y, 24 * z, 12 * z, 0, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+      ctx.fill();
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 2 * z;
+      ctx.stroke();
+
+      // Swirling Blizzard Vortex
+      ctx.save();
+      ctx.translate(screen.x, screen.y - 14 * z);
+
+      const frostGlow = ctx.createRadialGradient(0, 0, 4 * z, 0, 0, 28 * z);
+      frostGlow.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
+      frostGlow.addColorStop(0.4, 'rgba(56, 189, 248, 0.7)');
+      frostGlow.addColorStop(0.8, 'rgba(2, 132, 199, 0.4)');
+      frostGlow.addColorStop(1, 'rgba(15, 23, 42, 0)');
+      ctx.fillStyle = frostGlow;
+      ctx.beginPath();
+      ctx.arc(0, 0, 28 * z, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Rotating Ice Rings
+      ctx.rotate(rot);
+      ctx.strokeStyle = '#bae6fd';
+      ctx.lineWidth = 2 * z;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 18 * z, 8 * z, 0, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.rotate(-rot * 2.2);
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 1.5 * z;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 12 * z, 5 * z, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+
+      // Portal Tag
+      ctx.save();
+      ctx.font = 'bold 11px Outfit, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#000';
+      ctx.fillText('❄️ Frostfell Portal [Lv. 6+]', screen.x + 1, screen.y - 42 * z + 1);
+      ctx.fillStyle = '#67e8f9';
+      ctx.fillText('❄️ Frostfell Portal [Lv. 6+]', screen.x, screen.y - 42 * z);
+      ctx.restore();
+    } else if (obs.type === 'town_portal') {
+      // Gateway from Frostfell returning to Town
+      const rot = this.animations.time * 2.2;
+      ctx.beginPath();
+      ctx.ellipse(screen.x, screen.y, 24 * z, 12 * z, 0, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+      ctx.fill();
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 2 * z;
+      ctx.stroke();
+
+      ctx.save();
+      ctx.translate(screen.x, screen.y - 14 * z);
+
+      const townGlow = ctx.createRadialGradient(0, 0, 4 * z, 0, 0, 28 * z);
+      townGlow.addColorStop(0, 'rgba(254, 240, 138, 0.9)');
+      townGlow.addColorStop(0.5, 'rgba(245, 158, 11, 0.6)');
+      townGlow.addColorStop(1, 'rgba(15, 23, 42, 0)');
+      ctx.fillStyle = townGlow;
+      ctx.beginPath();
+      ctx.arc(0, 0, 28 * z, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.rotate(rot);
+      ctx.strokeStyle = '#fde68a';
+      ctx.lineWidth = 2 * z;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 18 * z, 8 * z, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+
+      ctx.save();
+      ctx.font = 'bold 11px Outfit, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#000';
+      ctx.fillText('🏰 Return to Town', screen.x + 1, screen.y - 42 * z + 1);
+      ctx.fillStyle = '#facc15';
+      ctx.fillText('🏰 Return to Town', screen.x, screen.y - 42 * z);
+      ctx.restore();
     }
   }
 
@@ -1082,6 +1425,18 @@ class IsometricRenderer {
       ctx.strokeStyle = 'rgba(245, 158, 11, 0.85)';
       ctx.lineWidth = 2.2;
       ctx.stroke();
+    }
+
+    // When 3D Hero Models are enabled, Three.js WebGL layer renders the 3D rigged character!
+    if (window.threeHeroRenderer && window.threeHeroRenderer.enabled) {
+      // Nametag, Guild Badge & Mini HP Bar
+      this.drawEntityOverhead(ctx, screen.x, screen.y - 50 * z, player.name, player.hp, player.maxHp, isLocal ? '#38bdf8' : '#fff', `Lv.${player.level}`);
+
+      // Speech Bubble
+      if (player.speechBubble) {
+        this.drawSpeechBubble(ctx, screen.x, screen.y - 74 * z, player.speechBubble);
+      }
+      return;
     }
 
     ctx.save();
@@ -1933,6 +2288,112 @@ class IsometricRenderer {
       ctx.fillStyle = '#1e293b';
       ctx.fillRect(-28 * z, -36 * z, 10 * z, 20 * z);
       ctx.fillRect(18 * z, -36 * z, 10 * z, 20 * z);
+    } else if (mob.type === 'frost_wolf') {
+      // Frostbite Wolf (Quadruped white/cyan wolf)
+      // Torso
+      ctx.fillStyle = '#e2e8f0';
+      ctx.fillRect(-10 * z, -16 * z, 20 * z, 10 * z);
+      // Fur ruff on back
+      ctx.fillStyle = '#38bdf8';
+      ctx.beginPath();
+      ctx.moveTo(-8 * z, -16 * z);
+      ctx.lineTo(0, -22 * z);
+      ctx.lineTo(8 * z, -16 * z);
+      ctx.closePath();
+      ctx.fill();
+      // Head
+      ctx.fillStyle = '#f8fafc';
+      ctx.beginPath();
+      ctx.arc(8 * z, -18 * z, 6 * z, 0, Math.PI * 2);
+      ctx.fill();
+      // Pointed Wolf Ears
+      ctx.fillStyle = '#0284c7';
+      ctx.beginPath();
+      ctx.moveTo(6 * z, -23 * z);
+      ctx.lineTo(10 * z, -28 * z);
+      ctx.lineTo(11 * z, -22 * z);
+      ctx.closePath();
+      ctx.fill();
+      // Glowing Cyan Eye
+      ctx.fillStyle = '#06b6d4';
+      ctx.fillRect(9 * z, -19 * z, 2.5 * z, 2.5 * z);
+      // Wolf Tail
+      const tailWag = Math.sin(this.animations.time * 8) * 3 * z;
+      ctx.strokeStyle = '#e2e8f0';
+      ctx.lineWidth = 3 * z;
+      ctx.beginPath();
+      ctx.moveTo(-10 * z, -14 * z);
+      ctx.lineTo(-16 * z, -20 * z + tailWag);
+      ctx.stroke();
+    } else if (mob.type === 'ice_elemental') {
+      // Glacial Elemental (Floating crystalline torso with orbiting shards)
+      const floatY = Math.sin(this.animations.time * 4 + mob.x) * 4 * z;
+      ctx.save();
+      ctx.translate(0, -20 * z + floatY);
+
+      // Radial Cyan Core Aura
+      const coreAura = ctx.createRadialGradient(0, 0, 2 * z, 0, 0, 18 * z);
+      coreAura.addColorStop(0, 'rgba(103, 232, 249, 0.9)');
+      coreAura.addColorStop(0.6, 'rgba(2, 132, 199, 0.4)');
+      coreAura.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = coreAura;
+      ctx.beginPath();
+      ctx.arc(0, 0, 18 * z, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Sharp Crystalline Diamond
+      ctx.beginPath();
+      ctx.moveTo(0, -14 * z);
+      ctx.lineTo(10 * z, 0);
+      ctx.lineTo(0, 16 * z);
+      ctx.lineTo(-10 * z, 0);
+      ctx.closePath();
+      ctx.fillStyle = '#38bdf8';
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.5 * z;
+      ctx.stroke();
+
+      // Orbiting ice shards
+      for (let i = 0; i < 3; i++) {
+        const shardAngle = this.animations.time * 3 + (i * Math.PI * 2 / 3);
+        const sx = Math.cos(shardAngle) * 16 * z;
+        const sy = Math.sin(shardAngle) * 8 * z;
+        ctx.fillStyle = '#bae6fd';
+        ctx.fillRect(sx - 2 * z, sy - 2 * z, 4 * z, 4 * z);
+      }
+      ctx.restore();
+    } else if (mob.type === 'frost_titan') {
+      // Frost Titan Ymir Boss
+      // Giant Stone Frost Torso
+      ctx.fillStyle = '#334155';
+      ctx.fillRect(-24 * z, -54 * z, 48 * z, 42 * z);
+      // Ice Spikes on Shoulders
+      ctx.fillStyle = '#38bdf8';
+      ctx.beginPath();
+      ctx.moveTo(-24 * z, -54 * z);
+      ctx.lineTo(-32 * z, -70 * z);
+      ctx.lineTo(-18 * z, -54 * z);
+      ctx.moveTo(24 * z, -54 * z);
+      ctx.lineTo(32 * z, -70 * z);
+      ctx.lineTo(18 * z, -54 * z);
+      ctx.fill();
+      // Titan Head with Glacial Horns
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(-14 * z, -70 * z, 28 * z, 18 * z);
+      // Glowing Cyan Titan Eyes
+      ctx.fillStyle = '#67e8f9';
+      ctx.fillRect(-8 * z, -64 * z, 5 * z, 3 * z);
+      ctx.fillRect(3 * z, -64 * z, 5 * z, 3 * z);
+      // Glowing Ice Rune Core on Chest
+      const titanPulse = Math.sin(this.animations.time * 5) * 0.2 + 0.8;
+      ctx.fillStyle = `rgba(56, 189, 248, ${titanPulse})`;
+      ctx.beginPath();
+      ctx.arc(0, -34 * z, 9 * z, 0, Math.PI * 2);
+      ctx.fill();
+      // Frozen Spiked Club in Right Hand
+      ctx.fillStyle = '#0284c7';
+      ctx.fillRect(24 * z, -60 * z, 8 * z, 42 * z);
     }
 
     ctx.restore();
@@ -2102,7 +2563,65 @@ class IsometricRenderer {
         const progress = 1.0 - (fx.life / fx.maxLife);
         const alpha = Math.max(0, fx.life / fx.maxLife);
 
-        if (fx.type === 'whirlwind') {
+        if (fx.type === 'sweeping_edge') {
+          // Minecraft-Style Sweeping Edge Crescent Slash Arc
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0.35, this.camera, this.canvas.width, this.canvas.height);
+          const facingAngles = {
+            E: 0,
+            SE: Math.PI * 0.25,
+            S: Math.PI * 0.5,
+            SW: Math.PI * 0.75,
+            W: Math.PI,
+            NW: -Math.PI * 0.75,
+            N: -Math.PI * 0.5,
+            NE: -Math.PI * 0.25
+          };
+          const baseAngle = facingAngles[fx.facing] !== undefined ? facingAngles[fx.facing] : Math.PI * 0.25;
+          const outerR = (26 + progress * 26) * z;
+          const innerR = Math.max(6 * z, outerR - (16 + (1 - progress) * 10) * z);
+
+          ctx.save();
+          ctx.translate(screen.x, screen.y);
+          ctx.rotate(baseAngle);
+
+          // Sweeping crescent sweep span: from -0.85 rad to +0.85 rad
+          const sweepSpan = Math.PI * 0.44;
+
+          // Outer glowing crescent body
+          ctx.beginPath();
+          ctx.arc(0, 0, outerR, -sweepSpan, sweepSpan, false);
+          ctx.arc(0, 0, innerR, sweepSpan, -sweepSpan, true);
+          ctx.closePath();
+
+          const crescentGrad = ctx.createRadialGradient(0, 0, innerR, 0, 0, outerR);
+          crescentGrad.addColorStop(0, `rgba(56, 189, 248, 0)`);
+          crescentGrad.addColorStop(0.45, `rgba(186, 230, 253, ${alpha * 0.75})`);
+          crescentGrad.addColorStop(0.85, `rgba(255, 255, 255, ${alpha * 0.98})`);
+          crescentGrad.addColorStop(1, `rgba(56, 189, 248, ${alpha * 0.9})`);
+          ctx.fillStyle = crescentGrad;
+          ctx.shadowColor = '#38bdf8';
+          ctx.shadowBlur = 14 * z;
+          ctx.fill();
+
+          // Brilliant White Razor Blade Edge
+          ctx.beginPath();
+          ctx.arc(0, 0, outerR, -sweepSpan, sweepSpan, false);
+          ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.98})`;
+          ctx.lineWidth = 4 * z;
+          ctx.stroke();
+
+          // Sweeping wind speed trails (concentric thin cutting arcs)
+          for (let s = 1; s <= 2; s++) {
+            const trailR = innerR + (outerR - innerR) * (s * 0.35);
+            ctx.beginPath();
+            ctx.arc(0, 0, trailR, -sweepSpan * 0.82, sweepSpan * 0.82, false);
+            ctx.strokeStyle = `rgba(224, 242, 254, ${alpha * 0.75})`;
+            ctx.lineWidth = 2 * z;
+            ctx.stroke();
+          }
+
+          ctx.restore();
+        } else if (fx.type === 'whirlwind') {
           // Whirlwind Spinning Wind Cyclone Rings
           const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.canvas.width, this.canvas.height);
           const rad = (fx.radius || 3.2) * 28 * z * (0.6 + progress * 0.5);
@@ -2150,6 +2669,245 @@ class IsometricRenderer {
           ctx.lineWidth = 3 * z;
           ctx.stroke();
           ctx.restore();
+        } else if (fx.type === 'blade_charge') {
+          // Warrior Blade Charge - Golden Steel Rush Streak & Slashes
+          const p1 = Isometric.worldToScreen(fx.startX || fx.x, fx.startY || fx.y, 0.4, this.camera, this.canvas.width, this.canvas.height);
+          const p2 = Isometric.worldToScreen(fx.x, fx.y, 0.4, this.camera, this.canvas.width, this.canvas.height);
+
+          ctx.save();
+          // Outer Gold Glow Streak
+          ctx.beginPath();
+          ctx.moveTo(p1.x, p1.y);
+          ctx.lineTo(p2.x, p2.y);
+          ctx.strokeStyle = `rgba(245, 158, 11, ${alpha * 0.85})`;
+          ctx.lineWidth = 10 * z;
+          ctx.lineCap = 'round';
+          ctx.stroke();
+
+          // Inner Gleaming Steel Beam
+          ctx.beginPath();
+          ctx.moveTo(p1.x, p1.y);
+          ctx.lineTo(p2.x, p2.y);
+          ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.95})`;
+          ctx.lineWidth = 3.5 * z;
+          ctx.stroke();
+
+          // Slash crosscuts along the dash
+          const midX = (p1.x + p2.x) * 0.5;
+          const midY = (p1.y + p2.y) * 0.5;
+          const dx = p2.x - p1.x;
+          const dy = p2.y - p1.y;
+          const len = Math.hypot(dx, dy) || 1;
+          const px = -dy / len;
+          const py = dx / len;
+          const cutSize = 16 * z;
+
+          ctx.beginPath();
+          ctx.moveTo(midX - px * cutSize, midY - py * cutSize);
+          ctx.lineTo(midX + px * cutSize, midY + py * cutSize);
+          ctx.strokeStyle = `rgba(254, 240, 138, ${alpha * 0.9})`;
+          ctx.lineWidth = 3 * z;
+          ctx.stroke();
+
+          // Impact flare at destination
+          const flareRad = 24 * z * progress;
+          ctx.beginPath();
+          ctx.ellipse(p2.x, p2.y, flareRad, flareRad * 0.5, 0, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(251, 191, 36, ${alpha * 0.6})`;
+          ctx.fill();
+          ctx.restore();
+        } else if (fx.type === 'earthshaker') {
+          // Warrior Earthshaker Slam - Ground Fissures & Shockwave
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.canvas.width, this.canvas.height);
+          const rad = (fx.radius || 3.4) * 26 * z * Math.min(1.0, progress * 1.5);
+
+          ctx.save();
+          // Amber shockwave fill
+          ctx.beginPath();
+          ctx.ellipse(screen.x, screen.y, rad, rad * 0.5, 0, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(217, 119, 6, ${alpha * 0.35})`;
+          ctx.fill();
+
+          // Heavy outer shockwave border
+          ctx.strokeStyle = `rgba(245, 158, 11, ${alpha * 0.9})`;
+          ctx.lineWidth = 4 * z;
+          ctx.stroke();
+
+          // Jagged earth fissure cracks radiating outward
+          ctx.strokeStyle = `rgba(120, 53, 15, ${alpha * 0.95})`;
+          ctx.lineWidth = 2.5 * z;
+          for (let a = 0; a < 6; a++) {
+            const angle = (a * Math.PI / 3) + 0.2;
+            const crackLen = rad * 0.9;
+            ctx.beginPath();
+            ctx.moveTo(screen.x, screen.y);
+            const midCrackX = screen.x + Math.cos(angle) * (crackLen * 0.5) + (Math.sin(a * 4) * 6 * z);
+            const midCrackY = screen.y + Math.sin(angle) * (crackLen * 0.25) + (Math.cos(a * 4) * 4 * z);
+            const endCrackX = screen.x + Math.cos(angle) * crackLen;
+            const endCrackY = screen.y + Math.sin(angle) * (crackLen * 0.5);
+            ctx.lineTo(midCrackX, midCrackY);
+            ctx.lineTo(endCrackX, endCrackY);
+            ctx.stroke();
+          }
+          ctx.restore();
+        } else if (fx.type === 'frost_nova') {
+          // Mage Frost Nova - Crystalline Blizzard Ring
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.canvas.width, this.canvas.height);
+          const rad = (fx.radius || 4.0) * 24 * z * Math.min(1.0, progress * 1.6);
+
+          ctx.save();
+          // Ice blue inner gradient
+          const iceGrad = ctx.createRadialGradient(screen.x, screen.y, 4 * z, screen.x, screen.y, rad);
+          iceGrad.addColorStop(0, `rgba(224, 242, 254, ${alpha * 0.8})`);
+          iceGrad.addColorStop(0.5, `rgba(56, 189, 248, ${alpha * 0.5})`);
+          iceGrad.addColorStop(1, 'rgba(6, 182, 212, 0)');
+
+          ctx.beginPath();
+          ctx.ellipse(screen.x, screen.y, rad, rad * 0.5, 0, 0, Math.PI * 2);
+          ctx.fillStyle = iceGrad;
+          ctx.fill();
+
+          // Ring edge
+          ctx.strokeStyle = `rgba(186, 230, 253, ${alpha * 0.95})`;
+          ctx.lineWidth = 3.5 * z;
+          ctx.stroke();
+
+          // 8 Snowflake crystal spikes
+          ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.9})`;
+          ctx.lineWidth = 2 * z;
+          for (let a = 0; a < 8; a++) {
+            const angle = (a * Math.PI / 4) + (this.animations.time * 2);
+            ctx.beginPath();
+            ctx.moveTo(screen.x + Math.cos(angle) * (rad * 0.7), screen.y + Math.sin(angle) * (rad * 0.35));
+            ctx.lineTo(screen.x + Math.cos(angle) * (rad * 1.15), screen.y + Math.sin(angle) * (rad * 0.58));
+            ctx.stroke();
+          }
+          ctx.restore();
+        } else if (fx.type === 'arcane_blink') {
+          // Mage Arcane Blink - Cosmic Portal Rifts
+          const p1 = Isometric.worldToScreen(fx.startX || fx.x, fx.startY || fx.y, 0.4, this.camera, this.canvas.width, this.canvas.height);
+          const p2 = Isometric.worldToScreen(fx.x, fx.y, 0.4, this.camera, this.canvas.width, this.canvas.height);
+
+          ctx.save();
+          // Arcane beam connecting points
+          ctx.beginPath();
+          ctx.moveTo(p1.x, p1.y);
+          ctx.lineTo(p2.x, p2.y);
+          ctx.strokeStyle = `rgba(168, 85, 247, ${alpha * 0.75})`;
+          ctx.lineWidth = 5 * z;
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.moveTo(p1.x, p1.y);
+          ctx.lineTo(p2.x, p2.y);
+          ctx.strokeStyle = `rgba(224, 231, 255, ${alpha * 0.95})`;
+          ctx.lineWidth = 1.8 * z;
+          ctx.stroke();
+
+          // Origin collapsing rift
+          const r1 = 20 * z * (1.0 - progress);
+          ctx.beginPath();
+          ctx.ellipse(p1.x, p1.y, r1, r1 * 0.5, 0, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(192, 132, 252, ${alpha})`;
+          ctx.lineWidth = 2.5 * z;
+          ctx.stroke();
+
+          // Destination expanding cosmic burst
+          const r2 = 28 * z * Math.min(1.0, progress * 1.5);
+          ctx.beginPath();
+          ctx.ellipse(p2.x, p2.y, r2, r2 * 0.5, 0, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(56, 189, 248, ${alpha * 0.9})`;
+          ctx.lineWidth = 3 * z;
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.ellipse(p2.x, p2.y, r2 * 0.7, r2 * 0.35, 0, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(168, 85, 247, ${alpha * 0.4})`;
+          ctx.fill();
+          ctx.restore();
+        } else if (fx.type === 'fan_of_knives') {
+          // Rogue Fan of Knives - Whirling Spiral Daggers
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0.4, this.camera, this.canvas.width, this.canvas.height);
+          const rad = (fx.radius || 3.4) * 25 * z * Math.min(1.0, progress * 1.5);
+          const rot = this.animations.time * 12;
+
+          ctx.save();
+          // Central flash
+          ctx.beginPath();
+          ctx.ellipse(screen.x, screen.y, 14 * z, 7 * z, 0, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(168, 85, 247, ${alpha * 0.6})`;
+          ctx.fill();
+
+          // Radiating flying daggers
+          for (let k = 0; k < 10; k++) {
+            const angle = (k * (Math.PI * 2 / 10)) + rot;
+            const kx = screen.x + Math.cos(angle) * rad;
+            const ky = screen.y + Math.sin(angle) * (rad * 0.5);
+
+            ctx.save();
+            ctx.translate(kx, ky);
+            ctx.rotate(angle + Math.PI * 0.25);
+            ctx.beginPath();
+            ctx.moveTo(0, -6 * z);
+            ctx.lineTo(2 * z, 4 * z);
+            ctx.lineTo(-2 * z, 4 * z);
+            ctx.closePath();
+            ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.95})`;
+            ctx.fill();
+            ctx.strokeStyle = `rgba(168, 85, 247, ${alpha * 0.9})`;
+            ctx.lineWidth = 1.5 * z;
+            ctx.stroke();
+            ctx.restore();
+          }
+          ctx.restore();
+        } else if (fx.type === 'toxic_bomb') {
+          // Rogue Toxic Smoke Bomb - Bubbling Acidic Puddle & Fog
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.canvas.width, this.canvas.height);
+          const rad = (fx.radius || 3.2) * 26 * z * Math.min(1.0, progress * 1.4);
+
+          ctx.save();
+          const toxGrad = ctx.createRadialGradient(screen.x, screen.y, 2 * z, screen.x, screen.y, rad);
+          toxGrad.addColorStop(0, `rgba(74, 222, 128, ${alpha * 0.75})`);
+          toxGrad.addColorStop(0.6, `rgba(34, 197, 94, ${alpha * 0.5})`);
+          toxGrad.addColorStop(1, 'rgba(20, 83, 45, 0)');
+
+          ctx.beginPath();
+          ctx.ellipse(screen.x, screen.y, rad, rad * 0.5, 0, 0, Math.PI * 2);
+          ctx.fillStyle = toxGrad;
+          ctx.fill();
+
+          ctx.strokeStyle = `rgba(134, 239, 172, ${alpha * 0.85})`;
+          ctx.lineWidth = 2.5 * z;
+          ctx.stroke();
+          ctx.restore();
+        } else if (fx.type === 'shadow_dash') {
+          // Rogue Shadow Dash - Obsidian Phantom Dash & Smoke
+          const p1 = Isometric.worldToScreen(fx.startX || fx.x, fx.startY || fx.y, 0.4, this.camera, this.canvas.width, this.canvas.height);
+          const p2 = Isometric.worldToScreen(fx.x, fx.y, 0.4, this.camera, this.canvas.width, this.canvas.height);
+
+          ctx.save();
+          // Shadow trail beam
+          ctx.beginPath();
+          ctx.moveTo(p1.x, p1.y);
+          ctx.lineTo(p2.x, p2.y);
+          ctx.strokeStyle = `rgba(147, 51, 234, ${alpha * 0.85})`;
+          ctx.lineWidth = 8 * z;
+          ctx.lineCap = 'round';
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.moveTo(p1.x, p1.y);
+          ctx.lineTo(p2.x, p2.y);
+          ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.95})`;
+          ctx.lineWidth = 2.2 * z;
+          ctx.stroke();
+
+          // Smoke puff at start
+          ctx.beginPath();
+          ctx.ellipse(p1.x, p1.y, 18 * z, 9 * z, 0, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(59, 7, 100, ${alpha * 0.6})`;
+          ctx.fill();
+          ctx.restore();
         } else if (fx.type === 'shadow_strike') {
           // Shadow Strike Dash Beam
           const p1 = Isometric.worldToScreen(fx.startX || fx.x, fx.startY || fx.y, 0.4, this.camera, this.canvas.width, this.canvas.height);
@@ -2167,6 +2925,252 @@ class IsometricRenderer {
           ctx.moveTo(p1.x, p1.y);
           ctx.lineTo(p2.x, p2.y);
           ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.95})`;
+          ctx.lineWidth = 2 * z;
+          ctx.stroke();
+          ctx.restore();
+        } else if (fx.type === 'colossus_strike') {
+          // Colossus Decapitate - Massive Golden Greatsword Leap & Ground Shatter
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.canvas.width, this.canvas.height);
+          const rad = (fx.radius || 3.0) * 32 * z * Math.min(1.0, progress * 1.5);
+
+          ctx.save();
+          // Impact crater radial gradient
+          const grad = ctx.createRadialGradient(screen.x, screen.y, 4 * z, screen.x, screen.y, rad);
+          grad.addColorStop(0, `rgba(254, 240, 138, ${alpha * 0.9})`);
+          grad.addColorStop(0.35, `rgba(245, 158, 11, ${alpha * 0.7})`);
+          grad.addColorStop(0.8, `rgba(180, 83, 9, ${alpha * 0.4})`);
+          grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+          ctx.beginPath();
+          ctx.ellipse(screen.x, screen.y, rad, rad * 0.5, 0, 0, Math.PI * 2);
+          ctx.fillStyle = grad;
+          ctx.fill();
+
+          // Golden fracture rings
+          ctx.beginPath();
+          ctx.ellipse(screen.x, screen.y, rad, rad * 0.5, 0, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(250, 204, 21, ${alpha * 0.95})`;
+          ctx.lineWidth = 4 * z;
+          ctx.stroke();
+          ctx.restore();
+        } else if (fx.type === 'shield_slam') {
+          // Aegis Shield Bash Flash
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0.4, this.camera, this.canvas.width, this.canvas.height);
+          const rad = 22 * z * (0.8 + progress * 0.6);
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.ellipse(screen.x, screen.y, rad, rad * 0.5, 0, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(56, 189, 248, ${alpha * 0.9})`;
+          ctx.lineWidth = 3.5 * z;
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.ellipse(screen.x, screen.y, rad * 0.6, rad * 0.3, 0, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(250, 204, 21, ${alpha * 0.4})`;
+          ctx.fill();
+          ctx.restore();
+        } else if (fx.type === 'blood_rage') {
+          // Berserker Blood Rage Aura Ring
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0.2, this.camera, this.canvas.width, this.canvas.height);
+          const rad = 26 * z * (0.7 + progress * 0.5);
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.ellipse(screen.x, screen.y, rad, rad * 0.5, 0, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(239, 68, 68, ${alpha * 0.9})`;
+          ctx.lineWidth = 4 * z;
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.ellipse(screen.x, screen.y, rad * 0.7, rad * 0.35, 0, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(185, 28, 28, ${alpha * 0.4})`;
+          ctx.fill();
+          ctx.restore();
+        } else if (fx.type === 'iron_fortress') {
+          // Iron Fortress Hexagonal Ring
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0.3, this.camera, this.canvas.width, this.canvas.height);
+          const rad = 28 * z;
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.ellipse(screen.x, screen.y, rad, rad * 0.5, 0, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(148, 163, 184, ${alpha * 0.9})`;
+          ctx.lineWidth = 3 * z;
+          ctx.stroke();
+          ctx.restore();
+        } else if (fx.type === 'war_stomp') {
+          // Thunder War Stomp
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.canvas.width, this.canvas.height);
+          const rad = (fx.radius || 4.2) * 25 * z * Math.min(1.0, progress * 1.5);
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.ellipse(screen.x, screen.y, rad, rad * 0.5, 0, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(250, 204, 21, ${alpha * 0.9})`;
+          ctx.lineWidth = 3.5 * z;
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.ellipse(screen.x, screen.y, rad * 0.7, rad * 0.35, 0, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(56, 189, 248, ${alpha * 0.8})`;
+          ctx.lineWidth = 2 * z;
+          ctx.stroke();
+          ctx.restore();
+        } else if (fx.type === 'chain_lightning') {
+          // Chain Lightning Arcs Connecting Points
+          if (fx.points && fx.points.length > 1) {
+            ctx.save();
+            ctx.beginPath();
+            for (let i = 0; i < fx.points.length - 1; i++) {
+              const pt1 = Isometric.worldToScreen(fx.points[i].x, fx.points[i].y, 0.4, this.camera, this.canvas.width, this.canvas.height);
+              const pt2 = Isometric.worldToScreen(fx.points[i + 1].x, fx.points[i + 1].y, 0.4, this.camera, this.canvas.width, this.canvas.height);
+              const midX = (pt1.x + pt2.x) * 0.5 + (Math.random() - 0.5) * 16 * z;
+              const midY = (pt1.y + pt2.y) * 0.5 + (Math.random() - 0.5) * 16 * z;
+              ctx.moveTo(pt1.x, pt1.y);
+              ctx.lineTo(midX, midY);
+              ctx.lineTo(pt2.x, pt2.y);
+            }
+            ctx.strokeStyle = `rgba(103, 232, 249, ${alpha * 0.95})`;
+            ctx.lineWidth = 3 * z;
+            ctx.stroke();
+
+            ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.95})`;
+            ctx.lineWidth = 1.5 * z;
+            ctx.stroke();
+            ctx.restore();
+          }
+        } else if (fx.type === 'mana_shield') {
+          // Arcane Mana Shield Bubble
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0.4, this.camera, this.canvas.width, this.canvas.height);
+          const rad = 25 * z;
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(screen.x, screen.y - 12 * z, rad, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(56, 189, 248, ${alpha * 0.35})`;
+          ctx.fill();
+          ctx.strokeStyle = `rgba(103, 232, 249, ${alpha * 0.9})`;
+          ctx.lineWidth = 2 * z;
+          ctx.stroke();
+          ctx.restore();
+        } else if (fx.type === 'black_hole') {
+          // Cosmic Singularity - Swirling Void Vortex
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.canvas.width, this.canvas.height);
+          const rad = (fx.radius || 4.8) * 26 * z * (0.6 + progress * 0.6);
+          const rot = this.animations.time * 16;
+
+          ctx.save();
+          ctx.translate(screen.x, screen.y);
+          ctx.rotate(rot);
+
+          // Deep void core
+          ctx.beginPath();
+          ctx.ellipse(0, 0, rad * 0.5, rad * 0.25, 0, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(15, 23, 42, ${alpha * 0.95})`;
+          ctx.fill();
+          ctx.strokeStyle = `rgba(168, 85, 247, ${alpha * 0.95})`;
+          ctx.lineWidth = 4 * z;
+          ctx.stroke();
+
+          // Outer accretion ring
+          ctx.beginPath();
+          ctx.ellipse(0, 0, rad, rad * 0.5, 0, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(192, 132, 252, ${alpha * 0.75})`;
+          ctx.lineWidth = 2.5 * z;
+          ctx.stroke();
+          ctx.restore();
+        } else if (fx.type === 'blizzard') {
+          // Glacial Blizzard Hail Storm
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.canvas.width, this.canvas.height);
+          const rad = (fx.radius || 4.4) * 24 * z;
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.ellipse(screen.x, screen.y, rad, rad * 0.5, 0, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(186, 230, 253, ${alpha * 0.28})`;
+          ctx.fill();
+          ctx.strokeStyle = `rgba(56, 189, 248, ${alpha * 0.8})`;
+          ctx.lineWidth = 2 * z;
+          ctx.stroke();
+          ctx.restore();
+        } else if (fx.type === 'pyroblast') {
+          // Pyroblast Fireball Blast
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0.4, this.camera, this.canvas.width, this.canvas.height);
+          const rad = 28 * z * Math.min(1.0, progress * 1.5);
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(screen.x, screen.y, rad, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(249, 115, 22, ${alpha * 0.7})`;
+          ctx.fill();
+          ctx.strokeStyle = `rgba(254, 240, 138, ${alpha * 0.95})`;
+          ctx.lineWidth = 3 * z;
+          ctx.stroke();
+          ctx.restore();
+        } else if (fx.type === 'shadowstep') {
+          // Shadowstep Flash
+          const p1 = Isometric.worldToScreen(fx.startX || fx.x, fx.startY || fx.y, 0.4, this.camera, this.canvas.width, this.canvas.height);
+          const p2 = Isometric.worldToScreen(fx.x, fx.y, 0.4, this.camera, this.canvas.width, this.canvas.height);
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.moveTo(p1.x, p1.y);
+          ctx.lineTo(p2.x, p2.y);
+          ctx.strokeStyle = `rgba(168, 85, 247, ${alpha * 0.8})`;
+          ctx.lineWidth = 4 * z;
+          ctx.stroke();
+          ctx.restore();
+        } else if (fx.type === 'smoke_screen') {
+          // Smoke Screen
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0.3, this.camera, this.canvas.width, this.canvas.height);
+          const rad = 28 * z * (0.8 + progress * 0.5);
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.ellipse(screen.x, screen.y, rad, rad * 0.5, 0, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(75, 85, 99, ${alpha * 0.65})`;
+          ctx.fill();
+          ctx.restore();
+        } else if (fx.type === 'death_blossom') {
+          // Death Blossom Omnislash Flurry
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0.4, this.camera, this.canvas.width, this.canvas.height);
+          const rad = (fx.radius || 4.0) * 26 * z;
+
+          ctx.save();
+          for (let s = 0; s < 6; s++) {
+            const angle = (s * Math.PI / 3) + progress * 8;
+            const x1 = screen.x + Math.cos(angle) * (rad * 0.3);
+            const y1 = screen.y + Math.sin(angle) * (rad * 0.15);
+            const x2 = screen.x + Math.cos(angle) * rad;
+            const y2 = screen.y + Math.sin(angle) * (rad * 0.5);
+
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.strokeStyle = `rgba(244, 114, 182, ${alpha * 0.9})`;
+            ctx.lineWidth = 2.5 * z;
+            ctx.stroke();
+          }
+          ctx.restore();
+        } else if (fx.type === 'poison_darts') {
+          // Venom Shurikens
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0.4, this.camera, this.canvas.width, this.canvas.height);
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(screen.x, screen.y, 16 * z * progress, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(74, 222, 128, ${alpha * 0.9})`;
+          ctx.lineWidth = 2 * z;
+          ctx.stroke();
+          ctx.restore();
+        } else if (fx.type === 'caltrops') {
+          // Barbed Caltrops
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.canvas.width, this.canvas.height);
+          const rad = (fx.radius || 3.2) * 22 * z;
+          ctx.save();
+          ctx.beginPath();
+          ctx.ellipse(screen.x, screen.y, rad, rad * 0.5, 0, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(148, 163, 184, ${alpha * 0.6})`;
           ctx.lineWidth = 2 * z;
           ctx.stroke();
           ctx.restore();
@@ -2227,6 +3231,24 @@ class IsometricRenderer {
       ctx.fillText(ft.text, screen.x, screen.y);
       ctx.restore();
     }
+
+    // 4. Ambient Snowfall Particle Weather in Frostfell Peaks
+    if (this.currentTheme === 'frostfell') {
+      const snowW = this.canvas.width;
+      const snowH = this.canvas.height;
+      const time = this.animations.time;
+      ctx.save();
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+      for (let s = 0; s < 70; s++) {
+        const sx = ((s * 97 + time * 75) % (snowW + 100)) - 50;
+        const sy = ((s * 131 + time * 120) % (snowH + 100)) - 50;
+        const size = (s % 3) + 1.2;
+        ctx.beginPath();
+        ctx.arc(sx, sy, size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
   }
 
   // Radar Minimap
@@ -2244,7 +3266,7 @@ class IsometricRenderer {
     const scaleX = mw / map.width;
     const scaleY = mh / map.height;
 
-    // Draw Map outlines (Town & Dungeon)
+    // Draw Map outlines (Town, Frostfell & Dungeon)
     for (let y = 0; y < map.height; y++) {
       for (let x = 0; x < map.width; x++) {
         const t = map.tiles[y][x];
@@ -2266,6 +3288,22 @@ class IsometricRenderer {
         } else if (t === 6) {
           // Portal
           mctx.fillStyle = '#c084fc';
+          mctx.fillRect(x * scaleX, y * scaleY, scaleX + 1, scaleY + 1);
+        } else if (t === 9) {
+          // Snow
+          mctx.fillStyle = '#cbd5e1';
+          mctx.fillRect(x * scaleX, y * scaleY, scaleX + 1, scaleY + 1);
+        } else if (t === 10) {
+          // Frozen Ice Lake
+          mctx.fillStyle = '#38bdf8';
+          mctx.fillRect(x * scaleX, y * scaleY, scaleX + 1, scaleY + 1);
+        } else if (t === 11) {
+          // Frost Stone
+          mctx.fillStyle = '#64748b';
+          mctx.fillRect(x * scaleX, y * scaleY, scaleX + 1, scaleY + 1);
+        } else if (t === 12) {
+          // Frost Cliff
+          mctx.fillStyle = '#1e293b';
           mctx.fillRect(x * scaleX, y * scaleY, scaleX + 1, scaleY + 1);
         }
       }

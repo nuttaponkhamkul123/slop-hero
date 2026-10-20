@@ -2,11 +2,14 @@
 document.addEventListener('DOMContentLoaded', () => {
   const canvas = document.getElementById('gameCanvas');
   const renderer = new IsometricRenderer(canvas);
+  const threeHeroRenderer = (typeof window.ThreeHeroRenderer === 'function') ? new window.ThreeHeroRenderer() : null;
+  window.threeHeroRenderer = threeHeroRenderer;
   const socket = io();
 
   let localPlayerId = null;
   let localPlayer = null;
   let shopItemsCatalog = [];
+  let skillTreesCatalog = {};
 
   let gameState = {
     map: null,
@@ -20,8 +23,21 @@ document.addEventListener('DOMContentLoaded', () => {
   let selectedTargetType = null;
   let lastFrameTime = performance.now();
 
+  let skill1CooldownTimer = 0;
+  let skill1CooldownMax = 3.5;
+  let skill2CooldownTimer = 0;
+  let skill2CooldownMax = 4.5;
+  let skill3CooldownTimer = 0;
+  let skill3CooldownMax = 9.0;
+  let dashCooldownTimer = 0;
+  let dashCooldownMax = 3.0;
   let skillCooldownTimer = 0;
-  let skillCooldownMax = 5.0;
+  let skillCooldownMax = 3.5;
+
+  let allSkillsCatalog = {};
+  let skillRunesCatalog = {};
+  let selectedLoadoutSlot = 'slot1';
+  let activeSkillsModalTab = 'talents'; // Default to passive talents tree
 
   const activeKeys = { w: false, a: false, s: false, d: false };
 
@@ -54,13 +70,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const slotTarget = document.getElementById('slotTarget');
   const slotAttack = document.getElementById('slotAttack');
-  const slotSkill = document.getElementById('slotSkill');
-  const slotSkillIcon = document.getElementById('slotSkillIcon');
-  const slotHealthPotion = document.getElementById('slotHealthPotion');
-  const slotManaPotion = document.getElementById('slotManaPotion');
-  const badgeHealthPotion = document.getElementById('badgeHealthPotion');
-  const badgeManaPotion = document.getElementById('badgeManaPotion');
-  const cdOverlaySkill = document.getElementById('cdOverlaySkill');
+
+  const slotSkill1 = document.getElementById('slotSkill1') || document.getElementById('slotSkill');
+  const slotSkill1Icon = document.getElementById('slotSkill1Icon') || document.getElementById('slotSkillIcon');
+  const cdOverlaySkill1 = document.getElementById('cdOverlaySkill1') || document.getElementById('cdOverlaySkill');
+
+  const slotSkill2 = document.getElementById('slotSkill2');
+  const slotSkill2Icon = document.getElementById('slotSkill2Icon');
+  const cdOverlaySkill2 = document.getElementById('cdOverlaySkill2');
+
+  const slotSkill3 = document.getElementById('slotSkill3');
+  const slotSkill3Icon = document.getElementById('slotSkill3Icon');
+  const cdOverlaySkill3 = document.getElementById('cdOverlaySkill3');
+
+  const slotDash = document.getElementById('slotDash');
+  const slotDashIcon = document.getElementById('slotDashIcon');
+  const cdOverlayDash = document.getElementById('cdOverlayDash');
+
+  // Alias for backward compatibility
+  const slotSkill = slotSkill1;
+  const slotSkillIcon = slotSkill1Icon;
+  const cdOverlaySkill = cdOverlaySkill1;
 
   const chatMessages = document.getElementById('chatMessages');
   const chatInput = document.getElementById('chatInput');
@@ -97,6 +127,23 @@ document.addEventListener('DOMContentLoaded', () => {
   const rfRiskTag = document.getElementById('rfRiskTag');
   const rfCostVal = document.getElementById('rfCostVal');
   const btnHammerItem = document.getElementById('btnHammerItem');
+
+  // Class Skill Tree & Custom Spellbook Modal Elements
+  const skillTreeModal = document.getElementById('skillTreeModal');
+  const btnOpenSkillTree = document.getElementById('btnOpenSkillTree');
+  const btnCloseSkillTree = document.getElementById('btnCloseSkillTree');
+  const stClassName = document.getElementById('stClassName');
+  const stAvailablePoints = document.getElementById('stAvailablePoints');
+  const skillTreeGrid = document.getElementById('skillTreeGrid');
+  const btnResetTalents = document.getElementById('btnResetTalents');
+  const tabNavLoadout = document.getElementById('tabNavLoadout');
+  const tabNavTalents = document.getElementById('tabNavTalents');
+  const tabContentLoadout = document.getElementById('tabContentLoadout');
+  const tabContentTalents = document.getElementById('tabContentTalents');
+  const loadoutSlotsRow = document.getElementById('loadoutSlotsRow');
+  const runesSelectorRow = document.getElementById('runesSelectorRow');
+  const skillsCatalogGrid = document.getElementById('skillsCatalogGrid');
+  const spBannerWrapper = document.getElementById('spBannerWrapper');
 
   let reforgeTab = 'equipped'; // 'equipped' or 'bag'
   let selectedReforgeTarget = null; // { target, slot, itemIndex, item }
@@ -180,24 +227,81 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     joinModal.style.display = 'none';
-
-    if (selectedClass === 'warrior') {
-      slotSkillIcon.textContent = '🌪️';
-      slotSkill.title = 'Whirlwind Slash (AoE)';
-      playerAvatarIcon.textContent = '🛡️';
-      skillCooldownMax = 5.0;
-    } else if (selectedClass === 'mage') {
-      slotSkillIcon.textContent = '🔥';
-      slotSkill.title = 'Firestorm Meteor (AoE)';
-      playerAvatarIcon.textContent = '🧙‍♂️';
-      skillCooldownMax = 6.0;
-    } else if (selectedClass === 'rogue') {
-      slotSkillIcon.textContent = '⚡';
-      slotSkill.title = 'Shadow Strike Dash';
-      playerAvatarIcon.textContent = '🗡️';
-      skillCooldownMax = 4.0;
-    }
+    setupClassSkillHUD(selectedClass);
   });
+
+  function setupClassSkillHUD(cls) {
+    if (!cls) return;
+    const classAvatars = { warrior: '🛡️', mage: '🧙‍♂️', rogue: '🗡️' };
+    if (playerAvatarIcon) playerAvatarIcon.textContent = classAvatars[cls] || '⚔️';
+
+    // If player has equippedSkills configured:
+    if (localPlayer && localPlayer.equippedSkills && allSkillsCatalog[cls]) {
+      const eq = localPlayer.equippedSkills;
+      const classSkills = allSkillsCatalog[cls];
+
+      const s1 = classSkills.find(s => s.id === (eq.slot1 && eq.slot1.skillId)) || classSkills[0];
+      const s2 = classSkills.find(s => s.id === (eq.slot2 && eq.slot2.skillId)) || classSkills[1];
+      const s3 = classSkills.find(s => s.id === (eq.slot3 && eq.slot3.skillId)) || classSkills[2];
+      const sd = classSkills.find(s => s.id === (eq.dash && eq.dash.skillId)) || classSkills.find(s => s.isDash) || classSkills[3];
+
+      if (slotSkill1Icon && s1) slotSkill1Icon.textContent = s1.icon;
+      if (slotSkill1 && s1) slotSkill1.title = `${s1.name} [Q] (${s1.mpCost} MP) - ${s1.desc}`;
+      if (slotSkill2Icon && s2) slotSkill2Icon.textContent = s2.icon;
+      if (slotSkill2 && s2) slotSkill2.title = `${s2.name} [E] (${s2.mpCost} MP) - ${s2.desc}`;
+      if (slotSkill3Icon && s3) slotSkill3Icon.textContent = s3.icon;
+      if (slotSkill3 && s3) slotSkill3.title = `${s3.name} [R] (${s3.mpCost} MP) - ${s3.desc}`;
+      if (slotDashIcon && sd) slotDashIcon.textContent = sd.icon;
+      if (slotDash && sd) slotDash.title = `${sd.name} [Shift] (${sd.mpCost} MP) - ${sd.desc}`;
+
+      skill1CooldownMax = s1 ? s1.cooldown : 3.5;
+      skill2CooldownMax = s2 ? s2.cooldown : 4.5;
+      skill3CooldownMax = s3 ? s3.cooldown : 9.0;
+      dashCooldownMax = sd ? sd.cooldown : 3.0;
+      return;
+    }
+
+    if (cls === 'warrior') {
+      if (slotSkill1Icon) slotSkill1Icon.textContent = '🌪️';
+      if (slotSkill1) slotSkill1.title = 'Whirlwind Slash [Q] (14 MP) - 360° AoE Physical Spin';
+      if (slotSkill2Icon) slotSkill2Icon.textContent = '💥';
+      if (slotSkill2) slotSkill2.title = 'Earthshaker Slam [E] (16 MP) - Heavy Ground Slam & Slow';
+      if (slotSkill3Icon) slotSkill3Icon.textContent = '⚔️';
+      if (slotSkill3) slotSkill3.title = 'Colossus Strike [R] (28 MP) - Titanic Strike & Ground Shockwave';
+      if (slotDashIcon) slotDashIcon.textContent = '🏃';
+      if (slotDash) slotDash.title = 'Blade Charge Dash [Shift] (10 MP) - Pierce Dash & Slice Forward';
+      skill1CooldownMax = 3.5;
+      skill2CooldownMax = 4.5;
+      skill3CooldownMax = 9.0;
+      dashCooldownMax = 3.0;
+    } else if (cls === 'mage') {
+      if (slotSkill1Icon) slotSkill1Icon.textContent = '🔥';
+      if (slotSkill1) slotSkill1.title = 'Firestorm Meteor [Q] (22 MP) - Apocalyptic Meteor & Burn DoT';
+      if (slotSkill2Icon) slotSkill2Icon.textContent = '❄️';
+      if (slotSkill2) slotSkill2.title = 'Frost Nova [E] (18 MP) - Freezing Frost Ring & 50% Chill Slow';
+      if (slotSkill3Icon) slotSkill3Icon.textContent = '🕳️';
+      if (slotSkill3) slotSkill3.title = 'Singularity Black Hole [R] (35 MP) - Gravitational Vortex';
+      if (slotDashIcon) slotDashIcon.textContent = '🔮';
+      if (slotDash) slotDash.title = 'Arcane Blink [Shift] (15 MP) - Teleport & Break Crowd Control';
+      skill1CooldownMax = 4.5;
+      skill2CooldownMax = 4.0;
+      skill3CooldownMax = 12.0;
+      dashCooldownMax = 3.5;
+    } else if (cls === 'rogue') {
+      if (slotSkill1Icon) slotSkill1Icon.textContent = '🗡️';
+      if (slotSkill1) slotSkill1.title = 'Fan of Knives [Q] (14 MP) - 360° Lethal Dagger Flurry & High Crit';
+      if (slotSkill2Icon) slotSkill2Icon.textContent = '☠️';
+      if (slotSkill2) slotSkill2.title = 'Toxic Smoke Bomb [E] (16 MP) - Chemical Fog & Poison DoT';
+      if (slotSkill3Icon) slotSkill3Icon.textContent = '🌸';
+      if (slotSkill3) slotSkill3.title = 'Death Blossom [R] (30 MP) - 360° Lethal Dagger Spiral';
+      if (slotDashIcon) slotDashIcon.textContent = '⚡';
+      if (slotDash) slotDash.title = 'Shadow Dash [Shift] (8 MP) - Swift Phantom Dash & Speed Boost';
+      skill1CooldownMax = 3.0;
+      skill2CooldownMax = 4.5;
+      skill3CooldownMax = 8.5;
+      dashCooldownMax = 2.5;
+    }
+  }
 
   // ================= NETWORKING & SOCKET EVENTS =================
 
@@ -214,9 +318,13 @@ document.addEventListener('DOMContentLoaded', () => {
     gameState.mobs = data.mobs;
     gameState.groundItems = data.groundItems;
     shopItemsCatalog = data.shopItems || [];
+    skillTreesCatalog = data.skillTrees || {};
+    allSkillsCatalog = data.allSkills || {};
+    skillRunesCatalog = data.skillRunes || {};
 
     localPlayer = data.player;
     updatePlayerHUD(localPlayer);
+    setupClassSkillHUD(localPlayer.characterClass);
     renderShopBuyList();
     renderInventoryGrid();
     renderer.setCameraTarget(localPlayer.x, localPlayer.y);
@@ -242,6 +350,10 @@ document.addEventListener('DOMContentLoaded', () => {
         zoneIcon.textContent = '🌀';
         zoneText.textContent = `Dungeon - Floor ${data.floorLevel || 1}`;
         window.soundEngine.playSkillWhoosh();
+      } else if (data.zone === 'frostfell') {
+        zoneIcon.textContent = '❄️';
+        zoneText.textContent = 'Frostfell Peaks';
+        window.soundEngine.playFrostNova();
       } else {
         zoneIcon.textContent = '🏰';
         zoneText.textContent = 'Town of Slop Hero';
@@ -291,6 +403,9 @@ document.addEventListener('DOMContentLoaded', () => {
         existing.dmg = p.dmg;
         existing.def = p.def;
         existing.speed = p.speed;
+        existing.skillPoints = p.skillPoints !== undefined ? p.skillPoints : (existing.skillPoints || 0);
+        existing.skills = p.skills || existing.skills || {};
+        existing.equippedSkills = p.equippedSkills || existing.equippedSkills;
       } else {
         p.targetX = p.x;
         p.targetY = p.y;
@@ -301,7 +416,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (localPlayer) {
       const isTown = localPlayer.zone === 'town';
-      const incomingMobs = isTown ? (tickData.townMobs || []) : (tickData.dungeonMobs || []);
+      const isFrostfell = localPlayer.zone === 'frostfell';
+      const incomingMobs = isTown ? (tickData.townMobs || []) : isFrostfell ? (tickData.frostfellMobs || []) : (tickData.dungeonMobs || []);
       
       incomingMobs.forEach(m => {
         const existingMob = gameState.mobs.find(oldM => oldM.id === m.id);
@@ -324,7 +440,7 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       gameState.mobs = gameState.mobs.filter(oldM => incomingMobs.some(m => m.id === oldM.id));
 
-      gameState.chests = isTown ? [] : (tickData.dungeonChests || []);
+      gameState.chests = (!isTown && !isFrostfell) ? (tickData.dungeonChests || []) : [];
 
       const me = gameState.players.find(p => p.id === localPlayerId);
       if (me) {
@@ -348,7 +464,7 @@ document.addEventListener('DOMContentLoaded', () => {
         targetName.textContent = `${mob.name} (Lv. ${mob.level})`;
         const hpPct = Math.round((mob.hp / mob.maxHp) * 100);
         targetHpFill.style.width = `${hpPct}%`;
-        targetIcon.textContent = mob.isBoss ? '👑' : mob.type === 'slime' ? '🟢' : mob.type === 'goblin' ? '👺' : '💀';
+        targetIcon.textContent = mob.isBoss ? '👑' : mob.type === 'slime' ? '🟢' : mob.type === 'frost_titan' ? '🏔️' : mob.type === 'frost_wolf' ? '🐺' : mob.type === 'ice_elemental' ? '❄️' : mob.type === 'goblin' ? '👺' : '💀';
       } else {
         targetHud.classList.remove('active');
         selectedTargetId = null;
@@ -364,20 +480,34 @@ document.addEventListener('DOMContentLoaded', () => {
   socket.on('player_updated', (updatedPlayer) => {
     localPlayer = updatedPlayer;
     updatePlayerHUD(localPlayer);
+    setupClassSkillHUD(localPlayer.characterClass);
     renderInventoryGrid();
     renderShopSellList();
     if (shopPlayerGold) shopPlayerGold.textContent = localPlayer.gold;
+    if (skillTreeModal && skillTreeModal.style.display === 'flex') {
+      if (activeSkillsModalTab === 'loadout') {
+        renderCustomSkillLoadout();
+      } else {
+        renderSkillTree();
+      }
+    }
   });
 
-  socket.on('item_dropped', (item) => {
-    gameState.groundItems.push(item);
+  socket.on('skill_tree_updated', (data) => {
+    if (localPlayer) {
+      localPlayer.skillPoints = data.skillPoints;
+      localPlayer.skills = data.skills;
+    }
+    renderSkillTree();
   });
 
-  socket.on('item_picked', (data) => {
-    gameState.groundItems = gameState.groundItems.filter(i => i.id !== data.itemId);
-    if (data.pickerId === localPlayerId) {
-      window.soundEngine.playCoin();
-      if (renderer) renderer.addParticles(localPlayer.x, localPlayer.y, 'gold', 8);
+  socket.on('custom_skills_updated', (data) => {
+    if (localPlayer) {
+      localPlayer.equippedSkills = data.equippedSkills;
+      setupClassSkillHUD(localPlayer.characterClass);
+      if (skillTreeModal && skillTreeModal.style.display === 'flex' && activeSkillsModalTab === 'loadout') {
+        renderCustomSkillLoadout();
+      }
     }
   });
 
@@ -389,12 +519,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  socket.on('player_updated', (updatedPlayer) => {
-    localPlayer = updatedPlayer;
-    updatePlayerHUD(localPlayer);
-    renderInventoryGrid();
-    renderShopSellList();
-    if (shopPlayerGold) shopPlayerGold.textContent = localPlayer.gold;
+  socket.on('item_picked', (data) => {
+    gameState.groundItems = gameState.groundItems.filter(i => i.id !== data.itemId);
+    if (data.pickerId === localPlayerId) {
+      window.soundEngine.playCoin();
+      if (renderer) renderer.addParticles(localPlayer.x, localPlayer.y, 'gold', 8);
+    }
   });
 
   socket.on('chest_opened', (data) => {
@@ -412,7 +542,11 @@ document.addEventListener('DOMContentLoaded', () => {
       if (fx.class === 'mage') {
         window.soundEngine.playFireball();
       } else {
-        window.soundEngine.playSlash();
+        if (fx.hasSweep && window.soundEngine.playSweepingEdge) {
+          window.soundEngine.playSweepingEdge();
+        } else {
+          window.soundEngine.playSlash();
+        }
       }
     } else {
       window.soundEngine.playHit();
@@ -423,14 +557,58 @@ document.addEventListener('DOMContentLoaded', () => {
     if (renderer) renderer.addSkillEffect(fx);
 
     if (fx.playerId === localPlayerId) {
-      skillCooldownTimer = skillCooldownMax;
+      const slot = fx.skillSlot === 'skill1' ? 'slot1' : fx.skillSlot === 'skill2' ? 'slot2' : fx.skillSlot === 'skill3' ? 'slot3' : fx.skillSlot;
+      if (slot === 'slot1') {
+        skill1CooldownMax = fx.cooldown || skill1CooldownMax;
+        skill1CooldownTimer = skill1CooldownMax;
+        skillCooldownTimer = skill1CooldownTimer;
+        skillCooldownMax = skill1CooldownMax;
+      } else if (slot === 'slot2') {
+        skill2CooldownMax = fx.cooldown || skill2CooldownMax;
+        skill2CooldownTimer = skill2CooldownMax;
+      } else if (slot === 'slot3') {
+        skill3CooldownMax = fx.cooldown || skill3CooldownMax;
+        skill3CooldownTimer = skill3CooldownMax;
+      } else if (slot === 'dash') {
+        dashCooldownMax = fx.cooldown || dashCooldownMax;
+        dashCooldownTimer = dashCooldownMax;
+      } else {
+        skill1CooldownMax = fx.cooldown || skill1CooldownMax;
+        skill1CooldownTimer = skill1CooldownMax;
+      }
     }
 
     if (fx.type === 'whirlwind') {
       window.soundEngine.playSkillWhoosh();
-    } else if (fx.type === 'firestorm') {
+    } else if (fx.type === 'blade_charge') {
+      window.soundEngine.playBladeCharge();
+    } else if (fx.type === 'earthshaker' || fx.type === 'colossus_strike' || fx.type === 'war_stomp') {
+      window.soundEngine.playEarthshaker();
+    } else if (fx.type === 'shield_slam' || fx.type === 'iron_fortress' || fx.type === 'mana_shield') {
+      window.soundEngine.playShield();
+    } else if (fx.type === 'blood_rage') {
+      window.soundEngine.playBerserk();
+    } else if (fx.type === 'firestorm' || fx.type === 'pyroblast') {
       window.soundEngine.playExplosion();
-    } else if (fx.type === 'shadow_strike') {
+    } else if (fx.type === 'frost_nova' || fx.type === 'blizzard') {
+      window.soundEngine.playFrostNova();
+    } else if (fx.type === 'arcane_blink' || fx.type === 'shadowstep') {
+      window.soundEngine.playBlink();
+    } else if (fx.type === 'chain_lightning') {
+      window.soundEngine.playThunder();
+    } else if (fx.type === 'black_hole') {
+      window.soundEngine.playSingularity();
+    } else if (fx.type === 'fan_of_knives' || fx.type === 'poison_darts') {
+      window.soundEngine.playFanOfKnives();
+    } else if (fx.type === 'toxic_bomb' || fx.type === 'smoke_screen') {
+      window.soundEngine.playToxicBomb();
+    } else if (fx.type === 'shadow_dash') {
+      window.soundEngine.playShadowDash();
+    } else if (fx.type === 'death_blossom') {
+      window.soundEngine.playBlossom();
+    } else if (fx.type === 'caltrops') {
+      window.soundEngine.playShuriken();
+    } else {
       window.soundEngine.playSkillWhoosh();
     }
   });
@@ -551,6 +729,12 @@ document.addEventListener('DOMContentLoaded', () => {
           return;
         }
 
+        const clickDistToFrostPortal = Math.hypot(16.5 - worldPos.x, 16.5 - worldPos.y);
+        if (clickDistToFrostPortal < 1.1) {
+          socket.emit('player_input', { type: 'click_move', x: 16.5, y: 16.5 });
+          return;
+        }
+
         if (clickDistToPortal < 1.1) {
           const playerDist = Math.hypot(23.5 - localPlayer.x, 16.5 - localPlayer.y);
           if (playerDist <= 3.0) {
@@ -558,6 +742,12 @@ document.addEventListener('DOMContentLoaded', () => {
           } else {
             socket.emit('player_input', { type: 'click_move', x: 23.5, y: 17.5 });
           }
+          return;
+        }
+      } else if (localPlayer.zone === 'frostfell') {
+        const clickDistToTownPortal = Math.hypot(21 - worldPos.x, 34 - worldPos.y);
+        if (clickDistToTownPortal < 1.3) {
+          socket.emit('player_input', { type: 'click_move', x: 21, y: 34 });
           return;
         }
       } else if (localPlayer.zone === 'dungeon') {
@@ -695,7 +885,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (code === 'KeyQ' || key === 'q') {
-      useClassSkill();
+      useSkill('slot1');
+      return;
+    }
+
+    if (code === 'KeyE' || key === 'e') {
+      useSkill('slot2');
+      return;
+    }
+
+    if (code === 'KeyR' || key === 'r') {
+      useSkill('slot3');
+      return;
+    }
+
+    if (code === 'ShiftLeft' || code === 'ShiftRight' || key === 'shift') {
+      e.preventDefault();
+      useSkill('dash');
       return;
     }
 
@@ -713,6 +919,11 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    if (code === 'KeyK' || key === 'k') {
+      toggleSkillTreeModal();
+      return;
+    }
+
     if (code === 'Escape') {
       statsModal.style.display = 'none';
       inventoryModal.style.display = 'none';
@@ -720,16 +931,9 @@ document.addEventListener('DOMContentLoaded', () => {
       shopModal.style.display = 'none';
       if (reforgeModal) reforgeModal.style.display = 'none';
       if (dungeonPortalModal) dungeonPortalModal.style.display = 'none';
+      if (skillTreeModal) skillTreeModal.style.display = 'none';
       chatInput.blur();
       return;
-    }
-
-    if (code === 'KeyR' || key === 'r') {
-      if (reforgeModal && reforgeModal.style.display === 'flex') {
-        reforgeModal.style.display = 'none';
-      } else {
-        openReforgeModal();
-      }
     }
     if (code === 'KeyP' || key === 'p') openShopModal();
     if (code === 'KeyC' || key === 'c') toggleModal(statsModal);
@@ -895,10 +1099,35 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function useClassSkill() {
-    if (!localPlayer || localPlayer.isDead || skillCooldownTimer > 0) return;
+  function useSkill(slot = 'slot1') {
+    if (!localPlayer || localPlayer.isDead) return;
 
-    const mpCost = localPlayer.characterClass === 'warrior' ? 12 : localPlayer.characterClass === 'rogue' ? 15 : 20;
+    // Normalize slot names
+    if (slot === 'skill1') slot = 'slot1';
+    if (slot === 'skill2') slot = 'slot2';
+    if (slot === 'skill3') slot = 'slot3';
+
+    if (slot === 'slot1' && skill1CooldownTimer > 0) return;
+    if (slot === 'slot2' && skill2CooldownTimer > 0) return;
+    if (slot === 'slot3' && skill3CooldownTimer > 0) return;
+    if (slot === 'dash' && dashCooldownTimer > 0) return;
+
+    let mpCost = 15;
+    const cls = localPlayer.characterClass || 'warrior';
+    if (localPlayer.equippedSkills && localPlayer.equippedSkills[slot] && allSkillsCatalog[cls]) {
+      const equippedId = localPlayer.equippedSkills[slot].skillId;
+      const skillDef = allSkillsCatalog[cls].find(s => s.id === equippedId);
+      if (skillDef) mpCost = skillDef.mpCost;
+    } else {
+      const mpCosts = {
+        warrior: { slot1: 14, slot2: 16, slot3: 28, dash: 10 },
+        mage: { slot1: 22, slot2: 18, slot3: 35, dash: 15 },
+        rogue: { slot1: 14, slot2: 16, slot3: 30, dash: 8 }
+      };
+      const clsCosts = mpCosts[cls] || mpCosts.warrior;
+      mpCost = clsCosts[slot] || 15;
+    }
+
     if (localPlayer.mp < mpCost) {
       if (renderer) renderer.addFloatingText(localPlayer.x, localPlayer.y - 0.7, '⚠️ Not enough Mana!', '#38bdf8', 15);
       return;
@@ -933,7 +1162,52 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    socket.emit('player_skill', { targetX, targetY });
+    // Direction calculation for Dash / Mobility skill
+    let dirX = 0;
+    let dirY = 0;
+    if (slot === 'dash') {
+      if (activeKeys.w || activeKeys.a || activeKeys.s || activeKeys.d) {
+        let dx = 0;
+        let dy = 0;
+        if (activeKeys.w) dy -= 1;
+        if (activeKeys.s) dy += 1;
+        if (activeKeys.a) dx -= 1;
+        if (activeKeys.d) dx += 1;
+        const len = Math.hypot(dx, dy) || 1;
+        const normSx = dx / len;
+        const normSy = dy / len;
+        dirX = (normSx + normSy * 2) * 0.5;
+        dirY = (normSy * 2 - normSx) * 0.5;
+      } else if (localPlayer.targetX !== null && localPlayer.targetY !== null) {
+        const d = Math.hypot(localPlayer.targetX - localPlayer.x, localPlayer.targetY - localPlayer.y);
+        if (d > 0.1) {
+          dirX = (localPlayer.targetX - localPlayer.x) / d;
+          dirY = (localPlayer.targetY - localPlayer.y) / d;
+        }
+      }
+
+      if (Math.hypot(dirX, dirY) < 0.001) {
+        const facingVectors = {
+          'E': { dx: 1, dy: -1 },
+          'SE': { dx: 1, dy: 0 },
+          'S': { dx: 1, dy: 1 },
+          'SW': { dx: 0, dy: 1 },
+          'W': { dx: -1, dy: 1 },
+          'NW': { dx: -1, dy: 0 },
+          'N': { dx: -1, dy: -1 },
+          'NE': { dx: 0, dy: -1 }
+        };
+        const vec = facingVectors[localPlayer.facing] || { dx: 1, dy: 0 };
+        dirX = vec.dx;
+        dirY = vec.dy;
+      }
+    }
+
+    socket.emit('player_skill', { skillSlot: slot, targetX, targetY, dirX, dirY });
+  }
+
+  function useClassSkill() {
+    useSkill('skill1');
   }
 
   function drinkPotion(type) {
@@ -977,6 +1251,24 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   btnAudioToggle.addEventListener('click', toggleAudio);
 
+  // 3D Hero Models Toggle
+  const btnToggle3D = document.getElementById('btnToggle3D');
+  function toggle3DHeroModels() {
+    if (!window.threeHeroRenderer) return;
+    window.threeHeroRenderer.enabled = !window.threeHeroRenderer.enabled;
+    if (btnToggle3D) {
+      btnToggle3D.textContent = window.threeHeroRenderer.enabled ? '🎮 3D' : '📜 2D';
+      btnToggle3D.classList.toggle('active-toggle', window.threeHeroRenderer.enabled);
+    }
+    window.soundEngine.playLevelUp();
+    if (renderer) {
+      renderer.addFloatingText(localPlayer ? localPlayer.x : 16, localPlayer ? localPlayer.y - 0.8 : 16, window.threeHeroRenderer.enabled ? '✨ 3D Hero Mode Enabled!' : '📜 2D Classic Mode', '#f59e0b', 16);
+    }
+  }
+  if (btnToggle3D) {
+    btnToggle3D.addEventListener('click', toggle3DHeroModels);
+  }
+
   // HUD Update
   function updatePlayerHUD(p) {
     hudPlayerName.textContent = p.name;
@@ -1014,12 +1306,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const statHp = document.getElementById('statHp');
     const statMp = document.getElementById('statMp');
     const statDmg = document.getElementById('statDmg');
+    const statAttackSpeed = document.getElementById('statAttackSpeed');
+    const statSwipe = document.getElementById('statSwipe');
     const statDef = document.getElementById('statDef');
     const statSpeed = document.getElementById('statSpeed');
     const statKills = document.getElementById('statKills');
     const statGold = document.getElementById('statGold');
 
-    let bonusDmg = 0, bonusDef = 0, bonusHp = 0, bonusMp = 0, bonusSpeed = 0;
+    let bonusDmg = 0, bonusDef = 0, bonusHp = 0, bonusMp = 0, bonusSpeed = 0, bonusAttackSpeed = 0, bonusSwipe = 0;
     if (p.equipment) {
       for (const eq of Object.values(p.equipment)) {
         if (!eq) continue;
@@ -1028,6 +1322,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (eq.bonusHp) bonusHp += eq.bonusHp;
         if (eq.bonusMp) bonusMp += eq.bonusMp;
         if (eq.bonusSpeed) bonusSpeed += eq.bonusSpeed;
+        if (eq.bonusAttackSpeed) bonusAttackSpeed += eq.bonusAttackSpeed;
+        if (eq.bonusSwipe) bonusSwipe += eq.bonusSwipe;
       }
     }
 
@@ -1037,6 +1333,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (statHp) statHp.innerHTML = `${p.hp} / ${p.maxHp} ${bonusHp ? `<span style="color:#4ade80; font-size:11px;">(+${bonusHp})</span>` : ''}`;
     if (statMp) statMp.innerHTML = `${p.mp} / ${p.maxMp} ${bonusMp ? `<span style="color:#38bdf8; font-size:11px;">(+${bonusMp})</span>` : ''}`;
     if (statDmg) statDmg.innerHTML = `${p.dmg || 20} ${bonusDmg ? `<span style="color:#f59e0b; font-size:11px;">(+${bonusDmg})</span>` : ''}`;
+    if (statAttackSpeed) {
+      const curAtkSpd = p.attackSpeed || 1.0;
+      statAttackSpeed.innerHTML = `${curAtkSpd.toFixed(2)}x ${bonusAttackSpeed ? `<span style="color:#38bdf8; font-size:11px;">(+${Math.round(bonusAttackSpeed * 100)}%)</span>` : ''}`;
+    }
+    if (statSwipe) {
+      const curSwipe = p.swipe !== undefined ? p.swipe : 35;
+      statSwipe.innerHTML = `${curSwipe}% Cleave ${bonusSwipe ? `<span style="color:#38bdf8; font-size:11px;">(+${bonusSwipe}%)</span>` : ''}`;
+    }
     if (statDef) statDef.innerHTML = `${p.def || 5} ${bonusDef ? `<span style="color:#60a5fa; font-size:11px;">(+${bonusDef})</span>` : ''}`;
     if (statSpeed) statSpeed.innerHTML = `${p.speed || 4.5} ${bonusSpeed ? `<span style="color:#a855f7; font-size:11px;">(+${bonusSpeed.toFixed(1)})</span>` : ''}`;
     if (statKills) statKills.textContent = `${(p.inventory && p.inventory.kills) || 0}`;
@@ -1185,12 +1489,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const bonusesBar = document.getElementById('gearBonusesSummary');
     if (bonusesBar) {
       bonusesBar.innerHTML = '';
+      let totalBonusAttackSpeed = 0, totalBonusSwipe = 0;
+      if (localPlayer.equipment) {
+        for (const eq of Object.values(localPlayer.equipment)) {
+          if (!eq) continue;
+          if (eq.bonusAttackSpeed) totalBonusAttackSpeed += eq.bonusAttackSpeed;
+          if (eq.bonusSwipe) totalBonusSwipe += eq.bonusSwipe;
+        }
+      }
+
       const bonusItems = [
         { label: 'Attack', val: totalBonusDmg, icon: '⚔️' },
         { label: 'Defense', val: totalBonusDef, icon: '🛡️' },
         { label: 'Max HP', val: totalBonusHp, icon: '❤️' },
         { label: 'Max MP', val: totalBonusMp, icon: '💧' },
-        { label: 'Speed', val: totalBonusSpeed ? totalBonusSpeed.toFixed(1) : 0, icon: '👟' }
+        { label: 'Speed', val: totalBonusSpeed ? totalBonusSpeed.toFixed(1) : 0, icon: '👟' },
+        { label: 'Atk Spd', val: totalBonusAttackSpeed ? `+${Math.round(totalBonusAttackSpeed * 100)}%` : 0, icon: '⚡' },
+        { label: 'Swipe', val: totalBonusSwipe ? `+${totalBonusSwipe}%` : 0, icon: '🌊' }
       ];
 
       bonusItems.forEach(b => {
@@ -1488,10 +1803,340 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Action Slots
   if (slotTarget) slotTarget.addEventListener('click', () => cycleNextTarget());
-  slotAttack.addEventListener('click', () => useBasicAttack());
-  slotSkill.addEventListener('click', () => useClassSkill());
-  slotHealthPotion.addEventListener('click', () => drinkPotion('health'));
-  slotManaPotion.addEventListener('click', () => drinkPotion('mana'));
+  if (slotAttack) slotAttack.addEventListener('click', () => useBasicAttack());
+  if (slotSkill1) slotSkill1.addEventListener('click', () => useSkill('slot1'));
+  if (slotSkill2) slotSkill2.addEventListener('click', () => useSkill('slot2'));
+  if (slotSkill3) slotSkill3.addEventListener('click', () => useSkill('slot3'));
+  if (slotDash) slotDash.addEventListener('click', () => useSkill('dash'));
+  if (slotHealthPotion) slotHealthPotion.addEventListener('click', () => drinkPotion('health'));
+  if (slotManaPotion) slotManaPotion.addEventListener('click', () => drinkPotion('mana'));
+
+  // ================= CLASS SKILL TREE & LOADOUT CUSTOMIZER UI =================
+  function openSkillTreeModal() {
+    if (activeSkillsModalTab === 'loadout') {
+      if (tabContentLoadout) tabContentLoadout.style.display = 'block';
+      if (tabContentTalents) tabContentTalents.style.display = 'none';
+      if (tabNavLoadout) tabNavLoadout.classList.add('active');
+      if (tabNavTalents) tabNavTalents.classList.remove('active');
+      if (spBannerWrapper) spBannerWrapper.style.display = 'none';
+      renderCustomSkillLoadout();
+    } else {
+      if (tabContentLoadout) tabContentLoadout.style.display = 'none';
+      if (tabContentTalents) tabContentTalents.style.display = 'block';
+      if (tabNavLoadout) tabNavLoadout.classList.remove('active');
+      if (tabNavTalents) tabNavTalents.classList.add('active');
+      if (spBannerWrapper) spBannerWrapper.style.display = 'flex';
+      renderSkillTree();
+    }
+    if (skillTreeModal) {
+      skillTreeModal.style.display = 'flex';
+      window.soundEngine.playLevelUp();
+    }
+  }
+
+  function closeSkillTreeModal() {
+    if (skillTreeModal) {
+      skillTreeModal.style.display = 'none';
+    }
+  }
+
+  function toggleSkillTreeModal() {
+    if (!skillTreeModal) return;
+    if (skillTreeModal.style.display === 'flex') {
+      closeSkillTreeModal();
+    } else {
+      openSkillTreeModal();
+    }
+  }
+
+  if (tabNavLoadout) {
+    tabNavLoadout.addEventListener('click', () => {
+      activeSkillsModalTab = 'loadout';
+      tabNavLoadout.classList.add('active');
+      if (tabNavTalents) tabNavTalents.classList.remove('active');
+      if (tabContentLoadout) tabContentLoadout.style.display = 'block';
+      if (tabContentTalents) tabContentTalents.style.display = 'none';
+      if (spBannerWrapper) spBannerWrapper.style.display = 'none';
+      renderCustomSkillLoadout();
+      window.soundEngine.playSkillWhoosh();
+    });
+  }
+
+  if (tabNavTalents) {
+    tabNavTalents.addEventListener('click', () => {
+      activeSkillsModalTab = 'talents';
+      tabNavTalents.classList.add('active');
+      if (tabNavLoadout) tabNavLoadout.classList.remove('active');
+      if (tabContentLoadout) tabContentLoadout.style.display = 'none';
+      if (tabContentTalents) tabContentTalents.style.display = 'block';
+      if (spBannerWrapper) spBannerWrapper.style.display = 'flex';
+      renderSkillTree();
+      window.soundEngine.playSkillWhoosh();
+    });
+  }
+
+  function renderCustomSkillLoadout() {
+    if (!localPlayer || !loadoutSlotsRow || !skillsCatalogGrid) return;
+
+    const cls = localPlayer.characterClass || 'warrior';
+    const classSkills = (allSkillsCatalog && allSkillsCatalog[cls]) || [];
+    const equipped = localPlayer.equippedSkills || {
+      slot1: { skillId: classSkills[0]?.id || 'whirlwind', rune: 'none' },
+      slot2: { skillId: classSkills[1]?.id || 'earthshaker', rune: 'none' },
+      slot3: { skillId: classSkills[2]?.id || 'colossus_strike', rune: 'none' },
+      dash:  { skillId: classSkills.find(s => s.isDash)?.id || 'blade_charge', rune: 'none' }
+    };
+
+    if (stClassName) {
+      stClassName.textContent = `${cls.toUpperCase()} SPELLBOOK & LOADOUT`;
+    }
+
+    // 1. Render the 4 Hotbar Slot Cards
+    loadoutSlotsRow.innerHTML = '';
+    const slotsConfig = [
+      { key: 'slot1', label: 'Primary Skill', keybind: 'Q', icon: '⚔️' },
+      { key: 'slot2', label: 'Secondary Skill', keybind: 'E', icon: '💥' },
+      { key: 'slot3', label: 'Ultimate / Heavy', keybind: 'R', icon: '👑' },
+      { key: 'dash',  label: 'Mobility Dash', keybind: 'Shift', icon: '🏃' }
+    ];
+
+    slotsConfig.forEach(sConf => {
+      const isSelected = selectedLoadoutSlot === sConf.key;
+      const eqData = equipped[sConf.key] || { skillId: '', rune: 'none' };
+      const skill = classSkills.find(s => s.id === eqData.skillId);
+      const rune = (skillRunesCatalog && skillRunesCatalog[eqData.rune]) || { name: 'Standard', icon: '⚪', color: '#94a3b8' };
+
+      const card = document.createElement('div');
+      card.className = `hotbar-slot-card ${isSelected ? 'active-slot' : ''}`;
+      card.innerHTML = `
+        <div class="slot-card-badge">${sConf.keybind}</div>
+        <div class="slot-card-icon">${skill ? skill.icon : sConf.icon}</div>
+        <div class="slot-card-name">${skill ? skill.name : 'Empty Slot'}</div>
+        <div class="slot-card-role">${sConf.label}</div>
+        <div class="slot-card-rune-pill" style="border-color: ${rune.color}; color: ${rune.color};">
+          ${rune.icon} ${rune.name}
+        </div>
+      `;
+
+      card.addEventListener('click', () => {
+        selectedLoadoutSlot = sConf.key;
+        renderCustomSkillLoadout();
+        window.soundEngine.playTargetLock();
+      });
+
+      loadoutSlotsRow.appendChild(card);
+    });
+
+    // 2. Render Rune Selector for the currently selected slot
+    if (runesSelectorRow) {
+      runesSelectorRow.innerHTML = '';
+      const curSlotEq = equipped[selectedLoadoutSlot] || { rune: 'none' };
+      const curRune = curSlotEq.rune || 'none';
+
+      const runesList = Object.entries(skillRunesCatalog).length > 0 
+        ? Object.entries(skillRunesCatalog) 
+        : [
+            ['none', { name: 'Standard', icon: '⚪', desc: 'No alteration', color: '#94a3b8' }],
+            ['flame', { name: 'Infernal Flame', icon: '🔴', desc: '+25% Bonus Fire DMG & Burn DoT', color: '#ef4444' }],
+            ['frost', { name: 'Glacial Frost', icon: '🔵', desc: 'Chill slows enemies by 40% & 15% freeze', color: '#38bdf8' }],
+            ['tempest', { name: 'Tempest Surge', icon: '⚡', desc: '-20% Cooldown reduction', color: '#eab308' }],
+            ['vampiric', { name: 'Vampiric Drain', icon: '🟣', desc: 'Heals 25% of damage dealt', color: '#a855f7' }]
+          ];
+
+      runesList.forEach(([rKey, rDef]) => {
+        const isRuneActive = curRune === rKey;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `rune-pill-btn ${isRuneActive ? 'active' : ''}`;
+        btn.innerHTML = `<span class="rune-icon">${rDef.icon}</span> <span>${rDef.name}</span>`;
+        btn.title = `${rDef.name}: ${rDef.desc}`;
+
+        btn.addEventListener('click', () => {
+          socket.emit('customize_skill_slot', {
+            slot: selectedLoadoutSlot,
+            rune: rKey
+          });
+          window.soundEngine.playUpgradeSuccess();
+        });
+
+        runesSelectorRow.appendChild(btn);
+      });
+    }
+
+    // 3. Render Skills Catalog (all 8 class skills)
+    skillsCatalogGrid.innerHTML = '';
+    classSkills.forEach(s => {
+      // Check if equipped in any slot
+      let equippedInSlot = null;
+      for (const [sKey, sVal] of Object.entries(equipped)) {
+        if (sVal && sVal.skillId === s.id) {
+          equippedInSlot = sKey;
+          break;
+        }
+      }
+
+      const isEquippedHere = equippedInSlot === selectedLoadoutSlot;
+      const isEquippedElsewhere = equippedInSlot && !isEquippedHere;
+      const slotBindName = equippedInSlot === 'slot1' ? '[Q]' : equippedInSlot === 'slot2' ? '[E]' : equippedInSlot === 'slot3' ? '[R]' : equippedInSlot === 'dash' ? '[Shift]' : '';
+
+      const card = document.createElement('div');
+      card.className = `catalog-skill-card ${isEquippedHere ? 'is-equipped' : ''}`;
+
+      card.innerHTML = `
+        <div class="catalog-top-row">
+          <div class="catalog-icon-box">${s.icon}</div>
+          <div class="catalog-title-box">
+            <div class="catalog-name-row">
+              <span class="catalog-name">${s.name}</span>
+              <span class="catalog-type-pill ${s.category}">${s.category ? s.category.toUpperCase() : 'SKILL'}</span>
+            </div>
+            <div class="catalog-desc">${s.desc}</div>
+          </div>
+        </div>
+
+        <div class="catalog-stats-row">
+          <div class="catalog-stat-chip">⏱️ ${s.cooldown}s CD</div>
+          <div class="catalog-stat-chip">💧 ${s.mpCost} MP</div>
+          <div class="catalog-stat-chip">⚔️ ${(s.damageMultiplier * 100).toFixed(0)}% DMG</div>
+          <div class="catalog-stat-chip">🎯 R: ${s.radius || 3.0}</div>
+        </div>
+
+        <div class="catalog-actions-row">
+          ${isEquippedHere ? `
+            <div class="equipped-tag">✓ EQUIPPED IN ${selectedLoadoutSlot.toUpperCase()}</div>
+          ` : `
+            <button class="btn-equip-skill" data-skill-id="${s.id}">
+              ${isEquippedElsewhere ? `Swap from ${slotBindName}` : `Equip to [${selectedLoadoutSlot.toUpperCase()}]`}
+            </button>
+          `}
+        </div>
+      `;
+
+      const btnEquip = card.querySelector('.btn-equip-skill');
+      if (btnEquip) {
+        btnEquip.addEventListener('click', (e) => {
+          e.stopPropagation();
+          socket.emit('customize_skill_slot', {
+            slot: selectedLoadoutSlot,
+            skillId: s.id
+          });
+          window.soundEngine.playBladeCharge();
+        });
+      }
+
+      skillsCatalogGrid.appendChild(card);
+    });
+  }
+
+  function renderSkillTree() {
+    if (!localPlayer || !skillTreeGrid) return;
+
+    const cls = localPlayer.characterClass || 'warrior';
+    const tree = (skillTreesCatalog && skillTreesCatalog[cls]) || [];
+    const skills = localPlayer.skills || {};
+    const availablePoints = localPlayer.skillPoints || 0;
+
+    if (stClassName) {
+      const clsTitle = cls.toUpperCase();
+      stClassName.textContent = `${clsTitle} TALENT TREE`;
+    }
+
+    if (stAvailablePoints) {
+      stAvailablePoints.textContent = availablePoints;
+    }
+
+    let pointsSpent = 0;
+    for (const rank of Object.values(skills)) {
+      pointsSpent += (rank || 0);
+    }
+
+    if (btnResetTalents) {
+      const cost = Math.min(500, pointsSpent * 50);
+      btnResetTalents.textContent = `🔄 Reset Talents (${cost} Gold)`;
+      btnResetTalents.disabled = pointsSpent === 0;
+      btnResetTalents.style.opacity = pointsSpent === 0 ? '0.5' : '1';
+    }
+
+    skillTreeGrid.innerHTML = '';
+
+    tree.forEach(talent => {
+      const curRank = skills[talent.id] || 0;
+      const maxRank = talent.maxRank || 3;
+      const isMaxed = curRank >= maxRank;
+
+      let reqMet = true;
+      let reqName = '';
+      if (talent.requires) {
+        const prereq = tree.find(t => t.id === talent.requires);
+        reqName = prereq ? prereq.name : talent.requires;
+        reqMet = (skills[talent.requires] || 0) > 0;
+      }
+
+      const canLearn = (availablePoints > 0) && (!isMaxed) && reqMet;
+
+      const card = document.createElement('div');
+      card.className = `talent-card ${isMaxed ? 'is-maxed' : canLearn ? 'can-upgrade' : !reqMet ? 'is-locked' : ''}`;
+
+      card.innerHTML = `
+        <div class="talent-top-row">
+          <div class="talent-icon-box">${talent.icon || '✨'}</div>
+          <div class="talent-main-info">
+            <div class="talent-title-row">
+              <span class="talent-name">${talent.name}</span>
+              <span class="talent-rank-pill ${isMaxed ? 'max-rank' : curRank > 0 ? 'has-rank' : ''}">
+                ${isMaxed ? '★ MAX' : `Rank ${curRank}/${maxRank}`}
+              </span>
+            </div>
+            <div class="talent-desc">${talent.desc}</div>
+          </div>
+        </div>
+        <div class="talent-bottom-row">
+          <div class="talent-req-tag ${talent.requires ? (reqMet ? 'met' : 'unmet') : ''}">
+            ${talent.requires ? (reqMet ? `✓ Req: ${reqName}` : `🔒 Req: ${reqName}`) : '🌱 Tier 1 Starter'}
+          </div>
+          <button class="btn-learn-talent" ${canLearn ? '' : 'disabled'}>
+            ${isMaxed ? 'MAXED' : canLearn ? '+ LEARN (1 SP)' : !reqMet ? 'LOCKED' : 'NEED SP'}
+          </button>
+        </div>
+      `;
+
+      if (canLearn) {
+        card.style.cursor = 'pointer';
+        card.addEventListener('click', () => {
+          localPlayer.skillPoints = Math.max(0, (localPlayer.skillPoints || 1) - 1);
+          localPlayer.skills = localPlayer.skills || {};
+          localPlayer.skills[talent.id] = (localPlayer.skills[talent.id] || 0) + 1;
+          renderSkillTree();
+          socket.emit('allocate_skill_point', { skillId: talent.id });
+          window.soundEngine.playLevelUp();
+        });
+      }
+
+      const btnLearn = card.querySelector('.btn-learn-talent');
+      if (btnLearn && canLearn) {
+        btnLearn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          localPlayer.skillPoints = Math.max(0, (localPlayer.skillPoints || 1) - 1);
+          localPlayer.skills = localPlayer.skills || {};
+          localPlayer.skills[talent.id] = (localPlayer.skills[talent.id] || 0) + 1;
+          renderSkillTree();
+          socket.emit('allocate_skill_point', { skillId: talent.id });
+          window.soundEngine.playLevelUp();
+        });
+      }
+
+      skillTreeGrid.appendChild(card);
+    });
+  }
+
+  if (btnOpenSkillTree) btnOpenSkillTree.addEventListener('click', toggleSkillTreeModal);
+  if (btnCloseSkillTree) btnCloseSkillTree.addEventListener('click', closeSkillTreeModal);
+  if (btnResetTalents) {
+    btnResetTalents.addEventListener('click', () => {
+      socket.emit('reset_skill_points');
+      window.soundEngine.playCoin();
+    });
+  }
 
   function toggleModal(modal) {
     if (modal.style.display === 'flex') {
@@ -1513,7 +2158,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btnOpenHelp').addEventListener('click', () => toggleModal(helpModal));
   document.getElementById('btnCloseHelp').addEventListener('click', () => helpModal.style.display = 'none');
 
-  [statsModal, inventoryModal, helpModal, shopModal, reforgeModal].forEach(modal => {
+  [statsModal, inventoryModal, helpModal, shopModal, reforgeModal, skillTreeModal].forEach(modal => {
     if (!modal) return;
     modal.addEventListener('click', (e) => {
       if (e.target === modal) modal.style.display = 'none';
@@ -1525,12 +2170,38 @@ document.addEventListener('DOMContentLoaded', () => {
     const dt = Math.min(0.1, (currentTime - lastFrameTime) / 1000);
     lastFrameTime = currentTime;
 
-    if (skillCooldownTimer > 0) {
-      skillCooldownTimer = Math.max(0, skillCooldownTimer - dt);
-      const cdPct = (skillCooldownTimer / skillCooldownMax) * 100;
-      cdOverlaySkill.style.height = `${cdPct}%`;
+    if (skill1CooldownTimer > 0) {
+      skill1CooldownTimer = Math.max(0, skill1CooldownTimer - dt);
+      const cdPct = (skill1CooldownTimer / skill1CooldownMax) * 100;
+      if (cdOverlaySkill1) cdOverlaySkill1.style.height = `${cdPct}%`;
+      if (cdOverlaySkill) cdOverlaySkill.style.height = `${cdPct}%`;
     } else {
-      cdOverlaySkill.style.height = '0%';
+      if (cdOverlaySkill1) cdOverlaySkill1.style.height = '0%';
+      if (cdOverlaySkill) cdOverlaySkill.style.height = '0%';
+    }
+
+    if (skill2CooldownTimer > 0) {
+      skill2CooldownTimer = Math.max(0, skill2CooldownTimer - dt);
+      const cdPct = (skill2CooldownTimer / skill2CooldownMax) * 100;
+      if (cdOverlaySkill2) cdOverlaySkill2.style.height = `${cdPct}%`;
+    } else {
+      if (cdOverlaySkill2) cdOverlaySkill2.style.height = '0%';
+    }
+
+    if (skill3CooldownTimer > 0) {
+      skill3CooldownTimer = Math.max(0, skill3CooldownTimer - dt);
+      const cdPct = (skill3CooldownTimer / skill3CooldownMax) * 100;
+      if (cdOverlaySkill3) cdOverlaySkill3.style.height = `${cdPct}%`;
+    } else {
+      if (cdOverlaySkill3) cdOverlaySkill3.style.height = '0%';
+    }
+
+    if (dashCooldownTimer > 0) {
+      dashCooldownTimer = Math.max(0, dashCooldownTimer - dt);
+      const cdPct = (dashCooldownTimer / dashCooldownMax) * 100;
+      if (cdOverlayDash) cdOverlayDash.style.height = `${cdPct}%`;
+    } else {
+      if (cdOverlayDash) cdOverlayDash.style.height = '0%';
     }
 
     // Smooth entity position interpolation (60+ FPS lerp)
@@ -1553,6 +2224,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     renderer.render(gameState, localPlayerId, selectedTargetId, dt);
+
+    if (window.threeHeroRenderer) {
+      window.threeHeroRenderer.updateAndRender(gameState, renderer.camera, localPlayerId, renderer.attacks, dt);
+    }
+
     requestAnimationFrame(gameLoop);
   }
 

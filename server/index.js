@@ -85,6 +85,18 @@ io.on('connection', (socket) => {
     gameServer.handleLeaveDungeon(socket.id);
   });
 
+  socket.on('allocate_skill_point', (data) => {
+    gameServer.handleAllocateSkillPoint(socket.id, data ? data.skillId : null);
+  });
+
+  socket.on('reset_skill_points', () => {
+    gameServer.handleResetSkillPoints(socket.id);
+  });
+
+  socket.on('customize_skill_slot', (data) => {
+    gameServer.handleCustomizeSkill(socket.id, data);
+  });
+
   socket.on('disconnect', () => {
     console.log(`[Socket Disconnected] ID: ${socket.id}`);
     gameServer.removePlayer(socket.id);

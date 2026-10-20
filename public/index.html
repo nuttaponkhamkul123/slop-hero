@@ -8,8 +8,10 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚔️</text></svg>">
 </head>
 <body>
-  <!-- Fullscreen Game Canvas -->
+  <!-- Fullscreen Game Canvas (2D Isometric Terrain & VFX) -->
   <canvas id="gameCanvas"></canvas>
+  <!-- Fullscreen Three.js WebGL Canvas (3D Character Models & Animations) -->
+  <canvas id="threeCanvas"></canvas>
 
   <!-- Interactive MMORPG HUD -->
   <div id="ui-container">
@@ -76,6 +78,7 @@
             <span>🪙</span> <span id="goldCountText">50 Gold</span>
           </div>
           <button class="btn-icon-hud" id="btnAudioToggle" title="Toggle Sound (M)">🔊</button>
+          <button class="btn-icon-hud active-toggle" id="btnToggle3D" title="Toggle 3D / 2D Character Models">🎮 3D</button>
         </div>
       </div>
     </div>
@@ -108,11 +111,32 @@
             <div class="slot-cooldown-overlay" id="cdOverlayAttack"></div>
           </div>
 
-          <!-- Class Skill -->
-          <div class="action-slot" id="slotSkill" title="Class Ability (Q Key)">
+          <!-- Class Skill 1 -->
+          <div class="action-slot" id="slotSkill1" title="Class Ability 1 [Q]">
             <span class="slot-key">Q</span>
-            <span class="slot-icon" id="slotSkillIcon">🌪️</span>
-            <div class="slot-cooldown-overlay" id="cdOverlaySkill"></div>
+            <span class="slot-icon" id="slotSkill1Icon">🌪️</span>
+            <div class="slot-cooldown-overlay" id="cdOverlaySkill1"></div>
+          </div>
+
+          <!-- Class Skill 2 -->
+          <div class="action-slot" id="slotSkill2" title="Class Ability 2 [E]">
+            <span class="slot-key">E</span>
+            <span class="slot-icon" id="slotSkill2Icon">💥</span>
+            <div class="slot-cooldown-overlay" id="cdOverlaySkill2"></div>
+          </div>
+
+          <!-- Class Skill 3 / Ultimate -->
+          <div class="action-slot" id="slotSkill3" title="Class Ability 3 / Ultimate [R]">
+            <span class="slot-key">R</span>
+            <span class="slot-icon" id="slotSkill3Icon">🗡️</span>
+            <div class="slot-cooldown-overlay" id="cdOverlaySkill3"></div>
+          </div>
+
+          <!-- Class Dash / Mobility -->
+          <div class="action-slot" id="slotDash" title="Class Dash / Mobility [Shift]">
+            <span class="slot-key">SHIFT</span>
+            <span class="slot-icon" id="slotDashIcon">⚔️</span>
+            <div class="slot-cooldown-overlay" id="cdOverlayDash"></div>
           </div>
 
           <!-- Health Potion -->
@@ -133,7 +157,7 @@
 
       <!-- Quick Menu (Bottom-Right) -->
       <div class="quick-menu-group interactive">
-        <button class="menu-btn" id="btnOpenReforge">🔨 Forge [R]</button>
+        <button class="menu-btn" id="btnOpenSkillTree">🌳 Skills [K]</button>
         <button class="menu-btn" id="btnOpenShop">🏪 Shop [P]</button>
         <button class="menu-btn" id="btnOpenStats">📊 Stats [C]</button>
         <button class="menu-btn" id="btnOpenInventory">🎒 Bag [I]</button>
@@ -160,19 +184,19 @@
         <div class="class-card selected" data-class="warrior">
           <div class="class-icon">🛡️</div>
           <div class="class-title">Warrior</div>
-          <div class="class-desc">High HP & Defense. Melee master with Whirlwind AoE.</div>
+          <div class="class-desc">Melee Titan. Whirlwind [Q], Earthshaker [E] & Blade Charge Dash [Shift].</div>
         </div>
 
         <div class="class-card" data-class="mage">
           <div class="class-icon">🧙‍♂️</div>
           <div class="class-title">Mage</div>
-          <div class="class-desc">High Ranged Burst. Casts Fireballs and Firestorm meteors.</div>
+          <div class="class-desc">Arcane Master. Firestorm [Q], Frost Nova [E] & Arcane Blink [Shift].</div>
         </div>
 
         <div class="class-card" data-class="rogue">
           <div class="class-icon">🗡️</div>
           <div class="class-title">Rogue</div>
-          <div class="class-desc">Agile & Swift. Dual daggers and lethal Shadow Strike teleport.</div>
+          <div class="class-desc">Lethal Assassin. Fan of Knives [Q], Toxic Bomb [E] & Shadow Dash [Shift].</div>
         </div>
       </div>
 
@@ -194,6 +218,8 @@
         <tr><td>Max Health</td><td id="statHp">-</td></tr>
         <tr><td>Max Mana</td><td id="statMp">-</td></tr>
         <tr><td>Attack Power</td><td id="statDmg">-</td></tr>
+        <tr><td>Attack Speed</td><td id="statAttackSpeed">-</td></tr>
+        <tr><td>Swipe (Cleave)</td><td id="statSwipe">-</td></tr>
         <tr><td>Defense Rating</td><td id="statDef">-</td></tr>
         <tr><td>Movement Speed</td><td id="statSpeed">-</td></tr>
         <tr><td>Monsters Slain</td><td id="statKills">-</td></tr>
@@ -208,7 +234,7 @@
       <button class="modal-close" id="btnCloseShop">✕</button>
       <div class="modal-header">
         <h2 class="modal-title">OLAF'S TRADING POST</h2>
-        <p class="modal-subtitle">Sell dungeon relics or purchase supplies & weapons</p>
+        <p class="modal-subtitle">Sell dungeon relics & gear, or purchase potions & consumables</p>
       </div>
 
       <!-- Shop Tabs -->
@@ -398,21 +424,70 @@
           <div class="floor-num">B1</div>
           <div class="floor-details">
             <div class="floor-title">Crypt of Whispers</div>
-            <div class="floor-level-rec">Lv. 1 - 4 • Skeleton & Slime Hordes</div>
+            <div class="floor-level-rec">Lv. 1 - 15 • Skeleton & Slime Hordes</div>
           </div>
         </div>
         <div class="floor-card" data-floor="2">
           <div class="floor-num">B2</div>
           <div class="floor-details">
             <div class="floor-title">Sunken Catacombs</div>
-            <div class="floor-level-rec">Lv. 5 - 8 • Golem Sentinels & Traps</div>
+            <div class="floor-level-rec">Lv. 16 - 30 • Tomb Ghouls & Sentinels</div>
           </div>
         </div>
         <div class="floor-card" data-floor="3">
           <div class="floor-num">B3</div>
           <div class="floor-details">
-            <div class="floor-title">Infernal Core</div>
-            <div class="floor-level-rec">Lv. 9+ • Abyssal Titan Boss & Relics</div>
+            <div class="floor-title">Obsidian Caverns</div>
+            <div class="floor-level-rec">Lv. 31 - 45 • Dark Spiders & Magma Golems</div>
+          </div>
+        </div>
+        <div class="floor-card" data-floor="4">
+          <div class="floor-num">B4</div>
+          <div class="floor-details">
+            <div class="floor-title">Glacial Abyss</div>
+            <div class="floor-level-rec">Lv. 46 - 60 • Frost Elementals & Ice Horrors</div>
+          </div>
+        </div>
+        <div class="floor-card" data-floor="5">
+          <div class="floor-num">B5</div>
+          <div class="floor-details">
+            <div class="floor-title">Toxic Necropolis</div>
+            <div class="floor-level-rec">Lv. 61 - 75 • Plague Reapers & Wraiths</div>
+          </div>
+        </div>
+        <div class="floor-card" data-floor="6">
+          <div class="floor-num">B6</div>
+          <div class="floor-details">
+            <div class="floor-title">Infernal Sanctum</div>
+            <div class="floor-level-rec">Lv. 76 - 90 • Hellfire Fiends & Demons</div>
+          </div>
+        </div>
+        <div class="floor-card" data-floor="7">
+          <div class="floor-num">B7</div>
+          <div class="floor-details">
+            <div class="floor-title">Celestial Void</div>
+            <div class="floor-level-rec">Lv. 91 - 105 • Astral Phantoms & Watchers</div>
+          </div>
+        </div>
+        <div class="floor-card" data-floor="8">
+          <div class="floor-num">B8</div>
+          <div class="floor-details">
+            <div class="floor-title">Dread Citadel</div>
+            <div class="floor-level-rec">Lv. 106 - 120 • Death Knights & Shadow Lords</div>
+          </div>
+        </div>
+        <div class="floor-card" data-floor="9">
+          <div class="floor-num">B9</div>
+          <div class="floor-details">
+            <div class="floor-title">Dragon's Maw</div>
+            <div class="floor-level-rec">Lv. 121 - 135 • Ancient Drakes & Berserkers</div>
+          </div>
+        </div>
+        <div class="floor-card" data-floor="10">
+          <div class="floor-num">B10</div>
+          <div class="floor-details">
+            <div class="floor-title">Throne of Oblivion</div>
+            <div class="floor-level-rec">Lv. 136 - 150 • Titan of Chaos & Cataclysm</div>
           </div>
         </div>
       </div>
@@ -474,6 +549,72 @@
     </div>
   </div>
 
+  <!-- Class Skill Tree & Spellbook Customizer Modal -->
+  <div class="modal-overlay" id="skillTreeModal" style="display: none;">
+    <div class="hud-panel modal-card skill-tree-modal-card">
+      <button class="modal-close" id="btnCloseSkillTree">✕</button>
+      <div class="modal-header">
+        <div class="skill-tree-header-row">
+          <div>
+            <h2 class="modal-title" id="stClassName">WARRIOR SPELLBOOK & TALENTS</h2>
+            <p class="modal-subtitle">Customize active skill loadout, socket elemental runes, and master passive talents</p>
+          </div>
+          <div class="skill-points-banner" id="spBannerWrapper">
+            <span class="sp-label">Skill Points:</span>
+            <span class="sp-count" id="stAvailablePoints">1</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Skill Modal Tabs -->
+      <div class="skills-tab-bar">
+        <button class="skills-nav-tab active" id="tabNavLoadout">⚡ Active Loadout & Spellbook</button>
+        <button class="skills-nav-tab" id="tabNavTalents">🌳 Passive Talent Tree</button>
+      </div>
+
+      <!-- TAB 1: Custom Loadout & Spellbook -->
+      <div class="skills-tab-content" id="tabContentLoadout">
+        <!-- 4 Active Hotbar Slots Bar -->
+        <div class="loadout-section-title">ACTIVE HOTBAR SLOTS (Click a slot to customize)</div>
+        <div class="loadout-slots-row" id="loadoutSlotsRow">
+          <!-- 4 slot cards injected by JS -->
+        </div>
+
+        <!-- Rune Selection Bar for selected slot -->
+        <div class="loadout-runes-section">
+          <div class="loadout-section-title">ELEMENTAL RUNE AUGMENTATION (Socket into selected slot)</div>
+          <div class="runes-selector-row" id="runesSelectorRow">
+            <!-- Rune buttons injected by JS -->
+          </div>
+        </div>
+
+        <!-- Class Available Skills Catalog (8 Skills) -->
+        <div class="loadout-section-title" style="margin-top: 14px;">CLASS SKILL ARSENAL (Click any skill to assign to selected slot)</div>
+        <div class="skills-catalog-grid" id="skillsCatalogGrid">
+          <!-- 8 class skill cards injected by JS -->
+        </div>
+      </div>
+
+      <!-- TAB 2: Passive Talent Tree -->
+      <div class="skills-tab-content" id="tabContentTalents" style="display: none;">
+        <div class="skill-tree-content">
+          <div class="skill-tree-grid" id="skillTreeGrid">
+            <!-- Dynamically populated via game.js -->
+          </div>
+        </div>
+
+        <div class="skill-tree-footer">
+          <div class="st-footer-info">
+            <span>💡 Earn 1 Skill Point on every Level Up. Higher rank talents require lower rank precursors.</span>
+          </div>
+          <button class="btn-secondary btn-reset-talents" id="btnResetTalents">
+            🔄 Reset Talents (50g / pt)
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Help & Keybindings Modal -->
   <div class="modal-overlay" id="helpModal" style="display: none;">
     <div class="hud-panel modal-card" style="width: 450px;">
@@ -486,10 +627,14 @@
         <div class="key-row"><span>Move Character</span><span class="key-tag">Hold/Click Mouse OR WASD</span></div>
         <div class="key-row"><span>Lock Target / Cycle Enemy</span><span class="key-tag">Tab Key</span></div>
         <div class="key-row"><span>Smart Attack (Auto-Lock & Hit)</span><span class="key-tag">Spacebar (Spam)</span></div>
-        <div class="key-row"><span>Use Class Skill</span><span class="key-tag">Q Key</span></div>
+        <div class="key-row"><span>Skill Slot 1 (Customizable)</span><span class="key-tag">Q Key</span></div>
+        <div class="key-row"><span>Skill Slot 2 (Customizable)</span><span class="key-tag">E Key</span></div>
+        <div class="key-row"><span>Skill Slot 3 / Ultimate (Customizable)</span><span class="key-tag">R Key</span></div>
+        <div class="key-row"><span>Mobility Dash (Customizable)</span><span class="key-tag">Shift Key</span></div>
+        <div class="key-row"><span>Custom Spellbook & Talent Tree</span><span class="key-tag">K Key</span></div>
         <div class="key-row"><span>Health / Mana Potion</span><span class="key-tag">1 / 2 Keys</span></div>
         <div class="key-row"><span>Pick Up Ground Loot</span><span class="key-tag">Left Click on Item</span></div>
-        <div class="key-row"><span>Reforge & Upgrade Gear</span><span class="key-tag">R Key</span></div>
+        <div class="key-row"><span>Reforge & Upgrade Gear</span><span class="key-tag">F Key OR Talk to Brom</span></div>
         <div class="key-row"><span>Open Trader Shop</span><span class="key-tag">P Key</span></div>
         <div class="key-row"><span>Character Stats / Bag</span><span class="key-tag">C / I Keys</span></div>
         <div class="key-row"><span>Chat with Players</span><span class="key-tag">Enter Key</span></div>
@@ -504,6 +649,10 @@
     <p class="death-timer">Respawning in <span id="respawnCountdown">5</span> seconds...</p>
     <p style="color: var(--text-muted); font-size: 14px; margin-top: 8px;">Tip: Watch out for boss monsters and drink potions when low on HP!</p>
   </div>
+
+  <!-- Three.js 3D Engine & Hero Renderer -->
+  <script src="js/three.min.js"></script>
+  <script src="js/threeHeroRenderer.js"></script>
 
   <!-- Game Scripts -->
   <script src="/socket.io/socket.io.js"></script>

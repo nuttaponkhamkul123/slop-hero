@@ -11,7 +11,11 @@ const TILES = {
   STONE_RUIN: 4,
   WOOD_BRIDGE: 5,
   SPAWN_ZONE: 6,
-  CLIFF: 7
+  CLIFF: 7,
+  SNOW: 9,
+  ICE: 10,
+  FROST_STONE: 11,
+  FROST_CLIFF: 12
 };
 
 function generateMap() {
@@ -40,7 +44,6 @@ function generateMap() {
       }
 
       // River flowing diagonally from top-left to bottom-right around outer ring
-      // Curve: y = x - 12 (approx) or a winding pond in north-east (x: 27-38, y: 5-15)
       const distFromPond = Math.hypot(x - 32, y - 9);
       if (distFromPond < 5.5) {
         tile = TILES.WATER;
@@ -69,10 +72,10 @@ function generateMap() {
     }
   }
 
-  // Town Fountain (non-collidable so players can walk freely without getting trapped)
+  // Town Fountain
   obstacles.push({ id: 'fountain_center', x: 20, y: 20, type: 'fountain', collidable: false });
 
-  // Town Torches at corners of spawn zone
+  // Town Torches
   obstacles.push({ id: 'torch_1', x: 17, y: 17, type: 'torch', collidable: false });
   obstacles.push({ id: 'torch_2', x: 23, y: 17, type: 'torch', collidable: false });
   obstacles.push({ id: 'torch_3', x: 17, y: 23, type: 'torch', collidable: false });
@@ -89,7 +92,7 @@ function generateMap() {
     radius: 0.8
   });
 
-  // Town Blacksmith NPC (Brom the Master Smith - Reforge / Upgrade)
+  // Town Blacksmith NPC (Brom the Master Smith)
   obstacles.push({
     id: 'npc_blacksmith',
     x: 24.2,
@@ -121,7 +124,18 @@ function generateMap() {
     radius: 1.2
   });
 
-  // Forest Trees (deterministic placement so both server and client match)
+  // Frostfell Peaks Portal (North-West Town Gateway)
+  obstacles.push({
+    id: 'portal_frostfell',
+    x: 16.5,
+    y: 16.5,
+    type: 'frost_portal',
+    name: 'Frostfell Peaks Portal',
+    collidable: false,
+    radius: 1.2
+  });
+
+  // Forest Trees
   const pseudoRandom = (seed) => {
     const x = Math.sin(seed++) * 10000;
     return x - Math.floor(x);
@@ -133,10 +147,8 @@ function generateMap() {
     const ty = Math.floor(pseudoRandom(seed++) * (MAP_HEIGHT - 4)) + 2;
     const tile = tiles[ty][tx];
 
-    // Don't place on town, water, or bridge
     const inTown = tx >= 14 && tx <= 26 && ty >= 14 && ty <= 26;
     if (!inTown && tile !== TILES.WATER && tile !== TILES.WOOD_BRIDGE && tile !== TILES.CLIFF) {
-      // Check collision with existing obstacles
       const collides = obstacles.some(o => Math.hypot(o.x - tx, o.y - ty) < 1.8);
       if (!collides) {
         const treeType = pseudoRandom(seed++) > 0.4 ? 'oak_tree' : 'pine_tree';
@@ -171,8 +183,109 @@ function generateMap() {
   return {
     width: MAP_WIDTH,
     height: MAP_HEIGHT,
+    theme: 'town',
     tiles,
     obstacles
+  };
+}
+
+// Generate New Map: Frostfell Peaks (Winter Realm)
+function generateFrostfellMap() {
+  const width = MAP_WIDTH;
+  const height = MAP_HEIGHT;
+  const tiles = [];
+  const obstacles = [];
+
+  for (let y = 0; y < height; y++) {
+    tiles[y] = [];
+    for (let x = 0; x < width; x++) {
+      let tile = TILES.SNOW;
+
+      // Frozen Lake in the center (x: 14-28, y: 12-24)
+      const lakeDist = Math.hypot((x - 21) * 1.1, y - 18);
+      if (lakeDist < 6.5) {
+        tile = TILES.ICE;
+      }
+
+      // Ancient Frost Stone Roads & Ritual Altars
+      if ((x >= 19 && x <= 23 && y >= 25 && y <= 35) || (Math.hypot(x - 10, y - 12) < 4.5)) {
+        tile = TILES.FROST_STONE;
+      }
+
+      // Mountain Cliffs around borders
+      if (x <= 1 || x >= width - 2 || y <= 1 || y >= height - 2) {
+        tile = TILES.FROST_CLIFF;
+      }
+
+      tiles[y][x] = tile;
+    }
+  }
+
+  // Return Portal to Town (at south plateau)
+  obstacles.push({
+    id: 'portal_town_return',
+    x: 21,
+    y: 34,
+    type: 'town_portal',
+    name: 'Return to Town Portal',
+    collidable: false,
+    radius: 1.2
+  });
+
+  // Frost Obelisks & Shards
+  const obelisks = [
+    [10, 12, 'frost_monolith'],
+    [32, 10, 'frost_monolith'],
+    [31, 28, 'frost_monolith'],
+    [12, 28, 'frost_monolith']
+  ];
+  obelisks.forEach(([ox, oy, type], idx) => {
+    obstacles.push({
+      id: `obelisk_${idx}`,
+      x: ox,
+      y: oy,
+      type,
+      collidable: true,
+      radius: 0.8
+    });
+  });
+
+  // Snow Pine Trees & Glacial Ice Crystals
+  const pseudoRandom = (seed) => {
+    const x = Math.sin(seed++) * 10000;
+    return x - Math.floor(x);
+  };
+  let seed = 108;
+  for (let i = 0; i < 75; i++) {
+    const tx = Math.floor(pseudoRandom(seed++) * (width - 6)) + 3;
+    const ty = Math.floor(pseudoRandom(seed++) * (height - 6)) + 3;
+    const tile = tiles[ty][tx];
+
+    // Don't place on ice lake or near spawn portal
+    const nearSpawn = Math.hypot(tx - 21, ty - 34) < 4.0;
+    if (!nearSpawn && tile !== TILES.ICE && tile !== TILES.FROST_CLIFF) {
+      const collides = obstacles.some(o => Math.hypot(o.x - tx, o.y - ty) < 2.0);
+      if (!collides) {
+        const isCrystal = pseudoRandom(seed++) > 0.65;
+        obstacles.push({
+          id: `frost_obs_${tx}_${ty}`,
+          x: tx,
+          y: ty,
+          type: isCrystal ? 'ice_crystal' : 'snow_pine',
+          collidable: true,
+          radius: isCrystal ? 0.7 : 0.65
+        });
+      }
+    }
+  }
+
+  return {
+    width,
+    height,
+    theme: 'frostfell',
+    tiles,
+    obstacles,
+    spawnPoint: { x: 21, y: 32 }
   };
 }
 
@@ -180,5 +293,6 @@ module.exports = {
   MAP_WIDTH,
   MAP_HEIGHT,
   TILES,
-  generateMap
+  generateMap,
+  generateFrostfellMap
 };

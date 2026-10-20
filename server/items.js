@@ -1,6 +1,6 @@
-// Item Database & Loot Tables for Aetheria Online
+// Item Database & Loot Tables for Slop Hero
 const ITEMS = {
-  // Consumables
+  // Consumables (Potions, Scrolls & Elixirs sold in Olaf's Shop)
   health_potion: {
     id: 'health_potion',
     name: 'Health Potion',
@@ -23,6 +23,28 @@ const ITEMS = {
     manaAmount: 50,
     desc: 'Restores 50 Mana instantly.'
   },
+  greater_health_potion: {
+    id: 'greater_health_potion',
+    name: 'Greater Health Potion',
+    type: 'consumable',
+    icon: '🧪',
+    rarity: 'rare',
+    buyPrice: 70,
+    sellPrice: 32,
+    healAmount: 140,
+    desc: 'Potent draught. Restores 140 Health instantly.'
+  },
+  greater_mana_potion: {
+    id: 'greater_mana_potion',
+    name: 'Greater Mana Potion',
+    type: 'consumable',
+    icon: '🔮',
+    rarity: 'rare',
+    buyPrice: 80,
+    sellPrice: 38,
+    manaAmount: 120,
+    desc: 'Potent brew. Restores 120 Mana instantly.'
+  },
   town_scroll: {
     id: 'town_scroll',
     name: 'Town Portal Scroll',
@@ -33,8 +55,28 @@ const ITEMS = {
     sellPrice: 25,
     desc: 'Instantly teleports you back to town safely.'
   },
+  elixir_of_fury: {
+    id: 'elixir_of_fury',
+    name: 'Elixir of Fury',
+    type: 'consumable',
+    icon: '⚗️',
+    rarity: 'rare',
+    buyPrice: 95,
+    sellPrice: 45,
+    desc: 'Restores 40 Mana and grants ferocious battle vigor.'
+  },
+  elixir_of_iron: {
+    id: 'elixir_of_iron',
+    name: 'Elixir of Iron Skin',
+    type: 'consumable',
+    icon: '🛡️',
+    rarity: 'rare',
+    buyPrice: 90,
+    sellPrice: 40,
+    desc: 'Alchemical stone draught. Fortifies body against strikes.'
+  },
 
-  // Dungeon Relics & Treasures (Great sell value)
+  // Dungeon Relics & Treasures (Valuable loot to sell in shop for Gold)
   ancient_ruby: {
     id: 'ancient_ruby',
     name: 'Ancient Ruby',
@@ -81,7 +123,7 @@ const ITEMS = {
     desc: 'Concentrated dark energy captured from dungeon wraiths.'
   },
 
-  // Equipment / Gear (Gives bonus stats or sells for high gold)
+  // Weapons & Equipment (Drop from dungeon chests with randomized stats; NOT sold in shop!)
   iron_blade: {
     id: 'iron_blade',
     name: 'Knight Broadsword',
@@ -89,10 +131,10 @@ const ITEMS = {
     slot: 'weapon',
     icon: '🗡️',
     rarity: 'common',
-    buyPrice: 120,
     sellPrice: 50,
     bonusDmg: 10,
-    desc: '+10 Attack Power.'
+    bonusSwipe: 30,
+    desc: '+10 Attack Power, +30% Swipe (Cleave).'
   },
   shadow_daggers: {
     id: 'shadow_daggers',
@@ -101,11 +143,37 @@ const ITEMS = {
     slot: 'weapon',
     icon: '🔪',
     rarity: 'rare',
-    buyPrice: 220,
     sellPrice: 95,
     bonusDmg: 16,
     bonusSpeed: 0.5,
-    desc: '+16 Attack Power, +0.5 Speed.'
+    bonusAttackSpeed: 0.25,
+    desc: '+16 Attack Power, +25% Attack Speed, +0.5 Speed.'
+  },
+  sweeping_claymore: {
+    id: 'sweeping_claymore',
+    name: 'Sweeping Claymore',
+    type: 'equipment',
+    slot: 'weapon',
+    icon: '⚔️',
+    rarity: 'rare',
+    sellPrice: 110,
+    bonusDmg: 18,
+    bonusSwipe: 55,
+    bonusAttackSpeed: 0.10,
+    desc: '+18 Attack Power, +55% Sweeping Edge, +10% Attack Speed.'
+  },
+  wind_rapier: {
+    id: 'wind_rapier',
+    name: 'Zephyr Swiftblade',
+    type: 'equipment',
+    slot: 'weapon',
+    icon: '🗡️',
+    rarity: 'epic',
+    sellPrice: 160,
+    bonusDmg: 22,
+    bonusAttackSpeed: 0.35,
+    bonusSwipe: 25,
+    desc: '+22 Attack Power, +35% Attack Speed, +25% Swipe.'
   },
   archmage_staff: {
     id: 'archmage_staff',
@@ -114,11 +182,11 @@ const ITEMS = {
     slot: 'weapon',
     icon: '🪄',
     rarity: 'epic',
-    buyPrice: 350,
     sellPrice: 150,
     bonusDmg: 24,
     bonusMp: 40,
-    desc: '+24 Attack Power, +40 Max Mana.'
+    bonusAttackSpeed: 0.10,
+    desc: '+24 Attack Power, +40 Max Mana, +10% Attack Speed.'
   },
   excalibur: {
     id: 'excalibur',
@@ -127,11 +195,12 @@ const ITEMS = {
     slot: 'weapon',
     icon: '⚔️',
     rarity: 'legendary',
-    buyPrice: 650,
     sellPrice: 280,
     bonusDmg: 35,
     bonusHp: 50,
-    desc: '+35 Attack Power, +50 Max Health. Shines with divine light.'
+    bonusSwipe: 45,
+    bonusAttackSpeed: 0.20,
+    desc: '+35 Attack Power, +45% Swipe, +20% Attack Speed, +50 Max Health. Shines with divine light.'
   },
 
   // Armor Slot
@@ -142,7 +211,6 @@ const ITEMS = {
     slot: 'armor',
     icon: '🥋',
     rarity: 'common',
-    buyPrice: 110,
     sellPrice: 45,
     bonusDef: 4,
     bonusSpeed: 0.4,
@@ -155,7 +223,6 @@ const ITEMS = {
     slot: 'armor',
     icon: '🛡️',
     rarity: 'rare',
-    buyPrice: 280,
     sellPrice: 120,
     bonusHp: 60,
     bonusDef: 9,
@@ -168,7 +235,6 @@ const ITEMS = {
     slot: 'armor',
     icon: '🥻',
     rarity: 'epic',
-    buyPrice: 360,
     sellPrice: 155,
     bonusHp: 40,
     bonusMp: 60,
@@ -184,7 +250,6 @@ const ITEMS = {
     slot: 'helmet',
     icon: '🪖',
     rarity: 'common',
-    buyPrice: 90,
     sellPrice: 40,
     bonusDef: 5,
     bonusHp: 25,
@@ -197,7 +262,6 @@ const ITEMS = {
     slot: 'helmet',
     icon: '🥷',
     rarity: 'rare',
-    buyPrice: 180,
     sellPrice: 80,
     bonusDmg: 8,
     bonusSpeed: 0.3,
@@ -210,7 +274,6 @@ const ITEMS = {
     slot: 'helmet',
     icon: '👑',
     rarity: 'epic',
-    buyPrice: 320,
     sellPrice: 140,
     bonusDmg: 12,
     bonusMp: 45,
@@ -225,7 +288,6 @@ const ITEMS = {
     slot: 'boots',
     icon: '👢',
     rarity: 'common',
-    buyPrice: 85,
     sellPrice: 35,
     bonusDef: 3,
     bonusSpeed: 0.3,
@@ -238,7 +300,6 @@ const ITEMS = {
     slot: 'boots',
     icon: '🥾',
     rarity: 'epic',
-    buyPrice: 260,
     sellPrice: 110,
     bonusSpeed: 0.9,
     bonusDef: 4,
@@ -253,7 +314,6 @@ const ITEMS = {
     slot: 'ring',
     icon: '💍',
     rarity: 'legendary',
-    buyPrice: 450,
     sellPrice: 200,
     bonusDmg: 15,
     bonusHp: 40,
@@ -262,6 +322,107 @@ const ITEMS = {
   }
 };
 
+/**
+ * Generates an item instance with rolled stats, quality prefix, and secondary affixes
+ * Weapons & gear found in chests will have unique stats instead of generic fixed values!
+ */
+function generateRandomizedGear(baseId, floorLevel = 1, isBoss = false) {
+  const base = ITEMS[baseId];
+  if (!base || base.type !== 'equipment') return { ...(base || {}) };
+
+  // 1. Roll Quality Tier / Prefix
+  const qualityRoll = Math.random() + (isBoss ? 0.25 : 0) + (floorLevel - 1) * 0.08;
+  let qualityName = '';
+  let qualityMult = 1.0;
+  let rarity = base.rarity || 'common';
+
+  if (qualityRoll < 0.15 && !isBoss) {
+    qualityName = 'Crude';
+    qualityMult = 0.82;
+    rarity = 'common';
+  } else if (qualityRoll < 0.55) {
+    qualityName = 'Tempered';
+    qualityMult = 1.0 + Math.random() * 0.12;
+    rarity = base.rarity === 'legendary' ? 'legendary' : (base.rarity === 'epic' ? 'epic' : 'common');
+  } else if (qualityRoll < 0.85) {
+    qualityName = 'Honed';
+    qualityMult = 1.18 + Math.random() * 0.15;
+    rarity = base.rarity === 'legendary' ? 'legendary' : 'rare';
+  } else if (qualityRoll < 1.15) {
+    qualityName = 'Masterwork';
+    qualityMult = 1.35 + Math.random() * 0.18;
+    rarity = base.rarity === 'legendary' ? 'legendary' : 'epic';
+  } else {
+    qualityName = 'Mythic';
+    qualityMult = 1.55 + Math.random() * 0.25;
+    rarity = 'legendary';
+  }
+
+  // 2. Roll Secondary Affix / Suffix (Chance: 50% normal, 85% boss)
+  const hasSuffix = Math.random() < (isBoss ? 0.85 : 0.5);
+  const suffixes = [
+    { name: 'of the Titan', stat: 'bonusHp', min: 20, max: 50, icon: '❤️' },
+    { name: 'of the Mystic', stat: 'bonusMp', min: 20, max: 45, icon: '💧' },
+    { name: 'of Savagery', stat: 'bonusDmg', min: 3, max: 9, icon: '⚔️' },
+    { name: 'of the Bulwark', stat: 'bonusDef', min: 2, max: 6, icon: '🛡️' },
+    { name: 'of the Zephyr', stat: 'bonusSpeed', min: 0.2, max: 0.5, icon: '👟' },
+    { name: 'of Sweeping Edge', stat: 'bonusSwipe', min: 15, max: 35, icon: '🌊' },
+    { name: 'of the Gale', stat: 'bonusAttackSpeed', min: 0.12, max: 0.30, icon: '⚡' }
+  ];
+  let chosenSuffix = null;
+  if (hasSuffix) {
+    chosenSuffix = suffixes[Math.floor(Math.random() * suffixes.length)];
+  }
+
+  // 3. Calculate randomized stats with floor scaling
+  const item = {
+    ...base,
+    uniqueId: `${base.id}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+    custom: true,
+    rarity,
+    quality: qualityName
+  };
+
+  const floorBonus = (floorLevel - 1) * 3;
+  if (base.bonusDmg) item.bonusDmg = Math.max(1, Math.round((base.bonusDmg + floorBonus) * qualityMult));
+  if (base.bonusDef) item.bonusDef = Math.max(1, Math.round((base.bonusDef + Math.floor(floorBonus * 0.6)) * qualityMult));
+  if (base.bonusHp) item.bonusHp = Math.max(5, Math.round((base.bonusHp + floorBonus * 12) * qualityMult));
+  if (base.bonusMp) item.bonusMp = Math.max(5, Math.round((base.bonusMp + floorBonus * 8) * qualityMult));
+  if (base.bonusSpeed) item.bonusSpeed = Number(((base.bonusSpeed || 0) * qualityMult).toFixed(2));
+  if (base.bonusAttackSpeed) item.bonusAttackSpeed = Number(((base.bonusAttackSpeed || 0) * qualityMult).toFixed(2));
+  if (base.bonusSwipe) item.bonusSwipe = Math.round((base.bonusSwipe + Math.floor(floorBonus * 0.8)) * qualityMult);
+
+  if (chosenSuffix) {
+    const suffixScale = 1 + (floorLevel - 1) * 0.22;
+    const suffixVal = (chosenSuffix.stat === 'bonusSpeed' || chosenSuffix.stat === 'bonusAttackSpeed') ?
+      Number(((chosenSuffix.min + Math.random() * (chosenSuffix.max - chosenSuffix.min)) * Math.min(2.0, suffixScale)).toFixed(2)) :
+      Math.round((chosenSuffix.min + Math.random() * (chosenSuffix.max - chosenSuffix.min)) * suffixScale);
+
+    item[chosenSuffix.stat] = (item[chosenSuffix.stat] || 0) + suffixVal;
+    item.suffix = chosenSuffix.name;
+  }
+
+  // 4. Formulate rolled Name & Description
+  const fullName = `${qualityName ? `${qualityName} ` : ''}${base.name}${chosenSuffix ? ` ${chosenSuffix.name}` : ''}`;
+  item.name = fullName;
+
+  const statList = [];
+  if (item.bonusDmg) statList.push(`+${item.bonusDmg} DMG`);
+  if (item.bonusDef) statList.push(`+${item.bonusDef} DEF`);
+  if (item.bonusHp) statList.push(`+${item.bonusHp} HP`);
+  if (item.bonusMp) statList.push(`+${item.bonusMp} MP`);
+  if (item.bonusSpeed) statList.push(`+${item.bonusSpeed} SPD`);
+  if (item.bonusAttackSpeed) statList.push(`+${Math.round(item.bonusAttackSpeed * 100)}% Atk Spd`);
+  if (item.bonusSwipe) statList.push(`+${item.bonusSwipe}% Swipe`);
+
+  item.desc = `${statList.join(', ')} (${qualityName || 'Standard'} Roll)`;
+  item.sellPrice = Math.round((base.sellPrice || 30) * qualityMult * (chosenSuffix ? 1.3 : 1.0));
+  delete item.buyPrice;
+
+  return item;
+}
+
 module.exports = {
-  ITEMS
+  ITEMS,
+  generateRandomizedGear
 };
