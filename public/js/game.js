@@ -33,6 +33,30 @@ document.addEventListener('DOMContentLoaded', () => {
   let dashCooldownMax = 3.0;
   let skillCooldownTimer = 0;
   let skillCooldownMax = 3.5;
+  let lastBasicAttackTime = 0;
+
+  // Calculate 8-directional facing vector between two isometric world coordinates
+  function calculateFacingFromTo(fromX, fromY, toX, toY) {
+    const dx = toX - fromX;
+    const dy = toY - fromY;
+    if (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001) return 'S';
+
+    const screenDx = dx - dy;
+    const screenDy = (dx + dy) * 0.5;
+    const angle = Math.atan2(screenDy, screenDx);
+    const deg = (angle * 180) / Math.PI;
+
+    if (deg >= -22.5 && deg < 22.5) return 'E';
+    if (deg >= 22.5 && deg < 67.5) return 'SE';
+    if (deg >= 67.5 && deg < 112.5) return 'S';
+    if (deg >= 112.5 && deg < 157.5) return 'SW';
+    if (deg >= 157.5 || deg < -157.5) return 'W';
+    if (deg >= -157.5 && deg < -112.5) return 'NW';
+    if (deg >= -112.5 && deg < -67.5) return 'N';
+    if (deg >= -67.5 && deg < -22.5) return 'NE';
+
+    return 'S';
+  }
 
   let allSkillsCatalog = {};
   let skillRunesCatalog = {};
@@ -158,8 +182,16 @@ document.addEventListener('DOMContentLoaded', () => {
   let selectedDungeonFloor = 1;
   let selectedDungeonDifficulty = 'normal';
 
+  const floorLevelReqs = {
+    1: 1, 2: 16, 3: 31, 4: 46, 5: 61, 6: 76, 7: 91, 8: 106, 9: 121, 10: 136
+  };
+
   floorCards.forEach(card => {
     card.addEventListener('click', () => {
+      if (card.classList.contains('locked-floor')) {
+        window.soundEngine.playUpgradeFail();
+        return;
+      }
       floorCards.forEach(c => c.classList.remove('selected'));
       card.classList.add('selected');
       selectedDungeonFloor = parseInt(card.getAttribute('data-floor'), 10) || 1;
@@ -178,6 +210,39 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function openDungeonPortalModal() {
     if (dungeonPortalModal) {
+      const playerLvl = (localPlayer && localPlayer.level) || 1;
+
+      floorCards.forEach(card => {
+        const fl = parseInt(card.getAttribute('data-floor'), 10) || 1;
+        const minLvl = floorLevelReqs[fl] || 1;
+        const isLocked = playerLvl < minLvl;
+
+        let badge = card.querySelector('.floor-lock-badge');
+        if (isLocked) {
+          card.classList.add('locked-floor');
+          card.classList.remove('selected');
+          if (!badge) {
+            badge = document.createElement('div');
+            badge.className = 'floor-lock-badge';
+            card.querySelector('.floor-details').appendChild(badge);
+          }
+          badge.textContent = `🔒 Requires Lv. ${minLvl}`;
+        } else {
+          card.classList.remove('locked-floor');
+          if (badge) badge.remove();
+        }
+      });
+
+      // If currently selected floor is locked, fall back to highest unlocked floor
+      const curReq = floorLevelReqs[selectedDungeonFloor] || 1;
+      if (playerLvl < curReq) {
+        selectedDungeonFloor = 1;
+        floorCards.forEach(c => {
+          if (c.getAttribute('data-floor') === '1') c.classList.add('selected');
+          else c.classList.remove('selected');
+        });
+      }
+
       dungeonPortalModal.style.display = 'flex';
       window.soundEngine.playSkillWhoosh();
     }
@@ -339,7 +404,22 @@ document.addEventListener('DOMContentLoaded', () => {
     gameState.groundItems = data.groundItems;
     shopItemsCatalog = data.shopItems || [];
     skillTreesCatalog = data.skillTrees || {};
-    allSkillsCatalog = data.allSkills || {};
+    if (data.allSkillsCatalog) {
+      allSkillsCatalog = data.allSkillsCatalog;
+    } else if (data.allSkills) {
+      if (Array.isArray(data.allSkills.warrior)) {
+        allSkillsCatalog = data.allSkills;
+      } else {
+        const skillsArr = Object.values(data.allSkills);
+        allSkillsCatalog = {
+          warrior: skillsArr.filter(s => s.class === 'warrior').sort((a, b) => (a.reqLevel || 1) - (b.reqLevel || 1)),
+          mage: skillsArr.filter(s => s.class === 'mage').sort((a, b) => (a.reqLevel || 1) - (b.reqLevel || 1)),
+          rogue: skillsArr.filter(s => s.class === 'rogue').sort((a, b) => (a.reqLevel || 1) - (b.reqLevel || 1))
+        };
+      }
+    } else {
+      allSkillsCatalog = {};
+    }
     skillRunesCatalog = data.skillRunes || {};
 
     localPlayer = data.player;
@@ -556,7 +636,10 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   socket.on('entity_attack_fx', (fx) => {
-    if (renderer) renderer.triggerAttackAnimation(fx);
+    // Only trigger animation for other players/mobs (local player already triggered client-side with zero latency)
+    if (renderer && fx.attackerId !== localPlayerId) {
+      renderer.triggerAttackAnimation(fx);
+    }
 
     if (fx.attackerType === 'player') {
       if (fx.class === 'mage') {
@@ -821,16 +904,42 @@ document.addEventListener('DOMContentLoaded', () => {
       if (clickedMob) {
         selectedTargetId = clickedMob.id;
         selectedTargetType = 'mob';
-        socket.emit('player_attack', {
-          targetId: clickedMob.id,
-          targetType: 'mob'
-        });
+
+        const now = performance.now();
+        const atkSpeed = Math.max(0.4, (localPlayer && localPlayer.attackSpeed) || 1.0);
+        const cooldownMs = Math.round(550 / atkSpeed);
+
+        if (now - lastBasicAttackTime >= cooldownMs) {
+          lastBasicAttackTime = now;
+          if (localPlayer) {
+            localPlayer.facing = calculateFacingFromTo(localPlayer.x, localPlayer.y, clickedMob.x, clickedMob.y);
+            if (renderer) {
+              renderer.triggerAttackAnimation({
+                attackerId: localPlayer.id,
+                class: localPlayer.characterClass,
+                x: localPlayer.x,
+                y: localPlayer.y,
+                facing: localPlayer.facing,
+                attackSpeed: atkSpeed,
+                hasSweep: true
+              });
+            }
+          }
+          socket.emit('player_attack', {
+            targetId: clickedMob.id,
+            targetType: 'mob'
+          });
+        }
         return;
       }
     }
 
     // Destination Move
     renderer.addClickMarker(worldPos.x, worldPos.y);
+    if (localPlayer) {
+      localPlayer.facing = calculateFacingFromTo(localPlayer.x, localPlayer.y, worldPos.x, worldPos.y);
+      localPlayer.isMoving = true;
+    }
     socket.emit('player_input', {
       type: 'click_move',
       x: worldPos.x,
@@ -986,8 +1095,20 @@ document.addEventListener('DOMContentLoaded', () => {
     if (activeKeys.d) { dx += 1; }
 
     if (dx !== 0 || dy !== 0) {
+      if (localPlayer) {
+        if (dx > 0 && dy < 0) localPlayer.facing = 'NE';
+        else if (dx < 0 && dy < 0) localPlayer.facing = 'NW';
+        else if (dx > 0 && dy > 0) localPlayer.facing = 'SE';
+        else if (dx < 0 && dy > 0) localPlayer.facing = 'SW';
+        else if (dy < 0) localPlayer.facing = 'N';
+        else if (dy > 0) localPlayer.facing = 'S';
+        else if (dx > 0) localPlayer.facing = 'E';
+        else if (dx < 0) localPlayer.facing = 'W';
+        localPlayer.isMoving = true;
+      }
       socket.emit('player_input', { type: 'wasd_move', dx, dy });
     } else {
+      if (localPlayer) localPlayer.isMoving = false;
       socket.emit('player_input', { type: 'stop_move' });
     }
   }
@@ -1045,10 +1166,21 @@ document.addEventListener('DOMContentLoaded', () => {
   function useBasicAttack() {
     if (!localPlayer || localPlayer.isDead) return;
 
+    // 1. Check Attack Speed Cooldown:
+    // Attacks must strictly respect player attack speed stat!
+    const now = performance.now();
+    const atkSpeed = Math.max(0.4, localPlayer.attackSpeed || 1.0);
+    const cooldownMs = Math.round(550 / atkSpeed);
+
+    if (now - lastBasicAttackTime < cooldownMs) {
+      // Still on attack cooldown cycle - ignore spacebar spam until ready
+      return;
+    }
+
     const AUTO_LOCK_RADIUS = 8.5;
     let targetMob = null;
 
-    // 1. Check if currently selected target is valid and alive
+    // 2. Check if currently selected target is valid and alive
     if (selectedTargetId && gameState.mobs) {
       const mob = gameState.mobs.find(m => m.id === selectedTargetId);
       if (mob && mob.state !== 'dead') {
@@ -1059,7 +1191,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    // 2. If no valid target, auto-find closest alive mob within radius
+    // 3. If no valid target, auto-find closest alive mob within radius
     if (!targetMob && gameState.mobs) {
       let closestMob = null;
       let closestDist = AUTO_LOCK_RADIUS;
@@ -1089,7 +1221,15 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    // 3. Dispatch Attack
+    // 4. Turn to face locked target when attacking!
+    if (targetMob) {
+      localPlayer.facing = calculateFacingFromTo(localPlayer.x, localPlayer.y, targetMob.x, targetMob.y);
+    }
+
+    // Register attack timestamp
+    lastBasicAttackTime = now;
+
+    // 5. Dispatch Attack
     if (targetMob) {
       const dist = Math.hypot(targetMob.x - localPlayer.x, targetMob.y - localPlayer.y);
       const attackRange = localPlayer.characterClass === 'mage' ? 5.5 : 2.2;
@@ -1115,6 +1255,19 @@ document.addEventListener('DOMContentLoaded', () => {
         targetType: 'none',
         worldX: localPlayer.x,
         worldY: localPlayer.y
+      });
+    }
+
+    // Immediate client-side attack slash animation trigger with locked target facing!
+    if (renderer && localPlayer) {
+      renderer.triggerAttackAnimation({
+        attackerId: localPlayer.id,
+        class: localPlayer.characterClass,
+        x: localPlayer.x,
+        y: localPlayer.y,
+        facing: localPlayer.facing,
+        attackSpeed: atkSpeed,
+        hasSweep: true
       });
     }
   }
@@ -1224,6 +1377,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     socket.emit('player_skill', { skillSlot: slot, targetX, targetY, dirX, dirY });
+
+    if (slot === 'dash' && renderer && localPlayer) {
+      renderer.triggerDashAnimation({ playerId: localPlayer.id, duration: 340, facing: localPlayer.facing });
+    }
   }
 
   function useClassSkill() {
@@ -1276,6 +1433,10 @@ document.addEventListener('DOMContentLoaded', () => {
   function toggle3DHeroModels() {
     if (!window.threeHeroRenderer) return;
     window.threeHeroRenderer.enabled = !window.threeHeroRenderer.enabled;
+    const threeCanvas = document.getElementById('threeCanvas');
+    if (threeCanvas) {
+      threeCanvas.style.display = window.threeHeroRenderer.enabled ? 'block' : 'none';
+    }
     if (btnToggle3D) {
       btnToggle3D.textContent = window.threeHeroRenderer.enabled ? '🎮 3D' : '📜 2D';
       btnToggle3D.classList.toggle('active-toggle', window.threeHeroRenderer.enabled);
@@ -1922,7 +2083,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return 'none';
     };
 
-    // 1. Render the 4 Hotbar Slot Cards
+    // 1. Render the 4 Hotbar Slot Cards as Interactive Drop Targets
     loadoutSlotsRow.innerHTML = '';
     const slotsConfig = [
       { key: 'slot1', label: 'Primary Skill', keybind: 'Q', icon: '⚔️' },
@@ -1939,7 +2100,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const rune = (skillRunesCatalog && skillRunesCatalog[runeId]) || { name: 'Standard', icon: '⚪', color: '#94a3b8' };
 
       const card = document.createElement('div');
-      card.className = `hotbar-slot-card ${isSelected ? 'active-slot' : ''}`;
+      card.className = `hotbar-slot-card ${isSelected ? 'selected active-slot' : ''}`;
+      card.setAttribute('data-slot-key', sConf.key);
       card.innerHTML = `
         <div class="slot-card-badge">${sConf.keybind}</div>
         <div class="slot-card-icon">${skill ? skill.icon : sConf.icon}</div>
@@ -1948,12 +2110,50 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="slot-card-rune-pill" style="border-color: ${rune.color || '#94a3b8'}; color: ${rune.color || '#94a3b8'};">
           ${rune.icon} ${rune.name}
         </div>
+        <div class="slot-drop-callout">⬇️ Drop Skill Here</div>
       `;
 
+      // Click to select slot
       card.addEventListener('click', () => {
         selectedLoadoutSlot = sConf.key;
         renderCustomSkillLoadout();
         window.soundEngine.playTargetLock();
+      });
+
+      // HTML5 Drag and Drop Target Listeners
+      card.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        card.classList.add('drag-over');
+      });
+
+      card.addEventListener('dragleave', (e) => {
+        if (!card.contains(e.relatedTarget)) {
+          card.classList.remove('drag-over');
+        }
+      });
+
+      card.addEventListener('drop', (e) => {
+        e.preventDefault();
+        card.classList.remove('drag-over');
+        document.querySelectorAll('.hotbar-slot-card').forEach(sc => {
+          sc.classList.remove('drop-target-active');
+          sc.classList.remove('drag-over');
+        });
+
+        const droppedSkillId = e.dataTransfer.getData('text/plain');
+        if (!droppedSkillId) return;
+
+        if (!localPlayer.equippedSkills) localPlayer.equippedSkills = {};
+        localPlayer.equippedSkills[sConf.key] = droppedSkillId;
+        socket.emit('customize_skill_slot', {
+          slot: sConf.key,
+          skillId: droppedSkillId
+        });
+        window.soundEngine.playBladeCharge();
+        selectedLoadoutSlot = sConf.key;
+        renderCustomSkillLoadout();
+        setupClassSkillHUD(localPlayer.characterClass);
       });
 
       loadoutSlotsRow.appendChild(card);
@@ -2005,9 +2205,22 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
 
-    // 3. Render Skills Catalog (all class skills)
+    // 3. Render Skills Catalog with Drag-and-Drop Cards
     skillsCatalogGrid.innerHTML = '';
-    classSkills.forEach(s => {
+
+    // Add Drag & Drop Instruction Ribbon
+    const guideRibbon = document.createElement('div');
+    guideRibbon.className = 'loadout-drag-guide-ribbon';
+    guideRibbon.style.gridColumn = '1 / -1';
+    guideRibbon.innerHTML = `
+      <span style="font-size: 16px;">🖐️</span>
+      <span><strong>Drag & Drop:</strong> Drag any unlocked skill card below directly into <strong>[Q], [E], [R], or [Shift]</strong> slots above to equip!</span>
+    `;
+    skillsCatalogGrid.appendChild(guideRibbon);
+
+    const sortedSkills = [...classSkills].sort((a, b) => (a.reqLevel || 1) - (b.reqLevel || 1));
+
+    sortedSkills.forEach(s => {
       let equippedInSlot = null;
       for (const sKey of ['slot1', 'slot2', 'slot3', 'dash']) {
         if (getSlotSkillId(sKey) === s.id) {
@@ -2019,9 +2232,34 @@ document.addEventListener('DOMContentLoaded', () => {
       const isEquippedHere = equippedInSlot === selectedLoadoutSlot;
       const isEquippedElsewhere = equippedInSlot && !isEquippedHere;
       const slotBindName = equippedInSlot === 'slot1' ? '[Q]' : equippedInSlot === 'slot2' ? '[E]' : equippedInSlot === 'slot3' ? '[R]' : equippedInSlot === 'dash' ? '[Shift]' : '';
+      const reqLvl = s.reqLevel || 1;
+      const isLocked = (localPlayer.level || 1) < reqLvl;
 
       const card = document.createElement('div');
-      card.className = `catalog-skill-card ${isEquippedHere ? 'is-equipped' : ''}`;
+      card.className = `catalog-skill-card ${isEquippedHere ? 'is-equipped' : ''} ${isLocked ? 'is-locked' : 'draggable-skill'}`;
+
+      if (!isLocked) {
+        card.draggable = true;
+        card.setAttribute('title', `Drag into [Q], [E], [R], [Shift] slots above, or click to equip into [${selectedLoadoutSlot.toUpperCase()}]`);
+
+        // Drag Events
+        card.addEventListener('dragstart', (e) => {
+          e.dataTransfer.setData('text/plain', s.id);
+          e.dataTransfer.effectAllowed = 'move';
+          card.classList.add('is-dragging');
+          document.querySelectorAll('.hotbar-slot-card').forEach(sc => {
+            sc.classList.add('drop-target-active');
+          });
+        });
+
+        card.addEventListener('dragend', () => {
+          card.classList.remove('is-dragging');
+          document.querySelectorAll('.hotbar-slot-card').forEach(sc => {
+            sc.classList.remove('drop-target-active');
+            sc.classList.remove('drag-over');
+          });
+        });
+      }
 
       card.innerHTML = `
         <div class="catalog-top-row">
@@ -2029,6 +2267,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="catalog-title-box">
             <div class="catalog-name-row">
               <span class="catalog-name">${s.name}</span>
+              <span class="catalog-level-badge ${isLocked ? 'locked' : 'unlocked'}">${isLocked ? '🔒' : '✓'} Lv. ${reqLvl}</span>
               <span class="catalog-type-pill ${s.category}">${s.category ? s.category.toUpperCase() : 'SKILL'}</span>
             </div>
             <div class="catalog-desc">${s.desc}</div>
@@ -2044,16 +2283,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
         <div class="catalog-actions-row">
           ${isEquippedHere ? `
-            <div class="equipped-tag">✓ EQUIPPED IN ${selectedLoadoutSlot.toUpperCase()}</div>
+            <div class="equipped-tag">✓ ASSIGNED TO [${selectedLoadoutSlot.toUpperCase()}]</div>
+          ` : isLocked ? `
+            <button class="btn-equip-skill locked" disabled title="Reach Level ${reqLvl} to unlock this skill!">
+              🔒 Locked (Requires Lv. ${reqLvl})
+            </button>
           ` : `
+            <div class="catalog-drag-handle">🖐️ Drag to Slot</div>
             <button class="btn-equip-skill" data-skill-id="${s.id}">
-              ${isEquippedElsewhere ? `Swap from ${slotBindName}` : `Equip to [${selectedLoadoutSlot.toUpperCase()}]`}
+              ${isEquippedElsewhere ? `Swap [${slotBindName}]` : `Equip [${selectedLoadoutSlot.toUpperCase()}]`}
             </button>
           `}
         </div>
       `;
 
-      const btnEquip = card.querySelector('.btn-equip-skill');
+      const btnEquip = card.querySelector('.btn-equip-skill:not(.locked)');
       if (btnEquip) {
         btnEquip.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -2296,10 +2540,14 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
 
-    renderer.render(gameState, localPlayerId, selectedTargetId, dt);
+    try {
+      renderer.render(gameState, localPlayerId, selectedTargetId, dt);
 
-    if (window.threeHeroRenderer) {
-      window.threeHeroRenderer.updateAndRender(gameState, renderer.camera, localPlayerId, renderer.attacks, dt);
+      if (window.threeHeroRenderer) {
+        window.threeHeroRenderer.updateAndRender(gameState, renderer.camera, localPlayerId, renderer.attacks, dt);
+      }
+    } catch (err) {
+      console.error('Render error:', err);
     }
 
     requestAnimationFrame(gameLoop);

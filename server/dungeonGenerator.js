@@ -317,13 +317,49 @@ function generateProceduralDungeon(floorLevel = 1, difficulty = 'normal') {
         nextWanderTime: Date.now() + 2000,
         wanderTarget: null,
         attackCooldown: 0,
-        respawnTimer: 0,
+        respawnTimer: Infinity,
         facing: 'SE'
       });
+
+      // Spawn Royal Guard minions alongside the Boss (10 minions)
+      for (let g = 0; g < 10; g++) {
+        const minionLvl = Math.max(1, bossLevel - 2);
+        const gx = r.x + 2 + Math.random() * (r.w - 4);
+        const gy = r.y + 2 + Math.random() * (r.h - 4);
+        mobs.push({
+          id: `mob_${nextEntityId++}`,
+          type: 'skeleton',
+          name: `💀 Royal Deathguard [Lv. ${minionLvl}]`,
+          level: minionLvl,
+          x: gx,
+          y: gy,
+          spawnX: gx,
+          spawnY: gy,
+          zone: { minX: r.x, maxX: r.x + r.w, minY: r.y, maxY: r.y + r.h },
+          isBoss: false,
+          hp: Math.round((280 + minionLvl * 65) * diff.hpMult),
+          maxHp: Math.round((280 + minionLvl * 65) * diff.hpMult),
+          dmg: Math.round((25 + minionLvl * 3.5) * diff.dmgMult),
+          def: Math.round(12 + minionLvl * 1.8),
+          speed: 2.2,
+          exp: Math.round((90 + minionLvl * 25) * diff.expMult),
+          gold: Math.round((40 + minionLvl * 12) * diff.goldMult),
+          buffs: ['fortified'],
+          isCommander: false,
+          auraRadius: 0,
+          targetPlayerId: null,
+          state: 'idle',
+          nextWanderTime: Date.now() + 2000,
+          wanderTarget: null,
+          attackCooldown: 0,
+          respawnTimer: Infinity,
+          facing: 'SE'
+        });
+      }
     } else {
-      // Normal Dungeon Mobs: Scaled according to floor level bracket
+      // Normal Dungeon Mobs: 10x Swarm density (20 - 25 mobs per room!)
       const floorConfig = DUNGEON_FLOORS[floorLevel - 1] || DUNGEON_FLOORS[0];
-      const baseCount = Math.floor(Math.random() * 2) + 2;
+      const baseCount = Math.floor(Math.random() * 6) + 20; // 10x multiplier from original 2-3
       const mobCount = Math.round(baseCount * diff.densityMult);
 
       // Check if this room has a pack Commander
@@ -394,7 +430,7 @@ function generateProceduralDungeon(floorLevel = 1, difficulty = 'normal') {
           nextWanderTime: Date.now() + 2000,
           wanderTarget: null,
           attackCooldown: 0,
-          respawnTimer: 0,
+          respawnTimer: Infinity,
           facing: 'SE'
         });
       }
