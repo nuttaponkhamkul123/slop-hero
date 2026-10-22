@@ -134,33 +134,53 @@ function generateProceduralDungeon(floorLevel = 1, difficulty = 'normal') {
     }
   }
 
-  // 3. Carve Corridors connecting rooms in sequence
-  for (let i = 0; i < rooms.length - 1; i++) {
-    const r1 = rooms[i];
-    const r2 = rooms[i + 1];
-
+  // 3. Carve Corridors connecting rooms in sequence. The boss chamber (last
+  // room) is sealed off and reached through the boss teleport point instead.
+  // L-shaped, 2-wide corridor from r1's centre to r2's centre
+  const corridorPath = (r1, r2) => {
+    const path = [];
     let cx = r1.cx;
     let cy = r1.cy;
-
     // Horizontal corridor (width 2)
     while (cx !== r2.cx) {
-      tiles[cy][cx] = DUNGEON_TILES.CORRIDOR;
-      tiles[cy + 1][cx] = DUNGEON_TILES.CORRIDOR;
+      path.push([cx, cy], [cx, cy + 1]);
       cx += cx < r2.cx ? 1 : -1;
     }
     // Turn Corner 2x2
-    tiles[cy][cx] = DUNGEON_TILES.CORRIDOR;
-    tiles[cy + 1][cx] = DUNGEON_TILES.CORRIDOR;
-    tiles[cy][cx + 1] = DUNGEON_TILES.CORRIDOR;
-    tiles[cy + 1][cx + 1] = DUNGEON_TILES.CORRIDOR;
-
+    path.push([cx, cy], [cx, cy + 1], [cx + 1, cy], [cx + 1, cy + 1]);
     // Vertical corridor (width 2)
     while (cy !== r2.cy) {
-      tiles[cy][cx] = DUNGEON_TILES.CORRIDOR;
-      tiles[cy][cx + 1] = DUNGEON_TILES.CORRIDOR;
+      path.push([cx, cy], [cx + 1, cy]);
       cy += cy < r2.cy ? 1 : -1;
     }
+    return path;
+  };
+  // A corridor must stay 2 tiles clear of the sealed room so a wall separates them
+  const pathTouchesRoom = (path, r) =>
+    path.some(([x, y]) => x >= r.x - 2 && x <= r.x + r.w + 1 && y >= r.y - 2 && y <= r.y + r.h + 1);
+
+  // Pick a boss chamber that none of the remaining corridors pass by, and
+  // move it to the end of the list (the last room is the boss room).
+  let hasSealedBossRoom = false;
+  let corridorPaths = [];
+  if (rooms.length >= 3) {
+    for (let k = rooms.length - 1; k >= 1 && !hasSealedBossRoom; k--) {
+      const order = rooms.filter((_, i) => i !== k);
+      const paths = [];
+      for (let i = 0; i < order.length - 1; i++) paths.push(corridorPath(order[i], order[i + 1]));
+      if (!paths.some(p => pathTouchesRoom(p, rooms[k]))) {
+        const boss = rooms[k];
+        rooms.splice(0, rooms.length, ...order, boss);
+        corridorPaths = paths;
+        hasSealedBossRoom = true;
+      }
+    }
   }
+  if (!hasSealedBossRoom) {
+    // Fallback: no room can be isolated, keep the classic fully-connected layout
+    for (let i = 0; i < rooms.length - 1; i++) corridorPaths.push(corridorPath(rooms[i], rooms[i + 1]));
+  }
+  corridorPaths.forEach(path => path.forEach(([x, y]) => { tiles[y][x] = DUNGEON_TILES.CORRIDOR; }));
 
   // Room 0 is Spawn Room; Last Room is Boss Chamber
   const spawnRoom = rooms[0];
@@ -170,6 +190,20 @@ function generateProceduralDungeon(floorLevel = 1, difficulty = 'normal') {
   // Place return portal on opposite side of the room
   const exitPortal = { x: spawnRoom.x + 1, y: spawnRoom.y + 1 };
   tiles[exitPortal.y][exitPortal.x] = DUNGEON_TILES.PORTAL_EXIT;
+
+  // Boss teleport point at the far end of the last regular room, an arrival
+  // spot inside the sealed boss chamber, and a way back out of the chamber.
+  let bossPortal = null;
+  let bossArrival = null;
+  let bossExitPortal = null;
+  if (hasSealedBossRoom) {
+    const gateRoom = rooms[rooms.length - 2];
+    bossPortal = { x: gateRoom.x + gateRoom.w - 2, y: gateRoom.y + gateRoom.h - 2 };
+    tiles[bossPortal.y][bossPortal.x] = DUNGEON_TILES.PORTAL_EXIT;
+    bossArrival = { x: bossRoom.x + 1.5, y: bossRoom.y + bossRoom.h - 1.5 };
+    bossExitPortal = { x: bossRoom.x + bossRoom.w - 2, y: bossRoom.y + 1 };
+    tiles[bossExitPortal.y][bossExitPortal.x] = DUNGEON_TILES.PORTAL_EXIT;
+  }
 
   // 3.5. Form Wall Perimeter: Any non-floor tile touching a floor becomes a solid 3D WALL
   for (let y = 0; y < height; y++) {
@@ -220,21 +254,51 @@ function generateProceduralDungeon(floorLevel = 1, difficulty = 'normal') {
     radius: 1.0
   });
 
-  // Add Wall Torches in rooms
-  rooms.forEach((r, idx) => {
+  if (bossPortal) {
     obstacles.push({
-      id: `dungeon_torch_${idx}_1`,
-      x: r.x + 1,
-      y: r.y + 1,
-      type: 'torch',
-      collidable: false
+      id: 'portal_boss_chamber',
+      x: bossPortal.x,
+      y: bossPortal.y,
+      type: 'portal',
+      name: 'Boss Chamber Portal',
+      label: 'Boss Chamber',
+      color: '#ef4444',
+      collidable: false,
+      radius: 1.0
     });
     obstacles.push({
-      id: `dungeon_torch_${idx}_2`,
-      x: r.x + r.w - 2,
-      y: r.y + r.h - 2,
-      type: 'torch',
-      collidable: false
+      id: 'portal_boss_exit',
+      x: bossExitPortal.x,
+      y: bossExitPortal.y,
+      type: 'portal',
+      name: 'Return to Town Portal',
+      label: 'Return to Town',
+      color: '#38bdf8',
+      collidable: false,
+      radius: 1.0
+    });
+  }
+
+  // Wall-mounted torches on the room's back walls (the north and west walls
+  // are the tall ones facing the camera). side 'left' = sconce on the face
+  // toward +y, 'right' = toward +x.
+  rooms.forEach((r, idx) => {
+    const sconces = [
+      { x: r.x + Math.floor(r.w / 3), y: r.y - 1, side: 'left' },
+      { x: r.x + Math.floor((r.w * 2) / 3), y: r.y - 1, side: 'left' },
+      { x: r.x - 1, y: r.y + Math.floor(r.h / 2), side: 'right' }
+    ];
+    sconces.forEach((sc, sIdx) => {
+      if (tiles[sc.y] && tiles[sc.y][sc.x] === DUNGEON_TILES.WALL) {
+        obstacles.push({
+          id: `dungeon_torch_${idx}_${sIdx}`,
+          x: sc.x,
+          y: sc.y,
+          type: 'wall_torch',
+          side: sc.side,
+          collidable: false
+        });
+      }
     });
 
     // Place Treasure Chests in rooms (except spawn room)
@@ -444,6 +508,9 @@ function generateProceduralDungeon(floorLevel = 1, difficulty = 'normal') {
     rooms,
     spawnPoint,
     exitPortal,
+    bossPortal,
+    bossArrival,
+    bossExitPortal,
     obstacles,
     chests,
     mobs,

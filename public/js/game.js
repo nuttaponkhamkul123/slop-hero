@@ -70,6 +70,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnJoinGame = document.getElementById('btnJoinGame');
   const inputHeroName = document.getElementById('inputHeroName');
   const classCards = document.querySelectorAll('.class-card');
+  const btnToClassStep = document.getElementById('btnToClassStep');
+  const btnBackToName = document.getElementById('btnBackToName');
+  const joinStepName = document.getElementById('joinStepName');
+  const joinStepClass = document.getElementById('joinStepClass');
+  const previewClassName = document.getElementById('previewClassName');
+  const previewClassRole = document.getElementById('previewClassRole');
+  const previewClassLore = document.getElementById('previewClassLore');
+  const previewClassStats = document.getElementById('previewClassStats');
+  const classPreviewCanvas = document.getElementById('classPreviewCanvas');
 
   const hudPlayerName = document.getElementById('hudPlayerName');
   const hudPlayerClass = document.getElementById('hudPlayerClass');
@@ -271,20 +280,79 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let selectedClass = 'warrior';
 
+  // Character Creation Preview (3D hero showcase)
+  const classPreview = (typeof window.ClassPreview === 'function' && classPreviewCanvas)
+    ? new window.ClassPreview(classPreviewCanvas)
+    : null;
+
+  function applyClassSelection(cls) {
+    selectedClass = cls;
+    classCards.forEach(c => c.classList.toggle('selected', c.getAttribute('data-class') === cls));
+
+    const meta = (window.CLASS_META && window.CLASS_META[cls]) || null;
+    if (meta) {
+      if (previewClassName) previewClassName.textContent = meta.name;
+      if (previewClassRole) previewClassRole.textContent = `${meta.archetype} · ${meta.role}`;
+      if (previewClassLore) previewClassLore.textContent = meta.lore;
+
+      if (previewClassStats) {
+        previewClassStats.innerHTML = Object.entries(meta.stats).map(([label, value]) => `
+          <div class="class-stat-row">
+            <span class="class-stat-label">${label}</span>
+            <span class="class-stat-bar"><span class="class-stat-fill" style="width: ${value}%; background: ${meta.accent};"></span></span>
+            <span class="class-stat-value">${value}</span>
+          </div>
+        `).join('');
+      }
+    }
+
+    if (classPreview) classPreview.setClass(cls);
+  }
+
   // Class Selection Setup
   classCards.forEach(card => {
     card.addEventListener('click', () => {
-      classCards.forEach(c => c.classList.remove('selected'));
-      card.classList.add('selected');
-      selectedClass = card.getAttribute('data-class');
+      applyClassSelection(card.getAttribute('data-class'));
     });
   });
+
+  // Wizard: Step 1 (name) -> Step 2 (class)
+  function showJoinStep(step) {
+    if (joinStepName) joinStepName.style.display = step === 'name' ? 'block' : 'none';
+    if (joinStepClass) joinStepClass.style.display = step === 'class' ? 'block' : 'none';
+
+    if (step === 'class') {
+      if (classPreview) {
+        classPreview.setClass(selectedClass);
+        classPreview.resize();
+        classPreview.start();
+      }
+    } else if (classPreview) {
+      classPreview.stop();
+    }
+  }
+
+  if (btnToClassStep) {
+    btnToClassStep.addEventListener('click', () => {
+      showJoinStep('class');
+      window.soundEngine.playSkillWhoosh();
+    });
+  }
+
+  if (btnBackToName) {
+    btnBackToName.addEventListener('click', () => {
+      showJoinStep('name');
+      window.soundEngine.playSkillWhoosh();
+    });
+  }
 
   // Join Game Button
   btnJoinGame.addEventListener('click', () => {
     const name = inputHeroName.value.trim() || 'AetherKnight';
     window.soundEngine.init();
     window.soundEngine.playLevelUp();
+
+    if (classPreview) classPreview.stop();
 
     socket.emit('join_game', {
       name,
@@ -295,10 +363,25 @@ document.addEventListener('DOMContentLoaded', () => {
     setupClassSkillHUD(selectedClass);
   });
 
+  applyClassSelection(selectedClass);
+
+  // Auto-join support for testing & instant preview via URL query (e.g. ?autojoin=1&3d=1)
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('autojoin') === '1' || urlParams.get('autojoin') === 'true') {
+    if (urlParams.get('3d') === '1' || urlParams.get('3d') === 'true') {
+      if (window.threeHeroRenderer) window.threeHeroRenderer.enabled = true;
+    }
+    setTimeout(() => {
+      btnJoinGame.click();
+    }, 300);
+  }
+
   function setupClassSkillHUD(cls) {
     if (!cls) return;
     const classAvatars = { warrior: '🛡️', mage: '🧙‍♂️', rogue: '🗡️' };
     if (playerAvatarIcon) playerAvatarIcon.textContent = classAvatars[cls] || '⚔️';
+    const basicAttackIcons = { warrior: 'basic_attack', mage: 'basic_attack_mage', rogue: 'basic_attack_rogue' };
+    SkillIcons.apply(document.getElementById('slotAttackIcon'), basicAttackIcons[cls] || 'basic_attack');
 
     // If player has equippedSkills configured:
     if (localPlayer && localPlayer.equippedSkills && allSkillsCatalog[cls]) {
@@ -325,13 +408,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const r3 = getSlotRune('slot3');
       const rd = getSlotRune('dash');
 
-      if (slotSkill1Icon && s1) slotSkill1Icon.textContent = s1.icon;
+      if (slotSkill1Icon && s1) SkillIcons.apply(slotSkill1Icon, s1.id);
       if (slotSkill1 && s1) slotSkill1.title = `${s1.name} [Q] (${s1.mpCost} MP) [${r1.icon} ${r1.name}] - ${s1.desc}`;
-      if (slotSkill2Icon && s2) slotSkill2Icon.textContent = s2.icon;
+      if (slotSkill2Icon && s2) SkillIcons.apply(slotSkill2Icon, s2.id);
       if (slotSkill2 && s2) slotSkill2.title = `${s2.name} [E] (${s2.mpCost} MP) [${r2.icon} ${r2.name}] - ${s2.desc}`;
-      if (slotSkill3Icon && s3) slotSkill3Icon.textContent = s3.icon;
+      if (slotSkill3Icon && s3) SkillIcons.apply(slotSkill3Icon, s3.id);
       if (slotSkill3 && s3) slotSkill3.title = `${s3.name} [R] (${s3.mpCost} MP) [${r3.icon} ${r3.name}] - ${s3.desc}`;
-      if (slotDashIcon && sd) slotDashIcon.textContent = sd.icon;
+      if (slotDashIcon && sd) SkillIcons.apply(slotDashIcon, sd.id);
       if (slotDash && sd) slotDash.title = `${sd.name} [Shift] (${sd.mpCost} MP) [${rd.icon} ${rd.name}] - ${sd.desc}`;
 
       skill1CooldownMax = s1 ? s1.cooldown : 3.5;
@@ -347,39 +430,39 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (cls === 'warrior') {
-      if (slotSkill1Icon) slotSkill1Icon.textContent = '🌪️';
+      if (slotSkill1Icon) SkillIcons.apply(slotSkill1Icon, 'whirlwind');
       if (slotSkill1) slotSkill1.title = 'Whirlwind Slash [Q] (14 MP) - 360° AoE Physical Spin';
-      if (slotSkill2Icon) slotSkill2Icon.textContent = '💥';
+      if (slotSkill2Icon) SkillIcons.apply(slotSkill2Icon, 'earthshaker');
       if (slotSkill2) slotSkill2.title = 'Earthshaker Slam [E] (16 MP) - Heavy Ground Slam & Slow';
-      if (slotSkill3Icon) slotSkill3Icon.textContent = '⚔️';
+      if (slotSkill3Icon) SkillIcons.apply(slotSkill3Icon, 'colossus_strike');
       if (slotSkill3) slotSkill3.title = 'Colossus Strike [R] (28 MP) - Titanic Strike & Ground Shockwave';
-      if (slotDashIcon) slotDashIcon.textContent = '🏃';
+      if (slotDashIcon) SkillIcons.apply(slotDashIcon, 'blade_charge');
       if (slotDash) slotDash.title = 'Blade Charge Dash [Shift] (10 MP) - Pierce Dash & Slice Forward';
       skill1CooldownMax = 3.5;
       skill2CooldownMax = 4.5;
       skill3CooldownMax = 9.0;
       dashCooldownMax = 3.0;
     } else if (cls === 'mage') {
-      if (slotSkill1Icon) slotSkill1Icon.textContent = '🔥';
+      if (slotSkill1Icon) SkillIcons.apply(slotSkill1Icon, 'firestorm');
       if (slotSkill1) slotSkill1.title = 'Firestorm Meteor [Q] (22 MP) - Apocalyptic Meteor & Burn DoT';
-      if (slotSkill2Icon) slotSkill2Icon.textContent = '❄️';
+      if (slotSkill2Icon) SkillIcons.apply(slotSkill2Icon, 'frost_nova');
       if (slotSkill2) slotSkill2.title = 'Frost Nova [E] (18 MP) - Freezing Frost Ring & 50% Chill Slow';
-      if (slotSkill3Icon) slotSkill3Icon.textContent = '🕳️';
+      if (slotSkill3Icon) SkillIcons.apply(slotSkill3Icon, 'black_hole');
       if (slotSkill3) slotSkill3.title = 'Singularity Black Hole [R] (35 MP) - Gravitational Vortex';
-      if (slotDashIcon) slotDashIcon.textContent = '🔮';
+      if (slotDashIcon) SkillIcons.apply(slotDashIcon, 'arcane_blink');
       if (slotDash) slotDash.title = 'Arcane Blink [Shift] (15 MP) - Teleport & Break Crowd Control';
       skill1CooldownMax = 4.5;
       skill2CooldownMax = 4.0;
       skill3CooldownMax = 12.0;
       dashCooldownMax = 3.5;
     } else if (cls === 'rogue') {
-      if (slotSkill1Icon) slotSkill1Icon.textContent = '🗡️';
+      if (slotSkill1Icon) SkillIcons.apply(slotSkill1Icon, 'fan_of_knives');
       if (slotSkill1) slotSkill1.title = 'Fan of Knives [Q] (14 MP) - 360° Lethal Dagger Flurry & High Crit';
-      if (slotSkill2Icon) slotSkill2Icon.textContent = '☠️';
+      if (slotSkill2Icon) SkillIcons.apply(slotSkill2Icon, 'toxic_bomb');
       if (slotSkill2) slotSkill2.title = 'Toxic Smoke Bomb [E] (16 MP) - Chemical Fog & Poison DoT';
-      if (slotSkill3Icon) slotSkill3Icon.textContent = '🌸';
+      if (slotSkill3Icon) SkillIcons.apply(slotSkill3Icon, 'death_blossom');
       if (slotSkill3) slotSkill3.title = 'Death Blossom [R] (30 MP) - 360° Lethal Dagger Spiral';
-      if (slotDashIcon) slotDashIcon.textContent = '⚡';
+      if (slotDashIcon) SkillIcons.apply(slotDashIcon, 'shadow_dash');
       if (slotDash) slotDash.title = 'Shadow Dash [Shift] (8 MP) - Swift Phantom Dash & Speed Boost';
       skill1CooldownMax = 3.0;
       skill2CooldownMax = 4.5;
@@ -452,8 +535,12 @@ document.addEventListener('DOMContentLoaded', () => {
         window.soundEngine.playSkillWhoosh();
       } else if (data.zone === 'frostfell') {
         zoneIcon.textContent = '❄️';
-        zoneText.textContent = 'Frostfell Peaks';
+        zoneText.textContent = `Frostfell Peaks${data.zoneLevel ? ' (' + data.zoneLevel + ')' : ''}`;
         window.soundEngine.playFrostNova();
+      } else if (data.zoneName) {
+        zoneIcon.textContent = '🧭';
+        zoneText.textContent = `${data.zoneName}${data.zoneLevel ? ' (' + data.zoneLevel + ')' : ''}`;
+        window.soundEngine.playSkillWhoosh();
       } else {
         zoneIcon.textContent = '🏰';
         zoneText.textContent = 'Town of Slop Hero';
@@ -470,7 +557,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (localPlayer.zone === 'town') {
         openDungeonPortalModal();
       } else {
-        socket.emit('leave_dungeon');
+        if (confirmLeaveDungeon()) socket.emit('leave_dungeon');
       }
     });
   }
@@ -516,8 +603,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (localPlayer) {
       const isTown = localPlayer.zone === 'town';
-      const isFrostfell = localPlayer.zone === 'frostfell';
-      const incomingMobs = isTown ? (tickData.townMobs || []) : isFrostfell ? (tickData.frostfellMobs || []) : (tickData.dungeonMobs || []);
+      const isDungeonZone = localPlayer.zone === 'dungeon';
+      const incomingMobs = isTown ? (tickData.townMobs || [])
+        : isDungeonZone ? (tickData.dungeonMobs || [])
+        : ((tickData.fieldMobs && tickData.fieldMobs[localPlayer.zone]) || []);
       
       incomingMobs.forEach(m => {
         const existingMob = gameState.mobs.find(oldM => oldM.id === m.id);
@@ -540,7 +629,7 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       gameState.mobs = gameState.mobs.filter(oldM => incomingMobs.some(m => m.id === oldM.id));
 
-      gameState.chests = (!isTown && !isFrostfell) ? (tickData.dungeonChests || []) : [];
+      gameState.chests = isDungeonZone ? (tickData.dungeonChests || []) : [];
 
       const me = gameState.players.find(p => p.id === localPlayerId);
       if (me) {
@@ -770,6 +859,67 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // ================= DUNGEON RUN: LOOT BAG & RESULT =================
+  // Chest loot is held by the server until the boss dies; leaving early is a
+  // failed run that only keeps part of it.
+  let dungeonRunState = { active: false };
+
+  const runBagPanel = document.createElement('div');
+  runBagPanel.className = 'dungeon-run-bag hud-panel';
+  runBagPanel.style.display = 'none';
+  document.body.appendChild(runBagPanel);
+
+  socket.on('dungeon_run_update', (data) => {
+    dungeonRunState = data || { active: false };
+    if (!dungeonRunState.active) {
+      runBagPanel.style.display = 'none';
+      return;
+    }
+    const items = dungeonRunState.items || [];
+    runBagPanel.style.display = 'block';
+    runBagPanel.innerHTML = `
+      <div class="run-bag-title">${dungeonRunState.cleared ? 'DUNGEON CLEARED' : 'RUN LOOT BAG'}</div>
+      <div class="run-bag-sub">${dungeonRunState.cleared
+        ? 'All chest loot is secured.'
+        : 'Defeat the boss to keep everything. Leaving now fails the run.'}</div>
+      ${dungeonRunState.cleared ? '' : `
+        <div class="run-bag-row"><span>Gold</span><b>${dungeonRunState.gold || 0}</b></div>
+        <div class="run-bag-row"><span>Items</span><b>${items.length}</b></div>
+        ${items.length ? `<div class="run-bag-items">${items.map(n => `<div>${escapeHtml(n)}</div>`).join('')}</div>` : ''}`}
+    `;
+  });
+
+  socket.on('dungeon_result', (data) => {
+    const overlay = document.createElement('div');
+    overlay.className = `dungeon-result-overlay ${data.success ? 'is-success' : 'is-failed'}`;
+    const list = (title, arr, cls) => arr && arr.length
+      ? `<div class="result-list ${cls}"><div class="result-list-title">${title}</div>${arr.map(n => `<div>${escapeHtml(n)}</div>`).join('')}</div>`
+      : '';
+    overlay.innerHTML = `
+      <div class="dungeon-result-card hud-panel">
+        <div class="dungeon-result-title">${data.success ? 'DUNGEON CLEARED' : 'MISSION FAILED'}</div>
+        <div class="dungeon-result-sub">${data.success
+          ? 'The boss has fallen. All chest loot is yours.'
+          : 'You left before defeating the boss. Most of the chest loot was lost.'}</div>
+        <div class="dungeon-result-lists">
+          ${list(data.success ? 'Secured' : 'Kept', data.kept, 'kept')}
+          ${list('Lost', data.lost, 'lost')}
+          ${(!data.kept || !data.kept.length) && (!data.lost || !data.lost.length) ? '<div class="result-empty">No chest loot this run.</div>' : ''}
+        </div>
+        <button class="btn-primary dungeon-result-close">CONTINUE</button>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    overlay.querySelector('.dungeon-result-close').addEventListener('click', () => overlay.remove());
+    if (data.success) window.soundEngine.playLevelUp();
+  });
+
+  // Ask before leaving a dungeon run that has not been cleared yet
+  function confirmLeaveDungeon() {
+    if (!dungeonRunState.active || dungeonRunState.cleared) return true;
+    return window.confirm('The boss is still alive. Leaving now counts as a FAILED mission and you will lose most of the chest loot. Leave anyway?');
+  }
+
   // ================= INPUT & CONTROLS =================
 
   let isPointerDown = false;
@@ -807,27 +957,30 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!isRightClick) {
       // 1. Check if clicked on Merchant Olaf or Blacksmith Brom in town
       if (localPlayer.zone === 'town') {
-        const clickDistToMerchant = Math.hypot(16.5 - worldPos.x, 21 - worldPos.y);
-        const clickDistToBrom = Math.hypot(24.2 - worldPos.x, 23.5 - worldPos.y);
+        const townObstacles = (gameState.map && gameState.map.obstacles) || [];
+        const merchant = townObstacles.find(o => o.id === 'npc_merchant') || { x: 16.2, y: 19.6 };
+        const brom = townObstacles.find(o => o.id === 'npc_blacksmith') || { x: 16.2, y: 23.4 };
+        const clickDistToMerchant = Math.hypot(merchant.x - worldPos.x, merchant.y - worldPos.y);
+        const clickDistToBrom = Math.hypot(brom.x - worldPos.x, brom.y - worldPos.y);
         const clickDistToPortal = Math.hypot(23.5 - worldPos.x, 16.5 - worldPos.y);
 
-        // Precise hitbox: click must land directly on NPC (radius < 0.9)
-        if (clickDistToMerchant < 0.9) {
-          const playerDist = Math.hypot(16.5 - localPlayer.x, 21 - localPlayer.y);
+        // Click anywhere on the booth; walk up to its counter (+x side) first
+        if (clickDistToMerchant < 1.3) {
+          const playerDist = Math.hypot(merchant.x - localPlayer.x, merchant.y - localPlayer.y);
           if (playerDist <= 3.5) {
             openShopModal();
           } else {
-            socket.emit('player_input', { type: 'click_move', x: 17.5, y: 21 });
+            socket.emit('player_input', { type: 'click_move', x: merchant.x + 1.8, y: merchant.y });
           }
           return;
         }
 
-        if (clickDistToBrom < 0.9) {
-          const playerDist = Math.hypot(24.2 - localPlayer.x, 23.5 - localPlayer.y);
+        if (clickDistToBrom < 1.3) {
+          const playerDist = Math.hypot(brom.x - localPlayer.x, brom.y - localPlayer.y);
           if (playerDist <= 3.5) {
             openReforgeModal();
           } else {
-            socket.emit('player_input', { type: 'click_move', x: 23.2, y: 23.5 });
+            socket.emit('player_input', { type: 'click_move', x: brom.x + 1.8, y: brom.y });
           }
           return;
         }
@@ -847,17 +1000,19 @@ document.addEventListener('DOMContentLoaded', () => {
           }
           return;
         }
-      } else if (localPlayer.zone === 'frostfell') {
-        const clickDistToTownPortal = Math.hypot(21 - worldPos.x, 34 - worldPos.y);
-        if (clickDistToTownPortal < 1.3) {
-          socket.emit('player_input', { type: 'click_move', x: 21, y: 34 });
+      } else if (localPlayer.zone !== 'dungeon') {
+        // Field zones: clicking a zone portal walks onto it
+        const fieldPortal = ((gameState.map && gameState.map.obstacles) || []).find(o =>
+          o.type === 'field_portal' && Math.hypot(o.x - worldPos.x, o.y - worldPos.y) < 1.3);
+        if (fieldPortal) {
+          socket.emit('player_input', { type: 'click_move', x: fieldPortal.x, y: fieldPortal.y });
           return;
         }
       } else if (localPlayer.zone === 'dungeon') {
         if (gameState.map && gameState.map.exitPortal) {
           const ep = gameState.map.exitPortal;
           if (Math.hypot(ep.x - worldPos.x, ep.y - worldPos.y) < 2.5) {
-            socket.emit('leave_dungeon');
+            if (confirmLeaveDungeon()) socket.emit('leave_dungeon');
             return;
           }
         }
@@ -1266,6 +1421,8 @@ document.addEventListener('DOMContentLoaded', () => {
         x: localPlayer.x,
         y: localPlayer.y,
         facing: localPlayer.facing,
+        targetX: targetMob ? targetMob.x : undefined,
+        targetY: targetMob ? targetMob.y : undefined,
         attackSpeed: atkSpeed,
         hasSweep: true
       });
@@ -1435,7 +1592,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.threeHeroRenderer.enabled = !window.threeHeroRenderer.enabled;
     const threeCanvas = document.getElementById('threeCanvas');
     if (threeCanvas) {
-      threeCanvas.style.display = window.threeHeroRenderer.enabled ? 'block' : 'none';
+      threeCanvas.style.display = 'none'; // heroes are composited into the 2D canvas
     }
     if (btnToggle3D) {
       btnToggle3D.textContent = window.threeHeroRenderer.enabled ? '🎮 3D' : '📜 2D';
@@ -2086,10 +2243,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // 1. Render the 4 Hotbar Slot Cards as Interactive Drop Targets
     loadoutSlotsRow.innerHTML = '';
     const slotsConfig = [
-      { key: 'slot1', label: 'Primary Skill', keybind: 'Q', icon: '⚔️' },
-      { key: 'slot2', label: 'Secondary Skill', keybind: 'E', icon: '💥' },
-      { key: 'slot3', label: 'Ultimate / Heavy', keybind: 'R', icon: '👑' },
-      { key: 'dash',  label: 'Mobility Dash', keybind: 'Shift', icon: '🏃' }
+      { key: 'slot1', label: 'Primary Skill', keybind: 'Q' },
+      { key: 'slot2', label: 'Secondary Skill', keybind: 'E' },
+      { key: 'slot3', label: 'Ultimate / Heavy', keybind: 'R' },
+      { key: 'dash',  label: 'Mobility Dash', keybind: 'Shift' }
     ];
 
     slotsConfig.forEach(sConf => {
@@ -2102,14 +2259,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const card = document.createElement('div');
       card.className = `hotbar-slot-card ${isSelected ? 'selected active-slot' : ''}`;
       card.setAttribute('data-slot-key', sConf.key);
-      card.innerHTML = `
+      card.setAttribute('title', `${sConf.keybind}: ${skill ? skill.name : 'Empty Slot'} - ${sConf.label} | Rune: ${rune.name}`);
+card.innerHTML = `
         <div class="slot-card-badge">${sConf.keybind}</div>
-        <div class="slot-card-icon">${skill ? skill.icon : sConf.icon}</div>
-        <div class="slot-card-name">${skill ? skill.name : 'Empty Slot'}</div>
-        <div class="slot-card-role">${sConf.label}</div>
-        <div class="slot-card-rune-pill" style="border-color: ${rune.color || '#94a3b8'}; color: ${rune.color || '#94a3b8'};">
-          ${rune.icon} ${rune.name}
-        </div>
+        <div class="slot-card-icon">${SkillIcons.svg(skill ? skill.id : 'empty')}</div>
         <div class="slot-drop-callout">⬇️ Drop Skill Here</div>
       `;
 
@@ -2261,40 +2414,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
       }
 
-      card.innerHTML = `
-        <div class="catalog-top-row">
-          <div class="catalog-icon-box">${s.icon}</div>
-          <div class="catalog-title-box">
-            <div class="catalog-name-row">
-              <span class="catalog-name">${s.name}</span>
-              <span class="catalog-level-badge ${isLocked ? 'locked' : 'unlocked'}">${isLocked ? '🔒' : '✓'} Lv. ${reqLvl}</span>
-              <span class="catalog-type-pill ${s.category}">${s.category ? s.category.toUpperCase() : 'SKILL'}</span>
-            </div>
-            <div class="catalog-desc">${s.desc}</div>
-          </div>
-        </div>
-
-        <div class="catalog-stats-row">
-          <div class="catalog-stat-chip">⏱️ ${s.cooldown}s CD</div>
-          <div class="catalog-stat-chip">💧 ${s.mpCost} MP</div>
-          <div class="catalog-stat-chip">⚔️ ${(s.damageMultiplier * 100).toFixed(0)}% DMG</div>
-          <div class="catalog-stat-chip">🎯 R: ${s.radius || 3.0}</div>
-        </div>
-
-        <div class="catalog-actions-row">
-          ${isEquippedHere ? `
-            <div class="equipped-tag">✓ ASSIGNED TO [${selectedLoadoutSlot.toUpperCase()}]</div>
-          ` : isLocked ? `
-            <button class="btn-equip-skill locked" disabled title="Reach Level ${reqLvl} to unlock this skill!">
-              🔒 Locked (Requires Lv. ${reqLvl})
-            </button>
-          ` : `
-            <div class="catalog-drag-handle">🖐️ Drag to Slot</div>
-            <button class="btn-equip-skill" data-skill-id="${s.id}">
-              ${isEquippedElsewhere ? `Swap [${slotBindName}]` : `Equip [${selectedLoadoutSlot.toUpperCase()}]`}
-            </button>
-          `}
-        </div>
+      card.setAttribute('title', `${s.name} - Lv.${reqLvl} - ${s.cooldown}s CD, ${s.mpCost} MP, ${(s.damageMultiplier*100).toFixed(0)}% DMG | ${s.desc}`);
+card.innerHTML = `
+        <div class="catalog-icon-only">${SkillIcons.svg(s.id)}</div>
+        <div class="catalog-mini-name">${s.name}</div>
+        <div class="catalog-mini-level ${isLocked ? 'locked' : 'unlocked'}">Lv.${reqLvl}</div>
       `;
 
       const btnEquip = card.querySelector('.btn-equip-skill:not(.locked)');
@@ -2316,6 +2440,8 @@ document.addEventListener('DOMContentLoaded', () => {
       skillsCatalogGrid.appendChild(card);
     });
   }
+
+  let selectedTalentId = null;
 
   function renderSkillTree() {
     if (!localPlayer || !skillTreeGrid) return;
@@ -2356,9 +2482,37 @@ document.addEventListener('DOMContentLoaded', () => {
       branchesMap.get(bName).push(talent);
     });
 
+    // Specialization lock (mirrors the server rule): once a branch has points,
+    // the other branches stay closed until the talents are reset.
+    const committedBranches = new Set(
+      tree.filter(t => (skills[t.id] || 0) > 0).map(t => t.branch || 'Specialization Branch')
+    );
+
+    const getTalentState = (talent) => {
+      const curRank = skills[talent.id] || 0;
+      const maxRank = talent.maxRank || 3;
+      const branchName = talent.branch || 'Specialization Branch';
+      const isMaxed = curRank >= maxRank;
+      const branchLocked = committedBranches.size > 0 && !committedBranches.has(branchName);
+      const prereq = talent.requires ? tree.find(t => t.id === talent.requires) : null;
+      const reqMet = !talent.requires || (skills[talent.requires] || 0) > 0;
+      const canLearn = availablePoints > 0 && !isMaxed && reqMet && !branchLocked;
+      return { curRank, maxRank, isMaxed, branchLocked, prereq, reqMet, canLearn };
+    };
+
+    if (!selectedTalentId || !tree.some(t => t.id === selectedTalentId)) {
+      selectedTalentId = tree.length ? tree[0].id : null;
+    }
+
+    const NODE_ROW_HEIGHT = 92;
+    const NODE_TOP_PADDING = 44;
+
     branchesMap.forEach((branchTalents, branchName) => {
+      const branchLocked = committedBranches.size > 0 && !committedBranches.has(branchName);
+      const branchActive = committedBranches.has(branchName);
+
       const col = document.createElement('div');
-      col.className = 'talent-branch-column';
+      col.className = `talent-branch-column ${branchLocked ? 'branch-locked' : ''} ${branchActive ? 'branch-active' : ''}`;
 
       let branchPoints = 0;
       branchTalents.forEach(t => { branchPoints += (skills[t.id] || 0); });
@@ -2367,83 +2521,112 @@ document.addEventListener('DOMContentLoaded', () => {
       header.className = 'talent-branch-header';
       header.innerHTML = `
         <span class="branch-title">${branchName}</span>
-        <span class="branch-points-pill">${branchPoints} pts</span>
+        <span class="branch-points-pill">${branchLocked ? 'LOCKED' : `${branchPoints} pts`}</span>
       `;
       col.appendChild(header);
 
-      const talentsList = document.createElement('div');
-      talentsList.className = 'talent-branch-list';
+      // Lay nodes out row-by-row by tier, spreading siblings evenly
+      const tiers = [...new Set(branchTalents.map(t => t.tier || 1))].sort((a, b) => a - b);
+      const positions = new Map();
+      tiers.forEach((tier, rowIndex) => {
+        const rowNodes = branchTalents.filter(t => (t.tier || 1) === tier);
+        rowNodes.forEach((t, i) => {
+          positions.set(t.id, {
+            x: ((i + 1) / (rowNodes.length + 1)) * 100,
+            y: NODE_TOP_PADDING + rowIndex * NODE_ROW_HEIGHT
+          });
+        });
+      });
+      const canvasHeight = NODE_TOP_PADDING * 2 + (tiers.length - 1) * NODE_ROW_HEIGHT;
+
+      const canvas = document.createElement('div');
+      canvas.className = 'talent-tree-canvas';
+      canvas.style.height = `${canvasHeight}px`;
+
+      // Connection lines (x in % of the column width, y in px)
+      let links = '';
+      branchTalents.forEach(t => {
+        if (!t.requires || !positions.has(t.requires)) return;
+        const from = positions.get(t.requires);
+        const to = positions.get(t.id);
+        const parentLearned = (skills[t.requires] || 0) > 0;
+        const childLearned = (skills[t.id] || 0) > 0;
+        const state = childLearned ? 'is-learned' : (parentLearned && !branchLocked) ? 'is-open' : 'is-closed';
+        links += `<line class="talent-link ${state}" x1="${from.x}" y1="${from.y}" x2="${to.x}" y2="${to.y}" vector-effect="non-scaling-stroke"/>`;
+      });
+      canvas.innerHTML = `<svg class="talent-links" viewBox="0 0 100 ${canvasHeight}" preserveAspectRatio="none">${links}</svg>`;
 
       branchTalents.forEach(talent => {
-        const curRank = skills[talent.id] || 0;
-        const maxRank = talent.maxRank || 3;
-        const isMaxed = curRank >= maxRank;
+        const st = getTalentState(talent);
+        const pos = positions.get(talent.id);
 
-        let reqMet = true;
-        let reqName = '';
-        if (talent.requires) {
-          const prereq = tree.find(t => t.id === talent.requires);
-          reqName = prereq ? prereq.name : talent.requires;
-          reqMet = (skills[talent.requires] || 0) > 0;
-        }
-
-        const canLearn = (availablePoints > 0) && (!isMaxed) && reqMet;
-
-        const card = document.createElement('div');
-        card.className = `talent-card ${talent.isKeystone ? 'is-keystone' : ''} ${isMaxed ? 'is-maxed' : canLearn ? 'can-upgrade' : !reqMet ? 'is-locked' : ''}`;
-
-        card.innerHTML = `
-          <div class="talent-top-row">
-            <div class="talent-icon-box">${talent.icon || '✨'}</div>
-            <div class="talent-main-info">
-              <div class="talent-title-row">
-                <span class="talent-name">${talent.name} ${talent.isKeystone ? '👑' : ''}</span>
-                <span class="talent-rank-pill ${isMaxed ? 'max-rank' : curRank > 0 ? 'has-rank' : ''}">
-                  ${talent.isKeystone && isMaxed ? '★ KEYSTONE' : isMaxed ? '★ MAX' : `Rank ${curRank}/${maxRank}`}
-                </span>
-              </div>
-              <div class="talent-desc">${talent.desc}</div>
-            </div>
-          </div>
-          <div class="talent-bottom-row">
-            <div class="talent-req-tag ${talent.requires ? (reqMet ? 'met' : 'unmet') : ''}">
-              ${talent.requires ? (reqMet ? `✓ Req: ${reqName}` : `🔒 Req: ${reqName}`) : `🌱 Tier ${talent.tier || 1} Starter`}
-            </div>
-            <button class="btn-learn-talent" ${canLearn ? '' : 'disabled'}>
-              ${isMaxed ? 'MAXED' : canLearn ? '+ LEARN (1 SP)' : !reqMet ? 'LOCKED' : 'NEED SP'}
-            </button>
-          </div>
-        `;
-
-        const triggerLearn = () => {
-          if (!canLearn) return;
-          localPlayer.skillPoints = Math.max(0, (localPlayer.skillPoints || 1) - 1);
-          localPlayer.skills = localPlayer.skills || {};
-          localPlayer.skills[talent.id] = (localPlayer.skills[talent.id] || 0) + 1;
+        const node = document.createElement('button');
+        node.type = 'button';
+        node.className = [
+          'talent-node',
+          talent.maxRank === 1 ? 'is-keystone' : '',
+          st.isMaxed ? 'is-maxed' : st.curRank > 0 ? 'has-rank' : '',
+          st.canLearn ? 'can-upgrade' : '',
+          (!st.reqMet || st.branchLocked) && st.curRank === 0 ? 'is-locked' : '',
+          talent.id === selectedTalentId ? 'is-selected' : ''
+        ].join(' ');
+        node.style.left = `${pos.x}%`;
+        node.style.top = `${pos.y}px`;
+        node.title = `${talent.name} (${st.curRank}/${st.maxRank})`;
+        node.innerHTML = `${SkillIcons.svg(talent.id)}<span class="talent-node-rank">${st.curRank}/${st.maxRank}</span>`;
+        node.addEventListener('click', () => {
+          selectedTalentId = talent.id;
           renderSkillTree();
-          socket.emit('allocate_skill_point', { skillId: talent.id });
-          window.soundEngine.playLevelUp();
-        };
-
-        if (canLearn) {
-          card.style.cursor = 'pointer';
-          card.addEventListener('click', triggerLearn);
-        }
-
-        const btnLearn = card.querySelector('.btn-learn-talent');
-        if (btnLearn && canLearn) {
-          btnLearn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            triggerLearn();
-          });
-        }
-
-        talentsList.appendChild(card);
+        });
+        canvas.appendChild(node);
       });
 
-      col.appendChild(talentsList);
+      col.appendChild(canvas);
       skillTreeGrid.appendChild(col);
     });
+
+    // Detail panel for the selected node
+    const selected = tree.find(t => t.id === selectedTalentId);
+    if (!selected) return;
+    const st = getTalentState(selected);
+    let statusText = '';
+    if (st.isMaxed) statusText = 'Maxed out';
+    else if (st.branchLocked) statusText = `Locked: you specialized in ${[...committedBranches].join(', ')}. Reset talents to switch.`;
+    else if (!st.reqMet) statusText = `Requires: ${st.prereq ? st.prereq.name : selected.requires}`;
+    else if (availablePoints <= 0) statusText = 'No skill points available';
+    else statusText = st.prereq ? `Requirement met: ${st.prereq.name}` : `Tier ${selected.tier || 1} starter talent`;
+
+    const panel = document.createElement('div');
+    panel.className = 'talent-detail-panel';
+    panel.innerHTML = `
+      <div class="talent-detail-icon">${SkillIcons.svg(selected.id)}</div>
+      <div class="talent-detail-info">
+        <div class="talent-detail-title">
+          <span class="talent-name">${selected.name}</span>
+          <span class="talent-rank-pill ${st.isMaxed ? 'max-rank' : st.curRank > 0 ? 'has-rank' : ''}">Rank ${st.curRank}/${st.maxRank}</span>
+          <span class="talent-detail-branch">${selected.branch || ''} - Tier ${selected.tier || 1}</span>
+        </div>
+        <div class="talent-desc">${selected.desc}</div>
+        <div class="talent-req-tag ${st.canLearn || st.isMaxed ? 'met' : 'unmet'}">${statusText}</div>
+      </div>
+      <button class="btn-learn-talent" ${st.canLearn ? '' : 'disabled'}>
+        ${st.isMaxed ? 'MAXED' : st.canLearn ? '+ LEARN (1 SP)' : (st.branchLocked || !st.reqMet) ? 'LOCKED' : 'NEED SP'}
+      </button>
+    `;
+
+    const btnLearn = panel.querySelector('.btn-learn-talent');
+    if (btnLearn && st.canLearn) {
+      btnLearn.addEventListener('click', () => {
+        localPlayer.skillPoints = Math.max(0, (localPlayer.skillPoints || 1) - 1);
+        localPlayer.skills = localPlayer.skills || {};
+        localPlayer.skills[selected.id] = (localPlayer.skills[selected.id] || 0) + 1;
+        renderSkillTree();
+        socket.emit('allocate_skill_point', { skillId: selected.id });
+        window.soundEngine.playLevelUp();
+      });
+    }
+
+    skillTreeGrid.appendChild(panel);
   }
 
   if (btnOpenSkillTree) btnOpenSkillTree.addEventListener('click', toggleSkillTreeModal);
@@ -2541,11 +2724,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     try {
-      renderer.render(gameState, localPlayerId, selectedTargetId, dt);
-
+      // 3D heroes advance first; the 2D renderer then paints each one in its
+      // depth-sorted slot (see drawPlayer) so walls can occlude them
       if (window.threeHeroRenderer) {
-        window.threeHeroRenderer.updateAndRender(gameState, renderer.camera, localPlayerId, renderer.attacks, dt);
+        window.threeHeroRenderer.update(gameState, renderer.camera, localPlayerId, renderer.attacks, dt);
       }
+
+      renderer.render(gameState, localPlayerId, selectedTargetId, dt);
     } catch (err) {
       console.error('Render error:', err);
     }
