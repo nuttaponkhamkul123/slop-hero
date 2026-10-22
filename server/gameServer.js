@@ -2,6 +2,7 @@ const { MAP_WIDTH, MAP_HEIGHT, TILES, generateMap, generateFrostfellMap } = requ
 const { generateProceduralDungeon, rollDungeonLoot, DIFFICULTIES, AFFIX_POOL, DUNGEON_FLOORS } = require('./dungeonGenerator');
 const { ITEMS } = require('./items');
 const { FIELD_ZONES, FIELD_ZONE_BY_ID, generateFieldMap, buildFieldMobs } = require('./fieldZones');
+const { expToNext, mobExp, levelGapMult } = require('./progression');
 
 // Global tuning knob for every skill's damage against monsters
 // (multiplies player.dmg * skill.dmgMult before rune/berserk/crit).
@@ -990,7 +991,7 @@ class GameServer {
           dmg: def.dmg,
           def: def.def,
           speed: def.speed,
-          exp: def.exp,
+          exp: mobExp(def.level, def.isBoss ? 'boss' : 'normal'),
           gold: def.gold,
           buffs: [...(def.buffs || [])],
           isCommander: false,
@@ -1041,7 +1042,7 @@ class GameServer {
           dmg: def.dmg,
           def: def.def,
           speed: def.speed,
-          exp: def.exp,
+          exp: mobExp(def.level, def.isBoss ? 'boss' : 'normal'),
           gold: def.gold,
           buffs: [...(def.buffs || [])],
           isCommander: false,
@@ -1089,7 +1090,7 @@ class GameServer {
           dmg: def.dmg,
           def: def.def,
           speed: def.speed,
-          exp: def.exp,
+          exp: mobExp(def.level, def.isBoss ? 'boss' : 'normal'),
           gold: def.gold,
           buffs: [],
           isCommander: false,
@@ -1235,7 +1236,7 @@ class GameServer {
       isMoving: false,
       level: 1,
       exp: 0,
-      expNext: 100,
+      expNext: expToNext(1),
       skillPoints: 1,
       skills: {}, // { [skillId]: rank }
       baseStats: {
@@ -3462,7 +3463,8 @@ class GameServer {
 
     if (killerPlayer) {
       killerPlayer.inventory.kills++;
-      this.awardExp(killerPlayer, mob.exp);
+      // full EXP near your level, much less for monsters far below you
+      this.awardExp(killerPlayer, Math.max(1, Math.round(mob.exp * levelGapMult(killerPlayer.level, mob.level))));
 
       // Talent on-kill effects (Juggernaut, Astral Overload, Vampiric Edge)
       if (killerPlayer.skills) {
@@ -3529,7 +3531,7 @@ class GameServer {
     while (player.level < 150 && player.exp >= player.expNext) {
       player.exp -= player.expNext;
       player.level++;
-      player.expNext = Math.round(70 + player.level * 45 + Math.pow(player.level, 1.82) * 11);
+      player.expNext = expToNext(player.level);
 
       if (!player.baseStats) {
         player.baseStats = {
