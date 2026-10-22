@@ -33,8 +33,8 @@ function generateMap() {
         tile = TILES.COBBLESTONE;
       }
 
-      // Spawn Pad in town center (x: 19-21, y: 19-21)
-      if (x >= 19 && x <= 21 && y >= 19 && y <= 21) {
+      // Grand polished plaza around the fountain (x: 18-22, y: 18-22)
+      if (x >= 18 && x <= 22 && y >= 18 && y <= 22) {
         tile = TILES.SPAWN_ZONE;
       }
 
@@ -75,42 +75,70 @@ function generateMap() {
   // Town Fountain
   obstacles.push({ id: 'fountain_center', x: 20, y: 20, type: 'fountain', collidable: false });
 
-  // Town Torches
-  obstacles.push({ id: 'torch_1', x: 17, y: 17, type: 'torch', collidable: false });
-  obstacles.push({ id: 'torch_2', x: 23, y: 17, type: 'torch', collidable: false });
-  obstacles.push({ id: 'torch_3', x: 17, y: 23, type: 'torch', collidable: false });
-  obstacles.push({ id: 'torch_4', x: 23, y: 23, type: 'torch', collidable: false });
+  // Braziers at the corners of the fountain plaza
+  obstacles.push({ id: 'torch_1', x: 17.5, y: 17.5, type: 'torch', collidable: false });
+  obstacles.push({ id: 'torch_2', x: 22.5, y: 17.5, type: 'torch', collidable: false });
+  obstacles.push({ id: 'torch_3', x: 17.5, y: 22.5, type: 'torch', collidable: false });
+  obstacles.push({ id: 'torch_4', x: 22.5, y: 22.5, type: 'torch', collidable: false });
 
-  // Town Merchant NPC (Olaf the Trader)
+  // Market row on the west side of the plaza. Both booths open toward +x so
+  // their fronts face the camera. (Rendered as 3D booths with NPCs inside.)
   obstacles.push({
     id: 'npc_merchant',
-    x: 16.5,
-    y: 21,
+    x: 16.2,
+    y: 19.6,
     type: 'merchant',
     name: 'Olaf the Trader',
     collidable: true,
-    radius: 0.8
+    radius: 1.0
   });
 
-  // Town Blacksmith NPC (Brom the Master Smith)
   obstacles.push({
     id: 'npc_blacksmith',
-    x: 24.2,
-    y: 23.5,
+    x: 16.2,
+    y: 23.4,
     type: 'blacksmith',
     name: 'Brom the Master Smith',
     collidable: true,
-    radius: 0.7
+    radius: 1.0
   });
 
-  // Blacksmith Burning Forge & Anvil
-  obstacles.push({
-    id: 'blacksmith_anvil',
-    x: 24.9,
-    y: 22.7,
-    type: 'anvil',
-    name: 'Burning Forge & Anvil',
-    collidable: false
+  // --- Town walls: a stone curtain wall around the plaza (x/y 14..26) with
+  // a gate on each road (18..22) flanked by towers, and round corner keeps.
+  const WALL_MIN = 14;
+  const WALL_MAX = 26;
+  const isGateGap = (v) => v >= 18 && v <= 22;
+  const isGateTower = (v) => v === 17 || v === 23;
+  for (let v = WALL_MIN + 1; v < WALL_MAX; v++) {
+    if (isGateGap(v)) continue;
+    const segments = [
+      { x: v, y: WALL_MIN, axis: 'x', back: true },
+      { x: v, y: WALL_MAX, axis: 'x', back: false },
+      { x: WALL_MIN, y: v, axis: 'y', back: true },
+      { x: WALL_MAX, y: v, axis: 'y', back: false }
+    ];
+    segments.forEach(sg => {
+      if (isGateTower(v)) {
+        obstacles.push({ id: `gate_tower_${sg.x}_${sg.y}`, x: sg.x, y: sg.y, type: 'gate_tower', collidable: true, radius: 0.7 });
+      } else {
+        obstacles.push({ id: `town_wall_${sg.x}_${sg.y}`, x: sg.x, y: sg.y, type: 'town_wall', axis: sg.axis, back: sg.back, collidable: true, radius: 0.55 });
+      }
+    });
+  }
+  [[WALL_MIN, WALL_MIN], [WALL_MAX, WALL_MIN], [WALL_MIN, WALL_MAX], [WALL_MAX, WALL_MAX]].forEach(([cx, cy]) => {
+    obstacles.push({ id: `corner_keep_${cx}_${cy}`, x: cx, y: cy, type: 'corner_keep', collidable: true, radius: 0.9 });
+  });
+
+  // Houses lining the roads outside the walls
+  [
+    { x: 15.5, y: 10.5, variant: 0 },
+    { x: 24.5, y: 10.5, variant: 1 },
+    { x: 10.5, y: 16, variant: 2 },
+    { x: 30, y: 15.5, variant: 0 },
+    { x: 15.5, y: 29.5, variant: 1 },
+    { x: 24.5, y: 29.5, variant: 2 }
+  ].forEach((h, i) => {
+    obstacles.push({ id: `house_${i}`, x: h.x, y: h.y, type: 'house', variant: h.variant, collidable: true, radius: 1.3 });
   });
 
   // Ancient Dungeon Portal (Vortex into Procedural Dungeon)

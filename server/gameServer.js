@@ -1,6 +1,15 @@
 const { MAP_WIDTH, MAP_HEIGHT, TILES, generateMap, generateFrostfellMap } = require('./mapData');
 const { generateProceduralDungeon, rollDungeonLoot, DIFFICULTIES, AFFIX_POOL, DUNGEON_FLOORS } = require('./dungeonGenerator');
 const { ITEMS } = require('./items');
+const { FIELD_ZONES, FIELD_ZONE_BY_ID, generateFieldMap, buildFieldMobs } = require('./fieldZones');
+
+// Global tuning knob for every skill's damage against monsters
+// (multiplies player.dmg * skill.dmgMult before rune/berserk/crit).
+const SKILL_DAMAGE_SCALE = 0.9;
+
+// Share of the escrowed chest loot a player keeps when a dungeon run fails
+// (leaving, dying or disconnecting before the boss is defeated).
+const FAILED_RUN_LOOT_KEEP = 0.3;
 
 // ================= MASSIVE CLASS SKILL ARSENAL (24 SKILLS) =================
 const ALL_CLASS_SKILLS = {
@@ -908,18 +917,25 @@ class GameServer {
   constructor(io) {
     this.io = io;
     this.townMap = generateMap();
-    this.frostfellMap = generateFrostfellMap();
+
+    // Level-chained open-world field zones (Frostfell Lv 6 ... Celestial Reach Lv 100)
+    this.fields = new Map();
+    FIELD_ZONES.forEach(zone => {
+      this.fields.set(zone.id, { zone, map: generateFieldMap(zone), mobs: new Map(), groundItems: new Map() });
+    });
+    const frostfell = this.fields.get('frostfell');
+    this.frostfellMap = frostfell.map;
     this.dungeonFloor = 1;
     this.dungeonDifficulty = 'normal';
     this.dungeon = generateProceduralDungeon(this.dungeonFloor, this.dungeonDifficulty);
 
     this.players = new Map();
     this.townMobs = new Map();
-    this.frostfellMobs = new Map();
+    this.frostfellMobs = frostfell.mobs;
     this.dungeonMobs = new Map();
 
     this.townGroundItems = new Map();
-    this.frostfellGroundItems = new Map();
+    this.frostfellGroundItems = frostfell.groundItems;
     this.dungeonGroundItems = new Map();
 
     this.projectiles = new Map();
@@ -930,8 +946,65 @@ class GameServer {
 
     this.initTownMonsters();
     this.initFrostfellMonsters();
+    this.initFieldMonsters();
     this.initDungeonMonsters();
     this.startGameLoop();
+  }
+
+  // --- zone lookups (town / field zones / dungeon) ---
+  getMobsMap(zone) {
+    if (zone === 'town') return this.townMobs;
+    if (this.fields.has(zone)) return this.fields.get(zone).mobs;
+    return this.dungeonMobs;
+  }
+
+  getGroundItemsMap(zone) {
+    if (zone === 'town') return this.townGroundItems;
+    if (this.fields.has(zone)) return this.fields.get(zone).groundItems;
+    return this.dungeonGroundItems;
+  }
+
+  initFieldMonsters() {
+    for (const field of this.fields.values()) {
+      const defs = buildFieldMobs(field.zone, field.map);
+      if (!defs) continue;
+      field.mobs.clear();
+      defs.forEach(def => {
+        const id = `${field.zone.id}_mob_${this.nextEntityId++}`;
+        field.mobs.set(id, {
+          id,
+          type: def.type,
+          name: def.name,
+          level: def.level,
+          x: def.spawn.x,
+          y: def.spawn.y,
+          spawnX: def.spawn.x,
+          spawnY: def.spawn.y,
+          zone: def.zone,
+          fieldZone: field.zone.id,
+          hue: def.hue || 0,
+          scale: def.scale || 1,
+          isBoss: !!def.isBoss,
+          hp: def.maxHp,
+          maxHp: def.maxHp,
+          dmg: def.dmg,
+          def: def.def,
+          speed: def.speed,
+          exp: def.exp,
+          gold: def.gold,
+          buffs: [...(def.buffs || [])],
+          isCommander: false,
+          auraRadius: 0,
+          targetPlayerId: null,
+          state: 'idle',
+          nextWanderTime: Date.now() + Math.random() * 3000,
+          wanderTarget: null,
+          attackCooldown: 0,
+          respawnTimer: 0,
+          facing: 'SE'
+        });
+      });
+    }
   }
 
   initFrostfellMonsters() {
@@ -945,8 +1018,12 @@ class GameServer {
     frostDefs.forEach(def => {
       for (let i = 0; i < def.count; i++) {
         const id = `frost_mob_${this.nextEntityId++}`;
-        const spawnX = def.zone.minX + Math.random() * (def.zone.maxX - def.zone.minX);
-        const spawnY = def.zone.minY + Math.random() * (def.zone.maxY - def.zone.minY);
+        // re-roll spawns that land inside trees, crystals or cliffs
+        let spawnX, spawnY, tries = 0;
+        do {
+          spawnX = def.zone.minX + Math.random() * (def.zone.maxX - def.zone.minX);
+          spawnY = def.zone.minY + Math.random() * (def.zone.maxY - def.zone.minY);
+        } while (this.isColliding(spawnX, spawnY, 'frostfell', 0.3) && ++tries < 30);
 
         this.frostfellMobs.set(id, {
           id,
@@ -1070,14 +1147,14 @@ class GameServer {
         const obsRadius = obs.radius || 0.6;
         if (Math.hypot(obs.x - x, obs.y - y) < (radius + obsRadius)) return true;
       }
-    } else if (zone === 'frostfell') {
-      const map = this.frostfellMap;
+    } else if (this.fields.has(zone)) {
+      const map = this.fields.get(zone).map;
       if (x < 1 || x > map.width - 2 || y < 1 || y > map.height - 2) return true;
       const tileX = Math.floor(x);
       const tileY = Math.floor(y);
       if (tileX >= 0 && tileX < map.width && tileY >= 0 && tileY < map.height) {
         const tile = map.tiles[tileY][tileX];
-        if (tile === TILES.FROST_CLIFF) return true;
+        if (map.blockingTiles.includes(tile)) return true;
       }
       for (const obs of map.obstacles) {
         if (!obs.collidable) continue;
@@ -1261,6 +1338,8 @@ class GameServer {
   removePlayer(socketId) {
     const player = this.players.get(socketId);
     if (player) {
+      // Disconnecting mid-run forfeits the escrowed chest loot
+      player.dungeonRun = null;
       this.players.delete(socketId);
       this.io.emit('player_left', socketId);
       this.broadcastSystemMessage(`🚪 [${player.name}] has departed.`);
@@ -1277,9 +1356,10 @@ class GameServer {
       if (player.zone === 'dungeon' && this.dungeon) {
         maxX = this.dungeon.width - 2;
         maxY = this.dungeon.height - 2;
-      } else if (player.zone === 'frostfell' && this.frostfellMap) {
-        maxX = this.frostfellMap.width - 2;
-        maxY = this.frostfellMap.height - 2;
+      } else if (this.fields.has(player.zone)) {
+        const fieldMap = this.fields.get(player.zone).map;
+        maxX = fieldMap.width - 2;
+        maxY = fieldMap.height - 2;
       }
       player.targetX = Math.max(1, Math.min(maxX, input.x));
       player.targetY = Math.max(1, Math.min(maxY, input.y));
@@ -1312,7 +1392,7 @@ class GameServer {
       // 2. Frostfell Peaks Portal (North-West, 16.5, 16.5)
       const distToFrostfell = Math.hypot(player.x - 16.5, player.y - 16.5);
       if (distToFrostfell < 1.3) {
-        this.teleportPlayerToFrostfell(player, socket);
+        this.teleportPlayerToField(player, socket, 'frostfell', 'south');
         return;
       }
     } else if (player.zone === 'dungeon') {
@@ -1320,12 +1400,48 @@ class GameServer {
       const distToExit = Math.hypot(player.x - exitP.x, player.y - exitP.y);
       if (distToExit < 1.3) {
         this.teleportPlayerToTown(player, socket);
+        return;
       }
-    } else if (player.zone === 'frostfell') {
-      // Return portal to town (at 21, 34)
-      const distToReturn = Math.hypot(player.x - 21.0, player.y - 34.0);
-      if (distToReturn < 1.3) {
+
+      // Boss chamber exit (back to town)
+      const bossExit = this.dungeon.bossExitPortal;
+      if (bossExit && Math.hypot(player.x - bossExit.x, player.y - bossExit.y) < 1.3) {
         this.teleportPlayerToTown(player, socket);
+        return;
+      }
+
+      // Teleport point at the end of the dungeon path -> boss chamber
+      const bossP = this.dungeon.bossPortal;
+      if (bossP && Math.hypot(player.x - bossP.x, player.y - bossP.y) < 1.3) {
+        const arrival = this.dungeon.bossArrival;
+        player.portalCooldown = 3.0;
+        player.x = arrival.x;
+        player.y = arrival.y;
+        player.targetX = null;
+        player.targetY = null;
+        socket.emit('zone_change', {
+          zone: 'dungeon',
+          map: this.dungeon,
+          floorLevel: this.dungeonFloor,
+          difficulty: this.dungeonDifficulty,
+          player,
+          players: Array.from(this.players.values()).filter(p => p.zone === 'dungeon'),
+          mobs: Array.from(this.dungeonMobs.values()),
+          groundItems: Array.from(this.dungeonGroundItems.values()),
+          chests: this.dungeon.chests
+        });
+        socket.emit('floating_text', { x: player.x, y: player.y - 0.8, text: 'BOSS CHAMBER', color: '#ef4444', size: 20 });
+        this.broadcastSystemMessage(`⚔️ [${player.name}] stepped into the Boss Chamber!`);
+      }
+    } else if (this.fields.has(player.zone)) {
+      // Field zone portals: back to the previous zone / on to the next one
+      const map = this.fields.get(player.zone).map;
+      for (const obs of map.obstacles) {
+        if (obs.type !== 'field_portal') continue;
+        if (Math.hypot(player.x - obs.x, player.y - obs.y) >= 1.3) continue;
+        if (obs.target === 'town') this.teleportPlayerToTown(player, socket);
+        else this.teleportPlayerToField(player, socket, obs.target, obs.arrive);
+        return;
       }
     }
   }
@@ -1354,7 +1470,9 @@ class GameServer {
 
     // Regenerate procedural dungeon with chosen floor and difficulty
     this.regenerateDungeon(floor, difficulty);
+    player.dungeonRun = { floor, difficulty, cleared: false, gold: 0, items: [] };
     this.teleportPlayerToDungeon(player, socket);
+    this.emitDungeonRunUpdate(player, socket);
   }
 
   handleLeaveDungeon(socketId) {
@@ -1389,27 +1507,46 @@ class GameServer {
     this.broadcastSystemMessage(`🌀 [${player.name}] entered ${floorConfig.name} (B${this.dungeonFloor} - ${diffName})!`);
   }
 
-  teleportPlayerToFrostfell(player, socket) {
+  // Move a player into a field zone, arriving at its south (from the previous
+  // zone) or north (coming back from the next zone) portal.
+  teleportPlayerToField(player, socket, zoneId, arrive = 'south') {
+    const field = this.fields.get(zoneId);
+    if (!field) return;
+    const zone = field.zone;
+    if ((player.level || 1) < zone.gateLevel) {
+      player.portalCooldown = 2.0;
+      socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: `⛔ ${zone.name} requires Level ${zone.gateLevel}+!`, color: '#ef4444' });
+      return;
+    }
+
+    const spot = (field.map.arrivals && field.map.arrivals[arrive]) || field.map.spawnPoint || { x: 21, y: 32 };
     player.portalCooldown = 4.0;
-    player.zone = 'frostfell';
-    player.x = this.frostfellMap.spawnPoint ? this.frostfellMap.spawnPoint.x : 21.0;
-    player.y = this.frostfellMap.spawnPoint ? this.frostfellMap.spawnPoint.y : 32.0;
+    player.zone = zoneId;
+    player.x = spot.x;
+    player.y = spot.y;
     player.targetX = null;
     player.targetY = null;
 
     socket.emit('zone_change', {
-      zone: 'frostfell',
-      map: this.frostfellMap,
+      zone: zoneId,
+      zoneName: zone.name,
+      zoneLevel: `Lv. ${zone.minLevel}-${zone.maxLevel}`,
+      map: field.map,
       player,
-      players: Array.from(this.players.values()).filter(p => p.zone === 'frostfell'),
-      mobs: Array.from(this.frostfellMobs.values()),
-      groundItems: Array.from(this.frostfellGroundItems.values())
+      players: Array.from(this.players.values()).filter(p => p.zone === zoneId),
+      mobs: Array.from(field.mobs.values()),
+      groundItems: Array.from(field.groundItems.values())
     });
 
-    this.broadcastSystemMessage(`❄️ [${player.name}] ventured into Frostfell Peaks! Beware the icy beasts.`);
+    this.broadcastSystemMessage(`🧭 [${player.name}] ventured into ${zone.name} (Lv. ${zone.minLevel}-${zone.maxLevel})!`);
+  }
+
+  teleportPlayerToFrostfell(player, socket) {
+    this.teleportPlayerToField(player, socket, 'frostfell', 'south');
   }
 
   teleportPlayerToTown(player, socket) {
+    if (player.zone === 'dungeon') this.endDungeonRun(player, socket);
     player.portalCooldown = 4.0; // 4 second cooldown prevents bounce-back
     player.zone = 'town';
     player.x = 21.0;
@@ -1441,6 +1578,24 @@ class GameServer {
 
     const curRank = player.skills[skillId] || 0;
     if (curRank >= talent.maxRank) return;
+
+    // Specialization lock: once points are spent in a branch, the other
+    // branches stay closed until the talents are reset.
+    const committedBranches = new Set(tree.filter(t => (player.skills[t.id] || 0) > 0).map(t => t.branch));
+    if (committedBranches.size > 0 && !committedBranches.has(talent.branch)) {
+      const socket = this.io.sockets.sockets.get(socketId);
+      if (socket) {
+        socket.emit('floating_text', {
+          x: player.x,
+          y: player.y - 0.7,
+          text: '⚠️ Locked to your chosen specialization! Reset talents to switch.',
+          color: '#ef4444'
+        });
+        // Resync the client in case it optimistically added the point
+        socket.emit('skill_tree_updated', { skillPoints: player.skillPoints, skills: player.skills });
+      }
+      return;
+    }
 
     if (talent.requires) {
       const prereqRank = player.skills[talent.requires] || 0;
@@ -1540,24 +1695,31 @@ class GameServer {
     if (dist <= 2.5) {
       chest.opened = true;
       const loot = rollDungeonLoot(chest.isGold, this.dungeonFloor);
+      const socket = this.io.sockets.sockets.get(socketId);
 
+      // Chest loot is only secured once the dungeon is cleared: until the boss
+      // falls it is held in the run's loot bag (see endDungeonRun).
+      if (!player.dungeonRun) {
+        player.dungeonRun = { floor: this.dungeonFloor, difficulty: this.dungeonDifficulty, cleared: false, gold: 0, items: [] };
+      }
+      const run = player.dungeonRun;
       loot.forEach((it) => {
-        const dropX = chest.x + (Math.random() - 0.5) * 1.5;
-        const dropY = chest.y + (Math.random() - 0.5) * 1.5;
-        if (it.type === 'gold') {
-          this.spawnGroundItem('dungeon', 'gold', 'Gold Coins', dropX, dropY, it.amount);
-        } else if (it.customItemData) {
-          this.spawnGroundItem('dungeon', 'item', it.itemId, dropX, dropY, it.amount || 1, it.customItemData);
+        if (run.cleared) {
+          this.giveLootToPlayer(player, it);
+        } else if (it.type === 'gold') {
+          run.gold += it.amount;
         } else {
-          this.spawnGroundItem('dungeon', 'item', it.itemId, dropX, dropY, it.amount || 1);
+          run.items.push(it);
         }
       });
+      if (run.cleared && socket) socket.emit('player_updated', player);
+      this.emitDungeonRunUpdate(player, socket);
 
       this.io.emit('chest_opened', { chestId, openedBy: player.name });
       this.io.emit('floating_text', {
         x: chest.x,
         y: chest.y - 0.8,
-        text: '💎 Chest Unlocked!',
+        text: run.cleared ? '💎 Chest Unlocked!' : '💎 Loot bagged - defeat the boss to secure it!',
         color: '#facc15'
       });
     }
@@ -1571,7 +1733,7 @@ class GameServer {
     player.attackCooldown = Math.max(0.12, 0.55 / atkSpeed);
     player.isAttacking = true;
 
-    const mobsMap = player.zone === 'town' ? this.townMobs : player.zone === 'frostfell' ? this.frostfellMobs : this.dungeonMobs;
+    const mobsMap = this.getMobsMap(player.zone);
 
     let targetMob = null;
     if (targetInfo && targetInfo.targetType === 'mob') {
@@ -1689,6 +1851,8 @@ class GameServer {
       x: player.x,
       y: player.y,
       facing: player.facing,
+      targetX: targetMob ? targetMob.x : undefined,
+      targetY: targetMob ? targetMob.y : undefined,
       hasSweep: hasSweepTriggered,
       attackSpeed: player.attackSpeed || 1.0,
       swipe: player.swipe || 0
@@ -1817,11 +1981,15 @@ class GameServer {
 
     if (socket) socket.emit('player_updated', player);
 
-    const mobsMap = player.zone === 'town' ? this.townMobs : player.zone === 'frostfell' ? this.frostfellMobs : this.dungeonMobs;
+    const mobsMap = this.getMobsMap(player.zone);
     let totalDmgDealt = 0;
 
-    const applySkillDamage = (mob, baseDmg, isCrit = false) => {
-      let dmg = baseDmg;
+    // `canCrit` only allows a crit; it is rolled like a basic attack, plus the
+    // skill's own critBonus (e.g. Fan of Knives, Shadowstep).
+    const skillCritChance = 0.15 + (player.critChanceBonus || 0) + (skill.critBonus || 0);
+    const applySkillDamage = (mob, baseDmg, canCrit = false) => {
+      const isCrit = canCrit && Math.random() < skillCritChance;
+      let dmg = Math.max(1, Math.round(baseDmg * SKILL_DAMAGE_SCALE));
       if (runeId === 'flame') {
         dmg = Math.round(dmg * 1.25);
         mob.burnTimer = 3.5;
@@ -3001,43 +3169,131 @@ class GameServer {
     }
   }
 
+  // Add one loot entry ({ type: 'gold', amount } or { itemId, amount, customItemData })
+  // to the player's purse / inventory, with a floating pickup label.
+  giveLootToPlayer(player, entry, showText = true) {
+    const text = (label, color) => {
+      if (showText) this.io.emit('floating_text', { x: player.x, y: player.y - 0.6, text: label, color });
+    };
+    if (entry.type === 'gold') {
+      player.gold += entry.amount;
+      text(`+${entry.amount} Gold`, '#facc15');
+    } else if (entry.itemId === 'health_potion') {
+      player.inventory.healthPotions += (entry.amount || 1);
+      text(`+${entry.amount || 1} Health Potion`, '#f87171');
+    } else if (entry.itemId === 'mana_potion') {
+      player.inventory.manaPotions += (entry.amount || 1);
+      text(`+${entry.amount || 1} Mana Potion`, '#60a5fa');
+    } else {
+      // Collectible Relic / Equipment / Consumables
+      const def = entry.customItemData || ITEMS[entry.itemId];
+      if (def) {
+        const existing = player.inventory.items.find(i => i.id === def.id && !def.custom);
+        if (existing && def.type !== 'equipment') {
+          existing.count = (existing.count || 1) + 1;
+        } else {
+          player.inventory.items.push({ ...def, count: 1 });
+        }
+        text(`+${def.name}`, def.rarity === 'legendary' ? '#f59e0b' : def.rarity === 'epic' ? '#a855f7' : def.rarity === 'rare' ? '#38bdf8' : '#4ade80');
+      }
+    }
+  }
+
+  lootEntryName(entry) {
+    if (entry.type === 'gold') return `${entry.amount} Gold`;
+    const def = entry.customItemData || ITEMS[entry.itemId];
+    const name = def ? def.name : entry.itemId;
+    return (entry.amount || 1) > 1 ? `${name} x${entry.amount}` : name;
+  }
+
+  emitDungeonRunUpdate(player, socket) {
+    socket = socket || this.io.sockets.sockets.get(player.id);
+    if (!socket) return;
+    const run = player.dungeonRun;
+    socket.emit('dungeon_run_update', run ? {
+      active: true,
+      cleared: run.cleared,
+      gold: run.gold,
+      items: run.items.map(it => this.lootEntryName(it))
+    } : { active: false });
+  }
+
+  // Boss defeated: everything in the loot bag is secured immediately.
+  completeDungeonRun(player) {
+    const run = player.dungeonRun;
+    if (!run || run.cleared) return;
+    run.cleared = true;
+    const secured = [];
+    if (run.gold > 0) {
+      this.giveLootToPlayer(player, { type: 'gold', amount: run.gold }, false);
+      secured.push(`${run.gold} Gold`);
+    }
+    run.items.forEach(it => {
+      this.giveLootToPlayer(player, it, false);
+      secured.push(this.lootEntryName(it));
+    });
+    run.gold = 0;
+    run.items = [];
+
+    const socket = this.io.sockets.sockets.get(player.id);
+    if (socket) {
+      socket.emit('player_updated', player);
+      socket.emit('dungeon_result', { success: true, kept: secured, lost: [] });
+    }
+    this.emitDungeonRunUpdate(player, socket);
+  }
+
+  // Leaving the dungeon. Without a boss kill the run counts as failed and only
+  // FAILED_RUN_LOOT_KEEP of the escrowed chest loot is kept.
+  endDungeonRun(player, socket) {
+    const run = player.dungeonRun;
+    player.dungeonRun = null;
+    socket = socket || this.io.sockets.sockets.get(player.id);
+    if (!run) return;
+    if (run.cleared) {
+      this.emitDungeonRunUpdate(player, socket);
+      return;
+    }
+
+    const kept = [];
+    const lost = [];
+    const keptGold = Math.floor(run.gold * FAILED_RUN_LOOT_KEEP);
+    if (keptGold > 0) {
+      this.giveLootToPlayer(player, { type: 'gold', amount: keptGold }, false);
+      kept.push(`${keptGold} Gold`);
+    }
+    if (run.gold - keptGold > 0) lost.push(`${run.gold - keptGold} Gold`);
+
+    const shuffled = [...run.items].sort(() => Math.random() - 0.5);
+    const keepCount = Math.floor(shuffled.length * FAILED_RUN_LOOT_KEEP);
+    shuffled.forEach((it, i) => {
+      if (i < keepCount) {
+        this.giveLootToPlayer(player, it, false);
+        kept.push(this.lootEntryName(it));
+      } else {
+        lost.push(this.lootEntryName(it));
+      }
+    });
+
+    if (socket) {
+      socket.emit('player_updated', player);
+      socket.emit('dungeon_result', { success: false, kept, lost });
+    }
+    this.broadcastSystemMessage(`💀 [${player.name}] failed the dungeon run on B${run.floor}.`);
+    this.emitDungeonRunUpdate(player, socket);
+  }
+
   handlePickupItem(socketId, itemId) {
     const player = this.players.get(socketId);
     if (!player || player.isDead) return;
 
-    const itemsMap = player.zone === 'town' ? this.townGroundItems : player.zone === 'frostfell' ? this.frostfellGroundItems : this.dungeonGroundItems;
+    const itemsMap = this.getGroundItemsMap(player.zone);
     const item = itemsMap.get(itemId);
     if (!item) return;
 
     const dist = Math.hypot(item.x - player.x, item.y - player.y);
     if (dist <= 2.2) {
-      if (item.type === 'gold') {
-        player.gold += item.amount;
-        this.io.emit('floating_text', { x: player.x, y: player.y - 0.6, text: `+${item.amount} Gold`, color: '#facc15' });
-      } else if (item.itemId === 'health_potion') {
-        player.inventory.healthPotions += (item.amount || 1);
-        this.io.emit('floating_text', { x: player.x, y: player.y - 0.6, text: `+${item.amount || 1} Health Potion`, color: '#f87171' });
-      } else if (item.itemId === 'mana_potion') {
-        player.inventory.manaPotions += (item.amount || 1);
-        this.io.emit('floating_text', { x: player.x, y: player.y - 0.6, text: `+${item.amount || 1} Mana Potion`, color: '#60a5fa' });
-      } else {
-        // Collectible Relic / Equipment / Consumables
-        const def = item.customItemData || ITEMS[item.itemId];
-        if (def) {
-          const existing = player.inventory.items.find(i => i.id === def.id && !def.custom);
-          if (existing && def.type !== 'equipment') {
-            existing.count = (existing.count || 1) + 1;
-          } else {
-            player.inventory.items.push({ ...def, count: 1 });
-          }
-          this.io.emit('floating_text', {
-            x: player.x,
-            y: player.y - 0.6,
-            text: `+${def.name}`,
-            color: def.rarity === 'legendary' ? '#f59e0b' : def.rarity === 'epic' ? '#a855f7' : def.rarity === 'rare' ? '#38bdf8' : '#4ade80'
-          });
-        }
-      }
+      this.giveLootToPlayer(player, item);
 
       itemsMap.delete(itemId);
       this.io.emit('item_picked', { itemId, pickerId: player.id });
@@ -3202,7 +3458,7 @@ class GameServer {
     const isDungeon = (mob.zone === 'dungeon') || (mob.id && mob.id.startsWith('dungeon_')) || (killerPlayer && killerPlayer.zone === 'dungeon');
     mob.respawnTimer = isDungeon ? Infinity : (mob.isBoss ? 25.0 : 10.0);
 
-    const zone = killerPlayer ? killerPlayer.zone : (mob.id.startsWith('frost_') ? 'frostfell' : 'town');
+    const zone = killerPlayer ? killerPlayer.zone : (mob.fieldZone || (mob.id.startsWith('frost_') ? 'frostfell' : 'town'));
 
     if (killerPlayer) {
       killerPlayer.inventory.kills++;
@@ -3237,6 +3493,11 @@ class GameServer {
         this.broadcastSystemMessage(`👑 Legendary Conquest! [${killerPlayer.name}] vanquished [${mob.name}]!`);
         if (killerPlayer.zone === 'dungeon') {
           this.broadcastSystemMessage(`🎉 The Dungeon Boss fell! A portal to deeper dungeon depths has unlocked.`);
+          for (const p of this.players.values()) {
+            if (p.zone === 'dungeon' && p.dungeonRun && !p.dungeonRun.cleared) {
+              this.completeDungeonRun(p);
+            }
+          }
         }
       }
     }
@@ -3251,7 +3512,7 @@ class GameServer {
     }
 
     // Relic drops
-    if ((zone === 'dungeon' || zone === 'frostfell') && Math.random() < 0.45) {
+    if ((zone === 'dungeon' || this.fields.has(zone)) && Math.random() < 0.45) {
       const relics = ['ancient_ruby', 'cursed_chalice', 'shadow_essence'];
       const r = relics[Math.floor(Math.random() * relics.length)];
       this.spawnGroundItem(zone, 'item', r, mob.x + (Math.random() - 0.5) * 0.8, mob.y + (Math.random() - 0.5) * 0.8, 1);
@@ -3311,7 +3572,7 @@ class GameServer {
 
   spawnGroundItem(zone, type, itemIdOrName, x, y, amount, customItemData = null) {
     const id = `item_${this.nextEntityId++}`;
-    const itemsMap = zone === 'town' ? this.townGroundItems : zone === 'frostfell' ? this.frostfellGroundItems : this.dungeonGroundItems;
+    const itemsMap = this.getGroundItemsMap(zone);
 
     const baseDef = ITEMS[itemIdOrName];
     const item = {
@@ -3394,6 +3655,7 @@ class GameServer {
       if (player.isDead) {
         player.respawnTimer -= dt;
         if (player.respawnTimer <= 0) {
+          if (player.zone === 'dungeon') this.endDungeonRun(player, socket);
           player.isDead = false;
           player.hp = player.maxHp;
           player.mp = player.maxMp;
@@ -3546,7 +3808,7 @@ class GameServer {
       }
 
       // Auto-Loot System: Automatically collect ground loot within 1.8 tiles
-      const groundMap = player.zone === 'town' ? this.townGroundItems : player.zone === 'frostfell' ? this.frostfellGroundItems : this.dungeonGroundItems;
+      const groundMap = this.getGroundItemsMap(player.zone);
       for (const item of groundMap.values()) {
         const d = Math.hypot(item.x - player.x, item.y - player.y);
         if (d <= 1.8) {
@@ -3583,7 +3845,7 @@ class GameServer {
 
     // Update Town, Frostfell, and Dungeon Mobs
     this.updateMobsList(this.townMobs, 'town', dt);
-    this.updateMobsList(this.frostfellMobs, 'frostfell', dt);
+    for (const [fieldId, field] of this.fields) this.updateMobsList(field.mobs, fieldId, dt);
     this.updateMobsList(this.dungeonMobs, 'dungeon', dt);
 
     // 3. Update Projectiles
@@ -3592,7 +3854,7 @@ class GameServer {
       proj.y += proj.vy * dt;
       proj.life -= dt;
 
-      const mobsMap = proj.zone === 'town' ? this.townMobs : proj.zone === 'frostfell' ? this.frostfellMobs : this.dungeonMobs;
+      const mobsMap = this.getMobsMap(proj.zone);
       let hit = false;
       for (const mob of mobsMap.values()) {
         if (mob.state === 'dead') continue;
@@ -3873,29 +4135,28 @@ class GameServer {
       smokeScreenTimer: Number((p.smokeScreenTimer || 0).toFixed(1))
     }));
 
-    const townMobsArr = Array.from(this.townMobs.values()).map(m => ({
+    const snapMob = m => ({
       id: m.id, type: m.type, name: m.name, level: m.level, x: m.x, y: m.y,
       facing: m.facing, hp: Math.round(m.hp), maxHp: m.maxHp, state: m.state, isBoss: m.isBoss,
-      buffs: m.buffs || [], isCommander: !!m.isCommander, auraRadius: m.auraRadius || 0, hasCommanderBuff: !!m.hasCommanderBuff
-    }));
+      buffs: m.buffs || [], isCommander: !!m.isCommander, auraRadius: m.auraRadius || 0, hasCommanderBuff: !!m.hasCommanderBuff,
+      hue: m.hue || 0, scale: m.scale || 1
+    });
+    const townMobsArr = Array.from(this.townMobs.values()).map(snapMob);
+    const dungeonMobsArr = Array.from(this.dungeonMobs.values()).map(snapMob);
 
-    const dungeonMobsArr = Array.from(this.dungeonMobs.values()).map(m => ({
-      id: m.id, type: m.type, name: m.name, level: m.level, x: m.x, y: m.y,
-      facing: m.facing, hp: Math.round(m.hp), maxHp: m.maxHp, state: m.state, isBoss: m.isBoss,
-      buffs: m.buffs || [], isCommander: !!m.isCommander, auraRadius: m.auraRadius || 0, hasCommanderBuff: !!m.hasCommanderBuff
-    }));
-
-    const frostfellMobsArr = Array.from(this.frostfellMobs.values()).map(m => ({
-      id: m.id, type: m.type, name: m.name, level: m.level, x: m.x, y: m.y,
-      facing: m.facing, hp: Math.round(m.hp), maxHp: m.maxHp, state: m.state, isBoss: m.isBoss,
-      buffs: m.buffs || [], isCommander: !!m.isCommander, auraRadius: m.auraRadius || 0, hasCommanderBuff: !!m.hasCommanderBuff
-    }));
+    // Only send field zones somebody is actually standing in
+    const occupied = new Set(playersArr.map(p => p.zone));
+    const fieldMobs = {};
+    for (const [fieldId, field] of this.fields) {
+      if (occupied.has(fieldId)) fieldMobs[fieldId] = Array.from(field.mobs.values()).map(snapMob);
+    }
 
     this.io.emit('game_tick', {
       timestamp: Date.now(),
       players: playersArr,
       townMobs: townMobsArr,
-      frostfellMobs: frostfellMobsArr,
+      fieldMobs,
+      frostfellMobs: fieldMobs.frostfell || [],
       dungeonMobs: dungeonMobsArr,
       dungeonChests: this.dungeon ? this.dungeon.chests : []
     });
