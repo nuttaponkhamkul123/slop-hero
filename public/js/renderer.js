@@ -1,4 +1,44 @@
 // High Performance 2D Canvas Isometric Renderer for Aetheria Online
+
+// Footstep / running dust: small, slow puffs that stay close to the feet
+const RUN_DUST_OPTS = { speed: 0.6, sizeScale: 0.5 };
+
+// Field-zone ground tiles (ids from server/fieldZones.js): top shades,
+// side faces, minimap colour and an optional surface detail
+const FIELD_TILE_PALETTE = {
+  13: { tops: ['#2f6b1f', '#357525', '#2a6119'], left: '#4a3426', right: '#3a291e', mini: '#2f6b1f', detail: 'tuft' },
+  14: { tops: ['#7a5a3a', '#73553a', '#806040'], left: '#5a4029', right: '#47321f', mini: '#7a5a3a', detail: 'pebble' },
+  15: { tops: ['#1f6f8b'], left: '#16566b', right: '#114456', mini: '#1f6f8b', detail: 'water' },
+  16: { tops: ['#4b5340', '#454c3b', '#525a47'], left: '#353b2d', right: '#2a2f24', mini: '#262b20' },
+  17: { tops: ['#d9b26f', '#d4ab67', '#ddb877'], left: '#a8834a', right: '#8f6e3c', mini: '#d9b26f', detail: 'grain' },
+  18: { tops: ['#b98a55', '#b3844f', '#c0915c'], left: '#8c6538', right: '#74532d', mini: '#b98a55', detail: 'pebble' },
+  19: { tops: ['#1aa3a3'], left: '#11807f', right: '#0d6666', mini: '#1aa3a3', detail: 'water' },
+  20: { tops: ['#a0553a', '#9a5036', '#a85c40'], left: '#7a3f2a', right: '#633222', mini: '#5a2d1e' },
+  21: { tops: ['#3c4f2a', '#425630', '#374826'], left: '#2b3820', right: '#222c19', mini: '#3c4f2a', detail: 'tuft' },
+  22: { tops: ['#5b4632', '#55412e', '#614b36'], left: '#433324', right: '#36291d', mini: '#5b4632', detail: 'pebble' },
+  23: { tops: ['#2f4a33'], left: '#243a28', right: '#1b2d1f', mini: '#2f4a33', detail: 'murk' },
+  24: { tops: ['#2d3326', '#30372a', '#2a2f23'], left: '#1f241a', right: '#181c14', mini: '#1a1e16' },
+  25: { tops: ['#4a4644', '#45413f', '#504b49'], left: '#33302e', right: '#292624', mini: '#4a4644', detail: 'crack' },
+  26: { tops: ['#2e2b2b', '#332f2f', '#2a2727'], left: '#1f1d1d', right: '#181616', mini: '#2e2b2b', detail: 'pebble' },
+  27: { tops: ['#c2410c'], left: '#7c2d12', right: '#5c2009', mini: '#ea580c', detail: 'lava' },
+  28: { tops: ['#1c1a24', '#201d29', '#191720'], left: '#121018', right: '#0c0b10', mini: '#141219' },
+  29: { tops: ['#5b5277', '#564d71', '#615880'], left: '#3f3854', right: '#332d45', mini: '#5b5277', detail: 'sparkle' },
+  30: { tops: ['#8a7fb5', '#8479ae', '#9186bd'], left: '#625a85', right: '#4f486c', mini: '#8a7fb5', detail: 'glow' },
+  31: { tops: ['#6d28d9'], left: '#5b21b6', right: '#4c1d95', mini: '#a78bfa', detail: 'pool' },
+  32: { tops: ['#3b2f5c', '#40336a', '#362a55'], left: '#2a2142', right: '#211a35', mini: '#2a2142' },
+  33: { tops: ['#3a3532', '#35302d', '#3f3936'], left: '#292523', right: '#201d1b', mini: '#3a3532', detail: 'crack' },
+  34: { tops: ['#4b4f5c', '#474b57', '#505462'], left: '#33363f', right: '#282a31', mini: '#4b4f5c', detail: 'flag' },
+  35: { tops: ['#1e0b33'], left: '#140724', right: '#0d0418', mini: '#4c1d95', detail: 'pool' },
+  36: { tops: ['#1f1b2b', '#231e31', '#1b1826'], left: '#15121e', right: '#100e17', mini: '#120f18' },
+  37: { tops: ['#e8eef8', '#e2e9f5', '#edf2fb'], left: '#b8c4d8', right: '#9eabc2', mini: '#e8eef8', detail: 'sparkle' },
+  38: { tops: ['#e0c069', '#d9b85f', '#e6c773'], left: '#b08f3e', right: '#957833', mini: '#e0c069', detail: 'flag' },
+  39: { tops: ['#0b1030'], left: '#070a20', right: '#050716', mini: '#1e1b4b', detail: 'stars' },
+  40: { tops: ['#c9cfdb', '#c2c8d5', '#d0d6e1'], left: '#9aa2b3', right: '#838b9c', mini: '#7c8494' }
+};
+
+// Obstacle types rendered by townProps3D.js
+const TOWN_PROPS_3D = new Set(['merchant', 'blacksmith', 'house', 'gate_tower', 'corner_keep']);
+
 class IsometricRenderer {
   constructor(canvas) {
     this.canvas = canvas;
@@ -320,6 +360,9 @@ class IsometricRenderer {
       facing: data.facing || 'SE',
       x: posX,
       y: posY,
+      // Locked target position, so 3D heroes can turn to face it exactly
+      targetX: data.targetX,
+      targetY: data.targetY,
       hasSweep: !!data.hasSweep
     });
 
@@ -461,11 +504,21 @@ class IsometricRenderer {
     }
 
     if (fx.type === 'whirlwind') {
-      this.addParticles(fx.x, fx.y, 'wind', 55);
-      this.addParticles(fx.x, fx.y, 'slash', 35);
-      this.addParticles(fx.x, fx.y, 'spark', 28);
-      this.addParticles(fx.x, fx.y, 'dust', 24);
-      this.triggerScreenShake(8, 0.22);
+      const wr = fx.radius || 3.2;
+      for (let k = 0; k < 18; k++) {
+        const theta = (k / 18) * Math.PI * 2 + Math.random() * 0.2;
+        const px = fx.x + Math.cos(theta) * wr * 0.8;
+        const py = fx.y + Math.sin(theta) * wr * 0.8;
+        // tangent of the spin (screen-clockwise == increasing world angle)
+        this.addParticles(px, py, 'wind', 1, { speed: 3.2, angle: theta + Math.PI * 0.5, spread: 0.25, z: 0.3 });
+        this.addParticles(px, py, 'slash', 1, { speed: 3.6, angle: theta + Math.PI * 0.45, spread: 0.3, z: 0.4 });
+      }
+      // ground kick-up ring at the hero's feet
+      for (let k = 0; k < 12; k++) {
+        const theta = (k / 12) * Math.PI * 2;
+        this.addParticles(fx.x + Math.cos(theta) * 0.5, fx.y + Math.sin(theta) * 0.5, 'dust', 1, { speed: 1.6, angle: theta, spread: 0.3, sizeScale: 1.4 });
+      }
+      this.triggerScreenShake(6, 0.18);
     } else if (fx.type === 'firestorm') {
       this.addParticles(fx.x, fx.y, 'fire', 65);
       this.addParticles(fx.x, fx.y, 'spark', 42);
@@ -699,12 +752,17 @@ class IsometricRenderer {
     const fxY = fx.y !== undefined ? fx.y : (fx.startY || 0);
 
     if (fx.type === 'whirlwind') {
-      const angle = Math.random() * Math.PI * 2;
-      const r = (fx.radius || 3.0) * (0.4 + Math.random() * 0.6);
-      const px = fxX + Math.cos(angle) * r;
-      const py = fxY + Math.sin(angle) * r;
-      this.addParticles(px, py, 'wind', 2, { speed: 2.5, angle: angle + Math.PI * 0.5 });
-      this.addParticles(px, py, 'spark', 1, { speed: 1.8 });
+      // Follow the blade heads drawn in the skill-effect pass (rot = time * 11,
+      // screen angle = world angle + 45deg on the iso projection)
+      const wr = (fx.radius || 3.2) * (0.55 + 0.45 * (1 - Math.pow(1 - Math.min(1, progress * 2.5), 3)));
+      const rot = this.animations.time * 11;
+      for (let b = 0; b < 3; b++) {
+        const theta = rot + (b * Math.PI * 2) / 3 - Math.PI * 0.25;
+        const px = fxX + Math.cos(theta) * wr * 0.97;
+        const py = fxY + Math.sin(theta) * wr * 0.97;
+        this.addParticles(px, py, 'spark', 1, { speed: 2.6, angle: theta + Math.PI * 0.5, spread: 0.35, z: 0.45, sizeScale: 0.8 });
+        if (Math.random() < 0.5) this.addParticles(px, py, 'wind', 1, { speed: 2.0, angle: theta + Math.PI * 0.5, spread: 0.2, z: 0.35 });
+      }
     } else if (fx.type === 'firestorm') {
       const angle = Math.random() * Math.PI * 2;
       const r = (fx.radius || 3.5) * Math.sqrt(Math.random());
@@ -816,7 +874,9 @@ class IsometricRenderer {
       let blend = 'lighter';
       let rot = Math.random() * Math.PI * 2;
       let vrot = (Math.random() - 0.5) * 8;
-      let vz = (Math.random() * 2.2 - 0.5);
+      let vz = (Math.random() * 1.2 - 0.3);
+      let zDrag = 1;      // per-60fps-frame damping of vertical velocity
+      let maxZ = 2.0;     // ceiling (in tiles) so nothing drifts off into the sky
 
       if (type === 'fire') {
         const firePalettes = [
@@ -829,10 +889,12 @@ class IsometricRenderer {
         color = p.c; coreColor = p.core; glowColor = p.glow;
         size = 5 + Math.random() * 6.5;
         life = 0.5 + Math.random() * 0.5;
-        buoyancy = 2.4;
-        drag = 0.92;
-        turbulence = 2.8;
-        vz = 1.2 + Math.random() * 2.2;
+        buoyancy = 0.5;
+        zDrag = 0.9;
+        maxZ = 1.1;
+        drag = 0.9;
+        turbulence = 1.6;
+        vz = 0.4 + Math.random() * 0.7;
       } else if (type === 'slash' || type === 'spark') {
         const sparkPalettes = [
           { c: '#fef08a', core: '#ffffff', glow: 'rgba(250, 204, 21, 0.8)' },
@@ -844,10 +906,10 @@ class IsometricRenderer {
         color = p.c; coreColor = p.core; glowColor = p.glow;
         size = 3.0 + Math.random() * 3.8;
         life = 0.35 + Math.random() * 0.35;
-        gravity = 5.2;
+        gravity = 8.0;
         drag = 0.90;
         bounce = true;
-        vz = 1.6 + Math.random() * 3.0;
+        vz = 0.8 + Math.random() * 1.6;
       } else if (type === 'arcane') {
         const arcanePalettes = [
           { c: '#c084fc', core: '#ffffff', glow: 'rgba(192, 132, 252, 0.7)' },
@@ -859,9 +921,11 @@ class IsometricRenderer {
         color = p.c; coreColor = p.core; glowColor = p.glow;
         size = 4.5 + Math.random() * 5.2;
         life = 0.55 + Math.random() * 0.45;
-        buoyancy = 0.9;
-        drag = 0.95;
-        turbulence = 2.0;
+        zDrag = 0.88;
+        maxZ = 1.0;
+        drag = 0.93;
+        turbulence = 1.2;
+        vz = 0.3 + Math.random() * 0.6;
         vrot = (Math.random() - 0.5) * 6;
       } else if (type === 'ice') {
         const icePalettes = [
@@ -874,10 +938,10 @@ class IsometricRenderer {
         color = p.c; coreColor = p.core; glowColor = p.glow;
         size = 4 + Math.random() * 5.5;
         life = 0.5 + Math.random() * 0.45;
-        gravity = 3.4;
-        drag = 0.93;
+        gravity = 7.0;
+        drag = 0.92;
         bounce = true;
-        vz = 1.0 + Math.random() * 2.4;
+        vz = 0.6 + Math.random() * 1.2;
         vrot = (Math.random() - 0.5) * 12;
       } else if (type === 'lightning') {
         const boltPalettes = [
@@ -890,7 +954,9 @@ class IsometricRenderer {
         size = 5.5 + Math.random() * 6.0;
         life = 0.25 + Math.random() * 0.22;
         drag = 0.85;
-        vz = (Math.random() - 0.5) * 3;
+        zDrag = 0.8;
+        maxZ = 0.8;
+        vz = (Math.random() - 0.5) * 0.6;
       } else if (type === 'poison') {
         const poisonPalettes = [
           { c: '#22c55e', core: '#86efac', glow: 'rgba(34, 197, 94, 0.7)' },
@@ -901,10 +967,12 @@ class IsometricRenderer {
         color = p.c; coreColor = p.core; glowColor = p.glow;
         size = 4.5 + Math.random() * 5.2;
         life = 0.5 + Math.random() * 0.45;
-        buoyancy = 0.7;
-        drag = 0.94;
-        turbulence = 2.4;
-        vz = 0.8 + Math.random() * 1.8;
+        buoyancy = 0.15;
+        zDrag = 0.88;
+        maxZ = 0.6;
+        drag = 0.92;
+        turbulence = 1.4;
+        vz = 0.15 + Math.random() * 0.35;
       } else if (type === 'shadow') {
         const shadowPalettes = [
           { c: '#a855f7', core: '#c084fc', glow: 'rgba(168, 85, 247, 0.7)' },
@@ -915,10 +983,12 @@ class IsometricRenderer {
         color = p.c; coreColor = p.core; glowColor = p.glow;
         size = 5 + Math.random() * 6;
         life = 0.55 + Math.random() * 0.45;
-        drag = 0.93;
-        buoyancy = 1.1;
-        turbulence = 3.2;
-        vz = 1.0 + Math.random() * 1.8;
+        drag = 0.92;
+        buoyancy = 0.2;
+        zDrag = 0.88;
+        maxZ = 0.8;
+        turbulence = 1.8;
+        vz = 0.2 + Math.random() * 0.5;
       } else if (type === 'earth') {
         const earthColors = ['#78350f', '#92400e', '#b45309', '#d97706', '#64748b'];
         color = earthColors[Math.floor(Math.random() * earthColors.length)];
@@ -926,11 +996,11 @@ class IsometricRenderer {
         glowColor = 'rgba(0, 0, 0, 0.3)';
         size = 4 + Math.random() * 6.5;
         life = 0.6 + Math.random() * 0.45;
-        gravity = 9.8;
-        drag = 0.92;
+        gravity = 12.0;
+        drag = 0.9;
         bounce = true;
         blend = 'source-over';
-        vz = 2.5 + Math.random() * 4.2;
+        vz = 1.4 + Math.random() * 2.2;
         vrot = (Math.random() - 0.5) * 14;
       } else if (type === 'wind') {
         const windColors = ['#e0f2fe', '#bae6fd', '#7dd3fc', '#ffffff'];
@@ -939,16 +1009,18 @@ class IsometricRenderer {
         glowColor = 'rgba(56, 189, 248, 0.6)';
         size = 4 + Math.random() * 5.5;
         life = 0.4 + Math.random() * 0.35;
-        drag = 0.95;
-        vz = 0.8 + Math.random() * 1.5;
+        drag = 0.94;
+        zDrag = 0.8;
+        maxZ = 0.6;
+        vz = 0;
       } else if (type === 'gold' || type === 'loot') {
         color = '#facc15'; coreColor = '#ffffff'; glowColor = 'rgba(250, 204, 21, 0.8)';
         size = 4 + Math.random() * 4.5;
         life = 0.6 + Math.random() * 0.4;
-        gravity = 3.8;
+        gravity = 8.0;
         bounce = true;
         drag = 0.92;
-        vz = 2.2 + Math.random() * 2.5;
+        vz = 1.2 + Math.random() * 1.4;
         vrot = (Math.random() - 0.5) * 8;
       } else if (type === 'dust') {
         color = 'rgba(168, 162, 158, 0.45)'; coreColor = 'rgba(214, 211, 209, 0.5)'; glowColor = 'rgba(0, 0, 0, 0.05)';
@@ -956,7 +1028,8 @@ class IsometricRenderer {
         life = 0.22 + Math.random() * 0.15;
         drag = 0.85;
         blend = 'source-over';
-        vz = 0.2 + Math.random() * 0.4;
+        maxZ = 0.3;
+        vz = 0.1 + Math.random() * 0.2;
       } else if (type === 'level') {
         const levelColors = ['#fde047', '#38bdf8', '#c084fc', '#ffffff'];
         color = levelColors[Math.floor(Math.random() * levelColors.length)];
@@ -971,14 +1044,18 @@ class IsometricRenderer {
         blend = 'lighter';
       }
 
+      if (customOpts.sizeScale) size *= customOpts.sizeScale;
+
       this.animations.particles.push({
         id: Math.random() * 1000,
         x: worldX,
         y: worldY,
-        z: (customOpts.z !== undefined ? customOpts.z : 0.3) + Math.random() * 0.4,
+        z: customOpts.z !== undefined ? customOpts.z + Math.random() * 0.2 : 0.05 + Math.random() * 0.25,
         vx: Math.cos(angle) * speed,
         vy: Math.sin(angle) * speed,
-        vz: vz,
+        vz: customOpts.vz !== undefined ? customOpts.vz : vz,
+        zDrag,
+        maxZ: customOpts.z !== undefined ? Math.max(maxZ, customOpts.z + 0.3) : maxZ,
         gravity,
         buoyancy,
         drag,
@@ -1156,7 +1233,15 @@ class IsometricRenderer {
           this.drawDungeonWall(ctx, item.x, item.y, map, item.isBackWall);
           break;
         case 'obstacle':
-          this.drawObstacle(ctx, item.data);
+          if (item.data.hue) {
+            // zone-tinted props (e.g. purple crystals, autumn trees)
+            ctx.save();
+            ctx.filter = `hue-rotate(${item.data.hue}deg)`;
+            this.drawObstacle(ctx, item.data);
+            ctx.restore();
+          } else {
+            this.drawObstacle(ctx, item.data);
+          }
           break;
         case 'chest':
           this.drawChest(ctx, item.data);
@@ -1234,7 +1319,8 @@ class IsometricRenderer {
         rightSideColor = '#463127';
         break;
       case 1: // Cobblestone / Dungeon Corridor
-        topColor = '#3f4756';
+        const cobbleSeed = (x * 7 + y * 13) % 3;
+        topColor = cobbleSeed === 0 ? '#3f4756' : cobbleSeed === 1 ? '#434b5b' : '#3b4351';
         leftSideColor = '#2a313d';
         rightSideColor = '#1e242e';
         break;
@@ -1260,10 +1346,10 @@ class IsometricRenderer {
         leftSideColor = '#854d0e';
         rightSideColor = '#713f12';
         break;
-      case 6: // Portal / Arcane Ring
-        topColor = '#4a2574';
-        leftSideColor = '#361856';
-        rightSideColor = '#26103d';
+      case 6: // Plaza / Portal pad: polished stone with an inlaid trim
+        topColor = '#5a6378';
+        leftSideColor = '#3a4252';
+        rightSideColor = '#2b3240';
         break;
       case 7: // Perimeter Wall (Fallback flat ground)
         topColor = '#212631';
@@ -1293,6 +1379,14 @@ class IsometricRenderer {
         leftSideColor = '#334155';
         rightSideColor = '#1e293b';
         break;
+      default: {
+        const pal = FIELD_TILE_PALETTE[tileType];
+        if (pal) {
+          topColor = pal.tops[(x * 7 + y * 13) % pal.tops.length];
+          leftSideColor = pal.left;
+          rightSideColor = pal.right;
+        }
+      }
     }
 
     // 1. Draw 3D Left Depth Face
@@ -1331,7 +1425,9 @@ class IsometricRenderer {
     ctx.stroke();
 
     // Details for specific tiles
-    if (tileType === 3) {
+    if (FIELD_TILE_PALETTE[tileType] && FIELD_TILE_PALETTE[tileType].detail) {
+      this.drawFieldTileDetail(ctx, FIELD_TILE_PALETTE[tileType].detail, screen, hw, hh, x, y);
+    } else if (tileType === 3) {
       // Water Shimmer Highlights
       ctx.beginPath();
       const waveShift = Math.sin(this.animations.time * 3 + x + y) * (hw * 0.3);
@@ -1348,18 +1444,53 @@ class IsometricRenderer {
       ctx.strokeStyle = 'rgba(0, 0, 0, 0.25)';
       ctx.lineWidth = 1;
       ctx.stroke();
-    } else if (tileType === 6) {
-      // Portal Zone Pulsing Arcane Runic Ring
-      const pulse = Math.sin(this.animations.time * 4) * 0.1 + 0.9;
+    } else if (tileType === 1) {
+      // Cobblestones: two offset mortar seams that follow the iso axes
+      const seamSeed = (x * 5 + y * 11) % 2;
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.22)';
+      ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.arc(screen.x, screen.y, hw * 0.5 * pulse, 0, Math.PI * 2);
-      ctx.strokeStyle = '#c084fc';
-      ctx.lineWidth = 2;
+      if (seamSeed === 0) {
+        ctx.moveTo(screen.x - hw * 0.5, screen.y - hh * 0.5);
+        ctx.lineTo(screen.x + hw * 0.5, screen.y + hh * 0.5);
+        ctx.moveTo(screen.x - hw * 0.05, screen.y - hh * 0.05);
+        ctx.lineTo(screen.x - hw * 0.5, screen.y + hh * 0.45);
+      } else {
+        ctx.moveTo(screen.x + hw * 0.5, screen.y - hh * 0.5);
+        ctx.lineTo(screen.x - hw * 0.5, screen.y + hh * 0.5);
+        ctx.moveTo(screen.x + hw * 0.05, screen.y - hh * 0.05);
+        ctx.lineTo(screen.x + hw * 0.5, screen.y + hh * 0.45);
+      }
       ctx.stroke();
-
+    } else if (tileType === 6) {
+      // Polished plaza slab: bevelled inner panel, thin gold inlay and a
+      // faint glowing rune, all drawn as iso diamonds so they lie flat.
+      const diamond = (s) => {
+        ctx.beginPath();
+        ctx.moveTo(screen.x, screen.y - hh * s);
+        ctx.lineTo(screen.x + hw * s, screen.y);
+        ctx.lineTo(screen.x, screen.y + hh * s);
+        ctx.lineTo(screen.x - hw * s, screen.y);
+        ctx.closePath();
+      };
+      diamond(0.78);
+      ctx.fillStyle = '#4d5569';
+      ctx.fill();
+      // light catches the upper bevel edges
       ctx.beginPath();
-      ctx.arc(screen.x, screen.y, hw * 0.25, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(168, 85, 247, 0.35)';
+      ctx.moveTo(screen.x - hw * 0.78, screen.y);
+      ctx.lineTo(screen.x, screen.y - hh * 0.78);
+      ctx.lineTo(screen.x + hw * 0.78, screen.y);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+      diamond(0.62);
+      ctx.strokeStyle = 'rgba(234, 179, 8, 0.55)';
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+      const pulse = 0.5 + Math.sin(this.animations.time * 2 + x * 0.7 + y * 0.9) * 0.25;
+      diamond(0.22);
+      ctx.fillStyle = `rgba(125, 211, 252, ${0.25 + pulse * 0.25})`;
       ctx.fill();
     } else if (tileType === 10) {
       // Glacial Ice Surface Glaze & Fracture Lines
@@ -1464,10 +1595,318 @@ class IsometricRenderer {
     ctx.stroke();
   }
 
+  // Surface dressing for field-zone ground tiles
+  drawFieldTileDetail(ctx, detail, screen, hw, hh, x, y) {
+    const t = this.animations.time;
+    const seed = (x * 73 + y * 151) % 97;
+    const rx = (k) => ((seed * (k + 3) * 17) % 100) / 100 - 0.5; // stable -0.5..0.5
+    ctx.save();
+    if (detail === 'tuft') {
+      ctx.strokeStyle = 'rgba(134, 239, 172, 0.35)';
+      ctx.lineWidth = 1;
+      for (let k = 0; k < 2; k++) {
+        const px = screen.x + rx(k) * hw * 1.1, py = screen.y + rx(k + 5) * hh * 1.1;
+        ctx.beginPath();
+        ctx.moveTo(px - 2, py); ctx.lineTo(px - 3, py - 4);
+        ctx.moveTo(px, py); ctx.lineTo(px, py - 5);
+        ctx.moveTo(px + 2, py); ctx.lineTo(px + 3, py - 4);
+        ctx.stroke();
+      }
+    } else if (detail === 'pebble' || detail === 'grain') {
+      ctx.fillStyle = detail === 'grain' ? 'rgba(120, 80, 30, 0.25)' : 'rgba(0, 0, 0, 0.22)';
+      for (let k = 0; k < (detail === 'grain' ? 5 : 3); k++) {
+        ctx.beginPath();
+        ctx.ellipse(screen.x + rx(k) * hw * 1.2, screen.y + rx(k + 7) * hh * 1.2, detail === 'grain' ? 1 : 2.4, detail === 'grain' ? 0.6 : 1.3, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      if (detail === 'grain') {
+        // wind ripples
+        ctx.strokeStyle = 'rgba(255, 245, 220, 0.18)';
+        ctx.beginPath();
+        ctx.moveTo(screen.x - hw * 0.5, screen.y + rx(2) * hh);
+        ctx.quadraticCurveTo(screen.x, screen.y + rx(2) * hh - 3, screen.x + hw * 0.5, screen.y + rx(2) * hh);
+        ctx.stroke();
+      }
+    } else if (detail === 'crack') {
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.35)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(screen.x + rx(1) * hw, screen.y + rx(2) * hh);
+      ctx.lineTo(screen.x + rx(3) * hw * 0.4, screen.y + rx(4) * hh * 0.4);
+      ctx.lineTo(screen.x + rx(5) * hw, screen.y + rx(6) * hh);
+      ctx.stroke();
+    } else if (detail === 'flag') {
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.25)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(screen.x - hw * 0.5, screen.y - hh * 0.5); ctx.lineTo(screen.x + hw * 0.5, screen.y + hh * 0.5);
+      ctx.moveTo(screen.x + hw * 0.5, screen.y - hh * 0.5); ctx.lineTo(screen.x - hw * 0.5, screen.y + hh * 0.5);
+      ctx.stroke();
+    } else if (detail === 'water' || detail === 'murk') {
+      const wave = Math.sin(t * 2.4 + x * 0.7 + y * 0.5);
+      ctx.strokeStyle = detail === 'murk' ? 'rgba(163, 230, 53, 0.18)' : 'rgba(255, 255, 255, 0.28)';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(screen.x - hw * 0.35 + wave * hw * 0.2, screen.y + rx(1) * hh * 0.6);
+      ctx.lineTo(screen.x + hw * 0.35 + wave * hw * 0.2, screen.y + rx(1) * hh * 0.6);
+      ctx.stroke();
+      if (detail === 'murk' && seed % 5 === 0) {
+        const b = (t * 0.6 + seed * 0.1) % 1;
+        ctx.fillStyle = `rgba(190, 242, 100, ${0.4 * (1 - b)})`;
+        ctx.beginPath();
+        ctx.arc(screen.x + rx(3) * hw, screen.y + rx(4) * hh, 1.5 + b * 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    } else if (detail === 'lava' || detail === 'pool') {
+      const pulse = 0.5 + Math.sin(t * 1.8 + x * 0.9 + y * 0.6) * 0.5;
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.beginPath();
+      ctx.moveTo(screen.x, screen.y - hh * 0.6);
+      ctx.lineTo(screen.x + hw * 0.6, screen.y);
+      ctx.lineTo(screen.x, screen.y + hh * 0.6);
+      ctx.lineTo(screen.x - hw * 0.6, screen.y);
+      ctx.closePath();
+      ctx.fillStyle = detail === 'lava' ? `rgba(253, 186, 116, ${0.25 + pulse * 0.35})` : `rgba(196, 181, 253, ${0.12 + pulse * 0.25})`;
+      ctx.fill();
+      if (detail === 'lava') {
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.strokeStyle = 'rgba(40, 12, 4, 0.55)';
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.moveTo(screen.x + rx(1) * hw, screen.y + rx(2) * hh);
+        ctx.lineTo(screen.x + rx(3) * hw, screen.y + rx(4) * hh);
+        ctx.stroke();
+      }
+    } else if (detail === 'sparkle' || detail === 'glow' || detail === 'stars') {
+      ctx.globalCompositeOperation = 'lighter';
+      const n = detail === 'stars' ? 3 : 1;
+      for (let k = 0; k < n; k++) {
+        const tw = 0.5 + Math.sin(t * 3 + seed + k * 2) * 0.5;
+        if (detail === 'sparkle' && seed % 3 !== 0) break;
+        ctx.fillStyle = detail === 'glow' ? `rgba(221, 214, 254, ${0.15 + tw * 0.2})` : `rgba(255, 255, 255, ${0.3 + tw * 0.6})`;
+        const s = detail === 'glow' ? 6 : 1.4;
+        ctx.beginPath();
+        ctx.arc(screen.x + rx(k) * hw, screen.y + rx(k + 4) * hh, s, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    ctx.restore();
+  }
+
+  // Screen-space ambient weather for field zones (frostfell has its snowfall)
+  drawAmbientWeather(ctx, theme, w, h, time) {
+    const cfg = {
+      wildwood: { n: 26, color: ['rgba(132, 204, 22, 0.7)', 'rgba(234, 179, 8, 0.7)'], vx: 18, vy: 34, size: 3, shape: 'leaf' },
+      dunes: { n: 30, color: ['rgba(254, 243, 199, 0.35)'], vx: 220, vy: 6, size: 18, shape: 'streak' },
+      mirefen: { n: 22, color: ['rgba(190, 242, 100, 0.9)'], vx: 8, vy: -6, size: 2.2, shape: 'firefly' },
+      ashen: { n: 50, color: ['rgba(168, 162, 158, 0.75)', 'rgba(251, 146, 60, 0.9)'], vx: 14, vy: 40, size: 1.8, shape: 'dot' },
+      crystal: { n: 30, color: ['rgba(233, 213, 255, 0.9)'], vx: 0, vy: -12, size: 2, shape: 'sparkle' },
+      shadowfell: { n: 34, color: ['rgba(168, 85, 247, 0.55)', 'rgba(15, 23, 42, 0.6)'], vx: 6, vy: -22, size: 2.6, shape: 'dot' },
+      celestial: { n: 40, color: ['rgba(253, 230, 138, 0.9)', 'rgba(255, 255, 255, 0.9)'], vx: 0, vy: -8, size: 1.8, shape: 'sparkle' }
+    }[theme];
+    if (!cfg) return;
+    ctx.save();
+    ctx.globalCompositeOperation = theme === 'shadowfell' || theme === 'wildwood' ? 'source-over' : 'lighter';
+    for (let i = 0; i < cfg.n; i++) {
+      const sx = (((i * 137 + time * cfg.vx + Math.sin(time * 0.7 + i) * 20) % (w + 100)) + w + 100) % (w + 100) - 50;
+      const sy = (((i * 89 + time * cfg.vy) % (h + 100)) + h + 100) % (h + 100) - 50;
+      const tw = 0.5 + Math.sin(time * 3 + i * 1.7) * 0.5;
+      ctx.fillStyle = cfg.color[i % cfg.color.length];
+      ctx.strokeStyle = cfg.color[i % cfg.color.length];
+      if (cfg.shape === 'leaf') {
+        ctx.save();
+        ctx.translate(sx, sy);
+        ctx.rotate(time * 2 + i);
+        ctx.beginPath();
+        ctx.ellipse(0, 0, cfg.size * 1.6, cfg.size * 0.7, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      } else if (cfg.shape === 'streak') {
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.lineTo(sx + cfg.size * (0.5 + tw), sy + 1);
+        ctx.stroke();
+      } else {
+        ctx.globalAlpha = cfg.shape === 'dot' ? 1 : tw;
+        ctx.beginPath();
+        ctx.arc(sx, sy, cfg.size * (cfg.shape === 'firefly' ? 0.8 + tw * 0.6 : 1), 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+    }
+    ctx.restore();
+  }
+
+  // Layered, flickering teardrop flame with a soft halo and rising embers.
+  // (baseX, baseY) is where the flame sits; scale 1 is a hand-torch flame.
+  drawTorchFlame(ctx, baseX, baseY, z, scale, seed) {
+    const t = this.animations.time;
+    const flick = 1 + Math.sin(t * 13 + seed) * 0.12 + Math.sin(t * 23 + seed * 2) * 0.06;
+    const sway = Math.sin(t * 6 + seed) * 1.6 * z * scale;
+    const w = 5 * z * scale;
+    const h = 13 * z * scale * flick;
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+
+    const halo = ctx.createRadialGradient(baseX, baseY - h * 0.45, 0, baseX, baseY - h * 0.45, 20 * z * scale);
+    halo.addColorStop(0, 'rgba(253, 186, 116, 0.45)');
+    halo.addColorStop(0.5, 'rgba(249, 115, 22, 0.16)');
+    halo.addColorStop(1, 'rgba(249, 115, 22, 0)');
+    ctx.fillStyle = halo;
+    ctx.beginPath();
+    ctx.arc(baseX, baseY - h * 0.45, 20 * z * scale, 0, Math.PI * 2);
+    ctx.fill();
+
+    const tongue = (fw, fh, color) => {
+      ctx.beginPath();
+      ctx.moveTo(baseX + sway, baseY - fh);
+      ctx.bezierCurveTo(baseX + fw * 0.9 + sway * 0.4, baseY - fh * 0.45, baseX + fw, baseY, baseX, baseY);
+      ctx.bezierCurveTo(baseX - fw, baseY, baseX - fw * 0.9 + sway * 0.4, baseY - fh * 0.45, baseX + sway, baseY - fh);
+      ctx.fillStyle = color;
+      ctx.fill();
+    };
+    tongue(w, h, 'rgba(234, 88, 12, 0.85)');
+    tongue(w * 0.68, h * 0.75, 'rgba(250, 204, 21, 0.85)');
+    tongue(w * 0.36, h * 0.45, 'rgba(255, 251, 235, 0.95)');
+
+    // embers drifting up out of the flame
+    for (let i = 0; i < 3; i++) {
+      const life = (t * 0.9 + i / 3 + seed * 0.13) % 1;
+      const ex = baseX + Math.sin(seed + i * 2.1 + life * 6) * 3 * z * scale;
+      const ey = baseY - h - life * 16 * z * scale;
+      ctx.fillStyle = `rgba(253, 186, 116, ${(1 - life) * 0.9})`;
+      ctx.fillRect(ex, ey, 1.4 * z, 1.4 * z);
+    }
+    ctx.restore();
+  }
+
+  // Warm pool of firelight on the floor around a light source
+  drawFloorFireLight(ctx, x, y, z, seed) {
+    const flick = 0.85 + Math.sin(this.animations.time * 9 + seed) * 0.08 + Math.sin(this.animations.time * 17 + seed) * 0.05;
+    const r = 46 * z * flick;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.translate(x, y);
+    ctx.scale(1, 0.5);
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, r);
+    g.addColorStop(0, 'rgba(251, 146, 60, 0.22)');
+    g.addColorStop(0.6, 'rgba(234, 88, 12, 0.08)');
+    g.addColorStop(1, 'rgba(234, 88, 12, 0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Town curtain wall segment: dressed sandstone blocks with crenellations.
+  // North/west runs (back) are tall; south/east runs (front) stay low so the
+  // plaza behind them is never hidden.
+  drawTownWall(ctx, obs, screen, z) {
+    const hw = (TILE_WIDTH / 2) * z;
+    const hh = (TILE_HEIGHT / 2) * z;
+    const wallH = (obs.back ? 34 : 14) * z;
+    const topY = screen.y - wallH;
+
+    const face = (x1, y1, x2, y2, color) => {
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.lineTo(x2, y2 - wallH);
+      ctx.lineTo(x1, y1 - wallH);
+      ctx.closePath();
+      ctx.fillStyle = color;
+      ctx.fill();
+    };
+    face(screen.x - hw, screen.y, screen.x, screen.y + hh, '#8e8a80');
+    face(screen.x, screen.y + hh, screen.x + hw, screen.y, '#6e6a62');
+
+    // staggered block courses
+    ctx.strokeStyle = 'rgba(40, 36, 30, 0.45)';
+    ctx.lineWidth = 1;
+    const courses = Math.max(1, Math.round(wallH / (9 * z)));
+    for (let i = 1; i < courses; i++) {
+      const o = (wallH / courses) * i;
+      ctx.beginPath();
+      ctx.moveTo(screen.x - hw, screen.y - o); ctx.lineTo(screen.x, screen.y + hh - o);
+      ctx.lineTo(screen.x + hw, screen.y - o);
+      ctx.stroke();
+      const t = i % 2 ? 0.33 : 0.66;
+      ctx.beginPath();
+      ctx.moveTo(screen.x - hw + hw * t, screen.y + hh * t - o);
+      ctx.lineTo(screen.x - hw + hw * t, screen.y + hh * t - o + wallH / courses);
+      ctx.moveTo(screen.x + hw * t, screen.y + hh - hh * t - o);
+      ctx.lineTo(screen.x + hw * t, screen.y + hh - hh * t - o + wallH / courses);
+      ctx.stroke();
+    }
+
+    // walkway cap
+    ctx.beginPath();
+    ctx.moveTo(screen.x, topY - hh);
+    ctx.lineTo(screen.x + hw, topY);
+    ctx.lineTo(screen.x, topY + hh);
+    ctx.lineTo(screen.x - hw, topY);
+    ctx.closePath();
+    ctx.fillStyle = '#b3ad9f';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
+    ctx.stroke();
+
+    // two merlons along the wall's run
+    const mh = (obs.back ? 9 : 6) * z;
+    const along = obs.axis === 'x' ? { x: hw / 2, y: hh / 2 } : { x: -hw / 2, y: hh / 2 };
+    for (const s of [-0.5, 0.5]) {
+      const cx = screen.x + along.x * s * 1.1;
+      const cy = topY + along.y * s * 1.1;
+      const mw = hw * 0.32, mhh = hh * 0.32;
+      face(cx - mw, cy, cx, cy + mhh, '#a39d90');
+      ctx.beginPath();
+      ctx.moveTo(cx, cy + mhh); ctx.lineTo(cx + mw, cy); ctx.lineTo(cx + mw, cy - mh); ctx.lineTo(cx, cy + mhh - mh); ctx.closePath();
+      ctx.fillStyle = '#7f7a70';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - mhh - mh); ctx.lineTo(cx + mw, cy - mh); ctx.lineTo(cx, cy + mhh - mh); ctx.lineTo(cx - mw, cy - mh); ctx.closePath();
+      ctx.fillStyle = '#c4beb0';
+      ctx.fill();
+    }
+  }
+
   // Draw Props & Obstacles
   drawObstacle(ctx, obs) {
     const screen = Isometric.worldToScreen(obs.x, obs.y, 0, this.camera, this.canvas.width, this.canvas.height);
     const z = this.camera.zoom;
+
+    if (obs.type === 'town_wall') {
+      this.drawTownWall(ctx, obs, screen, z);
+      return;
+    }
+
+    // 3D-modelled town props (booths with NPCs, houses, towers). Falls back
+    // to the 2D drawings below when WebGL is unavailable.
+    if (window.townProps3D && TOWN_PROPS_3D.has(obs.type)) {
+      const drawn = window.townProps3D.draw(ctx, obs, screen.x, screen.y, z, this.animations.time);
+      if (drawn) {
+        if (drawn.events && drawn.events.struck && drawn.sparkOffset) {
+          const so = drawn.sparkOffset;
+          this.addParticles(obs.x + so.x, obs.y + so.y, 'spark', 6, { speed: 2.2, z: so.z, sizeScale: 0.7 });
+        }
+        const tag = obs.type === 'merchant' ? ['Olaf the Trader [Shop]', '#fde68a']
+          : obs.type === 'blacksmith' ? ['Brom the Master Smith [Reforge]', '#fdba74'] : null;
+        if (tag) {
+          ctx.save();
+          ctx.font = 'bold 11px Outfit, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillStyle = '#000';
+          ctx.fillText(tag[0], screen.x + 1, drawn.top + 6 * z + 1);
+          ctx.fillStyle = tag[1];
+          ctx.fillText(tag[0], screen.x, drawn.top + 6 * z);
+          ctx.restore();
+        }
+        return;
+      }
+    }
 
     if (obs.type === 'oak_tree' || obs.type === 'pine_tree') {
       // Shadow
@@ -1524,51 +1963,215 @@ class IsometricRenderer {
       ctx.fillStyle = '#94a3b8';
       ctx.fillRect(screen.x - 11 * z, screen.y - 43 * z, 22 * z, 6 * z);
     } else if (obs.type === 'fountain') {
-      // Town Fountain
+      // 3D Mode Check: Render realistic 3D classical tiered marble fountain
+      if (window.threeHeroRenderer && window.threeHeroRenderer.enabled) {
+        const time = this.animations ? this.animations.time : (performance.now() * 0.001);
+        const drawn = window.threeHeroRenderer.drawFountain(ctx, screen.x, screen.y, z, time);
+        if (drawn) return;
+      }
+
+      // Enhanced 2D Town Fountain Fallback (Classical Tiered Marble Basin)
+      const t = this.animations ? this.animations.time : (performance.now() * 0.001);
+
+      // Ground Plinth Shadow
       ctx.beginPath();
-      ctx.ellipse(screen.x, screen.y, 32 * z, 18 * z, 0, 0, Math.PI * 2);
-      ctx.fillStyle = '#475569';
+      ctx.ellipse(screen.x, screen.y + 2 * z, 35 * z, 20 * z, 0, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.45)';
+      ctx.fill();
+
+      // Lower Basin Outer Stone Wall & Rim
+      ctx.beginPath();
+      ctx.ellipse(screen.x, screen.y, 33 * z, 18.5 * z, 0, 0, Math.PI * 2);
+      ctx.fillStyle = '#64748b';
       ctx.fill();
       ctx.strokeStyle = '#94a3b8';
-      ctx.lineWidth = 3 * z;
+      ctx.lineWidth = 3.5 * z;
       ctx.stroke();
 
-      // Fountain Water
+      // Golden Filigree Accent Ring
       ctx.beginPath();
-      ctx.ellipse(screen.x, screen.y, 24 * z, 13 * z, 0, 0, Math.PI * 2);
-      ctx.fillStyle = '#06b6d4';
+      ctx.ellipse(screen.x, screen.y, 31 * z, 17 * z, 0, 0, Math.PI * 2);
+      ctx.strokeStyle = '#d97706';
+      ctx.lineWidth = 1.2 * z;
+      ctx.stroke();
+
+      // Lower Water Pool Depth Gradient
+      const waterGrad = ctx.createRadialGradient(screen.x, screen.y, 2 * z, screen.x, screen.y, 26 * z);
+      waterGrad.addColorStop(0, '#38bdf8');
+      waterGrad.addColorStop(0.65, '#0284c7');
+      waterGrad.addColorStop(1, '#0369a1');
+      ctx.beginPath();
+      ctx.ellipse(screen.x, screen.y, 26 * z, 14.5 * z, 0, 0, Math.PI * 2);
+      ctx.fillStyle = waterGrad;
       ctx.fill();
 
-      // Center Spire & Spray
-      ctx.fillStyle = '#64748b';
-      ctx.fillRect(screen.x - 4 * z, screen.y - 20 * z, 8 * z, 20 * z);
-
-      // Water Particles
-      const spray = Math.sin(this.animations.time * 6) * 4 * z;
+      // Concentric Animated Water Ripples
+      const rip1 = (t * 1.5) % 1;
       ctx.beginPath();
-      ctx.arc(screen.x, screen.y - 22 * z + spray, 4 * z, 0, Math.PI * 2);
+      ctx.ellipse(screen.x, screen.y, (12 + rip1 * 12) * z, (6.5 + rip1 * 6.5) * z, 0, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(224, 242, 254, ${(1 - rip1) * 0.6})`;
+      ctx.lineWidth = 1.5 * z;
+      ctx.stroke();
+
+      // Central Fluted Pedestal Pillar
+      ctx.fillStyle = '#475569';
+      ctx.fillRect(screen.x - 6 * z, screen.y - 18 * z, 12 * z, 18 * z);
+      ctx.fillStyle = '#64748b';
+      ctx.fillRect(screen.x - 5 * z, screen.y - 18 * z, 5 * z, 18 * z);
+
+      // Mid-Tier Basin Bowl
+      ctx.beginPath();
+      ctx.ellipse(screen.x, screen.y - 18 * z, 16 * z, 8 * z, 0, 0, Math.PI * 2);
+      ctx.fillStyle = '#64748b';
+      ctx.fill();
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.lineWidth = 2 * z;
+      ctx.stroke();
+
+      // Mid-Tier Water
+      ctx.beginPath();
+      ctx.ellipse(screen.x, screen.y - 18.5 * z, 13 * z, 6.5 * z, 0, 0, Math.PI * 2);
+      ctx.fillStyle = '#38bdf8';
+      ctx.fill();
+
+      // Cascading Waterfall Sheets falling from mid bowl
+      ctx.fillStyle = 'rgba(224, 242, 254, 0.45)';
+      ctx.fillRect(screen.x - 14 * z, screen.y - 17 * z, 2.5 * z, 16 * z);
+      ctx.fillRect(screen.x + 11.5 * z, screen.y - 17 * z, 2.5 * z, 16 * z);
+
+      // Upper Column & Spire
+      ctx.fillStyle = '#475569';
+      ctx.fillRect(screen.x - 3 * z, screen.y - 32 * z, 6 * z, 14 * z);
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillRect(screen.x - 3 * z, screen.y - 32 * z, 3 * z, 14 * z);
+
+      // Top Chalice
+      ctx.beginPath();
+      ctx.ellipse(screen.x, screen.y - 32 * z, 8 * z, 4 * z, 0, 0, Math.PI * 2);
+      ctx.fillStyle = '#e2e8f0';
+      ctx.fill();
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 1.5 * z;
+      ctx.stroke();
+
+      // Top Geyser Pulsing Spray & Particles
+      const spray = Math.sin(t * 8) * 3 * z;
+      ctx.beginPath();
+      ctx.arc(screen.x, screen.y - 36 * z + spray, 3.5 * z, 0, Math.PI * 2);
       ctx.fillStyle = '#e0f2fe';
       ctx.fill();
+
+      // Floating Arcane Aqua Crystal
+      const crystalBob = Math.sin(t * 3) * 2 * z;
+      const crystalY = screen.y - 42 * z + crystalBob;
+      ctx.save();
+      ctx.translate(screen.x, crystalY);
+      ctx.rotate(t * 0.8);
+      ctx.beginPath();
+      ctx.moveTo(0, -6 * z);
+      ctx.lineTo(4 * z, 0);
+      ctx.lineTo(0, 6 * z);
+      ctx.lineTo(-4 * z, 0);
+      ctx.closePath();
+      ctx.fillStyle = '#67e8f9';
+      ctx.fill();
+      ctx.strokeStyle = '#e0f2fe';
+      ctx.lineWidth = 1.2 * z;
+      ctx.stroke();
+      ctx.restore();
     } else if (obs.type === 'torch') {
-      // Wooden Torch Post
-      ctx.fillStyle = '#78350f';
-      ctx.fillRect(screen.x - 2 * z, screen.y - 24 * z, 4 * z, 24 * z);
+      // Standing iron brazier
+      const seed = obs.x * 3.7 + obs.y * 5.3;
+      this.drawFloorFireLight(ctx, screen.x, screen.y, z, seed);
 
-      // Warm Fire Light Aura
-      const flameFlicker = Math.sin(this.animations.time * 12) * 2 * z;
-      const glowGrad = ctx.createRadialGradient(screen.x, screen.y - 26 * z, 2 * z, screen.x, screen.y - 26 * z, 28 * z);
-      glowGrad.addColorStop(0, 'rgba(245, 158, 11, 0.45)');
-      glowGrad.addColorStop(1, 'rgba(245, 158, 11, 0)');
-      ctx.fillStyle = glowGrad;
+      // stone foot
       ctx.beginPath();
-      ctx.arc(screen.x, screen.y - 26 * z, 28 * z, 0, Math.PI * 2);
+      ctx.ellipse(screen.x, screen.y, 7 * z, 3.5 * z, 0, 0, Math.PI * 2);
+      ctx.fillStyle = '#2b2f38';
+      ctx.fill();
+      // iron pole with a lit edge
+      ctx.fillStyle = '#1f2329';
+      ctx.fillRect(screen.x - 1.8 * z, screen.y - 30 * z, 3.6 * z, 30 * z);
+      ctx.fillStyle = '#4b5563';
+      ctx.fillRect(screen.x - 1.8 * z, screen.y - 30 * z, 1.2 * z, 30 * z);
+      // decorative collar
+      ctx.fillStyle = '#374151';
+      ctx.fillRect(screen.x - 3 * z, screen.y - 16 * z, 6 * z, 2 * z);
+      // brazier bowl
+      ctx.beginPath();
+      ctx.moveTo(screen.x - 8 * z, screen.y - 36 * z);
+      ctx.lineTo(screen.x + 8 * z, screen.y - 36 * z);
+      ctx.lineTo(screen.x + 4.5 * z, screen.y - 29 * z);
+      ctx.lineTo(screen.x - 4.5 * z, screen.y - 29 * z);
+      ctx.closePath();
+      ctx.fillStyle = '#2d3239';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(screen.x, screen.y - 36 * z, 8 * z, 2.6 * z, 0, 0, Math.PI * 2);
+      ctx.fillStyle = '#7c2d12';
+      ctx.fill();
+      ctx.strokeStyle = '#6b7280';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      this.drawTorchFlame(ctx, screen.x, screen.y - 36 * z, z, 1.25, seed);
+    } else if (obs.type === 'wall_torch') {
+      // Torch in an iron sconce on the room-facing side of a dungeon wall.
+      // side 'left' = face toward +y (lower-left on screen), 'right' = toward +x.
+      const hw = (TILE_WIDTH / 2) * z;
+      const hh = (TILE_HEIGHT / 2) * z;
+      const dir = obs.side === 'right' ? 1 : -1;
+      const fx = screen.x + dir * hw * 0.5;   // centre of the wall face
+      const fy = screen.y + hh * 0.5;
+      const mountY = fy - 22 * z;
+      const seed = obs.x * 3.7 + obs.y * 5.3;
+
+      this.drawFloorFireLight(ctx, fx + dir * 6 * z, fy + 6 * z, z, seed);
+
+      // warm light washing the wall face around the sconce
+      const wash = ctx.createRadialGradient(fx, mountY - 6 * z, 0, fx, mountY - 6 * z, 22 * z);
+      wash.addColorStop(0, 'rgba(251, 146, 60, 0.28)');
+      wash.addColorStop(1, 'rgba(251, 146, 60, 0)');
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = wash;
+      ctx.beginPath();
+      ctx.arc(fx, mountY - 6 * z, 22 * z, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      // back plate, sheared to lie on the wall face
+      ctx.save();
+      ctx.translate(fx, mountY);
+      ctx.transform(1, -dir * 0.5, 0, 1, 0, 0);
+      ctx.fillStyle = '#1f2329';
+      ctx.fillRect(-3 * z, -4 * z, 6 * z, 9 * z);
+      ctx.fillStyle = '#4b5563';
+      ctx.fillRect(-3 * z, -4 * z, 6 * z, 1.2 * z);
+      ctx.restore();
+
+      // bracket arm angling out from the wall, then the torch handle
+      const tipX = fx + dir * 4 * z;
+      const tipY = mountY + 3 * z;
+      ctx.strokeStyle = '#2d3239';
+      ctx.lineWidth = 2 * z;
+      ctx.beginPath();
+      ctx.moveTo(fx, mountY + 2 * z);
+      ctx.lineTo(tipX, tipY);
+      ctx.stroke();
+      ctx.strokeStyle = '#6b3f1d';
+      ctx.lineWidth = 2.6 * z;
+      ctx.beginPath();
+      ctx.moveTo(tipX - dir * 1 * z, tipY + 3 * z);
+      ctx.lineTo(tipX + dir * 1.5 * z, tipY - 9 * z);
+      ctx.stroke();
+      // wrapped head
+      ctx.fillStyle = '#3f2a18';
+      ctx.beginPath();
+      ctx.ellipse(tipX + dir * 1.6 * z, tipY - 10 * z, 2.6 * z, 1.8 * z, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      // Flame
-      ctx.beginPath();
-      ctx.arc(screen.x, screen.y - 26 * z + flameFlicker, 4 * z, 0, Math.PI * 2);
-      ctx.fillStyle = '#f97316';
-      ctx.fill();
+      this.drawTorchFlame(ctx, tipX + dir * 1.6 * z, tipY - 10.5 * z, z, 1.0, seed);
     } else if (obs.type === 'merchant') {
       // Merchant Olaf's Shop Stall
       // Wooden Counter Table
@@ -1662,9 +2265,10 @@ class IsometricRenderer {
       ctx.font = 'bold 11px Outfit, sans-serif';
       ctx.textAlign = 'center';
       ctx.fillStyle = '#000';
-      ctx.fillText('🌀 Dungeon Portal', screen.x + 1, screen.y - 42 * z + 1);
-      ctx.fillStyle = '#38bdf8';
-      ctx.fillText('🌀 Dungeon Portal', screen.x, screen.y - 42 * z);
+      const portalLabel = obs.label || '🌀 Dungeon Portal';
+      ctx.fillText(portalLabel, screen.x + 1, screen.y - 42 * z + 1);
+      ctx.fillStyle = obs.color || '#38bdf8';
+      ctx.fillText(portalLabel, screen.x, screen.y - 42 * z);
       ctx.restore();
     } else if (obs.type === 'blacksmith') {
       // NPC Brom the Master Smith (Reforge / Item Enhancement)
@@ -1942,6 +2546,136 @@ class IsometricRenderer {
       ctx.fillStyle = '#67e8f9';
       ctx.fillText('❄️ Frostfell Portal [Lv. 6+]', screen.x, screen.y - 42 * z);
       ctx.restore();
+    } else if (obs.type === 'cactus') {
+      ctx.beginPath();
+      ctx.ellipse(screen.x, screen.y, 10 * z, 5 * z, 0, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+      ctx.fill();
+      const limb = (x, y, w, h) => {
+        ctx.beginPath();
+        ctx.roundRect(screen.x + x * z, screen.y + y * z, w * z, h * z, (w / 2) * z);
+        ctx.fill();
+      };
+      ctx.fillStyle = '#3f7d3a';
+      limb(-4, -34, 8, 34);
+      limb(-13, -24, 6, 12);
+      limb(7, -28, 6, 14);
+      ctx.fillRect(screen.x - 10 * z, screen.y - 15 * z, 8 * z, 4 * z);
+      ctx.fillRect(screen.x + 2 * z, screen.y - 17 * z, 8 * z, 4 * z);
+      ctx.fillStyle = '#5ea052';
+      ctx.fillRect(screen.x - 3 * z, screen.y - 32 * z, 2 * z, 30 * z);
+      ctx.fillStyle = '#f472b6';
+      ctx.beginPath();
+      ctx.arc(screen.x, screen.y - 35 * z, 2.4 * z, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (obs.type === 'dead_tree') {
+      ctx.beginPath();
+      ctx.ellipse(screen.x, screen.y, 14 * z, 7 * z, 0, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+      ctx.fill();
+      ctx.strokeStyle = '#3b2a20';
+      ctx.lineCap = 'round';
+      const branch = (x1, y1, x2, y2, w) => {
+        ctx.lineWidth = w * z;
+        ctx.beginPath();
+        ctx.moveTo(screen.x + x1 * z, screen.y + y1 * z);
+        ctx.lineTo(screen.x + x2 * z, screen.y + y2 * z);
+        ctx.stroke();
+      };
+      branch(0, 0, -2, -26, 6);
+      branch(-2, -26, 2, -44, 4);
+      branch(-1, -20, -14, -32, 3);
+      branch(-14, -32, -18, -42, 2);
+      branch(1, -30, 13, -40, 3);
+      branch(13, -40, 20, -38, 2);
+      branch(2, -44, -4, -52, 2);
+      ctx.lineCap = 'butt';
+    } else if (obs.type === 'boulder') {
+      ctx.beginPath();
+      ctx.ellipse(screen.x, screen.y + 2 * z, 16 * z, 7 * z, 0, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.32)';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(screen.x - 15 * z, screen.y);
+      ctx.lineTo(screen.x - 11 * z, screen.y - 14 * z);
+      ctx.lineTo(screen.x - 2 * z, screen.y - 20 * z);
+      ctx.lineTo(screen.x + 10 * z, screen.y - 15 * z);
+      ctx.lineTo(screen.x + 15 * z, screen.y - 3 * z);
+      ctx.lineTo(screen.x + 6 * z, screen.y + 4 * z);
+      ctx.lineTo(screen.x - 9 * z, screen.y + 4 * z);
+      ctx.closePath();
+      ctx.fillStyle = '#6b6f78';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(screen.x - 11 * z, screen.y - 14 * z);
+      ctx.lineTo(screen.x - 2 * z, screen.y - 20 * z);
+      ctx.lineTo(screen.x + 10 * z, screen.y - 15 * z);
+      ctx.lineTo(screen.x + 1 * z, screen.y - 10 * z);
+      ctx.closePath();
+      ctx.fillStyle = '#8b9099';
+      ctx.fill();
+    } else if (obs.type === 'giant_mushroom') {
+      ctx.beginPath();
+      ctx.ellipse(screen.x, screen.y, 14 * z, 7 * z, 0, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+      ctx.fill();
+      ctx.fillStyle = '#e7dcc4';
+      ctx.fillRect(screen.x - 4 * z, screen.y - 22 * z, 8 * z, 22 * z);
+      ctx.beginPath();
+      ctx.ellipse(screen.x, screen.y - 24 * z, 18 * z, 11 * z, 0, Math.PI, Math.PI * 2);
+      ctx.fillStyle = '#c0392b';
+      ctx.fill();
+      ctx.fillStyle = '#922b21';
+      ctx.fillRect(screen.x - 18 * z, screen.y - 25 * z, 36 * z, 3 * z);
+      ctx.fillStyle = '#fdf6e3';
+      for (const [dx, dy, r] of [[-9, -29, 2.6], [3, -32, 3], [11, -27, 2], [-2, -26, 1.6]]) {
+        ctx.beginPath();
+        ctx.arc(screen.x + dx * z, screen.y + dy * z, r * z, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    } else if (obs.type === 'field_portal') {
+      // Gateway between field zones (colour/label from the destination)
+      const accent = obs.color || '#facc15';
+      const rot = this.animations.time * 2.2;
+      ctx.beginPath();
+      ctx.ellipse(screen.x, screen.y, 24 * z, 12 * z, 0, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+      ctx.fill();
+      ctx.strokeStyle = accent;
+      ctx.lineWidth = 2 * z;
+      ctx.stroke();
+      ctx.save();
+      ctx.translate(screen.x, screen.y - 14 * z);
+      const pg = ctx.createRadialGradient(0, 0, 4 * z, 0, 0, 28 * z);
+      pg.addColorStop(0, 'rgba(255, 255, 255, 0.85)');
+      pg.addColorStop(0.45, accent);
+      pg.addColorStop(1, 'rgba(15, 23, 42, 0)');
+      ctx.globalAlpha = 0.75;
+      ctx.fillStyle = pg;
+      ctx.beginPath();
+      ctx.arc(0, 0, 28 * z, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.rotate(rot);
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2 * z;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 18 * z, 8 * z, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.rotate(-rot * 2);
+      ctx.strokeStyle = accent;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 12 * z, 5 * z, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+      ctx.save();
+      ctx.font = 'bold 11px Outfit, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#000';
+      ctx.fillText(obs.label || 'Portal', screen.x + 1, screen.y - 42 * z + 1);
+      ctx.fillStyle = accent;
+      ctx.fillText(obs.label || 'Portal', screen.x, screen.y - 42 * z);
+      ctx.restore();
     } else if (obs.type === 'town_portal') {
       // Gateway from Frostfell returning to Town
       const rot = this.animations.time * 2.2;
@@ -2134,6 +2868,10 @@ class IsometricRenderer {
 
     // When 3D Hero Models are enabled, Three.js WebGL layer renders the 3D rigged character!
     if (window.threeHeroRenderer && window.threeHeroRenderer.enabled) {
+      // Paint the 3D model here, inside the depth-sorted pass, so walls and
+      // props drawn after this player correctly cover it
+      window.threeHeroRenderer.drawHero(ctx, player.id, screen.x, screen.y, z);
+
       // Nametag, Guild Badge & Mini HP Bar
       this.drawEntityOverhead(ctx, screen.x, screen.y - 50 * z, player.name, player.hp, player.maxHp, isLocal ? '#38bdf8' : '#fff', `Lv.${player.level}`);
 
@@ -3149,8 +3887,8 @@ class IsometricRenderer {
     const footRRelX = (frame.footRX - frame.anchorX) * baseScale;
 
     // Footstep ground dust puff when foot strikes the ground (Subtle & gentle)
-    if (isMoving && !isAttacking && !isDashing && Math.abs(stepCadence) < 0.15 && Math.random() < 0.04) {
-      this.addParticles(player.x, player.y, 'dust', 1);
+    if (isMoving && !isAttacking && !isDashing && Math.abs(stepCadence) < 0.15 && Math.random() < 0.015) {
+      this.addParticles(player.x, player.y, 'dust', 1, RUN_DUST_OPTS);
     }
 
     // =========================================================================
@@ -3268,8 +4006,8 @@ class IsometricRenderer {
         ctx.restore();
 
         // Spawn braking slide dust when entering stop phase
-        if (dFrameIdx === 3 && Math.random() < 0.08) {
-          this.addParticles(player.x, player.y, 'dust', 1);
+        if (dFrameIdx === 3 && Math.random() < 0.03) {
+          this.addParticles(player.x, player.y, 'dust', 1, RUN_DUST_OPTS);
         }
 
       } else if (isAttacking) {
@@ -3337,8 +4075,8 @@ class IsometricRenderer {
           if (Math.random() < 0.28) {
             this.addParticles(swordTipX, swordTipY, 'slash', 1);
           }
-          if (Math.random() < 0.03) {
-            this.addParticles(player.x, player.y, 'dust', 1);
+          if (Math.random() < 0.01) {
+            this.addParticles(player.x, player.y, 'dust', 1, RUN_DUST_OPTS);
           }
 
         } else {
@@ -3690,8 +4428,8 @@ class IsometricRenderer {
       if (Math.random() < 0.28) {
         this.addParticles(staffTipX, staffTipY, 'arcane', 1);
       }
-      if (Math.random() < 0.02) {
-        this.addParticles(player.x, player.y, 'dust', 1);
+      if (Math.random() < 0.008) {
+        this.addParticles(player.x, player.y, 'dust', 1, RUN_DUST_OPTS);
       }
 
     } else if (this.sprites.mageIdle && this.sprites.mageIdle.complete && this.sprites.mageIdle.naturalWidth > 0) {
@@ -3969,8 +4707,8 @@ class IsometricRenderer {
       if (Math.random() < 0.32) {
         this.addParticles(daggerTipX, daggerTipY, 'slash', 1);
       }
-      if (Math.random() < 0.03) {
-        this.addParticles(player.x, player.y, 'dust', 1);
+      if (Math.random() < 0.01) {
+        this.addParticles(player.x, player.y, 'dust', 1, RUN_DUST_OPTS);
       }
 
     } else if (this.sprites.rogueIdle && this.sprites.rogueIdle.complete && this.sprites.rogueIdle.naturalWidth > 0) {
@@ -4140,6 +4878,9 @@ class IsometricRenderer {
 
     ctx.save();
     ctx.translate(screen.x, screen.y);
+    // field-zone variants reuse a body type with their own tint and size
+    if (mob.hue) ctx.filter = `hue-rotate(${mob.hue}deg) saturate(1.15)`;
+    if (mob.scale && mob.scale !== 1) ctx.scale(mob.scale, mob.scale);
 
     if (mob.type === 'slime') {
       // Slime Jelly Wobble
@@ -4313,7 +5054,7 @@ class IsometricRenderer {
     ctx.restore();
 
     // Overhead tag with Affix Badges
-    const overheadY = screen.y - (isBoss ? 75 : 44) * z;
+    const overheadY = screen.y - (isBoss ? 75 : 44) * z * (mob.scale || 1);
     this.drawEntityOverhead(ctx, screen.x, overheadY, mob.name, mob.hp, mob.maxHp, isBoss ? '#f59e0b' : '#fca5a5', `Lv.${mob.level}`, mob.buffs, mob.isCommander, mob.hasCommanderBuff);
 
     // Bouncing overhead lock pointer for selected target
@@ -4588,57 +5329,89 @@ class IsometricRenderer {
           ctx.stroke();
           ctx.restore();
         } else if (fx.type === 'whirlwind') {
-          // Warrior Whirlwind - Triple Razor Blade Cyclone Vortex
+          // Warrior Whirlwind - three steel blade trails sweeping flat around
+          // the hero on the iso ground plane, sized to the real hit radius.
+          // A world-space circle of radius r projects to an axis-aligned
+          // ellipse of r*TILE_W/sqrt(2) by r*TILE_H/sqrt(2) on screen.
           const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.canvas.width, this.canvas.height);
-          const rad = (fx.radius || 3.2) * 28 * z * (0.6 + progress * 0.5);
-          const rot = this.animations.time * 16;
+          const hitRadius = fx.radius || 3.2;
+          const grow = 1 - Math.pow(1 - Math.min(1, progress * 2.5), 3); // ease-out
+          const rx = hitRadius * (TILE_WIDTH / Math.SQRT2) * z * (0.55 + 0.45 * grow);
+          const ry = rx * 0.5;
+          const fade = alpha * Math.min(1, progress * 8);
+          const rot = this.animations.time * 11;
+          const lift = 14 * z; // blades sweep at sword height, not on the floor
 
           ctx.save();
           ctx.translate(screen.x, screen.y);
 
-          // Additive glowing wind vortex core
+          // Ground: soft wind pressure disc + expanding shockwave ring
+          const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
+          glow.addColorStop(0, `rgba(186, 230, 253, ${fade * 0.22})`);
+          glow.addColorStop(0.7, `rgba(56, 189, 248, ${fade * 0.12})`);
+          glow.addColorStop(1, 'rgba(56, 189, 248, 0)');
+          ctx.save();
+          ctx.scale(1, 0.5);
+          ctx.fillStyle = glow;
           ctx.beginPath();
-          ctx.ellipse(0, 0, rad * 0.65, rad * 0.32, 0, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(56, 189, 248, ${alpha * 0.28})`;
+          ctx.arc(0, 0, rx, 0, Math.PI * 2);
           ctx.fill();
+          ctx.restore();
 
-          // 3 Spinning Razor Steel / Wind Blade Arcs
+          const shockR = rx * (0.35 + progress * 0.85);
+          ctx.beginPath();
+          ctx.ellipse(0, 0, shockR, shockR * 0.5, 0, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(224, 242, 254, ${fade * (1 - progress) * 0.6})`;
+          ctx.lineWidth = 2 * z;
+          ctx.stroke();
+
+          ctx.globalCompositeOperation = 'lighter';
+          ctx.lineCap = 'butt'; // round caps overlap into visible beads under 'lighter'
+
+          // Tapered trail along the ground-plane ellipse: thick & bright at
+          // the blade head, fading to nothing at the tail.
+          const drawTrail = (head, length, radiusScale, width, color, segments) => {
+            const r1 = rx * radiusScale;
+            const r2 = ry * radiusScale;
+            for (let s = 0; s < segments; s++) {
+              const t0 = s / segments;
+              const t1 = (s + 1) / segments;
+              const a0 = head - length * (1 - t0);
+              const a1 = head - length * (1 - t1);
+              ctx.beginPath();
+              ctx.moveTo(Math.cos(a0) * r1, Math.sin(a0) * r2 - lift);
+              ctx.lineTo(Math.cos(a1) * r1, Math.sin(a1) * r2 - lift);
+              ctx.strokeStyle = color(t1);
+              ctx.lineWidth = Math.max(0.5, width * t1);
+              ctx.stroke();
+            }
+          };
+
           for (let b = 0; b < 3; b++) {
-            const bAngle = rot + (b * Math.PI * 2 / 3);
-            ctx.save();
-            ctx.rotate(bAngle);
+            const head = rot + (b * Math.PI * 2) / 3;
+            // Wide cyan wind wake, then the steel edge, then a white-hot core
+            drawTrail(head, 2.1, 1.0, 11 * z, t => `rgba(56, 189, 248, ${fade * t * 0.35})`, 22);
+            drawTrail(head, 1.6, 0.97, 5 * z, t => `rgba(203, 213, 225, ${fade * t * 0.8})`, 18);
+            drawTrail(head, 1.1, 0.97, 2.2 * z, t => `rgba(255, 255, 255, ${fade * t})`, 14);
 
-            // Outer sharp blade sweep
+            // Glint where the blade edge is
+            const hx = Math.cos(head) * rx * 0.97;
+            const hy = Math.sin(head) * ry * 0.97 - lift;
+            const g = (5 + Math.sin(this.animations.time * 40 + b) * 1.5) * z;
+            ctx.fillStyle = `rgba(255, 255, 255, ${fade})`;
             ctx.beginPath();
-            ctx.ellipse(0, 0, rad, rad * 0.48, 0, 0, Math.PI * 0.85);
-            ctx.strokeStyle = `rgba(56, 189, 248, ${alpha * 0.95})`;
-            ctx.lineWidth = 5 * z;
-            ctx.stroke();
-
-            // Blinding razor core
-            ctx.beginPath();
-            ctx.ellipse(0, 0, rad * 0.95, rad * 0.45, 0, 0, Math.PI * 0.7);
-            ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.98})`;
-            ctx.lineWidth = 2.5 * z;
-            ctx.stroke();
-
-            // Golden cutting tip glint
-            const tipX = Math.cos(Math.PI * 0.85) * rad;
-            const tipY = Math.sin(Math.PI * 0.85) * rad * 0.48;
-            ctx.beginPath();
-            ctx.arc(tipX, tipY, 4 * z, 0, Math.PI * 2);
-            ctx.fillStyle = `rgba(250, 204, 21, ${alpha * 0.9})`;
+            ctx.moveTo(hx, hy - g * 1.8); ctx.lineTo(hx + g * 0.35, hy);
+            ctx.lineTo(hx, hy + g * 1.8); ctx.lineTo(hx - g * 0.35, hy);
+            ctx.closePath();
+            ctx.moveTo(hx - g * 1.8, hy); ctx.lineTo(hx, hy - g * 0.35);
+            ctx.lineTo(hx + g * 1.8, hy); ctx.lineTo(hx, hy + g * 0.35);
+            ctx.closePath();
             ctx.fill();
-
-            ctx.restore();
           }
 
-          // Inner Cyclone Shear Ring
-          ctx.beginPath();
-          ctx.ellipse(0, 0, rad * 0.45, rad * 0.22, -rot * 1.5, 0, Math.PI * 1.6);
-          ctx.strokeStyle = `rgba(224, 242, 254, ${alpha * 0.85})`;
-          ctx.lineWidth = 2.5 * z;
-          ctx.stroke();
+          // Inner cyclone: two faster, thinner wind bands at different radii
+          drawTrail(rot * 1.6, 3.4, 0.62, 3 * z, t => `rgba(224, 242, 254, ${fade * t * 0.55})`, 20);
+          drawTrail(rot * 1.6 + Math.PI, 3.4, 0.4, 2.2 * z, t => `rgba(186, 230, 253, ${fade * t * 0.45})`, 16);
 
           ctx.restore();
 
@@ -6151,10 +6924,15 @@ class IsometricRenderer {
       const p = this.animations.particles[i];
 
       // Physics: Drag, Gravity, Buoyancy, Turbulence & Spin
-      p.vx *= (p.drag || 0.94);
-      p.vy *= (p.drag || 0.94);
+      // (drag factors are tuned per 60fps frame; scale them by dt so the
+      // motion is the same at any frame rate)
+      const frameScale = dt * 60;
+      const dragF = Math.pow(p.drag || 0.94, frameScale);
+      p.vx *= dragF;
+      p.vy *= dragF;
       if (p.gravity) p.vz -= p.gravity * dt;
       if (p.buoyancy) p.vz += p.buoyancy * dt;
+      if (p.zDrag && p.zDrag < 1) p.vz *= Math.pow(p.zDrag, frameScale);
       if (p.turbulence) {
         p.vx += Math.cos(this.animations.time * 16 + p.id) * p.turbulence * dt;
         p.vy += Math.sin(this.animations.time * 16 + p.id) * p.turbulence * dt;
@@ -6165,12 +6943,20 @@ class IsometricRenderer {
       p.y += p.vy * dt;
       p.z += p.vz * dt;
 
-      // Ground bounce for physical particles (earth, sparks)
-      if (p.bounce && p.z <= 0) {
+      // Ground bounce for physical particles (earth, sparks); everything
+      // else simply rests on the floor
+      if (p.z <= 0) {
         p.z = 0;
-        p.vz = -p.vz * 0.45;
-        p.vx *= 0.7;
-        p.vy *= 0.7;
+        if (p.bounce && p.vz < -0.6) {
+          p.vz = -p.vz * 0.35;
+          p.vx *= 0.6;
+          p.vy *= 0.6;
+        } else {
+          p.vz = 0;
+        }
+      } else if (p.maxZ && p.z > p.maxZ) {
+        p.z = p.maxZ;
+        if (p.vz > 0) p.vz = 0;
       }
 
       p.life -= dt;
@@ -6182,6 +6968,18 @@ class IsometricRenderer {
       const screen = Isometric.worldToScreen(p.x, p.y, Math.max(0, p.z), this.camera, this.canvas.width, this.canvas.height);
       const alpha = Math.max(0, p.life / p.maxLife);
       const prog = 1.0 - alpha;
+
+      if (p.blend === 'source-over' || p.type === 'earth' || p.type === 'ice' || p.type === 'gold' || p.type === 'loot') {
+        if (p.z > 0.08 && p.type !== 'dust') {
+          const ground = Isometric.worldToScreen(p.x, p.y, 0, this.camera, this.canvas.width, this.canvas.height);
+          const shadowR = p.size * z * Math.max(0.35, 1 - p.z * 0.4);
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.fillStyle = `rgba(0, 0, 0, ${0.28 * alpha})`;
+          ctx.beginPath();
+          ctx.ellipse(ground.x, ground.y, shadowR, shadowR * 0.45, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
 
       this.drawParticleItem(ctx, p, screen, z, alpha, prog);
     }
@@ -6258,6 +7056,9 @@ class IsometricRenderer {
       ctx.restore();
     }
 
+    // 3.5 Ambient weather for the other field zones
+    this.drawAmbientWeather(ctx, this.currentTheme, this.canvas.width, this.canvas.height, this.animations.time);
+
     // 4. Ambient Snowfall Particle Weather in Frostfell Peaks
     if (this.currentTheme === 'frostfell') {
       const snowW = this.canvas.width;
@@ -6285,7 +7086,7 @@ class IsometricRenderer {
 
     if (p.type === 'slash' || p.type === 'spark') {
       const speed = Math.hypot(p.vx, p.vy);
-      const angle = Math.atan2(p.vy * 0.5, p.vx);
+      const angle = Math.atan2((p.vx + p.vy) * 0.5, p.vx - p.vy);
       const len = Math.max(5 * z, speed * 3.8 * z);
       ctx.translate(screen.x, screen.y);
       ctx.rotate(angle);
@@ -6448,7 +7249,7 @@ class IsometricRenderer {
     } else if (p.type === 'wind') {
       const wr = p.size * z;
       const speed = Math.hypot(p.vx, p.vy);
-      const angle = Math.atan2(p.vy * 0.5, p.vx);
+      const angle = Math.atan2((p.vx + p.vy) * 0.5, p.vx - p.vy);
       ctx.translate(screen.x, screen.y);
       ctx.rotate(angle);
       ctx.beginPath();
@@ -6545,6 +7346,9 @@ class IsometricRenderer {
         } else if (t === 12) {
           // Frost Cliff
           mctx.fillStyle = '#1e293b';
+          mctx.fillRect(x * scaleX, y * scaleY, scaleX + 1, scaleY + 1);
+        } else if (FIELD_TILE_PALETTE[t]) {
+          mctx.fillStyle = FIELD_TILE_PALETTE[t].mini;
           mctx.fillRect(x * scaleX, y * scaleY, scaleX + 1, scaleY + 1);
         }
       }
