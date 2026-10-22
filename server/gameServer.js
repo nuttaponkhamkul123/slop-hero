@@ -952,6 +952,24 @@ class GameServer {
     this.startGameLoop();
   }
 
+  // --- zone rooms: every socket sits in the room of the zone it is in, and
+  // gameplay events are only sent to that room ---
+  emitZone(zone, event, data) {
+    if (!zone) return this.io.emit(event, data);
+    this.io.to(`zone:${zone}`).emit(event, data);
+  }
+
+  syncZoneRooms() {
+    for (const player of this.players.values()) {
+      if (player._room === player.zone) continue;
+      const socket = this.io.sockets.sockets.get(player.id);
+      if (!socket) continue;
+      if (player._room) socket.leave(`zone:${player._room}`);
+      socket.join(`zone:${player.zone}`);
+      player._room = player.zone;
+    }
+  }
+
   // --- zone lookups (town / field zones / dungeon) ---
   getMobsMap(zone) {
     if (zone === 'town') return this.townMobs;
@@ -1716,8 +1734,8 @@ class GameServer {
       if (run.cleared && socket) socket.emit('player_updated', player);
       this.emitDungeonRunUpdate(player, socket);
 
-      this.io.emit('chest_opened', { chestId, openedBy: player.name });
-      this.io.emit('floating_text', {
+      this.emitZone('dungeon', 'chest_opened', { chestId, openedBy: player.name });
+      this.emitZone('dungeon', 'floating_text', {
         x: chest.x,
         y: chest.y - 0.8,
         text: run.cleared ? '💎 Chest Unlocked!' : '💎 Loot bagged - defeat the boss to secure it!',
@@ -1755,7 +1773,7 @@ class GameServer {
     if (player.smokeScreenTimer > 0) {
       isCrit = true;
       player.smokeScreenTimer = 0;
-      this.io.emit('floating_text', { x: player.x, y: player.y - 0.7, text: '💥 AMBUSH CRITICAL!', color: '#f59e0b', size: 20 });
+      this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.7, text: '💥 AMBUSH CRITICAL!', color: '#f59e0b', size: 20 });
     }
 
     let attackDmg = player.dmg;
@@ -1832,7 +1850,7 @@ class GameServer {
           if (dot >= 0.35) {
             hitMobs.add(mob.id);
             this.applyDamageToMob(player, mob, swipeDmg, false);
-            this.io.emit('floating_text', {
+            this.emitZone(player.zone, 'floating_text', {
               x: mob.x,
               y: mob.y - 0.7,
               text: `⚔️ Sweep -${swipeDmg}`,
@@ -1844,7 +1862,7 @@ class GameServer {
       }
     }
 
-    this.io.emit('entity_attack_fx', {
+    this.emitZone(player.zone, 'entity_attack_fx', {
       attackerId: player.id,
       attackerType: 'player',
       class: player.characterClass,
@@ -2048,7 +2066,7 @@ class GameServer {
       case 'whirlwind': {
         const wwRadius = skill.radius + (playerTalents.cyclone_cleave ? playerTalents.cyclone_cleave * 0.6 : 0);
         const wwDmgMult = skill.dmgMult + (playerTalents.cyclone_cleave ? playerTalents.cyclone_cleave * 0.25 : 0);
-        this.io.emit('skill_fx', { rune: runeId, type: 'whirlwind', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: wwRadius, playerId: player.id });
+        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'whirlwind', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: wwRadius, playerId: player.id });
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
           if (Math.hypot(mob.x - player.x, mob.y - player.y) <= wwRadius) {
@@ -2061,7 +2079,7 @@ class GameServer {
       case 'earthshaker': {
         const slamDmgMult = skill.dmgMult + (playerTalents.seismic_shatter ? playerTalents.seismic_shatter * 0.30 : 0);
         const slowDur = (skill.slowDuration || 2.5) + (playerTalents.seismic_shatter ? playerTalents.seismic_shatter * 1.5 : 0);
-        this.io.emit('skill_fx', { rune: runeId, type: 'earthshaker', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
+        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'earthshaker', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
           if (Math.hypot(mob.x - player.x, mob.y - player.y) <= skill.radius) {
@@ -2098,7 +2116,7 @@ class GameServer {
             if (!this.isColliding(kx, ky, player.zone)) { mob.x = kx; mob.y = ky; }
           }
         }
-        this.io.emit('skill_fx', { rune: runeId, type: 'blade_charge', skillSlot: slot, cooldown, startX, startY, x: newX, y: newY, playerId: player.id });
+        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'blade_charge', skillSlot: slot, cooldown, startX, startY, x: newX, y: newY, playerId: player.id });
         break;
       }
 
@@ -2113,8 +2131,8 @@ class GameServer {
         const hitX = targetMob ? targetMob.x : player.x;
         const hitY = targetMob ? targetMob.y : player.y;
         player.shieldHp = (player.shieldHp || 0) + (skill.shieldHp || 80);
-        this.io.emit('floating_text', { x: player.x, y: player.y - 0.7, text: `🛡️ Shield Barrier +${skill.shieldHp || 80}!`, color: '#38bdf8' });
-        this.io.emit('skill_fx', { rune: runeId, type: 'shield_slam', skillSlot: slot, cooldown, x: hitX, y: hitY, playerId: player.id });
+        this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.7, text: `🛡️ Shield Barrier +${skill.shieldHp || 80}!`, color: '#38bdf8' });
+        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'shield_slam', skillSlot: slot, cooldown, x: hitX, y: hitY, playerId: player.id });
         if (targetMob) {
           applySkillDamage(targetMob, Math.round(player.dmg * skill.dmgMult), true);
           targetMob.chillTimer = skill.stunDuration || 2.0;
@@ -2126,15 +2144,15 @@ class GameServer {
         const hpLoss = Math.max(10, Math.round(player.hp * 0.10));
         player.hp = Math.max(1, player.hp - hpLoss);
         player.berserkTimer = skill.duration || 6.0;
-        this.io.emit('floating_text', { x: player.x, y: player.y - 0.7, text: '🩸 BERSERK RAGE (+35% DMG & 20% Leech)', color: '#ef4444' });
-        this.io.emit('skill_fx', { rune: runeId, type: 'blood_rage', skillSlot: slot, cooldown, x: player.x, y: player.y, playerId: player.id });
+        this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.7, text: '🩸 BERSERK RAGE (+35% DMG & 20% Leech)', color: '#ef4444' });
+        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'blood_rage', skillSlot: slot, cooldown, x: player.x, y: player.y, playerId: player.id });
         break;
       }
 
       case 'colossus_strike': {
         const hitX = skillData.targetX !== undefined ? skillData.targetX : player.x;
         const hitY = skillData.targetY !== undefined ? skillData.targetY : player.y;
-        this.io.emit('skill_fx', { rune: runeId, type: 'colossus_strike', skillSlot: slot, cooldown, x: hitX, y: hitY, radius: skill.radius, playerId: player.id });
+        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'colossus_strike', skillSlot: slot, cooldown, x: hitX, y: hitY, radius: skill.radius, playerId: player.id });
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
           if (Math.hypot(mob.x - hitX, mob.y - hitY) <= skill.radius) {
@@ -2146,13 +2164,13 @@ class GameServer {
 
       case 'iron_fortress': {
         player.ironFortressTimer = skill.duration || 4.5;
-        this.io.emit('floating_text', { x: player.x, y: player.y - 0.7, text: '🏰 IRON FORTRESS (60% Shield & Thorns)', color: '#94a3b8' });
-        this.io.emit('skill_fx', { rune: runeId, type: 'iron_fortress', skillSlot: slot, cooldown, x: player.x, y: player.y, playerId: player.id });
+        this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.7, text: '🏰 IRON FORTRESS (60% Shield & Thorns)', color: '#94a3b8' });
+        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'iron_fortress', skillSlot: slot, cooldown, x: player.x, y: player.y, playerId: player.id });
         break;
       }
 
       case 'war_stomp': {
-        this.io.emit('skill_fx', { rune: runeId, type: 'war_stomp', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
+        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'war_stomp', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
           const dist = Math.hypot(mob.x - player.x, mob.y - player.y);
@@ -2168,8 +2186,8 @@ class GameServer {
 
       case 'dragon_roar': {
         player.berserkTimer = skill.duration || 6.0;
-        this.io.emit('floating_text', { x: player.x, y: player.y - 0.7, text: "🐲 DRAGON'S ROAR (+40% ATK & FEAR)", color: '#f97316', size: 19 });
-        this.io.emit('skill_fx', { rune: runeId, type: 'dragon_roar', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
+        this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.7, text: "🐲 DRAGON'S ROAR (+40% ATK & FEAR)", color: '#f97316', size: 19 });
+        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'dragon_roar', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
           if (Math.hypot(mob.x - player.x, mob.y - player.y) <= skill.radius) {
@@ -2186,7 +2204,7 @@ class GameServer {
         if (!this.isColliding(tx, ty, player.zone)) {
           player.x = tx; player.y = ty;
         }
-        this.io.emit('skill_fx', { rune: runeId, type: 'meteor_dive', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
+        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'meteor_dive', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
           if (Math.hypot(mob.x - player.x, mob.y - player.y) <= skill.radius) {
@@ -2199,7 +2217,7 @@ class GameServer {
       }
 
       case 'bladestorm_frenzy': {
-        this.io.emit('skill_fx', { rune: runeId, type: 'bladestorm_frenzy', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
+        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'bladestorm_frenzy', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
           if (Math.hypot(mob.x - player.x, mob.y - player.y) <= skill.radius) {
@@ -2212,8 +2230,8 @@ class GameServer {
       case 'titan_bastion': {
         player.shieldHp = (player.shieldHp || 0) + (skill.shieldHp || 350);
         player.ironFortressTimer = skill.duration || 5.0;
-        this.io.emit('floating_text', { x: player.x, y: player.y - 0.7, text: `🏛️ TITAN BASTION (+${skill.shieldHp || 350} Shield & Armor)`, color: '#facc15', size: 19 });
-        this.io.emit('skill_fx', { rune: runeId, type: 'titan_bastion', skillSlot: slot, cooldown, x: player.x, y: player.y, playerId: player.id });
+        this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.7, text: `🏛️ TITAN BASTION (+${skill.shieldHp || 350} Shield & Armor)`, color: '#facc15', size: 19 });
+        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'titan_bastion', skillSlot: slot, cooldown, x: player.x, y: player.y, playerId: player.id });
         break;
       }
 
@@ -2222,7 +2240,7 @@ class GameServer {
         const cleaveDist = skill.distance || 9.0;
         const cleaveX = player.x + normX * cleaveDist;
         const cleaveY = player.y + normY * cleaveDist;
-        this.io.emit('skill_fx', { rune: runeId, type: 'sundering_cleave', skillSlot: slot, cooldown, startX: player.x, startY: player.y, x: cleaveX, y: cleaveY, playerId: player.id });
+        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'sundering_cleave', skillSlot: slot, cooldown, startX: player.x, startY: player.y, x: cleaveX, y: cleaveY, playerId: player.id });
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
           const dist = this.distToSegment(mob.x, mob.y, player.x, player.y, cleaveX, cleaveY);
@@ -2235,8 +2253,8 @@ class GameServer {
       }
 
       case 'ragnarok_slash': {
-        this.io.emit('floating_text', { x: player.x, y: player.y - 0.9, text: '👑 RAGNARÖK GODSLAYER!', color: '#eab308', size: 24 });
-        this.io.emit('skill_fx', { rune: runeId, type: 'ragnarok_slash', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
+        this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.9, text: '👑 RAGNARÖK GODSLAYER!', color: '#eab308', size: 24 });
+        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'ragnarok_slash', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
           if (Math.hypot(mob.x - player.x, mob.y - player.y) <= skill.radius) {
@@ -2252,7 +2270,7 @@ class GameServer {
         const ty = skillData.targetY !== undefined ? skillData.targetY : player.y;
         const meteorRadius = skill.radius + (playerTalents.infernal_cataclysm ? playerTalents.infernal_cataclysm * 1.0 : 0);
         const meteorDmgMult = skill.dmgMult + (playerTalents.infernal_cataclysm ? playerTalents.infernal_cataclysm * 0.30 : 0);
-        this.io.emit('skill_fx', { rune: runeId, type: 'firestorm', skillSlot: slot, cooldown, x: tx, y: ty, radius: meteorRadius, playerId: player.id });
+        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'firestorm', skillSlot: slot, cooldown, x: tx, y: ty, radius: meteorRadius, playerId: player.id });
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
           if (Math.hypot(mob.x - tx, mob.y - ty) <= meteorRadius) {
@@ -2267,7 +2285,7 @@ class GameServer {
       case 'frost_nova': {
         const novaDmgMult = skill.dmgMult + (playerTalents.glacial_tomb ? playerTalents.glacial_tomb * 0.25 : 0);
         const chillDur = (skill.chillDuration || 3.5) + (playerTalents.glacial_tomb ? playerTalents.glacial_tomb * 1.5 : 0);
-        this.io.emit('skill_fx', { rune: runeId, type: 'frost_nova', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
+        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'frost_nova', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
           if (Math.hypot(mob.x - player.x, mob.y - player.y) <= skill.radius) {
@@ -2305,7 +2323,7 @@ class GameServer {
             mob.chillTimer = skill.chillDuration || 2.0;
           }
         }
-        this.io.emit('skill_fx', { rune: runeId, type: 'arcane_blink', skillSlot: slot, cooldown, startX, startY, x: newX, y: newY, playerId: player.id });
+        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'arcane_blink', skillSlot: slot, cooldown, startX, startY, x: newX, y: newY, playerId: player.id });
         break;
       }
 
@@ -2334,21 +2352,21 @@ class GameServer {
           }
           chainTarget = nextTarget;
         }
-        this.io.emit('skill_fx', { rune: runeId, type: 'chain_lightning', skillSlot: slot, cooldown, points, playerId: player.id });
+        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'chain_lightning', skillSlot: slot, cooldown, points, playerId: player.id });
         break;
       }
 
       case 'mana_shield': {
         player.shieldHp = (player.shieldHp || 0) + (skill.absorbHp || 120);
-        this.io.emit('floating_text', { x: player.x, y: player.y - 0.7, text: `✨ Mana Barrier +${skill.absorbHp || 120} Shield!`, color: '#67e8f9' });
-        this.io.emit('skill_fx', { rune: runeId, type: 'mana_shield', skillSlot: slot, cooldown, x: player.x, y: player.y, playerId: player.id });
+        this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.7, text: `✨ Mana Barrier +${skill.absorbHp || 120} Shield!`, color: '#67e8f9' });
+        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'mana_shield', skillSlot: slot, cooldown, x: player.x, y: player.y, playerId: player.id });
         break;
       }
 
       case 'black_hole': {
         const tx = skillData.targetX !== undefined ? skillData.targetX : player.x;
         const ty = skillData.targetY !== undefined ? skillData.targetY : player.y;
-        this.io.emit('skill_fx', { rune: runeId, type: 'black_hole', skillSlot: slot, cooldown, x: tx, y: ty, radius: skill.radius, playerId: player.id });
+        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'black_hole', skillSlot: slot, cooldown, x: tx, y: ty, radius: skill.radius, playerId: player.id });
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
           const dist = Math.hypot(mob.x - tx, mob.y - ty);
@@ -2364,7 +2382,7 @@ class GameServer {
       case 'blizzard': {
         const tx = skillData.targetX !== undefined ? skillData.targetX : player.x;
         const ty = skillData.targetY !== undefined ? skillData.targetY : player.y;
-        this.io.emit('skill_fx', { rune: runeId, type: 'blizzard', skillSlot: slot, cooldown, x: tx, y: ty, radius: skill.radius, playerId: player.id });
+        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'blizzard', skillSlot: slot, cooldown, x: tx, y: ty, radius: skill.radius, playerId: player.id });
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
           if (Math.hypot(mob.x - tx, mob.y - ty) <= skill.radius) {
@@ -2379,7 +2397,7 @@ class GameServer {
         const { normX, normY } = computeDashVector();
         const hitX = player.x + normX * 4.5;
         const hitY = player.y + normY * 4.5;
-        this.io.emit('skill_fx', { rune: runeId, type: 'pyroblast', skillSlot: slot, cooldown, startX: player.x, startY: player.y, x: hitX, y: hitY, radius: skill.radius, playerId: player.id });
+        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'pyroblast', skillSlot: slot, cooldown, startX: player.x, startY: player.y, x: hitX, y: hitY, radius: skill.radius, playerId: player.id });
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
           if (Math.hypot(mob.x - hitX, mob.y - hitY) <= skill.radius) {
@@ -2394,7 +2412,7 @@ class GameServer {
       case 'thunder_storm': {
         const tx = skillData.targetX !== undefined ? skillData.targetX : player.x;
         const ty = skillData.targetY !== undefined ? skillData.targetY : player.y;
-        this.io.emit('skill_fx', { rune: runeId, type: 'thunder_storm', skillSlot: slot, cooldown, x: tx, y: ty, radius: skill.radius, playerId: player.id });
+        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'thunder_storm', skillSlot: slot, cooldown, x: tx, y: ty, radius: skill.radius, playerId: player.id });
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
           if (Math.hypot(mob.x - tx, mob.y - ty) <= skill.radius) {
@@ -2408,7 +2426,7 @@ class GameServer {
       case 'glacial_comet': {
         const tx = skillData.targetX !== undefined ? skillData.targetX : player.x;
         const ty = skillData.targetY !== undefined ? skillData.targetY : player.y;
-        this.io.emit('skill_fx', { rune: runeId, type: 'glacial_comet', skillSlot: slot, cooldown, x: tx, y: ty, radius: skill.radius, playerId: player.id });
+        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'glacial_comet', skillSlot: slot, cooldown, x: tx, y: ty, radius: skill.radius, playerId: player.id });
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
           if (Math.hypot(mob.x - tx, mob.y - ty) <= skill.radius) {
@@ -2424,7 +2442,7 @@ class GameServer {
         const beamDist = skill.distance || 10.0;
         const beamEndX = player.x + normX * beamDist;
         const beamEndY = player.y + normY * beamDist;
-        this.io.emit('skill_fx', { rune: runeId, type: 'arcane_hyperbeam', skillSlot: slot, cooldown, startX: player.x, startY: player.y, x: beamEndX, y: beamEndY, playerId: player.id });
+        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'arcane_hyperbeam', skillSlot: slot, cooldown, startX: player.x, startY: player.y, x: beamEndX, y: beamEndY, playerId: player.id });
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
           const dist = this.distToSegment(mob.x, mob.y, player.x, player.y, beamEndX, beamEndY);
@@ -2436,8 +2454,8 @@ class GameServer {
       }
 
       case 'time_dilation': {
-        this.io.emit('floating_text', { x: player.x, y: player.y - 0.7, text: '⏳ CHRONOSPHERE (80% Slow & Haste)', color: '#38bdf8', size: 19 });
-        this.io.emit('skill_fx', { rune: runeId, type: 'time_dilation', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
+        this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.7, text: '⏳ CHRONOSPHERE (80% Slow & Haste)', color: '#38bdf8', size: 19 });
+        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'time_dilation', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
           if (Math.hypot(mob.x - player.x, mob.y - player.y) <= skill.radius) {
@@ -2450,7 +2468,7 @@ class GameServer {
       case 'supernova_blast': {
         const tx = skillData.targetX !== undefined ? skillData.targetX : player.x;
         const ty = skillData.targetY !== undefined ? skillData.targetY : player.y;
-        this.io.emit('skill_fx', { rune: runeId, type: 'supernova_blast', skillSlot: slot, cooldown, x: tx, y: ty, radius: skill.radius, playerId: player.id });
+        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'supernova_blast', skillSlot: slot, cooldown, x: tx, y: ty, radius: skill.radius, playerId: player.id });
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
           if (Math.hypot(mob.x - tx, mob.y - ty) <= skill.radius) {
@@ -2463,8 +2481,8 @@ class GameServer {
       }
 
       case 'genesis_cataclysm': {
-        this.io.emit('floating_text', { x: player.x, y: player.y - 0.9, text: '✨ CATACLYSM OF GENESIS!', color: '#a855f7', size: 24 });
-        this.io.emit('skill_fx', { rune: runeId, type: 'genesis_cataclysm', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
+        this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.9, text: '✨ CATACLYSM OF GENESIS!', color: '#a855f7', size: 24 });
+        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'genesis_cataclysm', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
           if (Math.hypot(mob.x - player.x, mob.y - player.y) <= skill.radius) {
@@ -2477,7 +2495,7 @@ class GameServer {
       // === ROGUE SKILLS ===
       case 'fan_of_knives': {
         const knifeDmgMult = skill.dmgMult + (playerTalents.venomous_knives ? playerTalents.venomous_knives * 0.30 : 0);
-        this.io.emit('skill_fx', { rune: runeId, type: 'fan_of_knives', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
+        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'fan_of_knives', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
           if (Math.hypot(mob.x - player.x, mob.y - player.y) <= skill.radius) {
@@ -2496,7 +2514,7 @@ class GameServer {
         const ty = skillData.targetY !== undefined ? skillData.targetY : player.y;
         const smokeRad = skill.radius + (playerTalents.noxious_cloud ? playerTalents.noxious_cloud * 0.8 : 0);
         const smokeDmg = (skill.poisonDmg || 9) + (playerTalents.noxious_cloud ? playerTalents.noxious_cloud * 4 : 0);
-        this.io.emit('skill_fx', { rune: runeId, type: 'toxic_bomb', skillSlot: slot, cooldown, x: tx, y: ty, radius: smokeRad, playerId: player.id });
+        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'toxic_bomb', skillSlot: slot, cooldown, x: tx, y: ty, radius: smokeRad, playerId: player.id });
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
           if (Math.hypot(mob.x - tx, mob.y - ty) <= smokeRad) {
@@ -2531,7 +2549,7 @@ class GameServer {
             applySkillDamage(mob, Math.round(player.dmg * skill.dmgMult), true);
           }
         }
-        this.io.emit('skill_fx', { rune: runeId, type: 'shadow_dash', skillSlot: slot, cooldown, startX, startY, x: newX, y: newY, playerId: player.id });
+        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'shadow_dash', skillSlot: slot, cooldown, startX, startY, x: newX, y: newY, playerId: player.id });
         break;
       }
 
@@ -2552,7 +2570,7 @@ class GameServer {
           }
           player.facing = this.calculateFacing(player.x, player.y, targetMob.x, targetMob.y);
           applySkillDamage(targetMob, Math.round(player.dmg * skill.dmgMult), true);
-          this.io.emit('skill_fx', { rune: runeId, type: 'shadowstep', skillSlot: slot, cooldown, startX, startY, x: targetMob.x, y: targetMob.y, playerId: player.id });
+          this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'shadowstep', skillSlot: slot, cooldown, startX, startY, x: targetMob.x, y: targetMob.y, playerId: player.id });
         }
         break;
       }
@@ -2560,13 +2578,13 @@ class GameServer {
       case 'smoke_screen': {
         player.smokeScreenTimer = skill.duration || 3.5;
         player.sprintTimer = skill.duration || 3.5;
-        this.io.emit('floating_text', { x: player.x, y: player.y - 0.7, text: '🌫️ VANISH! (Stealth & 100% Crit)', color: '#a855f7' });
-        this.io.emit('skill_fx', { rune: runeId, type: 'smoke_screen', skillSlot: slot, cooldown, x: player.x, y: player.y, playerId: player.id });
+        this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.7, text: '🌫️ VANISH! (Stealth & 100% Crit)', color: '#a855f7' });
+        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'smoke_screen', skillSlot: slot, cooldown, x: player.x, y: player.y, playerId: player.id });
         break;
       }
 
       case 'death_blossom': {
-        this.io.emit('skill_fx', { rune: runeId, type: 'death_blossom', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
+        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'death_blossom', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
           if (Math.hypot(mob.x - player.x, mob.y - player.y) <= skill.radius) {
@@ -2578,7 +2596,7 @@ class GameServer {
 
       case 'poison_darts': {
         const { normX, normY } = computeDashVector();
-        this.io.emit('skill_fx', { rune: runeId, type: 'poison_darts', skillSlot: slot, cooldown, x: player.x, y: player.y, dirX: normX, dirY: normY, playerId: player.id });
+        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'poison_darts', skillSlot: slot, cooldown, x: player.x, y: player.y, dirX: normX, dirY: normY, playerId: player.id });
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
           const dist = Math.hypot(mob.x - player.x, mob.y - player.y);
@@ -2592,7 +2610,7 @@ class GameServer {
       }
 
       case 'caltrops': {
-        this.io.emit('skill_fx', { rune: runeId, type: 'caltrops', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
+        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'caltrops', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
           if (Math.hypot(mob.x - player.x, mob.y - player.y) <= skill.radius) {
@@ -2605,7 +2623,7 @@ class GameServer {
 
       case 'venomous_barrage': {
         const { normX, normY } = computeDashVector();
-        this.io.emit('skill_fx', { rune: runeId, type: 'venomous_barrage', skillSlot: slot, cooldown, x: player.x, y: player.y, dirX: normX, dirY: normY, playerId: player.id });
+        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'venomous_barrage', skillSlot: slot, cooldown, x: player.x, y: player.y, dirX: normX, dirY: normY, playerId: player.id });
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
           const dist = Math.hypot(mob.x - player.x, mob.y - player.y);
@@ -2619,7 +2637,7 @@ class GameServer {
       }
 
       case 'phantom_assassins': {
-        this.io.emit('skill_fx', { rune: runeId, type: 'phantom_assassins', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
+        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'phantom_assassins', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
           if (Math.hypot(mob.x - player.x, mob.y - player.y) <= skill.radius) {
@@ -2641,15 +2659,15 @@ class GameServer {
           const isExecute = (cullTarget.hp / cullTarget.maxHp) <= 0.5;
           const executeMult = isExecute ? skill.dmgMult * 2.0 : skill.dmgMult;
           applySkillDamage(cullTarget, Math.round(player.dmg * executeMult), true);
-          this.io.emit('floating_text', { x: cullTarget.x, y: cullTarget.y - 0.8, text: isExecute ? '🩸 EXECUTION CULL (x2 DMG)!' : '🗡️ Cull Strike!', color: '#ef4444', size: isExecute ? 22 : 16 });
-          this.io.emit('skill_fx', { rune: runeId, type: 'assassins_cull', skillSlot: slot, cooldown, x: cullTarget.x, y: cullTarget.y, playerId: player.id });
+          this.emitZone(player.zone, 'floating_text', { x: cullTarget.x, y: cullTarget.y - 0.8, text: isExecute ? '🩸 EXECUTION CULL (x2 DMG)!' : '🗡️ Cull Strike!', color: '#ef4444', size: isExecute ? 22 : 16 });
+          this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'assassins_cull', skillSlot: slot, cooldown, x: cullTarget.x, y: cullTarget.y, playerId: player.id });
         }
         break;
       }
 
       case 'abyssal_tether': {
-        this.io.emit('floating_text', { x: player.x, y: player.y - 0.7, text: '⛓️ ABYSSAL SHADOW CHAINS (ROOT)', color: '#a855f7', size: 18 });
-        this.io.emit('skill_fx', { rune: runeId, type: 'abyssal_tether', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
+        this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.7, text: '⛓️ ABYSSAL SHADOW CHAINS (ROOT)', color: '#a855f7', size: 18 });
+        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'abyssal_tether', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
           if (Math.hypot(mob.x - player.x, mob.y - player.y) <= skill.radius) {
@@ -2662,7 +2680,7 @@ class GameServer {
       }
 
       case 'blade_dance': {
-        this.io.emit('skill_fx', { rune: runeId, type: 'blade_dance', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
+        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'blade_dance', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
           if (Math.hypot(mob.x - player.x, mob.y - player.y) <= skill.radius) {
@@ -2673,8 +2691,8 @@ class GameServer {
       }
 
       case 'eclipse_execution': {
-        this.io.emit('floating_text', { x: player.x, y: player.y - 0.9, text: '🌑 VOID ECLIPSE OMNISLASH!', color: '#c084fc', size: 24 });
-        this.io.emit('skill_fx', { rune: runeId, type: 'eclipse_execution', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
+        this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.9, text: '🌑 VOID ECLIPSE OMNISLASH!', color: '#c084fc', size: 24 });
+        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'eclipse_execution', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
           if (Math.hypot(mob.x - player.x, mob.y - player.y) <= skill.radius) {
@@ -2690,13 +2708,13 @@ class GameServer {
       const maxDrain = Math.max(2, Math.round(player.maxHp * 0.08));
       const vHeal = Math.min(maxDrain, Math.max(1, Math.round(totalDmgDealt * 0.05)));
       player.hp = Math.min(player.maxHp, player.hp + vHeal);
-      this.io.emit('floating_text', { x: player.x, y: player.y - 0.6, text: `+${vHeal} HP (Vampiric Drain)`, color: '#c084fc' });
+      this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.6, text: `+${vHeal} HP (Vampiric Drain)`, color: '#c084fc' });
     }
     if (player.berserkTimer > 0 && totalDmgDealt > 0) {
       const maxBHeal = Math.max(2, Math.round(player.maxHp * 0.06));
       const bHeal = Math.min(maxBHeal, Math.max(1, Math.round(totalDmgDealt * 0.04)));
       player.hp = Math.min(player.maxHp, player.hp + bHeal);
-      this.io.emit('floating_text', { x: player.x, y: player.y - 0.45, text: `+${bHeal} HP (Lifesteal)`, color: '#ef4444' });
+      this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.45, text: `+${bHeal} HP (Lifesteal)`, color: '#ef4444' });
     }
   }
 
@@ -3026,7 +3044,7 @@ class GameServer {
         });
       }
 
-      this.io.emit('skill_fx', {
+      this.emitZone(player.zone, 'skill_fx', {
         type: 'whirlwind',
         x: player.x,
         y: player.y,
@@ -3129,16 +3147,16 @@ class GameServer {
       const healAmount = Math.round(player.maxHp * 0.45);
       player.hp = Math.min(player.maxHp, player.hp + healAmount);
 
-      this.io.emit('floating_text', { x: player.x, y: player.y - 0.5, text: `+${healAmount} HP`, color: '#4ade80' });
-      this.io.emit('heal_fx', { targetId: player.id, type: 'health' });
+      this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.5, text: `+${healAmount} HP`, color: '#4ade80' });
+      this.emitZone(player.zone, 'heal_fx', { targetId: player.id, type: 'health' });
     } else if (potionType === 'mana' && player.inventory.manaPotions > 0) {
       if (player.mp >= player.maxMp) return;
       player.inventory.manaPotions--;
       const manaAmount = Math.round(player.maxMp * 0.5);
       player.mp = Math.min(player.maxMp, player.mp + manaAmount);
 
-      this.io.emit('floating_text', { x: player.x, y: player.y - 0.5, text: `+${manaAmount} MP`, color: '#38bdf8' });
-      this.io.emit('heal_fx', { targetId: player.id, type: 'mana' });
+      this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.5, text: `+${manaAmount} MP`, color: '#38bdf8' });
+      this.emitZone(player.zone, 'heal_fx', { targetId: player.id, type: 'mana' });
     }
   }
 
@@ -3160,7 +3178,7 @@ class GameServer {
 
       const icon = type === 'poison' ? '☠️' : type === 'burn' ? '🔥' : '❄️';
       const color = type === 'poison' ? '#22c55e' : type === 'burn' ? '#f97316' : '#38bdf8';
-      this.io.emit('floating_text', {
+      this.emitZone(player.zone, 'floating_text', {
         x: player.x,
         y: player.y - 0.7,
         text: `${icon} ${type.toUpperCase()}!`,
@@ -3174,7 +3192,7 @@ class GameServer {
   // to the player's purse / inventory, with a floating pickup label.
   giveLootToPlayer(player, entry, showText = true) {
     const text = (label, color) => {
-      if (showText) this.io.emit('floating_text', { x: player.x, y: player.y - 0.6, text: label, color });
+      if (showText) this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.6, text: label, color });
     };
     if (entry.type === 'gold') {
       player.gold += entry.amount;
@@ -3297,7 +3315,7 @@ class GameServer {
       this.giveLootToPlayer(player, item);
 
       itemsMap.delete(itemId);
-      this.io.emit('item_picked', { itemId, pickerId: player.id });
+      this.emitZone(player.zone, 'item_picked', { itemId, pickerId: player.id });
 
       const socket = this.io.sockets.sockets.get(socketId);
       if (socket) socket.emit('player_updated', player);
@@ -3351,7 +3369,7 @@ class GameServer {
       color: '#f97316'
     });
 
-    this.io.emit('projectile_spawned', {
+    this.emitZone(caster.zone, 'projectile_spawned', {
       id,
       zone: caster.zone,
       x: caster.x,
@@ -3413,7 +3431,7 @@ class GameServer {
       const now = Date.now();
       if (!player._lastLeechText || now - player._lastLeechText > 250) {
         player._lastLeechText = now;
-        this.io.emit('floating_text', {
+        this.emitZone((player && player.zone) || mob.fieldZone, 'floating_text', {
           x: player.x,
           y: player.y - 0.5,
           text: `+${leech} HP (Leech)`,
@@ -3440,7 +3458,7 @@ class GameServer {
       textSize = 15;
     }
 
-    this.io.emit('floating_text', {
+    this.emitZone((player && player.zone) || mob.fieldZone, 'floating_text', {
       x: mob.x,
       y: mob.y - 0.7,
       text,
@@ -3475,17 +3493,17 @@ class GameServer {
             if (t.effects.killHealPercent) {
               const heal = Math.round(killerPlayer.maxHp * t.effects.killHealPercent * rank);
               killerPlayer.hp = Math.min(killerPlayer.maxHp, killerPlayer.hp + heal);
-              this.io.emit('floating_text', { x: killerPlayer.x, y: killerPlayer.y - 0.5, text: `+${heal} HP (Juggernaut)`, color: '#4ade80' });
+              this.emitZone(zone, 'floating_text', { x: killerPlayer.x, y: killerPlayer.y - 0.5, text: `+${heal} HP (Juggernaut)`, color: '#4ade80' });
             }
             if (t.effects.killHealFlat) {
               const heal = t.effects.killHealFlat * rank;
               killerPlayer.hp = Math.min(killerPlayer.maxHp, killerPlayer.hp + heal);
-              this.io.emit('floating_text', { x: killerPlayer.x, y: killerPlayer.y - 0.5, text: `+${heal} HP (Vampiric)`, color: '#4ade80' });
+              this.emitZone(zone, 'floating_text', { x: killerPlayer.x, y: killerPlayer.y - 0.5, text: `+${heal} HP (Vampiric)`, color: '#4ade80' });
             }
             if (t.effects.killManaRestore) {
               const mana = t.effects.killManaRestore * rank;
               killerPlayer.mp = Math.min(killerPlayer.maxMp, killerPlayer.mp + mana);
-              this.io.emit('floating_text', { x: killerPlayer.x, y: killerPlayer.y - 0.5, text: `+${mana} MP (Astral)`, color: '#38bdf8' });
+              this.emitZone(zone, 'floating_text', { x: killerPlayer.x, y: killerPlayer.y - 0.5, text: `+${mana} MP (Astral)`, color: '#38bdf8' });
             }
           }
         }
@@ -3520,13 +3538,13 @@ class GameServer {
       this.spawnGroundItem(zone, 'item', r, mob.x + (Math.random() - 0.5) * 0.8, mob.y + (Math.random() - 0.5) * 0.8, 1);
     }
 
-    this.io.emit('mob_died', { mobId: mob.id, killerId: killerPlayer ? killerPlayer.id : null });
+    this.emitZone(zone, 'mob_died', { mobId: mob.id, killerId: killerPlayer ? killerPlayer.id : null });
   }
 
   awardExp(player, amount) {
     if (player.level >= 150) return;
     player.exp += amount;
-    this.io.emit('floating_text', { x: player.x, y: player.y - 1.0, text: `+${amount} EXP`, color: '#a855f7' });
+    this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 1.0, text: `+${amount} EXP`, color: '#a855f7' });
 
     while (player.level < 150 && player.exp >= player.expNext) {
       player.exp -= player.expNext;
@@ -3556,8 +3574,8 @@ class GameServer {
       player.hp = player.maxHp;
       player.mp = player.maxMp;
 
-      this.io.emit('level_up', { playerId: player.id, level: player.level, x: player.x, y: player.y });
-      this.io.emit('floating_text', {
+      this.emitZone(player.zone, 'level_up', { playerId: player.id, level: player.level, x: player.x, y: player.y });
+      this.emitZone(player.zone, 'floating_text', {
         x: player.x,
         y: player.y - 1.4,
         text: `🌳 +1 Skill Point! (Total: ${player.skillPoints})`,
@@ -3591,7 +3609,7 @@ class GameServer {
     };
 
     itemsMap.set(id, item);
-    this.io.emit('item_dropped', item);
+    this.emitZone(zone, 'item_dropped', item);
   }
 
   calculateFacing(fromX, fromY, toX, toY) {
@@ -3651,6 +3669,7 @@ class GameServer {
   }
 
   update(dt) {
+    this.syncZoneRooms();
     // 1. Update Players
     for (const player of this.players.values()) {
       const socket = this.io.sockets.sockets.get(player.id);
@@ -3716,12 +3735,12 @@ class GameServer {
             fx.tickTimer = 0.8;
             const dotDmg = Math.max(1, Math.round(fx.value));
             player.hp = Math.max(0, player.hp - dotDmg);
-            this.io.emit('floating_text', { x: player.x, y: player.y - 0.7, text: `☠️ -${dotDmg}`, color: '#22c55e', size: 14 });
+            this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.7, text: `☠️ -${dotDmg}`, color: '#22c55e', size: 14 });
           } else if (fx.type === 'burn' && fx.tickTimer <= 0) {
             fx.tickTimer = 0.6;
             const dotDmg = Math.max(1, Math.round(fx.value));
             player.hp = Math.max(0, player.hp - dotDmg);
-            this.io.emit('floating_text', { x: player.x, y: player.y - 0.7, text: `🔥 -${dotDmg}`, color: '#f97316', size: 14 });
+            this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.7, text: `🔥 -${dotDmg}`, color: '#f97316', size: 14 });
           } else if (fx.type === 'chill') {
             isChilled = true;
           }
@@ -3730,7 +3749,7 @@ class GameServer {
             player.hp = 0;
             player.isDead = true;
             player.respawnTimer = 5.0;
-            this.io.emit('player_died', { playerId: player.id, killerName: fx.type.toUpperCase() });
+            this.emitZone(player.zone, 'player_died', { playerId: player.id, killerName: fx.type.toUpperCase() });
             this.broadcastSystemMessage(`☠️ [${player.name}] succumbed to ${fx.type.toUpperCase()}!`);
           }
 
@@ -3871,7 +3890,7 @@ class GameServer {
       }
 
       if (hit || proj.life <= 0 || this.isColliding(proj.x, proj.y, proj.zone, 0.2)) {
-        this.io.emit('projectile_exploded', { id: proj.id, x: proj.x, y: proj.y });
+        this.emitZone(proj.zone, 'projectile_exploded', { id: proj.id, x: proj.x, y: proj.y });
         this.projectiles.delete(projId);
       }
     }
@@ -3908,7 +3927,7 @@ class GameServer {
           mob.burnTickTimer = 0.6;
           const dotDmg = Math.max(1, Math.round(mob.burnDmg || 8));
           mob.hp -= dotDmg;
-          this.io.emit('floating_text', { x: mob.x, y: mob.y - 0.7, text: `🔥 -${dotDmg}`, color: '#f97316', size: 14 });
+          this.emitZone(zone, 'floating_text', { x: mob.x, y: mob.y - 0.7, text: `🔥 -${dotDmg}`, color: '#f97316', size: 14 });
           if (mob.hp <= 0) {
             this.handleMobDeath(mob, null);
             continue;
@@ -3922,7 +3941,7 @@ class GameServer {
           mob.poisonTickTimer = 0.8;
           const dotDmg = Math.max(1, Math.round(mob.poisonDmg || 6));
           mob.hp -= dotDmg;
-          this.io.emit('floating_text', { x: mob.x, y: mob.y - 0.7, text: `☠️ -${dotDmg}`, color: '#22c55e', size: 14 });
+          this.emitZone(zone, 'floating_text', { x: mob.x, y: mob.y - 0.7, text: `☠️ -${dotDmg}`, color: '#22c55e', size: 14 });
           if (mob.hp <= 0) {
             this.handleMobDeath(mob, null);
             continue;
@@ -3997,13 +4016,13 @@ class GameServer {
             mob.attackCooldown = 1.2;
 
             if (targetPlayer.smokeScreenTimer > 0) {
-              this.io.emit('floating_text', { x: targetPlayer.x, y: targetPlayer.y - 0.7, text: '💨 MISS! (Stealth)', color: '#94a3b8' });
+              this.emitZone(zone, 'floating_text', { x: targetPlayer.x, y: targetPlayer.y - 0.7, text: '💨 MISS! (Stealth)', color: '#94a3b8' });
               continue;
             }
 
             // Dodge chance from talents
             if (targetPlayer.dodgeChance && Math.random() < targetPlayer.dodgeChance) {
-              this.io.emit('floating_text', { x: targetPlayer.x, y: targetPlayer.y - 0.7, text: '💨 DODGE!', color: '#38bdf8' });
+              this.emitZone(zone, 'floating_text', { x: targetPlayer.x, y: targetPlayer.y - 0.7, text: '💨 DODGE!', color: '#38bdf8' });
               continue;
             }
 
@@ -4023,7 +4042,7 @@ class GameServer {
             const thornsDmg = (targetPlayer.ironFortressTimer > 0 ? 25 : 0) + (targetPlayer.thorns || 0);
             if (thornsDmg > 0) {
               this.applyDamageToMob(targetPlayer, mob, thornsDmg, false);
-              this.io.emit('floating_text', { x: mob.x, y: mob.y - 0.7, text: `🌵 ${thornsDmg} Thorns!`, color: '#e2e8f0' });
+              this.emitZone(zone, 'floating_text', { x: mob.x, y: mob.y - 0.7, text: `🌵 ${thornsDmg} Thorns!`, color: '#e2e8f0' });
             }
 
             // Iron Fortress: -60% damage
@@ -4036,7 +4055,7 @@ class GameServer {
               const absorbed = Math.min(targetPlayer.shieldHp, damageDealt);
               targetPlayer.shieldHp -= absorbed;
               damageDealt -= absorbed;
-              this.io.emit('floating_text', { x: targetPlayer.x, y: targetPlayer.y - 0.5, text: `🛡️ Absorbed -${absorbed}`, color: '#38bdf8' });
+              this.emitZone(zone, 'floating_text', { x: targetPlayer.x, y: targetPlayer.y - 0.5, text: `🛡️ Absorbed -${absorbed}`, color: '#38bdf8' });
             }
 
             targetPlayer.hp -= damageDealt;
@@ -4055,17 +4074,17 @@ class GameServer {
             }
 
             if (isCrushing) {
-              this.io.emit('floating_text', { x: targetPlayer.x, y: targetPlayer.y - 0.7, text: `💥 CRUSHING -${damageDealt}!`, color: '#dc2626', size: 18 });
+              this.emitZone(zone, 'floating_text', { x: targetPlayer.x, y: targetPlayer.y - 0.7, text: `💥 CRUSHING -${damageDealt}!`, color: '#dc2626', size: 18 });
             } else {
-              this.io.emit('floating_text', { x: targetPlayer.x, y: targetPlayer.y - 0.7, text: `-${damageDealt}`, color: '#ef4444' });
+              this.emitZone(zone, 'floating_text', { x: targetPlayer.x, y: targetPlayer.y - 0.7, text: `-${damageDealt}`, color: '#ef4444' });
             }
-            this.io.emit('entity_attack_fx', { attackerId: mob.id, attackerType: 'mob', targetId: targetPlayer.id, x: mob.x, y: mob.y });
+            this.emitZone(zone, 'entity_attack_fx', { attackerId: mob.id, attackerType: 'mob', targetId: targetPlayer.id, x: mob.x, y: mob.y });
 
             if (targetPlayer.hp <= 0) {
               targetPlayer.hp = 0;
               targetPlayer.isDead = true;
               targetPlayer.respawnTimer = 5.0;
-              this.io.emit('player_died', { playerId: targetPlayer.id, killerName: mob.name });
+              this.emitZone(zone, 'player_died', { playerId: targetPlayer.id, killerName: mob.name });
               this.broadcastSystemMessage(`☠️ [${targetPlayer.name}] was slain by [${mob.name}]!`);
               mob.state = 'return';
             }
@@ -4153,15 +4172,18 @@ class GameServer {
       if (occupied.has(fieldId)) fieldMobs[fieldId] = Array.from(field.mobs.values()).map(snapMob);
     }
 
-    this.io.emit('game_tick', {
-      timestamp: Date.now(),
-      players: playersArr,
-      townMobs: townMobsArr,
-      fieldMobs,
-      frostfellMobs: fieldMobs.frostfell || [],
-      dungeonMobs: dungeonMobsArr,
-      dungeonChests: this.dungeon ? this.dungeon.chests : []
-    });
+    this.syncZoneRooms();
+    for (const zone of occupied) {
+      this.io.to(`zone:${zone}`).emit('game_tick', {
+        timestamp: Date.now(),
+        players: playersArr.filter(p => p.zone === zone),
+        townMobs: zone === 'town' ? townMobsArr : [],
+        fieldMobs: fieldMobs[zone] ? { [zone]: fieldMobs[zone] } : {},
+        frostfellMobs: zone === 'frostfell' ? (fieldMobs.frostfell || []) : [],
+        dungeonMobs: zone === 'dungeon' ? dungeonMobsArr : [],
+        dungeonChests: zone === 'dungeon' && this.dungeon ? this.dungeon.chests : []
+      });
+    }
   }
 }
 
