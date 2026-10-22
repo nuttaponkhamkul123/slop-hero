@@ -4,8 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Slop Hero - Isometric Web MMORPG</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Jersey+10&family=Pixelify+Sans:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚔️</text></svg>">
+  <link rel="stylesheet" href="css/pixel-ui.css">
+  <link rel="icon" href="data:,">
 </head>
 <body>
   <!-- Fullscreen Game Canvas (2D Isometric Terrain & VFX) -->
@@ -20,7 +24,7 @@
       <!-- Player Info Frame (Top-Left) -->
       <div class="hud-panel player-frame interactive" id="playerFrame">
         <div class="avatar-wrapper">
-          <span class="avatar-icon" id="playerAvatarIcon">⚔️</span>
+          <span class="avatar-icon" id="playerAvatarIcon"></span>
           <span class="level-badge" id="playerLevelBadge">Lv. 1</span>
         </div>
         <div class="player-info">
@@ -51,7 +55,7 @@
       <!-- Target HUD (Top-Center) -->
       <div class="hud-panel target-hud interactive" id="targetHud">
         <div class="avatar-wrapper" style="width: 44px; height: 44px; border-color: #ef4444;">
-          <span class="avatar-icon" id="targetIcon" style="font-size: 22px;">👾</span>
+          <span class="avatar-icon" id="targetIcon" data-pxi="skull"></span>
         </div>
         <div class="target-info">
           <div class="target-name" id="targetName">Meadow Slime (Lv. 1)</div>
@@ -69,26 +73,26 @@
 
         <div class="meta-info-row interactive">
           <div class="info-chip" id="zoneBadge">
-            <span id="zoneIcon">🏰</span> <span id="zoneText">Town of Slop Hero</span>
+            <span id="zoneIcon" data-pxi="castle"></span> <span id="zoneText">Town of Slop Hero</span>
           </div>
           <div class="info-chip" id="onlineCounter">
-            <span>🟢</span> <span id="onlineCountText">1 Hero Online</span>
+            <span data-pxi="online"></span> <span id="onlineCountText">1 Hero Online</span>
           </div>
           <div class="info-chip" id="goldCounter">
-            <span>🪙</span> <span id="goldCountText">50 Gold</span>
+            <span data-pxi="coin"></span> <span id="goldCountText">50 Gold</span>
           </div>
           <div class="meta-btn-row">
-            <button class="btn-icon-hud" id="btnAudioToggle" title="Toggle Sound (M)">🔊</button>
-            <button class="btn-icon-hud" id="btnToggle3D" title="Toggle 3D / 2D Character Models">📜 2D</button>
-            <button class="btn-icon-hud mobile-only-btn" id="btnMobileMenuToggle" title="Open Menu">☰</button>
+            <button class="btn-icon-hud" id="btnAudioToggle" title="Toggle Sound (M)"><span data-pxi="sound"></span></button>
+            <button class="btn-icon-hud" id="btnToggle3D" title="Toggle 3D / 2D Character Models"><span data-pxi="cube"></span> 2D</button>
+            <button class="btn-icon-hud mobile-only-btn" id="btnMobileMenuToggle" title="Open Menu"><span data-pxi="menu"></span></button>
           </div>
           <!-- Mobile Collapsible Menu Drawer -->
           <div class="mobile-menu-drawer hud-panel interactive" id="mobileMenuDrawer" style="display: none;">
-            <button class="menu-btn mobile-menu-item" id="mBtnOpenSkillTree">🌳 Skills</button>
-            <button class="menu-btn mobile-menu-item" id="mBtnOpenShop">🏪 Shop</button>
-            <button class="menu-btn mobile-menu-item" id="mBtnOpenStats">📊 Stats</button>
-            <button class="menu-btn mobile-menu-item" id="mBtnOpenInventory">🎒 Bag</button>
-            <button class="menu-btn mobile-menu-item" id="mBtnOpenHelp">❓ Help</button>
+            <button class="menu-btn mobile-menu-item" id="mBtnOpenSkillTree"><span data-pxi="tree"></span> Skills</button>
+            <button class="menu-btn mobile-menu-item" id="mBtnOpenShop"><span data-pxi="coin"></span> Shop</button>
+            <button class="menu-btn mobile-menu-item" id="mBtnOpenStats"><span data-pxi="stats"></span> Stats</button>
+            <button class="menu-btn mobile-menu-item" id="mBtnOpenInventory"><span data-pxi="bag"></span> Bag</button>
+            <button class="menu-btn mobile-menu-item" id="mBtnOpenHelp"><span data-pxi="help"></span> Help</button>
           </div>
         </div>
       </div>
@@ -98,9 +102,9 @@
     <div class="bottom-hud">
       <!-- MMORPG Chat Box (Bottom-Left) -->
       <div class="hud-panel chat-container interactive" id="chatContainer">
-        <button class="chat-toggle-btn mobile-only-btn" id="btnChatToggle" title="Toggle Chat">💬</button>
+        <button class="chat-toggle-btn mobile-only-btn" id="btnChatToggle" title="Toggle Chat"><span data-pxi="chat"></span></button>
         <div class="chat-messages" id="chatMessages">
-          <div class="chat-msg system">⚔️ Welcome to Slop Hero! Enter the Dungeon Portal to delve for relics, then sell them in town!</div>
+          <div class="chat-msg system">Welcome to Slop Hero! Enter the Dungeon Portal to delve for relics, then sell them in town!</div>
         </div>
         <div class="chat-input-bar">
           <input type="text" class="chat-input" id="chatInput" placeholder="Press Enter to chat..." maxlength="100">
@@ -113,7 +117,7 @@
           <!-- Target Cycling -->
           <div class="action-slot" id="slotTarget" title="Lock-on & Cycle Nearest Enemy (Tab Key)">
             <span class="slot-key">TAB</span>
-            <span class="slot-icon">🎯</span>
+            <span class="slot-icon" data-pxi="target"></span>
           </div>
 
           <!-- Basic Attack -->
@@ -154,14 +158,14 @@
           <!-- Health Potion -->
           <div class="action-slot" id="slotHealthPotion" title="Drink Health Potion (Key 1)">
             <span class="slot-key">1</span>
-            <span class="slot-icon">🧪</span>
+            <span class="slot-icon" data-pxi="hp_potion"></span>
             <span class="slot-badge" id="badgeHealthPotion">3</span>
           </div>
 
           <!-- Mana Potion -->
           <div class="action-slot" id="slotManaPotion" title="Drink Mana Potion (Key 2)">
             <span class="slot-key">2</span>
-            <span class="slot-icon">🔮</span>
+            <span class="slot-icon" data-pxi="mp_potion"></span>
             <span class="slot-badge" id="badgeManaPotion">2</span>
           </div>
         </div>
@@ -169,11 +173,11 @@
 
       <!-- Quick Menu (Bottom-Right) -->
       <div class="quick-menu-group interactive">
-        <button class="menu-btn" id="btnOpenSkillTree">🌳 Skills [K]</button>
-        <button class="menu-btn" id="btnOpenShop">🏪 Shop [P]</button>
-        <button class="menu-btn" id="btnOpenStats">📊 Stats [C]</button>
-        <button class="menu-btn" id="btnOpenInventory">🎒 Bag [I]</button>
-        <button class="menu-btn" id="btnOpenHelp">❓ Help [H]</button>
+        <button class="menu-btn" id="btnOpenSkillTree"><span data-pxi="tree"></span> Skills [K]</button>
+        <button class="menu-btn" id="btnOpenShop"><span data-pxi="coin"></span> Shop [P]</button>
+        <button class="menu-btn" id="btnOpenStats"><span data-pxi="stats"></span> Stats [C]</button>
+        <button class="menu-btn" id="btnOpenInventory"><span data-pxi="bag"></span> Bag [I]</button>
+        <button class="menu-btn" id="btnOpenHelp"><span data-pxi="help"></span> Help [H]</button>
       </div>
     </div>
 
@@ -191,7 +195,7 @@
           </div>
           <div id="mobileJoystickKnob" class="mobile-joystick-knob">
             <div class="knob-sheen"></div>
-            <div class="knob-icon">⚔️</div>
+            <div class="knob-icon" data-pxi="sword"></div>
           </div>
         </div>
       </div>
@@ -200,21 +204,21 @@
       <div id="mobileActionCluster" class="mobile-action-cluster interactive">
         <!-- Floating Contextual Interact Button (NPCs, Portals, Chests, Items) -->
         <button id="mobileBtnInteract" class="mobile-btn-interact" style="display: none;">
-          <span class="interact-icon" id="mobileInteractIcon">💬</span>
+          <span class="interact-icon" id="mobileInteractIcon" data-pxi="chat"></span>
           <span class="interact-label" id="mobileInteractText">TALK</span>
         </button>
 
         <!-- Utility Row: Target Lock & Quick Potions -->
         <div class="mobile-utility-row">
           <button id="mobileBtnTarget" class="mobile-util-btn" title="Cycle Target">
-            <span class="m-icon">🎯</span>
+            <span class="m-icon" data-pxi="target"></span>
           </button>
           <button id="mobileBtnHp" class="mobile-potion-btn hp-btn" title="Health Potion">
-            <span class="m-icon">🧪</span>
+            <span class="m-icon" data-pxi="hp_potion"></span>
             <span class="m-potion-badge" id="mobileBadgeHp">3</span>
           </button>
           <button id="mobileBtnMp" class="mobile-potion-btn mp-btn" title="Mana Potion">
-            <span class="m-icon">🔮</span>
+            <span class="m-icon" data-pxi="mp_potion"></span>
             <span class="m-potion-badge" id="mobileBadgeMp">2</span>
           </button>
         </div>
@@ -290,7 +294,7 @@
           <div class="class-roster-pane">
             <div class="class-roster" id="classGrid">
               <div class="class-card selected" data-class="warrior">
-                <div class="class-icon">⚔️</div>
+                <div class="class-icon" data-pxi="sword"></div>
                 <div class="class-card-text">
                   <div class="class-title">Warrior</div>
                   <div class="class-subtitle">Swordsman &middot; Vanguard</div>
@@ -298,7 +302,7 @@
               </div>
 
               <div class="class-card" data-class="mage">
-                <div class="class-icon">🧙</div>
+                <div class="class-icon" data-pxi="staff"></div>
                 <div class="class-card-text">
                   <div class="class-title">Mage</div>
                   <div class="class-subtitle">Arcane Scholar &middot; Caster</div>
@@ -306,7 +310,7 @@
               </div>
 
               <div class="class-card" data-class="rogue">
-                <div class="class-icon">🗡️</div>
+                <div class="class-icon" data-pxi="dagger"></div>
                 <div class="class-card-text">
                   <div class="class-title">Rogue</div>
                   <div class="class-subtitle">Shadow Blade &middot; Assassin</div>
@@ -370,7 +374,7 @@
       <!-- Shop Balance Info -->
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; font-size: 13px; color: var(--gold-light);">
         <span>Merchant: <strong style="color: #fff;">Olaf the Trader</strong></span>
-        <span>Your Gold: <strong id="shopPlayerGold" style="color: #facc15;">50</strong> 🪙</span>
+        <span>Your Gold: <strong id="shopPlayerGold" style="color: var(--gold);">50</strong> <span data-pxi="coin"></span></span>
       </div>
 
       <!-- Buy Items Container -->
@@ -399,27 +403,27 @@
         <div class="section-title">EQUIPPED GEAR <span class="sub-label">(Click to Unequip)</span></div>
         <div class="equip-slots-container">
           <div class="equip-slot" id="eqSlotHelmet" data-slot="helmet" title="Helmet Slot">
-            <span class="slot-placeholder-icon">🪖</span>
+            <span class="slot-placeholder-icon" data-pxi="helmet"></span>
             <div class="equip-item-content"></div>
             <span class="equip-slot-tag">HELM</span>
           </div>
           <div class="equip-slot" id="eqSlotArmor" data-slot="armor" title="Armor Slot">
-            <span class="slot-placeholder-icon">🛡️</span>
+            <span class="slot-placeholder-icon" data-pxi="armor"></span>
             <div class="equip-item-content"></div>
             <span class="equip-slot-tag">ARMOR</span>
           </div>
           <div class="equip-slot" id="eqSlotWeapon" data-slot="weapon" title="Weapon Slot">
-            <span class="slot-placeholder-icon">🗡️</span>
+            <span class="slot-placeholder-icon" data-pxi="sword"></span>
             <div class="equip-item-content"></div>
             <span class="equip-slot-tag">WEAPON</span>
           </div>
           <div class="equip-slot" id="eqSlotBoots" data-slot="boots" title="Boots Slot">
-            <span class="slot-placeholder-icon">👢</span>
+            <span class="slot-placeholder-icon" data-pxi="boots"></span>
             <div class="equip-item-content"></div>
             <span class="equip-slot-tag">BOOTS</span>
           </div>
           <div class="equip-slot" id="eqSlotRing" data-slot="ring" title="Ring Slot">
-            <span class="slot-placeholder-icon">💍</span>
+            <span class="slot-placeholder-icon" data-pxi="ring"></span>
             <div class="equip-item-content"></div>
             <span class="equip-slot-tag">RING</span>
           </div>
@@ -434,12 +438,12 @@
       <!-- Quick Potions Bar -->
       <div class="quick-potions-row">
         <div class="action-slot potion-quick-btn" id="invHpSlot" title="Click to Drink Health Potion (1)">
-          <span class="slot-icon">🧪</span>
+          <span class="slot-icon" data-pxi="hp_potion"></span>
           <span class="potion-label">Health Potion</span>
           <span class="slot-badge" id="invHpCount">3</span>
         </div>
         <div class="action-slot potion-quick-btn" id="invMpSlot" title="Click to Drink Mana Potion (2)">
-          <span class="slot-icon">🔮</span>
+          <span class="slot-icon" data-pxi="mp_potion"></span>
           <span class="potion-label">Mana Potion</span>
           <span class="slot-badge" id="invMpCount">2</span>
         </div>
@@ -458,7 +462,7 @@
       <!-- Modal Footer -->
       <div class="inv-footer">
         <span style="color: var(--text-muted); font-size: 11px;">💡 Click gear in bag to equip. Visit Olaf to sell treasures.</span>
-        <span style="color: var(--gold-light); font-weight: 800; font-size: 14px;">🪙 <span id="invGoldText">50</span> Gold</span>
+        <span style="color: var(--gold-light); font-weight: 800; font-size: 14px;"><span data-pxi="coin"></span> <span id="invGoldText">50</span> Gold</span>
       </div>
     </div>
   </div>
@@ -488,14 +492,14 @@
         <!-- Right Column: The Anvil Bench / Upgrade Screen -->
         <div class="reforge-bench" id="reforgeBench">
           <div class="reforge-empty-prompt" id="reforgeEmptyPrompt">
-            <span style="font-size: 42px;">🔨</span>
+            <span data-pxi="hammer" class="pxi-xl"></span>
             <p style="margin-top: 8px; color: var(--text-muted); font-size: 13px;">Select a piece of gear on the left to place it on the Anvil.</p>
           </div>
 
           <div class="reforge-active-view" id="reforgeActiveView" style="display: none;">
             <!-- Current Item Header -->
             <div class="reforge-item-header">
-              <div class="reforge-item-icon" id="rfItemIcon">🗡️</div>
+              <div class="reforge-item-icon" id="rfItemIcon" data-pxi="sword"></div>
               <div class="reforge-item-info">
                 <div class="reforge-item-name" id="rfItemName">Knight Broadsword +0</div>
                 <div class="reforge-level-pill" id="rfLevelBadge">Level +0 ➜ +1</div>
@@ -519,7 +523,7 @@
             <!-- Cost -->
             <div class="reforge-cost-row">
               <span style="color: var(--text-muted); font-size: 13px;">Forging Cost:</span>
-              <span style="color: #facc15; font-weight: 800; font-size: 15px;">🪙 <span id="rfCostVal">50</span> Gold</span>
+              <span style="color: #facc15; font-weight: 800; font-size: 15px;"><span data-pxi="coin"></span> <span id="rfCostVal">50</span> Gold</span>
             </div>
 
             <!-- Hammer Button -->
@@ -537,7 +541,7 @@
     <div class="hud-panel modal-card portal-modal-card">
       <button class="modal-close" id="btnCloseDungeonPortal">✕</button>
       <div class="modal-header">
-        <h2 class="modal-title" style="color: #67e8f9; text-shadow: 0 0 16px rgba(6, 182, 212, 0.6);">🌀 ABYSSAL EXPEDITION</h2>
+        <h2 class="modal-title">ABYSSAL EXPEDITION</h2>
         <p class="modal-subtitle">Configure dungeon depth and hazard difficulty before descending</p>
       </div>
 
@@ -657,11 +661,11 @@
 
       <!-- Affix description teaser -->
       <div class="affix-info-strip">
-        <span class="affix-pill pill-fortified">🛡️ Fortified (-30% Dmg)</span>
-        <span class="affix-pill pill-frostbite">❄️ Frostbite (Freezing Chill)</span>
-        <span class="affix-pill pill-venomous">☠️ Venomous (Poison DoT)</span>
-        <span class="affix-pill pill-ignited">🔥 Ignited (Burn DoT)</span>
-        <span class="affix-pill pill-commander">👑 Commander (Aura Buffs)</span>
+        <span class="affix-pill pill-fortified"><span data-pxi="shield"></span> Fortified (-30% Dmg)</span>
+        <span class="affix-pill pill-frostbite"><span data-pxi="snow"></span> Frostbite (Freezing Chill)</span>
+        <span class="affix-pill pill-venomous"><span data-pxi="poison"></span> Venomous (Poison DoT)</span>
+        <span class="affix-pill pill-ignited"><span data-pxi="fire"></span> Ignited (Burn DoT)</span>
+        <span class="affix-pill pill-commander"><span data-pxi="crown"></span> Commander (Aura Buffs)</span>
       </div>
 
       <!-- Enter Button -->
@@ -785,6 +789,7 @@
   <script src="js/audio.js"></script>
   <script src="js/isometric.js"></script>
   <script src="js/skillIcons.js"></script>
+  <script src="js/pixelIcons.js"></script>
   <script src="js/renderer.js"></script>
   <script src="js/game.js"></script>
 </body>

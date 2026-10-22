@@ -413,8 +413,9 @@
 
   // Set an element's content to a skill icon
   function apply(el, skillId) {
-    if (el) el.innerHTML = svg(skillId);
+    // go through the public svg() so a pixel-art override (pixelIcons.js) applies
+    if (el) el.innerHTML = window.SkillIcons.svg(skillId);
   }
 
-  window.SkillIcons = { svg, apply, has: id => !!GLYPHS[id] };
+  window.SkillIcons = { svg, apply, has: id => !!GLYPHS[id], ids: () => Object.keys(GLYPHS) };
 })();

@@ -413,10 +413,20 @@ document.addEventListener('DOMContentLoaded', () => {
     btnJoinGame.click();
   }
 
+  window.addEventListener('pixelicons:ready', () => {
+    if (localPlayer) setupClassSkillHUD(localPlayer.characterClass);
+    if (skillTreeModal && skillTreeModal.style.display === 'flex') {
+      if (activeSkillsModalTab === 'loadout') renderCustomSkillLoadout();
+      else renderSkillTree();
+    }
+  });
+
   function setupClassSkillHUD(cls) {
     if (!cls) return;
-    const classAvatars = { warrior: '🛡️', mage: '🧙‍♂️', rogue: '🗡️' };
-    if (playerAvatarIcon) playerAvatarIcon.textContent = classAvatars[cls] || '⚔️';
+    const classSprites = { warrior: 'swordman_idle_strip.png', mage: 'mage_idle_strip.png', rogue: 'rogue_idle_strip.png' };
+    if (playerAvatarIcon) {
+      playerAvatarIcon.innerHTML = `<div class="portrait-sprite" style="background-image:url('sprites/${classSprites[cls] || classSprites.warrior}')"></div>`;
+    }
     const basicAttackIcons = { warrior: 'basic_attack', mage: 'basic_attack_mage', rogue: 'basic_attack_rogue' };
     const atkIconKey = basicAttackIcons[cls] || 'basic_attack';
     SkillIcons.apply(document.getElementById('slotAttackIcon'), atkIconKey);
@@ -600,19 +610,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (zoneIcon && zoneText) {
       if (data.zone === 'dungeon') {
-        zoneIcon.textContent = '🌀';
+        zoneIcon.dataset.pxi = 'whirl';
         zoneText.textContent = `Dungeon - Floor ${data.floorLevel || 1}`;
         window.soundEngine.playSkillWhoosh();
       } else if (data.zone === 'frostfell') {
-        zoneIcon.textContent = '❄️';
+        zoneIcon.dataset.pxi = 'snow';
         zoneText.textContent = `Frostfell Peaks${data.zoneLevel ? ' (' + data.zoneLevel + ')' : ''}`;
         window.soundEngine.playFrostNova();
       } else if (data.zoneName) {
-        zoneIcon.textContent = '🧭';
+        zoneIcon.dataset.pxi = 'compass';
         zoneText.textContent = `${data.zoneName}${data.zoneLevel ? ' (' + data.zoneLevel + ')' : ''}`;
         window.soundEngine.playSkillWhoosh();
       } else {
-        zoneIcon.textContent = '🏰';
+        zoneIcon.dataset.pxi = 'castle';
         zoneText.textContent = 'Town of Slop Hero';
         window.soundEngine.playLevelUp();
       }
@@ -723,7 +733,7 @@ document.addEventListener('DOMContentLoaded', () => {
         targetName.textContent = `${mob.name} (Lv. ${mob.level})`;
         const hpPct = Math.round((mob.hp / mob.maxHp) * 100);
         targetHpFill.style.width = `${hpPct}%`;
-        targetIcon.textContent = mob.isBoss ? '👑' : mob.type === 'slime' ? '🟢' : mob.type === 'frost_titan' ? '🏔️' : mob.type === 'frost_wolf' ? '🐺' : mob.type === 'ice_elemental' ? '❄️' : mob.type === 'goblin' ? '👺' : '💀';
+        targetIcon.dataset.pxi = mob.isBoss ? 'crown' : 'skull';
       } else {
         targetHud.classList.remove('active');
         selectedTargetId = null;
@@ -1431,7 +1441,7 @@ document.addEventListener('DOMContentLoaded', () => {
       targetName.textContent = `${nextTarget.name} (Lv. ${nextTarget.level})`;
       const hpPct = Math.round((nextTarget.hp / nextTarget.maxHp) * 100);
       targetHpFill.style.width = `${hpPct}%`;
-      targetIcon.textContent = nextTarget.isBoss ? '👑' : nextTarget.type === 'slime' ? '🟢' : nextTarget.type === 'goblin' ? '👺' : '💀';
+      targetIcon.dataset.pxi = nextTarget.isBoss ? 'crown' : 'skull';
     }
   }
 
@@ -1489,7 +1499,7 @@ document.addEventListener('DOMContentLoaded', () => {
           targetName.textContent = `${closestMob.name} (Lv. ${closestMob.level})`;
           const hpPct = Math.round((closestMob.hp / closestMob.maxHp) * 100);
           targetHpFill.style.width = `${hpPct}%`;
-          targetIcon.textContent = closestMob.isBoss ? '👑' : closestMob.type === 'slime' ? '🟢' : closestMob.type === 'goblin' ? '👺' : '💀';
+          targetIcon.dataset.pxi = closestMob.isBoss ? 'crown' : 'skull';
         }
       }
     }
@@ -1699,7 +1709,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnAudioToggle = document.getElementById('btnAudioToggle');
   function toggleAudio() {
     const isMuted = window.soundEngine.toggleMute();
-    btnAudioToggle.textContent = isMuted ? '🔇' : '🔊';
+    btnAudioToggle.innerHTML = PixelIcons.html(isMuted ? 'mute' : 'sound');
   }
   btnAudioToggle.addEventListener('click', toggleAudio);
 
@@ -1713,7 +1723,7 @@ document.addEventListener('DOMContentLoaded', () => {
       threeCanvas.style.display = 'none'; // heroes are composited into the 2D canvas
     }
     if (btnToggle3D) {
-      btnToggle3D.textContent = window.threeHeroRenderer.enabled ? '🎮 3D' : '📜 2D';
+      btnToggle3D.innerHTML = PixelIcons.html('cube') + (window.threeHeroRenderer.enabled ? ' 3D' : ' 2D');
       btnToggle3D.classList.toggle('active-toggle', window.threeHeroRenderer.enabled);
     }
     window.soundEngine.playLevelUp();
@@ -1802,7 +1812,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (statDef) statDef.innerHTML = `${p.def || 5} ${bonusDef ? `<span style="color:#60a5fa; font-size:11px;">(+${bonusDef})</span>` : ''}`;
     if (statSpeed) statSpeed.innerHTML = `${p.speed || 4.5} ${bonusSpeed ? `<span style="color:#a855f7; font-size:11px;">(+${bonusSpeed.toFixed(1)})</span>` : ''}`;
     if (statKills) statKills.textContent = `${(p.inventory && p.inventory.kills) || 0}`;
-    if (statGold) statGold.textContent = `${p.gold} 🪙`;
+    if (statGold) statGold.textContent = `${p.gold} Gold`;
   }
 
   // ================= SHOP & INVENTORY UI =================
@@ -1823,14 +1833,14 @@ document.addEventListener('DOMContentLoaded', () => {
       card.className = `shop-item-card rarity-${item.rarity || 'common'}`;
       card.innerHTML = `
         <div class="shop-item-left">
-          <div class="shop-item-icon">${item.icon || '📦'}</div>
+          <div class="shop-item-icon">${PixelIcons.itemHtml(item)}</div>
           <div class="shop-item-details">
             <div class="shop-item-name">${item.name}</div>
             <div class="shop-item-desc">${item.desc || ''}</div>
           </div>
         </div>
         <button class="btn-shop-action" data-buy-id="${item.id}">
-          Buy 🪙 ${item.buyPrice}
+          Buy ${item.buyPrice}g
         </button>
       `;
 
@@ -1859,14 +1869,14 @@ document.addEventListener('DOMContentLoaded', () => {
       card.className = `shop-item-card rarity-${item.rarity || 'common'}`;
       card.innerHTML = `
         <div class="shop-item-left">
-          <div class="shop-item-icon">${item.icon || '📦'}</div>
+          <div class="shop-item-icon">${PixelIcons.itemHtml(item)}</div>
           <div class="shop-item-details">
             <div class="shop-item-name">${item.name} ${item.count > 1 ? `x${item.count}` : ''}</div>
             <div class="shop-item-desc">${item.desc || ''}</div>
           </div>
         </div>
         <button class="btn-shop-action sell" data-sell-index="${index}">
-          Sell +🪙 ${item.sellPrice || 10}
+          Sell +${item.sellPrice || 10}g
         </button>
       `;
 
@@ -1925,7 +1935,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (contentEl) {
           contentEl.innerHTML = `
-            <div class="equip-item-icon">${item.icon || '⚔️'}</div>
+            <div class="equip-item-icon">${PixelIcons.itemHtml(item)}</div>
             <div class="equip-item-name">${item.name}</div>
           `;
         }
@@ -1957,20 +1967,20 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       const bonusItems = [
-        { label: 'Attack', val: totalBonusDmg, icon: '⚔️' },
-        { label: 'Defense', val: totalBonusDef, icon: '🛡️' },
-        { label: 'Max HP', val: totalBonusHp, icon: '❤️' },
-        { label: 'Max MP', val: totalBonusMp, icon: '💧' },
-        { label: 'Speed', val: totalBonusSpeed ? totalBonusSpeed.toFixed(1) : 0, icon: '👟' },
-        { label: 'Atk Spd', val: totalBonusAttackSpeed ? `+${Math.round(totalBonusAttackSpeed * 100)}%` : 0, icon: '⚡' },
-        { label: 'Swipe', val: totalBonusSwipe ? `+${totalBonusSwipe}%` : 0, icon: '🌊' }
+        { label: 'Attack', val: totalBonusDmg, icon: 'sword' },
+        { label: 'Defense', val: totalBonusDef, icon: 'shield' },
+        { label: 'Max HP', val: totalBonusHp, icon: 'heart' },
+        { label: 'Max MP', val: totalBonusMp, icon: 'mp_potion' },
+        { label: 'Speed', val: totalBonusSpeed ? totalBonusSpeed.toFixed(1) : 0, icon: 'boots' },
+        { label: 'Atk Spd', val: totalBonusAttackSpeed ? `+${Math.round(totalBonusAttackSpeed * 100)}%` : 0, icon: 'bolt' },
+        { label: 'Swipe', val: totalBonusSwipe ? `+${totalBonusSwipe}%` : 0, icon: 'whirl' }
       ];
 
       bonusItems.forEach(b => {
         const pill = document.createElement('span');
         const isActive = Number(b.val) > 0;
         pill.className = `stat-pill ${isActive ? 'active' : ''}`;
-        pill.innerHTML = `${b.icon} ${b.label}: ${isActive ? `+${b.val}` : '-'}`;
+        pill.innerHTML = `${PixelIcons.html(b.icon)} ${b.label}: ${isActive ? `+${b.val}` : '-'}`;
         bonusesBar.appendChild(pill);
       });
     }
@@ -2000,7 +2010,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         slot.title = `${item.name} (${item.rarity.toUpperCase()})\n${item.desc || ''}\n${actionHint}`;
         slot.innerHTML = `
-          <div class="inv-icon">${item.icon || '📦'}</div>
+          <div class="inv-icon">${PixelIcons.itemHtml(item)}</div>
           ${item.count > 1 ? `<div class="inv-badge">x${item.count}</div>` : ''}
         `;
 
@@ -2108,7 +2118,7 @@ document.addEventListener('DOMContentLoaded', () => {
       row.className = `reforge-list-item ${isSelected ? 'selected' : ''} rarity-${item.rarity || 'common'}`;
       row.innerHTML = `
         <div class="rf-item-left">
-          <div class="rf-item-icon">${item.icon || '⚔️'}</div>
+          <div class="rf-item-icon">${PixelIcons.itemHtml(item)}</div>
           <div class="rf-item-name">${item.name}</div>
         </div>
         <span class="rf-item-lvl">+${item.upgradeLevel || 0}</span>
@@ -2145,7 +2155,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (reforgeEmptyPrompt) reforgeEmptyPrompt.style.display = 'none';
     if (reforgeActiveView) reforgeActiveView.style.display = 'flex';
 
-    if (rfItemIcon) rfItemIcon.textContent = item.icon || '⚔️';
+    if (rfItemIcon) rfItemIcon.dataset.pxi = PixelIcons.item(item);
     if (rfItemName) rfItemName.textContent = item.name;
 
     const curLvl = item.upgradeLevel || 0;
@@ -2454,9 +2464,9 @@ card.innerHTML = `
         btn.className = `rune-pill-btn ${isRuneActive ? 'active' : ''}`;
         if (isRuneActive) {
           btn.style.borderColor = rDef.color || '#facc15';
-          btn.style.boxShadow = `0 0 12px ${rDef.color || '#facc15'}`;
+          btn.style.setProperty('--line', rDef.color || '#ffcd75');
         }
-        btn.innerHTML = `<span class="rune-icon">${rDef.icon}</span> <span>${rDef.name}</span>`;
+        btn.innerHTML = `<span class="rune-icon">${PixelIcons.html(({ none: 'dot', flame: 'fire', frost: 'snow', tempest: 'bolt', vampiric: 'heart' })[rKey] || 'dot')}</span> <span>${rDef.name}</span>`;
         btn.title = `${rDef.name}: ${rDef.desc}`;
 
         btn.addEventListener('click', () => {
@@ -2805,25 +2815,25 @@ card.innerHTML = `
 
       if (distOlaf <= 3.5) {
         targetInteract = {
-          icon: '🏪',
+          icon: 'coin',
           label: 'SHOP',
           action: () => openShopModal()
         };
       } else if (distBrom <= 3.5) {
         targetInteract = {
-          icon: '🔨',
+          icon: 'hammer',
           label: 'REFORGE',
           action: () => openReforgeModal()
         };
       } else if (distDungeon <= 3.0) {
         targetInteract = {
-          icon: '🌀',
+          icon: 'whirl',
           label: 'DUNGEON',
           action: () => openDungeonPortalModal()
         };
       } else if (distFrost <= 2.5) {
         targetInteract = {
-          icon: '❄️',
+          icon: 'snow',
           label: 'PEAKS',
           action: () => socket.emit('player_input', { type: 'click_move', x: 16.5, y: 16.5 })
         };
@@ -2833,7 +2843,7 @@ card.innerHTML = `
         const ep = gameState.map.exitPortal;
         if (Math.hypot(ep.x - localPlayer.x, ep.y - localPlayer.y) <= 2.5) {
           targetInteract = {
-            icon: '🚪',
+            icon: 'door',
             label: 'LEAVE',
             action: () => {
               if (confirmLeaveDungeon()) socket.emit('leave_dungeon');
@@ -2845,7 +2855,7 @@ card.innerHTML = `
         for (const chest of gameState.chests) {
           if (!chest.opened && Math.hypot(chest.x - localPlayer.x, chest.y - localPlayer.y) <= 2.2) {
             targetInteract = {
-              icon: '🎁',
+              icon: 'chest',
               label: 'OPEN',
               action: () => socket.emit('open_chest', { chestId: chest.id })
             };
@@ -2858,7 +2868,7 @@ card.innerHTML = `
         o.type === 'field_portal' && Math.hypot(o.x - localPlayer.x, o.y - localPlayer.y) <= 2.5);
       if (fieldPortal) {
         targetInteract = {
-          icon: '🚪',
+          icon: 'door',
           label: 'ENTER',
           action: () => socket.emit('player_input', { type: 'click_move', x: fieldPortal.x, y: fieldPortal.y })
         };
@@ -2877,7 +2887,7 @@ card.innerHTML = `
       }
       if (closestItem) {
         targetInteract = {
-          icon: '✨',
+          icon: 'star',
           label: 'LOOT',
           action: () => socket.emit('pickup_item', closestItem.id)
         };
@@ -2886,7 +2896,7 @@ card.innerHTML = `
 
     if (targetInteract) {
       mobileContextualAction = targetInteract.action;
-      if (mobileInteractIcon) mobileInteractIcon.textContent = targetInteract.icon;
+      if (mobileInteractIcon) mobileInteractIcon.dataset.pxi = targetInteract.icon;
       if (mobileInteractText) mobileInteractText.textContent = targetInteract.label;
       mobileBtnInteract.style.display = 'inline-flex';
     } else {
