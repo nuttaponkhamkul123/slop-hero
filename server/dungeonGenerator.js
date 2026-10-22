@@ -1,6 +1,7 @@
 // Procedural Dungeon Generator for Aetheria Online
 // Generates randomized rooms, corridors, chests, and dungeon monsters
 const { ITEMS, generateRandomizedGear } = require('./items');
+const { mobExp, DUNGEON_EXP_MULT, DUNGEON_TRASH_FACTOR } = require('./progression');
 
 const DUNGEON_WIDTH = 38;
 const DUNGEON_HEIGHT = 38;
@@ -23,7 +24,7 @@ const DIFFICULTIES = {
     densityMult: 1.0,
     hpMult: 1.0,
     dmgMult: 1.0,
-    expMult: 1.0,
+    expMult: DUNGEON_EXP_MULT.normal,
     goldMult: 1.0,
     affixMin: 0,
     affixMax: 0,
@@ -36,7 +37,7 @@ const DIFFICULTIES = {
     densityMult: 1.6,
     hpMult: 1.7,
     dmgMult: 1.4,
-    expMult: 1.8,
+    expMult: DUNGEON_EXP_MULT.hard,
     goldMult: 1.6,
     affixMin: 1,
     affixMax: 2,
@@ -49,7 +50,7 @@ const DIFFICULTIES = {
     densityMult: 2.3,
     hpMult: 2.6,
     dmgMult: 1.9,
-    expMult: 3.0,
+    expMult: DUNGEON_EXP_MULT.nightmare,
     goldMult: 2.5,
     affixMin: 2,
     affixMax: 3,
@@ -371,7 +372,7 @@ function generateProceduralDungeon(floorLevel = 1, difficulty = 'normal') {
         dmg: Math.round((30 + bossLevel * 4.5) * diff.dmgMult),
         def: bossDef,
         speed: 2.3,
-        exp: Math.round((300 + bossLevel * 90 + Math.pow(bossLevel, 1.35) * 18) * diff.expMult),
+        exp: Math.round(mobExp(bossLevel, 'boss') * diff.expMult),
         gold: Math.round((180 + bossLevel * 45) * diff.goldMult),
         buffs: bossAffixes,
         isCommander,
@@ -406,7 +407,7 @@ function generateProceduralDungeon(floorLevel = 1, difficulty = 'normal') {
           dmg: Math.round((25 + minionLvl * 3.5) * diff.dmgMult),
           def: Math.round(12 + minionLvl * 1.8),
           speed: 2.2,
-          exp: Math.round((90 + minionLvl * 25) * diff.expMult),
+          exp: Math.max(1, Math.round(mobExp(minionLvl) * diff.expMult * DUNGEON_TRASH_FACTOR)),
           gold: Math.round((40 + minionLvl * 12) * diff.goldMult),
           buffs: ['fortified'],
           isCommander: false,
@@ -484,7 +485,7 @@ function generateProceduralDungeon(floorLevel = 1, difficulty = 'normal') {
           dmg: Math.round((18 + mobLvl * 2.8) * diff.dmgMult),
           def,
           speed: isCommander ? 3.1 : 2.8,
-          exp: Math.round((60 + mobLvl * 28 + Math.pow(mobLvl, 1.28) * 5) * diff.expMult),
+          exp: Math.max(1, Math.round(mobExp(mobLvl, isCommander ? 'commander' : 'normal') * diff.expMult * DUNGEON_TRASH_FACTOR)),
           gold: Math.round((35 + mobLvl * 10) * diff.goldMult),
           buffs: mobAffixes,
           isCommander,

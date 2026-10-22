@@ -2,6 +2,7 @@
 // Each zone is a 42x42 map entered from the south (portal back to the previous
 // zone) with a portal to the next zone on its far north side.
 const { MAP_WIDTH, MAP_HEIGHT, generateFrostfellMap } = require('./mapData');
+const { mobExp } = require('./progression');
 
 // Themed ground tiles (13+). The renderer has a matching palette.
 const FIELD_TILES = {
@@ -14,15 +15,14 @@ const FIELD_TILES = {
   CLOUD: 37, GOLD_PATH: 38, STAR_VOID: 39, MARBLE_CLIFF: 40
 };
 
-// Mob stats scale with level so every zone feels the same at its own level
-// (roughly 7 kills per level-up at the zone's level).
+// Mob stats scale with level so every zone feels the same at its own level.
+// EXP comes from progression.js (kills-per-level curve).
 function mobStats(level, isBoss) {
-  const expNext = 70 + level * 45 + Math.pow(level, 1.82) * 11;
   const base = {
     maxHp: Math.round(140 + level * 55 + Math.pow(level, 1.35) * 6),
     dmg: Math.round(14 + level * 3.0),
     def: Math.round(10 + level * 1.7),
-    exp: Math.round(expNext / 7),
+    exp: mobExp(level),
     gold: Math.round(10 + level * 8)
   };
   if (!isBoss) return base;
@@ -30,7 +30,7 @@ function mobStats(level, isBoss) {
     maxHp: base.maxHp * 6,
     dmg: Math.round(base.dmg * 1.6),
     def: Math.round(base.def * 1.5),
-    exp: base.exp * 8,
+    exp: mobExp(level, 'boss'),
     gold: base.gold * 10
   };
 }

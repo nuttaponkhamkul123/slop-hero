@@ -1896,7 +1896,7 @@ class IsometricRenderer {
           : obs.type === 'blacksmith' ? ['Brom the Master Smith [Reforge]', '#fdba74'] : null;
         if (tag) {
           ctx.save();
-          ctx.font = 'bold 11px Outfit, sans-serif';
+          ctx.font = '15px "Pixelify Sans", monospace';
           ctx.textAlign = 'center';
           ctx.fillStyle = '#000';
           ctx.fillText(tag[0], screen.x + 1, drawn.top + 6 * z + 1);
@@ -2210,7 +2210,7 @@ class IsometricRenderer {
 
       // Merchant Overhead Name Tag
       ctx.save();
-      ctx.font = 'bold 11px Outfit, sans-serif';
+      ctx.font = '15px "Pixelify Sans", monospace';
       ctx.textAlign = 'center';
       ctx.fillStyle = '#000';
       ctx.fillText('🏪 Olaf the Trader [Shop]', screen.x + 1, screen.y - 44 * z + 1);
@@ -2262,7 +2262,7 @@ class IsometricRenderer {
 
       // Portal Overhead Tag
       ctx.save();
-      ctx.font = 'bold 11px Outfit, sans-serif';
+      ctx.font = '15px "Pixelify Sans", monospace';
       ctx.textAlign = 'center';
       ctx.fillStyle = '#000';
       const portalLabel = obs.label || '🌀 Dungeon Portal';
@@ -2334,7 +2334,7 @@ class IsometricRenderer {
 
       // Overhead Name Tag & Interaction Prompt
       ctx.save();
-      ctx.font = 'bold 11px Outfit, sans-serif';
+      ctx.font = '15px "Pixelify Sans", monospace';
       ctx.textAlign = 'center';
       ctx.fillStyle = '#000';
       ctx.fillText('🔨 Brom the Master Smith [Reforge]', screen.x + 1, screen.y - 44 * z + 1);
@@ -2539,7 +2539,7 @@ class IsometricRenderer {
 
       // Portal Tag
       ctx.save();
-      ctx.font = 'bold 11px Outfit, sans-serif';
+      ctx.font = '15px "Pixelify Sans", monospace';
       ctx.textAlign = 'center';
       ctx.fillStyle = '#000';
       ctx.fillText('❄️ Frostfell Portal [Lv. 6+]', screen.x + 1, screen.y - 42 * z + 1);
@@ -2669,7 +2669,7 @@ class IsometricRenderer {
       ctx.stroke();
       ctx.restore();
       ctx.save();
-      ctx.font = 'bold 11px Outfit, sans-serif';
+      ctx.font = '15px "Pixelify Sans", monospace';
       ctx.textAlign = 'center';
       ctx.fillStyle = '#000';
       ctx.fillText(obs.label || 'Portal', screen.x + 1, screen.y - 42 * z + 1);
@@ -2708,7 +2708,7 @@ class IsometricRenderer {
       ctx.restore();
 
       ctx.save();
-      ctx.font = 'bold 11px Outfit, sans-serif';
+      ctx.font = '15px "Pixelify Sans", monospace';
       ctx.textAlign = 'center';
       ctx.fillStyle = '#000';
       ctx.fillText('🏰 Return to Town', screen.x + 1, screen.y - 42 * z + 1);
@@ -2777,7 +2777,7 @@ class IsometricRenderer {
       ctx.fill();
 
       // Floating Tooltip
-      ctx.font = 'bold 10px Outfit, sans-serif';
+      ctx.font = '14px "Pixelify Sans", monospace';
       ctx.textAlign = 'center';
       ctx.fillStyle = '#fff';
       ctx.fillText('🗝️ Click to Open', 0, -24 * z);
@@ -2804,19 +2804,15 @@ class IsometricRenderer {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
-    let icon = '🪙';
-    if (item.type === 'health_potion') icon = '🧪';
-    if (item.type === 'mana_potion') icon = '🔮';
-
-    ctx.fillText(icon, screen.x, screen.y - 12 * z + bounce);
+    if (window.PixelIcons) {
+      const iconName = item.type === 'gold' ? 'coin' : PixelIcons.item({ itemId: item.itemId, ...(item.customItemData || {}), type: item.customItemData ? item.customItemData.type : item.type });
+      const size = Math.round(12 * Math.max(2, Math.round(z * 2)));
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(PixelIcons.image(iconName), Math.round(screen.x - size / 2), Math.round(screen.y - 12 * z + bounce - size / 2), size, size);
+    }
 
     // Glowing Halo
-    ctx.beginPath();
-    ctx.arc(screen.x, screen.y - 12 * z + bounce, 12 * z, 0, Math.PI * 2);
-    ctx.strokeStyle = item.type === 'gold' ? 'rgba(250, 204, 21, 0.6)' :
-                      item.type === 'health_potion' ? 'rgba(239, 68, 68, 0.6)' : 'rgba(56, 189, 248, 0.6)';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
+    // (no glow halo in the pixel UI)
 
     ctx.restore();
   }
@@ -5079,13 +5075,13 @@ class IsometricRenderer {
   // Draw Overhead Name & Health Bar & Affixes
   drawEntityOverhead(ctx, screenX, screenY, name, hp, maxHp, nameColor = '#fff', levelTag = '', buffs = [], isCommander = false, hasCommanderBuff = false) {
     ctx.save();
-    ctx.font = 'bold 11px Outfit, sans-serif';
+    ctx.font = '15px "Pixelify Sans", monospace';
     ctx.textAlign = 'center';
 
     let titlePrefix = '';
     if (isCommander) {
-      titlePrefix = '👑 [Commander] ';
-      nameColor = '#facc15';
+      titlePrefix = '[Commander] ';
+      nameColor = '#ffcd75';
     }
 
     // Name text
@@ -5101,42 +5097,41 @@ class IsometricRenderer {
     const barY = screenY + 4;
     const hpRatio = Math.max(0, Math.min(1, hp / maxHp));
 
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-    ctx.fillRect(barX - 1, barY - 1, barW + 2, barH + 2);
-
-    ctx.fillStyle = '#ef4444';
-    ctx.fillRect(barX, barY, barW, barH);
-
-    ctx.fillStyle = isCommander ? '#f59e0b' : '#22c55e';
-    ctx.fillRect(barX, barY, barW * hpRatio, barH);
+    const bx = Math.round(barX), by = Math.round(barY);
+    ctx.fillStyle = '#1a1c2c';
+    ctx.fillRect(bx - 2, by - 2, barW + 4, barH + 4);
+    ctx.fillStyle = '#5d275d';
+    ctx.fillRect(bx, by, barW, barH);
+    const fillW = Math.round(barW * hpRatio);
+    ctx.fillStyle = isCommander ? '#ef7d57' : (hpRatio > 0.35 ? '#38b764' : '#b13e53');
+    ctx.fillRect(bx, by, fillW, barH);
+    ctx.fillStyle = isCommander ? '#ffcd75' : (hpRatio > 0.35 ? '#a7f070' : '#ef7d57');
+    ctx.fillRect(bx, by, fillW, 1);
 
     // Draw Affix / Buff Badges above name
     if ((buffs && buffs.length > 0) || hasCommanderBuff) {
       const icons = [];
-      if (hasCommanderBuff) icons.push({ icon: '⚔️', color: '#fde047' });
+      if (hasCommanderBuff) icons.push({ icon: 'crown', color: '#ffcd75' });
       if (buffs) {
-        if (buffs.includes('fortified')) icons.push({ icon: '🛡️', color: '#94a3b8' });
-        if (buffs.includes('frostbite')) icons.push({ icon: '❄️', color: '#38bdf8' });
-        if (buffs.includes('venomous')) icons.push({ icon: '☠️', color: '#4ade80' });
-        if (buffs.includes('ignited')) icons.push({ icon: '🔥', color: '#fb923c' });
+        if (buffs.includes('fortified')) icons.push({ icon: 'shield', color: '#94b0c2' });
+        if (buffs.includes('frostbite')) icons.push({ icon: 'snow', color: '#41a6f6' });
+        if (buffs.includes('venomous')) icons.push({ icon: 'poison', color: '#38b764' });
+        if (buffs.includes('ignited')) icons.push({ icon: 'fire', color: '#ef7d57' });
       }
 
       const iconSpacing = 16;
       const startX = screenX - ((icons.length - 1) * iconSpacing) / 2;
       const badgeY = screenY - 12;
 
-      ctx.font = '10px sans-serif';
+      ctx.imageSmoothingEnabled = false;
       icons.forEach((ic, idx) => {
-        const ix = startX + idx * iconSpacing;
-        ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
-        ctx.beginPath();
-        ctx.arc(ix, badgeY, 7.5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = ic.color;
-        ctx.lineWidth = 1;
-        ctx.stroke();
-
-        ctx.fillText(ic.icon, ix, badgeY + 3.5);
+        const ix = Math.round(startX + idx * iconSpacing);
+        const iy = Math.round(badgeY);
+        ctx.fillStyle = '#1a1c2c';
+        ctx.fillRect(ix - 8, iy - 8, 16, 16);
+        ctx.fillStyle = ic.color;
+        ctx.fillRect(ix - 8, iy + 6, 16, 2);
+        if (window.PixelIcons) ctx.drawImage(PixelIcons.image(ic.icon), ix - 6, iy - 7, 12, 12);
       });
     }
 
@@ -5146,7 +5141,7 @@ class IsometricRenderer {
   // Draw Comic Speech Bubble
   drawSpeechBubble(ctx, screenX, screenY, text) {
     ctx.save();
-    ctx.font = '12px Outfit, sans-serif';
+    ctx.font = '14px "Pixelify Sans", monospace';
     const textMetrics = ctx.measureText(text);
     const bubbleW = Math.max(60, textMetrics.width + 16);
     const bubbleH = 26;
@@ -5157,10 +5152,10 @@ class IsometricRenderer {
     ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
     ctx.strokeStyle = '#0f172a';
     ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.roundRect(bubbleX, bubbleY, bubbleW, bubbleH, 6);
-    ctx.fill();
-    ctx.stroke();
+    ctx.fillStyle = '#1a1c2c';
+    ctx.fillRect(bubbleX - 2, bubbleY - 2, bubbleW + 4, bubbleH + 4);
+    ctx.fillStyle = '#f4f4f4';
+    ctx.fillRect(bubbleX, bubbleY, bubbleW, bubbleH);
 
     // Tail
     ctx.beginPath();
@@ -7033,7 +7028,7 @@ class IsometricRenderer {
         const alpha = Math.min(1.0, ft.life / (ft.maxLife * 0.35));
         const fontSize = Math.round(ft.size * z * (ft.scale || 1.0));
 
-        ctx.font = `900 ${fontSize}px Outfit, sans-serif`;
+        ctx.font = `${Math.round(fontSize * 1.2)}px "Jersey 10", monospace`;
         ctx.globalAlpha = alpha;
 
         // 1. High Performance Deep Solid Dark Outline (No shadowBlur software filter!)

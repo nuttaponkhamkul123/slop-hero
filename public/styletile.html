@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Slop Hero Pixel UI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Jersey+10&family=Pixelify+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* ===== Pixel UI tokens =====
+       Palette: Sweetie 16 (GrafxKid) + 3 extensions (leather x2, epic purple).
+       Every colour in the UI must come from this list. */
+    :root {
+      --ink: #1a1c2c;       /* outlines, deepest shadow */
+      --plum: #5d275d;
+      --red: #b13e53;
+      --orange: #ef7d57;
+      --gold: #ffcd75;
+      --lime: #a7f070;
+      --green: #38b764;
+      --teal: #257179;
+      --navy: #29366f;
+      --blue: #3b5dc9;
+      --sky: #41a6f6;
+      --cyan: #73eff7;
+      --white: #f4f4f4;
+      --steel: #94b0c2;
+      --slate: #566c86;
+      --night: #333c57;
+      --leather: #6b3e2e;   /* ext */
+      --tan: #a0603a;       /* ext */
+      --epic: #9a5bd6;      /* ext */
+
+      --px: 3px;            /* one "art pixel" on screen */
+      --font-display: 'Jersey 10', monospace;
+      --font-ui: 'Pixelify Sans', monospace;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; }
+    body {
+      background: var(--ink);
+      color: var(--white);
+      font-family: var(--font-ui);
+      font-size: 16px;
+      line-height: 1.35;
+      -webkit-font-smoothing: none;
+      font-smooth: never;
+      image-rendering: pixelated;
+      padding: 24px 16px 64px;
+    }
+    /* checkerboard dither backdrop, like a game screen behind the UI */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      background:
+        repeating-conic-gradient(#20233a 0% 25%, var(--ink) 0% 50%) 0 0 / 6px 6px;
+    }
+
+    .page { max-width: 1120px; margin: 0 auto; }
+
+    /* ===== Pixel frame primitive =====
+       Outline drawn with 4 hard box-shadows (gives notched corners),
+       bevel with 2 inset shadows. No blur anywhere. */
+    .px {
+      --bg: var(--night);
+      --hi: var(--slate);
+      --lo: var(--ink);
+      --line: var(--ink);
+      background: var(--bg);
+      margin: var(--px);
+      box-shadow:
+        0 calc(-1 * var(--px)) 0 0 var(--line),
+        0 var(--px) 0 0 var(--line),
+        calc(-1 * var(--px)) 0 0 0 var(--line),
+        var(--px) 0 0 0 var(--line),
+        inset var(--px) var(--px) 0 0 var(--hi),
+        inset calc(-1 * var(--px)) calc(-1 * var(--px)) 0 0 var(--lo);
+    }
+    .px.parchment { --bg: #e9cf9a; --hi: #f6e2b6; --lo: var(--tan); color: var(--ink); }
+    .px.inset { --bg: var(--ink); --hi: #11121d; --lo: var(--slate); }
+
+    h1, h2, h3 { font-family: var(--font-display); font-weight: 400; margin: 0; letter-spacing: 1px; }
+    .logo {
+      font-family: var(--font-display);
+      font-size: 72px;
+      line-height: 0.9;
+      color: var(--gold);
+      text-shadow:
+        3px 0 var(--ink), -3px 0 var(--ink), 0 3px var(--ink), 0 -3px var(--ink),
+        6px 6px 0 var(--red);
+    }
+    .lede { color: var(--steel); max-width: 640px; margin: 12px 0 28px; }
+
+    .section-title {
+      font-family: var(--font-display);
+      font-size: 30px;
+      color: var(--gold);
+      margin: 36px 0 12px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .section-title::after { content: ''; flex: 1; height: var(--px); background: var(--night); }
+
+    .grid { display: grid; gap: 20px; }
+    .cols-2 { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+    .cols-3 { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+    .card { padding: 16px; }
+    .label { font-size: 13px; color: var(--steel); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+
+    /* ===== Palette ===== */
+    .swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 12px; }
+    .swatch { padding: 0; }
+    .swatch .chip { height: 42px; }
+    .swatch .meta { padding: 6px 8px 8px; font-size: 13px; }
+    .swatch .meta b { display: block; font-weight: 600; }
+    .swatch .meta span { color: var(--steel); }
+
+    /* ===== Type ===== */
+    .type-row { display: flex; align-items: baseline; gap: 16px; padding: 6px 0; border-bottom: var(--px) solid var(--ink); }
+    .type-row:last-child { border-bottom: 0; }
+    .type-row .spec { width: 140px; font-size: 13px; color: var(--steel); flex: none; }
+
+    /* ===== Buttons ===== */
+    .btn {
+      --bg: var(--blue); --hi: var(--sky); --lo: var(--navy);
+      font-family: var(--font-display);
+      font-size: 22px;
+      color: var(--white);
+      border: 0;
+      padding: 6px 18px 8px;
+      cursor: pointer;
+      text-shadow: 0 var(--px) 0 var(--navy);
+    }
+    .btn:hover, .btn.is-hover { --bg: var(--sky); --hi: var(--cyan); }
+    .btn:active, .btn.is-active {
+      transform: translateY(var(--px));
+      --hi: var(--navy); --lo: var(--sky);
+    }
+    .btn.gold { --bg: #e9a93a; --hi: var(--gold); --lo: var(--tan); color: var(--ink); text-shadow: 0 var(--px) 0 var(--gold); }
+    .btn.danger { --bg: var(--red); --hi: var(--orange); --lo: var(--plum); text-shadow: 0 var(--px) 0 var(--plum); }
+    .btn:disabled, .btn.is-disabled { --bg: var(--night); --hi: var(--slate); --lo: var(--ink); color: var(--slate); text-shadow: none; cursor: not-allowed; transform: none; }
+    .btn-row { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
+
+    /* ===== Unit frame & bars ===== */
+    .unit { display: flex; gap: 12px; padding: 10px; align-items: center; }
+    .portrait {
+      --bg: #4c5f7a; --hi: var(--steel); --lo: var(--ink);
+      width: 72px; height: 72px; flex: none; position: relative; overflow: hidden;
+    }
+    .portrait .sprite {
+      position: absolute; inset: -6px -10px 0;
+      background: url('sprites/swordman_idle_strip.png') 0 0 / 400% auto no-repeat;
+      image-rendering: pixelated;
+    }
+    .lvl {
+      position: absolute; right: -2px; bottom: -2px;
+      font-family: var(--font-display); font-size: 18px; line-height: 1;
+      background: var(--gold); color: var(--ink); padding: 2px 5px 3px;
+      box-shadow: 0 0 0 var(--px) var(--ink);
+    }
+    .unit-info { flex: 1; min-width: 0; }
+    .unit-name { display: flex; justify-content: space-between; align-items: baseline; }
+    .unit-name h3 { font-size: 26px; color: var(--white); }
+    .unit-name span { font-size: 13px; color: var(--steel); text-transform: uppercase; }
+
+    /* segmented bar: each 10% is its own pixel block */
+    .bar {
+      position: relative; height: 18px; margin: 6px 0 0;
+      background: var(--ink);
+      box-shadow: 0 0 0 var(--px) var(--ink);
+    }
+    .bar .fill {
+      height: 100%;
+      background:
+        linear-gradient(var(--hi) 0 3px, transparent 3px),
+        repeating-linear-gradient(90deg, transparent 0 calc(10% - 3px), var(--ink) calc(10% - 3px) 10%),
+        var(--c);
+    }
+    .bar.hp { --c: var(--red); --hi: var(--orange); }
+    .bar.mp { --c: var(--blue); --hi: var(--sky); }
+    .bar.xp { --c: var(--epic); --hi: #c79af0; height: 8px; }
+    .bar .num {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      font-family: var(--font-display); font-size: 17px; line-height: 1;
+      text-shadow: var(--px) 0 var(--ink), calc(-1 * var(--px)) 0 var(--ink), 0 var(--px) var(--ink), 0 calc(-1 * var(--px)) var(--ink);
+      font-variant-numeric: tabular-nums;
+    }
+    .bar.low .fill { animation: lowHp 0.8s steps(2) infinite; }
+    @keyframes lowHp { 50% { --c: var(--orange); filter: brightness(1.35); } }
+
+    /* ===== Hotbar ===== */
+    .hotbar { display: flex; gap: 6px; padding: 8px; width: max-content; max-width: 100%; flex-wrap: wrap; }
+    .slot {
+      --bg: #262b44; --hi: var(--ink); --lo: var(--slate);
+      width: 54px; height: 54px; position: relative; display: grid; place-items: center;
+    }
+    .slot canvas { width: 36px; height: 36px; }
+    .slot .key {
+      position: absolute; top: 2px; left: 4px;
+      font-family: var(--font-display); font-size: 15px; line-height: 1; color: var(--gold);
+      text-shadow: 0 2px 0 var(--ink);
+    }
+    .slot .count {
+      position: absolute; bottom: 1px; right: 4px;
+      font-family: var(--font-display); font-size: 17px; line-height: 1;
+      text-shadow: 2px 0 var(--ink), -2px 0 var(--ink), 0 2px var(--ink), 0 -2px var(--ink);
+    }
+    /* cooldown: a stepped clock wipe (8 frames, no smooth easing) */
+    .slot .cd {
+      position: absolute; inset: 3px;
+      background: conic-gradient(rgba(26, 28, 44, 0.78) var(--cd), transparent 0);
+    }
+    .slot .cd-num {
+      position: absolute; inset: 0; display: grid; place-items: center;
+      font-family: var(--font-display); font-size: 24px; color: var(--white);
+      text-shadow: 2px 2px 0 var(--ink);
+    }
+    .slot.ready { --hi: var(--gold); --lo: var(--tan); }
+    .divider { width: var(--px); background: var(--slate); margin: 6px 4px; }
+
+    /* ===== Window ===== */
+    .window { padding: 0; }
+    .titlebar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 6px 10px 8px 14px;
+      background: var(--navy);
+      box-shadow: inset 0 calc(-1 * var(--px)) 0 0 var(--ink), inset var(--px) var(--px) 0 0 var(--blue);
+    }
+    .titlebar h2 { font-size: 28px; color: var(--white); text-shadow: 0 var(--px) 0 var(--ink); }
+    .close { width: 30px; height: 30px; display: grid; place-items: center; padding: 0; font-family: var(--font-display); font-size: 22px; }
+    .tabs { display: flex; gap: 4px; padding: 10px 12px 0; }
+    .tab {
+      font-family: var(--font-display); font-size: 20px; padding: 4px 14px 2px;
+      background: var(--ink); color: var(--slate); border: 0; cursor: pointer;
+      box-shadow: inset 0 var(--px) 0 0 var(--night);
+    }
+    .tab.active { background: var(--night); color: var(--gold); box-shadow: inset 0 var(--px) 0 0 var(--slate); }
+    .window-body { padding: 14px; background: var(--night); display: flex; gap: 16px; flex-wrap: wrap; }
+
+    .inv { display: grid; grid-template-columns: repeat(6, 48px); gap: 4px; padding: 8px; }
+    .cell {
+      --bg: #262b44; --hi: var(--ink); --lo: #3d4565; --line: var(--rar, var(--ink));
+      width: 48px; height: 48px; margin: 0; display: grid; place-items: center; position: relative;
+    }
+    .cell canvas { width: 36px; height: 36px; }
+    .cell.common { --rar: var(--slate); }
+    .cell.uncommon { --rar: var(--green); }
+    .cell.rare { --rar: var(--sky); }
+    .cell.epic { --rar: var(--epic); }
+    .cell.legendary { --rar: var(--orange); }
+    .cell.selected { outline: var(--px) solid var(--white); outline-offset: var(--px); }
+
+    /* ===== Tooltip ===== */
+    .tooltip { width: 260px; padding: 12px 14px; --bg: #141626; --hi: #262b44; --lo: var(--ink); --line: var(--epic); }
+    .tooltip h4 { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 24px; color: #c79af0; line-height: 1; }
+    .tooltip .kind { font-size: 13px; color: var(--steel); margin: 2px 0 8px; }
+    .tooltip hr { border: 0; height: var(--px); background: var(--night); margin: 8px 0; }
+    .tooltip .stat { display: flex; justify-content: space-between; font-size: 15px; }
+    .tooltip .stat b { font-family: var(--font-display); font-weight: 400; font-size: 19px; color: var(--lime); font-variant-numeric: tabular-nums; }
+    .tooltip .flavor { font-size: 13px; color: var(--slate); font-style: italic; }
+    .tooltip .price { display: flex; align-items: center; gap: 6px; font-family: var(--font-display); font-size: 19px; color: var(--gold); }
+    .tooltip .price canvas { width: 18px; height: 18px; }
+
+    /* ===== Chat & minimap ===== */
+    .chat { padding: 10px 12px; font-size: 14px; }
+    .chat p { margin: 0 0 4px; }
+    .chat .sys { color: var(--steel); }
+    .chat .loot { color: var(--lime); }
+    .chat .warn { color: var(--orange); }
+    .chat .name { color: var(--gold); }
+    .chat .input { margin-top: 8px; padding: 6px 8px; font-size: 14px; color: var(--slate); }
+
+    .minimap { width: 168px; height: 168px; position: relative; padding: 0; }
+    .minimap canvas { width: 100%; height: 100%; display: block; }
+    .compass {
+      position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+      font-family: var(--font-display); font-size: 18px; line-height: 1;
+      background: var(--red); color: var(--white); padding: 1px 7px 3px;
+      box-shadow: 0 0 0 var(--px) var(--ink);
+    }
+    .zone-tag {
+      position: absolute; left: 50%; bottom: -16px; transform: translateX(-50%);
+      white-space: nowrap; font-family: var(--font-display); font-size: 18px; line-height: 1;
+      padding: 3px 10px 5px; color: var(--gold);
+      background: var(--ink); box-shadow: 0 0 0 var(--px) var(--slate);
+    }
+
+    /* ===== Combat text ===== */
+    .combat { display: flex; gap: 22px; align-items: flex-end; flex-wrap: wrap; padding: 18px; }
+    .dmg {
+      font-family: var(--font-display); line-height: 1;
+      text-shadow: 3px 0 var(--ink), -3px 0 var(--ink), 0 3px var(--ink), 0 -3px var(--ink), 3px 3px var(--ink);
+    }
+    .dmg.normal { font-size: 26px; color: var(--white); }
+    .dmg.crit { font-size: 44px; color: var(--gold); }
+    .dmg.heal { font-size: 26px; color: var(--lime); }
+    .dmg.taken { font-size: 26px; color: var(--red); }
+    .dmg.miss { font-size: 22px; color: var(--slate); }
+    .dmg small { display: block; font-size: 13px; font-family: var(--font-ui); color: var(--steel); text-shadow: none; margin-top: 6px; }
+
+    /* ===== Banner ===== */
+    .banner { text-align: center; padding: 22px 16px 18px; --line: var(--ink); --bg: #3a1424; --hi: var(--red); --lo: var(--plum); }
+    .banner h2 { font-size: 56px; color: var(--orange); line-height: 0.9; text-shadow: 0 4px 0 var(--ink); }
+    .banner p { color: var(--white); margin: 8px 0 14px; }
+
+    .note { font-size: 14px; color: var(--steel); margin-top: 10px; }
+    .icons-row { display: flex; flex-wrap: wrap; gap: 10px; }
+    .icon-cell { display: grid; justify-items: center; gap: 4px; font-size: 12px; color: var(--steel); }
+    .icon-cell canvas { width: 48px; height: 48px; }
+    canvas { image-rendering: pixelated; }
+  </style>
+</head>
+<body>
+<div class="page">
+  <div class="logo">SLOP HERO</div>
+  <p class="lede">Pixel UI style tile. One 16-colour palette (+3), two pixel fonts, hard 3px bevels, no blur, no glow, no emoji. Motion only when it means something: cooldowns, low health, button presses.</p>
+
+  <!-- PALETTE -->
+  <div class="section-title">Palette</div>
+  <div class="swatches" id="swatches"></div>
+
+  <!-- TYPE -->
+  <div class="section-title">Type</div>
+  <div class="px card">
+    <div class="type-row"><div class="spec">Display 56 / Jersey 10</div><div style="font-family:var(--font-display);font-size:56px;line-height:1;color:var(--gold)">Dungeon Cleared</div></div>
+    <div class="type-row"><div class="spec">Title 30 / Jersey 10</div><div style="font-family:var(--font-display);font-size:30px">Brom the Master Smith</div></div>
+    <div class="type-row"><div class="spec">Number 22 / Jersey 10</div><div style="font-family:var(--font-display);font-size:22px;font-variant-numeric:tabular-nums">305 / 305 HP &nbsp; 1,284 Gold</div></div>
+    <div class="type-row"><div class="spec">Body 16 / Pixelify</div><div>Defeat the boss to keep everything you found in the chests.</div></div>
+    <div class="type-row"><div class="spec">Label 13 / Pixelify</div><div style="font-size:13px;color:var(--steel);text-transform:uppercase;letter-spacing:1px">Warrior · Juggernaut</div></div>
+  </div>
+
+  <!-- HUD -->
+  <div class="section-title">In-game HUD</div>
+  <div class="grid cols-2">
+    <div>
+      <div class="label">Unit frame</div>
+      <div class="px unit" style="max-width:380px">
+        <div class="px portrait"><div class="sprite"></div><div class="lvl">24</div></div>
+        <div class="unit-info">
+          <div class="unit-name"><h3>SlopHero</h3><span>Warrior</span></div>
+          <div class="bar hp"><div class="fill" style="width:72%"></div><div class="num">221 / 305</div></div>
+          <div class="bar mp"><div class="fill" style="width:46%"></div><div class="num">58 / 125</div></div>
+          <div class="bar xp"><div class="fill" style="width:63%"></div></div>
+        </div>
+      </div>
+
+      <div class="label" style="margin-top:22px">Low health (pulses in 2 hard steps)</div>
+      <div class="px" style="max-width:380px;padding:10px">
+        <div class="bar hp low"><div class="fill" style="width:18%"></div><div class="num">54 / 305</div></div>
+      </div>
+
+      <div class="label" style="margin-top:22px">Hotbar</div>
+      <div class="px hotbar" id="hotbar"></div>
+    </div>
+
+    <div style="display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start">
+      <div>
+        <div class="label">Minimap</div>
+        <div class="px minimap"><canvas id="minimap" width="56" height="56"></canvas><div class="compass">N</div><div class="zone-tag">Verdant Wildwood · Lv 16-27</div></div>
+      </div>
+      <div style="flex:1;min-width:240px">
+        <div class="label">Chat</div>
+        <div class="px chat">
+          <p class="sys">You entered Verdant Wildwood.</p>
+          <p><span class="name">Mira:</span> anyone up for the treant?</p>
+          <p class="loot">Picked up Ancient Ruby.</p>
+          <p class="warn">Inventory almost full (22/24).</p>
+          <div class="px inset input">Press Enter to chat…</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- COMBAT TEXT -->
+  <div class="section-title">Combat text</div>
+  <div class="px combat">
+    <div class="dmg normal">128<small>normal hit</small></div>
+    <div class="dmg crit">412!<small>critical</small></div>
+    <div class="dmg heal">+60<small>heal / leech</small></div>
+    <div class="dmg taken">-37<small>damage taken</small></div>
+    <div class="dmg miss">miss<small>dodged</small></div>
+  </div>
+
+  <!-- CONTROLS -->
+  <div class="section-title">Buttons</div>
+  <div class="px card">
+    <div class="btn-row">
+      <button class="px btn">Default</button>
+      <button class="px btn is-hover">Hover</button>
+      <button class="px btn is-active">Pressed</button>
+      <button class="px btn gold">Buy 250g</button>
+      <button class="px btn danger">Leave run</button>
+      <button class="px btn is-disabled" disabled>Locked</button>
+    </div>
+    <div class="note">Pressed state moves down one art pixel and flips the bevel. No transitions.</div>
+  </div>
+
+  <!-- WINDOW -->
+  <div class="section-title">Window, inventory &amp; tooltip</div>
+  <div class="px window">
+    <div class="titlebar"><h2>Inventory</h2><button class="px btn danger close">x</button></div>
+    <div class="tabs"><button class="tab active">Bag</button><button class="tab">Equipment</button><button class="tab">Relics</button></div>
+    <div class="window-body">
+      <div class="px inset inv" id="inv"></div>
+      <div class="px tooltip">
+        <h4>Shadowfang Edge</h4>
+        <div class="kind">Epic One-hand Sword · Lv 24</div>
+        <div class="stat"><span>Attack</span><b>+48</b></div>
+        <div class="stat"><span>Crit chance</span><b>+6%</b></div>
+        <div class="stat"><span>Attack speed</span><b>+10%</b></div>
+        <hr>
+        <div class="flavor">Forged in Mirefen, quenched in bog water.</div>
+        <hr>
+        <div class="price"><canvas data-icon="coin" width="12" height="12"></canvas>1,240</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ICONS -->
+  <div class="section-title">Pixel icons (12×12, palette only)</div>
+  <div class="px card"><div class="icons-row" id="icons"></div>
+    <div class="note">Skill and talent icons would be redrawn in this same 12×12 grid so the whole UI shares one pixel density.</div>
+  </div>
+
+  <!-- BANNER -->
+  <div class="section-title">Result banner</div>
+  <div class="px banner" style="max-width:520px">
+    <h2>Mission Failed</h2>
+    <p>You left before the boss fell. 2 of 8 chest items kept.</p>
+    <button class="px btn">Continue</button>
+  </div>
+</div>
+
+<script>
+  const PAL = {
+    k: '#1a1c2c', p: '#5d275d', r: '#b13e53', o: '#ef7d57', y: '#ffcd75', L: '#a7f070', g: '#38b764', t: '#257179',
+    n: '#29366f', b: '#3b5dc9', B: '#41a6f6', c: '#73eff7', w: '#f4f4f4', l: '#94b0c2', s: '#566c86', d: '#333c57',
+    m: '#6b3e2e', T: '#a0603a', e: '#9a5bd6'
+  };
+  const NAMES = { k: 'ink', p: 'plum', r: 'red', o: 'orange', y: 'gold', L: 'lime', g: 'green', t: 'teal', n: 'navy', b: 'blue', B: 'sky', c: 'cyan', w: 'white', l: 'steel', s: 'slate', d: 'night', m: 'leather*', T: 'tan*', e: 'epic*' };
+
+  // 12x12 icons, one character per art pixel ('.' = transparent)
+  const ICONS = {
+    sword: [
+      '.........kkk', '........kwlk', '.......kwlk.', '......kwlk..', '.....kwlk...', '.k..kwlk....',
+      'kyk.kwlk....', '.kykwlk.....', '..kyyk......', '.kmkkyk.....', 'kmk..kyk....', 'kk....k.....'],
+    hp_potion: [
+      '....kkkk....', '....kmmk....', '....kkkk....', '.....kk.....', '....kwwk....', '...krwrrk...',
+      '..krwrrrrk..', '..krrrrrrk..', '..krrrrrrk..', '..kprrrrpk..', '...kkkkkk...', '............'],
+    mp_potion: [
+      '....kkkk....', '....kmmk....', '....kkkk....', '.....kk.....', '....kwwk....', '...kbwbbk...',
+      '..kbwBbbbk..', '..kbBbbbbk..', '..kbbbbbbk..', '..knbbbbnk..', '...kkkkkk...', '............'],
+    coin: [
+      '............', '....kkkk....', '..kkyyyykk..', '.kyywyyyTyk.', '.kywyyyyyTk.', 'kyyyykkyyyTk',
+      'kyyyykkyyyTk', '.kyyyyyyyTk.', '.kyyyyyyTTk.', '..kkTTTTkk..', '....kkkk....', '............'],
+    heart: [
+      '............', '.kkk...kkk..', 'krrrk.krrrk.', 'krwrrkrrrrk.', 'krrrrrrrrrk.', 'krrrrrrrrrk.',
+      '.krrrrrrrpk.', '..krrrrrpk..', '...krrrpk...', '....krpk....', '.....kk.....', '............'],
+    shield: [
+      '.kkkkkkkkkk.', 'klllllssssk.', 'klwlllsddsk.', 'kllyyyydddk.', 'kllyrryyddk.', 'kllyrryyddk.',
+      '.klyyyyydk..', '.klllssddk..', '..kllsddk...', '...klsdk....', '....kkk.....', '............'],
+    skull: [
+      '...kkkkkk...', '..kwwwwwwk..', '.kwwwwwwwlk.', '.kwkkwwkklk.', '.kwkkwwkklk.', '.kwwwkkwwlk.',
+      '..kwwwwwlk..', '..kwkwkwk...', '..kkkkkkk...', '............', '............', '............'],
+    bag: [
+      '....kkkk....', '...kTkkTk...', '...kk..kk...', '..kkkkkkkk..', '.kTTTTTTTmk.', 'kTTyyTTTTTmk',
+      'kTTyyTTTTTmk', 'kTTTTTTTTTmk', 'kTTTTTTTTmmk', '.kmmmmmmmmk.', '..kkkkkkkk..', '............'],
+    scroll: [
+      '.kkkkkkkkk..', 'kwwwwwwwwyk.', 'kyyyyyyyyyk.', '.kyssssssyk.', '.kyyyyyyyyk.', '.kysssssyyk.',
+      '.kyyyyyyyyk.', '.kyssssyyyk.', 'kyyyyyyyyyk.', 'kTTTTTTTTTk.', '.kkkkkkkkk..', '............'],
+    gem: [
+      '............', '...kkkkkk...', '..keeweeek..', '.keewweeeek.', 'kkkkkkkkkkkk', 'keeeewweeeek',
+      '.keeeweeeek.', '..keeeeeek..', '...keeeek...', '....keek....', '.....kk.....', '............'],
+    whirl: [
+      '...kkkkk....', '..kccccck...', '.kckkkkcck..', 'kck....kck..', 'kck.kk..kck.', 'kck.kck.kck.',
+      'kck..kccck..', '.kck..kkk...', '..kcck...k..', '...kkccckk..', '.....kkk....', '............'],
+    fire: [
+      '.....k......', '....kok.....', '....kook....', '...koyok....', '..koyyok.k..', '..koyyyokok.',
+      '.koyywyyook.', '.koywwwyyok.', '.koyywwyyok.', '..koyyyyok..', '...kkkkkk...', '............']
+  };
+
+  function drawIcon(canvas, name) {
+    const rows = ICONS[name];
+    const ctx = canvas.getContext('2d');
+    canvas.width = 12; canvas.height = 12;
+    rows.forEach((row, y) => [...row].forEach((ch, x) => {
+      if (ch === '.') return;
+      ctx.fillStyle = PAL[ch];
+      ctx.fillRect(x, y, 1, 1);
+    }));
+  }
+  const iconCanvas = (name) => { const c = document.createElement('canvas'); drawIcon(c, name); return c; };
+
+  // palette swatches
+  const sw = document.getElementById('swatches');
+  Object.entries(PAL).forEach(([k, hex]) => {
+    sw.insertAdjacentHTML('beforeend', `<div class="px swatch"><div class="chip" style="background:${hex}"></div><div class="meta"><b>${NAMES[k]}</b><span>${hex}</span></div></div>`);
+  });
+
+  // hotbar
+  const hb = document.getElementById('hotbar');
+  const slots = [
+    { key: 'SPC', icon: 'sword' }, { key: 'Q', icon: 'whirl', cd: 0.625, sec: 2 }, { key: 'E', icon: 'fire' },
+    { key: 'R', icon: 'skull', cd: 0.25, sec: 7 }, { key: 'SHF', icon: 'shield', ready: true }, 'div',
+    { key: '1', icon: 'hp_potion', count: 3 }, { key: '2', icon: 'mp_potion', count: 2 }
+  ];
+  slots.forEach(s => {
+    if (s === 'div') { hb.insertAdjacentHTML('beforeend', '<div class="divider"></div>'); return; }
+    const el = document.createElement('div');
+    el.className = `px slot${s.ready ? ' ready' : ''}`;
+    el.appendChild(iconCanvas(s.icon));
+    el.insertAdjacentHTML('beforeend', `<span class="key">${s.key}</span>`);
+    if (s.count) el.insertAdjacentHTML('beforeend', `<span class="count">${s.count}</span>`);
+    if (s.cd) el.insertAdjacentHTML('beforeend', `<div class="cd" style="--cd:${Math.round(s.cd * 8) / 8 * 360}deg"></div><div class="cd-num">${s.sec}</div>`);
+    hb.appendChild(el);
+  });
+
+  // inventory grid
+  const inv = document.getElementById('inv');
+  const items = [
+    ['sword', 'epic', true], ['hp_potion', 'common'], ['mp_potion', 'common'], ['gem', 'rare'], ['shield', 'uncommon'], ['coin', 'common'],
+    ['scroll', 'uncommon'], ['skull', 'legendary'], ['bag', 'common'], [null], [null], [null],
+    [null], [null], [null], [null], [null], [null]
+  ];
+  items.forEach(([icon, rar, sel]) => {
+    const el = document.createElement('div');
+    el.className = `px cell ${rar || ''}${sel ? ' selected' : ''}`;
+    if (icon) el.appendChild(iconCanvas(icon));
+    inv.appendChild(el);
+  });
+
+  // icon sheet
+  const ic = document.getElementById('icons');
+  Object.keys(ICONS).forEach(name => {
+    const cell = document.createElement('div');
+    cell.className = 'icon-cell';
+    cell.appendChild(iconCanvas(name));
+    cell.insertAdjacentHTML('beforeend', `<span>${name}</span>`);
+    ic.appendChild(cell);
+  });
+  document.querySelectorAll('canvas[data-icon]').forEach(c => drawIcon(c, c.dataset.icon));
+
+  // minimap: tiny palette-only terrain
+  const mm = document.getElementById('minimap').getContext('2d');
+  for (let y = 0; y < 56; y++) for (let x = 0; x < 56; x++) {
+    const road = Math.abs(x - (28 + Math.round(Math.sin(y * 0.22) * 6))) <= 1;
+    const lake = Math.hypot(x - 14, y - 18) < 8 || Math.hypot(x - 40, y - 34) < 7;
+    mm.fillStyle = (x < 2 || y < 2 || x > 53 || y > 53) ? PAL.k : lake ? PAL.t : road ? PAL.T : ((x * 7 + y * 13) % 5 ? PAL.g : '#2f8f52');
+    mm.fillRect(x, y, 1, 1);
+  }
+  [[20, 30], [33, 12], [44, 24], [12, 40]].forEach(([x, y]) => { mm.fillStyle = PAL.r; mm.fillRect(x, y, 2, 2); });
+  mm.fillStyle = PAL.y; mm.fillRect(27, 44, 2, 2);
+  mm.fillStyle = PAL.w; mm.fillRect(28, 47, 3, 3);
+</script>
+</body>
+</html>
