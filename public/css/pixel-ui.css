@@ -1,0 +1,419 @@
+/* =====================================================================
+   Slop Hero - Pixel UI layer
+   Loaded after style.css and restyles every component in one visual
+   language: Sweetie 16 palette (+3), Jersey 10 / Pixelify Sans, hard 3px
+   bevels, no blur, no glow, no gradients, no emoji.
+   Reference: public/styletile.html
+   ===================================================================== */
+
+:root {
+  --ink: #1a1c2c; --plum: #5d275d; --red: #b13e53; --orange: #ef7d57; --gold: #ffcd75; --lime: #a7f070;
+  --green: #38b764; --teal: #257179; --navy: #29366f; --blue: #3b5dc9; --sky: #41a6f6; --cyan: #73eff7;
+  --white: #f4f4f4; --steel: #94b0c2; --slate: #566c86; --night: #333c57;
+  --leather: #6b3e2e; --tan: #a0603a; --epic: #9a5bd6;
+  --px: 3px;
+  --font-display: 'Jersey 10', monospace;
+  --font-px: 'Pixelify Sans', monospace;
+
+  /* legacy variables used across style.css, remapped to the palette */
+  --bg-dark: var(--ink);
+  --panel-bg: var(--night);
+  --panel-border: var(--ink);
+  --panel-glow: transparent;
+  --gold-accent: var(--gold);
+  --gold-light: var(--gold);
+  --gold-dark: var(--tan);
+  --hp-red: var(--red);
+  --hp-red-dark: var(--plum);
+  --mp-blue: var(--blue);
+  --mp-blue-dark: var(--navy);
+  --exp-purple: var(--epic);
+  --exp-purple-dark: var(--plum);
+  --text-main: var(--white);
+  --text-muted: var(--steel);
+  --font-title: var(--font-display);
+  --font-ui: var(--font-px);
+  --font-fantasy: var(--font-display);
+}
+
+/* ---------- global resets: no rounding, no blur, no smooth fonts ---------- */
+*, *::before, *::after {
+  border-radius: 0 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+html, body {
+  font-family: var(--font-px);
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: unset;
+  font-smooth: never;
+  background: var(--ink);
+}
+img.pxi, canvas, .skill-svg { image-rendering: pixelated; }
+img.pxi { display: inline-block; width: 24px; height: 24px; vertical-align: middle; }
+button, input, select, textarea { font-family: var(--font-px); }
+.interactive, .hud-panel, .modal-card { text-shadow: none; }
+::selection { background: var(--blue); color: var(--white); }
+
+/* ---------- the pixel frame (outline + bevel), shared by all panels ---------- */
+.hud-panel, .modal-card, .info-chip, .menu-btn, .btn-icon-hud, .action-slot, .minimap-panel,
+.chat-container, .meta-info-row, .shop-item-card, .equip-slot, .inv-slot-compact, .floor-card,
+.diff-card, .class-card, .talent-branch-column, .talent-detail-panel, .hotbar-slot-card,
+.catalog-skill-card, .reforge-list-item, .reforge-bench, .reforge-chance-box, .stat-pill,
+.skill-points-banner, .class-preview-pane, .dungeon-run-bag, .dungeon-result-card, .gear-bonuses-bar,
+.mobile-skill-btn, .mobile-btn-attack, .mobile-potion-btn, .mobile-util-btn, .mobile-menu-drawer,
+.potion-quick-btn, .reforge-item-selector, .input-field, .chat-input, .stats-table,
+.talent-node, .loadout-runes-section, .affix-info-strip, .player-frame, .target-hud {
+  --bg: var(--night); --hi: var(--slate); --lo: var(--ink); --line: var(--ink);
+  background: var(--bg) !important;
+  border: 0 !important;
+  box-shadow:
+    0 calc(-1 * var(--px)) 0 0 var(--line),
+    0 var(--px) 0 0 var(--line),
+    calc(-1 * var(--px)) 0 0 0 var(--line),
+    var(--px) 0 0 0 var(--line),
+    inset var(--px) var(--px) 0 0 var(--hi),
+    inset calc(-1 * var(--px)) calc(-1 * var(--px)) 0 0 var(--lo) !important;
+  animation: none;
+}
+
+/* sunken wells (inputs, slots, inventory cells) */
+.action-slot, .equip-slot, .inv-slot-compact, .input-field, .chat-input, .hotbar-slot-card, .talent-node,
+.reforge-item-selector, .stats-table {
+  --bg: #262b44; --hi: var(--ink); --lo: #3d4565;
+}
+
+/* ---------- typography ---------- */
+.modal-title, .player-name, .target-name, .class-title, .class-preview-name, .floor-title, .death-title,
+.branch-title, .talent-name, .section-title, .loadout-section-title, .diff-title, .shop-item-name,
+.equip-item-name, .reforge-item-name, .catalog-mini-name, .sp-count, .floor-num, .level-badge,
+.run-bag-title, .dungeon-result-title, .portal-section-label, .join-step-label, .stat-bar-text,
+.slot-key, .slot-badge, .talent-node-rank, .hotbar-slot-key-badge, .slot-card-badge, .diff-badge,
+.catalog-level-badge, .catalog-mini-level, .rf-item-lvl, .reforge-level-pill, .floor-level-rec {
+  font-family: var(--font-display) !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.5px;
+  text-shadow: none;
+}
+.modal-title {
+  font-size: 36px !important;
+  line-height: 1;
+  color: var(--gold) !important;
+  text-shadow: 0 var(--px) 0 var(--ink) !important;
+}
+.modal-subtitle, .class-subtitle, .sub-label, .field-label, .class-desc, .talent-desc, .shop-item-desc, .cat-skill-desc {
+  color: var(--steel) !important;
+  font-family: var(--font-px);
+}
+.player-class-tag, .label, .stat-pill { font-family: var(--font-px); }
+
+/* ---------- overlay & window ---------- */
+.modal-overlay {
+  background: rgba(26, 28, 44, 0.82) !important;
+  background-image: repeating-conic-gradient(rgba(26, 28, 44, 0.5) 0% 25%, transparent 0% 50%) !important;
+  background-size: 6px 6px !important;
+}
+.modal-card { --bg: var(--night); animation: pxPop 0.12s steps(2); }
+@keyframes pxPop { from { transform: translateY(6px); } to { transform: none; } }
+.modal-header {
+  margin: calc(-1 * var(--px)) calc(-1 * var(--px)) 0;
+  border: 0 !important;
+}
+.modal-close {
+  --bg: var(--red); --hi: var(--orange); --lo: var(--plum); --line: var(--ink);
+  width: 30px; height: 30px;
+  display: grid !important; place-items: center;
+  color: var(--white) !important;
+  font-family: var(--font-display) !important;
+  font-size: 22px !important;
+  line-height: 1;
+  background: var(--bg) !important;
+  box-shadow:
+    0 calc(-1 * var(--px)) 0 0 var(--line), 0 var(--px) 0 0 var(--line),
+    calc(-1 * var(--px)) 0 0 0 var(--line), var(--px) 0 0 0 var(--line),
+    inset var(--px) var(--px) 0 0 var(--hi), inset calc(-1 * var(--px)) calc(-1 * var(--px)) 0 0 var(--lo) !important;
+}
+.modal-close:active { transform: translateY(var(--px)); }
+
+/* ---------- buttons ---------- */
+.btn-primary, .btn-enter-portal, .btn-learn-talent, .btn-reforge, .btn-shop-action, .btn-equip-skill,
+.btn-secondary, .btn-reset-talents, .shop-tab, .reforge-tab, .skills-nav-tab, .rune-pill-btn {
+  --bg: var(--blue); --hi: var(--sky); --lo: var(--navy); --line: var(--ink);
+  background: var(--bg) !important;
+  background-image: none !important;
+  border: 0 !important;
+  color: var(--white) !important;
+  font-family: var(--font-display) !important;
+  font-weight: 400 !important;
+  font-size: 20px !important;
+  letter-spacing: 0.5px;
+  text-shadow: 0 var(--px) 0 var(--lo) !important;
+  transition: none !important;
+  box-shadow:
+    0 calc(-1 * var(--px)) 0 0 var(--line), 0 var(--px) 0 0 var(--line),
+    calc(-1 * var(--px)) 0 0 0 var(--line), var(--px) 0 0 0 var(--line),
+    inset var(--px) var(--px) 0 0 var(--hi), inset calc(-1 * var(--px)) calc(-1 * var(--px)) 0 0 var(--lo) !important;
+  margin: var(--px);
+}
+.btn-primary:hover, .btn-enter-portal:hover, .btn-learn-talent:hover:not(:disabled), .btn-reforge:hover,
+.btn-shop-action:hover, .btn-equip-skill:hover, .btn-secondary:hover, .btn-reset-talents:hover,
+.shop-tab:hover, .reforge-tab:hover, .skills-nav-tab:hover, .rune-pill-btn:hover {
+  --bg: var(--sky); --hi: var(--cyan);
+  transform: none !important;
+}
+.btn-primary:active, .btn-enter-portal:active, .btn-learn-talent:active, .btn-reforge:active, .btn-shop-action:active,
+.btn-equip-skill:active, .btn-secondary:active, .btn-reset-talents:active, .rune-pill-btn:active {
+  transform: translateY(var(--px)) !important;
+  --hi: var(--navy); --lo: var(--sky);
+}
+/* gold call-to-action buttons */
+.btn-primary, .btn-enter-portal, .btn-reforge {
+  --bg: #e9a93a; --hi: var(--gold); --lo: var(--tan);
+  color: var(--ink) !important;
+  text-shadow: 0 var(--px) 0 var(--gold) !important;
+}
+.btn-primary:hover, .btn-enter-portal:hover, .btn-reforge:hover { --bg: var(--gold); --hi: #fff3c4; }
+.btn-secondary, .btn-reset-talents { --bg: var(--night); --hi: var(--slate); --lo: var(--ink); }
+.btn-learn-talent:disabled, .btn-equip-skill.locked, button:disabled {
+  --bg: var(--night) !important; --hi: var(--slate) !important; --lo: var(--ink) !important;
+  color: var(--slate) !important; text-shadow: none !important; cursor: not-allowed;
+}
+/* tabs: inactive tabs are recessed, the active one is the panel colour */
+.shop-tab, .reforge-tab, .skills-nav-tab { --bg: var(--ink); --hi: #262b44; --lo: var(--ink); color: var(--slate) !important; text-shadow: none !important; }
+.shop-tab.active, .reforge-tab.active, .skills-nav-tab.active { --bg: var(--night); --hi: var(--slate); color: var(--gold) !important; }
+
+/* ---------- top HUD ---------- */
+.player-frame { --bg: var(--night); }
+.avatar-wrapper {
+  border: 0 !important;
+  background: #4c5f7a !important;
+  box-shadow: 0 0 0 var(--px) var(--ink), inset var(--px) var(--px) 0 0 var(--steel), inset calc(-1 * var(--px)) calc(-1 * var(--px)) 0 0 var(--ink) !important;
+  overflow: hidden;
+}
+.avatar-icon { font-size: 0 !important; }
+.avatar-icon img.pxi { width: 36px; height: 36px; }
+.avatar-wrapper .portrait-sprite {
+  position: absolute; inset: -4px -8px 0;
+  background-repeat: no-repeat; background-size: 400% auto;
+  image-rendering: pixelated;
+}
+.level-badge {
+  background: var(--gold) !important;
+  color: var(--ink) !important;
+  border: 0 !important;
+  box-shadow: 0 0 0 var(--px) var(--ink) !important;
+  font-size: 17px !important;
+  line-height: 1;
+  padding: 1px 5px 2px !important;
+}
+.player-name { font-size: 24px !important; color: var(--white) !important; }
+.player-class-tag { background: none !important; color: var(--steel) !important; padding: 0 !important; }
+
+.stat-bar-container {
+  background: var(--ink) !important;
+  border: 0 !important;
+  box-shadow: 0 0 0 var(--px) var(--ink) !important;
+  height: 16px !important;
+}
+.stat-bar-fill {
+  box-shadow: none !important;
+  transition: width 0.2s steps(4) !important;
+  background-image:
+    linear-gradient(var(--bar-hi) 0 3px, transparent 3px),
+    repeating-linear-gradient(90deg, transparent 0 calc(10% - 3px), var(--ink) calc(10% - 3px) 10%) !important;
+  background-color: var(--bar-c) !important;
+}
+.hp-fill { --bar-c: var(--red); --bar-hi: var(--orange); }
+.mp-fill { --bar-c: var(--blue); --bar-hi: var(--sky); }
+.exp-fill { --bar-c: var(--epic); --bar-hi: #c79af0; }
+.exp-bar-mini { height: 8px !important; }
+.stat-bar-text {
+  font-size: 16px !important;
+  color: var(--white) !important;
+  text-shadow: 2px 0 var(--ink), -2px 0 var(--ink), 0 2px var(--ink), 0 -2px var(--ink) !important;
+  font-variant-numeric: tabular-nums;
+}
+.target-hud { --bg: #3a1424; --hi: var(--red); --lo: var(--plum); }
+.target-name { color: var(--orange) !important; font-size: 20px !important; }
+
+.minimap-panel { --bg: var(--ink); --hi: var(--slate); padding: var(--px) !important; }
+#minimapCanvas { border-radius: 0 !important; image-rendering: pixelated; }
+
+.meta-info-row { --bg: var(--night); padding: 8px !important; }
+.info-chip {
+  --bg: var(--ink); --hi: #262b44; --lo: var(--ink);
+  font-size: 15px !important;
+  color: var(--white) !important;
+  padding: 3px 8px !important;
+  margin: 0 !important;
+}
+.info-chip img.pxi { width: 18px; height: 18px; }
+.btn-icon-hud {
+  --bg: var(--blue); --hi: var(--sky); --lo: var(--navy);
+  color: var(--white) !important;
+  font-family: var(--font-display) !important;
+  font-size: 18px !important;
+  transition: none !important;
+}
+.btn-icon-hud:hover { --bg: var(--sky); --hi: var(--cyan); transform: none !important; }
+.btn-icon-hud img.pxi { width: 18px; height: 18px; }
+
+/* ---------- action bar ---------- */
+.action-bar { gap: 6px !important; }
+.action-bar-container .action-bar { background: none !important; }
+.action-slot { transition: none !important; overflow: visible !important; }
+.action-slot:hover { transform: none !important; --hi: var(--gold); --lo: var(--tan); }
+.slot-icon { font-size: 0 !important; }
+.slot-icon img.pxi { width: 36px; height: 36px; }
+.action-slot .slot-icon:has(.skill-svg) { width: 42px; height: 42px; }
+.slot-key {
+  color: var(--gold) !important;
+  font-size: 15px !important;
+  text-shadow: 0 2px 0 var(--ink) !important;
+  z-index: 2;
+}
+.slot-badge {
+  background: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  color: var(--white) !important;
+  font-size: 17px !important;
+  text-shadow: 2px 0 var(--ink), -2px 0 var(--ink), 0 2px var(--ink), 0 -2px var(--ink) !important;
+  z-index: 2;
+}
+.slot-cooldown-overlay, .m-cd-overlay { background: rgba(26, 28, 44, 0.78) !important; }
+
+.quick-menu-group { gap: 6px !important; }
+.menu-btn {
+  --bg: var(--night);
+  font-family: var(--font-display) !important;
+  font-weight: 400 !important;
+  font-size: 19px !important;
+  color: var(--gold) !important;
+  transition: none !important;
+  padding: 4px 10px 6px !important;
+  margin: var(--px);
+}
+.menu-btn:hover { --bg: var(--blue); --hi: var(--sky); color: var(--white) !important; transform: none !important; }
+.menu-btn img.pxi { width: 20px; height: 20px; }
+
+/* ---------- chat ---------- */
+.chat-container { --bg: rgba(26, 28, 44, 0.86); --hi: #262b44; --lo: var(--ink); }
+.chat-msg { text-shadow: none !important; font-size: 14px; line-height: 1.35; }
+.chat-msg.system { color: var(--steel) !important; font-style: normal !important; }
+.chat-msg .sender { color: var(--gold) !important; }
+.chat-input { color: var(--white) !important; }
+.chat-input-bar { border: 0 !important; background: none !important; }
+
+/* ---------- inventory / shop / equipment ---------- */
+.shop-item-card { --bg: var(--night); transition: none !important; }
+.shop-item-card:hover { --hi: var(--gold); transform: none !important; }
+.shop-item-icon, .inv-icon, .equip-item-icon, .rf-item-icon, .reforge-item-icon, .slot-placeholder-icon, .catalog-icon-only, .slot-card-icon, .class-icon {
+  font-size: 0 !important;
+  filter: none !important;
+  display: grid; place-items: center;
+}
+.shop-item-icon img.pxi, .inv-icon img.pxi, .equip-item-icon img.pxi, .rf-item-icon img.pxi { width: 36px; height: 36px; }
+.reforge-item-icon img.pxi { width: 48px; height: 48px; }
+.slot-placeholder-icon img.pxi { width: 30px; height: 30px; opacity: 0.35; }
+.class-icon img.pxi { width: 36px; height: 36px; }
+.inv-slot-compact { transition: none !important; }
+.inv-slot-compact:hover, .equip-slot:hover { transform: none !important; --hi: var(--gold); }
+/* rarity reads from the cell outline only */
+.rarity-common { --line: var(--slate) !important; }
+.rarity-rare { --line: var(--sky) !important; }
+.rarity-epic { --line: var(--epic) !important; }
+.rarity-legendary { --line: var(--orange) !important; }
+.equip-slot-tag { font-family: var(--font-display) !important; color: var(--steel) !important; }
+
+/* ---------- skills window / talents ---------- */
+.skill-tree-modal-card { --bg: var(--night); }
+.skill-points-banner { --bg: #1f3a2a; --hi: var(--green); --lo: var(--ink); animation: none !important; }
+.sp-label { color: var(--lime) !important; font-family: var(--font-display) !important; font-size: 18px !important; }
+.sp-count { background: var(--green) !important; border: 0 !important; color: var(--ink) !important; font-size: 22px !important; box-shadow: 0 0 0 var(--px) var(--ink) !important; }
+.talent-branch-column { --bg: #262b44; --hi: #3d4565; }
+.talent-branch-column.branch-active { --line: var(--gold); }
+.talent-branch-column.branch-locked { filter: grayscale(0.8) brightness(0.7); opacity: 1 !important; }
+.talent-branch-header { background: var(--ink) !important; border: 0 !important; box-shadow: none !important; }
+.branch-title { font-size: 20px !important; color: var(--white) !important; }
+.branch-points-pill { background: none !important; border: 0 !important; color: var(--lime) !important; font-family: var(--font-display) !important; font-size: 18px !important; }
+.talent-link { stroke-width: 3 !important; stroke-linecap: square !important; }
+.talent-link.is-closed { stroke: var(--slate) !important; stroke-dasharray: 3 6 !important; }
+.talent-link.is-open { stroke: var(--green) !important; }
+.talent-link.is-learned { stroke: var(--gold) !important; filter: none !important; }
+.talent-node { width: 54px !important; height: 54px !important; padding: 3px !important; animation: none !important; }
+.talent-node.is-keystone { --line: var(--gold); width: 60px !important; height: 60px !important; }
+.talent-node.has-rank { --line: var(--green); }
+.talent-node.is-maxed { --line: var(--gold); --hi: var(--gold); }
+.talent-node.can-upgrade { animation: pxBlink 1s steps(1) infinite !important; }
+@keyframes pxBlink { 50% { --line: var(--lime); } }
+.talent-node.is-selected { outline: var(--px) solid var(--white) !important; outline-offset: 4px !important; }
+.talent-node-rank {
+  background: var(--ink) !important; border: 0 !important;
+  font-size: 15px !important; line-height: 1 !important; padding: 0 4px 1px !important; bottom: -11px !important;
+}
+.talent-rank-pill, .talent-req-tag, .cat-skill-cat-pill, .hotbar-slot-rune-tag, .affix-pill, .diff-badge, .floor-lock-badge, .cat-equipped-badge {
+  background: var(--ink) !important;
+  border: 0 !important;
+  box-shadow: 0 0 0 2px var(--ink) !important;
+  color: var(--steel);
+  font-family: var(--font-px);
+}
+.talent-req-tag.met { color: var(--lime) !important; }
+.talent-req-tag.unmet { color: var(--orange) !important; }
+.hotbar-slot-card { transition: none !important; }
+.hotbar-slot-card.selected, .hotbar-slot-card.active-slot { --line: var(--gold) !important; animation: none !important; }
+.catalog-skill-card { --bg: #262b44; transition: none !important; }
+.catalog-skill-card:hover { --hi: var(--gold); transform: none !important; }
+
+/* ---------- class select & portal ---------- */
+.class-card { --bg: var(--night); transition: none !important; }
+.class-card:hover { --hi: var(--gold); transform: none !important; }
+.class-card.selected { --line: var(--gold) !important; --bg: #3d4565; }
+.class-stat-bar { background: var(--ink) !important; border: 0 !important; }
+.class-stat-fill { background: var(--gold) !important; box-shadow: none !important; }
+.floor-card, .diff-card { transition: none !important; }
+.floor-card:hover, .diff-card:hover { --hi: var(--gold); transform: none !important; }
+.floor-card.selected, .diff-card.selected { --line: var(--gold) !important; --bg: #3d4565; }
+.floor-card.locked { filter: grayscale(0.8) brightness(0.7); }
+.badge-normal { color: var(--lime) !important; }
+.badge-hard { color: var(--gold) !important; }
+.badge-nightmare { color: var(--orange) !important; }
+
+/* ---------- death screen / dungeon result / run bag ---------- */
+.death-title { color: var(--orange) !important; font-size: 64px !important; text-shadow: 0 4px 0 var(--ink) !important; }
+.dungeon-result-overlay { background: rgba(26, 28, 44, 0.82) !important; }
+.dungeon-result-card { --bg: var(--night); }
+.is-failed .dungeon-result-card { --bg: #3a1424; --hi: var(--red); --lo: var(--plum); }
+.dungeon-result-title { font-size: 52px !important; text-shadow: 0 4px 0 var(--ink) !important; }
+.is-success .dungeon-result-title { color: var(--gold) !important; }
+.is-failed .dungeon-result-title { color: var(--orange) !important; }
+.result-list { background: var(--ink) !important; border: 0 !important; }
+.dungeon-run-bag { --bg: rgba(26, 28, 44, 0.9); }
+
+/* ---------- scrollbars ---------- */
+* { scrollbar-color: var(--slate) var(--ink); scrollbar-width: thin; }
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-track { background: var(--ink); }
+::-webkit-scrollbar-thumb { background: var(--slate); border: 3px solid var(--ink); }
+
+/* ---------- kill decorative glow animations from the old theme ---------- */
+.skill-points-banner, .hotbar-slot-card, .attack-ripple-halo, .joystick-ring-glow { animation: none !important; }
+[class*="glow"] { box-shadow: none; }
+
+/* ---------- pixel icon sizes per context ---------- */
+.pxi-xl img.pxi { width: 48px; height: 48px; }
+.rune-icon img.pxi, .affix-pill img.pxi, .stat-pill img.pxi { width: 16px; height: 16px; }
+.m-icon img.pxi, .interact-icon img.pxi, .knob-icon img.pxi { width: 28px; height: 28px; }
+.mobile-menu-item img.pxi { width: 20px; height: 20px; }
+#zoneIcon img.pxi, #targetIcon img.pxi { width: 18px; height: 18px; }
+#targetIcon img.pxi { width: 30px; height: 30px; }
+.rune-pill-btn.active { --line: var(--gold); }
+.affix-pill { display: inline-flex; align-items: center; gap: 4px; }
+
+/* ---------- fixes from screenshot review ---------- */
+img.pxi.skill-svg { width: 100%; height: 100%; }
+.menu-btn { white-space: nowrap; }
+.skill-tree-header-row { padding-right: 46px; }
+.sp-count { display: grid !important; place-items: center; min-width: 30px; height: 28px; line-height: 1 !important; padding: 0 4px 2px; }
+.shop-item-card::before, .shop-item-card::after, .inv-slot-compact::before, .inv-slot-compact::after { display: none !important; }
