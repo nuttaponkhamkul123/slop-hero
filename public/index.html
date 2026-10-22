@@ -77,8 +77,10 @@
           <div class="info-chip" id="goldCounter">
             <span>🪙</span> <span id="goldCountText">50 Gold</span>
           </div>
-          <button class="btn-icon-hud" id="btnAudioToggle" title="Toggle Sound (M)">🔊</button>
-          <button class="btn-icon-hud" id="btnToggle3D" title="Toggle 3D / 2D Character Models">📜 2D</button>
+          <div class="meta-btn-row">
+            <button class="btn-icon-hud" id="btnAudioToggle" title="Toggle Sound (M)">🔊</button>
+            <button class="btn-icon-hud" id="btnToggle3D" title="Toggle 3D / 2D Character Models">📜 2D</button>
+          </div>
         </div>
       </div>
     </div>
@@ -107,35 +109,35 @@
           <!-- Basic Attack -->
           <div class="action-slot" id="slotAttack" title="Smart Auto-Attack / Hit Nearest Enemy (Spacebar)">
             <span class="slot-key">SPC</span>
-            <span class="slot-icon">⚔️</span>
+            <span class="slot-icon" id="slotAttackIcon"></span>
             <div class="slot-cooldown-overlay" id="cdOverlayAttack"></div>
           </div>
 
           <!-- Class Skill 1 -->
           <div class="action-slot" id="slotSkill1" title="Class Ability 1 [Q]">
             <span class="slot-key">Q</span>
-            <span class="slot-icon" id="slotSkill1Icon">🌪️</span>
+            <span class="slot-icon" id="slotSkill1Icon"></span>
             <div class="slot-cooldown-overlay" id="cdOverlaySkill1"></div>
           </div>
 
           <!-- Class Skill 2 -->
           <div class="action-slot" id="slotSkill2" title="Class Ability 2 [E]">
             <span class="slot-key">E</span>
-            <span class="slot-icon" id="slotSkill2Icon">💥</span>
+            <span class="slot-icon" id="slotSkill2Icon"></span>
             <div class="slot-cooldown-overlay" id="cdOverlaySkill2"></div>
           </div>
 
           <!-- Class Skill 3 / Ultimate -->
           <div class="action-slot" id="slotSkill3" title="Class Ability 3 / Ultimate [R]">
             <span class="slot-key">R</span>
-            <span class="slot-icon" id="slotSkill3Icon">🗡️</span>
+            <span class="slot-icon" id="slotSkill3Icon"></span>
             <div class="slot-cooldown-overlay" id="cdOverlaySkill3"></div>
           </div>
 
           <!-- Class Dash / Mobility -->
           <div class="action-slot" id="slotDash" title="Class Dash / Mobility [Shift]">
             <span class="slot-key">SHIFT</span>
-            <span class="slot-icon" id="slotDashIcon">⚔️</span>
+            <span class="slot-icon" id="slotDashIcon"></span>
             <div class="slot-cooldown-overlay" id="cdOverlayDash"></div>
           </div>
 
@@ -168,39 +170,73 @@
 
   <!-- Character Creation / Join Modal -->
   <div class="modal-overlay" id="joinModal">
-    <div class="hud-panel modal-card">
+    <div class="hud-panel modal-card class-select-modal">
       <div class="modal-header">
         <h1 class="modal-title">SLOP HERO</h1>
         <p class="modal-subtitle">Choose your Hero and enter the persistent isometric realm</p>
       </div>
 
-      <div style="margin-bottom: 12px;">
-        <label style="font-size: 13px; color: var(--gold-light); font-weight: 600;">HERO NAME</label>
+      <!-- STEP 1: Hero Name -->
+      <div class="join-step" id="joinStepName">
+        <div class="join-step-label">STEP 1 / 2 &mdash; IDENTITY</div>
+        <label class="field-label">HERO NAME</label>
         <input type="text" class="input-field" id="inputHeroName" placeholder="Enter hero name..." maxlength="15" value="SlopHero" style="margin-top: 6px;">
+        <button class="btn-primary" id="btnToClassStep">CHOOSE YOUR CLASS</button>
       </div>
 
-      <label style="font-size: 13px; color: var(--gold-light); font-weight: 600;">CHOOSE CLASS</label>
-      <div class="class-grid">
-        <div class="class-card selected" data-class="warrior">
-          <div class="class-icon">⚔️</div>
-          <div class="class-title">Warrior (Swordsman)</div>
-          <div class="class-desc">Master Swordsman. Whirlwind [Q], Earthshaker [E] & Blade Charge Dash [Shift].</div>
-        </div>
+      <!-- STEP 2: Class Selection with 3D Preview -->
+      <div class="join-step" id="joinStepClass" style="display: none;">
+        <div class="join-step-label">STEP 2 / 2 &mdash; CALLING</div>
 
-        <div class="class-card" data-class="mage">
-          <div class="class-icon">🧙‍♂️</div>
-          <div class="class-title">Mage</div>
-          <div class="class-desc">Arcane Master. Firestorm [Q], Frost Nova [E] & Arcane Blink [Shift].</div>
-        </div>
+        <div class="class-select-layout">
+          <!-- 3D Hero Preview -->
+          <div class="class-preview-pane">
+            <canvas id="classPreviewCanvas" class="class-preview-canvas"></canvas>
+            <div class="class-preview-nameplate">
+              <div class="class-preview-name" id="previewClassName">Warrior</div>
+              <div class="class-preview-role" id="previewClassRole">Vanguard</div>
+            </div>
+          </div>
 
-        <div class="class-card" data-class="rogue">
-          <div class="class-icon">🗡️</div>
-          <div class="class-title">Rogue</div>
-          <div class="class-desc">Lethal Assassin. Fan of Knives [Q], Toxic Bomb [E] & Shadow Dash [Shift].</div>
+          <!-- Class Roster -->
+          <div class="class-roster-pane">
+            <div class="class-roster" id="classGrid">
+              <div class="class-card selected" data-class="warrior">
+                <div class="class-icon">⚔️</div>
+                <div class="class-card-text">
+                  <div class="class-title">Warrior</div>
+                  <div class="class-subtitle">Swordsman &middot; Vanguard</div>
+                </div>
+              </div>
+
+              <div class="class-card" data-class="mage">
+                <div class="class-icon">🧙</div>
+                <div class="class-card-text">
+                  <div class="class-title">Mage</div>
+                  <div class="class-subtitle">Arcane Scholar &middot; Caster</div>
+                </div>
+              </div>
+
+              <div class="class-card" data-class="rogue">
+                <div class="class-icon">🗡️</div>
+                <div class="class-card-text">
+                  <div class="class-title">Rogue</div>
+                  <div class="class-subtitle">Shadow Blade &middot; Assassin</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="class-lore" id="previewClassLore"></div>
+
+            <div class="class-stats" id="previewClassStats"></div>
+
+            <div class="class-action-row">
+              <button class="btn-secondary" id="btnBackToName">BACK</button>
+              <button class="btn-primary" id="btnJoinGame">ENTER REALM</button>
+            </div>
+          </div>
         </div>
       </div>
-
-      <button class="btn-primary" id="btnJoinGame">⚔️ ENTER REALM</button>
     </div>
   </div>
 
@@ -605,7 +641,7 @@
 
         <div class="skill-tree-footer">
           <div class="st-footer-info">
-            <span>💡 Earn 1 Skill Point on every Level Up. Higher rank talents require lower rank precursors.</span>
+            <span>Earn 1 Skill Point on every Level Up. Each talent unlocks from the node linked above it, and your first point locks you into that branch until you reset.</span>
           </div>
           <button class="btn-secondary btn-reset-talents" id="btnResetTalents">
             🔄 Reset Talents (50g / pt)
@@ -653,11 +689,14 @@
   <!-- Three.js 3D Engine & Hero Renderer -->
   <script src="js/three.min.js"></script>
   <script src="js/threeHeroRenderer.js"></script>
+  <script src="js/townProps3D.js"></script>
+  <script src="js/classPreview.js"></script>
 
   <!-- Game Scripts -->
   <script src="/socket.io/socket.io.js"></script>
   <script src="js/audio.js"></script>
   <script src="js/isometric.js"></script>
+  <script src="js/skillIcons.js"></script>
   <script src="js/renderer.js"></script>
   <script src="js/game.js"></script>
 </body>
