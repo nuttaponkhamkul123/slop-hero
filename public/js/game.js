@@ -125,6 +125,45 @@ document.addEventListener('DOMContentLoaded', () => {
   const slotSkillIcon = slotSkill1Icon;
   const cdOverlaySkill = cdOverlaySkill1;
 
+  // 📱 Mobile HUD & Touch Control Elements
+  const mobileControlsOverlay = document.getElementById('mobileControlsOverlay');
+  const mobileJoystickZone = document.getElementById('mobileJoystickZone');
+  const mobileJoystickBase = document.getElementById('mobileJoystickBase');
+  const mobileJoystickKnob = document.getElementById('mobileJoystickKnob');
+  const mobileActionCluster = document.getElementById('mobileActionCluster');
+  const mobileBtnInteract = document.getElementById('mobileBtnInteract');
+  const mobileInteractIcon = document.getElementById('mobileInteractIcon');
+  const mobileInteractText = document.getElementById('mobileInteractText');
+  const mobileBtnTarget = document.getElementById('mobileBtnTarget');
+  const mobileBtnHp = document.getElementById('mobileBtnHp');
+  const mobileBadgeHp = document.getElementById('mobileBadgeHp');
+  const mobileBtnMp = document.getElementById('mobileBtnMp');
+  const mobileBadgeMp = document.getElementById('mobileBadgeMp');
+  const mobileBtnDash = document.getElementById('mobileBtnDash');
+  const mobileDashIcon = document.getElementById('mobileDashIcon');
+  const mobileCdDash = document.getElementById('mobileCdDash');
+  const mobileBtnSkill1 = document.getElementById('mobileBtnSkill1');
+  const mobileSkill1Icon = document.getElementById('mobileSkill1Icon');
+  const mobileCdSkill1 = document.getElementById('mobileCdSkill1');
+  const mobileBtnSkill2 = document.getElementById('mobileBtnSkill2');
+  const mobileSkill2Icon = document.getElementById('mobileSkill2Icon');
+  const mobileCdSkill2 = document.getElementById('mobileCdSkill2');
+  const mobileBtnSkill3 = document.getElementById('mobileBtnSkill3');
+  const mobileSkill3Icon = document.getElementById('mobileSkill3Icon');
+  const mobileCdSkill3 = document.getElementById('mobileCdSkill3');
+  const mobileBtnAttack = document.getElementById('mobileBtnAttack');
+  const mobileAttackIcon = document.getElementById('mobileAttackIcon');
+  const mobileCdAttack = document.getElementById('mobileCdAttack');
+
+  const btnMobileMenuToggle = document.getElementById('btnMobileMenuToggle');
+  const mobileMenuDrawer = document.getElementById('mobileMenuDrawer');
+  const btnChatToggle = document.getElementById('btnChatToggle');
+  const mBtnOpenSkillTree = document.getElementById('mBtnOpenSkillTree');
+  const mBtnOpenShop = document.getElementById('mBtnOpenShop');
+  const mBtnOpenStats = document.getElementById('mBtnOpenStats');
+  const mBtnOpenInventory = document.getElementById('mBtnOpenInventory');
+  const mBtnOpenHelp = document.getElementById('mBtnOpenHelp');
+
   const chatMessages = document.getElementById('chatMessages');
   const chatInput = document.getElementById('chatInput');
 
@@ -371,9 +410,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (urlParams.get('3d') === '1' || urlParams.get('3d') === 'true') {
       if (window.threeHeroRenderer) window.threeHeroRenderer.enabled = true;
     }
-    setTimeout(() => {
-      btnJoinGame.click();
-    }, 300);
+    btnJoinGame.click();
   }
 
   function setupClassSkillHUD(cls) {
@@ -381,7 +418,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const classAvatars = { warrior: '🛡️', mage: '🧙‍♂️', rogue: '🗡️' };
     if (playerAvatarIcon) playerAvatarIcon.textContent = classAvatars[cls] || '⚔️';
     const basicAttackIcons = { warrior: 'basic_attack', mage: 'basic_attack_mage', rogue: 'basic_attack_rogue' };
-    SkillIcons.apply(document.getElementById('slotAttackIcon'), basicAttackIcons[cls] || 'basic_attack');
+    const atkIconKey = basicAttackIcons[cls] || 'basic_attack';
+    SkillIcons.apply(document.getElementById('slotAttackIcon'), atkIconKey);
+    if (mobileAttackIcon) SkillIcons.apply(mobileAttackIcon, atkIconKey);
 
     // If player has equippedSkills configured:
     if (localPlayer && localPlayer.equippedSkills && allSkillsCatalog[cls]) {
@@ -409,12 +448,19 @@ document.addEventListener('DOMContentLoaded', () => {
       const rd = getSlotRune('dash');
 
       if (slotSkill1Icon && s1) SkillIcons.apply(slotSkill1Icon, s1.id);
+      if (mobileSkill1Icon && s1) SkillIcons.apply(mobileSkill1Icon, s1.id);
       if (slotSkill1 && s1) slotSkill1.title = `${s1.name} [Q] (${s1.mpCost} MP) [${r1.icon} ${r1.name}] - ${s1.desc}`;
+
       if (slotSkill2Icon && s2) SkillIcons.apply(slotSkill2Icon, s2.id);
+      if (mobileSkill2Icon && s2) SkillIcons.apply(mobileSkill2Icon, s2.id);
       if (slotSkill2 && s2) slotSkill2.title = `${s2.name} [E] (${s2.mpCost} MP) [${r2.icon} ${r2.name}] - ${s2.desc}`;
+
       if (slotSkill3Icon && s3) SkillIcons.apply(slotSkill3Icon, s3.id);
+      if (mobileSkill3Icon && s3) SkillIcons.apply(mobileSkill3Icon, s3.id);
       if (slotSkill3 && s3) slotSkill3.title = `${s3.name} [R] (${s3.mpCost} MP) [${r3.icon} ${r3.name}] - ${s3.desc}`;
+
       if (slotDashIcon && sd) SkillIcons.apply(slotDashIcon, sd.id);
+      if (mobileDashIcon && sd) SkillIcons.apply(mobileDashIcon, sd.id);
       if (slotDash && sd) slotDash.title = `${sd.name} [Shift] (${sd.mpCost} MP) [${rd.icon} ${rd.name}] - ${sd.desc}`;
 
       skill1CooldownMax = s1 ? s1.cooldown : 3.5;
@@ -431,39 +477,63 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (cls === 'warrior') {
       if (slotSkill1Icon) SkillIcons.apply(slotSkill1Icon, 'whirlwind');
+      if (mobileSkill1Icon) SkillIcons.apply(mobileSkill1Icon, 'whirlwind');
       if (slotSkill1) slotSkill1.title = 'Whirlwind Slash [Q] (14 MP) - 360° AoE Physical Spin';
+
       if (slotSkill2Icon) SkillIcons.apply(slotSkill2Icon, 'earthshaker');
+      if (mobileSkill2Icon) SkillIcons.apply(mobileSkill2Icon, 'earthshaker');
       if (slotSkill2) slotSkill2.title = 'Earthshaker Slam [E] (16 MP) - Heavy Ground Slam & Slow';
+
       if (slotSkill3Icon) SkillIcons.apply(slotSkill3Icon, 'colossus_strike');
+      if (mobileSkill3Icon) SkillIcons.apply(mobileSkill3Icon, 'colossus_strike');
       if (slotSkill3) slotSkill3.title = 'Colossus Strike [R] (28 MP) - Titanic Strike & Ground Shockwave';
+
       if (slotDashIcon) SkillIcons.apply(slotDashIcon, 'blade_charge');
+      if (mobileDashIcon) SkillIcons.apply(mobileDashIcon, 'blade_charge');
       if (slotDash) slotDash.title = 'Blade Charge Dash [Shift] (10 MP) - Pierce Dash & Slice Forward';
+
       skill1CooldownMax = 3.5;
       skill2CooldownMax = 4.5;
       skill3CooldownMax = 9.0;
       dashCooldownMax = 3.0;
     } else if (cls === 'mage') {
       if (slotSkill1Icon) SkillIcons.apply(slotSkill1Icon, 'firestorm');
+      if (mobileSkill1Icon) SkillIcons.apply(mobileSkill1Icon, 'firestorm');
       if (slotSkill1) slotSkill1.title = 'Firestorm Meteor [Q] (22 MP) - Apocalyptic Meteor & Burn DoT';
+
       if (slotSkill2Icon) SkillIcons.apply(slotSkill2Icon, 'frost_nova');
+      if (mobileSkill2Icon) SkillIcons.apply(mobileSkill2Icon, 'frost_nova');
       if (slotSkill2) slotSkill2.title = 'Frost Nova [E] (18 MP) - Freezing Frost Ring & 50% Chill Slow';
+
       if (slotSkill3Icon) SkillIcons.apply(slotSkill3Icon, 'black_hole');
+      if (mobileSkill3Icon) SkillIcons.apply(mobileSkill3Icon, 'black_hole');
       if (slotSkill3) slotSkill3.title = 'Singularity Black Hole [R] (35 MP) - Gravitational Vortex';
+
       if (slotDashIcon) SkillIcons.apply(slotDashIcon, 'arcane_blink');
+      if (mobileDashIcon) SkillIcons.apply(mobileDashIcon, 'arcane_blink');
       if (slotDash) slotDash.title = 'Arcane Blink [Shift] (15 MP) - Teleport & Break Crowd Control';
+
       skill1CooldownMax = 4.5;
       skill2CooldownMax = 4.0;
       skill3CooldownMax = 12.0;
       dashCooldownMax = 3.5;
     } else if (cls === 'rogue') {
       if (slotSkill1Icon) SkillIcons.apply(slotSkill1Icon, 'fan_of_knives');
+      if (mobileSkill1Icon) SkillIcons.apply(mobileSkill1Icon, 'fan_of_knives');
       if (slotSkill1) slotSkill1.title = 'Fan of Knives [Q] (14 MP) - 360° Lethal Dagger Flurry & High Crit';
+
       if (slotSkill2Icon) SkillIcons.apply(slotSkill2Icon, 'toxic_bomb');
+      if (mobileSkill2Icon) SkillIcons.apply(mobileSkill2Icon, 'toxic_bomb');
       if (slotSkill2) slotSkill2.title = 'Toxic Smoke Bomb [E] (16 MP) - Chemical Fog & Poison DoT';
+
       if (slotSkill3Icon) SkillIcons.apply(slotSkill3Icon, 'death_blossom');
+      if (mobileSkill3Icon) SkillIcons.apply(mobileSkill3Icon, 'death_blossom');
       if (slotSkill3) slotSkill3.title = 'Death Blossom [R] (30 MP) - 360° Lethal Dagger Spiral';
+
       if (slotDashIcon) SkillIcons.apply(slotDashIcon, 'shadow_dash');
+      if (mobileDashIcon) SkillIcons.apply(mobileDashIcon, 'shadow_dash');
       if (slotDash) slotDash.title = 'Shadow Dash [Shift] (8 MP) - Swift Phantom Dash & Speed Boost';
+
       skill1CooldownMax = 3.0;
       skill2CooldownMax = 4.5;
       skill3CooldownMax = 8.5;
@@ -1124,6 +1194,54 @@ document.addEventListener('DOMContentLoaded', () => {
     renderer.camera.zoom = Math.max(0.65, Math.min(1.85, renderer.camera.zoom + zoomDelta));
   }, { passive: false });
 
+  // Mobile Touch Gestures (Pinch-to-zoom & Tap-to-move)
+  let touchStartDist = 0;
+  let touchStartZoom = 1.0;
+  let isPinching = false;
+
+  canvas.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 2) {
+      isPinching = true;
+      const t1 = e.touches[0];
+      const t2 = e.touches[1];
+      touchStartDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+      touchStartZoom = renderer.camera.zoom;
+      e.preventDefault();
+    } else if (e.touches.length === 1 && !isPinching) {
+      const t = e.touches[0];
+      isPointerDown = true;
+      handlePointerAction({ clientX: t.clientX, clientY: t.clientY, button: 0 }, false);
+    }
+  }, { passive: false });
+
+  canvas.addEventListener('touchmove', (e) => {
+    if (e.touches.length === 2 && isPinching && touchStartDist > 0) {
+      e.preventDefault();
+      const t1 = e.touches[0];
+      const t2 = e.touches[1];
+      const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+      const ratio = dist / touchStartDist;
+      renderer.camera.zoom = Math.max(0.65, Math.min(1.85, touchStartZoom * ratio));
+    } else if (e.touches.length === 1 && !isPinching && isPointerDown && !selectedTargetId) {
+      const t = e.touches[0];
+      handlePointerAction({ clientX: t.clientX, clientY: t.clientY, button: 0 }, true);
+    }
+  }, { passive: false });
+
+  canvas.addEventListener('touchend', (e) => {
+    if (e.touches.length < 2) {
+      isPinching = false;
+    }
+    if (e.touches.length === 0) {
+      isPointerDown = false;
+    }
+  });
+
+  canvas.addEventListener('touchcancel', () => {
+    isPinching = false;
+    isPointerDown = false;
+  });
+
   // Keyboard Event Listeners
   window.addEventListener('keydown', (e) => {
     if (document.activeElement === chatInput) {
@@ -1628,8 +1746,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (shopPlayerGold) shopPlayerGold.textContent = p.gold;
 
     if (p.inventory) {
-      badgeHealthPotion.textContent = p.inventory.healthPotions || 0;
-      badgeManaPotion.textContent = p.inventory.manaPotions || 0;
+      if (badgeHealthPotion) badgeHealthPotion.textContent = p.inventory.healthPotions || 0;
+      if (badgeManaPotion) badgeManaPotion.textContent = p.inventory.manaPotions || 0;
+      if (mobileBadgeHp) mobileBadgeHp.textContent = p.inventory.healthPotions || 0;
+      if (mobileBadgeMp) mobileBadgeMp.textContent = p.inventory.manaPotions || 0;
       const invHp = document.getElementById('invHpCount');
       const invMp = document.getElementById('invMpCount');
       const invGold = document.getElementById('invGoldText');
@@ -2665,6 +2785,356 @@ card.innerHTML = `
     });
   });
 
+  // 📱 Mobile Contextual Interaction Logic
+  let mobileContextualAction = null;
+
+  function updateMobileContextualInteract() {
+    if (!mobileBtnInteract || !localPlayer) return;
+
+    let targetInteract = null;
+
+    if (localPlayer.zone === 'town') {
+      const townObstacles = (gameState.map && gameState.map.obstacles) || [];
+      const merchant = townObstacles.find(o => o.id === 'npc_merchant') || { x: 16.2, y: 19.6 };
+      const brom = townObstacles.find(o => o.id === 'npc_blacksmith') || { x: 16.2, y: 23.4 };
+
+      const distOlaf = Math.hypot(merchant.x - localPlayer.x, merchant.y - localPlayer.y);
+      const distBrom = Math.hypot(brom.x - localPlayer.x, brom.y - localPlayer.y);
+      const distDungeon = Math.hypot(23.5 - localPlayer.x, 16.5 - localPlayer.y);
+      const distFrost = Math.hypot(16.5 - localPlayer.x, 16.5 - localPlayer.y);
+
+      if (distOlaf <= 3.5) {
+        targetInteract = {
+          icon: '🏪',
+          label: 'SHOP',
+          action: () => openShopModal()
+        };
+      } else if (distBrom <= 3.5) {
+        targetInteract = {
+          icon: '🔨',
+          label: 'REFORGE',
+          action: () => openReforgeModal()
+        };
+      } else if (distDungeon <= 3.0) {
+        targetInteract = {
+          icon: '🌀',
+          label: 'DUNGEON',
+          action: () => openDungeonPortalModal()
+        };
+      } else if (distFrost <= 2.5) {
+        targetInteract = {
+          icon: '❄️',
+          label: 'PEAKS',
+          action: () => socket.emit('player_input', { type: 'click_move', x: 16.5, y: 16.5 })
+        };
+      }
+    } else if (localPlayer.zone === 'dungeon') {
+      if (gameState.map && gameState.map.exitPortal) {
+        const ep = gameState.map.exitPortal;
+        if (Math.hypot(ep.x - localPlayer.x, ep.y - localPlayer.y) <= 2.5) {
+          targetInteract = {
+            icon: '🚪',
+            label: 'LEAVE',
+            action: () => {
+              if (confirmLeaveDungeon()) socket.emit('leave_dungeon');
+            }
+          };
+        }
+      }
+      if (!targetInteract && gameState.chests) {
+        for (const chest of gameState.chests) {
+          if (!chest.opened && Math.hypot(chest.x - localPlayer.x, chest.y - localPlayer.y) <= 2.2) {
+            targetInteract = {
+              icon: '🎁',
+              label: 'OPEN',
+              action: () => socket.emit('open_chest', { chestId: chest.id })
+            };
+            break;
+          }
+        }
+      }
+    } else {
+      const fieldPortal = ((gameState.map && gameState.map.obstacles) || []).find(o =>
+        o.type === 'field_portal' && Math.hypot(o.x - localPlayer.x, o.y - localPlayer.y) <= 2.5);
+      if (fieldPortal) {
+        targetInteract = {
+          icon: '🚪',
+          label: 'ENTER',
+          action: () => socket.emit('player_input', { type: 'click_move', x: fieldPortal.x, y: fieldPortal.y })
+        };
+      }
+    }
+
+    if (!targetInteract && gameState.groundItems && gameState.groundItems.length > 0) {
+      let closestItem = null;
+      let minItemDist = 2.2;
+      for (const it of gameState.groundItems) {
+        const d = Math.hypot(it.x - localPlayer.x, it.y - localPlayer.y);
+        if (d < minItemDist) {
+          minItemDist = d;
+          closestItem = it;
+        }
+      }
+      if (closestItem) {
+        targetInteract = {
+          icon: '✨',
+          label: 'LOOT',
+          action: () => socket.emit('pickup_item', closestItem.id)
+        };
+      }
+    }
+
+    if (targetInteract) {
+      mobileContextualAction = targetInteract.action;
+      if (mobileInteractIcon) mobileInteractIcon.textContent = targetInteract.icon;
+      if (mobileInteractText) mobileInteractText.textContent = targetInteract.label;
+      mobileBtnInteract.style.display = 'inline-flex';
+    } else {
+      mobileContextualAction = null;
+      mobileBtnInteract.style.display = 'none';
+    }
+  }
+
+  // 📱 Mobile Virtual Joystick & Touch System Setup
+  function setupMobileControls() {
+    if (!mobileJoystickZone || !mobileJoystickBase || !mobileJoystickKnob) return;
+
+    let activeJoystickTouchId = null;
+    let joystickBaseRect = null;
+    let joystickCenter = { x: 0, y: 0 };
+    const maxRadius = 46; // px
+    let moveEmitInterval = null;
+    let currentNormX = 0;
+    let currentNormY = 0;
+
+    function resetJoystick() {
+      activeJoystickTouchId = null;
+      currentNormX = 0;
+      currentNormY = 0;
+      mobileJoystickKnob.style.transform = 'translate(0px, 0px)';
+      if (moveEmitInterval) {
+        clearInterval(moveEmitInterval);
+        moveEmitInterval = null;
+      }
+      if (localPlayer) localPlayer.isMoving = false;
+      socket.emit('player_input', { type: 'stop_move' });
+    }
+
+    function handleJoystickTouch(touch) {
+      const dx = touch.clientX - joystickCenter.x;
+      const dy = touch.clientY - joystickCenter.y;
+      const dist = Math.hypot(dx, dy);
+
+      if (dist < 6) {
+        currentNormX = 0;
+        currentNormY = 0;
+        mobileJoystickKnob.style.transform = 'translate(0px, 0px)';
+        if (localPlayer) localPlayer.isMoving = false;
+        socket.emit('player_input', { type: 'stop_move' });
+        return;
+      }
+
+      const clampedDist = Math.min(maxRadius, dist);
+      const angle = Math.atan2(dy, dx);
+      const knobX = Math.cos(angle) * clampedDist;
+      const knobY = Math.sin(angle) * clampedDist;
+
+      mobileJoystickKnob.style.transform = `translate(${knobX.toFixed(1)}px, ${knobY.toFixed(1)}px)`;
+
+      // Normalized screen direction
+      currentNormX = Number(Math.cos(angle).toFixed(3));
+      currentNormY = Number(Math.sin(angle).toFixed(3));
+
+      // Local player prediction facing
+      if (localPlayer) {
+        localPlayer.isMoving = true;
+        const deg = (angle * 180) / Math.PI;
+        if (deg >= -22.5 && deg < 22.5) localPlayer.facing = 'E';
+        else if (deg >= 22.5 && deg < 67.5) localPlayer.facing = 'SE';
+        else if (deg >= 67.5 && deg < 112.5) localPlayer.facing = 'S';
+        else if (deg >= 112.5 && deg < 157.5) localPlayer.facing = 'SW';
+        else if (deg >= 157.5 || deg < -157.5) localPlayer.facing = 'W';
+        else if (deg >= -157.5 && deg < -112.5) localPlayer.facing = 'NW';
+        else if (deg >= -112.5 && deg < -67.5) localPlayer.facing = 'N';
+        else if (deg >= -67.5 && deg < -22.5) localPlayer.facing = 'NE';
+      }
+
+      socket.emit('player_input', { type: 'wasd_move', dx: currentNormX, dy: currentNormY });
+    }
+
+    mobileJoystickZone.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      window.soundEngine.init();
+
+      if (activeJoystickTouchId === null && e.changedTouches.length > 0) {
+        const touch = e.changedTouches[0];
+        activeJoystickTouchId = touch.identifier;
+        joystickBaseRect = mobileJoystickBase.getBoundingClientRect();
+        joystickCenter = {
+          x: joystickBaseRect.left + joystickBaseRect.width / 2,
+          y: joystickBaseRect.top + joystickBaseRect.height / 2
+        };
+        handleJoystickTouch(touch);
+
+        if (!moveEmitInterval) {
+          moveEmitInterval = setInterval(() => {
+            if (activeJoystickTouchId !== null && (currentNormX !== 0 || currentNormY !== 0)) {
+              socket.emit('player_input', { type: 'wasd_move', dx: currentNormX, dy: currentNormY });
+            }
+          }, 60);
+        }
+      }
+    }, { passive: false });
+
+    mobileJoystickZone.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const touch = e.changedTouches[i];
+        if (touch.identifier === activeJoystickTouchId) {
+          handleJoystickTouch(touch);
+          break;
+        }
+      }
+    }, { passive: false });
+
+    const endHandler = (e) => {
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        if (e.changedTouches[i].identifier === activeJoystickTouchId) {
+          resetJoystick();
+          break;
+        }
+      }
+    };
+
+    mobileJoystickZone.addEventListener('touchend', endHandler);
+    mobileJoystickZone.addEventListener('touchcancel', endHandler);
+
+    // Mouse fallback for testing joystick in mobile emulation
+    let isMouseJoy = false;
+    mobileJoystickZone.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      isMouseJoy = true;
+      joystickBaseRect = mobileJoystickBase.getBoundingClientRect();
+      joystickCenter = {
+        x: joystickBaseRect.left + joystickBaseRect.width / 2,
+        y: joystickBaseRect.top + joystickBaseRect.height / 2
+      };
+      handleJoystickTouch(e);
+      if (!moveEmitInterval) {
+        moveEmitInterval = setInterval(() => {
+          if (isMouseJoy && (currentNormX !== 0 || currentNormY !== 0)) {
+            socket.emit('player_input', { type: 'wasd_move', dx: currentNormX, dy: currentNormY });
+          }
+        }, 60);
+      }
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (isMouseJoy) {
+        handleJoystickTouch(e);
+      }
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (isMouseJoy) {
+        isMouseJoy = false;
+        resetJoystick();
+      }
+    });
+
+    // Mobile Action Cluster buttons with zero-latency pointerdown
+    function bindFastButton(btn, callback) {
+      if (!btn) return;
+      const fire = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        window.soundEngine.init();
+        if (navigator.vibrate) {
+          try { navigator.vibrate(12); } catch (_) {}
+        }
+        callback();
+      };
+      btn.addEventListener('pointerdown', fire);
+    }
+
+    bindFastButton(mobileBtnAttack, () => useBasicAttack());
+    bindFastButton(mobileBtnSkill1, () => useSkill('slot1'));
+    bindFastButton(mobileBtnSkill2, () => useSkill('slot2'));
+    bindFastButton(mobileBtnSkill3, () => useSkill('slot3'));
+    bindFastButton(mobileBtnDash, () => useSkill('dash'));
+    bindFastButton(mobileBtnHp, () => drinkPotion('health'));
+    bindFastButton(mobileBtnMp, () => drinkPotion('mana'));
+    bindFastButton(mobileBtnTarget, () => cycleNextTarget());
+    bindFastButton(mobileBtnInteract, () => {
+      if (mobileContextualAction) mobileContextualAction();
+    });
+
+    // Mobile Drawer Navigation
+    if (btnMobileMenuToggle && mobileMenuDrawer) {
+      btnMobileMenuToggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        mobileMenuDrawer.style.display = mobileMenuDrawer.style.display === 'none' ? 'flex' : 'none';
+      });
+      document.addEventListener('click', (e) => {
+        if (!mobileMenuDrawer.contains(e.target) && e.target !== btnMobileMenuToggle) {
+          mobileMenuDrawer.style.display = 'none';
+        }
+      });
+    }
+
+    if (mBtnOpenSkillTree) {
+      mBtnOpenSkillTree.addEventListener('click', () => {
+        if (mobileMenuDrawer) mobileMenuDrawer.style.display = 'none';
+        toggleSkillTreeModal();
+      });
+    }
+    if (mBtnOpenShop) {
+      mBtnOpenShop.addEventListener('click', () => {
+        if (mobileMenuDrawer) mobileMenuDrawer.style.display = 'none';
+        openShopModal();
+      });
+    }
+    if (mBtnOpenStats) {
+      mBtnOpenStats.addEventListener('click', () => {
+        if (mobileMenuDrawer) mobileMenuDrawer.style.display = 'none';
+        toggleModal(statsModal);
+      });
+    }
+    if (mBtnOpenInventory) {
+      mBtnOpenInventory.addEventListener('click', () => {
+        if (mobileMenuDrawer) mobileMenuDrawer.style.display = 'none';
+        renderInventoryGrid();
+        toggleModal(inventoryModal);
+      });
+    }
+    if (mBtnOpenHelp) {
+      mBtnOpenHelp.addEventListener('click', () => {
+        if (mobileMenuDrawer) mobileMenuDrawer.style.display = 'none';
+        toggleModal(helpModal);
+      });
+    }
+
+    // Chat collapsible toggle
+    if (btnChatToggle) {
+      const chatContainer = document.getElementById('chatContainer');
+      btnChatToggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (chatContainer) {
+          chatContainer.classList.toggle('is-collapsed');
+        }
+      });
+    }
+
+    // Collapse chat on small mobile screens initially
+    const chatContainer = document.getElementById('chatContainer');
+    if (chatContainer && window.innerWidth <= 768) {
+      chatContainer.classList.add('is-collapsed');
+    }
+  }
+
   // Main Render Loop (60 FPS)
   function gameLoop(currentTime) {
     const dt = Math.min(0.1, (currentTime - lastFrameTime) / 1000);
@@ -2675,34 +3145,58 @@ card.innerHTML = `
       const cdPct = (skill1CooldownTimer / skill1CooldownMax) * 100;
       if (cdOverlaySkill1) cdOverlaySkill1.style.height = `${cdPct}%`;
       if (cdOverlaySkill) cdOverlaySkill.style.height = `${cdPct}%`;
+      if (mobileCdSkill1) mobileCdSkill1.style.height = `${cdPct}%`;
     } else {
       if (cdOverlaySkill1) cdOverlaySkill1.style.height = '0%';
       if (cdOverlaySkill) cdOverlaySkill.style.height = '0%';
+      if (mobileCdSkill1) mobileCdSkill1.style.height = '0%';
     }
 
     if (skill2CooldownTimer > 0) {
       skill2CooldownTimer = Math.max(0, skill2CooldownTimer - dt);
       const cdPct = (skill2CooldownTimer / skill2CooldownMax) * 100;
       if (cdOverlaySkill2) cdOverlaySkill2.style.height = `${cdPct}%`;
+      if (mobileCdSkill2) mobileCdSkill2.style.height = `${cdPct}%`;
     } else {
       if (cdOverlaySkill2) cdOverlaySkill2.style.height = '0%';
+      if (mobileCdSkill2) mobileCdSkill2.style.height = '0%';
     }
 
     if (skill3CooldownTimer > 0) {
       skill3CooldownTimer = Math.max(0, skill3CooldownTimer - dt);
       const cdPct = (skill3CooldownTimer / skill3CooldownMax) * 100;
       if (cdOverlaySkill3) cdOverlaySkill3.style.height = `${cdPct}%`;
+      if (mobileCdSkill3) mobileCdSkill3.style.height = `${cdPct}%`;
     } else {
       if (cdOverlaySkill3) cdOverlaySkill3.style.height = '0%';
+      if (mobileCdSkill3) mobileCdSkill3.style.height = '0%';
     }
 
     if (dashCooldownTimer > 0) {
       dashCooldownTimer = Math.max(0, dashCooldownTimer - dt);
       const cdPct = (dashCooldownTimer / dashCooldownMax) * 100;
       if (cdOverlayDash) cdOverlayDash.style.height = `${cdPct}%`;
+      if (mobileCdDash) mobileCdDash.style.height = `${cdPct}%`;
     } else {
       if (cdOverlayDash) cdOverlayDash.style.height = '0%';
+      if (mobileCdDash) mobileCdDash.style.height = '0%';
     }
+
+    // Basic Attack Cooldown on Mobile
+    if (localPlayer) {
+      const atkSpeed = Math.max(0.4, localPlayer.attackSpeed || 1.0);
+      const atkCooldownMs = Math.round(550 / atkSpeed);
+      const elapsedAtk = currentTime - lastBasicAttackTime;
+      if (elapsedAtk < atkCooldownMs) {
+        const atkPct = ((atkCooldownMs - elapsedAtk) / atkCooldownMs) * 100;
+        if (mobileCdAttack) mobileCdAttack.style.height = `${atkPct}%`;
+      } else {
+        if (mobileCdAttack) mobileCdAttack.style.height = '0%';
+      }
+    }
+
+    // Contextual interaction detection for mobile
+    updateMobileContextualInteract();
 
     // Smooth entity position interpolation (60+ FPS lerp)
     const lerpFactor = 0.35;
@@ -2737,6 +3231,9 @@ card.innerHTML = `
 
     requestAnimationFrame(gameLoop);
   }
+
+  // Initialize mobile touch controls
+  setupMobileControls();
 
   requestAnimationFrame(gameLoop);
 });

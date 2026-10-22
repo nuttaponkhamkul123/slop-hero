@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Slop Hero - Isometric Web MMORPG</title>
   <link rel="stylesheet" href="css/style.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚔️</text></svg>">
@@ -80,6 +80,15 @@
           <div class="meta-btn-row">
             <button class="btn-icon-hud" id="btnAudioToggle" title="Toggle Sound (M)">🔊</button>
             <button class="btn-icon-hud" id="btnToggle3D" title="Toggle 3D / 2D Character Models">📜 2D</button>
+            <button class="btn-icon-hud mobile-only-btn" id="btnMobileMenuToggle" title="Open Menu">☰</button>
+          </div>
+          <!-- Mobile Collapsible Menu Drawer -->
+          <div class="mobile-menu-drawer hud-panel interactive" id="mobileMenuDrawer" style="display: none;">
+            <button class="menu-btn mobile-menu-item" id="mBtnOpenSkillTree">🌳 Skills</button>
+            <button class="menu-btn mobile-menu-item" id="mBtnOpenShop">🏪 Shop</button>
+            <button class="menu-btn mobile-menu-item" id="mBtnOpenStats">📊 Stats</button>
+            <button class="menu-btn mobile-menu-item" id="mBtnOpenInventory">🎒 Bag</button>
+            <button class="menu-btn mobile-menu-item" id="mBtnOpenHelp">❓ Help</button>
           </div>
         </div>
       </div>
@@ -89,6 +98,7 @@
     <div class="bottom-hud">
       <!-- MMORPG Chat Box (Bottom-Left) -->
       <div class="hud-panel chat-container interactive" id="chatContainer">
+        <button class="chat-toggle-btn mobile-only-btn" id="btnChatToggle" title="Toggle Chat">💬</button>
         <div class="chat-messages" id="chatMessages">
           <div class="chat-msg system">⚔️ Welcome to Slop Hero! Enter the Dungeon Portal to delve for relics, then sell them in town!</div>
         </div>
@@ -164,6 +174,84 @@
         <button class="menu-btn" id="btnOpenStats">📊 Stats [C]</button>
         <button class="menu-btn" id="btnOpenInventory">🎒 Bag [I]</button>
         <button class="menu-btn" id="btnOpenHelp">❓ Help [H]</button>
+      </div>
+    </div>
+
+    <!-- 📱 Mobile On-Screen Touch Controls Layer -->
+    <div id="mobileControlsOverlay" class="mobile-controls-overlay">
+      <!-- 1. Virtual Touch Joystick (Bottom-Left) -->
+      <div id="mobileJoystickZone" class="mobile-joystick-zone interactive">
+        <div id="mobileJoystickBase" class="mobile-joystick-base">
+          <div class="joystick-ring-glow"></div>
+          <div class="joystick-compass">
+            <span class="j-dir j-n">▲</span>
+            <span class="j-dir j-e">▶</span>
+            <span class="j-dir j-s">▼</span>
+            <span class="j-dir j-w">◀</span>
+          </div>
+          <div id="mobileJoystickKnob" class="mobile-joystick-knob">
+            <div class="knob-sheen"></div>
+            <div class="knob-icon">⚔️</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. Mobile Combat Action Cluster (Bottom-Right) -->
+      <div id="mobileActionCluster" class="mobile-action-cluster interactive">
+        <!-- Floating Contextual Interact Button (NPCs, Portals, Chests, Items) -->
+        <button id="mobileBtnInteract" class="mobile-btn-interact" style="display: none;">
+          <span class="interact-icon" id="mobileInteractIcon">💬</span>
+          <span class="interact-label" id="mobileInteractText">TALK</span>
+        </button>
+
+        <!-- Utility Row: Target Lock & Quick Potions -->
+        <div class="mobile-utility-row">
+          <button id="mobileBtnTarget" class="mobile-util-btn" title="Cycle Target">
+            <span class="m-icon">🎯</span>
+          </button>
+          <button id="mobileBtnHp" class="mobile-potion-btn hp-btn" title="Health Potion">
+            <span class="m-icon">🧪</span>
+            <span class="m-potion-badge" id="mobileBadgeHp">3</span>
+          </button>
+          <button id="mobileBtnMp" class="mobile-potion-btn mp-btn" title="Mana Potion">
+            <span class="m-icon">🔮</span>
+            <span class="m-potion-badge" id="mobileBadgeMp">2</span>
+          </button>
+        </div>
+
+        <!-- Skills Radial Arc around Main Attack Button -->
+        <div class="mobile-skills-cluster">
+          <!-- Dash / Mobility (Shift) -->
+          <button id="mobileBtnDash" class="mobile-skill-btn m-btn-dash" title="Dash">
+            <span class="m-skill-icon" id="mobileDashIcon"></span>
+            <div class="m-cd-overlay" id="mobileCdDash"></div>
+          </button>
+
+          <!-- Skill 1 (Q) -->
+          <button id="mobileBtnSkill1" class="mobile-skill-btn m-btn-s1" title="Skill 1">
+            <span class="m-skill-icon" id="mobileSkill1Icon"></span>
+            <div class="m-cd-overlay" id="mobileCdSkill1"></div>
+          </button>
+
+          <!-- Skill 2 (E) -->
+          <button id="mobileBtnSkill2" class="mobile-skill-btn m-btn-s2" title="Skill 2">
+            <span class="m-skill-icon" id="mobileSkill2Icon"></span>
+            <div class="m-cd-overlay" id="mobileCdSkill2"></div>
+          </button>
+
+          <!-- Skill 3 (R) -->
+          <button id="mobileBtnSkill3" class="mobile-skill-btn m-btn-s3" title="Skill 3">
+            <span class="m-skill-icon" id="mobileSkill3Icon"></span>
+            <div class="m-cd-overlay" id="mobileCdSkill3"></div>
+          </button>
+
+          <!-- Primary Attack Button (Center Huge) -->
+          <button id="mobileBtnAttack" class="mobile-btn-attack" title="Basic Attack">
+            <span class="m-attack-icon" id="mobileAttackIcon"></span>
+            <div class="m-cd-overlay" id="mobileCdAttack"></div>
+            <div class="attack-ripple-halo"></div>
+          </button>
+        </div>
       </div>
     </div>
   </div>
