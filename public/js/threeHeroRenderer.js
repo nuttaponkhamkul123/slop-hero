@@ -622,7 +622,7 @@
           }
         }
 
-        hero.update(p, camera, this.width, this.height, dt, isLocal, isAttacking, attackProg, attackYaw);
+        hero.update(p, camera, this.width, this.height, dt, isLocal, isAttacking, attackProg, attackYaw, isAttacking ? (attack.side || 1) : 1);
       });
 
       for (const [id, hero] of this.heroes.entries()) {
@@ -1745,7 +1745,7 @@
       return Math.atan2(dx - dy, dx + dy);
     }
 
-    update(player, camera, canvasWidth, canvasHeight, dt, isLocal, isAttacking, attackProg, attackYaw = null) {
+    update(player, camera, canvasWidth, canvasHeight, dt, isLocal, isAttacking, attackProg, attackYaw = null, attackSide = 1) {
       this.player = player;
       const z = camera.zoom || 1;
 
@@ -1776,12 +1776,12 @@
 
       this.modelContainer.rotation.y = this.currentYaw;
 
-      this.animate(dt, !!player.isMoving, isAttacking, attackProg);
+      this.animate(dt, !!player.isMoving, isAttacking, attackProg, attackSide);
     }
 
     // Pure skeletal animation, decoupled from world positioning so it can be
     // reused by the character-creation preview (which has its own camera).
-    animate(dt, isMoving, isAttacking, attackProg) {
+    animate(dt, isMoving, isAttacking, attackProg, attackSide = 1) {
       // Animation Cycle Timers
       if (isMoving) {
         this.walkTime += dt * 11.5;
@@ -1941,16 +1941,25 @@
       } else {
         // --- COMBAT ATTACK CLEAVE / CAST / SLASH ANIMATIONS ---
         if (this.characterClass === 'warrior') {
-          // Heavy Overhead Diagonal Cleave
+          // Heavy Overhead Diagonal Cleave; combo return swings rise the other way
           const swing = Math.sin(attackProg * Math.PI);
           const windup = 1.0 - attackProg;
 
-          this.torsoGroup.rotation.y = (attackProg - 0.5) * 0.6;
-          this.armR.rotation.set(-0.6 - windup * 1.4 + attackProg * 1.2, 0.25, -0.2 + swing * 0.7);
-          this.forearmR.rotation.set(-0.75 - windup * 0.6 + attackProg * 0.9, 0.15, 0);
+          if (attackSide >= 0) {
+            this.torsoGroup.rotation.y = (attackProg - 0.5) * 0.6;
+            this.armR.rotation.set(-0.6 - windup * 1.4 + attackProg * 1.2, 0.25, -0.2 + swing * 0.7);
+            this.forearmR.rotation.set(-0.75 - windup * 0.6 + attackProg * 0.9, 0.15, 0);
 
-          this.armL.rotation.set(-0.55 - windup * 1.2 + attackProg * 1.0, -0.3, 0.4 + swing * 0.5);
-          this.forearmL.rotation.set(-0.95 - windup * 0.5 + attackProg * 0.8, -0.2, 0);
+            this.armL.rotation.set(-0.55 - windup * 1.2 + attackProg * 1.0, -0.3, 0.4 + swing * 0.5);
+            this.forearmL.rotation.set(-0.95 - windup * 0.5 + attackProg * 0.8, -0.2, 0);
+          } else {
+            this.torsoGroup.rotation.y = (0.5 - attackProg) * 0.6;
+            this.armR.rotation.set(-0.2 - attackProg * 1.9 + windup * 0.3, 0.25, 0.5 - swing * 0.9);
+            this.forearmR.rotation.set(-0.5 - attackProg * 0.6, 0.15, 0);
+
+            this.armL.rotation.set(-0.2 - attackProg * 1.6 + windup * 0.3, -0.3, -0.1 - swing * 0.4);
+            this.forearmL.rotation.set(-0.7 - attackProg * 0.5, -0.2, 0);
+          }
 
         } else if (this.characterClass === 'mage') {
           // Arcane Staff Thrust & Orb Eruption
@@ -1967,9 +1976,11 @@
           }
 
         } else {
-          // Dual Scissor Cross-Slash
-          const rLunge = attackProg < 0.5 ? Math.sin(attackProg * 2 * Math.PI) : 0;
-          const lLunge = attackProg >= 0.5 ? Math.sin((attackProg - 0.5) * 2 * Math.PI) : 0;
+          // Dual Scissor Cross-Slash; combo return swings lead with the left blade
+          const first = attackProg < 0.5 ? Math.sin(attackProg * 2 * Math.PI) : 0;
+          const second = attackProg >= 0.5 ? Math.sin((attackProg - 0.5) * 2 * Math.PI) : 0;
+          const rLunge = attackSide >= 0 ? first : second;
+          const lLunge = attackSide >= 0 ? second : first;
 
           this.armR.rotation.set(-0.55 - rLunge * 0.95, 0.1, -0.22 + rLunge * 0.35);
           this.forearmR.rotation.set(-0.85 + rLunge * 0.7, 0, 0);

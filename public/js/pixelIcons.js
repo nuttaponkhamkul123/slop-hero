@@ -59,7 +59,28 @@
     bolt: ['.......kkk..', '......kyyk..', '.....kyyk...', '....kyyk....', '...kyyykkk..', '..kyyyyyyk..', '..kkkyyyk...', '....kyyk....', '...kyyk.....', '..kyyk......', '..kyk.......', '..kk........'],
     crown: ['............', '............', '.k...kk...k.', '.kk.kyyk.kk.', '.kyk.kk.kyk.', '.kyykyykyyk.', '.kyyyyyyyyk.', '.kyrryyrryk.', '.kyyyyyyyyk.', '.kkkkkkkkkk.', '............', '............'],
     refresh: ['....kkkk....', '..kkBBBBkk.k', '.kBBkkkkBBkk', '.kBk....kBBk', 'kBk....kBBBk', 'kBk....kkkkk', 'kBk.........', 'kkkkk....kBk', 'kBBBk....kBk', 'kBBk....kBk.', 'kk.kkBBBBkk.', 'k...kkkk....'],
-    online: ['............', '............', '....kkkk....', '...kLLggk...', '..kLwLgggk..', '..kLLgggtk..', '..kggggttk..', '...kgttgk...', '....kkkk....', '............', '............', '............']
+    online: ['............', '............', '....kkkk....', '...kLLggk...', '..kLwLgggk..', '..kLLgggtk..', '..kggggttk..', '...kgttgk...', '....kkkk....', '............', '............', '............'],
+    gear: ['....kkkk....', '..kkllllkk..', '.klkllllklk.', '.kllllllllk.', 'kkllllllllkk', 'klllk..klllk', 'klllk..klllk', 'kkllllllllkk', '.kllllllllk.', '.klkllllklk.', '..kkllllkk..', '....kkkk....'],
+    // --- expanded equipment shapes ---
+    axe: ['.....kkkk...', '....kwllsk..', '...kwllllsk.', '...kllkmlsk.', '....kkmkssk.', '.....kmk.k..', '....kmk.....', '...kmk......', '..kmk.......', '.kmk........', 'kmk.........', 'kk..........'],
+    mace: ['......kkk...', '.....klwlk..', '....kllllsk.', '....klwlssk.', '.....kssdk..', '......kkk...', '.....kmk....', '....kmk.....', '...kmk......', '..kmk.......', '.kyk........', '.kk.........'],
+    spear: ['.........kk.', '........kwk.', '.......kwlk.', '......kwlk..', '.....kkkk...', '....kmk.....', '...kmk......', '..kmk.......', '.kmk........', 'kmk.........', 'kk..........', '............'],
+    katana: ['..........k.', '.........kwk', '........kwk.', '.......kwlk.', '......kwlk..', '.....kwlk...', '....kwlk....', '..kkkkk.....', '...kmk......', '..kmk.......', '.kmk........', '.kk.........'],
+    scythe: ['..kkkkkk....', '.kwlllllkk..', 'kwlkkkkkllk.', 'kk.....kmklk', '.......kmk.k', '......kmk...', '......kmk...', '.....kmk....', '.....kmk....', '....kmk.....', '....kmk.....', '....kk......'],
+    wand: ['.........k..', '........kyk.', '.......kywyk', '........kyk.', '.......kmk..', '......kmk...', '.....kmk....', '....kmk.....', '...kmk......', '..kmk.......', '..kk........', '............'],
+    scepter: ['........kkk.', '.......keeek', '.......kewek', '........keek', '.......kyyk.', '......kyk...', '.....kyk....', '....kyk.....', '...kyk......', '..kTk.......', '.kyk........', '.kk.........'],
+    chainmail: ['............', '.kkk....kkk.', 'kllskkkkslsk', 'klslslslslsk', '.kslslslslk.', '.klslslslsk.', '.kslslslslk.', '.klslslslsk.', '.kslslslslk.', '.klslslslsk.', '..kkkkkkkk..', '............'],
+    robe: ['....kkkk....', '...keyyek...', '..keeyyeek..', '.keeeyyeeek.', '.kekeyyekek.', '..keeyyeek..', '..keeyyeek..', '.keeeyyeeek.', '.keeeyyeeek.', 'keeeeyyeeeek', 'kkkkkkkkkkkk', '............'],
+    hat: ['.......kk...', '......kek...', '.....keek...', '....keeek...', '....keyek...', '...keeeeek..', '...kyyyyyk..', 'kkkkkkkkkkkk', 'keeeeeeeeeek', '.kkkkkkkkkk.', '............', '............'],
+    horned: ['............', 'k..........k', 'kwk.kkkk.kwk', '.kwkllllkwk.', '..klwllssk..', '.klwlllsssk.', '.kllllsssdk.', '.kkkkkkkkkk.', '.klk.kk.ksk.', '.klk.kk.ksk.', '.kk..kk..kk.', '............'],
+    bandana: ['............', '............', '...kkkkkk...', '..krrwrrrk..', '.krwrrrrrrk.', '.krrrrrrrrk.', '.kpppppppppk', '..kkkkkkkkrk', '..........kr', '...........k', '............', '............'],
+    // --- talent / card glyphs ---
+    thorns: ['.....k......', '....kgk..k..', '.k..kgk.kgk.', 'kgk.kgkkgk..', '.kgkkggk....', '..kggggk....', '...kgtk.k...', '.k.kgtkkgk..', 'kgkkgtkgk...', '.kggttk.....', '..kkgtk.....', '....kk......'],
+    fang: ['............', '.kkkkkkkkkk.', '.kwwwwwwwwk.', '.kwkkkkkkwk.', '.kwk....kwk.', '.kwk....kwk.', '.kwk....kwk.', '..kwk..kwk..', '..krk..krk..', '...k....k...', '...r....r...', '............'],
+    feather: ['.........kk.', '........kwck', '.......kwcck', '......kwcck.', '.....kwcck..', '....kwcck...', '...kwcck....', '..kwcck.....', '..kcck......', '.kmkk.......', 'kmk.........', 'kk..........'],
+    burst: ['.....k......', '.k...ok...k.', '..k.kok..k..', '...koyok.k..', '.kkoyyyokk..', 'kooyywyyook.', '.kkoyyyokk..', '...koyok....', '..k.kok.k...', '.k...ok..k..', '.....k......', '............'],
+    card: ['.kkkkkkkkk..', 'kyyyyyyyyyk.', 'kyeeeeeeeyk.', 'kyekkkkkeyk.', 'kyekwwwkeyk.', 'kyekwkwkeyk.', 'kyekwwwkeyk.', 'kyekkkkkeyk.', 'kyeeeeeeeyk.', 'kyyyyyyyyyk.', '.kkkkkkkkk..', '............'],
+    anvil: ['............', '............', 'kkkkkkkkkk..', 'klllllllllkk', 'klwllllllssk', '.kkllllsskk.', '...klllsk...', '...klllsk...', '..kllllssk..', '.kssssssddk.', '.kkkkkkkkkk.', '............']
   };
 
   // Recoloured variants of the base icons
@@ -67,8 +88,41 @@
     elixir_fury: ['hp_potion', { r: 'o', p: 'r' }],
     elixir_iron: ['hp_potion', { r: 'l', p: 's', w: 'w' }],
     ruby: ['gem', { e: 'r' }],
-    sapphire: ['gem', { e: 'B' }]
+    sapphire: ['gem', { e: 'B' }],
+    armor_leather: ['armor', { l: 'T', s: 'm', d: 'm', w: 'y', y: 'o' }],
+    armor_ice: ['armor', { l: 'c', s: 'B', d: 'b', w: 'w' }],
+    armor_dragon: ['armor', { l: 'r', s: 'p', d: 'p', w: 'o' }],
+    armor_dark: ['armor', { l: 's', s: 'd', d: 'n', y: 'e' }],
+    robe_dark: ['robe', { e: 'd', y: 'e' }],
+    robe_gold: ['robe', { e: 'y', y: 'w' }],
+    boots_steel: ['boots', { m: 's', T: 'l' }],
+    boots_ember: ['boots', { m: 'r', T: 'o' }],
+    boots_shadow: ['boots', { m: 'p', T: 'e' }],
+    ring_copper: ['ring', { e: 'T', y: 'T', T: 'm' }],
+    ring_sapphire: ['ring', { e: 'B' }],
+    ring_ruby: ['ring', { e: 'r' }],
+    ring_emerald: ['ring', { e: 'g' }],
+    ring_void: ['ring', { e: 'p', y: 's', T: 'd' }],
+    ring_phoenix: ['ring', { e: 'o' }],
+    crown_frost: ['crown', { y: 'c', r: 'B' }],
+    skull_mask: ['skull', { w: 'l' }],
+    helmet_gold: ['helmet', { l: 'y', s: 'T', d: 'm' }],
+    fragment: ['essence', { e: 'c', w: 'w' }],
+    droplet: ['whirl', { c: 'c' }],
+    flame: ['fire', { y: 'y' }]
   };
+  // Element-tinted weapon blades: <shape>_<element>
+  const ELEMENT_BLADE = {
+    fire: { l: 'o', w: 'y' },
+    ice: { l: 'c', w: 'w' },
+    lightning: { l: 'y', w: 'w' },
+    dark: { l: 'e', w: 'l' },
+    holy: { l: 'y', w: 'w', y: 'w' },
+    earth: { l: 'L', w: 'w' }
+  };
+  for (const shape of ['sword', 'dagger', 'axe', 'spear', 'katana', 'scythe', 'mace']) {
+    for (const [el, swap] of Object.entries(ELEMENT_BLADE)) VARIANTS[`${shape}_${el}`] = [shape, swap];
+  }
 
   const urlCache = new Map();
   function iconUrl(name) {
@@ -118,10 +172,9 @@
     iron_helm: 'helmet', shadow_hood: 'helmet', archmage_cowl: 'helmet',
     iron_greaves: 'boots', winged_boots: 'boots', ring_of_power: 'ring'
   };
-  function itemIconName(item) {
-    if (!item) return 'bag';
-    if (item.type === 'gold') return 'coin';
+  function baseItemIcon(item) {
     const id = item.baseId || item.itemId || item.id;
+    if (item.iconKey) return item.iconKey;
     if (ITEM_ICON[id]) return ITEM_ICON[id];
     const name = (item.name || '').toLowerCase();
     if (item.slot === 'weapon') return /staff|wand|scepter/.test(name) ? 'staff' : /dagger|knife|rapier|fang/.test(name) ? 'dagger' : 'sword';
@@ -131,7 +184,41 @@
     if (item.slot === 'ring') return 'ring';
     if (item.type === 'consumable') return /mana/.test(name) ? 'mp_potion' : 'hp_potion';
     if (item.type === 'treasure') return 'gem';
+    if (item.type === 'material') return 'fragment';
     return 'bag';
+  }
+  function itemIconName(item) {
+    if (!item) return 'bag';
+    if (item.type === 'gold') return 'coin';
+    if (item.type === 'sp_card') return 'card';
+    const base = baseItemIcon(item);
+    // Weapons show their element in the blade colour
+    if (item.slot === 'weapon' && item.element && item.element !== 'neutral' && VARIANTS[`${base}_${item.element}`]) {
+      return `${base}_${item.element}`;
+    }
+    return base;
+  }
+
+  // Passive talents: icon from the talent's main effect, themed by branch
+  const TALENT_EFFECT_ICON = {
+    bonusDef: 'shield', bonusHp: 'heart', thorns: 'thorns', bonusDmg: 'sword', bonusSwipe: 'whirl',
+    bonusAttackSpeed: 'bolt', bonusSpeed: 'boots', critChanceBonus: 'target', lifeSteal: 'fang',
+    critDmgBonus: 'burst', bonusMp: 'mp_potion', dodgeChance: 'feather',
+    burnPower: 'fire', chillChance: 'snow', shatterBonus: 'snow', echoChance: 'essence', manaLeech: 'mp_potion', poisonPower: 'poison'
+  };
+  const BRANCH_ATTACK_ICON = {
+    Juggernaut: 'mace', Blademaster: 'sword', Warlord: 'axe', Pyromancer: 'fire', Cryomancer: 'snow',
+    Archmage: 'essence', 'Shadow Assassin': 'dagger', Venomous: 'poison', Windrunner: 'katana'
+  };
+  function talentIconName(t) {
+    if (!t) return 'star';
+    if (t.isKeystone) return 'crown';
+    const effect = Object.keys(t.effects || {})[0];
+    if (effect === 'bonusDmg') {
+      const branch = Object.keys(BRANCH_ATTACK_ICON).find(b => (t.branch || '').includes(b));
+      if (branch) return BRANCH_ATTACK_ICON[branch];
+    }
+    return TALENT_EFFECT_ICON[effect] || 'star';
   }
 
   // ---------- skill / talent icons: vector glyph -> 16x16 palette pixels ----------
@@ -263,6 +350,7 @@
   window.PixelIcons = {
     PAL, ICONS, url: iconUrl, image: iconImage, html, item: itemIconName,
     itemHtml: (item, cls) => html(itemIconName(item), cls),
+    talentHtml: (talent, cls = 'skill-svg') => html(talentIconName(talent), cls),
     stripEmoji, isSkillReady: () => skillsReady
   };
   window.stripEmoji = stripEmoji;

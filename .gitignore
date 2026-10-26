@@ -6,3 +6,9 @@ yarn-debug.log*
 yarn-error.log*
 .DS_Store
 Thumbs.db
+
+# Live account data (password hashes) - never commit
+server/data/
+
+# Background music: several files exceed GitHub's 100 MB limit
+*.wav
