@@ -1,5 +1,6 @@
 // 3D town props for Slop Hero: market stall (Olaf), forge (Brom), houses,
-// gate towers and corner keeps.
+// gate towers, corner keeps and city street furniture (stalls, lamps, crates,
+// flower beds, benches, the garden well).
 //
 // Each prop is modelled in "game axes" (X = world +x, Z = world +y, Y = up,
 // TILE units per map tile) and rendered offscreen through an isometric
@@ -268,6 +269,87 @@
     };
   };
 
+  // Valka's rune forge: an awning stall with a floating crystal over a rune
+  // altar, where gear and SP cards are enhanced
+  BUILDERS.enchanter = () => {
+    const root = new THREE.Group();
+    const stone = '#5b5f7a', darkStone = '#3b3f57', wood = '#5d3a6e';
+
+    box(root, 78, 2, 78, '#4a4e66', 0, 0, 0);
+    for (let i = -3; i <= 3; i++) box(root, 78, 0.3, 0.6, '#3c3f55', 0, 2, i * 11);
+    for (const [px, pz, h] of [[-36, -36, 70], [-36, 36, 70], [-8, -36, 62], [-8, 36, 62]]) box(root, 4.4, h, 4.4, wood, px, 2, pz);
+    const roof = new THREE.Group();
+    roof.position.set(-22, 67, 0);
+    roof.rotation.z = -Math.atan2(10, 42);
+    root.add(roof);
+    for (let r = 0; r < 4; r++) box(roof, 12.4, 2.2, 84, r % 2 ? '#6d28d9' : '#4c1d95', -19 + r * 11.6, -r * 0.5, 0);
+
+    // rune altar with a hovering crystal and a spinning ring
+    box(root, 22, 14, 22, stone, 16, 2, -14);
+    box(root, 25, 3, 25, darkStone, 16, 16, -14);
+    for (const [rx, rz] of [[6, -24], [26, -24], [6, -4], [26, -4]]) sphere(root, 1.4, glow('#c084fc', 1.4), rx, 19.5, rz, 6);
+    const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(6, 0), glow('#c084fc', 1.6));
+    crystal.position.set(16, 34, -14);
+    root.add(crystal);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(9, 0.8, 6, 20), glow('#a855f7', 1.2));
+    ring.rotation.x = Math.PI / 2;
+    ring.position.set(16, 24, -14);
+    root.add(ring);
+
+    // shelf of glowing SP cards on the back wall
+    box(root, 2, 30, 44, wood, -36, 18, 0);
+    box(root, 6, 1.6, 44, darkStone, -33, 30, 0);
+    ['#facc15', '#38bdf8', '#f97316', '#4ade80', '#c084fc'].forEach((c, k) => {
+      box(root, 1.2, 8, 6, glow(c, 1.1), -33.4, 32, -16 + k * 8);
+    });
+
+    const sign = textPlane('VALKA RUNES', 26, 7, '#2e1065', '#e9d5ff');
+    sign.position.set(-34.6, 58, 0);
+    sign.rotation.y = Math.PI / 2;
+    root.add(sign);
+
+    // Valka: silver-haired enchantress in violet robes and a pointed hat
+    const valka = makeHuman({
+      broad: 0.92,
+      skin: '#e8b48f', hair: '#e5e7eb', brow: '#9ca3af',
+      shirt: '#6d28d9', sleeve: '#6d28d9', forearm: '#e8b48f', apron: '#4c1d95',
+      pants: '#312e81', boots: '#1e1b4b', belt: '#facc15',
+      hat: (head) => {
+        const brim = new THREE.Mesh(new THREE.CylinderGeometry(9, 9, 1, 14), mat('#4c1d95'));
+        brim.position.y = 13;
+        head.add(brim);
+        const cone = new THREE.Mesh(new THREE.ConeGeometry(6.6, 15, 12), mat('#5b21b6'));
+        cone.position.set(0, 20, -1);
+        cone.rotation.x = -0.18;
+        head.add(cone);
+        const band = new THREE.Mesh(new THREE.CylinderGeometry(6.4, 6.6, 1.6, 12), mat('#facc15'));
+        band.position.y = 14.2;
+        head.add(band);
+      }
+    });
+    valka.position.set(2, 2, -4);
+    valka.rotation.y = Math.PI / 2 + 0.5;
+    root.add(valka);
+    const P = valka.userData.parts;
+
+    return {
+      root,
+      animate(t) {
+        crystal.position.y = 34 + Math.sin(t * 2) * 2.5;
+        crystal.rotation.y = t * 1.4;
+        ring.rotation.z = t * 0.9;
+        // hands raised toward the crystal, weaving slowly
+        P.armR.rotation.set(-1.25 + Math.sin(t * 2) * 0.18, 0, -0.25);
+        P.armL.rotation.set(-1.05 + Math.sin(t * 2 + 1.2) * 0.18, 0, 0.25);
+        P.foreR.rotation.x = -0.35;
+        P.foreL.rotation.x = -0.35;
+        P.head.rotation.x = -0.1;
+        P.torso.scale.y = 1 + Math.sin(t * 2) * 0.01;
+        return null;
+      }
+    };
+  };
+
   BUILDERS.blacksmith = () => {
     const root = new THREE.Group();
     const stone = '#7a7f87', darkStone = '#565b63', wood = '#6d4423';
@@ -501,6 +583,156 @@
     return { root };
   };
 
+  // ---------- city street furniture ----------
+
+  // Market stall: counter, striped awning and goods. Variant picks colours,
+  // wares and the stall keeper.
+  BUILDERS.market_stall = (variant = 0) => {
+    const root = new THREE.Group();
+    const awnings = [['#c0392b', '#f5efe0'], ['#2e6fb5', '#f5efe0'], ['#2f9e57', '#fdf2d0'], ['#8e44ad', '#f9e79f']];
+    const [stripeA, stripeB] = awnings[variant % 4];
+    const wood = '#7a4a26', dark = '#4a2f1d';
+    const W = 54, D = 30;
+
+    // keeper stands behind the counter, facing the street
+    const keepers = [
+      { skin: '#e8b48a', shirt: '#b5651d', pants: '#4b3621', boots: '#2b1d14', belt: '#3b2a1a', hair: '#5a3825', apron: '#f2e6cf' },
+      { skin: '#c68b59', shirt: '#2c5d8a', pants: '#3b3b48', boots: '#22222a', belt: '#2a2a33', hair: '#1f1a17', beard: '#1f1a17' },
+      { skin: '#f0c9a0', shirt: '#6a8f3a', pants: '#5a4630', boots: '#2b1d14', belt: '#3b2a1a', hair: '#c9772e', apron: '#e9dcc0' },
+      { skin: '#d9a77a', shirt: '#5b3a7a', pants: '#3a2f45', boots: '#1f1a24', belt: '#2b2233', hair: '#d9d4cc', bald: true, beard: '#d9d4cc' }
+    ];
+    const keeper = makeHuman(keepers[variant % 4]);
+    keeper.scale.setScalar(0.82);
+    keeper.position.set(0, 0, -D / 2 + 4);
+    root.add(keeper);
+
+    box(root, W, 20, D * 0.55, wood, 0, 0, D * 0.2);                    // counter
+    box(root, W + 4, 2.4, D * 0.55 + 4, '#a8743f', 0, 20, D * 0.2);      // counter top
+    for (let i = 0; i < 4; i++) box(root, W, 1.2, 0.8, dark, 0, 4 + i * 4, D * 0.2 + D * 0.275 + 0.4); // planks
+    for (const sx of [-1, 1]) {
+      for (const sz of [-1, 1]) box(root, 3, 50, 3, dark, sx * (W / 2 - 1), 0, sz * (D / 2 - 1));
+    }
+    // sloped striped awning
+    const awning = new THREE.Group();
+    awning.position.set(0, 52, 0);
+    awning.rotation.x = 0.28;
+    root.add(awning);
+    const stripes = 7;
+    for (let i = 0; i < stripes; i++) {
+      box(awning, W / stripes + 0.2, 2, D + 10, i % 2 ? stripeB : stripeA, -W / 2 + (i + 0.5) * W / stripes, 0, 2);
+      box(awning, W / stripes + 0.2, 6, 1.2, i % 2 ? stripeB : stripeA, -W / 2 + (i + 0.5) * W / stripes, -6, D / 2 + 7);
+    }
+
+    // wares on the counter
+    const top = 22.4, zc = D * 0.2;
+    if (variant % 4 === 0) {
+      for (let i = 0; i < 9; i++) sphere(root, 3, i % 3 ? '#d63031' : '#7cb342', -18 + (i % 5) * 9, top + 3, zc - 4 + Math.floor(i / 5) * 7, 7);
+    } else if (variant % 4 === 1) {
+      for (let i = 0; i < 4; i++) {
+        const fish = sphere(root, 3.2, '#8fb3c9', -16 + i * 10, top + 2.4, zc, 7);
+        fish.scale.set(2.2, 0.7, 1);
+      }
+      box(root, 14, 6, 10, '#c9d6df', 16, top, zc - 2);
+    } else if (variant % 4 === 2) {
+      for (let i = 0; i < 4; i++) {
+        const loaf = sphere(root, 4, '#c98b3c', -18 + i * 9, top + 3, zc, 8);
+        loaf.scale.set(1.5, 0.8, 1);
+      }
+      for (let i = 0; i < 3; i++) sphere(root, 4, '#6fbf4a', 18, top + 4, zc - 6 + i * 6, 8);
+    } else {
+      const glass = ['#e74c3c', '#3498db', '#2ecc71', '#f1c40f', '#9b59b6'];
+      for (let i = 0; i < 5; i++) {
+        cyl(root, 2.6, 3.2, 7, glow(glass[i], 0.6), -18 + i * 9, top, zc, 8);
+        cyl(root, 1, 1, 2.4, '#7a4a26', -18 + i * 9, top + 7, zc, 6);
+      }
+    }
+    return { root };
+  };
+
+  BUILDERS.lamp_post = () => {
+    const root = new THREE.Group();
+    cyl(root, 4.5, 5.5, 5, '#3a3f47', 0, 0, 0, 8);
+    cyl(root, 1.6, 2, 62, '#2c3038', 0, 5, 0, 8);
+    box(root, 14, 1.8, 1.8, '#2c3038', 4, 62, 0);
+    box(root, 8, 2, 8, '#2c3038', 10, 52, 0);
+    box(root, 6, 9, 6, glow('#ffd27a', 1.4), 10, 43, 0);
+    const cap = new THREE.Mesh(new THREE.ConeGeometry(6.4, 6, 4), mat('#2c3038'));
+    cap.position.set(10, 57, 0);
+    cap.rotation.y = Math.PI / 4;
+    root.add(cap);
+    box(root, 1.2, 8, 1.2, '#2c3038', 10, 54, 0);
+    return { root };
+  };
+
+  BUILDERS.crates = (variant = 0) => {
+    const root = new THREE.Group();
+    const crate = (x, y, z, s) => {
+      box(root, s, s, s, '#a4723f', x, y, z);
+      box(root, s + 0.6, 1.6, s + 0.6, '#6d4423', x, y + s - 1.6, z);
+      box(root, s + 0.6, 1.6, s + 0.6, '#6d4423', x, y, z);
+    };
+    const barrel = (x, z) => {
+      cyl(root, 7, 7, 18, '#8a5a32', x, 0, z, 12);
+      for (const y of [3, 14]) cyl(root, 7.4, 7.4, 1.6, '#4a4f57', x, y, z, 12);
+      cyl(root, 6.2, 6.2, 0.6, '#6d4423', x, 18, z, 12);
+    };
+    if (variant % 2 === 0) {
+      crate(-6, 0, 0, 16);
+      crate(9, 0, 4, 13);
+      crate(-4, 16, 1, 12);
+      barrel(10, -12);
+    } else {
+      barrel(-8, 0);
+      barrel(8, 2);
+      barrel(0, -12);
+      crate(0, 18, 0, 10);
+    }
+    return { root };
+  };
+
+  BUILDERS.flower_bed = (variant = 0) => {
+    const root = new THREE.Group();
+    const palettes = [['#e57373', '#fff176', '#f48fb1'], ['#ba68c8', '#fff59d', '#81d4fa'], ['#ffb74d', '#e57373', '#ffffff']];
+    const pal = palettes[variant % 3];
+    box(root, 34, 9, 20, '#8d6e63', 0, 0, 0);
+    box(root, 31, 1, 17, '#4e342e', 0, 9, 0);
+    for (let i = 0; i < 12; i++) {
+      const x = -13 + (i % 6) * 5.2, z = -5 + Math.floor(i / 6) * 10;
+      cyl(root, 0.6, 0.6, 5, '#43a047', x, 9, z, 5);
+      sphere(root, 2.4, pal[i % 3], x, 15, z, 6);
+    }
+    for (let i = 0; i < 5; i++) sphere(root, 3, '#558b2f', -12 + i * 6, 11, i % 2 ? 4 : -4, 6);
+    return { root };
+  };
+
+  BUILDERS.bench = () => {
+    const root = new THREE.Group();
+    const wood = '#9c6b3e', iron = '#3a3f47';
+    for (const sx of [-1, 1]) {
+      box(root, 2.4, 10, 12, iron, sx * 14, 0, 0);
+      box(root, 2.4, 14, 2.4, iron, sx * 14, 10, -5);
+    }
+    for (let i = 0; i < 3; i++) box(root, 34, 1.8, 3.4, wood, 0, 10, -4 + i * 4);
+    for (let i = 0; i < 2; i++) box(root, 34, 3, 1.4, wood, 0, 15 + i * 5, -5.6);
+    return { root };
+  };
+
+  BUILDERS.well = () => {
+    const root = new THREE.Group();
+    cyl(root, 18, 19, 16, '#8b9099', 0, 0, 0, 14);
+    cyl(root, 19.4, 19.4, 2.4, '#9da2ab', 0, 16, 0, 14);
+    cyl(root, 15, 15, 0.6, '#2f6f9f', 0, 13, 0, 14);
+    for (const sx of [-1, 1]) box(root, 3, 34, 3, '#5d3a1f', sx * 15, 16, 0);
+    box(root, 34, 2.4, 2.4, '#5d3a1f', 0, 42, 0);
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(25, 16, 4), mat('#9c3b2e'));
+    roof.position.y = 58;
+    roof.rotation.y = Math.PI / 4;
+    root.add(roof);
+    cyl(root, 4, 3.4, 6, '#7a4a26', 4, 30, 0, 8); // bucket
+    box(root, 0.6, 12, 0.6, '#c8b88a', 4, 36, 0);  // rope
+    return { root };
+  };
+
   // ---------- offscreen renderer ----------
   class TownProps3D {
     constructor() {
@@ -597,10 +829,29 @@
       let events = null;
 
       if (inst.animated) {
+        // Pose every frame (cheap) but re-render through WebGL at ~15 fps: each
+        // render + copy out of the GL canvas stalls the GPU pipeline
         events = inst.prop.animate(time) || null;
-        const { w, h } = this.renderInstance(inst, zoom);
-        const pr = this.pixelRatio;
-        ctx.drawImage(this.canvas, 0, 0, w * pr, h * pr, dx, dy, w, h);
+        const now = performance.now();
+        const zoomKey = zoom.toFixed(3);
+        if (!inst.frameImg || now - inst.frameAt > 66 || inst.frameZoom !== zoomKey) {
+          const { w, h } = this.renderInstance(inst, zoom);
+          const pr = this.pixelRatio;
+          const img = inst.frameImg || (inst.frameImg = document.createElement('canvas'));
+          const iw = Math.ceil(w * pr), ih = Math.ceil(h * pr);
+          if (img.width !== iw || img.height !== ih) {
+            img.width = iw;
+            img.height = ih;
+          }
+          const ic = img.getContext('2d');
+          ic.clearRect(0, 0, iw, ih);
+          ic.drawImage(this.canvas, 0, 0, w * pr, h * pr, 0, 0, iw, ih);
+          img.cssW = w;
+          img.cssH = h;
+          inst.frameAt = now;
+          inst.frameZoom = zoomKey;
+        }
+        ctx.drawImage(inst.frameImg, dx, dy, inst.frameImg.cssW, inst.frameImg.cssH);
       } else {
         // Cache at zoom steps of 0.05 and scale the image in between, so a
         // smooth camera zoom doesn't re-render every static prop each frame

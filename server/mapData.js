@@ -18,202 +18,177 @@ const TILES = {
   FROST_CLIFF: 12
 };
 
+// The starting map is one walled city: a grand plaza at the crossing of two
+// boulevards, a grid of side streets, housing blocks, a market street, a
+// lakeside park in the north-east and a garden in the south-west. Monsters
+// live outside, past the north gate (first field zone).
+const CITY = {
+  WALL_MIN: 2,
+  WALL_MAX: 39,
+  BOULEVARD: [18, 22],          // main roads (x and y), tiles inclusive
+  LANES: [[9, 10], [31, 32]],   // side streets (x and y), tiles inclusive
+  PLAZA: [16, 24],              // polished plaza around the fountain
+  NORTH_GATE: { x: 20.5, y: 3.6 }
+};
+const inRange = (v, [a, b]) => v >= a && v <= b;
+const isRoadTile = v => inRange(v, CITY.BOULEVARD) || CITY.LANES.some(l => inRange(v, l));
+const inPond = (x, y) => Math.hypot((x + 0.5 - 30.5) * 0.55, y + 0.5 - 5.8) < 2.5;
+const inGarden = (x, y) => x >= 3 && x <= 17 && y >= 25 && y <= 38;
+
 function generateMap() {
   const tiles = [];
-  const obstacles = []; // { x, y, type: 'tree' | 'rock' | 'ruin' | 'torch' | 'fountain' | 'chest', collidable: true }
+  const obstacles = []; // { x, y, type, collidable, radius? }
 
   for (let y = 0; y < MAP_HEIGHT; y++) {
     tiles[y] = [];
     for (let x = 0; x < MAP_WIDTH; x++) {
-      // Default to grass
       let tile = TILES.GRASS;
+      const inside = x > CITY.WALL_MIN && x < CITY.WALL_MAX && y > CITY.WALL_MIN && y < CITY.WALL_MAX;
 
-      // Central Town Area (x: 14-26, y: 14-26)
-      if (x >= 15 && x <= 25 && y >= 15 && y <= 25) {
-        tile = TILES.COBBLESTONE;
-      }
+      if (inside && (isRoadTile(x) || isRoadTile(y))) tile = TILES.COBBLESTONE;
+      if (inRange(x, CITY.PLAZA) && inRange(y, CITY.PLAZA)) tile = TILES.SPAWN_ZONE;
+      // old paving along the garden walks
+      if (inGarden(x, y) && tile === TILES.GRASS && (x === 13 || y === 28)) tile = TILES.STONE_RUIN;
+      if (inPond(x, y)) tile = isRoadTile(x) ? TILES.WOOD_BRIDGE : TILES.WATER;
+      // the north boulevard runs out through the gate
+      if (y >= 1 && y <= CITY.WALL_MIN && inRange(x, CITY.BOULEVARD)) tile = TILES.COBBLESTONE;
 
-      // Grand polished plaza around the fountain (x: 18-22, y: 18-22)
-      if (x >= 18 && x <= 22 && y >= 18 && y <= 22) {
-        tile = TILES.SPAWN_ZONE;
-      }
-
-      // Crossroads / Paths extending out
-      if ((x >= 18 && x <= 22) || (y >= 18 && y <= 22)) {
-        if (tile === TILES.GRASS) tile = TILES.DIRT;
-      }
-
-      // River flowing diagonally from top-left to bottom-right around outer ring
-      const distFromPond = Math.hypot(x - 32, y - 9);
-      if (distFromPond < 5.5) {
-        tile = TILES.WATER;
-      }
-
-      // Wooden bridge across pond
-      if (x >= 28 && x <= 36 && y === 9) {
-        tile = TILES.WOOD_BRIDGE;
-      }
-
-      // Ancient ruins zone in South-West (x: 5-13, y: 27-37)
-      if (x >= 5 && x <= 13 && y >= 27 && y <= 37) {
-        if ((x + y) % 2 === 0) {
-          tile = TILES.STONE_RUIN;
-        } else {
-          tile = TILES.DIRT;
-        }
-      }
-
-      // Map boundary cliffs
-      if (x === 0 || x === MAP_WIDTH - 1 || y === 0 || y === MAP_HEIGHT - 1) {
-        tile = TILES.CLIFF;
-      }
-
+      if (x === 0 || x === MAP_WIDTH - 1 || y === 0 || y === MAP_HEIGHT - 1) tile = TILES.CLIFF;
       tiles[y][x] = tile;
     }
   }
 
-  // Town Fountain
-  obstacles.push({ id: 'fountain_center', x: 20, y: 20, type: 'fountain', collidable: false });
+  const add = (o) => obstacles.push(o);
+  const near = (x, y, r) => obstacles.some(o => Math.hypot(o.x - x, o.y - y) < r);
+  const WALL_TYPES = new Set(['town_wall', 'gate_tower', 'corner_keep']);
+  const nearProp = (x, y, r) => obstacles.some(o => !WALL_TYPES.has(o.type) && Math.hypot(o.x - x, o.y - y) < r);
 
-  // Braziers at the corners of the fountain plaza
-  obstacles.push({ id: 'torch_1', x: 17.5, y: 17.5, type: 'torch', collidable: false });
-  obstacles.push({ id: 'torch_2', x: 22.5, y: 17.5, type: 'torch', collidable: false });
-  obstacles.push({ id: 'torch_3', x: 17.5, y: 22.5, type: 'torch', collidable: false });
-  obstacles.push({ id: 'torch_4', x: 22.5, y: 22.5, type: 'torch', collidable: false });
+  // ---- plaza: fountain, braziers, flower beds ----
+  add({ id: 'fountain_center', x: 20, y: 20, type: 'fountain', collidable: false });
+  [[16.6, 16.6], [24.4, 16.6], [16.6, 24.4], [24.4, 24.4]].forEach(([x, y], i) => add({ id: `torch_${i + 1}`, x, y, type: 'torch', collidable: false }));
+  [[18.3, 18.3], [22.2, 18.3], [18.3, 22.2], [22.2, 22.2]].forEach(([x, y], i) => add({ id: `plaza_flowers_${i}`, x, y, type: 'flower_bed', variant: i % 3, collidable: true, radius: 0.45 }));
 
-  // Market row on the west side of the plaza. Both booths open toward +x so
-  // their fronts face the camera. (Rendered as 3D booths with NPCs inside.)
-  obstacles.push({
-    id: 'npc_merchant',
-    x: 16.2,
-    y: 19.6,
-    type: 'merchant',
-    name: 'Olaf the Trader',
-    collidable: true,
-    radius: 1.0
+  // ---- the three town NPCs ----
+  add({ id: 'npc_merchant', x: 16.2, y: 19.6, type: 'merchant', name: 'Olaf the Trader', collidable: true, radius: 1.0 });
+  add({ id: 'npc_enchanter', x: 23.8, y: 23.4, type: 'enchanter', name: 'Valka the Enchanter', collidable: true, radius: 1.0 });
+  add({ id: 'npc_blacksmith', x: 16.2, y: 23.4, type: 'blacksmith', name: 'Brom the Master Smith', collidable: true, radius: 1.0 });
+
+  // ---- portals: dungeon on the plaza, the outside world through the north gate ----
+  add({ id: 'portal_dungeon', x: 23.5, y: 16.5, type: 'portal', name: 'Abyssal Dungeon Portal', collidable: false, radius: 1.2 });
+  add({
+    id: 'portal_outskirts', x: CITY.NORTH_GATE.x, y: CITY.NORTH_GATE.y, type: 'field_portal',
+    target: 'meadow', arrive: 'south', label: 'City Gate → Greenmeadow Outskirts [Lv. 1+]', color: '#86efac',
+    collidable: false, radius: 1.2
   });
 
-  obstacles.push({
-    id: 'npc_blacksmith',
-    x: 16.2,
-    y: 23.4,
-    type: 'blacksmith',
-    name: 'Brom the Master Smith',
-    collidable: true,
-    radius: 1.0
-  });
-
-  // --- Town walls: a stone curtain wall around the plaza (x/y 14..26) with
-  // a gate on each road (18..22) flanked by towers, and round corner keeps.
-  const WALL_MIN = 14;
-  const WALL_MAX = 26;
-  const isGateGap = (v) => v >= 18 && v <= 22;
-  const isGateTower = (v) => v === 17 || v === 23;
+  // ---- city wall around the whole map, gate on the north boulevard ----
+  const { WALL_MIN, WALL_MAX } = CITY;
+  const isGateTower = (v) => v === CITY.BOULEVARD[0] - 1 || v === CITY.BOULEVARD[1] + 1;
   for (let v = WALL_MIN + 1; v < WALL_MAX; v++) {
-    if (isGateGap(v)) continue;
-    const segments = [
-      { x: v, y: WALL_MIN, axis: 'x', back: true },
+    [
+      { x: v, y: WALL_MIN, axis: 'x', back: true, gate: true },
       { x: v, y: WALL_MAX, axis: 'x', back: false },
       { x: WALL_MIN, y: v, axis: 'y', back: true },
       { x: WALL_MAX, y: v, axis: 'y', back: false }
-    ];
-    segments.forEach(sg => {
-      if (isGateTower(v)) {
-        obstacles.push({ id: `gate_tower_${sg.x}_${sg.y}`, x: sg.x, y: sg.y, type: 'gate_tower', collidable: true, radius: 0.7 });
+    ].forEach(sg => {
+      if (sg.gate && inRange(v, CITY.BOULEVARD)) return;
+      if (sg.gate && isGateTower(v)) {
+        add({ id: `gate_tower_${sg.x}_${sg.y}`, x: sg.x, y: sg.y, type: 'gate_tower', collidable: true, radius: 0.7 });
       } else {
-        obstacles.push({ id: `town_wall_${sg.x}_${sg.y}`, x: sg.x, y: sg.y, type: 'town_wall', axis: sg.axis, back: sg.back, collidable: true, radius: 0.55 });
+        add({ id: `town_wall_${sg.x}_${sg.y}`, x: sg.x, y: sg.y, type: 'town_wall', axis: sg.axis, back: sg.back, collidable: true, radius: 0.55 });
       }
     });
   }
   [[WALL_MIN, WALL_MIN], [WALL_MAX, WALL_MIN], [WALL_MIN, WALL_MAX], [WALL_MAX, WALL_MAX]].forEach(([cx, cy]) => {
-    obstacles.push({ id: `corner_keep_${cx}_${cy}`, x: cx, y: cy, type: 'corner_keep', collidable: true, radius: 0.9 });
+    add({ id: `corner_keep_${cx}_${cy}`, x: cx, y: cy, type: 'corner_keep', collidable: true, radius: 0.9 });
   });
 
-  // Houses lining the roads outside the walls
-  [
-    { x: 15.5, y: 10.5, variant: 0 },
-    { x: 24.5, y: 10.5, variant: 1 },
-    { x: 10.5, y: 16, variant: 2 },
-    { x: 30, y: 15.5, variant: 0 },
-    { x: 15.5, y: 29.5, variant: 1 },
-    { x: 24.5, y: 29.5, variant: 2 }
-  ].forEach((h, i) => {
-    obstacles.push({ id: `house_${i}`, x: h.x, y: h.y, type: 'house', variant: h.variant, collidable: true, radius: 1.3 });
-  });
+  // ---- market street: stalls along the west and east boulevards ----
+  let stall = 0;
+  for (const x of [11.6, 14.2, 26.6, 29.2]) {
+    for (const y of [16.9, 24.1]) {
+      add({ id: `stall_${stall}`, x, y, type: 'market_stall', variant: stall % 4, collidable: true, radius: 0.8 });
+      stall++;
+    }
+  }
+  [[12.9, 16.4], [27.9, 24.6], [25.4, 16.5], [12.9, 24.6]].forEach(([x, y], i) => add({ id: `crates_${i}`, x, y, type: 'crates', variant: i % 2, collidable: true, radius: 0.45 }));
 
-  // Ancient Dungeon Portal (Vortex into Procedural Dungeon)
-  obstacles.push({
-    id: 'portal_dungeon',
-    x: 23.5,
-    y: 16.5,
-    type: 'portal',
-    name: 'Abyssal Dungeon Portal',
-    collidable: false,
-    radius: 1.2
-  });
-
-  // Frostfell Peaks Portal (North-West Town Gateway)
-  obstacles.push({
-    id: 'portal_frostfell',
-    x: 16.5,
-    y: 16.5,
-    type: 'frost_portal',
-    name: 'Frostfell Peaks Portal',
-    collidable: false,
-    radius: 1.2
-  });
-
-  // Forest Trees
-  const pseudoRandom = (seed) => {
-    const x = Math.sin(seed++) * 10000;
-    return x - Math.floor(x);
-  };
-
-  let seed = 42;
-  for (let i = 0; i < 90; i++) {
-    const tx = Math.floor(pseudoRandom(seed++) * (MAP_WIDTH - 4)) + 2;
-    const ty = Math.floor(pseudoRandom(seed++) * (MAP_HEIGHT - 4)) + 2;
-    const tile = tiles[ty][tx];
-
-    const inTown = tx >= 14 && tx <= 26 && ty >= 14 && ty <= 26;
-    if (!inTown && tile !== TILES.WATER && tile !== TILES.WOOD_BRIDGE && tile !== TILES.CLIFF) {
-      const collides = obstacles.some(o => Math.hypot(o.x - tx, o.y - ty) < 1.8);
-      if (!collides) {
-        const treeType = pseudoRandom(seed++) > 0.4 ? 'oak_tree' : 'pine_tree';
-        obstacles.push({
-          id: `tree_${tx}_${ty}`,
-          x: tx,
-          y: ty,
-          type: treeType,
-          collidable: true,
-          radius: 0.6
-        });
+  // ---- residential blocks: houses between the streets ----
+  const spans = [[3, 8], [11, 17], [23, 30], [33, 38]]; // tiles between roads, each axis
+  let houseN = 0;
+  for (const [bx0, bx1] of spans) {
+    for (const [by0, by1] of spans) {
+      const cols = Math.max(1, Math.floor((bx1 - bx0 + 1) / 3));
+      const rows = Math.max(1, Math.floor((by1 - by0 + 1) / 3));
+      for (let c = 0; c < cols; c++) {
+        for (let r = 0; r < rows; r++) {
+          const x = bx0 + (bx1 - bx0 + 1) * (c + 0.5) / cols;
+          const y = by0 + (by1 - by0 + 1) * (r + 0.5) / rows;
+          const tx = Math.floor(x), ty = Math.floor(y);
+          if (tiles[ty][tx] !== TILES.GRASS || inGarden(tx, ty)) continue;
+          if (inRange(tx, [14, 26]) && inRange(ty, [14, 26])) continue; // plaza, booths & portal
+          if (Math.hypot(x - 30.5, (y - 5.8) * 1.6) < 8.5) continue;    // lakeside park
+          if (nearProp(x, y, 2.3) || near(x, y, 1.2)) continue;
+          add({ id: `house_${houseN}`, x, y, type: 'house', variant: houseN % 3, collidable: true, radius: 1.3 });
+          houseN++;
+        }
       }
     }
   }
 
-  // Ancient Pillars in Ruins (SW)
-  const pillarCoords = [
-    [6, 28], [12, 28], [6, 36], [12, 36],
-    [9, 30], [9, 34]
-  ];
-  pillarCoords.forEach(([px, py], idx) => {
-    obstacles.push({
-      id: `pillar_${idx}`,
-      x: px,
-      y: py,
-      type: 'stone_pillar',
-      collidable: true,
-      radius: 0.8
-    });
+  // ---- street lamps along the boulevards ----
+  const lampEdges = [CITY.BOULEVARD[0] - 0.4, CITY.BOULEVARD[1] + 1.4];
+  for (let v = 4.5; v <= 37.5; v += 4) {
+    for (const edge of lampEdges) {
+      for (const [x, y] of [[edge, v], [v, edge]]) {
+        if (inRange(Math.floor(x), CITY.PLAZA) && inRange(Math.floor(y), CITY.PLAZA)) continue;
+        if (isRoadTile(Math.floor(x)) && isRoadTile(Math.floor(y))) continue;
+        if (near(x, y, 1.6)) continue;
+        add({ id: `lamp_${x}_${y}`, x, y, type: 'lamp_post', collidable: true, radius: 0.2 });
+      }
+    }
+  }
+
+  // ---- north-east: lakeside park ----
+  add({ id: 'park_bench_0', x: 26.4, y: 8.6, type: 'bench', collidable: true, radius: 0.4 });
+  add({ id: 'park_bench_1', x: 35.4, y: 8.6, type: 'bench', collidable: true, radius: 0.4 });
+  [[24.5, 4.2], [37.3, 4.2], [37.4, 7.8], [24.2, 7.8], [27.5, 3.4], [34.5, 3.4]].forEach(([x, y]) => add({ id: `tree_${x}_${y}`, x, y, type: 'oak_tree', collidable: true, radius: 0.3 }));
+
+  // ---- south-west: Hero's Garden, four lawns split by the side streets ----
+  [[4.2, 25.6], [7.8, 25.6], [4.2, 29.6], [7.8, 29.6], [4.6, 35.5], [7.4, 35.5]].forEach(([px, py], idx) => {
+    add({ id: `pillar_${idx}`, x: px, y: py, type: 'stone_pillar', collidable: true, radius: 0.45 });
   });
+  add({ id: 'garden_well', x: 6, y: 27.6, type: 'well', collidable: true, radius: 0.7 });
+  [[3.6, 37.6], [8.4, 37.4], [16.6, 25.8], [16.5, 37.5], [11.6, 34], [16.4, 30.2]].forEach(([x, y]) => add({ id: `tree_${x}_${y}`, x, y, type: 'pine_tree', collidable: true, radius: 0.3 }));
+  [[6, 33.8], [14.6, 26.2], [15, 35.6]].forEach(([x, y], i) => add({ id: `garden_bench_${i}`, x, y, type: 'bench', collidable: true, radius: 0.4 }));
+  [[11.8, 26.2], [16.2, 28.6], [6, 37.6], [12, 37.6], [14.6, 30.4]].forEach(([x, y], i) => add({ id: `garden_flowers_${i}`, x, y, type: 'flower_bed', variant: (i + 1) % 3, collidable: true, radius: 0.45 }));
+
+  // ---- yard trees, crates and flowers in leftover grass ----
+  const pseudoRandom = (seed) => {
+    const x = Math.sin(seed) * 10000;
+    return x - Math.floor(x);
+  };
+  let seed = 42;
+  for (let i = 0; i < 160; i++) {
+    const tx = 3 + Math.floor(pseudoRandom(seed++) * 36);
+    const ty = 3 + Math.floor(pseudoRandom(seed++) * 36);
+    if (tiles[ty][tx] !== TILES.GRASS) continue;
+    const x = tx + 0.5, y = ty + 0.5;
+    if (near(x, y, 1.9)) continue;
+    const roll = pseudoRandom(seed++);
+    if (roll < 0.55) add({ id: `tree_${tx}_${ty}`, x, y, type: roll < 0.35 ? 'oak_tree' : 'pine_tree', collidable: true, radius: 0.3 });
+    else if (roll < 0.8) add({ id: `crates_y_${tx}_${ty}`, x, y, type: 'crates', variant: tx % 2, collidable: true, radius: 0.45 });
+    else add({ id: `flowers_y_${tx}_${ty}`, x, y, type: 'flower_bed', variant: ty % 3, collidable: true, radius: 0.45 });
+  }
 
   return {
     width: MAP_WIDTH,
     height: MAP_HEIGHT,
     theme: 'town',
     tiles,
-    obstacles
+    obstacles,
+    // where you appear when walking back in through the north gate
+    arrivals: { north: { x: CITY.NORTH_GATE.x, y: CITY.NORTH_GATE.y + 2.6 } }
   };
 }
 
@@ -274,7 +249,7 @@ function generateFrostfellMap() {
       y: oy,
       type,
       collidable: true,
-      radius: 0.8
+      radius: 0.5
     });
   });
 
@@ -301,7 +276,7 @@ function generateFrostfellMap() {
           y: ty,
           type: isCrystal ? 'ice_crystal' : 'snow_pine',
           collidable: true,
-          radius: isCrystal ? 0.7 : 0.65
+          radius: isCrystal ? 0.4 : 0.3
         });
       }
     }
