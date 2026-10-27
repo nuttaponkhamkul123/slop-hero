@@ -54,4 +54,15 @@ function levelGapMult(playerLevel, mobLevel) {
   return Math.max(0.1, 1 - under * 0.15);
 }
 
-module.exports = { expToNext, killsPerLevel, mobExp, levelGapMult, KIND_MULT, DUNGEON_EXP_MULT, DUNGEON_TRASH_FACTOR, BOSS_LEVEL_SHARE, KILLS_PER_LEVEL };
+// Item drop chance by how far the monster is below the hero: full up to
+// LOOT_FULL_GAP levels below, fading to nothing at LOOT_NONE_GAP and beyond
+const LOOT_FULL_GAP = 5;
+const LOOT_NONE_GAP = 15;
+function lootGapMult(playerLevel, mobLevel) {
+  const under = (playerLevel || 1) - (mobLevel || 1);
+  if (under <= LOOT_FULL_GAP) return 1;
+  if (under >= LOOT_NONE_GAP) return 0;
+  return 1 - (under - LOOT_FULL_GAP) / (LOOT_NONE_GAP - LOOT_FULL_GAP);
+}
+
+module.exports = { expToNext, killsPerLevel, mobExp, levelGapMult, lootGapMult, KIND_MULT, DUNGEON_EXP_MULT, DUNGEON_TRASH_FACTOR, BOSS_LEVEL_SHARE, KILLS_PER_LEVEL };

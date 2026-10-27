@@ -398,10 +398,143 @@
       <path d="M32 8 V56" stroke="${p.acc}" stroke-width="1.5" opacity="0.6"/>`]
   });
 
+  // ---- SP card skills: palette from the card, glyph from the skill's shape,
+  // and a small class emblem (sword / orb / dagger) in the corner ----
+  const SP_SHAPE_GLYPHS = {
+    nova: p => star(32, 30, 24, 9, 8, p.fg) + `<circle cx="32" cy="30" r="6" fill="${p.hot}"/>`,
+    buff: p => `<path d="M32 8 L52 16 V32 C52 44 43 52 32 56 C21 52 12 44 12 32 V16 Z" fill="${p.fg}" stroke="${p.acc}" stroke-width="2"/>
+      <path d="M32 20 V44 M20 32 H44" stroke="${p.acc}" stroke-width="5" stroke-linecap="round"/>`,
+    blast: p => `<circle cx="32" cy="38" r="16" fill="none" stroke="${p.acc}" stroke-width="3"/><circle cx="32" cy="38" r="7" fill="${p.fg}"/>
+      <path d="M32 6 V26 M25 19 L32 26 L39 19" stroke="${p.hot}" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`,
+    pull: p => `<path d="M32 32 m0 -3 a3 3 0 1 1 -3 3 a7 7 0 0 1 10 -6 a11 11 0 0 1 -2 18 a16 16 0 0 1 -20 -12 a20 20 0 0 1 22 -20"
+      fill="none" stroke="${p.fg}" stroke-width="4" stroke-linecap="round"/><circle cx="32" cy="32" r="3" fill="${p.hot}"/>`,
+    rain: p => `<g stroke="${p.fg}" stroke-width="4" stroke-linecap="round"><line x1="18" y1="8" x2="12" y2="26"/><line x1="36" y1="6" x2="30" y2="24"/><line x1="52" y1="12" x2="46" y2="30"/></g>
+      <g fill="${p.hot}"><circle cx="12" cy="40" r="4"/><circle cx="30" cy="48" r="5"/><circle cx="46" cy="42" r="4"/></g>`,
+    cone: p => `<path d="M32 56 L10 14 A30 30 0 0 1 54 14 Z" fill="${p.fg}" opacity="0.9"/><path d="M32 56 L22 20 M32 56 V16 M32 56 L42 20" stroke="${p.acc}" stroke-width="2.5"/>`,
+    line: p => `<path d="M8 44 L48 12 L56 20 L16 52 Z" fill="${p.fg}"/><path d="M12 48 L52 16" stroke="${p.hot}" stroke-width="3" stroke-linecap="round"/>`,
+    strike: p => `<path d="M12 52 C24 30 34 18 54 8 C46 26 34 40 12 52 Z" fill="${p.fg}"/>` + star(46, 46, 10, 4, 4, p.hot),
+    volley: p => [12, 28, 44].map(y => `<g transform="translate(0 ${y - 28})"><path d="M8 28 H44" stroke="${p.fg}" stroke-width="4" stroke-linecap="round"/><path d="M42 20 L56 28 L42 36 Z" fill="${p.acc}"/></g>`).join(''),
+    chain: p => `<path d="M12 48 L28 18 L40 40 L54 12" fill="none" stroke="${p.fg}" stroke-width="4" stroke-linejoin="round"/>
+      ${[[12, 48], [28, 18], [40, 40], [54, 12]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="5" fill="${p.hot}" stroke="${p.acc}" stroke-width="2"/>`).join('')}`,
+    pulse: p => `<circle cx="32" cy="32" r="22" fill="none" stroke="${p.acc}" stroke-width="3"/><circle cx="32" cy="32" r="14" fill="none" stroke="${p.fg}" stroke-width="4"/><circle cx="32" cy="32" r="6" fill="${p.hot}"/>`,
+    dash: p => `<path d="M20 22 H40 V12 L58 32 L40 52 V42 H20 Z" fill="${p.fg}"/><g stroke="${p.acc}" stroke-width="3" stroke-linecap="round"><line x1="6" y1="24" x2="14" y2="24"/><line x1="4" y1="32" x2="14" y2="32"/><line x1="6" y1="40" x2="14" y2="40"/></g>`,
+    blink: p => `<circle cx="16" cy="44" r="9" fill="none" stroke="${p.fg}" stroke-width="3" stroke-dasharray="4 3"/><circle cx="48" cy="18" r="10" fill="${p.fg}"/>
+      <path d="M22 36 Q28 16 40 18" fill="none" stroke="${p.hot}" stroke-width="3" stroke-dasharray="3 4" stroke-linecap="round"/>`
+  };
+  const SP_EMBLEMS = {
+    warrior: p => `<path d="M50 44 L53 47 L46 54 L43 51 Z M41 53 L48 60 M44 50 L51 57" stroke="${p.hot}" stroke-width="2" fill="${p.hot}"/>`,
+    mage: p => `<circle cx="51" cy="51" r="5" fill="${p.hot}" stroke="${p.acc}" stroke-width="1.5"/><circle cx="49" cy="49" r="1.6" fill="#ffffff"/>`,
+    rogue: p => `<path d="M56 44 L52 54 L49 51 Z" fill="${p.hot}"/><path d="M49 51 L45 56" stroke="${p.hot}" stroke-width="2.5" stroke-linecap="round"/>`
+  };
+  // skill id -> [palette, shape, class]
+  const SP_ICONS = {};
+  const spKit = (palette, cls, kit) => Object.entries(kit).forEach(([id, shape]) => { SP_ICONS[id] = [palette, shape, cls]; });
+  spKit('gold', 'warrior', { sp_holy_cleave: 'cone', sp_judgement: 'blast', sp_sanctuary: 'buff', sp_divine_charge: 'dash' });
+  spKit('blood', 'warrior', { sp_blood_frenzy: 'pulse', sp_red_rage: 'buff', sp_rampage_fissure: 'line', sp_reckless_leap: 'blink' });
+  spKit('ice', 'warrior', { sp_glacier_strike: 'strike', sp_winter_ward: 'buff', sp_avalanche: 'rain', sp_ice_glide: 'dash' });
+  spKit('bolt', 'warrior', { sp_thunder_cleave: 'chain', sp_stormcall: 'rain', sp_thunder_roar: 'nova', sp_lightning_rush: 'blink' });
+  spKit('shadow', 'warrior', { sp_abyss_cleave: 'line', sp_void_grasp: 'pull', sp_soul_bastion: 'pulse', sp_shadow_charge: 'dash' });
+  spKit('fire', 'mage', { sp_flame_wave: 'cone', sp_ember_volley: 'volley', sp_sunburst: 'pulse', sp_flame_step: 'dash' });
+  spKit('ice', 'mage', { sp_ice_lance: 'line', sp_frozen_orb: 'pulse', sp_permafrost: 'nova', sp_ice_blink: 'blink' });
+  spKit('bolt', 'mage', { sp_arc_bolt: 'strike', sp_static_field: 'volley', sp_storm_lance: 'line', sp_static_blink: 'blink' });
+  spKit('arcane', 'mage', { sp_time_warp: 'blast', sp_temporal_ward: 'buff', sp_dawn_rain: 'rain', sp_phase_shift: 'blink' });
+  spKit('shadow', 'mage', { sp_event_horizon: 'pull', sp_void_volley: 'volley', sp_void_ray: 'line', sp_rift_walk: 'blink' });
+  spKit('shadow', 'rogue', { sp_night_fang: 'strike', sp_shadow_net: 'cone', sp_shroud: 'buff', sp_night_dash: 'dash' });
+  spKit('poison', 'rogue', { sp_plague_breath: 'cone', sp_venom_rain: 'rain', sp_viper_nest: 'pulse', sp_serpent_slip: 'blink' });
+  spKit('bolt', 'rogue', { sp_storm_waltz: 'pulse', sp_knife_storm: 'volley', sp_mirror_dance: 'chain', sp_flash_step: 'dash' });
+  spKit('ice', 'rogue', { sp_frozen_execution: 'strike', sp_shatter: 'nova', sp_ice_spikes: 'line', sp_cold_step: 'blink' });
+  spKit('blood', 'rogue', { sp_total_eclipse: 'strike', sp_blood_tether: 'volley', sp_crimson_bloom: 'nova', sp_reaper_step: 'dash' });
+  // arsenal extras
+  spKit('gold', 'warrior', { sp_radiant_lance: 'line', sp_consecration: 'pulse', sp_halo_burst: 'nova', sp_angel_step: 'blink' });
+  spKit('blood', 'warrior', { sp_skull_splitter: 'strike', sp_war_cry: 'cone', sp_inferno_spin: 'nova', sp_bull_rush: 'dash' });
+  spKit('ice', 'warrior', { sp_frost_lance: 'line', sp_hail_shards: 'volley', sp_glacial_prison: 'pull', sp_frost_vault: 'blink' });
+  spKit('bolt', 'warrior', { sp_thunder_spear: 'line', sp_static_cleave: 'cone', sp_storm_aegis: 'buff', sp_storm_dash: 'dash' });
+  spKit('shadow', 'warrior', { sp_soul_rend: 'strike', sp_dread_wave: 'cone', sp_grave_rain: 'rain', sp_void_step: 'blink' });
+  spKit('fire', 'mage', { sp_meteor_call: 'blast', sp_fire_chain: 'chain', sp_cinder_rain: 'rain', sp_phoenix_blink: 'blink' });
+  spKit('ice', 'mage', { sp_ice_shards: 'volley', sp_frost_cone: 'cone', sp_glacial_pull: 'pull', sp_frost_slide: 'dash' });
+  spKit('bolt', 'mage', { sp_ball_lightning: 'pulse', sp_thunder_nova: 'nova', sp_spark_rain: 'rain', sp_storm_surge: 'dash' });
+  spKit('arcane', 'mage', { sp_rewind: 'nova', sp_chrono_lance: 'line', sp_stasis_field: 'pulse', sp_time_skip: 'dash' });
+  spKit('shadow', 'mage', { sp_dark_nova: 'nova', sp_shadow_chain: 'chain', sp_oblivion_rain: 'rain', sp_void_dash: 'dash' });
+  spKit('shadow', 'rogue', { sp_moon_volley: 'volley', sp_umbral_line: 'line', sp_night_terror: 'nova', sp_shadow_hop: 'blink' });
+  spKit('poison', 'rogue', { sp_toxic_lance: 'line', sp_plague_chain: 'chain', sp_miasma: 'buff', sp_venom_dash: 'dash' });
+  spKit('bolt', 'rogue', { sp_whirling_edge: 'cone', sp_lightning_lunge: 'strike', sp_blade_tempest: 'rain', sp_spark_blink: 'blink' });
+  spKit('ice', 'rogue', { sp_frost_daggers: 'volley', sp_cold_snap: 'blast', sp_frozen_veil: 'buff', sp_ice_slide: 'dash' });
+  spKit('blood', 'rogue', { sp_reaper_scythe: 'cone', sp_black_sun: 'blast', sp_harvest: 'pull', sp_crimson_blink: 'blink' });
+  // weapon abilities (right click): palette from the weapon's element
+  spKit('steel', 'warrior', { wpn_iron_blade: 'strike', wpn_iron_morningstar: 'blast' });
+  spKit('earth', 'warrior', { wpn_sweeping_claymore: 'cone', wpn_woodsman_axe: 'blast' });
+  spKit('fire', 'warrior', { wpn_inferno_blade: 'line', wpn_dragonbone_glaive: 'cone' });
+  spKit('bolt', 'warrior', { wpn_storm_breaker: 'nova', wpn_thunder_maul: 'pulse' });
+  spKit('gold', 'warrior', { wpn_excalibur: 'line' });
+  spKit('fire', 'mage', { wpn_archmage_staff: 'blast' });
+  spKit('ice', 'mage', { wpn_glacial_spire: 'pull' });
+  spKit('shadow', 'mage', { wpn_voidcaller_wand: 'volley' });
+  spKit('gold', 'mage', { wpn_dawn_scepter: 'buff' });
+  spKit('shadow', 'rogue', { wpn_shadow_daggers: 'strike' });
+  spKit('bolt', 'rogue', { wpn_wind_rapier: 'dash' });
+  spKit('steel', 'rogue', { wpn_hunter_spear: 'line' });
+  spKit('ice', 'rogue', { wpn_frostbite_katana: 'dash' });
+  spKit('poison', 'rogue', { wpn_venom_kris: 'strike' });
+  spKit('fire', 'rogue', { wpn_ember_scythe: 'nova' });
+  for (const [id, [palette, shape, cls]] of Object.entries(SP_ICONS)) {
+    GLYPHS[id] = [palette, p => SP_SHAPE_GLYPHS[shape](p) + SP_EMBLEMS[cls](p)];
+  }
+
   let uid = 0;
 
+  function hashStr(s) {
+    let h = 0;
+    for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+    return h;
+  }
+
+  function getGlyphEntry(skillId) {
+    if (!skillId) return GLYPHS.empty;
+    if (GLYPHS[skillId]) return GLYPHS[skillId];
+
+    const h = hashStr(skillId);
+    if (skillId.startsWith('war_jug')) {
+      const list = [GLYPHS.shield_slam, GLYPHS.iron_fortress, GLYPHS.titan_bastion, GLYPHS.earthshaker];
+      return list[h % list.length] || GLYPHS.shield_slam;
+    }
+    if (skillId.startsWith('war_blade')) {
+      const list = [GLYPHS.whirlwind, GLYPHS.blade_charge, GLYPHS.bladestorm_frenzy, GLYPHS.ragnarok_slash];
+      return list[h % list.length] || GLYPHS.whirlwind;
+    }
+    if (skillId.startsWith('war_war')) {
+      const list = [GLYPHS.blood_rage, GLYPHS.colossus_strike, GLYPHS.sundering_cleave, GLYPHS.dragon_roar];
+      return list[h % list.length] || GLYPHS.blood_rage;
+    }
+    if (skillId.startsWith('mag_pyro')) {
+      const list = [GLYPHS.firestorm, GLYPHS.pyroblast, GLYPHS.meteor_dive];
+      return list[h % list.length] || GLYPHS.firestorm;
+    }
+    if (skillId.startsWith('mag_cryo')) {
+      const list = [GLYPHS.frost_nova, GLYPHS.blizzard];
+      return list[h % list.length] || GLYPHS.frost_nova;
+    }
+    if (skillId.startsWith('mag_arch')) {
+      const list = [GLYPHS.arcane_blink, GLYPHS.mana_shield, GLYPHS.black_hole, GLYPHS.chain_lightning];
+      return list[h % list.length] || GLYPHS.arcane_blink;
+    }
+    if (skillId.startsWith('rog_shad')) {
+      const list = [GLYPHS.master_of_shadows, GLYPHS.basic_attack_rogue];
+      return list[h % list.length] || GLYPHS.master_of_shadows;
+    }
+    if (skillId.startsWith('rog_ven')) {
+      const list = [GLYPHS.toxic_potency, GLYPHS.noxious_cloud, GLYPHS.corrosive_venom, GLYPHS.epidemic_catalyst];
+      return list[h % list.length] || GLYPHS.toxic_potency;
+    }
+    if (skillId.startsWith('rog_wind')) {
+      const list = [GLYPHS.fleet_footwork, GLYPHS.wind_flurry, GLYPHS.evasive_reflexes, GLYPHS.phantom_duelist];
+      return list[h % list.length] || GLYPHS.fleet_footwork;
+    }
+
+    return GLYPHS.empty;
+  }
+
   function svg(skillId) {
-    const entry = GLYPHS[skillId] || GLYPHS.empty;
+    const entry = getGlyphEntry(skillId);
     const p = Object.assign({}, PALETTES[entry[0]] || PALETTES.steel);
     const id = 'skg' + (++uid);
     return `<svg class="skill-svg" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
