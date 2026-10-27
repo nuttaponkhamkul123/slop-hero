@@ -2,8 +2,6 @@
 document.addEventListener('DOMContentLoaded', () => {
   const canvas = document.getElementById('gameCanvas');
   const renderer = new IsometricRenderer(canvas);
-  const threeHeroRenderer = (typeof window.ThreeHeroRenderer === 'function') ? new window.ThreeHeroRenderer() : null;
-  window.threeHeroRenderer = threeHeroRenderer;
   const socket = io();
 
   let localPlayerId = null;
@@ -404,12 +402,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   applyClassSelection(selectedClass);
 
-  // Auto-join support for testing & instant preview via URL query (e.g. ?autojoin=1&3d=1)
+  // Auto-join support for testing via URL query (e.g. ?autojoin=1)
   const urlParams = new URLSearchParams(window.location.search);
   if (urlParams.get('autojoin') === '1' || urlParams.get('autojoin') === 'true') {
-    if (urlParams.get('3d') === '1' || urlParams.get('3d') === 'true') {
-      if (window.threeHeroRenderer) window.threeHeroRenderer.enabled = true;
-    }
     btnJoinGame.click();
   }
 
@@ -1713,27 +1708,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   btnAudioToggle.addEventListener('click', toggleAudio);
 
-  // 3D Hero Models Toggle
-  const btnToggle3D = document.getElementById('btnToggle3D');
-  function toggle3DHeroModels() {
-    if (!window.threeHeroRenderer) return;
-    window.threeHeroRenderer.enabled = !window.threeHeroRenderer.enabled;
-    const threeCanvas = document.getElementById('threeCanvas');
-    if (threeCanvas) {
-      threeCanvas.style.display = 'none'; // heroes are composited into the 2D canvas
-    }
-    if (btnToggle3D) {
-      btnToggle3D.innerHTML = PixelIcons.html('cube') + (window.threeHeroRenderer.enabled ? ' 3D' : ' 2D');
-      btnToggle3D.classList.toggle('active-toggle', window.threeHeroRenderer.enabled);
-    }
-    window.soundEngine.playLevelUp();
-    if (renderer) {
-      renderer.addFloatingText(localPlayer ? localPlayer.x : 16, localPlayer ? localPlayer.y - 0.8 : 16, window.threeHeroRenderer.enabled ? '✨ 3D Hero Mode Enabled!' : '📜 2D Classic Mode', '#f59e0b', 16);
-    }
-  }
-  if (btnToggle3D) {
-    btnToggle3D.addEventListener('click', toggle3DHeroModels);
-  }
 
   // HUD Update
   function updatePlayerHUD(p) {
@@ -3228,11 +3202,6 @@ card.innerHTML = `
     }
 
     try {
-      // 3D heroes advance first; the 2D renderer then paints each one in its
-      // depth-sorted slot (see drawPlayer) so walls can occlude them
-      if (window.threeHeroRenderer) {
-        window.threeHeroRenderer.update(gameState, renderer.camera, localPlayerId, renderer.attacks, dt);
-      }
 
       renderer.render(gameState, localPlayerId, selectedTargetId, dt);
     } catch (err) {

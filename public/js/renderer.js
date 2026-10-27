@@ -1963,14 +1963,7 @@ class IsometricRenderer {
       ctx.fillStyle = '#94a3b8';
       ctx.fillRect(screen.x - 11 * z, screen.y - 43 * z, 22 * z, 6 * z);
     } else if (obs.type === 'fountain') {
-      // 3D Mode Check: Render realistic 3D classical tiered marble fountain
-      if (window.threeHeroRenderer && window.threeHeroRenderer.enabled) {
-        const time = this.animations ? this.animations.time : (performance.now() * 0.001);
-        const drawn = window.threeHeroRenderer.drawFountain(ctx, screen.x, screen.y, z, time);
-        if (drawn) return;
-      }
-
-      // Enhanced 2D Town Fountain Fallback (Classical Tiered Marble Basin)
+      // Enhanced 2D Town Fountain (Classical Tiered Marble Basin)
       const t = this.animations ? this.animations.time : (performance.now() * 0.001);
 
       // Ground Plinth Shadow
@@ -2862,21 +2855,6 @@ class IsometricRenderer {
       ctx.stroke();
     }
 
-    // When 3D Hero Models are enabled, Three.js WebGL layer renders the 3D rigged character!
-    if (window.threeHeroRenderer && window.threeHeroRenderer.enabled) {
-      // Paint the 3D model here, inside the depth-sorted pass, so walls and
-      // props drawn after this player correctly cover it
-      window.threeHeroRenderer.drawHero(ctx, player.id, screen.x, screen.y, z);
-
-      // Nametag, Guild Badge & Mini HP Bar
-      this.drawEntityOverhead(ctx, screen.x, screen.y - 50 * z, player.name, player.hp, player.maxHp, isLocal ? '#38bdf8' : '#fff', `Lv.${player.level}`);
-
-      // Speech Bubble
-      if (player.speechBubble) {
-        this.drawSpeechBubble(ctx, screen.x, screen.y - 74 * z, player.speechBubble);
-      }
-      return;
-    }
 
     // Authentic 8-Directional Pixel Art Swordman (Warrior) with Full 360-degree rotation
     if (player.characterClass === 'warrior') {
