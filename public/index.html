@@ -6,9 +6,10 @@
   <title>Slop Hero - Isometric Web MMORPG</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Jersey+10&family=Pixelify+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Jersey+10&family=DotGothic16&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/pixel-ui.css">
+  <link rel="stylesheet" href="css/ui-v2.css">
   <link rel="icon" href="data:,">
 </head>
 <body>
@@ -44,9 +45,30 @@
           </div>
 
           <!-- EXP Bar -->
-          <div class="stat-bar-container exp-bar-mini">
+          <div class="stat-bar-container exp-bar-mini" title="Base EXP">
             <div class="stat-bar-fill exp-fill" id="hudExpFill" style="width: 0%;"></div>
           </div>
+          <!-- Job EXP Bar -->
+          <div class="job-row" title="Job Level - unlocks SP cards">
+            <span class="job-badge" id="hudJobBadge">JOB 1</span>
+            <div class="stat-bar-container exp-bar-mini job-bar">
+              <div class="stat-bar-fill job-fill" id="hudJobFill" style="width: 0%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Party Frame (Top-Left under hero frame) -->
+      <div class="hud-panel party-frame interactive" id="partyFrame" style="display: none;">
+        <div class="party-header-row">
+          <div class="party-title"><span data-pxi="shield"></span> PARTY (<span id="partyCountText">1/4</span>)</div>
+          <div class="party-header-actions">
+            <button class="party-summon-btn" id="btnPartyFrameSummon" title="Summon party to your location">📣 Summon</button>
+            <button class="party-leave-btn" id="btnLeaveParty" title="Leave Party">Leave</button>
+          </div>
+        </div>
+        <div class="party-members-list" id="partyMembersList">
+          <!-- Populated dynamically via game.js -->
         </div>
       </div>
 
@@ -56,10 +78,14 @@
           <span class="avatar-icon" id="targetIcon" data-pxi="skull"></span>
         </div>
         <div class="target-info">
-          <div class="target-name" id="targetName">Meadow Slime (Lv. 1)</div>
+          <div class="target-name-row">
+            <div class="target-name" id="targetName">Meadow Slime (Lv. 1)</div>
+            <span class="target-element-badge" id="targetElementBadge" style="display: none;">🌿 Earth</span>
+          </div>
           <div class="stat-bar-container" style="height: 10px;">
             <div class="stat-bar-fill hp-fill" id="targetHpFill" style="width: 100%;"></div>
           </div>
+          <div class="target-weakness-row" id="targetWeaknessRow" style="display: none;"></div>
         </div>
       </div>
 
@@ -79,8 +105,10 @@
           <div class="info-chip" id="goldCounter">
             <span data-pxi="coin"></span> <span id="goldCountText">50 Gold</span>
           </div>
-          <div class="meta-btn-row">
-            <button class="btn-icon-hud" id="btnAudioToggle" title="Toggle Sound (M)"><span data-pxi="sound"></span></button>
+          <div class="meta-btn-row" style="position: relative;">
+            <button class="info-chip btn-settings-chip interactive" id="btnSettingsToggle" title="Game Settings & Audio (O)">
+              <span data-pxi="gear"></span> <span class="settings-chip-text">Settings</span>
+            </button>
             <button class="btn-icon-hud mobile-only-btn" id="btnMobileMenuToggle" title="Open Menu"><span data-pxi="menu"></span></button>
           </div>
           <!-- Mobile Collapsible Menu Drawer -->
@@ -89,6 +117,8 @@
             <button class="menu-btn mobile-menu-item" id="mBtnOpenShop"><span data-pxi="coin"></span> Shop</button>
             <button class="menu-btn mobile-menu-item" id="mBtnOpenStats"><span data-pxi="stats"></span> Stats</button>
             <button class="menu-btn mobile-menu-item" id="mBtnOpenInventory"><span data-pxi="bag"></span> Bag</button>
+            <button class="menu-btn mobile-menu-item" id="mBtnOpenParty"><span data-pxi="shield"></span> Party</button>
+            <button class="menu-btn mobile-menu-item" id="mBtnOpenSettings"><span data-pxi="gear"></span> Settings</button>
             <button class="menu-btn mobile-menu-item" id="mBtnOpenHelp"><span data-pxi="help"></span> Help</button>
           </div>
         </div>
@@ -152,18 +182,34 @@
             <div class="slot-cooldown-overlay" id="cdOverlayDash"></div>
           </div>
 
+          <!-- Weapon Ability (right click) -->
+          <div class="action-slot" id="slotWeapon" title="Weapon Ability [Right Click]">
+            <span class="slot-key">RMB</span>
+            <span class="slot-icon" id="slotWeaponIcon"></span>
+            <div class="slot-cooldown-overlay" id="cdOverlayWeapon"></div>
+          </div>
+
+          <!-- SP Card Transform -->
+          <div class="action-slot sp-slot" id="slotSpCard" title="Transform with your SP card [T]">
+            <span class="slot-key">T</span>
+            <span class="slot-icon" id="slotSpIcon" data-pxi="card"></span>
+            <div class="slot-cooldown-overlay" id="cdOverlaySp"></div>
+          </div>
+
           <!-- Health Potion -->
-          <div class="action-slot" id="slotHealthPotion" title="Drink Health Potion (Key 1)">
+          <div class="action-slot potion-slot" id="slotHealthPotion" title="Health Potion (Key 1 to Drink, Click to Swap Size)">
             <span class="slot-key">1</span>
-            <span class="slot-icon" data-pxi="hp_potion"></span>
+            <span class="slot-icon" id="slotHpIcon" data-pxi="hp_potion"></span>
             <span class="slot-badge" id="badgeHealthPotion">3</span>
+            <span class="slot-swap-btn" id="btnSwapHp" title="Click to Switch Potion Size">⇄</span>
           </div>
 
           <!-- Mana Potion -->
-          <div class="action-slot" id="slotManaPotion" title="Drink Mana Potion (Key 2)">
+          <div class="action-slot potion-slot" id="slotManaPotion" title="Mana Potion (Key 2 to Drink, Click to Swap Size)">
             <span class="slot-key">2</span>
-            <span class="slot-icon" data-pxi="mp_potion"></span>
+            <span class="slot-icon" id="slotMpIcon" data-pxi="mp_potion"></span>
             <span class="slot-badge" id="badgeManaPotion">2</span>
+            <span class="slot-swap-btn" id="btnSwapMp" title="Click to Switch Potion Size">⇄</span>
           </div>
         </div>
       </div>
@@ -174,7 +220,9 @@
         <button class="menu-btn" id="btnOpenShop"><span data-pxi="coin"></span> Shop [P]</button>
         <button class="menu-btn" id="btnOpenStats"><span data-pxi="stats"></span> Stats [C]</button>
         <button class="menu-btn" id="btnOpenInventory"><span data-pxi="bag"></span> Bag [I]</button>
+        <button class="menu-btn" id="btnOpenParty"><span data-pxi="shield"></span> Party [O]</button>
         <button class="menu-btn" id="btnOpenHelp"><span data-pxi="help"></span> Help [H]</button>
+        <button class="menu-btn" id="btnOpenAdmin" style="display: none;"><span data-pxi="crown"></span> Admin [F2]</button>
       </div>
     </div>
 
@@ -218,6 +266,9 @@
             <span class="m-icon" data-pxi="mp_potion"></span>
             <span class="m-potion-badge" id="mobileBadgeMp">2</span>
           </button>
+          <button id="mobileBtnSp" class="mobile-potion-btn sp-btn" title="SP Transform">
+            <span class="m-icon" data-pxi="card"></span>
+          </button>
         </div>
 
         <!-- Skills Radial Arc around Main Attack Button -->
@@ -257,72 +308,238 @@
     </div>
   </div>
 
-  <!-- Character Creation / Join Modal -->
+  <!-- Account Authentication & Character Modal -->
   <div class="modal-overlay" id="joinModal">
-    <div class="hud-panel modal-card class-select-modal">
-      <div class="modal-header">
-        <h1 class="modal-title">SLOP HERO</h1>
-        <p class="modal-subtitle">Choose your Hero and enter the persistent isometric realm</p>
+    <div class="hud-panel modal-card auth-character-modal">
+      <div class="modal-header" style="text-align: center; margin-bottom: 12px;">
+        <h1 class="modal-title" style="letter-spacing: 2px;">SLOP HERO MMORPG</h1>
+        <p class="modal-subtitle">Persistent Isometric Realm &middot; Cloud Account Save</p>
       </div>
 
-      <!-- STEP 1: Hero Name -->
-      <div class="join-step" id="joinStepName">
-        <div class="join-step-label">STEP 1 / 2 &mdash; IDENTITY</div>
-        <label class="field-label">HERO NAME</label>
-        <input type="text" class="input-field" id="inputHeroName" placeholder="Enter hero name..." maxlength="15" value="SlopHero" style="margin-top: 6px;">
-        <button class="btn-primary" id="btnToClassStep">CHOOSE YOUR CLASS</button>
+      <!-- Auth Mode Tabs: Login vs Register -->
+      <div class="auth-tabs-row" id="authTabsRow">
+        <button class="auth-nav-tab active" id="tabAuthLogin">🔑 เข้าสู่ระบบ (LOGIN)</button>
+        <button class="auth-nav-tab" id="tabAuthRegister">📝 สมัครสมาชิก (REGISTER)</button>
       </div>
 
-      <!-- STEP 2: Class Selection with 3D Preview -->
-      <div class="join-step" id="joinStepClass" style="display: none;">
-        <div class="join-step-label">STEP 2 / 2 &mdash; CALLING</div>
+      <!-- Message Alert / Error Banner -->
+      <div id="authAlertBanner" class="auth-alert-banner" style="display: none;"></div>
 
-        <div class="class-select-layout">
-          <!-- 3D Hero Preview -->
-          <div class="class-preview-pane">
-            <canvas id="classPreviewCanvas" class="class-preview-canvas"></canvas>
-            <div class="class-preview-nameplate">
-              <div class="class-preview-name" id="previewClassName">Warrior</div>
-              <div class="class-preview-role" id="previewClassRole">Vanguard</div>
+      <!-- VIEW 1: Login Form -->
+      <div class="auth-view" id="viewAuthLogin">
+        <div class="form-group">
+          <label class="field-label">USERNAME</label>
+          <input type="text" class="input-field" id="loginUsername" placeholder="กรอก Username..." maxlength="20">
+        </div>
+        <div class="form-group" style="margin-top: 10px;">
+          <label class="field-label">PASSWORD</label>
+          <input type="password" class="input-field" id="loginPassword" placeholder="กรอก Password..." maxlength="30">
+        </div>
+        <button class="btn-primary" id="btnSubmitLogin" style="margin-top: 16px; width: 100%;">
+          เข้าสู่ระบบ (LOGIN)
+        </button>
+      </div>
+
+      <!-- VIEW 2: Character Select / Continue (After Login) -->
+      <div class="auth-view" id="viewCharSelect" style="display: none;">
+        <div class="cs-header">
+          <span class="join-step-label">SELECT CHARACTER</span>
+          <span class="cs-count" id="csCount">0 / 10</span>
+        </div>
+        <div class="cs-list" id="csList"></div>
+
+        <!-- Create a new character on this account -->
+        <div class="cs-create" id="csCreate" style="display: none;">
+          <div class="join-step-label">NEW CHARACTER</div>
+          <input type="text" class="input-field" id="csNewName" placeholder="ชื่อตัวละคร (2-15 ตัวอักษร)..." maxlength="15">
+          <div class="cs-class-pick" id="csClassPick">
+            <button type="button" class="cs-class-btn active" data-class="warrior">WARRIOR</button>
+            <button type="button" class="cs-class-btn" data-class="mage">MAGE</button>
+            <button type="button" class="cs-class-btn" data-class="rogue">ROGUE</button>
+          </div>
+          <div class="cs-create-actions">
+            <button class="btn-primary" id="btnCsCreateConfirm">CREATE</button>
+            <button class="btn-secondary" id="btnCsCreateCancel">CANCEL</button>
+          </div>
+        </div>
+
+        <div class="cs-actions">
+          <button class="btn-primary" id="btnEnterWorld">เข้าสู่เกม (ENTER WORLD)</button>
+          <button class="btn-secondary cs-delete" id="btnCsDelete">DELETE</button>
+        </div>
+        <button class="btn-secondary" id="btnLogoutSwitch" style="margin-top: 8px; width: 100%; font-size: 12px;">
+          สลับบัญชี (Switch Account)
+        </button>
+      </div>
+
+      <!-- VIEW 3: Register Form & Character Creation -->
+      <div class="auth-view" id="viewAuthRegister" style="display: none;">
+        <!-- STEP 1: Account Credentials -->
+        <div id="regStepAccount">
+          <div class="join-step-label">STEP 1 / 2 &mdash; ข้อมูลบัญชีผู้ใช้</div>
+          <div class="form-group">
+            <label class="field-label">USERNAME</label>
+            <input type="text" class="input-field" id="regUsername" placeholder="ตั้งชื่อ Username (3-20 ตัวอักษร)..." maxlength="20">
+          </div>
+          <div class="form-group" style="margin-top: 10px;">
+            <label class="field-label">PASSWORD</label>
+            <input type="password" class="input-field" id="regPassword" placeholder="ตั้งรหัสผ่าน (อย่างน้อย 4 ตัวอักษร)..." maxlength="30">
+          </div>
+          <div class="form-group" style="margin-top: 10px;">
+            <label class="field-label">CONFIRM PASSWORD</label>
+            <input type="password" class="input-field" id="regConfirmPassword" placeholder="ยืนยันรหัสผ่านอีกครั้ง..." maxlength="30">
+          </div>
+          <div class="form-group" style="margin-top: 10px;">
+            <label class="field-label">HERO NAME (ชื่อตัวละคร)</label>
+            <input type="text" class="input-field" id="regHeroName" placeholder="ชื่อตัวละครในเกม..." maxlength="15" value="Hero">
+          </div>
+          <button class="btn-primary" id="btnRegToClassStep" style="margin-top: 16px; width: 100%;">
+            เลือกอาชีพตัวละคร ➔
+          </button>
+        </div>
+
+        <!-- STEP 2: Choose Class with 3D Preview -->
+        <div id="regStepClass" style="display: none;">
+          <div class="join-step-label">STEP 2 / 2 &mdash; เลือกอาชีพตัวละคร</div>
+          <div class="class-select-layout">
+            <!-- 3D Hero Preview -->
+            <div class="class-preview-pane">
+              <canvas id="classPreviewCanvas" class="class-preview-canvas"></canvas>
+              <div class="class-preview-nameplate">
+                <div class="class-preview-name" id="previewClassName">Warrior</div>
+                <div class="class-preview-role" id="previewClassRole">Vanguard</div>
+              </div>
+            </div>
+
+            <!-- Class Roster -->
+            <div class="class-roster-pane">
+              <div class="class-roster" id="classGrid">
+                <div class="class-card selected" data-class="warrior">
+                  <div class="class-icon" data-pxi="sword"></div>
+                  <div class="class-card-text">
+                    <div class="class-title">Warrior</div>
+                    <div class="class-subtitle">Swordsman &middot; Vanguard</div>
+                  </div>
+                </div>
+
+                <div class="class-card" data-class="mage">
+                  <div class="class-icon" data-pxi="staff"></div>
+                  <div class="class-card-text">
+                    <div class="class-title">Mage</div>
+                    <div class="class-subtitle">Arcane Scholar &middot; Caster</div>
+                  </div>
+                </div>
+
+                <div class="class-card" data-class="rogue">
+                  <div class="class-icon" data-pxi="dagger"></div>
+                  <div class="class-card-text">
+                    <div class="class-title">Rogue</div>
+                    <div class="class-subtitle">Shadow Blade &middot; Assassin</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="class-lore" id="previewClassLore"></div>
+              <div class="class-stats" id="previewClassStats"></div>
+
+              <div class="class-action-row">
+                <button class="btn-secondary" id="btnRegBackToAccount">ย้อนกลับ</button>
+                <button class="btn-primary" id="btnSubmitRegister">สมัคร & เข้าเล่นเกม</button>
+              </div>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
-          <!-- Class Roster -->
-          <div class="class-roster-pane">
-            <div class="class-roster" id="classGrid">
-              <div class="class-card selected" data-class="warrior">
-                <div class="class-icon" data-pxi="sword"></div>
-                <div class="class-card-text">
-                  <div class="class-title">Warrior</div>
-                  <div class="class-subtitle">Swordsman &middot; Vanguard</div>
-                </div>
-              </div>
+  <!-- Game Settings Modal -->
+  <div class="modal-overlay" id="settingsModal" style="display: none;">
+    <div class="hud-panel modal-card settings-modal-card">
+      <button class="modal-close" id="btnCloseSettings">✕</button>
+      <div class="modal-header">
+        <h2 class="modal-title">⚙️ GAME SETTINGS</h2>
+        <p class="modal-subtitle">Interface scaling, audio levels & preferences</p>
+      </div>
 
-              <div class="class-card" data-class="mage">
-                <div class="class-icon" data-pxi="staff"></div>
-                <div class="class-card-text">
-                  <div class="class-title">Mage</div>
-                  <div class="class-subtitle">Arcane Scholar &middot; Caster</div>
-                </div>
-              </div>
-
-              <div class="class-card" data-class="rogue">
-                <div class="class-icon" data-pxi="dagger"></div>
-                <div class="class-card-text">
-                  <div class="class-title">Rogue</div>
-                  <div class="class-subtitle">Shadow Blade &middot; Assassin</div>
-                </div>
-              </div>
+      <div class="settings-modal-body">
+        <!-- Section 1: GUI Scale -->
+        <div class="settings-section">
+          <div class="settings-section-title">
+            <span data-pxi="cube"></span> INTERFACE SCALE (GUI SCALE)
+          </div>
+          <div class="settings-control-row">
+            <div class="settings-label-col">
+              <span class="settings-label-main">HUD & UI Scale</span>
+              <span class="settings-label-sub">Adjust size of hotbars, chat, minimap & dialogs</span>
             </div>
-
-            <div class="class-lore" id="previewClassLore"></div>
-
-            <div class="class-stats" id="previewClassStats"></div>
-
-            <div class="class-action-row">
-              <button class="btn-secondary" id="btnBackToName">BACK</button>
-              <button class="btn-primary" id="btnJoinGame">ENTER REALM</button>
+            <div class="settings-value-col">
+              <span class="settings-badge" id="lblGuiScaleVal">100%</span>
             </div>
+          </div>
+          <div class="settings-slider-wrapper">
+            <input type="range" id="sliderGuiScale" min="70" max="140" step="5" value="100" class="settings-slider">
+          </div>
+          <div class="gui-scale-presets">
+            <button type="button" class="gui-scale-preset" data-scale="75">75% Small</button>
+            <button type="button" class="gui-scale-preset" data-scale="90">90% Compact</button>
+            <button type="button" class="gui-scale-preset active" data-scale="100">100% Normal</button>
+            <button type="button" class="gui-scale-preset" data-scale="115">115% Large</button>
+            <button type="button" class="gui-scale-preset" data-scale="125">125% Huge</button>
+          </div>
+        </div>
+
+        <!-- Section 2: Audio Settings -->
+        <div class="settings-section">
+          <div class="settings-section-title">
+            <span data-pxi="sound"></span> AUDIO & SOUND EFFECTS
+          </div>
+          
+          <div class="settings-control-row">
+            <div class="settings-label-col">
+              <span class="settings-label-main">Music Volume (BGM)</span>
+              <span class="settings-label-sub">Town, dungeon & ambient melodies</span>
+            </div>
+            <div class="settings-value-col">
+              <span class="settings-badge" id="lblBgmVal">60%</span>
+            </div>
+          </div>
+          <div class="settings-slider-wrapper">
+            <input type="range" id="sliderBgm" min="0" max="100" value="60" class="settings-slider">
+          </div>
+
+          <div class="settings-control-row" style="margin-top: 10px;">
+            <div class="settings-label-col">
+              <span class="settings-label-main">Sound FX (SFX)</span>
+              <span class="settings-label-sub">Combat slashes, spells, hits & UI clicks</span>
+            </div>
+            <div class="settings-value-col">
+              <span class="settings-badge" id="lblSfxVal">70%</span>
+            </div>
+          </div>
+          <div class="settings-slider-wrapper">
+            <input type="range" id="sliderSfx" min="0" max="100" value="70" class="settings-slider">
+          </div>
+
+          <div class="settings-action-row" style="margin-top: 12px;">
+            <button type="button" class="settings-btn-mute" id="btnSettingsMuteToggle">
+              <span data-pxi="sound" id="iconSettingsMute"></span> <span id="lblSettingsMute">Mute All Audio</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Section 3: Display & Presets -->
+        <div class="settings-section">
+          <div class="settings-section-title">
+            <span data-pxi="compass"></span> CONTROLS & CAMERA
+          </div>
+          <div class="settings-btn-grid">
+            <button type="button" class="settings-action-btn" id="btnResetGuiScale">
+              <span data-pxi="refresh"></span> Reset UI Scale (100%)
+            </button>
+            <button type="button" class="settings-action-btn" id="btnSettingsResetCamera">
+              <span data-pxi="refresh"></span> Center Camera
+            </button>
           </div>
         </div>
       </div>
@@ -331,25 +548,24 @@
 
   <!-- Character Stats Modal -->
   <div class="modal-overlay" id="statsModal" style="display: none;">
-    <div class="hud-panel modal-card" style="width: 380px;">
+    <div class="hud-panel modal-card stats-v2-card">
       <button class="modal-close" id="btnCloseStats">✕</button>
       <div class="modal-header">
         <h2 class="modal-title">HERO ATTRIBUTES</h2>
       </div>
-      <table class="stats-table">
-        <tr><td>Class</td><td id="statClass">-</td></tr>
-        <tr><td>Level</td><td id="statLevel">-</td></tr>
-        <tr><td>Experience</td><td id="statExp">-</td></tr>
-        <tr><td>Max Health</td><td id="statHp">-</td></tr>
-        <tr><td>Max Mana</td><td id="statMp">-</td></tr>
-        <tr><td>Attack Power</td><td id="statDmg">-</td></tr>
-        <tr><td>Attack Speed</td><td id="statAttackSpeed">-</td></tr>
-        <tr><td>Swipe (Cleave)</td><td id="statSwipe">-</td></tr>
-        <tr><td>Defense Rating</td><td id="statDef">-</td></tr>
-        <tr><td>Movement Speed</td><td id="statSpeed">-</td></tr>
-        <tr><td>Monsters Slain</td><td id="statKills">-</td></tr>
-        <tr><td>Gold Wealth</td><td id="statGold">-</td></tr>
-      </table>
+      <div id="statsBody" class="stats-v2-body"></div>
+    </div>
+  </div>
+
+  <!-- Admin Cheat Menu: buttons send the same /commands as chat, so server checks still apply -->
+  <div class="modal-overlay" id="adminModal" style="display: none;">
+    <div class="hud-panel modal-card admin-card">
+      <button class="modal-close" id="btnCloseAdmin">✕</button>
+      <div class="modal-header">
+        <h2 class="modal-title">ADMIN MENU</h2>
+        <p class="modal-subtitle">Game master tools &middot; [F2] to open or close</p>
+      </div>
+      <div id="adminBody" class="admin-body"></div>
     </div>
   </div>
 
@@ -388,89 +604,127 @@
 
   <!-- Inventory & Equipment Modal -->
   <div class="modal-overlay" id="inventoryModal" style="display: none;">
-    <div class="hud-panel modal-card inventory-modal-card">
+    <div class="hud-panel modal-card inventory-modal-card inv-v2">
       <button class="modal-close" id="btnCloseInventory">✕</button>
-      <div class="modal-header" style="margin-bottom: 14px;">
-        <h2 class="modal-title">HERO GEAR & INVENTORY</h2>
-        <p class="modal-subtitle">Equip Weapons, Armor & Manage Dungeon Loot</p>
+      <div class="modal-header inv-header">
+        <h2 class="modal-title">INVENTORY</h2>
+        <div class="inv-gold"><span data-pxi="coin"></span> <span id="invGoldText">0</span></div>
       </div>
 
-      <!-- EQUIPPED GEAR SECTION -->
-      <div class="equip-section">
-        <div class="section-title">EQUIPPED GEAR <span class="sub-label">(Click to Unequip)</span></div>
-        <div class="equip-slots-container">
-          <div class="equip-slot" id="eqSlotHelmet" data-slot="helmet" title="Helmet Slot">
-            <span class="slot-placeholder-icon" data-pxi="helmet"></span>
-            <div class="equip-item-content"></div>
-            <span class="equip-slot-tag">HELM</span>
+      <div class="inv-layout">
+        <!-- Character: paper doll around a live preview of the hero -->
+        <section class="inv-char">
+          <div class="paperdoll">
+            <div class="paperdoll-col">
+              <div class="equip-slot" id="eqSlotHelmet" data-slot="helmet">
+                <span class="slot-placeholder-icon" data-pxi="helmet"></span>
+                <div class="equip-item-content"></div>
+                <span class="equip-slot-tag">HELM</span>
+              </div>
+              <div class="equip-slot" id="eqSlotArmor" data-slot="armor">
+                <span class="slot-placeholder-icon" data-pxi="armor"></span>
+                <div class="equip-item-content"></div>
+                <span class="equip-slot-tag">ARMOR</span>
+              </div>
+              <div class="equip-slot" id="eqSlotWeapon" data-slot="weapon">
+                <span class="slot-placeholder-icon" data-pxi="sword"></span>
+                <div class="equip-item-content"></div>
+                <span class="equip-slot-tag">WEAPON</span>
+              </div>
+            </div>
+            <div class="paperdoll-hero">
+              <canvas id="invHeroCanvas" width="80" height="72"></canvas>
+              <div class="paperdoll-name" id="invHeroName">Hero</div>
+              <div class="paperdoll-sub" id="invHeroSub">Lv. 1</div>
+            </div>
+            <div class="paperdoll-col">
+              <div class="equip-slot" id="eqSlotRing" data-slot="ring">
+                <span class="slot-placeholder-icon" data-pxi="ring"></span>
+                <div class="equip-item-content"></div>
+                <span class="equip-slot-tag">RING</span>
+              </div>
+              <div class="equip-slot" id="eqSlotBoots" data-slot="boots">
+                <span class="slot-placeholder-icon" data-pxi="boots"></span>
+                <div class="equip-item-content"></div>
+                <span class="equip-slot-tag">BOOTS</span>
+              </div>
+              <div class="equip-slot" id="eqSlotSp" data-slot="sp">
+                <span class="slot-placeholder-icon" data-pxi="card"></span>
+                <div class="equip-item-content"></div>
+                <span class="equip-slot-tag">SP CARD</span>
+              </div>
+            </div>
           </div>
-          <div class="equip-slot" id="eqSlotArmor" data-slot="armor" title="Armor Slot">
-            <span class="slot-placeholder-icon" data-pxi="armor"></span>
-            <div class="equip-item-content"></div>
-            <span class="equip-slot-tag">ARMOR</span>
+
+          <div class="gear-bonuses-bar" id="gearBonusesSummary"></div>
+
+          <div class="quick-potions-row">
+            <div class="action-slot potion-quick-btn" id="invHpSlot" title="Click to Drink Health Potion (1)">
+              <span class="slot-icon" data-pxi="hp_potion"></span>
+              <span class="potion-label" id="invHpLabel">Health Potion</span>
+              <button class="potion-switch-btn" id="invHpSwitch" title="Switch potion type for key 1">SWAP</button>
+              <span class="slot-badge" id="invHpCount">3</span>
+            </div>
+            <div class="action-slot potion-quick-btn" id="invMpSlot" title="Click to Drink Mana Potion (2)">
+              <span class="slot-icon" data-pxi="mp_potion"></span>
+              <span class="potion-label" id="invMpLabel">Mana Potion</span>
+              <button class="potion-switch-btn" id="invMpSwitch" title="Switch potion type for key 2">SWAP</button>
+              <span class="slot-badge" id="invMpCount">2</span>
+            </div>
           </div>
-          <div class="equip-slot" id="eqSlotWeapon" data-slot="weapon" title="Weapon Slot">
-            <span class="slot-placeholder-icon" data-pxi="sword"></span>
-            <div class="equip-item-content"></div>
-            <span class="equip-slot-tag">WEAPON</span>
+        </section>
+
+        <!-- Bag -->
+        <section class="inv-bag">
+          <div class="inv-toolbar">
+            <div class="inv-tabs" id="invTabs">
+              <button class="inv-tab active" data-filter="all">ALL</button>
+              <button class="inv-tab" data-filter="gear">GEAR</button>
+              <button class="inv-tab" data-filter="use">USE</button>
+              <button class="inv-tab" data-filter="loot">LOOT</button>
+              <button class="inv-tab" data-filter="other">OTHER</button>
+            </div>
+            <button class="inv-sort" id="invSortBtn" title="Sort by rarity / type">SORT</button>
+            <span id="invCapacityText" class="inv-capacity">0 / 30</span>
           </div>
-          <div class="equip-slot" id="eqSlotBoots" data-slot="boots" title="Boots Slot">
-            <span class="slot-placeholder-icon" data-pxi="boots"></span>
-            <div class="equip-item-content"></div>
-            <span class="equip-slot-tag">BOOTS</span>
-          </div>
-          <div class="equip-slot" id="eqSlotRing" data-slot="ring" title="Ring Slot">
-            <span class="slot-placeholder-icon" data-pxi="ring"></span>
-            <div class="equip-item-content"></div>
-            <span class="equip-slot-tag">RING</span>
-          </div>
-        </div>
-
-        <!-- Gear Stat Bonuses Summary Pill Bar -->
-        <div class="gear-bonuses-bar" id="gearBonusesSummary">
-          <!-- Dynamically populated e.g. +14 DMG, +9 DEF -->
-        </div>
-      </div>
-
-      <!-- Quick Potions Bar -->
-      <div class="quick-potions-row">
-        <div class="action-slot potion-quick-btn" id="invHpSlot" title="Click to Drink Health Potion (1)">
-          <span class="slot-icon" data-pxi="hp_potion"></span>
-          <span class="potion-label">Health Potion</span>
-          <span class="slot-badge" id="invHpCount">3</span>
-        </div>
-        <div class="action-slot potion-quick-btn" id="invMpSlot" title="Click to Drink Mana Potion (2)">
-          <span class="slot-icon" data-pxi="mp_potion"></span>
-          <span class="potion-label">Mana Potion</span>
-          <span class="slot-badge" id="invMpCount">2</span>
-        </div>
-      </div>
-
-      <!-- COMPACT INVENTORY GRID SECTION (6 columns x 4 rows = 24 slots) -->
-      <div style="display: flex; justify-content: space-between; align-items: center; margin: 10px 0 6px 0;">
-        <span class="section-title" style="margin: 0;">BAG ITEMS <span class="sub-label">(Click Gear to Equip)</span></span>
-        <span id="invCapacityText" style="font-size: 11px; color: var(--gold-light); font-weight: 700;">1 / 24 Slots</span>
-      </div>
-
-      <div class="inventory-grid-compact" id="invItemsGrid">
-        <!-- Dynamically populated 24 compact slots -->
-      </div>
-
-      <!-- Modal Footer -->
-      <div class="inv-footer">
-        <span style="color: var(--text-muted); font-size: 11px;">💡 Click gear in bag to equip. Visit Olaf to sell treasures.</span>
-        <span style="color: var(--gold-light); font-weight: 800; font-size: 14px;"><span data-pxi="coin"></span> <span id="invGoldText">50</span> Gold</span>
+          <div class="inventory-grid-compact" id="invItemsGrid"></div>
+          <div class="inv-hint">Click gear to equip, potions to drink. Hover any item for details.</div>
+        </section>
       </div>
     </div>
   </div>
 
-  <!-- Reforge & Enhancement Blacksmith Modal -->
+  <!-- Valka's Rune Forge: gear enhancement, SP card enhancement, card exchange -->
+  <div class="modal-overlay" id="enchanterModal" style="display: none;">
+    <div class="hud-panel modal-card enchanter-card">
+      <button class="modal-close" id="btnCloseEnchanter">✕</button>
+      <div class="modal-header">
+        <h2 class="modal-title">VALKA'S RUNE FORGE</h2>
+        <p class="modal-subtitle">Enhance gear up to +15, empower SP cards and trade Spirit Fragments</p>
+      </div>
+      <div class="ench-tabs" id="enchTabs">
+        <button class="ench-tab active" data-tab="gear">GEAR +</button>
+        <button class="ench-tab" data-tab="card">SP CARD +</button>
+        <button class="ench-tab" data-tab="exchange">CARD EXCHANGE</button>
+      </div>
+      <div class="ench-body">
+        <div class="ench-list" id="enchList"></div>
+        <div class="ench-detail" id="enchDetail"></div>
+      </div>
+      <div class="ench-foot">
+        <span><span data-pxi="coin"></span> <b id="enchGold">0</b> Gold</span>
+        <span><span data-pxi="fragment"></span> <b id="enchFragments">0</b> Spirit Fragments</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hypixel Skyblock Reforge Anvil Modal -->
   <div class="modal-overlay" id="reforgeModal" style="display: none;">
-    <div class="hud-panel modal-card reforge-modal-card">
+    <div class="hud-panel modal-card skyblock-reforge-card">
       <button class="modal-close" id="btnCloseReforge">✕</button>
-      <div class="modal-header" style="margin-bottom: 12px;">
-        <h2 class="modal-title">BROM'S FORGE & REFORGING</h2>
-        <p class="modal-subtitle">Enhance weapons & armor with powerful +1 to +10 enchantments</p>
+      <div class="modal-header" style="margin-bottom: 12px; text-align: center;">
+        <h2 class="modal-title" style="color: #facc15; font-size: 24px; letter-spacing: 1px;">🔨 REFORGE ANVIL</h2>
+        <p class="modal-subtitle">Reforge weapons and armor to grant powerful Skyblock modifiers & stats!</p>
       </div>
 
       <!-- Left / Right Layout: Selector and Anvil Bench -->
@@ -486,46 +740,50 @@
           </div>
         </div>
 
-        <!-- Right Column: The Anvil Bench / Upgrade Screen -->
-        <div class="reforge-bench" id="reforgeBench">
+        <!-- Right Column: Hypixel Skyblock Anvil GUI -->
+        <div class="reforge-bench skyblock-anvil-bench" id="reforgeBench">
           <div class="reforge-empty-prompt" id="reforgeEmptyPrompt">
             <span data-pxi="hammer" class="pxi-xl"></span>
-            <p style="margin-top: 8px; color: var(--text-muted); font-size: 13px;">Select a piece of gear on the left to place it on the Anvil.</p>
+            <p style="margin-top: 8px; color: var(--text-muted); font-size: 13px;">Select gear from the list to place it inside the Reforge Anvil.</p>
           </div>
 
           <div class="reforge-active-view" id="reforgeActiveView" style="display: none;">
-            <!-- Current Item Header -->
-            <div class="reforge-item-header">
-              <div class="reforge-item-icon" id="rfItemIcon" data-pxi="sword"></div>
-              <div class="reforge-item-info">
-                <div class="reforge-item-name" id="rfItemName">Knight Broadsword +0</div>
-                <div class="reforge-level-pill" id="rfLevelBadge">Level +0 ➜ +1</div>
+            <!-- Minecraft / Skyblock Anvil Visual Slot Layout -->
+            <div class="sb-anvil-slots-row">
+              <div class="sb-anvil-slot" id="sbAnvilSlotInput" title="Item to Reforge">
+                <div class="sb-slot-icon" id="rfItemIcon" data-pxi="sword"></div>
+              </div>
+
+              <div class="sb-anvil-arrow">
+                <span class="sb-arrow-glyph">➔</span>
+                <div class="sb-hammer-icon">🔨</div>
+              </div>
+
+              <div class="sb-anvil-slot result" id="sbAnvilSlotResult" title="Reforged Item Preview">
+                <div class="sb-slot-icon" id="rfResultIcon" data-pxi="sword"></div>
+                <div class="sb-result-glow"></div>
               </div>
             </div>
 
-            <!-- Stat Comparison Preview -->
-            <div class="reforge-stat-preview" id="rfStatPreview">
-              <!-- e.g. Attack Power: 22 ➜ 26 (+4) -->
-            </div>
-
-            <!-- Success Rate & Risk Info -->
-            <div class="reforge-chance-box">
-              <div class="chance-label-row">
-                <span>Success Chance:</span>
-                <strong id="rfChanceVal" style="color: #4ade80;">100% (Guaranteed)</strong>
+            <!-- Hypixel Skyblock Item Lore Tooltip Preview Box -->
+            <div class="sb-lore-card" id="sbLoreCard">
+              <div class="sb-lore-title" id="rfItemName">Knight Broadsword</div>
+              <div class="sb-lore-reforge-tag" id="rfReforgeTag">Reforged with [Modifier]</div>
+              <div class="sb-lore-stats-list" id="rfStatPreview">
+                <!-- Injected via game.js -->
               </div>
-              <div class="reforge-risk-tag" id="rfRiskTag">🛡️ Safe Zone: No loss or downgrade on fail</div>
+              <div class="sb-lore-rarity-footer" id="rfRarityFooter">RARE WEAPON</div>
             </div>
 
-            <!-- Cost -->
+            <!-- Cost Row -->
             <div class="reforge-cost-row">
-              <span style="color: var(--text-muted); font-size: 13px;">Forging Cost:</span>
-              <span style="color: #facc15; font-weight: 800; font-size: 15px;"><span data-pxi="coin"></span> <span id="rfCostVal">50</span> Gold</span>
+              <span style="color: var(--text-muted); font-size: 13px;">Reforge Cost:</span>
+              <span style="color: #facc15; font-weight: 800; font-size: 15px;"><span data-pxi="coin"></span> <span id="rfCostVal">150</span> Gold</span>
             </div>
 
-            <!-- Hammer Button -->
-            <button class="btn-primary btn-reforge" id="btnHammerItem">
-              🔨 STRIKE ANVIL & REFORGE
+            <!-- Skyblock Anvil Action Button -->
+            <button class="btn-primary btn-reforge-sb" id="btnHammerItem">
+              🔨 REFORGE ITEM
             </button>
           </div>
         </div>
@@ -540,80 +798,67 @@
       <div class="modal-header">
         <h2 class="modal-title">ABYSSAL EXPEDITION</h2>
         <p class="modal-subtitle">Configure dungeon depth and hazard difficulty before descending</p>
+        <p class="modal-subtitle" style="color:#4ade80;">⚔️ Party members share one private dungeon — other players are hidden. Invite with <code>/invite name</code>.</p>
       </div>
 
       <!-- Floor Selection -->
       <div class="portal-section-label">SELECT DUNGEON FLOOR</div>
-      <div class="floor-select-grid">
-        <div class="floor-card selected" data-floor="1">
-          <div class="floor-num">B1</div>
-          <div class="floor-details">
-            <div class="floor-title">Crypt of Whispers</div>
-            <div class="floor-level-rec">Lv. 1 - 15 • Skeleton & Slime Hordes</div>
-          </div>
+      <div class="floor-path">
+        <div class="floor-path-track">
+        <button type="button" class="floor-node selected" data-floor="1" data-name="Crypt of Whispers" data-min="1" data-max="15" data-desc="Skeleton & Slime Hordes">
+          <span class="floor-node-box"><span class="floor-num">B1</span><span class="floor-node-lock" data-pxi="lock"></span></span>
+          <span class="floor-node-lv">Lv.1-15</span>
+        </button>
+        <button type="button" class="floor-node" data-floor="2" data-name="Sunken Catacombs" data-min="16" data-max="30" data-desc="Tomb Ghouls & Sentinels">
+          <span class="floor-node-box"><span class="floor-num">B2</span><span class="floor-node-lock" data-pxi="lock"></span></span>
+          <span class="floor-node-lv">Lv.16-30</span>
+        </button>
+        <button type="button" class="floor-node" data-floor="3" data-name="Obsidian Caverns" data-min="31" data-max="45" data-desc="Dark Spiders & Magma Golems">
+          <span class="floor-node-box"><span class="floor-num">B3</span><span class="floor-node-lock" data-pxi="lock"></span></span>
+          <span class="floor-node-lv">Lv.31-45</span>
+        </button>
+        <button type="button" class="floor-node" data-floor="4" data-name="Glacial Abyss" data-min="46" data-max="60" data-desc="Frost Elementals & Ice Horrors">
+          <span class="floor-node-box"><span class="floor-num">B4</span><span class="floor-node-lock" data-pxi="lock"></span></span>
+          <span class="floor-node-lv">Lv.46-60</span>
+        </button>
+        <button type="button" class="floor-node" data-floor="5" data-name="Toxic Necropolis" data-min="61" data-max="75" data-desc="Plague Reapers & Wraiths">
+          <span class="floor-node-box"><span class="floor-num">B5</span><span class="floor-node-lock" data-pxi="lock"></span></span>
+          <span class="floor-node-lv">Lv.61-75</span>
+        </button>
+        <button type="button" class="floor-node" data-floor="6" data-name="Infernal Sanctum" data-min="76" data-max="90" data-desc="Hellfire Fiends & Demons">
+          <span class="floor-node-box"><span class="floor-num">B6</span><span class="floor-node-lock" data-pxi="lock"></span></span>
+          <span class="floor-node-lv">Lv.76-90</span>
+        </button>
+        <button type="button" class="floor-node" data-floor="7" data-name="Celestial Void" data-min="91" data-max="105" data-desc="Astral Phantoms & Watchers">
+          <span class="floor-node-box"><span class="floor-num">B7</span><span class="floor-node-lock" data-pxi="lock"></span></span>
+          <span class="floor-node-lv">Lv.91-105</span>
+        </button>
+        <button type="button" class="floor-node" data-floor="8" data-name="Dread Citadel" data-min="106" data-max="120" data-desc="Death Knights & Shadow Lords">
+          <span class="floor-node-box"><span class="floor-num">B8</span><span class="floor-node-lock" data-pxi="lock"></span></span>
+          <span class="floor-node-lv">Lv.106-120</span>
+        </button>
+        <button type="button" class="floor-node" data-floor="9" data-name="Dragon's Maw" data-min="121" data-max="135" data-desc="Ancient Drakes & Berserkers">
+          <span class="floor-node-box"><span class="floor-num">B9</span><span class="floor-node-lock" data-pxi="lock"></span></span>
+          <span class="floor-node-lv">Lv.121-135</span>
+        </button>
+        <button type="button" class="floor-node boss-floor" data-floor="10" data-name="Throne of Oblivion" data-min="136" data-max="150" data-desc="Titan of Chaos & Cataclysm">
+          <span class="floor-node-box"><span class="floor-num">B10</span><span class="floor-node-lock" data-pxi="lock"></span></span>
+          <span class="floor-node-lv">Lv.136-150</span>
+        </button>
         </div>
-        <div class="floor-card" data-floor="2">
-          <div class="floor-num">B2</div>
-          <div class="floor-details">
-            <div class="floor-title">Sunken Catacombs</div>
-            <div class="floor-level-rec">Lv. 16 - 30 • Tomb Ghouls & Sentinels</div>
+      </div>
+      <div class="floor-detail" id="floorDetail" style="flex-direction: column; align-items: stretch;">
+        <div style="display: flex; align-items: center; gap: 12px; width: 100%;">
+          <div class="floor-detail-num" id="floorDetailNum">B1</div>
+          <div class="floor-detail-body">
+            <div class="floor-title" id="floorDetailName">Crypt of Whispers</div>
+            <div class="floor-level-rec" id="floorDetailInfo">Lv. 1 - 15 • Skeleton &amp; Slime Hordes</div>
           </div>
+          <div class="floor-detail-status" id="floorDetailStatus"></div>
         </div>
-        <div class="floor-card" data-floor="3">
-          <div class="floor-num">B3</div>
-          <div class="floor-details">
-            <div class="floor-title">Obsidian Caverns</div>
-            <div class="floor-level-rec">Lv. 31 - 45 • Dark Spiders & Magma Golems</div>
-          </div>
-        </div>
-        <div class="floor-card" data-floor="4">
-          <div class="floor-num">B4</div>
-          <div class="floor-details">
-            <div class="floor-title">Glacial Abyss</div>
-            <div class="floor-level-rec">Lv. 46 - 60 • Frost Elementals & Ice Horrors</div>
-          </div>
-        </div>
-        <div class="floor-card" data-floor="5">
-          <div class="floor-num">B5</div>
-          <div class="floor-details">
-            <div class="floor-title">Toxic Necropolis</div>
-            <div class="floor-level-rec">Lv. 61 - 75 • Plague Reapers & Wraiths</div>
-          </div>
-        </div>
-        <div class="floor-card" data-floor="6">
-          <div class="floor-num">B6</div>
-          <div class="floor-details">
-            <div class="floor-title">Infernal Sanctum</div>
-            <div class="floor-level-rec">Lv. 76 - 90 • Hellfire Fiends & Demons</div>
-          </div>
-        </div>
-        <div class="floor-card" data-floor="7">
-          <div class="floor-num">B7</div>
-          <div class="floor-details">
-            <div class="floor-title">Celestial Void</div>
-            <div class="floor-level-rec">Lv. 91 - 105 • Astral Phantoms & Watchers</div>
-          </div>
-        </div>
-        <div class="floor-card" data-floor="8">
-          <div class="floor-num">B8</div>
-          <div class="floor-details">
-            <div class="floor-title">Dread Citadel</div>
-            <div class="floor-level-rec">Lv. 106 - 120 • Death Knights & Shadow Lords</div>
-          </div>
-        </div>
-        <div class="floor-card" data-floor="9">
-          <div class="floor-num">B9</div>
-          <div class="floor-details">
-            <div class="floor-title">Dragon's Maw</div>
-            <div class="floor-level-rec">Lv. 121 - 135 • Ancient Drakes & Berserkers</div>
-          </div>
-        </div>
-        <div class="floor-card" data-floor="10">
-          <div class="floor-num">B10</div>
-          <div class="floor-details">
-            <div class="floor-title">Throne of Oblivion</div>
-            <div class="floor-level-rec">Lv. 136 - 150 • Titan of Chaos & Cataclysm</div>
-          </div>
+        <div class="floor-loot-preview">
+          <span class="floor-loot-title">🎁 EXPECTED CHEST &amp; BOSS REWARDS</span>
+          <div class="floor-loot-slots" id="floorLootSlots"></div>
         </div>
       </div>
 
@@ -669,6 +914,9 @@
       <div class="portal-actions">
         <button class="btn-primary btn-enter-portal" id="btnConfirmEnterDungeon">
           ⚔️ DESCEND INTO DUNGEON
+        </button>
+        <button class="btn-primary btn-enter-portal btn-enter-with-party" id="btnEnterDungeonWithParty" style="display: none;">
+          📣 DESCEND &amp; INVITE PARTY
         </button>
       </div>
     </div>
@@ -768,11 +1016,74 @@
     </div>
   </div>
 
+  <!-- Party Panel Modal -->
+  <div class="modal-overlay" id="partyModal" style="display: none;">
+    <div class="hud-panel modal-card party-modal-card">
+      <button class="modal-close" id="btnCloseParty">✕</button>
+      <div class="modal-header">
+        <h2 class="modal-title">PARTY</h2>
+        <p class="modal-subtitle">Invite players, then summon them to your map or dungeon</p>
+      </div>
+      <div class="party-panel-section">
+        <div class="party-panel-heading">
+          <span>MY PARTY <span id="partyPanelCount"></span></span>
+          <div class="party-header-actions">
+            <button class="party-summon-btn" id="btnPartyPanelSummon">📣 Summon to me</button>
+            <button class="party-leave-btn" id="btnPartyPanelLeave">Leave</button>
+          </div>
+        </div>
+        <div class="party-panel-list" id="partyPanelMembers"></div>
+      </div>
+      <div class="party-panel-section">
+        <div class="party-panel-heading">
+          <span>ONLINE PLAYERS</span>
+          <button class="party-refresh-btn" id="btnPartyRefresh">↻ Refresh</button>
+        </div>
+        <div class="party-panel-list" id="partyPanelCandidates"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Party Summon Floating Banner -->
+  <div class="party-invite-banner party-summon-banner hud-panel interactive" id="partySummonBanner" style="display: none;">
+    <div class="party-invite-header">
+      <span class="party-invite-icon">📣</span>
+      <div class="party-invite-details">
+        <div class="party-invite-title">Party Summon</div>
+        <div class="party-invite-desc"><span id="partySummonerName" style="color: #38bdf8; font-weight: bold;">Hero</span> wants you to join them in <span id="partySummonWhere" style="color: #facc15; font-weight: bold;">Town</span>!</div>
+      </div>
+    </div>
+    <div class="party-invite-actions">
+      <button class="btn-party-accept" id="btnAcceptSummon">Teleport</button>
+      <button class="btn-party-decline" id="btnDeclineSummon">Decline</button>
+    </div>
+  </div>
+
+  <!-- Party Invitation Floating Banner -->
+  <div class="party-invite-banner hud-panel interactive" id="partyInviteBanner" style="display: none;">
+    <div class="party-invite-header">
+      <span class="party-invite-icon">⚔️</span>
+      <div class="party-invite-details">
+        <div class="party-invite-title">Party Invitation</div>
+        <div class="party-invite-desc"><span id="partyInviterName" style="color: #38bdf8; font-weight: bold;">Hero</span> has invited you to join their party!</div>
+      </div>
+    </div>
+    <div class="party-invite-actions">
+      <button class="btn-party-accept" id="btnAcceptParty">Accept</button>
+      <button class="btn-party-decline" id="btnDeclineParty">Decline</button>
+    </div>
+  </div>
+
   <!-- Fallen / Death Screen -->
   <div id="death-screen">
     <h2 class="death-title">YOU HAVE FALLEN</h2>
     <p class="death-timer">Respawning in <span id="respawnCountdown">5</span> seconds...</p>
-    <p style="color: var(--text-muted); font-size: 14px; margin-top: 8px;">Tip: Watch out for boss monsters and drink potions when low on HP!</p>
+    <button id="btnUseRevivalStone" class="btn-revive" style="display: none;">
+      <span data-pxi="gem"></span>
+      <span class="btn-revive-text">ชุบชีวิตทันที</span>
+      <span class="btn-revive-count">x<span id="revivalStoneCount">0</span></span>
+    </button>
+    <p style="color: var(--text-muted); font-size: 14px; margin-top: 12px;">Tip: Watch out for boss monsters and drink potions when low on HP!</p>
   </div>
 
   <!-- Three.js 3D Town Props Engine -->
@@ -786,6 +1097,8 @@
   <script src="js/isometric.js"></script>
   <script src="js/skillIcons.js"></script>
   <script src="js/pixelIcons.js"></script>
+  <script src="js/tooltip.js"></script>
+  <script src="js/pixelHeroes.js"></script>
   <script src="js/renderer.js"></script>
   <script src="js/game.js"></script>
 </body>

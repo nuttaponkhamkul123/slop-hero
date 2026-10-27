@@ -1,8 +1,10 @@
 const express = require('express');
 const http = require('http');
 const path = require('path');
+const fs = require('fs');
 const { Server } = require('socket.io');
 const GameServer = require('./gameServer');
+const adminCommands = require('./adminCommands');
 
 const app = express();
 const server = http.createServer(app);
@@ -13,10 +15,67 @@ const io = new Server(server, {
   }
 });
 
+process.on('uncaughtException', (err) => {
+  console.error('[UNCAUGHT EXCEPTION]', err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[UNHANDLED REJECTION]', reason);
+});
+
 const PORT = process.env.PORT || 3000;
 
 // Serve static frontend files
 app.use(express.static(path.join(__dirname, '..', 'public')));
+
+// Explicit route to serve city.wav music file
+app.get('/city.wav', (req, res) => {
+  const cityPath = path.join(__dirname, '..', 'city.wav');
+  if (fs.existsSync(cityPath)) {
+    res.sendFile(cityPath);
+  } else {
+    res.status(404).send('Not Found');
+  }
+});
+
+// Explicit route to serve dunjion.wav music file for dungeon zone
+app.get(['/dunjion.wav', '/dungeon.wav', '/dunjion'], (req, res) => {
+  const dungeonPath = path.join(__dirname, '..', 'dunjion.wav');
+  if (fs.existsSync(dungeonPath)) {
+    res.sendFile(dungeonPath);
+  } else {
+    res.status(404).send('Not Found');
+  }
+});
+
+// Explicit route to serve login.wav music file for the login screen
+app.get('/login.wav', (req, res) => {
+  const loginPath = path.join(__dirname, '..', 'login.wav');
+  if (fs.existsSync(loginPath)) {
+    res.sendFile(loginPath);
+  } else {
+    res.status(404).send('Not Found');
+  }
+});
+
+// Explicit route to serve frosfell.wav music file for the Frostfell zone
+app.get(['/frosfell.wav', '/frostfell.wav'], (req, res) => {
+  const frostfellPath = path.join(__dirname, '..', 'frosfell.wav');
+  if (fs.existsSync(frostfellPath)) {
+    res.sendFile(frostfellPath);
+  } else {
+    res.status(404).send('Not Found');
+  }
+});
+
+// Explicit route to serve "shadowfell ruins.wav" music file for the Shadowfell zone
+app.get('/shadowfell-ruins.wav', (req, res) => {
+  const shadowfellPath = path.join(__dirname, '..', 'shadowfell ruins.wav');
+  if (fs.existsSync(shadowfellPath)) {
+    res.sendFile(shadowfellPath);
+  } else {
+    res.status(404).send('Not Found');
+  }
+});
 
 // Initialize Game Engine
 const gameServer = new GameServer(io);
@@ -25,8 +84,33 @@ const gameServer = new GameServer(io);
 io.on('connection', (socket) => {
   console.log(`[Socket Connected] ID: ${socket.id}`);
 
+  // Every handler runs in the context of the sender's dungeon instance, so
+  // zone-wide emits and lookups from inside a dungeon stay in that instance.
+  const rawOn = socket.on.bind(socket);
+  socket.on = (event, handler) => rawOn(event, (...args) => gameServer.runAs(socket.id, () => handler(...args)));
+
+  socket.on('account_register', (data) => {
+    gameServer.handleAccountRegister(socket, data);
+  });
+
+  socket.on('account_login', (data) => {
+    gameServer.handleAccountLogin(socket, data);
+  });
+
+  socket.on('create_character', (data) => {
+    gameServer.handleCreateCharacter(socket, data);
+  });
+
+  socket.on('delete_character', (data) => {
+    gameServer.handleDeleteCharacter(socket, data);
+  });
+
   socket.on('join_game', (data) => {
     gameServer.addPlayer(socket, data);
+  });
+
+  socket.on('use_revival_stone', () => {
+    gameServer.handleUseRevivalStone(socket.id);
   });
 
   socket.on('player_input', (input) => {
@@ -53,12 +137,21 @@ io.on('connection', (socket) => {
     gameServer.handleChatMessage(socket.id, message);
   });
 
+  // Admin menu dropdown data (answers { isAdmin: false } to everyone else)
+  socket.on('admin_catalog', () => {
+    socket.emit('admin_catalog', adminCommands.buildCatalog(gameServer, gameServer.players.get(socket.id)));
+  });
+
   socket.on('buy_item', (data) => {
-    gameServer.handleBuyItem(socket.id, data.itemId);
+    gameServer.handleBuyItem(socket.id, data.itemId, data.count || data.quantity || 1);
   });
 
   socket.on('sell_item', (data) => {
-    gameServer.handleSellItem(socket.id, data.itemIndex);
+    gameServer.handleSellItem(socket.id, data.itemIndex, data.quantity);
+  });
+
+  socket.on('sell_items', (data) => {
+    gameServer.handleSellItems(socket.id, data && data.entries);
   });
 
   socket.on('equip_item', (data) => {
@@ -67,6 +160,22 @@ io.on('connection', (socket) => {
 
   socket.on('unequip_item', (data) => {
     gameServer.handleUnequipItem(socket.id, data.slot);
+  });
+
+  socket.on('sp_transform', () => {
+    gameServer.handleSpTransform(socket.id);
+  });
+
+  socket.on('sp_card_enhance', (data) => {
+    gameServer.handleSpCardEnhance(socket.id, data);
+  });
+
+  socket.on('sp_card_exchange', (data) => {
+    gameServer.handleSpCardExchange(socket.id, data);
+  });
+
+  socket.on('enhance_item', (data) => {
+    gameServer.handleEnhanceItem(socket.id, data);
   });
 
   socket.on('reforge_item', (data) => {
@@ -95,6 +204,43 @@ io.on('connection', (socket) => {
 
   socket.on('customize_skill_slot', (data) => {
     gameServer.handleCustomizeSkill(socket.id, data);
+  });
+
+  // Party System Socket Handlers
+  socket.on('party_invite', (data) => {
+    gameServer.handlePartyInvite(socket.id, data);
+  });
+
+  socket.on('party_accept', (data) => {
+    gameServer.handlePartyAccept(socket.id, data);
+  });
+
+  socket.on('party_decline', (data) => {
+    gameServer.handlePartyDecline(socket.id, data);
+  });
+
+  socket.on('party_leave', () => {
+    gameServer.handlePartyLeave(socket.id);
+  });
+
+  socket.on('party_kick', (data) => {
+    gameServer.handlePartyKick(socket.id, data);
+  });
+
+  socket.on('party_summon', () => {
+    gameServer.handlePartySummon(socket.id);
+  });
+
+  socket.on('party_summon_accept', (data) => {
+    gameServer.handlePartySummonAccept(socket.id, data);
+  });
+
+  socket.on('party_list_candidates', () => {
+    gameServer.handlePartyListCandidates(socket.id);
+  });
+
+  socket.on('set_potion_slot', (data) => {
+    gameServer.handleSetPotionSlot(socket.id, data);
   });
 
   socket.on('disconnect', () => {

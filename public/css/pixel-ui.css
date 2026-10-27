@@ -1,7 +1,7 @@
 /* =====================================================================
    Slop Hero - Pixel UI layer
    Loaded after style.css and restyles every component in one visual
-   language: Sweetie 16 palette (+3), Jersey 10 / Pixelify Sans, hard 3px
+   language: Sweetie 16 palette (+3), DotGothic16 (UI + numbers) / Jersey 10 (big titles), hard 3px
    bevels, no blur, no glow, no gradients, no emoji.
    Reference: public/styletile.html
    ===================================================================== */
@@ -12,8 +12,10 @@
   --white: #f4f4f4; --steel: #94b0c2; --slate: #566c86; --night: #333c57;
   --leather: #6b3e2e; --tan: #a0603a; --epic: #9a5bd6;
   --px: 3px;
-  --font-display: 'Jersey 10', monospace;
-  --font-px: 'Pixelify Sans', monospace;
+  /* DotGothic16 keeps every digit distinct (5/8/6/9, 0/O); Jersey 10 only on big titles */
+  --font-display: 'DotGothic16', monospace;
+  --font-px: 'DotGothic16', monospace;
+  --font-title-px: 'Jersey 10', monospace;
 
   /* legacy variables used across style.css, remapped to the palette */
   --bg-dark: var(--ink);
@@ -94,6 +96,9 @@ button, input, select, textarea { font-family: var(--font-px); }
   font-weight: 400 !important;
   letter-spacing: 0.5px;
   text-shadow: none;
+}
+.modal-title, .death-title, .dungeon-result-title {
+  font-family: var(--font-title-px) !important;
 }
 .modal-title {
   font-size: 36px !important;
@@ -288,10 +293,10 @@ button, input, select, textarea { font-family: var(--font-px); }
   --bg: var(--night);
   font-family: var(--font-display) !important;
   font-weight: 400 !important;
-  font-size: 19px !important;
+  font-size: 13px !important;
   color: var(--gold) !important;
   transition: none !important;
-  padding: 4px 10px 6px !important;
+  padding: 5px 7px 6px !important;
   margin: var(--px);
 }
 .menu-btn:hover { --bg: var(--blue); --hi: var(--sky); color: var(--white) !important; transform: none !important; }

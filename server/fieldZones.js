@@ -1,4 +1,4 @@
-// Open-world field zones, chained by level from Frostfell (Lv 6) to Lv 100.
+// Open-world field zones, chained by level from the city outskirts (Lv 1) to Lv 100.
 // Each zone is a 42x42 map entered from the south (portal back to the previous
 // zone) with a portal to the next zone on its far north side.
 const { MAP_WIDTH, MAP_HEIGHT, generateFrostfellMap } = require('./mapData');
@@ -23,7 +23,7 @@ function mobStats(level, isBoss) {
     dmg: Math.round(14 + level * 3.0),
     def: Math.round(10 + level * 1.7),
     exp: mobExp(level),
-    gold: Math.round(10 + level * 8)
+    gold: Math.round(5 + level * 3)
   };
   if (!isBoss) return base;
   return {
@@ -31,14 +31,27 @@ function mobStats(level, isBoss) {
     dmg: Math.round(base.dmg * 1.6),
     def: Math.round(base.def * 1.5),
     exp: mobExp(level, 'boss'),
-    gold: base.gold * 10
+    gold: Math.round(base.gold * 4)
   };
 }
 
 // Mob "type" picks the body drawn by the renderer; hue tints it per zone.
 const FIELD_ZONES = [
   {
-    id: 'frostfell', name: 'Frostfell Peaks', minLevel: 6, maxLevel: 15, gateLevel: 1,
+    // Just outside the city's north gate: the starter monsters that used to roam the town
+    id: 'meadow', name: 'Greenmeadow Outskirts', minLevel: 1, maxLevel: 5, gateLevel: 1,
+    theme: 'wildwood', color: '#86efac',
+    tiles: { ground: 13, path: 14, liquid: 15, cliff: 16 },
+    decor: [{ type: 'oak_tree', weight: 5 }, { type: 'pine_tree', weight: 2 }, { type: 'boulder', weight: 1 }, { type: 'stone_pillar', weight: 1 }],
+    mobs: [
+      { type: 'slime', name: 'Meadow Slime', level: 1, count: 7, speed: 2.3, element: 'earth', elementResist: { fire: -0.4, ice: 0.1, earth: 0.3 }, stats: { maxHp: 120, def: 5, dmg: 14, gold: 15 } },
+      { type: 'goblin', name: 'Goblin Scout', level: 3, count: 6, speed: 3.2, element: 'earth', elementResist: { fire: -0.3, ice: 0.1, earth: 0.2 }, stats: { maxHp: 260, def: 10, dmg: 22, gold: 35 } },
+      { type: 'skeleton', name: 'Ancient Skeleton', level: 5, count: 5, speed: 2.8, element: 'dark', elementResist: { holy: -0.6, fire: -0.2, dark: 0.4 }, stats: { maxHp: 440, def: 16, dmg: 32, gold: 75 } }
+    ],
+    boss: { type: 'golem', name: 'Titan Stone Golem', level: 8, element: 'earth', elementResist: { lightning: -0.5, earth: 0.5, holy: 0.2 }, stats: { maxHp: 1400, def: 26, dmg: 52, gold: 300 } }
+  },
+  {
+    id: 'frostfell', name: 'Frostfell Peaks', minLevel: 6, maxLevel: 15, gateLevel: 4,
     theme: 'frostfell', color: '#38bdf8', custom: true
   },
   {
@@ -136,6 +149,19 @@ FIELD_ZONES.forEach((z, i) => {
 const FIELD_ZONE_BY_ID = Object.fromEntries(FIELD_ZONES.map(z => [z.id, z]));
 
 // Portal placement shared by every field map
+// Collision radius per decoration: trunks and pillars are slim
+const DECOR_RADIUS = {
+  oak_tree: 0.3,
+  pine_tree: 0.3,
+  dead_tree: 0.28,
+  cactus: 0.3,
+  stone_pillar: 0.45,
+  frost_monolith: 0.5,
+  ice_crystal: 0.4,
+  giant_mushroom: 0.45,
+  boulder: 0.6
+};
+
 const SOUTH_PORTAL = { x: 21, y: 36 };   // back to the previous zone
 const SOUTH_ARRIVAL = { x: 21, y: 33 };
 const NORTH_PORTAL = { x: 21, y: 4 };    // on to the next zone
@@ -229,7 +255,7 @@ function generateFieldMap(zone) {
     const deco = zone.decor.find(d => (pick -= d.weight) < 0) || zone.decor[0];
     obstacles.push({
       id: `${zone.id}_deco_${tx}_${ty}`, x: tx, y: ty, type: deco.type,
-      hue: deco.hue, collidable: true, radius: deco.type === 'giant_mushroom' ? 0.7 : 0.6
+      hue: deco.hue, collidable: true, radius: DECOR_RADIUS[deco.type] || 0.6
     });
   }
 
@@ -267,8 +293,9 @@ function buildFieldMobs(zone, map) {
       const level = m.level + Math.floor(rand() * 3);
       defs.push({
         type: m.type, name: m.name, level, hue: m.hue, scale: m.scale, buffs: m.buffs || [],
-        ...mobStats(level, false),
-        speed: m.type === 'golem' ? 2.2 : m.type === 'frost_wolf' ? 3.8 : 3.0,
+        element: m.element, elementResist: m.elementResist,
+        ...mobStats(level, false), ...(m.stats || {}),
+        speed: m.speed || (m.type === 'golem' ? 2.2 : m.type === 'frost_wolf' ? 3.8 : 3.0),
         zone: { minX: s.x - 3, maxX: s.x + 3, minY: s.y - 3, maxY: s.y + 3 },
         spawn: { x: s.x + 0.5, y: s.y + 0.5 }
       });
@@ -277,7 +304,8 @@ function buildFieldMobs(zone, map) {
   const b = zone.boss;
   defs.push({
     type: b.type, name: `${b.name} [Boss]`, level: b.level, hue: b.hue, scale: b.scale, buffs: b.buffs || [],
-    isBoss: true, ...mobStats(b.level, true), speed: 2.2,
+    element: b.element, elementResist: b.elementResist,
+    isBoss: true, ...mobStats(b.level, true), ...(b.stats || {}), speed: 2.2,
     zone: { minX: 18, maxX: 24, minY: 9, maxY: 13 }, spawn: { x: 21, y: 11 }
   });
   return defs;
