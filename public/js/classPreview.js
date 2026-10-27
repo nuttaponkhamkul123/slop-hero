@@ -1,6 +1,6 @@
-// Character Creation Preview Renderer
-// Renders a rotating, idling 3D hero of the currently selected class inside the
-// join-game modal. Reuses the procedural hero rig from threeHeroRenderer.js.
+// Character Creation Preview Renderer (Authentic 2D Pixel Art Showcase)
+// Renders an animated, breathing 2D pixel-art hero of the currently selected class
+// on an isometric glowing pedestal inside the join-game modal.
 
 (function() {
   'use strict';
@@ -38,160 +38,109 @@
     }
   };
 
+  const SPRITE_CONFIG = {
+    warrior: {
+      src: 'sprites/swordman_idle_strip.png',
+      frameCount: 4,
+      frameWidth: 256,
+      frameHeight: 286,
+      anchorX: 128,
+      anchorY: 263,
+      scale: 0.95
+    },
+    mage: {
+      src: 'sprites/mage_idle_strip.png',
+      frameCount: 4,
+      frameWidth: 320,
+      frameHeight: 286,
+      anchorX: 140,
+      anchorY: 263,
+      scale: 0.95
+    },
+    rogue: {
+      src: 'sprites/rogue_idle_strip.png',
+      frameCount: 4,
+      frameWidth: 320,
+      frameHeight: 286,
+      anchorX: 140,
+      anchorY: 263,
+      scale: 0.95
+    }
+  };
+
   class ClassPreview {
     constructor(canvas) {
       this.canvas = canvas;
-      this.ready = false;
-      this.currentClass = null;
-      this.hero = null;
-      this.rotation = 0;
-      this.lastTime = 0;
+      this.ctx = canvas ? canvas.getContext('2d') : null;
+      this.currentClass = 'warrior';
       this.running = false;
+      this.animTime = 0;
+      this.lastTime = 0;
+      this.particles = [];
 
-      if (!canvas || typeof THREE === 'undefined' || !window.Hero3DInstance || !window.HeroAssetFactory) {
-        return;
-      }
-
-      const textures = window.HeroAssetFactory.buildTextures();
-      const materials = window.HeroAssetFactory.buildMaterials(textures);
-      const geometries = window.HeroAssetFactory.buildGeometries();
-
-      this.materials = materials;
-      this.geometries = geometries;
-
-      this.scene = new THREE.Scene();
-
-      this.camera = new THREE.PerspectiveCamera(34, 1, 0.1, 2000);
-      this.camera.position.set(0, 33, 127);
-      this.camera.lookAt(0, 28, 0);
-
-      this.renderer = new THREE.WebGLRenderer({
-        canvas: this.canvas,
-        alpha: true,
-        antialias: true,
-        powerPreference: 'high-performance'
+      // Preload sprite images
+      this.images = {};
+      Object.entries(SPRITE_CONFIG).forEach(([cls, cfg]) => {
+        const img = new Image();
+        img.src = cfg.src;
+        this.images[cls] = img;
       });
-      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-      this.renderer.setClearColor(0x000000, 0);
 
-      this.scene.add(new THREE.AmbientLight(0xf8fafc, 1.0));
-
-      const keyLight = new THREE.DirectionalLight(0xfffbeb, 1.5);
-      keyLight.position.set(180, 320, 260);
-      this.scene.add(keyLight);
-
-      const rimLight = new THREE.DirectionalLight(0x38bdf8, 1.1);
-      rimLight.position.set(-260, 140, -180);
-      this.scene.add(rimLight);
-
-      const fillLight = new THREE.DirectionalLight(0xfef08a, 0.45);
-      fillLight.position.set(0, -160, 220);
-      this.scene.add(fillLight);
-
-      this.podium = new THREE.Mesh(
-        new THREE.CylinderGeometry(26, 29, 2.2, 32),
-        new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.85, metalness: 0.15 })
-      );
-      this.podium.position.y = -0.1;
-      this.scene.add(this.podium);
-
-      this.podiumRing = new THREE.Mesh(
-        new THREE.TorusGeometry(26.5, 0.55, 8, 48),
-        new THREE.MeshBasicMaterial({ color: 0x64748b, transparent: true, opacity: 0.7 })
-      );
-      this.podiumRing.rotation.x = Math.PI * 0.5;
-      this.podiumRing.position.y = 1.05;
-      this.scene.add(this.podiumRing);
-
-      this.ready = true;
+      this.initParticles();
       this.resize();
       window.addEventListener('resize', () => this.resize());
     }
 
+    initParticles() {
+      this.particles = [];
+      for (let i = 0; i < 28; i++) {
+        this.particles.push({
+          x: (Math.random() - 0.5) * 160,
+          y: (Math.random() - 0.5) * 120,
+          vy: -(0.2 + Math.random() * 0.5),
+          vx: (Math.random() - 0.5) * 0.2,
+          size: 1 + Math.random() * 2.2,
+          alpha: Math.random() * 0.7 + 0.2,
+          life: Math.random() * 2
+        });
+      }
+    }
+
     resize() {
-      if (!this.ready) return;
-      const w = this.canvas.clientWidth || 420;
-      const h = this.canvas.clientHeight || 420;
-      this.renderer.setSize(w, h, false);
-      this.camera.aspect = w / h;
-      this.camera.updateProjectionMatrix();
+      if (!this.canvas) return;
+      const rect = this.canvas.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const w = Math.max(rect.width || 380, 240);
+      const h = Math.max(rect.height || 380, 240);
+
+      this.canvas.width = Math.round(w * dpr);
+      this.canvas.height = Math.round(h * dpr);
+      if (this.ctx) {
+        this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        this.ctx.imageSmoothingEnabled = false;
+      }
+      this.width = w;
+      this.height = h;
     }
 
     setClass(cls) {
-      if (!this.ready) return;
-      if (this.currentClass === cls) return;
+      if (!CLASS_META[cls]) return;
       this.currentClass = cls;
-
-      if (this.hero) {
-        this.scene.remove(this.hero.root);
-      }
-
-      const fakePlayer = {
-        id: 'preview',
-        characterClass: cls,
-        x: 0,
-        y: 0,
-        facing: 'S',
-        isMoving: false
-      };
-
-      this.hero = new window.Hero3DInstance(fakePlayer, {
-        materials: this.materials,
-        geometries: this.geometries
-      });
-
-      this.hero.root.scale.setScalar(1.0);
-      this.hero.root.position.set(0, 0, 0);
-      this.hero.modelContainer.rotation.x = 0.10;
-      this.hero.currentYaw = 0;
-      this.hero.modelContainer.rotation.y = 0;
-      // The flatter preview tilt changes where the feet land, so re-seat the
-      // model on the contact shadow and refresh the measured height.
-      this.hero.groundModel();
-
-      this.scene.add(this.hero.root);
-
-      this.frameClass();
-      this.applyAccent(cls);
-    }
-
-    // Re-frame the camera for the selected class so a short, round mage and a
-    // tall, lean swordsman are both presented at a readable size.
-    frameClass() {
-      const spriteHeight = (this.hero && this.hero.metrics && this.hero.metrics.height) || 54;
-      // The camera has to clear the real 3D silhouette (staff, hat, sword tip),
-      // which is taller than the sprite-derived proportions.
-      const height = (this.hero && this.hero.modelHeight) || spriteHeight;
-      const scale = spriteHeight / 54;
-
-      // Podium shrinks with the character so it never dwarfs a short class.
-      this.podium.scale.set(scale, 1, scale);
-      this.podiumRing.scale.set(scale, scale, scale);
-      this.podiumRing.position.y = 1.05 * 1;
-
-      const dist = height * 2.35;
-      const targetY = height * 0.52;
-      this.camera.position.set(0, height * 0.62, dist);
-      this.camera.lookAt(0, targetY, 0);
-      this.camera.updateProjectionMatrix();
-    }
-
-    applyAccent(cls) {
-      const meta = CLASS_META[cls];
-      if (meta && this.podiumRing) {
-        this.podiumRing.material.color.set(meta.accent);
-      }
+      this.animTime = 0;
+      this.initParticles();
+      this.draw(0);
     }
 
     start() {
-      if (!this.ready || this.running) return;
+      if (this.running) return;
       this.running = true;
       this.lastTime = performance.now();
       const loop = (now) => {
         if (!this.running) return;
         const dt = Math.min((now - this.lastTime) / 1000, 0.05);
         this.lastTime = now;
-        this.render(dt);
+        this.animTime += dt;
+        this.draw(dt);
         requestAnimationFrame(loop);
       };
       requestAnimationFrame(loop);
@@ -201,16 +150,119 @@
       this.running = false;
     }
 
-    render(dt) {
-      if (!this.ready || !this.hero) return;
+    draw(dt) {
+      if (!this.ctx || !this.width || !this.height) return;
+      const ctx = this.ctx;
+      const w = this.width;
+      const h = this.height;
+      const cls = this.currentClass || 'warrior';
+      const meta = CLASS_META[cls] || CLASS_META.warrior;
+      const cfg = SPRITE_CONFIG[cls];
+      const img = this.images[cls];
 
-      this.rotation += dt * 0.35;
-      this.hero.modelContainer.rotation.y = this.rotation;
-      this.hero.animate(dt, false, false, 0);
+      ctx.clearRect(0, 0, w, h);
 
-      this.podiumRing.rotation.z += dt * 0.5;
+      const centerX = Math.round(w * 0.5);
+      const centerY = Math.round(h * 0.68);
 
-      this.renderer.render(this.scene, this.camera);
+      // --- 1. Ambient Backdrop Glow ---
+      const glowGrad = ctx.createRadialGradient(centerX, centerY - 40, 10, centerX, centerY - 40, 150);
+      glowGrad.addColorStop(0, meta.accent + '33');
+      glowGrad.addColorStop(0.6, meta.accent + '0d');
+      glowGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = glowGrad;
+      ctx.fillRect(0, 0, w, h);
+
+      // --- 2. Floating Ambient Sparkles/Motes ---
+      ctx.save();
+      ctx.translate(centerX, centerY - 30);
+      this.particles.forEach(p => {
+        p.y += p.vy;
+        p.x += p.vx;
+        p.life += dt;
+        if (p.y < -120) {
+          p.y = 20;
+          p.x = (Math.random() - 0.5) * 140;
+        }
+        const pulse = (Math.sin(p.life * 3) + 1) * 0.5;
+        ctx.fillStyle = meta.accent;
+        ctx.globalAlpha = p.alpha * (0.4 + pulse * 0.6);
+        ctx.fillRect(p.x, p.y, p.size, p.size);
+      });
+      ctx.restore();
+
+      // --- 3. Ground Pedestal (Isometric Plinth) ---
+      // Ground shadow
+      ctx.beginPath();
+      ctx.ellipse(centerX, centerY + 8, 86, 28, 0, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+      ctx.fill();
+
+      // Stone dais lower bevel
+      ctx.beginPath();
+      ctx.ellipse(centerX, centerY + 6, 76, 24, 0, 0, Math.PI * 2);
+      ctx.fillStyle = '#1e293b';
+      ctx.fill();
+      ctx.strokeStyle = '#0f172a';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Stone dais top disc
+      ctx.beginPath();
+      ctx.ellipse(centerX, centerY - 2, 72, 22, 0, 0, Math.PI * 2);
+      ctx.fillStyle = '#334155';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Glowing energy rim
+      const ringPulse = 0.7 + Math.sin(this.animTime * 2.8) * 0.3;
+      ctx.beginPath();
+      ctx.ellipse(centerX, centerY - 2, 68, 20, 0, 0, Math.PI * 2);
+      ctx.strokeStyle = meta.accent;
+      ctx.lineWidth = 2.5;
+      ctx.globalAlpha = ringPulse;
+      ctx.stroke();
+      ctx.globalAlpha = 1.0;
+
+      // Contact shadow immediately beneath hero
+      ctx.beginPath();
+      ctx.ellipse(centerX, centerY - 4, 34, 10, 0, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
+      ctx.fill();
+
+      // --- 4. 2D Pixel-Art Character Sprite ---
+      if (img && img.complete && img.naturalWidth > 0 && cfg) {
+        // 4-frame idle animation loop (~5.2 fps)
+        const frameIndex = Math.floor((this.animTime * 5.2) % cfg.frameCount);
+        const sx = frameIndex * cfg.frameWidth;
+        const sy = 0;
+        const sw = cfg.frameWidth;
+        const sh = cfg.frameHeight;
+
+        // Subtle idle motion (breathing & levitation for mage)
+        let offsetY = 0;
+        if (cls === 'mage') {
+          // Arcane levitation bob
+          offsetY = Math.sin(this.animTime * 2.4) * 6 - 8;
+        } else if (cls === 'warrior') {
+          // Grounded chest rise
+          offsetY = Math.sin(this.animTime * 3.0) * 1.5;
+        } else if (cls === 'rogue') {
+          // Low predatory crouch sway
+          offsetY = Math.sin(this.animTime * 3.4) * 1.8;
+        }
+
+        const scale = cfg.scale || 1.0;
+        const dw = sw * scale;
+        const dh = sh * scale;
+        const dx = Math.round(centerX - cfg.anchorX * scale);
+        const dy = Math.round(centerY - cfg.anchorY * scale + offsetY);
+
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
+      }
     }
   }
 

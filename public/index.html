@@ -12,10 +12,8 @@
   <link rel="icon" href="data:,">
 </head>
 <body>
-  <!-- Fullscreen Game Canvas (2D Isometric Terrain & VFX) -->
+  <!-- Fullscreen Game Canvas (2D Isometric Terrain, Heroes & VFX) -->
   <canvas id="gameCanvas"></canvas>
-  <!-- Fullscreen Three.js WebGL Canvas (3D Character Models & Animations) -->
-  <canvas id="threeCanvas"></canvas>
 
   <!-- Interactive MMORPG HUD -->
   <div id="ui-container">
@@ -83,7 +81,6 @@
           </div>
           <div class="meta-btn-row">
             <button class="btn-icon-hud" id="btnAudioToggle" title="Toggle Sound (M)"><span data-pxi="sound"></span></button>
-            <button class="btn-icon-hud" id="btnToggle3D" title="Toggle 3D / 2D Character Models"><span data-pxi="cube"></span> 2D</button>
             <button class="btn-icon-hud mobile-only-btn" id="btnMobileMenuToggle" title="Open Menu"><span data-pxi="menu"></span></button>
           </div>
           <!-- Mobile Collapsible Menu Drawer -->
@@ -778,9 +775,8 @@
     <p style="color: var(--text-muted); font-size: 14px; margin-top: 8px;">Tip: Watch out for boss monsters and drink potions when low on HP!</p>
   </div>
 
-  <!-- Three.js 3D Engine & Hero Renderer -->
+  <!-- Three.js 3D Town Props Engine -->
   <script src="js/three.min.js"></script>
-  <script src="js/threeHeroRenderer.js"></script>
   <script src="js/townProps3D.js"></script>
   <script src="js/classPreview.js"></script>
 
