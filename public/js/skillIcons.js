@@ -15,7 +15,8 @@
     bolt:   { top: '#854d0e', bot: '#111008', fg: '#fef08a', acc: '#facc15', hot: '#ffffff' },
     arcane: { top: '#5b21b6', bot: '#140726', fg: '#ede9fe', acc: '#a855f7', hot: '#f5d0fe' },
     poison: { top: '#166534', bot: '#04140a', fg: '#bbf7d0', acc: '#22c55e', hot: '#d9f99d' },
-    shadow: { top: '#3730a3', bot: '#0b0a1f', fg: '#ddd6fe', acc: '#8b5cf6', hot: '#f0abfc' }
+    shadow: { top: '#3730a3', bot: '#0b0a1f', fg: '#ddd6fe', acc: '#8b5cf6', hot: '#f0abfc' },
+    dread:  { top: '#4c1d95', bot: '#07020f', fg: '#f3e8ff', acc: '#c084fc', hot: '#f43f5e' }
   };
 
   // --- Reusable glyph parts (all drawn pointing up, centred on x = 32) ---
@@ -479,6 +480,75 @@
   for (const [id, [palette, shape, cls]] of Object.entries(SP_ICONS)) {
     GLYPHS[id] = [palette, p => SP_SHAPE_GLYPHS[shape](p) + SP_EMBLEMS[cls](p)];
   }
+
+  // Bespoke Dread Lord (Colossal Black-Violet Executioner Axe) skill icons
+  Object.assign(GLYPHS, {
+    // Q: Abyssal Guillotine — Colossal executioner axe splitting the ground with a crimson-violet chasm
+    sp_abyss_cleave: ['dread', p => `
+      <path d="M8 58 L32 30 L56 58 Z" fill="#1e0538" stroke="${p.acc}" stroke-width="3"/>
+      <path d="M32 6 L32 58" stroke="${p.hot}" stroke-width="6" stroke-linecap="round"/>
+      <path d="M32 8 C8 8 4 30 14 42 C22 34 27 30 32 30 Z" fill="#140726" stroke="${p.fg}" stroke-width="3.5"/>
+      <path d="M32 8 C56 8 60 30 50 42 C42 34 37 30 32 30 Z" fill="${p.acc}" stroke="${p.fg}" stroke-width="3.5"/>
+      <circle cx="32" cy="22" r="6" fill="${p.hot}" stroke="#ffffff" stroke-width="2.5"/>`],
+
+    // E: Mocking Dread Roar — Horned Abyssal Dread Skull roaring crimson shockwaves
+    sp_void_grasp: ['dread', p => `
+      <circle cx="32" cy="34" r="24" fill="none" stroke="${p.hot}" stroke-width="3.5" stroke-dasharray="7 4"/>
+      <path d="M18 24 L6 8 L24 16 Z M46 24 L58 8 L40 16 Z" fill="#fde047" stroke="${p.fg}" stroke-width="2"/>
+      <path d="M18 22 C18 10 46 10 46 22 L44 40 L36 48 H28 L20 40 Z" fill="#130524" stroke="${p.fg}" stroke-width="3.5"/>
+      <circle cx="26" cy="28" r="4.5" fill="${p.hot}"/>
+      <circle cx="38" cy="28" r="4.5" fill="${p.hot}"/>
+      <rect x="24" y="39" width="16" height="8" fill="#ffffff"/>`],
+
+    // R: Undying Dread Rage — Immortal horned dread helm engulfed in blood-crimson & gold undying fury flames
+    sp_soul_bastion: ['dread', p => `
+      <path d="M10 56 C6 34 14 14 32 4 C50 14 58 34 54 56 Z" fill="${p.hot}"/>
+      <path d="M16 56 C14 38 20 20 32 12 C44 20 50 38 48 56 Z" fill="#fde047"/>
+      <path d="M18 26 L6 10 L24 20 Z M46 26 L58 10 L40 20 Z" fill="${p.fg}"/>
+      <path d="M18 24 H46 L44 50 L32 58 L20 50 Z" fill="#0f041d" stroke="${p.fg}" stroke-width="3.5"/>
+      <path d="M21 34 L31 38 L23 42 Z M43 34 L33 38 L41 42 Z" fill="${p.hot}"/>`],
+
+    // Shift: Spinning Void Slash — 360° Tryndamere-style hurricane greataxe vortex
+    sp_shadow_charge: ['dread', p => `
+      <path d="M32 6 A26 26 0 1 1 8 42" fill="none" stroke="${p.acc}" stroke-width="7" stroke-linecap="round"/>
+      <path d="M32 13 A19 19 0 1 1 15 40" fill="none" stroke="${p.hot}" stroke-width="4" stroke-linecap="round"/>
+      <g transform="rotate(-35 32 32)">
+        <rect x="29" y="6" width="6" height="52" rx="2" fill="#ffffff"/>
+        <path d="M32 10 C8 8 6 32 20 38 C25 31 29 28 32 28 Z" fill="${p.fg}" stroke="${p.acc}" stroke-width="2.5"/>
+        <path d="M32 12 C54 10 56 30 44 36 C39 30 35 28 32 28 Z" fill="${p.hot}" stroke="#ffffff" stroke-width="2.5"/>
+      </g>`],
+
+    // Extra 1: Executioner's Beheading — Giant crimson-edged executioner axe with golden crown/skull split
+    sp_soul_rend: ['dread', p => `
+      <path d="M8 20 Q32 2 56 20" fill="none" stroke="${p.hot}" stroke-width="6" stroke-linecap="round"/>
+      <rect x="29" y="8" width="6" height="48" rx="2" fill="#fde047"/>
+      <path d="M32 12 C6 6 4 36 18 46 C24 38 28 34 32 34 Z" fill="${p.hot}" stroke="#ffffff" stroke-width="3"/>
+      <path d="M32 12 C58 6 60 36 46 46 C40 38 36 34 32 34 Z" fill="#140526" stroke="${p.acc}" stroke-width="3"/>
+      <circle cx="32" cy="24" r="6" fill="#ffffff"/>`],
+
+    // Extra 2: Cataclysmic Axe Drag — Heavy axehead gouging the earth with erupting violet-crimson shockwaves
+    sp_dread_wave: ['dread', p => `
+      <path d="M6 48 Q32 22 58 48" fill="none" stroke="${p.acc}" stroke-width="7" stroke-linecap="round"/>
+      <path d="M10 56 Q32 34 54 56" fill="none" stroke="${p.hot}" stroke-width="5" stroke-linecap="round"/>
+      <path d="M12 10 L44 42" stroke="#ffffff" stroke-width="6" stroke-linecap="round"/>
+      <path d="M34 20 C56 16 62 36 46 50 C36 44 28 38 26 30 Z" fill="${p.hot}" stroke="#fde047" stroke-width="3"/>`],
+
+    // Extra 3: Guillotine Skyfall — Three giant executioner axes raining down from a dark void rift
+    sp_grave_rain: ['dread', p => `
+      <ellipse cx="32" cy="12" rx="24" ry="7" fill="#090214" stroke="${p.acc}" stroke-width="3.5"/>
+      <line x1="16" y1="16" x2="16" y2="48" stroke="${p.acc}" stroke-width="4"/>
+      <path d="M8 34 L16 48 L24 34 Z" fill="${p.fg}"/>
+      <line x1="48" y1="16" x2="48" y2="48" stroke="${p.acc}" stroke-width="4"/>
+      <path d="M40 34 L48 48 L56 34 Z" fill="${p.fg}"/>
+      <line x1="32" y1="12" x2="32" y2="56" stroke="#ffffff" stroke-width="5"/>
+      <path d="M18 36 L32 58 L46 36 Z" fill="${p.hot}" stroke="#fde047" stroke-width="2.5"/>`],
+
+    // Extra 4: Oblivion Leap Slam — Airborne meteoric leap arc slamming the colossal axe into a glowing crater
+    sp_void_step: ['dread', p => `
+      <path d="M10 46 C16 6 44 6 50 42" fill="none" stroke="#fde047" stroke-width="5" stroke-linecap="round"/>
+      <ellipse cx="46" cy="50" rx="14" ry="8" fill="${p.hot}" stroke="#ffffff" stroke-width="3"/>
+      <circle cx="12" cy="48" r="7" fill="${p.acc}" stroke="#ffffff" stroke-width="2.5"/>`]
+  });
 
   let uid = 0;
 
