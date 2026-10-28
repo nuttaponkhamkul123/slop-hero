@@ -73,10 +73,10 @@ const SP_CARDS = {
       skills: { slot1: 'sp_thunder_cleave', slot2: 'sp_stormcall', slot3: 'sp_thunder_roar', dash: 'sp_lightning_rush' },
       desc: 'Herald of the tempest. Every swing arrives with a thunderclap.' },
     { id: 'sp_dread_lord', tier: 5, name: 'Dread Lord', element: 'dark', color: '#a855f7',
-      stats: { bonusDmg: 75, bonusDef: 30, bonusHp: 400, critChance: 10 },
+      stats: { bonusDmg: 82, bonusDef: 32, bonusHp: 420, critChance: 15 },
       palette: { cape: ['#13041f', '#3b0764', '#6b21a8', '#a855f7'], steel: ['#0b0a12', '#2b2838', '#4a4560', '#7c7699', '#e9d5ff'], darkSteel: ['#07060b', '#1c1a26', '#302c40', '#4a4560'], tabard: ['#13041f', '#4c1d95', '#7c3aed', '#c4b5fd'], gold: ['#1a0a24', '#6b21a8', '#a855f7', '#e9d5ff'] },
       skills: { slot1: 'sp_abyss_cleave', slot2: 'sp_void_grasp', slot3: 'sp_soul_bastion', dash: 'sp_shadow_charge' },
-      desc: 'A fallen king who commands the void. The rarest of all warrior cards.' }
+      desc: 'An undying warlord dragging a colossal black-violet executioner axe. Hits harder as his blood runs low and refuses to die.' }
   ],
   mage: [
     { id: 'sp_pyromancer', tier: 1, name: 'Pyromancer', element: 'fire', color: '#f97316',
@@ -166,11 +166,11 @@ const SP_SKILLS = {
   sp_stormcall: { name: 'Stormcall', shape: 'rain', r: 4, range: 7, n: 8, every: 0.15, hit: 1.2, dmg: 1.5, chill: 0.6, mp: 24, cd: 7 },
   sp_thunder_roar: { name: 'Thunder Roar', shape: 'nova', r: 4.5, dmg: 3.8, chill: 2, berserk: 5, mp: 30, cd: 12 },
   sp_lightning_rush: { name: 'Lightning Rush', shape: 'blink', len: 7, r: 2, dmg: 2.2, origin: true, mp: 10, cd: 3.5 },
-  // Warrior - Dread Lord
-  sp_abyss_cleave: { name: 'Abyss Cleave', shape: 'line', len: 6, width: 2, dmg: 3.6, leech: 0.08, mp: 16, cd: 3.5 },
-  sp_void_grasp: { name: 'Void Grasp', shape: 'pull', r: 5, range: 7, dmg: 3.4, chill: 2, mp: 22, cd: 6 },
-  sp_soul_bastion: { name: 'Soul Bastion', shape: 'pulse', r: 3.5, n: 3, every: 0.4, dmg: 1.6, leech: 0.1, fortress: 6, shield: 0.4, mp: 34, cd: 15 },
-  sp_shadow_charge: { name: 'Shadow Charge', shape: 'dash', len: 6.5, width: 1.6, dmg: 3.0, leech: 0.05, mp: 10, cd: 3.5 },
+  // Warrior - Dread Lord (Colossal Black-Violet Executioner Axe: Missing-HP Fury, Spinning Slash & Undying Rage)
+  sp_abyss_cleave: { name: 'Abyssal Guillotine', shape: 'line', len: 6.5, width: 2.2, dmg: 4.2, execute: [0.35, 1.8], leech: 0.10, furyBonus: 0.75, knock: 1.2, mp: 16, cd: 3.5 },
+  sp_void_grasp: { name: 'Mocking Dread Roar', shape: 'pull', r: 5.5, range: 6.5, dmg: 3.6, chill: 4.0, leech: 0.08, furyBonus: 0.6, mp: 20, cd: 6 },
+  sp_soul_bastion: { name: 'Undying Dread Rage', shape: 'pulse', r: 3.8, n: 4, every: 0.35, dmg: 1.8, leech: 0.12, undying: 6, berserk: 7, sprint: 4, shield: 0.35, furyBonus: 0.75, mp: 32, cd: 15 },
+  sp_shadow_charge: { name: 'Spinning Void Slash', shape: 'dash', len: 7.0, width: 2.2, dmg: 3.4, crit: 0.3, leech: 0.08, furyBonus: 0.6, spinReset: 1.0, mp: 10, cd: 3.5 },
 
   // Mage - Pyromancer
   sp_flame_wave: { name: 'Flame Wave', shape: 'cone', range: 5, arc: 70, dmg: 2.6, burn: 3, scorch: 1, mp: 18, cd: 3.5 },
@@ -244,11 +244,11 @@ const SP_SKILLS = {
   sp_static_cleave: { name: 'Static Cleave', shape: 'cone', range: 4, arc: 100, dmg: 2.6, chill: 0.8, mp: 14, cd: 3.5 },
   sp_storm_aegis: { name: 'Storm Aegis', shape: 'buff', r: 3, dmg: 1.4, shield: 0.2, sprint: 3, mp: 22, cd: 12 },
   sp_storm_dash: { name: 'Storm Dash', shape: 'dash', len: 6.5, width: 1.4, dmg: 2.4, mp: 10, cd: 3.5 },
-  // Warrior - Dread Lord
-  sp_soul_rend: { name: 'Soul Rend', shape: 'strike', range: 4, dmg: 3.8, leech: 0.15, mp: 16, cd: 4 },
-  sp_dread_wave: { name: 'Dread Wave', shape: 'cone', range: 5, arc: 100, dmg: 2.8, chill: 2, mp: 20, cd: 5 },
-  sp_grave_rain: { name: 'Grave Rain', shape: 'rain', r: 3.5, range: 7, n: 6, every: 0.2, hit: 1.4, dmg: 1.8, leech: 0.05, mp: 30, cd: 10 },
-  sp_void_step: { name: 'Void Step', shape: 'blink', len: 7, r: 2.4, dmg: 2.4, origin: true, mp: 12, cd: 4 },
+  // Warrior - Dread Lord (Extra Arsenal: Executioner's Beheading, Cataclysmic Axe Drag, Guillotine Skyfall, Oblivion Leap Slam)
+  sp_soul_rend: { name: "Executioner's Beheading", shape: 'strike', range: 4.2, dmg: 4.8, crit: 0.35, execute: [0.4, 2.2], stun: 1.5, leech: 0.18, furyBonus: 0.85, mp: 16, cd: 4 },
+  sp_dread_wave: { name: 'Cataclysmic Axe Drag', shape: 'cone', range: 5.2, arc: 140, dmg: 3.6, chill: 3, knock: 1.8, leech: 0.08, furyBonus: 0.6, mp: 20, cd: 4.5 },
+  sp_grave_rain: { name: 'Guillotine Skyfall', shape: 'rain', r: 3.8, range: 7, n: 6, every: 0.18, hit: 1.6, dmg: 2.1, execute: [0.35, 1.6], leech: 0.06, furyBonus: 0.5, mp: 30, cd: 9.5 },
+  sp_void_step: { name: 'Oblivion Leap Slam', shape: 'blink', len: 7, r: 2.8, dmg: 3.0, origin: true, stun: 1.2, leech: 0.08, furyBonus: 0.6, mp: 12, cd: 4 },
 
   // Mage - Pyromancer
   sp_meteor_call: { name: 'Meteor Call', shape: 'blast', r: 2.6, range: 7, dmg: 3.6, burn: 4, scorch: 2, field: { dur: 3, every: 0.5, r: 2, mult: 0.3 }, mp: 24, cd: 7 },
@@ -355,6 +355,10 @@ function spSkillDesc(s) {
   if (s.poison) parts.push(`poisons ${s.poison}s`);
   if (s.knock) parts.push('knocks back');
   if (s.execute) parts.push(`x${s.execute[1]} vs enemies under ${Math.round(s.execute[0] * 100)}% HP`);
+  if (s.furyBonus) parts.push(`up to +${Math.round(s.furyBonus * 100)}% bonus damage based on missing HP`);
+  if (s.undying) parts.push(`Undying Rage ${s.undying}s (HP cannot drop below 1)`);
+  if (s.spinReset) parts.push(`reduces cooldown by ${s.spinReset}s per enemy carved through`);
+  if (s.crit) parts.push(`+${Math.round(s.crit * 100)}% Crit Chance`);
   if (s.shatter) parts.push(`x${s.shatter} vs slowed enemies`);
   if (s.leech) parts.push(`heals ${Math.round(s.leech * 100)}% of damage`);
   if (s.berserk) parts.push(`+35% damage ${s.berserk}s`);

@@ -99,7 +99,8 @@
           y: (Math.random() - 0.5) * 120,
           vy: -(0.2 + Math.random() * 0.5),
           vx: (Math.random() - 0.5) * 0.2,
-          size: 1 + Math.random() * 2.2,
+          size: i % 4 === 0 ? 2 : 1,
+          star: i % 5 === 0,
           alpha: Math.random() * 0.7 + 0.2,
           life: Math.random() * 2
         });
@@ -173,9 +174,10 @@
       ctx.fillStyle = glowGrad;
       ctx.fillRect(0, 0, w, h);
 
-      // --- 2. Floating Ambient Sparkles/Motes ---
+      // --- 2. Floating Ambient Pixel Sparkles/Motes ---
       ctx.save();
       ctx.translate(centerX, centerY - 30);
+      const px = 2;
       this.particles.forEach(p => {
         p.y += p.vy;
         p.x += p.vx;
@@ -184,10 +186,20 @@
           p.y = 20;
           p.x = (Math.random() - 0.5) * 140;
         }
+        const ix = Math.round(p.x / px) * px;
+        const iy = Math.round(p.y / px) * px;
         const pulse = (Math.sin(p.life * 3) + 1) * 0.5;
-        ctx.fillStyle = meta.accent;
         ctx.globalAlpha = p.alpha * (0.4 + pulse * 0.6);
-        ctx.fillRect(p.x, p.y, p.size, p.size);
+        ctx.fillStyle = meta.accent;
+        if (p.star && pulse > 0.45) {
+          ctx.fillRect(ix - px, iy, px * 3, px);
+          ctx.fillRect(ix, iy - px, px, px * 3);
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(ix, iy, px, px);
+        } else {
+          const sz = p.size * px;
+          ctx.fillRect(ix, iy, sz, sz);
+        }
       });
       ctx.restore();
 
