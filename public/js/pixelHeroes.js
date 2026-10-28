@@ -19,11 +19,13 @@
     return { o: hexRgb(o), d: hexRgb(d), m: hexRgb(m), l: hexRgb(l), h: hexRgb(h || l) };
   }
   const M = {
-    steel: mat('#151a26', '#4b566b', '#8693a8', '#c5cfdc', '#ffffff'),
-    darkSteel: mat('#11151f', '#363f52', '#5d6880', '#8b97ad'),
-    tabard: mat('#0b1531', '#1c3784', '#2c5bc2', '#5a8bec'),
-    cape: mat('#260707', '#661313', '#9e1f1f', '#cf4636'),
-    leather: mat('#21120a', '#553117', '#7f4d27', '#ab7543'),
+    steel: mat('#10131d', '#4b566b', '#8593ad', '#c3ccdc', '#f5f7fa'),
+    darkSteel: mat('#0e121b', '#313a4d', '#586280', '#808cae'),
+    platemail: mat('#141824', '#5a6485', '#8a97b9', '#c5cee6', '#f7f9ff'),
+    goldTrim: mat('#2a2005', '#b8941f', '#e6b63d', '#f5d16e', '#fff3c4'),
+    tabard: mat('#190f08', '#7a2f16', '#b63f1f', '#e85d2a'),
+    cape: mat('#160606', '#7a1414', '#b71c1c', '#e53935'),
+    leather: mat('#1a110a', '#5a371d', '#7f4d27', '#a87c4a'),
     skin: mat('#3a1d12', '#b86f4c', '#e5a47a', '#f6c9a2'),
     gold: mat('#382403', '#9f6a10', '#dca528', '#fde58a', '#fffbe0'),
     navy: mat('#0b111f', '#1d2741', '#303f61', '#4a5d88'),
@@ -395,29 +397,27 @@
     mage: { torso: 11.8, headUp: 5.1, thigh: 9.5, shin: 9.6, upper: 7.2, fore: 6.7 },
     rogue: { torso: 10.5, headUp: 4.5, thigh: 8.8, shin: 9, upper: 7, fore: 6.5 }
   };
-
   function drawWarrior(f, p, sk, view, ph) {
     const C = COSTUME || {};
-    const legMats = { thigh: M.navy, shin: M.steel, boot: M.leather };
-    const armMatsF = C.armMatsF ? C.armMatsF() : { upper: M.steel, fore: M.leather, hand: M.leather };
-    const armMatsB = C.armMatsB ? C.armMatsB() : { upper: M.darkSteel, fore: M.leather, hand: M.leather };
+    const legMats = { thigh: M.plate || M.steel, shin: M.steel, boot: M.leather };
+    const armMatsF = C.armMatsF ? C.armMatsF() : { upper: M.plate || M.steel, fore: M.steel, hand: M.leather };
+    const armMatsB = C.armMatsB ? C.armMatsB() : { upper: M.darkPlate || M.darkSteel, fore: M.steel, hand: M.leather };
     const tr = p.cape || 0;
-    const fl = Math.sin(ph * Math.PI * 2) * (0.6 + tr * 1.4);
-    const fl2 = Math.sin(ph * Math.PI * 2 + 1.9) * (0.6 + tr * 1.6);
+    const fl = Math.sin(ph * Math.PI * 2) * (0.7 + tr * 1.5);
+    const fl2 = Math.sin(ph * Math.PI * 2 + 1.9) * (0.7 + tr * 1.7);
     const frontal = isFrontal(sk);
+    const turn = sk.turn !== undefined ? sk.turn : 1;
     // Cape outline: [shoulder back, shoulder front, hem front, hem middle, hem back].
-    // Facing the camera / away it hangs straight down the back, shortened as it
-    // streams out behind a running hero.
     const capePts = frontal ? [
-      L(sk, sk.shC, -4.4, 1), L(sk, sk.shC, 4.4, 1),
-      L(sk, sk.hip, 5.6 + fl * 0.3, -12.5 + tr * 5),
-      L(sk, sk.hip, 0.4 + fl * 0.6, -14 + tr * 5 + fl * 0.5),
-      L(sk, sk.hip, -5.6 + fl2 * 0.3, -12.5 + tr * 5)
+      L(sk, sk.shC, -4.6, 1), L(sk, sk.shC, 4.6, 1),
+      L(sk, sk.hip, 6.0 + fl * 0.35, -13.5 + tr * 5.5),
+      L(sk, sk.hip, 0.4 + fl * 0.7, -15 + tr * 5.5 + fl * 0.6),
+      L(sk, sk.hip, -6.0 + fl2 * 0.35, -13.5 + tr * 5.5)
     ] : [
-      L(sk, sk.shC, -4.4, 1.2), L(sk, sk.shC, 2.4, 1.2),
-      add(L(sk, sk.hip, 2.5, -12.5), [-tr * 7, -tr * 6], 1),
-      [sk.hip[0] - 3.5 - tr * 10, sk.hip[1] + 13.5 - tr * 7 + fl],
-      [sk.hip[0] - 7.5 - tr * 13, sk.hip[1] + 10.5 - tr * 8 + fl2]
+      L(sk, sk.shC, -4.6, 1.3), L(sk, sk.shC, 3.8 - 1.2 * turn, 1.3),
+      add(L(sk, sk.hip, 4.0 - 1.4 * turn, -13.5), [-tr * 8 * turn, -tr * 6], 1),
+      [sk.hip[0] - (1.8 + 2.2 * turn) - tr * 11 * turn, sk.hip[1] + 14.5 - tr * 7 + fl],
+      [sk.hip[0] - (5.6 + 2.5 * turn) - tr * 14 * turn, sk.hip[1] + 12.0 - tr * 8 + fl2]
     ];
     const X = { f, p, sk, view, ph, tr, fl, fl2, capePts };
     const capePoly = C.cape === null ? null : poly(C.cape ? C.cape(X) : capePts);
@@ -425,53 +425,69 @@
       if (capePoly) paint(f, capePoly, C.capeMat ? C.capeMat() : M.cape);
       if (C.onBack) C.onBack(X);
     };
-    const weapon = C.weapon || ((ff, hand, d) => sword(ff, hand, d, 17));
+    const weapon = C.weapon || ((ff, hand, d) => sword(ff, hand, d, 18));
     const wTipUp = sk.handF[1] + sk.wdir[1] * 12 < sk.neck[1];
     const swordBehind = !!p.wBack;
     const drawSword = () => { if (!p.drop) f.meta.tip = weapon(f, sk.handF, sk.wdir); };
     const torso = () => {
-      paint(f, poly([L(sk, sk.hip, -4.4, 1.6), L(sk, sk.hip, 4.6, 1.6), L(sk, sk.hip, 5, -3.2), L(sk, sk.hip, -4.6, -3.2)]), M.darkSteel);
-      paint(f, poly([L(sk, sk.shC, -4.3, 0.9), L(sk, sk.shC, 4.7, 0.9), L(sk, sk.hip, 4.1, 1.2), L(sk, sk.hip, -3.9, 1.2)]), M.steel, { spec: true });
+      paint(f, poly([L(sk, sk.hip, -4.6, 1.8), L(sk, sk.hip, 4.8, 1.8), L(sk, sk.hip, 5.2, -3.6), L(sk, sk.hip, -4.8, -3.6)]), M.plate || M.darkSteel);
+      paint(f, poly([L(sk, sk.shC, -4.5, 1.1), L(sk, sk.shC, 4.9, 1.1), L(sk, sk.hip, 4.3, 1.4), L(sk, sk.hip, -4.1, 1.4)]), M.steel, { spec: true });
+      paint(f, capsule(L(sk, sk.shC, -4.2, 1.0), L(sk, sk.shC, 4.6, 1.0), 0.5), M.gold || M.robeTrim, { rim: false, spec: true });
       if (view === 'front') {
-        const t0 = frontal ? -1.2 : 0.4; // tabard stripe sits mid-chest when facing the camera
-        paint(f, poly([L(sk, sk.shC, t0, -1.2), L(sk, sk.shC, t0 + 2.4, -1.2), L(sk, sk.hip, t0 + 2.4, -4.4), L(sk, sk.hip, t0, -4.4)]), M.tabard);
+        const t0 = frontal ? -1.2 : (-1.2 + 1.6 * turn);
+        paint(f, poly([L(sk, sk.shC, t0, -1.4), L(sk, sk.shC, t0 + 2.6, -1.4), L(sk, sk.hip, t0 + 2.6, -4.8), L(sk, sk.hip, t0, -4.8)]), M.tabard);
+        paint(f, capsule(L(sk, sk.shC, t0 + 1.3, -1.2), L(sk, sk.hip, t0 + 1.3, -4.6), 0.4), M.gold || M.robeTrim, { rim: false, spec: true });
       }
-      paint(f, capsule(L(sk, sk.hip, -4, 1.3), L(sk, sk.hip, 4.4, 1.3), 0.95), M.leather, { rim: false });
-      if (view === 'front') paint(f, disc(L(sk, sk.hip, frontal ? 0.2 : 1.6, 1.3), 1), M.gold, { rim: false, spec: true });
+      paint(f, capsule(L(sk, sk.hip, -4.2, 1.5), L(sk, sk.hip, 4.6, 1.5), 1.0), M.leather, { rim: false });
+      paint(f, capsule(L(sk, sk.hip, -4.2, 1.4), L(sk, sk.hip, 4.6, 1.4), 0.55), M.gold || M.robeTrim, { rim: false, spec: true });
+      if (view === 'front') paint(f, disc(L(sk, sk.hip, frontal ? 0.2 : 1.6 * turn, 1.5), 1.1), M.gold || M.robeTrim, { rim: false, spec: true });
       if (C.torso) C.torso(X);
     };
     // Facing the camera / away: helmet seen straight on
     const frontalHead = () => {
-      paint(f, poly([Hf(sk, -1.3, -5), Hf(sk, 1.3, -5), Hf(sk, 0.9 + fl * 0.3, -8.4), Hf(sk, -0.9 + fl * 0.3, -8.6)]), M.cape);
-      paint(f, disc(Hf(sk, 0, -0.4), 5.3), M.steel, { spec: true });
+      paint(f, poly([Hf(sk, -1.4, -5.4), Hf(sk, 1.4, -5.4), Hf(sk, 1.0 + fl * 0.35, -9.2), Hf(sk, -1.0 + fl * 0.35, -9.4)]), M.cape);
+      paint(f, poly([Hf(sk, -2.8, -1.2), Hf(sk, 2.8, -1.2), Hf(sk, 2.4, -4.8), Hf(sk, -2.4, -4.8)]), M.plate || M.steel);
+      paint(f, disc(Hf(sk, 0, -0.3), 5.6), M.plate || M.steel, { spec: true });
+      paint(f, capsule(Hf(sk, -2.8, -1.0), Hf(sk, 2.8, -1.0), 0.8), M.gold || M.robeTrim, { rim: false, spec: true });
       if (view === 'front') {
-        paint(f, poly([Hf(sk, -2.6, -0.9), Hf(sk, 2.6, -0.9), Hf(sk, 2.2, 3.6), Hf(sk, -2.2, 3.6)]), M.skin);
-        for (const k of [-1, 1]) paint(f, poly([Hf(sk, 3.7 * k, -0.6), Hf(sk, 2.3 * k, -0.6), Hf(sk, 2.3 * k, 4.4), Hf(sk, 3.5 * k, 3.8)]), M.steel);
-        paint(f, capsule(Hf(sk, -3.4, -1.3), Hf(sk, 3.4, -1.3), 0.75), M.steel, { tone: 'l', rim: false });
-        paint(f, capsule(Hf(sk, 0, -1.2), Hf(sk, 0, 2), 0.5), M.steel, { tone: 'm', rim: false });
-        dot(f, Hf(sk, -1.3, 0.4), EYE);
-        dot(f, Hf(sk, 1.3, 0.4), EYE);
+        paint(f, poly([Hf(sk, -2.8, -0.8), Hf(sk, 2.8, -0.8), Hf(sk, 2.4, 3.8), Hf(sk, -2.4, 3.8)]), M.skin);
+        for (const k of [-1, 1]) {
+          paint(f, poly([Hf(sk, 3.9 * k, -0.5), Hf(sk, 2.5 * k, -0.5), Hf(sk, 2.5 * k, 4.6), Hf(sk, 3.7 * k, 4.0)]), M.plate || M.steel);
+          paint(f, capsule(Hf(sk, 3.7 * k, -0.4), Hf(sk, 2.6 * k, 4.0), 0.3), M.gold || M.robeTrim, { rim: false, spec: true });
+        }
+        paint(f, capsule(Hf(sk, -3.6, -1.2), Hf(sk, 3.6, -1.2), 0.8), M.plate || M.steel, { tone: 'l', rim: false });
+        paint(f, capsule(Hf(sk, -3.6, -1.1), Hf(sk, 3.6, -1.1), 0.5), M.gold || M.robeTrim, { rim: false, spec: true });
+        paint(f, capsule(Hf(sk, 0, -1.1), Hf(sk, 0, 2.2), 0.6), M.plate || M.steel, { tone: 'm', rim: false });
+        dot(f, Hf(sk, -1.4, 0.5), EYE);
+        dot(f, Hf(sk, 1.4, 0.5), EYE);
+        paint(f, poly([Hf(sk, -0.8, -5.2), Hf(sk, 0.8, -5.2), Hf(sk, 0.5, -7.6), Hf(sk, -0.5, -7.6)]), M.gold || M.robeTrim, { spec: true });
       } else {
-        paint(f, poly([Hf(sk, -4, 1), Hf(sk, 4, 1), Hf(sk, 3.6, 4.6), Hf(sk, -3.6, 4.6)]), M.darkSteel);
+        paint(f, poly([Hf(sk, -4.2, 1.2), Hf(sk, 4.2, 1.2), Hf(sk, 3.8, 4.8), Hf(sk, -3.8, 4.8)]), M.darkSteel);
+        paint(f, capsule(Hf(sk, -4.2, 1.1), Hf(sk, 4.2, 1.1), 0.5), M.gold || M.robeTrim, { rim: false, spec: true });
       }
     };
     const head = C.head ? () => C.head(X) : frontal ? frontalHead : () => {
-      paint(f, disc(Hd(sk, -0.4, -0.4), 5.3), M.steel, { spec: true });
+      paint(f, disc(Hd(sk, -0.4, -0.3), 5.6), M.plate || M.steel, { spec: true });
       const pl = (tr * 3) + fl * 0.6;
       paint(f, poly([Hd(sk, 0, -5.5), Hd(sk, -2, -6.6), Hd(sk, -6.5 - pl, -4.6 + fl * 0.5), Hd(sk, -6 - pl * 0.7, -2.8), Hd(sk, -1.5, -4.4)]), M.cape);
+      paint(f, capsule(Hd(sk, -0.4, -5.6), Hd(sk, -1.8, -6.8), 0.5), M.gold || M.robeTrim, { rim: false, spec: true });
       if (view === 'front') {
-        paint(f, poly([Hd(sk, 0.7, -0.9), Hd(sk, 5.1, -0.9), Hd(sk, 4.8, 3.6), Hd(sk, 1.1, 4.2)]), M.skin);
-        paint(f, capsule(Hd(sk, 0.2, -1.3), Hd(sk, 5.3, -1.3), 0.75), M.steel, { tone: 'l', rim: false });
-        paint(f, capsule(Hd(sk, 3.6, -1.2), Hd(sk, 3.8, 1.6), 0.45), M.steel, { tone: 'm', rim: false });
-        paint(f, poly([Hd(sk, -0.6, -0.6), Hd(sk, 1.3, -0.6), Hd(sk, 1.6, 4.6), Hd(sk, -0.8, 3.9)]), M.steel);
-        dot(f, Hd(sk, 2.6, 0.4), EYE);
-        dot(f, Hd(sk, 4.6, 0.4), EYE);
+        paint(f, poly([Hd(sk, 0.8, -0.9), Hd(sk, 5.4, -0.9), Hd(sk, 5.0, 3.8), Hd(sk, 1.2, 4.4)]), M.skin);
+        paint(f, poly([Hd(sk, 0.6, -1.0), Hd(sk, 5.2, -1.0), Hd(sk, 5.6, -3.6), Hd(sk, -0.2, -4.8), Hd(sk, -0.8, -3.6)]), M.plate || M.steel);
+        paint(f, capsule(Hd(sk, 0.4, -1.2), Hd(sk, 5.6, -1.2), 0.8), M.plate || M.steel, { tone: 'l', rim: false });
+        paint(f, capsule(Hd(sk, 0.4, -1.1), Hd(sk, 5.6, -1.1), 0.5), M.gold || M.robeTrim, { rim: false, spec: true });
+        paint(f, capsule(Hd(sk, 3.8, -1.0), Hd(sk, 4.0, 1.8), 0.5), M.plate || M.steel, { tone: 'm', rim: false });
+        paint(f, poly([Hd(sk, -0.8, -0.5), Hd(sk, 1.4, -0.5), Hd(sk, 1.8, 4.8), Hd(sk, -1.0, 4.0)]), M.plate || M.steel);
+        paint(f, capsule(Hd(sk, -0.8, -0.4), Hd(sk, 1.4, -0.4), 0.5), M.gold || M.robeTrim, { rim: false, spec: true });
+        dot(f, Hd(sk, 2.8, 0.5), EYE);
+        dot(f, Hd(sk, 4.8, 0.5), EYE);
       } else {
-        paint(f, poly([Hd(sk, -4.6, 1), Hd(sk, 3, 1), Hd(sk, 2.6, 4.6), Hd(sk, -4.2, 4.2)]), M.darkSteel);
+        paint(f, poly([Hd(sk, -4.8, 1.2), Hd(sk, 3.2, 1.2), Hd(sk, 2.8, 4.8), Hd(sk, -4.4, 4.4)]), M.darkSteel);
+        paint(f, capsule(Hd(sk, -4.8, 1.1), Hd(sk, 3.2, 1.1), 0.5), M.gold || M.robeTrim, { rim: false, spec: true });
       }
     };
     const pauldron = C.pauldron ? (pt, m) => C.pauldron(X, pt, m)
-      : (pt, m) => paint(f, disc(add(pt, sk.up, 0.4), 3.1, 2.6), m, { spec: true });
+      : (pt, m) => { paint(f, disc(add(pt, sk.up, 0.5), 3.4, 2.8), m, { spec: true }); paint(f, capsule(add(add(pt, sk.up, 0.5), sk.side, -1.8), add(add(pt, sk.up, 0.5), sk.side, 1.8), 0.4), M.gold || M.robeTrim, { rim: false, spec: true }); };
 
     if (C.behind) C.behind(X);
     if (frontal && view === 'front') {
@@ -905,17 +921,24 @@
     return s(21, 0);
   }
 
-  function dreadBlade(f, hand, d) {
+  // Colossal executioner axe: long haft, crescent blade with a void-lit edge
+  function dreadAxe(f, hand, d) {
     const n = perpOf(d);
-    const s = (a, b) => add(add(hand, d, a), n, b);
-    paint(f, capsule(s(-4, 0), s(1.4, 0), 0.95), CM.shadow);
-    paint(f, disc(s(-4.8, 0), 1.4), CM.voidGlow, { spec: true });
-    for (const k of [-1, 1]) spike(f, s(2, 3.8 * k), [-d[0], -d[1]], 2.6, 0.8, CM.iron, { spec: true });
-    paint(f, capsule(s(2, 3.8), s(2, -3.8), 0.9), CM.iron, { spec: true });
-    paint(f, poly([s(2.8, 2.2), s(6, 2.6), s(7, 3.8), s(9, 2.6), s(11, 3.8), s(13, 2.6), s(15, 3.6), s(17, 2.2),
-      s(21.5, 0), s(17, -1.8), s(2.8, -2.2)]), CM.iron, { spec: true });
-    paint(f, capsule(s(4, 0.2), s(16, 0.2), 0.4), CM.voidGlow, { tone: 'l', rim: false });
-    return s(21.5, 0);
+    // choke up on the haft in steep downswings so the head stays inside the frame
+    const reach = 14.5 - Math.max(0, d[1] - 0.3) * 7;
+    paint(f, capsule(add(hand, d, -7), add(hand, d, reach + 2.5), 0.95), CM.shadow);
+    paint(f, disc(add(hand, d, -7.6), 1.4), CM.voidGlow, { spec: true });
+    paint(f, capsule(add(hand, d, 7), add(hand, d, 8.5), 1.15), M.gold, { rim: false, spec: true });
+    const h = add(hand, d, reach);
+    const s = (a, b) => add(add(h, d, a), n, b);
+    spike(f, s(0, -0.8), [-n[0], -n[1]], 4, 1.2, CM.iron, { spec: true });
+    spike(f, s(2.5, 0), d, 3, 1, CM.iron, { spec: true });
+    // bearded blade: sharp upper horn and long lower beard, cut in towards the haft
+    paint(f, poly([s(3, 0.8), s(4, 3.5), s(7.5, 8.5), s(4, 9.4), s(0, 9.8), s(-4, 9.4), s(-8.5, 8), s(-4.5, 4), s(-2.5, 0.8)]), CM.iron, { spec: true });
+    paint(f, capsule(s(5.5, 8.6), s(0, 9.4), 0.5), CM.voidGlow, { tone: 'l', rim: false });
+    paint(f, capsule(s(0, 9.4), s(-6.5, 8.2), 0.5), CM.voidGlow, { tone: 'l', rim: false });
+    paint(f, disc(s(-0.5, 5), 1), CM.voidGlow, { tone: 'l', rim: false });
+    return s(0, 9.8);
   }
 
   // ---- mage staves: (f, hand, d, glow, ph) -> orb point
@@ -1175,7 +1198,7 @@
     },
     sp_dread_lord: {
       smear: () => CM.voidGlow,
-      weapon: dreadBlade,
+      weapon: dreadAxe,
       // huge tattered cape
       cape({ capePts: c }) {
         const lo = [c[3][0] - 2, c[3][1] + 5], lo2 = [c[4][0] - 4, c[4][1] + 4];
@@ -1510,7 +1533,8 @@
       const P = o => Object.assign({}, base, o);
       return {
         idle: { frames: 8, loop: true, pose: ph => { const b = Math.sin(ph * Math.PI * 2); return P({ hip: [0, -19 + 0.55 * b], lean: 0.08 + 0.02 * b, handF: [6, -22.5 + 0.5 * b], wpn: 2.55 + 0.03 * b, cape: 0.12 + 0.05 * Math.sin(ph * Math.PI * 2 + 1) }); } },
-        run: { frames: 8, loop: true, pose: ph => { const s = Math.sin(ph * Math.PI * 2); return P(Object.assign(runFeet(ph, 7, 6), { hip: [0.5, -19 + 0.9 * Math.cos(ph * Math.PI * 4)], lean: 0.3, head: -0.08, twoHand: false, handF: [2 + s * 2.5, -19.5], wpn: 0.75 + s * 0.12, handB: [4 - s * 5, -24 + Math.abs(s) * 1.5], cape: 1 })); } },
+        // hip drops on each footfall and rises in flight; the free arm pumps hard
+        run: { frames: 8, loop: true, pose: ph => { const s = Math.sin(ph * Math.PI * 2); return P(Object.assign(runFeet(ph, 8.5, 8), { hip: [1, -17.6 + 1.3 * Math.cos(ph * Math.PI * 4)], lean: 0.42, head: -0.12, twoHand: false, handF: [2 + s * 3.5, -19.5 - s], wpn: 0.75 + s * 0.2, handB: [4 - s * 7.5, -23.5 + Math.abs(s) * 2 - Math.max(0, -s) * 2], cape: 1 })); } },
         attack: { frames: 8, smear: [0.3, 0.7], keys: [
           { t: 0, pose: P({}) },
           { t: 0.24, ease: 'out', pose: P({ hip: [-1.5, -19.2], lean: -0.22, head: -0.1, footF: [6, 0], footB: [-6, 0], handF: [-4.5, -40], wpn: 3.75, wBack: true, cape: 0.3 }) },
@@ -1553,7 +1577,7 @@
       const P = o => Object.assign({}, base, o);
       return {
         idle: { frames: 8, loop: true, pose: ph => { const b = Math.sin(ph * Math.PI * 2); return P({ hip: [0, -19 + 0.5 * b], lean: 0.05 + 0.015 * b, handF: [6, -23 + 0.4 * b], handB: [-1, -21.5 + 0.4 * b], glow: 0.35 + 0.3 * (0.5 + 0.5 * Math.sin(ph * Math.PI * 4)), cape: 0.1 }); } },
-        run: { frames: 8, loop: true, pose: ph => { const s = Math.sin(ph * Math.PI * 2); return P(Object.assign(runFeet(ph, 5.5, 4.5), { hip: [0.5, -19 + 0.7 * Math.cos(ph * Math.PI * 4)], lean: 0.24, head: -0.06, handF: [6 + s * 1.2, -24], wpn: 2.2, handB: [-2 - s * 4, -23.5], cape: 0.85, glow: 0.5 })); } },
+        run: { frames: 8, loop: true, pose: ph => { const s = Math.sin(ph * Math.PI * 2); return P(Object.assign(runFeet(ph, 7.5, 6.5), { hip: [1, -18 + 1.2 * Math.cos(ph * Math.PI * 4)], lean: 0.34, head: -0.1, handF: [6 + s * 2.2, -24 - Math.abs(s) * 0.8], wpn: 2.2 + s * 0.1, handB: [-2 - s * 6.5, -23 + Math.abs(s) * 1.2], cape: 1, glow: 0.5 })); } },
         attack: { frames: 8, smear: [0.3, 0.6], keys: [
           { t: 0, pose: P({}) },
           { t: 0.26, ease: 'out', pose: P({ hip: [-1, -19], lean: -0.15, head: -0.1, footF: [4, 0], footB: [-4, 0], handF: [-3, -28], wpn: 3.6, wBack: true, handB: [3, -26], cape: 0.3, glow: 0.7 }) },
@@ -1587,7 +1611,8 @@
       const P = o => Object.assign({}, base, o);
       return {
         idle: { frames: 8, loop: true, pose: ph => { const b = Math.sin(ph * Math.PI * 2); return P({ hip: [0, -17 + 0.6 * b], lean: 0.22 + 0.02 * b, handF: [7, -21 + 0.5 * b], handB: [0, -22 + 0.5 * b], cape: 0.2 + 0.1 * Math.sin(ph * Math.PI * 2 + 1.3) }); } },
-        run: { frames: 8, loop: true, pose: ph => { const s = Math.sin(ph * Math.PI * 2); return P(Object.assign(runFeet(ph, 8, 6.5), { hip: [1, -17.5 + 0.9 * Math.cos(ph * Math.PI * 4)], lean: 0.55, head: -0.25, handF: [-6 + s, -19.5], wpn: -1.45, handB: [-4 - s, -21], wpnB: -1.35, cape: 1 })); } },
+        // low ninja sprint: deep crouch, long stride, blades trailing behind
+        run: { frames: 8, loop: true, pose: ph => { const s = Math.sin(ph * Math.PI * 2); return P(Object.assign(runFeet(ph, 9, 8), { hip: [1.5, -16 + 1.2 * Math.cos(ph * Math.PI * 4)], lean: 0.7, head: -0.32, handF: [-7 + s * 2.5, -18.5 + s * 0.8], wpn: -1.45, handB: [-5 - s * 2.5, -20 - s * 0.8], wpnB: -1.35, cape: 1 })); } },
         attack: { frames: 8, smear: [0.26, 0.7], keys: [
           { t: 0, pose: P({}) },
           { t: 0.22, ease: 'out', pose: P({ hip: [-1, -17], lean: 0.05, head: -0.05, handF: [1, -27], wpn: 3.6, handB: [3, -26.5], wpnB: 3.4, cape: 0.3 }) },

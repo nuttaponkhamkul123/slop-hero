@@ -980,7 +980,8 @@ function generateProceduralDungeon(floorLevel = 1, difficulty = 'normal') {
           wanderTarget: null,
           attackCooldown: 0,
           respawnTimer: Infinity,
-          });
+          facing: 'SE'
+        });
       }
     }
   });

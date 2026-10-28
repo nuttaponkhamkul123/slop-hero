@@ -27,6 +27,7 @@ const SP_ELEMENT_PARTICLES = {
 const SP_CARD_PARTICLES = {
   sp_crusader: ['level', 'gold'],   // rising motes of holy light
   sp_berserker: ['fire', 'slash'],  // flames and savage cuts
+  sp_dread_lord: ['shadow', 'slash'], // black-violet abyssal energy and executioner cuts
   sp_nightblade: ['shadow', 'slash'], // dark tendrils and blade cuts
   sp_venom_lord: ['poison', 'dust'], // toxic mist and acid
   sp_blade_dancer: ['lightning', 'spark'], // electric bolts and sparks
@@ -61,7 +62,10 @@ const SP_SKILL_LIFE = {
   wpn_hunter_spear: 0.9, wpn_frostbite_katana: 0.75, wpn_venom_kris: 0.7, wpn_ember_scythe: 0.8,
   // Eclipse Reaper
   sp_total_eclipse: 0.8, sp_blood_tether: 0.8, sp_crimson_bloom: 1.0, sp_reaper_step: 0.6,
-  sp_reaper_scythe: 0.6, sp_black_sun: 0.95, sp_harvest: 1.05, sp_crimson_blink: 0.7
+  sp_reaper_scythe: 0.6, sp_black_sun: 0.95, sp_harvest: 1.05, sp_crimson_blink: 0.7,
+  // Dread Lord
+  sp_abyss_cleave: 0.85, sp_void_grasp: 0.95, sp_soul_bastion: 1.0, sp_shadow_charge: 0.65,
+  sp_soul_rend: 0.8, sp_dread_wave: 0.75, sp_grave_rain: 0.75, sp_void_step: 0.8
 };
 // Weapon ability colours by the weapon's element (same layout as SP_FX_PALETTES)
 const WEAPON_FX_PALETTES = {
@@ -85,7 +89,8 @@ const SP_FX_PALETTES = {
   sp_tempest: { deep: '28, 22, 4', deep2: '70, 56, 8', main: '202, 138, 4', accent: '250, 204, 21', light: '254, 240, 138', core: '255, 255, 240' },
   sp_chronomancer: { deep: '30, 22, 6', deep2: '80, 60, 16', main: '217, 119, 6', accent: '253, 224, 71', light: '254, 240, 138', core: '255, 251, 235' },
   sp_void_archon: { deep: '10, 2, 20', deep2: '40, 12, 70', main: '126, 34, 206', accent: '192, 132, 252', light: '233, 213, 255', core: '250, 245, 255' },
-  sp_eclipse_reaper: { deep: '12, 2, 6', deep2: '45, 4, 16', main: '225, 29, 72', accent: '244, 63, 94', light: '253, 164, 175', core: '255, 241, 242' }
+  sp_eclipse_reaper: { deep: '12, 2, 6', deep2: '45, 4, 16', main: '225, 29, 72', accent: '244, 63, 94', light: '253, 164, 175', core: '255, 241, 242' },
+  sp_dread_lord: { deep: '8, 2, 16', deep2: '36, 8, 64', main: '107, 33, 168', accent: '168, 85, 247', light: '233, 213, 255', core: '255, 245, 255' }
 };
 const PIXEL_HERO_SCALE = 0.92;     // sprite pixels -> screen pixels at zoom 1
 const PIXEL_HERO_DEATH_MS = 1100;
@@ -635,9 +640,10 @@ class IsometricRenderer {
     if (this.shake.time > 0) {
       this.shake.time -= dt;
       const progress = Math.max(0, this.shake.time / this.shake.duration);
-      const curIntensity = this.shake.intensity * progress;
-      this.camera.shakeOffsetX = (Math.random() - 0.5) * 2 * curIntensity;
-      this.camera.shakeOffsetY = (Math.random() - 0.5) * 2 * curIntensity;
+      const curIntensity = Math.min(4.0, this.shake.intensity * 0.32) * progress * progress;
+      const st = this.animations.time;
+      this.camera.shakeOffsetX = Math.round(Math.sin(st * 44) * curIntensity);
+      this.camera.shakeOffsetY = Math.round(Math.cos(st * 36) * curIntensity * 0.65);
     } else {
       this.camera.shakeOffsetX = 0;
       this.camera.shakeOffsetY = 0;
@@ -649,7 +655,7 @@ class IsometricRenderer {
     this.animations.clickMarker = { x: worldX, y: worldY, life: 1.0 };
   }
 
-  addFloatingText(worldX, worldY, text, color = '#ffffff', size = 16) {
+  addFloatingText(worldX, worldY, text, color = '#ffffff', size = 16, isCritExplicit = false) {
     if (!text || worldX === undefined || worldY === undefined || isNaN(worldX) || isNaN(worldY)) return;
 
     // Hard cap active floating texts: instantly prune oldest if congested to eliminate lag
@@ -662,8 +668,8 @@ class IsometricRenderer {
     const now = performance.now();
     const key = Math.round(worldX * 2) + ',' + Math.round(worldY * 2);
     let stack = this._ftStacks.get(key);
-    if (!stack || now - stack.t > FLOATING_TEXT_STACK_MS) stack = { n: -1 };
-    stack.n = (stack.n + 1) % 6;
+    if (!stack || now - stack.t > 90) stack = { n: -1 };
+    stack.n = (stack.n + 1) % 3;
     stack.t = now;
     this._ftStacks.set(key, stack);
     if (this._ftStacks.size > 300) {
@@ -671,7 +677,7 @@ class IsometricRenderer {
     }
     const slot = stack.n;
 
-    const isCrit = text.includes('CRIT') || text.includes('AMBUSH') || text.includes('💥') || text.includes('👑') || size >= 20;
+    const isCrit = !!isCritExplicit || text.includes('CRIT') || text.includes('AMBUSH') || text.includes('EXECUTE') || text.includes('💥') || text.includes('👑') || size >= 24;
     const isHeal = text.includes('+') && text.includes('HP');
     const isMiss = text.toUpperCase().includes('MISS') || text.includes('DEFLECTED');
     const isPlayerDmg = text.startsWith('-');
@@ -694,9 +700,9 @@ class IsometricRenderer {
 
     // Ragnarok Online bouncy hop physics:
     // Vertical pop upwards, gravity brings it down softly
-    const side = slot % 2 ? 1 : -1;
-    const vx = side * (4 + Math.random() * 6);
-    const vy = isCrit ? -(58 + Math.random() * 10) : -(44 + Math.random() * 8);
+    const side = slot === 0 ? 0 : (slot % 2 ? 1 : -1);
+    const vx = side * 10;
+    const vy = isCrit ? -56 : -44;
 
     this.animations.floatingTexts.push({
       x: worldX,
@@ -706,11 +712,11 @@ class IsometricRenderer {
       size: isCrit ? Math.max(size, 20) : size,
       vx,
       vy,
-      screenOffsetX: slot ? side * 9 : 0,
-      screenOffsetY: -slot * FLOATING_TEXT_LINE_PX,
-      gravity: 75,
+      screenOffsetX: slot ? side * 14 : 0,
+      screenOffsetY: -slot * 18,
+      gravity: 68,
       drag: 0.92,
-      scale: isCrit ? 1.3 : 1.12,
+      scale: isCrit ? 1.18 : 1.0,
       isCrit,
       isHeal,
       isMiss,
@@ -774,7 +780,7 @@ class IsometricRenderer {
     });
 
     // Camera punchy impact shake!
-    this.triggerScreenShake((isWarrior ? 7 : isRogue ? 5 : 6) + (finisher ? 4 : 0), finisher ? 0.22 : 0.16);
+    if (finisher) this.triggerScreenShake(isWarrior ? 3.5 : 2.5, 0.12);
 
     // Authentic Class & SP Card Specific Basic Attack Slash & Cast FX
     if (isMage) {
@@ -818,8 +824,8 @@ class IsometricRenderer {
         finisher
       });
       const pMain = cardId === 'sp_berserker' ? 'fire' : cardId === 'sp_frost_templar' ? 'ice' : cardId === 'sp_dread_lord' ? 'shadow' : 'spark';
-      this.addParticles(posX, posY, 'slash', finisher ? 22 : 12);
-      this.addParticles(posX, posY, pMain, finisher ? 16 : 8);
+      this.addParticles(posX, posY, 'slash', finisher ? 12 : 6);
+      this.addParticles(posX, posY, pMain, finisher ? 9 : 5);
     }
   }
 
@@ -1494,7 +1500,7 @@ class IsometricRenderer {
   drawTinted(ctx, filter, ax, ay, box, draw, cacheKey = null, maxAgeMs = 0) {
     const w = Math.max(1, Math.ceil(box.halfW * 2));
     const h = Math.max(1, Math.ceil(box.up + box.down));
-    const left = ax - box.halfW, top = ay - box.up;
+    const left = Math.round(ax - box.halfW), top = Math.round(ay - box.up);
     if (cacheKey) {
       if (!this._tintCache) this._tintCache = new WeakMap();
       const z = this.camera.zoom;
@@ -1526,7 +1532,7 @@ class IsometricRenderer {
     }
     const c = sc.getContext('2d');
     c.setTransform(1, 0, 0, 1, 0, 0);
-    c.clearRect(0, 0, w, h);
+    c.clearRect(0, 0, sc.width, sc.height);
     c.setTransform(1, 0, 0, 1, -left, -top);
     draw(c);
     ctx.save();
@@ -3587,6 +3593,7 @@ class IsometricRenderer {
     const rgba = (rgb, a) => `rgba(${rgb}, ${Math.max(0, Math.min(1, a))})`;
     const seed = fx.x * 7.3 + fx.y * 3.1;
     const rnd = (n) => { const v = Math.sin((n + seed) * 127.1) * 43758.5453; return v - Math.floor(v); };
+    const step = Math.floor(time * 24); // re-rolls jagged lines (lightning, cracks) 24x a second
     const dotGlow = (p, r, rgb, a) => {
       const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
       g.addColorStop(0, rgba('255, 255, 255', a));
@@ -3644,7 +3651,6 @@ class IsometricRenderer {
         break;
       }
       case 'sp_storm_herald': { // lightning crawls along the edge and forks outward
-        const step = Math.floor(time * 24);
         ctx.beginPath();
         for (let i = 0; i <= 10; i++) {
           const a = along(0.15 + 0.85 * i / 10);
@@ -3662,15 +3668,46 @@ class IsometricRenderer {
         }
         break;
       }
-      case 'sp_dread_lord': { // a shadow echo trails the blade and souls rise off it
+      case 'sp_dread_lord': { // colossal black-violet executioner axe drag, heavy crescent edge & void cracks
+        const dir = head >= fromA ? 1 : -1;
         ctx.globalCompositeOperation = 'source-over';
         ctx.beginPath();
-        ctx.arc(0, 0, outerR * 0.86, along(0.05), along(0.8), head < fromA);
-        stroke('20, 6, 40', fade * 0.55, thick / z * 0.5);
+        ctx.arc(0, 0, outerR * 0.92, along(0.05), along(0.95), head < fromA);
+        stroke('10, 2, 22', fade * 0.8, thick / z * 0.72);
+        // Bearded executioner axe silhouette at the leading edge
+        const hPt = at(head, outerR * 0.88);
+        ctx.save();
+        ctx.translate(hPt.x, hPt.y);
+        ctx.rotate(head + dir * Math.PI * 0.45);
+        ctx.beginPath();
+        ctx.moveTo(-10 * z, -6 * z);
+        ctx.lineTo(14 * z, -16 * z);
+        ctx.quadraticCurveTo(22 * z, 0, 10 * z, 20 * z);
+        ctx.lineTo(-6 * z, 8 * z);
+        ctx.closePath();
+        ctx.fillStyle = `rgba(18, 4, 34, ${fade * 0.9})`;
+        ctx.fill();
+        ctx.strokeStyle = `rgba(216, 180, 254, ${fade * 0.95})`;
+        ctx.lineWidth = 2.2 * z;
+        ctx.stroke();
+        ctx.restore();
         ctx.globalCompositeOperation = 'lighter';
-        for (let i = 0; i < 5; i++) {
-          const p = at(along(0.2 + 0.6 * rnd(i)), outerR * (0.7 + 0.3 * rnd(i + 3)));
-          dotGlow({ x: p.x, y: p.y - (1 - fade) * 30 * z }, 5 * z, '168, 85, 247', fade);
+        // Jagged black-violet ground cracks radiating from the heavy axe drag
+        for (let i = 0; i < 4; i++) {
+          const a = along(0.25 + i * 0.22);
+          const p0 = at(a, outerR * 0.75);
+          const p1 = at(a + (rnd(i + step) - 0.5) * 0.18, outerR * 1.02);
+          const p2 = at(a + (rnd(i + 7 + step) - 0.5) * 0.25, outerR * 1.18);
+          ctx.beginPath();
+          ctx.moveTo(p0.x, p0.y);
+          ctx.lineTo(p1.x, p1.y);
+          ctx.lineTo(p2.x, p2.y);
+          stroke('168, 85, 247', fade * 0.85, 2.2);
+          stroke('243, 232, 255', fade * 0.75, 1.0);
+        }
+        for (let i = 0; i < 6; i++) {
+          const p = at(along(0.15 + 0.75 * rnd(i)), outerR * (0.68 + 0.35 * rnd(i + 3)));
+          dotGlow({ x: p.x, y: p.y - (1 - fade) * 34 * z }, 6 * z, '192, 132, 252', fade);
         }
         break;
       }
@@ -6082,7 +6119,8 @@ class IsometricRenderer {
     if ((fx.skillId && fx.skillId.startsWith('wpn_') && this.drawWeaponSkill(ctx, fx, progress, toScreen, z)) ||
         this.drawRogueSkill(ctx, fx, progress, alpha, toScreen, z, rgba) ||
         (fx.cardId === 'sp_pyromancer' && this.drawPyromancerSkill(ctx, fx, progress, toScreen, z)) ||
-        (fx.cardId === 'sp_cryo_sage' && this.drawCryoSageSkill(ctx, fx, progress, toScreen, z))) {
+        (fx.cardId === 'sp_cryo_sage' && this.drawCryoSageSkill(ctx, fx, progress, toScreen, z)) ||
+        (fx.cardId === 'sp_dread_lord' && this.drawDreadLordSkill(ctx, fx, progress, toScreen, z))) {
       ctx.restore();
       return;
     }
@@ -6252,6 +6290,423 @@ class IsometricRenderer {
       }
     }
     ctx.restore();
+  }
+
+  // ---------------------------------------------------------------- Dread Lord (Colossal Black-Violet Executioner Axe)
+  drawDreadLordSkill(ctx, fx, progress, toScreen, z) {
+    const P = SP_FX_PALETTES.sp_dread_lord;
+    const ease = 1 - Math.pow(1 - progress, 3);
+    const fade = progress < 0.2 ? progress / 0.2 : Math.pow(1 - (progress - 0.2) / 0.8, 1.35);
+    const a = (v) => Math.max(0, Math.min(1, v));
+    const col = (rgb, al) => `rgba(${rgb}, ${a(al)})`;
+    const seed = ((fx.x || 0) * 19.7 + (fx.y || 0) * 31.3 + (fx.wave || 0) * 7.1) % 100;
+    const rnd = (i) => { const s = Math.sin(seed + i * 97.13) * 43758.5453; return s - Math.floor(s); };
+    const over = (fn) => { ctx.save(); ctx.globalCompositeOperation = 'source-over'; fn(); ctx.restore(); };
+    const glow = (pt, r, al = 1, tint = P.main) => {
+      if (r <= 0.5 || al <= 0.01) return;
+      const g = ctx.createRadialGradient(pt.x, pt.y, 0, pt.x, pt.y, r);
+      g.addColorStop(0, col(P.core, al));
+      g.addColorStop(0.28, col(P.light, al * 0.85));
+      g.addColorStop(0.62, col(tint, al * 0.5));
+      g.addColorStop(1, col(P.main, 0));
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(pt.x, pt.y, r, 0, Math.PI * 2); ctx.fill();
+    };
+    const isoPoly = (wx, wy, r, n = 28, h = 0) => {
+      ctx.beginPath();
+      for (let i = 0; i <= n; i++) {
+        const ang = (i / n) * Math.PI * 2;
+        const p = toScreen(wx + Math.cos(ang) * r, wy + Math.sin(ang) * r, h);
+        if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+      }
+    };
+    const darkPool = (wx, wy, r, al) => {
+      if (r <= 0.05 || al <= 0.01) return;
+      over(() => {
+        isoPoly(wx, wy, r);
+        ctx.fillStyle = col(P.deep, al * 0.78);
+        ctx.fill();
+        ctx.strokeStyle = col(P.accent, al * 0.9);
+        ctx.lineWidth = 2.4 * z;
+        ctx.stroke();
+      });
+    };
+    // Draws the colossal black-violet bearded executioner axe in screen space
+    const greatAxe = (sx, sy, rot, scale, al = 1) => {
+      if (al <= 0.02) return;
+      const s = scale * z;
+      ctx.save();
+      ctx.translate(sx, sy);
+      ctx.rotate(rot);
+      ctx.globalCompositeOperation = 'source-over';
+      // Heavy dark-iron haft + pommel spike
+      ctx.strokeStyle = col('24, 18, 34', al * 0.95);
+      ctx.lineWidth = 4.5 * s;
+      ctx.beginPath(); ctx.moveTo(-26 * s, 0); ctx.lineTo(18 * s, 0); ctx.stroke();
+      ctx.strokeStyle = col(P.accent, al * 0.75);
+      ctx.lineWidth = 1.6 * s;
+      ctx.beginPath(); ctx.moveTo(-22 * s, 0); ctx.lineTo(14 * s, 0); ctx.stroke();
+      // Colossal bearded executioner blade (top + hooked lower beard)
+      ctx.beginPath();
+      ctx.moveTo(2 * s, -3 * s);
+      ctx.lineTo(18 * s, -22 * s);
+      ctx.quadraticCurveTo(28 * s, -4 * s, 14 * s, 26 * s);
+      ctx.lineTo(-4 * s, 14 * s);
+      ctx.quadraticCurveTo(4 * s, 6 * s, 2 * s, -3 * s);
+      ctx.closePath();
+      ctx.fillStyle = col(P.deep, al * 0.95);
+      ctx.fill();
+      ctx.strokeStyle = col(P.accent, al * 0.95);
+      ctx.lineWidth = 2.4 * s;
+      ctx.stroke();
+      // Rear jagged executioner fluke
+      ctx.beginPath();
+      ctx.moveTo(2 * s, -3 * s);
+      ctx.lineTo(8 * s, -15 * s);
+      ctx.lineTo(15 * s, -8 * s);
+      ctx.closePath();
+      ctx.fillStyle = col(P.deep2, al * 0.92);
+      ctx.fill();
+      ctx.strokeStyle = col(P.light, al * 0.85);
+      ctx.lineWidth = 1.5 * s;
+      ctx.stroke();
+      // Glowing violet-white razor edge bevel + abyssal eye core
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.beginPath();
+      ctx.moveTo(18 * s, -22 * s);
+      ctx.quadraticCurveTo(28 * s, -4 * s, 14 * s, 26 * s);
+      ctx.lineTo(-4 * s, 14 * s);
+      ctx.strokeStyle = col(P.core, al);
+      ctx.lineWidth = 2.8 * s;
+      ctx.stroke();
+      glow({ x: 9 * s, y: 2 * s }, 10 * s, al * 0.9, P.accent);
+      ctx.restore();
+    };
+    const voidBolt = (p0, p1, al, w = 2.5, seedOff = 0) => {
+      const dx = p1.x - p0.x, dy = p1.y - p0.y;
+      const nx = -dy, ny = dx, len = Math.hypot(dx, dy) || 1;
+      const pts = [p0];
+      for (let i = 1; i < 6; i++) {
+        const t = i / 6;
+        const j = (rnd(i + seedOff) - 0.5) * 18 * z * Math.sin(t * Math.PI);
+        pts.push({ x: p0.x + dx * t + (nx / len) * j, y: p0.y + dy * t + (ny / len) * j });
+      }
+      pts.push(p1);
+      ctx.beginPath();
+      pts.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y));
+      ctx.strokeStyle = col(P.accent, al * 0.85); ctx.lineWidth = (w + 3) * z; ctx.stroke();
+      ctx.strokeStyle = col(P.core, al); ctx.lineWidth = w * z; ctx.stroke();
+    };
+
+    switch (fx.skillId) {
+      case 'sp_abyss_cleave': {
+        // ABYSSAL GUILLOTINE: Colossal overhead executioner axe slam tearing a black-violet void fissure
+        const sx = fx.startX ?? fx.x, sy = fx.startY ?? fx.y;
+        const reach = Math.min(1, progress * 2.4);
+        const ex = sx + (fx.x - sx) * reach, ey = sy + (fx.y - sy) * reach;
+        const dx = fx.x - sx, dy = fx.y - sy, len = Math.hypot(dx, dy) || 1;
+        const px = -dy / len, py = dx / len;
+        const w = (fx.width || 2.2) * 0.42;
+        // Obsidian void trench torn open by the axe
+        over(() => {
+          ctx.beginPath();
+          for (let i = 0; i <= 10; i++) {
+            const t = i / 10, side = (i % 2 === 0 ? 1 : -1) * w * (0.4 + 0.6 * Math.sin(t * Math.PI));
+            const p = toScreen(sx + (ex - sx) * t + px * side, sy + (ey - sy) * t + py * side, 0);
+            if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+          }
+          for (let i = 10; i >= 0; i--) {
+            const t = i / 10, side = (i % 2 === 0 ? -1 : 1) * w * (0.35 + 0.55 * Math.sin(t * Math.PI));
+            const p = toScreen(sx + (ex - sx) * t + px * side, sy + (ey - sy) * t + py * side, 0);
+            ctx.lineTo(p.x, p.y);
+          }
+          ctx.closePath();
+          ctx.fillStyle = col(P.deep, fade * 0.9); ctx.fill();
+          ctx.strokeStyle = col(P.accent, fade * 0.95); ctx.lineWidth = 2.8 * z; ctx.stroke();
+        });
+        const p0 = toScreen(sx, sy, 0.2), p1 = toScreen(ex, ey, 0.2);
+        voidBolt(p0, p1, fade, 3.2, 1);
+        voidBolt(p0, p1, fade * 0.75, 1.8, 9);
+        // Erupting void pillars along the fissure
+        for (let i = 1; i <= 5; i++) {
+          const t = i / 5;
+          if (reach < t * 0.85) continue;
+          const wx = sx + (fx.x - sx) * t, wy = sy + (fx.y - sy) * t;
+          const b = toScreen(wx, wy, 0), top = toScreen(wx, wy, 2.2 * Math.sin(Math.min(1, (reach - t * 0.7) * 3) * Math.PI));
+          ctx.beginPath(); ctx.moveTo(b.x, b.y); ctx.lineTo(top.x, top.y);
+          ctx.strokeStyle = col(P.main, fade * 0.75); ctx.lineWidth = 10 * z; ctx.stroke();
+          ctx.strokeStyle = col(P.core, fade * 0.95); ctx.lineWidth = 3 * z; ctx.stroke();
+          glow(b, 18 * z, fade * 0.85, P.accent);
+        }
+        // Giant phantom executioner axe slamming into the tip of the fissure
+        const slamT = Math.min(1, progress * 2.2);
+        const axePos = toScreen(ex, ey, (1 - slamT) * 3.2 + 0.3);
+        const ang = Math.atan2(p1.y - p0.y, p1.x - p0.x) + (-1.3 + slamT * 1.65);
+        greatAxe(axePos.x, axePos.y, ang, 1.55, fade);
+        return true;
+      }
+
+      case 'sp_void_grasp': {
+        // MOCKING DREAD ROAR: Tryndamere-style terrifying warcry + abyssal chains dragging foes inward
+        const R = fx.radius || 5.5;
+        const c = toScreen(fx.x, fx.y, 0.3);
+        darkPool(fx.x, fx.y, R * (1 - 0.55 * ease), fade * 0.85);
+        // Contracting jagged roar shockwaves
+        for (let k = 0; k < 3; k++) {
+          const rk = R * Math.max(0.12, 1 - ((progress * 1.2 + k * 0.28) % 1) * 0.85);
+          isoPoly(fx.x, fx.y, rk, 28, 0.15);
+          ctx.strokeStyle = col(k === 0 ? P.core : P.accent, fade * (0.85 - k * 0.2));
+          ctx.lineWidth = (3.5 - k * 0.8) * z;
+          ctx.stroke();
+        }
+        // 8 spiked black-violet chains yanking inward toward the Dread Lord
+        for (let i = 0; i < 8; i++) {
+          const ang = (i / 8) * Math.PI * 2 + seed;
+          const pullR = R * (1 - 0.78 * ease);
+          const wx = fx.x + Math.cos(ang) * pullR, wy = fx.y + Math.sin(ang) * pullR;
+          const tip = toScreen(wx, wy, 0.25);
+          over(() => {
+            ctx.beginPath(); ctx.moveTo(c.x, c.y); ctx.lineTo(tip.x, tip.y);
+            ctx.strokeStyle = col(P.deep, fade * 0.9); ctx.lineWidth = 5 * z; ctx.stroke();
+          });
+          ctx.beginPath(); ctx.moveTo(c.x, c.y); ctx.lineTo(tip.x, tip.y);
+          ctx.setLineDash([6 * z, 4 * z]);
+          ctx.strokeStyle = col(P.light, fade * 0.9); ctx.lineWidth = 2.4 * z; ctx.stroke();
+          ctx.setLineDash([]);
+          glow(tip, 11 * z, fade * 0.85, P.accent);
+        }
+        // Towering abyssal skull/helm warcry silhouette above the Dread Lord
+        const head = toScreen(fx.x, fx.y, 1.8 + ease * 0.7);
+        glow(head, 32 * z, fade * 0.85, P.main);
+        over(() => {
+          const s = (1.0 + 0.35 * ease) * z;
+          ctx.beginPath();
+          ctx.moveTo(head.x - 16 * s, head.y - 6 * s);
+          ctx.lineTo(head.x - 26 * s, head.y - 24 * s);
+          ctx.lineTo(head.x - 8 * s, head.y - 14 * s);
+          ctx.lineTo(head.x + 8 * s, head.y - 14 * s);
+          ctx.lineTo(head.x + 26 * s, head.y - 24 * s);
+          ctx.lineTo(head.x + 16 * s, head.y - 6 * s);
+          ctx.lineTo(head.x + 12 * s, head.y + 12 * s);
+          ctx.lineTo(head.x - 12 * s, head.y + 12 * s);
+          ctx.closePath();
+          ctx.fillStyle = col(P.deep, fade * 0.88); ctx.fill();
+          ctx.strokeStyle = col(P.accent, fade * 0.95); ctx.lineWidth = 2.2 * z; ctx.stroke();
+        });
+        glow({ x: head.x - 6 * z, y: head.y - 2 * z }, 7 * z, fade, P.core);
+        glow({ x: head.x + 6 * z, y: head.y - 2 * z }, 7 * z, fade, P.core);
+        return true;
+      }
+
+      case 'sp_soul_bastion': {
+        // UNDYING DREAD RAGE: Tryndamere Undying Rage crimson-violet volcano pillar & orbiting executioner axes
+        const R = (fx.radius || 3.8) * (0.45 + 0.55 * ease);
+        const c = toScreen(fx.x, fx.y, 0);
+        const top = toScreen(fx.x, fx.y, 3.6);
+        darkPool(fx.x, fx.y, R, fade * 0.9);
+        // Erupting Undying Rage pillar
+        const g = ctx.createLinearGradient(c.x, c.y, top.x, top.y);
+        g.addColorStop(0, col(P.core, fade * 0.85));
+        g.addColorStop(0.35, col(P.accent, fade * 0.65));
+        g.addColorStop(0.7, col('225, 29, 72', fade * 0.4));
+        g.addColorStop(1, col(P.main, 0));
+        ctx.fillStyle = g;
+        const pw = 38 * z * (0.7 + 0.3 * Math.sin(progress * Math.PI));
+        ctx.fillRect(c.x - pw / 2, top.y, pw, c.y - top.y);
+        // Shockwave rings
+        isoPoly(fx.x, fx.y, R, 32, 0.1);
+        ctx.strokeStyle = col(P.core, fade * 0.95); ctx.lineWidth = 3.5 * z; ctx.stroke();
+        isoPoly(fx.x, fx.y, R * 0.68, 28, 0.25);
+        ctx.strokeStyle = col('244, 63, 94', fade * 0.8); ctx.lineWidth = 2.5 * z; ctx.stroke();
+        // 3 phantom executioner axes orbiting the Undying Dread Lord
+        const spin = this.animations.time * 7 + (fx.wave || 0) * 1.4;
+        for (let i = 0; i < 3; i++) {
+          const ang = spin + (i * Math.PI * 2) / 3;
+          const ax = fx.x + Math.cos(ang) * R * 0.78, ay = fx.y + Math.sin(ang) * R * 0.78;
+          const p = toScreen(ax, ay, 0.75 + 0.2 * Math.sin(ang * 2));
+          greatAxe(p.x, p.y, ang + Math.PI * 0.5, 1.05, fade * 0.95);
+        }
+        glow(c, 34 * z, fade * 0.85, P.accent);
+        return true;
+      }
+
+      case 'sp_shadow_charge': {
+        // SPINNING VOID SLASH: Tryndamere Spinning Slash cyclone rushing along the dash path
+        const sx = fx.startX ?? fx.x, sy = fx.startY ?? fx.y;
+        const w = (fx.width || 2.2) * 0.5;
+        const dx = fx.x - sx, dy = fx.y - sy, len = Math.hypot(dx, dy) || 1;
+        const px = -dy / len, py = dx / len;
+        // Dark torn earth track along the spin path
+        over(() => {
+          const a0 = toScreen(sx + px * w, sy + py * w, 0), a1 = toScreen(fx.x + px * w, fx.y + py * w, 0);
+          const b1 = toScreen(fx.x - px * w, fx.y - py * w, 0), b0 = toScreen(sx - px * w, sy - py * w, 0);
+          ctx.beginPath();
+          ctx.moveTo(a0.x, a0.y); ctx.lineTo(a1.x, a1.y); ctx.lineTo(b1.x, b1.y); ctx.lineTo(b0.x, b0.y);
+          ctx.closePath();
+          ctx.fillStyle = col(P.deep, fade * 0.75); ctx.fill();
+        });
+        // 4 overlapping cyclone slash rings along the path + spinning giant axe at the head
+        for (let i = 0; i < 4; i++) {
+          const t = Math.min(1, (i / 3) * Math.min(1, progress * 1.8));
+          const wx = sx + dx * t, wy = sy + dy * t;
+          const r = (fx.width || 2.2) * (0.55 + 0.35 * (i / 3));
+          isoPoly(wx, wy, r, 24, 0.35);
+          ctx.strokeStyle = col(i === 3 ? P.core : P.accent, fade * (0.45 + 0.18 * i));
+          ctx.lineWidth = (2.2 + i * 0.8) * z;
+          ctx.stroke();
+        }
+        const headT = Math.min(1, progress * 1.6);
+        const hx = sx + dx * headT, hy = sy + dy * headT;
+        const hc = toScreen(hx, hy, 0.55);
+        const spinAng = progress * Math.PI * 6;
+        greatAxe(hc.x, hc.y, spinAng, 1.45, fade);
+        greatAxe(hc.x, hc.y, spinAng + Math.PI, 1.15, fade * 0.7);
+        glow(hc, 28 * z, fade * 0.9, P.accent);
+        return true;
+      }
+
+      case 'sp_soul_rend': {
+        // EXECUTIONER'S BEHEADING: Massive X-guillotine cleave + downward executioner axe chop on target
+        const c = toScreen(fx.x, fx.y, 0.5);
+        const gnd = toScreen(fx.x, fx.y, 0);
+        darkPool(fx.x, fx.y, 1.5 * ease, fade * 0.9);
+        // Giant X-guillotine slash across the target
+        const slashLen = 46 * z * (0.65 + 0.35 * ease);
+        for (const ang of [-0.68, 0.68]) {
+          const dx = Math.cos(ang) * slashLen, dy = Math.sin(ang) * slashLen * 0.75;
+          over(() => {
+            ctx.beginPath(); ctx.moveTo(c.x - dx, c.y - dy); ctx.lineTo(c.x + dx, c.y + dy);
+            ctx.strokeStyle = col(P.deep, fade * 0.9); ctx.lineWidth = 11 * z; ctx.stroke();
+          });
+          ctx.beginPath(); ctx.moveTo(c.x - dx, c.y - dy); ctx.lineTo(c.x + dx, c.y + dy);
+          ctx.strokeStyle = col(P.accent, fade * 0.95); ctx.lineWidth = 6 * z; ctx.stroke();
+          ctx.strokeStyle = col(P.core, fade); ctx.lineWidth = 2.4 * z; ctx.stroke();
+        }
+        // Colossal executioner axe guillotine dropping from above onto the target
+        const drop = Math.min(1, progress * 2.5);
+        const axePt = toScreen(fx.x, fx.y, (1 - drop) * 3.4 + 0.4);
+        greatAxe(axePt.x, axePt.y, -0.9 + drop * 1.45, 1.65, fade);
+        // Soul siphon tether back to caster if startX/Y present
+        if (fx.startX !== undefined && fx.startY !== undefined) {
+          const caster = toScreen(fx.startX, fx.startY, 0.6);
+          voidBolt(gnd, caster, fade * 0.85, 2.2, 5);
+        }
+        glow(c, 32 * z, fade, P.accent);
+        return true;
+      }
+
+      case 'sp_dread_wave': {
+        // CATACLYSMIC AXE DRAG: 140-deg upward axe rip hurling a crescent wave of obsidian spikes
+        const R = (fx.radius || 5.2) * (0.3 + 0.7 * ease);
+        const arc = ((fx.arc || 140) * Math.PI) / 180;
+        const base = Math.atan2(fx.dirY || 0, fx.dirX || 1);
+        const origin = toScreen(fx.x, fx.y, 0.15);
+        // Dark torn earth fan
+        over(() => {
+          ctx.beginPath();
+          ctx.moveTo(origin.x, origin.y);
+          for (let i = 0; i <= 18; i++) {
+            const a0 = base - arc / 2 + (i / 18) * arc;
+            const p = toScreen(fx.x + Math.cos(a0) * R, fx.y + Math.sin(a0) * R, 0);
+            ctx.lineTo(p.x, p.y);
+          }
+          ctx.closePath();
+          ctx.fillStyle = col(P.deep, fade * 0.78); ctx.fill();
+        });
+        // Heavy crescent wave arcs
+        for (const mult of [1, 0.72]) {
+          ctx.beginPath();
+          for (let i = 0; i <= 20; i++) {
+            const a0 = base - arc / 2 + (i / 20) * arc;
+            const p = toScreen(fx.x + Math.cos(a0) * R * mult, fx.y + Math.sin(a0) * R * mult, 0.25);
+            if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+          }
+          ctx.strokeStyle = col(mult === 1 ? P.core : P.accent, fade * (mult === 1 ? 0.95 : 0.75));
+          ctx.lineWidth = (mult === 1 ? 4.5 : 2.8) * z;
+          ctx.stroke();
+        }
+        // Erupting obsidian spikes along the outer arc
+        for (let i = 0; i < 7; i++) {
+          const a0 = base - arc * 0.45 + (i / 6) * arc * 0.9;
+          const wx = fx.x + Math.cos(a0) * R * 0.92, wy = fx.y + Math.sin(a0) * R * 0.92;
+          const b = toScreen(wx, wy, 0), top = toScreen(wx, wy, 1.5 * Math.sin(ease * Math.PI));
+          over(() => {
+            ctx.beginPath();
+            ctx.moveTo(b.x - 5 * z, b.y);
+            ctx.lineTo(top.x, top.y);
+            ctx.lineTo(b.x + 5 * z, b.y);
+            ctx.closePath();
+            ctx.fillStyle = col(P.deep, fade * 0.92); ctx.fill();
+            ctx.strokeStyle = col(P.accent, fade * 0.95); ctx.lineWidth = 1.8 * z; ctx.stroke();
+          });
+          glow(top, 9 * z, fade * 0.8, P.accent);
+        }
+        // Sweeping giant axe along the crescent wave
+        const sweepA = base - arc / 2 + ease * arc;
+        const axeTip = toScreen(fx.x + Math.cos(sweepA) * R * 0.85, fx.y + Math.sin(sweepA) * R * 0.85, 0.45);
+        greatAxe(axeTip.x, axeTip.y, sweepA, 1.4, fade);
+        return true;
+      }
+
+      case 'sp_grave_rain': {
+        // GUILLOTINE SKYFALL: Colossal black-violet executioner axes raining from the heavens
+        if (fx.areaR && (fx.wave || 0) === 0) {
+          isoPoly(fx.areaX, fx.areaY, fx.areaR, 32, 0.05);
+          ctx.strokeStyle = col(P.accent, fade * 0.45); ctx.lineWidth = 2 * z; ctx.stroke();
+        }
+        const fall = Math.min(1, progress * 2.1);
+        const h = (1 - fall) * 5.2;
+        const pos = toScreen(fx.x, fx.y, h);
+        const gnd = toScreen(fx.x, fx.y, 0);
+        // Vertical void skyfall beam
+        ctx.beginPath(); ctx.moveTo(pos.x, pos.y - 36 * z); ctx.lineTo(pos.x, pos.y);
+        ctx.strokeStyle = col(P.accent, fade * 0.75); ctx.lineWidth = 8 * z; ctx.stroke();
+        ctx.strokeStyle = col(P.core, fade); ctx.lineWidth = 2.5 * z; ctx.stroke();
+        // Falling colossal executioner axe embedded into the ground on impact
+        greatAxe(pos.x, pos.y, Math.PI * 0.45 + (1 - fall) * 2.2, 1.4, fade);
+        if (fall >= 0.85) {
+          const imp = Math.min(1, (progress - 0.35) / 0.65);
+          const hitR = (fx.radius || 1.6) * (0.4 + 0.6 * imp);
+          darkPool(fx.x, fx.y, hitR, fade * 0.85);
+          isoPoly(fx.x, fx.y, hitR, 24, 0.1);
+          ctx.strokeStyle = col(P.core, fade * 0.95); ctx.lineWidth = 3 * z; ctx.stroke();
+          glow(gnd, 24 * z, fade * 0.9, P.accent);
+        }
+        return true;
+      }
+
+      case 'sp_void_step': {
+        // OBLIVION LEAP SLAM: Leap through an abyssal tear and slam the giant axe down at destination
+        const sx = fx.startX ?? fx.x, sy = fx.startY ?? fx.y;
+        const R = fx.radius || 2.8;
+        const p0 = toScreen(sx, sy, 0.2), p1 = toScreen(fx.x, fx.y, 0.2);
+        // Departure void tear
+        darkPool(sx, sy, R * 0.65 * ease, fade * 0.75);
+        // Parabolic leap arc with spinning executioner axe mid-flight
+        const arcMid = toScreen((sx + fx.x) / 2, (sy + fx.y) / 2, 2.8);
+        ctx.beginPath();
+        ctx.moveTo(p0.x, p0.y);
+        ctx.quadraticCurveTo(arcMid.x, arcMid.y, p1.x, p1.y);
+        ctx.strokeStyle = col(P.accent, fade * 0.85); ctx.lineWidth = 5 * z; ctx.stroke();
+        ctx.strokeStyle = col(P.core, fade); ctx.lineWidth = 2 * z; ctx.stroke();
+        // Destination crater + embedded giant executioner axe slam
+        const slamR = R * (0.35 + 0.65 * ease);
+        darkPool(fx.x, fx.y, slamR, fade * 0.9);
+        isoPoly(fx.x, fx.y, slamR, 28, 0.1);
+        ctx.strokeStyle = col(P.core, fade * 0.95); ctx.lineWidth = 3.5 * z; ctx.stroke();
+        for (let i = 0; i < 6; i++) {
+          const ang = (i / 6) * Math.PI * 2 + seed;
+          const edge = toScreen(fx.x + Math.cos(ang) * slamR, fx.y + Math.sin(ang) * slamR, 0.1);
+          voidBolt(p1, edge, fade * 0.8, 1.8, i * 3);
+        }
+        const slamDrop = Math.min(1, progress * 2.2);
+        const axeAt = toScreen(fx.x, fx.y, (1 - slamDrop) * 2.6 + 0.35);
+        greatAxe(axeAt.x, axeAt.y, 0.55, 1.55, fade);
+        glow(p1, 30 * z, fade * 0.95, P.accent);
+        return true;
+      }
+    }
+    return false;
   }
 
   // ---------------------------------------------------------------- basic sweep slash
@@ -6897,6 +7352,14 @@ class IsometricRenderer {
     // Summoning circles lie on the floor, under everything standing on it
     if (this.mobSpawns.size) this.drawMobSpawnCircles(ctx);
 
+    // Town ambience (cosmetic): cloud and bird shadows lie on the ground
+    let townLife = null;
+    if (this.currentTheme === 'town' && window.TownLife) {
+      if (!this.townLife || this.townLife.map !== map) this.townLife = new window.TownLife.Ambience(map);
+      townLife = this.townLife;
+      townLife.drawGround(ctx, this);
+    }
+
     // PASS 2: ENTITIES, PROPS & 3D DUNGEON WALLS (Depth Sorted with Painter's Algorithm)
     const renderList = [];
 
@@ -6999,6 +7462,14 @@ class IsometricRenderer {
       for (const c of this.townsfolk.folk) {
         renderList.push({ type: 'townsfolk', data: c, depth: Isometric.getDepth(c.x, c.y, 0, 55) });
       }
+      if (townLife) {
+        // pigeons scatter from anyone walking by
+        const walkers = this.townsfolk.folk.concat(gameState.players || []);
+        townLife.update(dt || 0.016, this, walkers);
+        for (const critter of townLife.critters()) {
+          renderList.push({ type: 'town_critter', data: critter, depth: Isometric.getDepth(critter.x, critter.y, 0, 54) });
+        }
+      }
     }
 
     // Sort render list from back to front
@@ -7051,6 +7522,9 @@ class IsometricRenderer {
         case 'townsfolk':
           this.drawTownsfolk(ctx, item.data);
           break;
+        case 'town_critter':
+          townLife.drawCritter(ctx, this, item.data);
+          break;
       }
       } catch (err) {
         this.reportDrawError(item.type + (item.data && item.data.type ? ':' + item.data.type : ''), err);
@@ -7058,6 +7532,9 @@ class IsometricRenderer {
       }
     }
     ctx.restore();
+
+    // Chimney smoke, falling leaves and birds pass over the rooftops
+    if (townLife) townLife.drawSky(ctx, this);
 
     // DRAW OVERLAYS & EFFECTS (Click Beacon, Particles, Floating Text)
     this.drawEffects(ctx, dt);
@@ -7102,6 +7579,8 @@ class IsometricRenderer {
   // Draw 3D Isometric Tile Block with Side Edges & Textures
   // Tiles whose look changes over time; everything else is cached by drawGroundLayer
   isAnimatedTile(tileType) {
+    // the town plaza is part of the pixel ground texture once that is ready
+    if (tileType === 6 && this.currentTheme === 'town' && this.groundCache && this.groundCache.tex) return false;
     if (tileType === 3 || tileType === 6 || tileType === 10 || tileType === 11) return true;
     const pal = FIELD_TILE_PALETTE[tileType];
     return !!(pal && ANIMATED_TILE_DETAILS.has(pal.detail));
@@ -7130,10 +7609,13 @@ class IsometricRenderer {
     const zoom = cam.zoom;
     let g = this.groundCache;
     const version = map._tilesVersion || 0;
+    // The town's pixel ground is painted a slice per frame; repaint once it is ready
+    const tex = this.currentTheme === 'town' && window.TownLife ? window.TownLife.groundTexture(map) : null;
     const stale = !g || g.map !== map || g.theme !== this.currentTheme || g.version !== version || g.zoom !== zoom || g.w !== w || g.h !== h ||
-      Math.abs((g.camX - cam.x) * zoom) > M - 16 || Math.abs((g.camY - cam.y) * zoom) > M - 16;
+      g.tex !== tex || Math.abs((g.camX - cam.x) * zoom) > M - 16 || Math.abs((g.camY - cam.y) * zoom) > M - 16;
     if (stale) {
       if (!g) g = this.groundCache = { canvas: document.createElement('canvas') };
+      g.tex = tex;
       const cw = w + 2 * M, ch = h + 2 * M;
       if (g.canvas.width !== cw || g.canvas.height !== ch) {
         g.canvas.width = cw;
@@ -7160,6 +7642,13 @@ class IsometricRenderer {
       this._tileView = { camera: { x: cam.x, y: cam.y, zoom }, w: cw, h: ch };
       for (const t of tiles) this.drawIsometricTile(gctx, t.x, t.y, t.tileType);
       this._tileView = null;
+      // The town's tile tops are replaced by one continuous pixel-art ground
+      // (1 texel per screen px at zoom 1); tile side faces stay underneath
+      if (tex) {
+        gctx.imageSmoothingEnabled = zoom < 1;
+        gctx.drawImage(tex.canvas, (tex.minX - cam.x) * zoom + cw / 2, (tex.minY - cam.y) * zoom + ch / 2, tex.canvas.width * zoom, tex.canvas.height * zoom);
+        gctx.imageSmoothingEnabled = true;
+      }
     }
     const dx = Math.round((g.camX - cam.x) * zoom - M + (cam.shakeOffsetX || 0));
     const dy = Math.round((g.camY - cam.y) * zoom - M + (cam.shakeOffsetY || 0));
@@ -7623,32 +8112,57 @@ class IsometricRenderer {
     if (!cfg) return;
     ctx.save();
     ctx.globalCompositeOperation = theme === 'shadowfell' || theme === 'wildwood' ? 'source-over' : 'lighter';
+    const px = 2;
+    const snap = v => Math.round(v / px) * px;
     for (let i = 0; i < cfg.n; i++) {
       const sx = (((i * 137 + time * cfg.vx + Math.sin(time * 0.7 + i) * 20) % (w + 100)) + w + 100) % (w + 100) - 50;
       const sy = (((i * 89 + time * cfg.vy) % (h + 100)) + h + 100) % (h + 100) - 50;
+      const ix = snap(sx);
+      const iy = snap(sy);
       const tw = 0.5 + Math.sin(time * 3 + i * 1.7) * 0.5;
-      ctx.fillStyle = cfg.color[i % cfg.color.length];
-      ctx.strokeStyle = cfg.color[i % cfg.color.length];
+      const col = cfg.color[i % cfg.color.length];
+      ctx.fillStyle = col;
       if (cfg.shape === 'leaf') {
-        ctx.save();
-        ctx.translate(sx, sy);
-        ctx.rotate(time * 2 + i);
-        ctx.beginPath();
-        ctx.ellipse(0, 0, cfg.size * 1.6, cfg.size * 0.7, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
+        const frame = Math.floor(time * 3 + i) & 1;
+        // Crisp 2-frame tumbling pixel leaf
+        ctx.fillRect(ix, iy, px * 2, px * 2);
+        if (frame === 0) {
+          ctx.fillRect(ix - px, iy - px, px, px);
+          ctx.fillRect(ix + px * 2, iy + px, px, px);
+        } else {
+          ctx.fillRect(ix + px * 2, iy - px, px, px);
+          ctx.fillRect(ix - px, iy + px, px, px);
+        }
       } else if (cfg.shape === 'streak') {
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(sx, sy);
-        ctx.lineTo(sx + cfg.size * (0.5 + tw), sy + 1);
-        ctx.stroke();
-      } else {
-        ctx.globalAlpha = cfg.shape === 'dot' ? 1 : tw;
-        ctx.beginPath();
-        ctx.arc(sx, sy, cfg.size * (cfg.shape === 'firefly' ? 0.8 + tw * 0.6 : 1), 0, Math.PI * 2);
-        ctx.fill();
+        // Crisp stepped pixel sand streak
+        const segs = Math.max(2, Math.round((cfg.size * (0.5 + tw)) / (px * 2)));
+        for (let s = 0; s < segs; s++) {
+          ctx.fillRect(ix + s * px * 2, iy + (s > segs >> 1 ? px : 0), px * 2, px);
+        }
+      } else if (cfg.shape === 'sparkle') {
+        ctx.globalAlpha = tw;
+        if (tw > 0.55) {
+          // 5-block pixel star cross
+          ctx.fillRect(ix - px, iy, px * 3, px);
+          ctx.fillRect(ix, iy - px, px, px * 3);
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(ix, iy, px, px);
+        } else {
+          ctx.fillRect(ix, iy, px, px);
+        }
         ctx.globalAlpha = 1;
+      } else if (cfg.shape === 'firefly') {
+        // Pixel firefly with stepped cross halo and hot pixel core
+        ctx.globalAlpha = tw * 0.45;
+        ctx.fillRect(ix - px, iy, px * 3, px);
+        ctx.fillRect(ix, iy - px, px, px * 3);
+        ctx.globalAlpha = 0.65 + tw * 0.35;
+        ctx.fillRect(ix, iy, px, px);
+        ctx.globalAlpha = 1;
+      } else {
+        // Crisp square pixel ash/ember mote
+        const sz = (i % 3 === 0) ? px * 2 : px;
+        ctx.fillRect(ix, iy, sz, sz);
       }
     }
     ctx.restore();
@@ -7689,14 +8203,15 @@ class IsometricRenderer {
     tongue(w * 0.68, h * 0.75, torchTheme ? torchTheme.mid : 'rgba(250, 204, 21, 0.85)');
     tongue(w * 0.36, h * 0.45, torchTheme ? torchTheme.inner : 'rgba(255, 251, 235, 0.95)');
 
-    // embers drifting up out of the flame
+    // embers drifting up out of the flame (snapped pixel blocks)
     const emberColor = torchTheme ? torchTheme.ember : 'rgba(253, 186, 116, ';
+    const epx = Math.max(2, Math.round(2 * z));
     for (let i = 0; i < 3; i++) {
       const life = (t * 0.9 + i / 3 + seed * 0.13) % 1;
-      const ex = baseX + Math.sin(seed + i * 2.1 + life * 6) * 3 * z * scale;
-      const ey = baseY - h - life * 16 * z * scale;
+      const ex = Math.round((baseX + Math.sin(seed + i * 2.1 + life * 6) * 3 * z * scale) / epx) * epx;
+      const ey = Math.round((baseY - h - life * 16 * z * scale) / epx) * epx;
       ctx.fillStyle = `${emberColor}${(1 - life) * 0.9})`;
-      ctx.fillRect(ex, ey, 1.4 * z, 1.4 * z);
+      ctx.fillRect(ex, ey, epx, epx);
     }
     ctx.restore();
   }
@@ -7834,7 +8349,24 @@ class IsometricRenderer {
       }
     }
 
-    if (obs.type === 'oak_tree' || obs.type === 'pine_tree') {
+    if ((obs.type === 'oak_tree' || obs.type === 'pine_tree') && window.TownLife) {
+      // Pixel-art tree; the crown sways a pixel in the breeze
+      const TL = window.TownLife;
+      const spr = TL.treeSprite(obs.type, Math.floor(TL.hash2(Math.round(obs.x * 10), Math.round(obs.y * 10)) * 3));
+      const p = 1.3 * z;
+      ctx.beginPath();
+      ctx.ellipse(screen.x, screen.y, (obs.type === 'oak_tree' ? 26 : 16) * z, (obs.type === 'oak_tree' ? 12 : 8) * z, 0, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+      ctx.fill();
+      const x0 = Math.round(screen.x - spr.ax * p), y0 = Math.round(screen.y - spr.ay * p);
+      const sway = Math.round(Math.sin(this.animations.time * 1.1 + obs.x * 1.7 + obs.y)) * p;
+      const dw = spr.trunk.width * p, dh = spr.trunk.height * p;
+      ctx.save();
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(spr.trunk, x0, y0, dw, dh);
+      ctx.drawImage(spr.crown, x0 + sway, y0, dw, dh);
+      ctx.restore();
+    } else if (obs.type === 'oak_tree' || obs.type === 'pine_tree') {
       // Shadow
       ctx.beginPath();
       ctx.ellipse(screen.x, screen.y, 18 * z, 10 * z, 0, 0, Math.PI * 2);
@@ -7973,12 +8505,16 @@ class IsometricRenderer {
       ctx.lineWidth = 1.5 * z;
       ctx.stroke();
 
-      // Top Geyser Pulsing Spray & Particles
-      const spray = Math.sin(t * 8) * 3 * z;
-      ctx.beginPath();
-      ctx.arc(screen.x, screen.y - 36 * z + spray, 3.5 * z, 0, Math.PI * 2);
-      ctx.fillStyle = '#e0f2fe';
-      ctx.fill();
+      // Top Geyser Pulsing Spray & Pixel Particles
+      const gpx = Math.max(2, Math.round(2 * z));
+      const spray = Math.round((Math.sin(t * 8) * 3 * z) / gpx) * gpx;
+      const gx = Math.round(screen.x / gpx) * gpx;
+      const gy = Math.round((screen.y - 36 * z) / gpx) * gpx + spray;
+      ctx.fillStyle = '#bae6fd';
+      ctx.fillRect(gx - gpx * 2, gy, gpx * 4, gpx);
+      ctx.fillRect(gx - gpx, gy - gpx, gpx * 2, gpx * 3);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(gx - gpx, gy, gpx * 2, gpx);
 
       // Floating Arcane Aqua Crystal
       const crystalBob = Math.sin(t * 3) * 2 * z;
@@ -9844,7 +10380,7 @@ class IsometricRenderer {
     else if (isAttacking) { action = attack.side < 0 ? 'attack2' : 'attack'; idx = progIdx(action, attack.time, attack.duration); }
     else if (isCasting) { action = 'cast'; idx = progIdx('cast', cast.time, cast.duration); }
     else if (hurtAge < PIXEL_HERO_HURT_MS) { action = 'hurt'; idx = progIdx('hurt', player._hurtAt, PIXEL_HERO_HURT_MS); }
-    else if (player.isMoving) { action = 'run'; idx = Math.floor(t * 12) % PH.meta(cls, 'run').frames; }
+    else if (player.isMoving) { action = 'run'; idx = Math.floor(t * 14) % PH.meta(cls, 'run').frames; }
     else { action = 'idle'; idx = Math.floor(t * 6) % PH.meta(cls, 'idle').frames; }
 
     const facing = (isAttacking && attack.facing) ? attack.facing
@@ -9870,6 +10406,13 @@ class IsometricRenderer {
       const gs = Isometric.worldToScreen(g.wx, g.wy, 0, this.camera, this.canvas.width, this.canvas.height);
       this.drawPixelHeroFrame(ctx, g.frame, Math.round(gs.x), Math.round(gs.y), s, g.flip, (1 - age) * 0.45, ghostTint, 0.65);
     }
+
+    // Dust kicked up as each foot strikes the ground (run frames 0 and 4)
+    const footfall = action === 'run' && idx % 4 === 0 ? idx : -1;
+    if (footfall >= 0 && player._lastFootfall !== footfall) {
+      this.addParticles(player.x, player.y, 'dust', 2, RUN_DUST_OPTS);
+    }
+    player._lastFootfall = footfall;
 
     // Body (red flash while recoiling from a hit), wrapped in the SP aura
     this.drawSpAura(ctx, player, x, y, z, t, 'back');
@@ -9905,6 +10448,17 @@ class IsometricRenderer {
         const c = spCard ? hexAlpha(spCard.color, a) : `rgba(74, 222, 128, ${a})`;
         glowAt(frame.meta.tipF, c, 6 * z);
         glowAt(frame.meta.tipB, c, 6 * z);
+      }
+      if (cls === 'warrior' && spCard && spCard.id === 'sp_dread_lord' && frame.meta.tip) {
+        const a = strong ? 0.85 : 0.55 * pulse;
+        glowAt(frame.meta.tip, `rgba(168, 85, 247, ${a})`, (strong ? 16 : 11) * z);
+        // Dragging the heavy black-violet executioner axe across the ground throws void sparks
+        if (player.isMoving && Math.random() < 0.38) {
+          const tx = x + (flip ? -frame.meta.tip[0] : frame.meta.tip[0]) * s;
+          const ty = y + frame.meta.tip[1] * s;
+          const wp = Isometric.screenToWorld(tx, ty, this.camera, this.canvas.width, this.canvas.height);
+          this.addParticles(wp.x, wp.y, Math.random() < 0.6 ? 'shadow' : 'slash', 1, { speed: 1.4, z: 0.08, sizeScale: 0.7 });
+        }
       }
     }
 
@@ -10616,19 +11170,19 @@ class IsometricRenderer {
       ctx.drawImage(this.sprites.mageIdle, iFrame.sx, iFrame.sy, iFrame.sw, iFrame.sh, dx, dy, dw, dh);
       ctx.restore();
 
-      // Orbiting Celestial Stardust Mote
+      // Orbiting Celestial Stardust Mote (Crisp Pixel Star)
       const orbitAngle = t * 3.5;
       const orbRadiusX = 14 * z;
       const orbRadiusY = 6 * z;
-      const orbX = screen.x + Math.cos(orbitAngle) * orbRadiusX;
-      const orbY = screen.y - 28 * z - hoverBob + Math.sin(orbitAngle) * orbRadiusY;
+      const mpx = Math.max(2, Math.round(2 * z));
+      const orbX = Math.round((screen.x + Math.cos(orbitAngle) * orbRadiusX) / mpx) * mpx;
+      const orbY = Math.round((screen.y - 28 * z - hoverBob + Math.sin(orbitAngle) * orbRadiusY) / mpx) * mpx;
       ctx.save();
-      ctx.beginPath();
-      ctx.arc(orbX, orbY, 2.4 * z, 0, Math.PI * 2);
+      ctx.fillStyle = '#c084fc';
+      ctx.fillRect(orbX - mpx, orbY, mpx * 3, mpx);
+      ctx.fillRect(orbX, orbY - mpx, mpx, mpx * 3);
       ctx.fillStyle = '#67e8f9';
-      ctx.shadowColor = '#c084fc';
-      ctx.shadowBlur = 8 * z;
-      ctx.fill();
+      ctx.fillRect(orbX, orbY, mpx, mpx);
       ctx.restore();
     }
 
@@ -10964,7 +11518,8 @@ class IsometricRenderer {
 
   // Draw Monsters / Mobs
   drawMob(ctx, mob, isSelected) {
-    const screen = Isometric.worldToScreen(mob.x, mob.y, 0, this.camera, this.canvas.width, this.canvas.height);
+    const rawScreen = Isometric.worldToScreen(mob.x, mob.y, 0, this.camera, this.canvas.width, this.canvas.height);
+    const screen = { x: Math.round(rawScreen.x), y: Math.round(rawScreen.y) };
     const z = this.camera.zoom;
     const isBoss = mob.isBoss;
     const isMiniboss = !!mob.isMiniboss;
@@ -11050,6 +11605,7 @@ class IsometricRenderer {
       for (let i = 0; i < 4; i++) {
         const ang = (i * Math.PI) / 2;
         const tx = Math.cos(ang) * (rx + 4 * z);
+        const ty = Math.sin(ang) * (ry + 2 * z);
         ctx.beginPath();
         ctx.moveTo(tx, ty);
         ctx.lineTo(tx * 0.8, ty * 0.8);
@@ -11189,14 +11745,33 @@ class IsometricRenderer {
           const ox = turn * 7.5 * z;
           const spread = 3.8 * z * (1 - t * 0.55);
           const profile = t > 0.9;
-          if (!profile) drawEye(ox - spread * side, cy - 1 * z + eyeBob, 2.8 * z * (1 - t * 0.35), 3.4 * z);
-          drawEye(profile ? ox : ox + spread * side, cy - 1 * z + eyeBob, 2.8 * z, 3.4 * z);
-          drawSmile(ox + side * t * 1.6 * z, cy + 2.5 * z + eyeBob, 2.4 * z * (1 - t * 0.3));
-          drawCheek(ox + side * (spread + 2.6 * z), cy + 1.2 * z + eyeBob);
-          if (t < 0.3) drawCheek(ox - side * (spread + 2.6 * z), cy + 1.2 * z + eyeBob);
+          if (!profile) {
+            drawEye(ox - spread * side, cy - 1 * z + eyeBob, 2.8 * z, 3.4 * z);
+            drawEye(ox + spread * side, cy - 1 * z + eyeBob, 2.8 * z * (1 - t * 0.35), 3.4 * z);
+            drawSmile(ox + side * t * 1.4 * z, cy + 2.5 * z + eyeBob, 2.4 * z * (1 - t * 0.25));
+            drawCheek(ox - side * (spread + 2.4 * z), cy + 1.2 * z + eyeBob);
+            drawCheek(ox + side * (spread + 2.0 * z * (1 - t * 0.35)), cy + 1.2 * z + eyeBob);
+          } else {
+            drawEye(ox, cy - 1 * z + eyeBob, 2.5 * z, 3.4 * z);
+            drawSmile(ox + side * 2.2 * z, cy + 2.2 * z + eyeBob, 1.8 * z);
+            drawCheek(ox - side * 2.6 * z, cy + 1.4 * z + eyeBob);
+          }
         } else if (t > 0) {
-          // three-quarter back: just the rim of the near eye at the edge of the dome
-          drawEye(turn * 11.5 * z, cy - 2.2 * z + eyeBob, 1.3 * z, 2.6 * z);
+          // three-quarter back: dorsal gel fold + near eye rim & cheek peeking at the dome edge
+          ctx.strokeStyle = 'rgba(134, 239, 172, 0.35)';
+          ctx.lineWidth = 1.2 * z;
+          ctx.beginPath();
+          ctx.arc(-side * 2 * z, cy + 1 * z, rx * 0.55, -0.3 * Math.PI, 0.4 * Math.PI, false);
+          ctx.stroke();
+          drawCheek(turn * 9.5 * z, cy + 0.5 * z + eyeBob);
+          drawEye(turn * 11.5 * z, cy - 2.0 * z + eyeBob, 1.5 * z, 2.8 * z);
+        } else {
+          // pure back (N): subtle dorsal gel ripples
+          ctx.strokeStyle = 'rgba(134, 239, 172, 0.35)';
+          ctx.lineWidth = 1.2 * z;
+          ctx.beginPath();
+          ctx.arc(0, cy + 2 * z, rx * 0.5, 0.2 * Math.PI, 0.8 * Math.PI, false);
+          ctx.stroke();
         }
 
         ctx.restore();
@@ -11205,7 +11780,6 @@ class IsometricRenderer {
         // --- 8-AXIS 3D Volumetric Goblin Warrior ---
         ctx.save();
         if (isWest) ctx.scale(-1, 1);
-        if (isPureSide) ctx.scale(0.74, 1); // seen side-on the body is narrower than at three-quarters
 
         const gobWalk = Math.sin(time * 8 + (mob.x || 0));
         const bobY = Math.abs(gobWalk) * 2 * z;
@@ -11347,8 +11921,40 @@ class IsometricRenderer {
             ctx.rotate(lrot);
             ctx.fillStyle = '#14532d';
             ctx.fillRect(-2.5 * z, 0, 5 * z, 8 * z);
+            ctx.fillStyle = '#0f3d1e';
+            ctx.beginPath();
+            ctx.ellipse(0, 8.5 * z, 3 * z, 1.6 * z, 0, 0, Math.PI * 2);
+            ctx.fill();
             ctx.restore();
           });
+
+          // Left & Right Arms swinging from behind + War Club in right hand
+          ctx.save();
+          ctx.translate(-7.5 * z, torsoY + 2 * z);
+          ctx.rotate(gobWalk * 0.25);
+          ctx.fillStyle = '#14532d';
+          ctx.fillRect(-2 * z, 0, 4 * z, 6 * z);
+          ctx.beginPath();
+          ctx.arc(0, 7 * z, 2.4 * z, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+
+          ctx.save();
+          ctx.translate(7.5 * z, torsoY + 2 * z);
+          ctx.rotate(-gobWalk * 0.25);
+          ctx.fillStyle = '#15803d';
+          ctx.fillRect(-2 * z, 0, 4 * z, 6 * z);
+          ctx.beginPath();
+          ctx.arc(0, 7 * z, 2.4 * z, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.translate(1 * z, 4 * z);
+          ctx.rotate(0.45);
+          ctx.fillStyle = '#78350f';
+          ctx.fillRect(-1.5 * z, -14 * z, 3 * z, 16 * z);
+          ctx.fillStyle = '#cbd5e1';
+          ctx.fillRect(-3 * z, -11 * z, 6 * z, 1.5 * z);
+          ctx.fillRect(-3 * z, -7 * z, 6 * z, 1.5 * z);
+          ctx.restore();
 
           // Torso (Dorsal view with crossed harness straps)
           ctx.fillStyle = '#14532d';
@@ -11359,7 +11965,9 @@ class IsometricRenderer {
           ctx.lineWidth = 1 * z;
           ctx.stroke();
 
-          // Crossed leather straps ('X')
+          // Crossed leather straps ('X') & belt
+          ctx.fillStyle = '#451a03';
+          ctx.fillRect(-6.5 * z, torsoY + 8 * z, 13 * z, 2.5 * z);
           ctx.strokeStyle = '#451a03';
           ctx.lineWidth = 2 * z;
           ctx.beginPath();
@@ -11373,13 +11981,13 @@ class IsometricRenderer {
           ctx.ellipse(0, headY, 7.5 * z, 6.5 * z, 0, 0, Math.PI * 2);
           ctx.fill();
 
-          // Back of ears angled forward
+          // Back of ears angled outward
           [[-1, -6 * z], [1, 6 * z]].forEach(([side, ex]) => {
             ctx.fillStyle = '#14532d';
             ctx.beginPath();
             ctx.moveTo(ex, headY - 1 * z);
-            ctx.lineTo(ex + 5 * side * z, headY - 5 * z);
-            ctx.lineTo(ex, headY + 2 * z);
+            ctx.lineTo(ex + 5.5 * side * z, headY - 5.5 * z);
+            ctx.lineTo(ex, headY + 2.5 * z);
             ctx.closePath();
             ctx.fill();
           });
@@ -11387,29 +11995,291 @@ class IsometricRenderer {
           // Spiky dark hair
           ctx.fillStyle = '#0f172a';
           ctx.beginPath();
-          ctx.moveTo(-4 * z, headY - 5 * z);
-          ctx.lineTo(-2 * z, headY - 9 * z);
+          ctx.moveTo(-4 * z, headY - 4 * z);
+          ctx.lineTo(-2.5 * z, headY - 9 * z);
           ctx.lineTo(0, headY - 5 * z);
-          ctx.lineTo(2 * z, headY - 9 * z);
-          ctx.lineTo(4 * z, headY - 5 * z);
+          ctx.lineTo(2.5 * z, headY - 9 * z);
+          ctx.lineTo(4 * z, headY - 4 * z);
           ctx.closePath();
           ctx.fill();
 
-          // Club angled forward-away
+        } else if (isQuarterBack) {
+          // --- GOBLIN: NE / NW (3/4 BACK) ---
+          // Far Arm & Spiked Club reaching forward-away (behind torso)
           ctx.save();
-          ctx.translate(7 * z, torsoY + 2 * z);
-          ctx.rotate(0.5);
+          ctx.translate(5.5 * z, torsoY + 1.5 * z);
+          ctx.rotate(-0.25 - gobWalk * 0.2);
+          ctx.fillStyle = '#15803d';
+          ctx.fillRect(-1.8 * z, 0, 3.6 * z, 6 * z);
+          ctx.translate(1 * z, 5 * z);
+          ctx.rotate(0.4);
           ctx.fillStyle = '#78350f';
-          ctx.fillRect(-1.5 * z, -14 * z, 3 * z, 16 * z);
+          ctx.beginPath();
+          ctx.moveTo(-1.2 * z, 6 * z);
+          ctx.lineTo(1.2 * z, 6 * z);
+          ctx.lineTo(3.2 * z, -13 * z);
+          ctx.lineTo(-2.5 * z, -13 * z);
+          ctx.closePath();
+          ctx.fill();
+          ctx.strokeStyle = '#cbd5e1';
+          ctx.lineWidth = 1.8 * z;
+          ctx.beginPath();
+          ctx.moveTo(-2 * z, -9 * z); ctx.lineTo(-4.5 * z, -10 * z);
+          ctx.moveTo(2.5 * z, -7 * z); ctx.lineTo(5 * z, -6 * z);
+          ctx.stroke();
+          ctx.restore();
+
+          // Far Leg & Near Leg walking away
+          ctx.save();
+          ctx.translate(3 * z, -9 * z);
+          ctx.rotate(-gobWalk * 0.4);
+          ctx.fillStyle = '#0f3d1e';
+          ctx.fillRect(-2.2 * z, 0, 4.4 * z, 8 * z);
+          ctx.restore();
+
+          ctx.save();
+          ctx.translate(-3.5 * z, -9 * z);
+          ctx.rotate(gobWalk * 0.4);
+          ctx.fillStyle = '#14532d';
+          ctx.fillRect(-2.4 * z, 0, 4.8 * z, 8.5 * z);
+          ctx.fillStyle = '#0f3d1e';
+          ctx.beginPath();
+          ctx.ellipse(0, 8.5 * z, 3.2 * z, 1.6 * z, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+
+          // 3/4 Dorsal Torso with Crossed Harness Straps
+          ctx.fillStyle = '#14532d';
+          ctx.beginPath();
+          drawRoundRect(ctx, -6 * z, torsoY, 12 * z, 11 * z, 4 * z);
+          ctx.fill();
+          ctx.strokeStyle = '#0f3d1e';
+          ctx.lineWidth = 1 * z;
+          ctx.stroke();
+
+          ctx.fillStyle = '#451a03';
+          ctx.fillRect(-6 * z, torsoY + 8 * z, 12 * z, 2.5 * z);
+          ctx.strokeStyle = '#451a03';
+          ctx.lineWidth = 2 * z;
+          ctx.beginPath();
+          ctx.moveTo(-5 * z, torsoY + 1 * z); ctx.lineTo(3.5 * z, torsoY + 10 * z);
+          ctx.moveTo(3.5 * z, torsoY + 1 * z); ctx.lineTo(-5 * z, torsoY + 10 * z);
+          ctx.stroke();
+
+          // Far Ear (behind head on right)
+          ctx.fillStyle = '#0f3d1e';
+          ctx.beginPath();
+          ctx.moveTo(4 * z, headY - 1.5 * z);
+          ctx.lineTo(10 * z, headY - 5.5 * z);
+          ctx.lineTo(5 * z, headY + 2 * z);
+          ctx.closePath();
+          ctx.fill();
+
+          // Hint of Snout & Tusk peeking on far right edge
+          ctx.fillStyle = '#16a34a';
+          ctx.beginPath();
+          ctx.ellipse(5.5 * z, headY + 1.5 * z, 2.5 * z, 2 * z, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#fef3c7';
+          ctx.beginPath();
+          ctx.moveTo(6 * z, headY + 2 * z);
+          ctx.lineTo(7.2 * z, headY - 1 * z);
+          ctx.lineTo(7.8 * z, headY + 2 * z);
+          ctx.closePath();
+          ctx.fill();
+
+          // 3/4 Back Head
+          const headGrad = ctx.createRadialGradient(-2 * z, headY - 1 * z, 1.5 * z, 0, headY, 7.5 * z);
+          headGrad.addColorStop(0, '#22c55e');
+          headGrad.addColorStop(0.6, '#15803d');
+          headGrad.addColorStop(1, '#14532d');
+          ctx.fillStyle = headGrad;
+          ctx.beginPath();
+          ctx.ellipse(0, headY, 6.8 * z, 6.3 * z, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Near Ear (prominent, sweeping back-left)
+          ctx.fillStyle = '#14532d';
+          ctx.beginPath();
+          ctx.moveTo(-4.5 * z, headY - 1 * z);
+          ctx.lineTo(-11.5 * z, headY - 6 * z);
+          ctx.lineTo(-5.5 * z, headY + 3 * z);
+          ctx.closePath();
+          ctx.fill();
+
+          // Spiky dark hair tuft on crown/back
+          ctx.fillStyle = '#0f172a';
+          ctx.beginPath();
+          ctx.moveTo(-4.5 * z, headY - 3.5 * z);
+          ctx.lineTo(-3 * z, headY - 8.5 * z);
+          ctx.lineTo(-0.5 * z, headY - 5 * z);
+          ctx.lineTo(1.5 * z, headY - 8.5 * z);
+          ctx.lineTo(3 * z, headY - 4.5 * z);
+          ctx.closePath();
+          ctx.fill();
+
+          // Near Back Arm swinging in foreground
+          ctx.save();
+          ctx.translate(-6 * z, torsoY + 2 * z);
+          ctx.rotate(0.2 + gobWalk * 0.3);
+          ctx.fillStyle = '#166534';
+          ctx.fillRect(-2 * z, 0, 4 * z, 6.5 * z);
+          ctx.fillStyle = '#15803d';
+          ctx.beginPath();
+          ctx.arc(0, 7.5 * z, 2.5 * z, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+
+        } else if (isPureSide) {
+          // --- GOBLIN: E / W (PURE SIDE PROFILE) ---
+          // Far Leg (behind)
+          ctx.save();
+          ctx.translate(-1 * z, -9 * z);
+          ctx.rotate(-gobWalk * 0.45);
+          ctx.fillStyle = '#14532d';
+          ctx.fillRect(-2 * z, 0, 4 * z, 6 * z);
+          ctx.fillStyle = '#0f3d1e';
+          ctx.fillRect(-1.8 * z, 5 * z, 3.6 * z, 5 * z);
+          ctx.beginPath();
+          ctx.ellipse(1.5 * z, 9 * z, 3.5 * z, 1.8 * z, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+
+          // Near Leg (foreground)
+          ctx.save();
+          ctx.translate(1 * z, -9 * z);
+          ctx.rotate(gobWalk * 0.45);
+          ctx.fillStyle = '#22c55e';
+          ctx.fillRect(-2.2 * z, 0, 4.4 * z, 6 * z);
+          ctx.fillStyle = '#166534';
+          ctx.fillRect(-1.8 * z, 5 * z, 3.6 * z, 5 * z);
+          ctx.beginPath();
+          ctx.ellipse(2 * z, 9 * z, 3.8 * z, 2 * z, 0, 0, Math.PI * 2);
+          ctx.fillStyle = '#15803d';
+          ctx.fill();
+          ctx.fillStyle = '#fef08a';
+          ctx.fillRect(4.8 * z, 8 * z, 1.5 * z, 2 * z);
+          ctx.restore();
+
+          // Profile Torso (narrower side silhouette)
+          const torsoGrad = ctx.createRadialGradient(1 * z, torsoY + 3 * z, 1.5 * z, 0, torsoY + 5 * z, 7.5 * z);
+          torsoGrad.addColorStop(0, '#4ade80');
+          torsoGrad.addColorStop(0.5, '#22c55e');
+          torsoGrad.addColorStop(1, '#14532d');
+          ctx.fillStyle = torsoGrad;
+          ctx.beginPath();
+          drawRoundRect(ctx, -4.8 * z, torsoY, 9.6 * z, 11 * z, 3.8 * z);
+          ctx.fill();
+          ctx.strokeStyle = '#14532d';
+          ctx.lineWidth = 1 * z;
+          ctx.stroke();
+
+          // Diagonal leather strap & belt with front-edge buckle
+          ctx.strokeStyle = '#451a03';
+          ctx.lineWidth = 1.8 * z;
+          ctx.beginPath();
+          ctx.moveTo(-3.5 * z, torsoY + 1 * z);
+          ctx.lineTo(3.5 * z, torsoY + 8 * z);
+          ctx.stroke();
+          ctx.fillStyle = '#451a03';
+          ctx.fillRect(-4.8 * z, torsoY + 8 * z, 9.6 * z, 2.5 * z);
+          ctx.fillStyle = '#f59e0b';
+          ctx.fillRect(2.2 * z, torsoY + 7.5 * z, 2.8 * z, 3.5 * z);
+
+          // Profile Head & Protruding Goblin Snout
+          ctx.fillStyle = '#16a34a';
+          ctx.beginPath();
+          ctx.ellipse(5.2 * z, headY + 1.8 * z, 3.8 * z, 2.6 * z, 0.1, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Upward Tusk on Snout Tip
+          ctx.fillStyle = '#fef3c7';
+          ctx.beginPath();
+          ctx.moveTo(5.2 * z, headY + 3 * z);
+          ctx.lineTo(6.8 * z, headY - 1 * z);
+          ctx.lineTo(7.8 * z, headY + 2.8 * z);
+          ctx.closePath();
+          ctx.fill();
+
+          const headGrad = ctx.createRadialGradient(1 * z, headY - 1 * z, 1.5 * z, 0, headY, 7 * z);
+          headGrad.addColorStop(0, '#4ade80');
+          headGrad.addColorStop(0.55, '#22c55e');
+          headGrad.addColorStop(1, '#15803d');
+          ctx.fillStyle = headGrad;
+          ctx.beginPath();
+          ctx.ellipse(0, headY, 5.8 * z, 6.2 * z, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Spiky dark hair tuft at crown
+          ctx.fillStyle = '#0f172a';
+          ctx.beginPath();
+          ctx.moveTo(-4 * z, headY - 4 * z);
+          ctx.lineTo(-2.5 * z, headY - 8.5 * z);
+          ctx.lineTo(0, headY - 5.5 * z);
+          ctx.lineTo(1.5 * z, headY - 8 * z);
+          ctx.lineTo(2.5 * z, headY - 5 * z);
+          ctx.closePath();
+          ctx.fill();
+
+          // Pointed Ear sweeping back from temple
+          ctx.fillStyle = '#14532d';
+          ctx.beginPath();
+          ctx.moveTo(-1.5 * z, headY - 1 * z);
+          ctx.lineTo(-10.5 * z, headY - 5.5 * z);
+          ctx.lineTo(-3 * z, headY + 2.8 * z);
+          ctx.closePath();
+          ctx.fill();
+          ctx.fillStyle = '#0f3d1e';
+          ctx.beginPath();
+          ctx.moveTo(-2.5 * z, headY - 0.5 * z);
+          ctx.lineTo(-8.5 * z, headY - 4 * z);
+          ctx.lineTo(-3.5 * z, headY + 1.8 * z);
+          ctx.closePath();
+          ctx.fill();
+
+          // Single Profile Amber Eye
+          ctx.fillStyle = '#facc15';
+          ctx.beginPath();
+          ctx.ellipse(3.2 * z, headY - 1.2 * z, 1.7 * z, 2 * z, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#0f172a';
+          ctx.fillRect(3.6 * z, headY - 2.2 * z, 0.9 * z, 2 * z);
+
+          // Near Arm & Spiked War Club held forward
+          ctx.save();
+          ctx.translate(1 * z, torsoY + 2.5 * z);
+          ctx.rotate(-0.2 + Math.sin(time * 4) * 0.15);
+          ctx.fillStyle = '#22c55e';
+          ctx.fillRect(-1.8 * z, 0, 3.6 * z, 6.5 * z);
+          ctx.fillStyle = '#166534';
+          ctx.beginPath();
+          ctx.arc(0, 7 * z, 2.4 * z, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.translate(1 * z, 6 * z);
+          ctx.rotate(-0.75);
+          ctx.fillStyle = '#78350f';
+          ctx.beginPath();
+          ctx.moveTo(-1.5 * z, 9 * z);
+          ctx.lineTo(1.5 * z, 9 * z);
+          ctx.lineTo(3.8 * z, -14 * z);
+          ctx.lineTo(-2.8 * z, -14 * z);
+          ctx.closePath();
+          ctx.fill();
+          [[-2 * z, -10 * z, -5 * z, -11 * z], [3 * z, -8 * z, 6 * z, -7 * z]].forEach(([bx, by, tx, ty]) => {
+            ctx.strokeStyle = '#cbd5e1';
+            ctx.lineWidth = 2 * z;
+            ctx.beginPath();
+            ctx.moveTo(bx, by); ctx.lineTo(tx, ty);
+            ctx.stroke();
+          });
           ctx.restore();
 
         } else {
-          // --- GOBLIN: SE (3/4 FRONT), E (SIDE), NE (3/4 BACK) ---
-          const isQuarterBackView = isQuarterBack;
-
+          // --- GOBLIN: SE / SW (3/4 FRONT) ---
           // Back Arm
           ctx.save();
-          ctx.translate(-7 * z, -18 * z - bobY);
+          ctx.translate(-6.5 * z, -18 * z - bobY);
           ctx.rotate(-0.2 + gobWalk * 0.3);
           ctx.fillStyle = '#14532d';
           ctx.fillRect(-2 * z, 0, 4 * z, 7 * z);
@@ -11421,14 +12291,14 @@ class IsometricRenderer {
 
           // Back Leg & Clawed Foot
           ctx.save();
-          ctx.translate(-4 * z, -9 * z);
+          ctx.translate(-3.5 * z, -9 * z);
           ctx.rotate(-gobWalk * 0.4);
           ctx.fillStyle = '#14532d';
           ctx.fillRect(-2.5 * z, 0, 5 * z, 6 * z);
           ctx.fillStyle = '#0f3d1e';
           ctx.fillRect(-2 * z, 5 * z, 4 * z, 5 * z);
           ctx.beginPath();
-          ctx.ellipse(-2 * z, 9 * z, 3.5 * z, 1.8 * z, 0, 0, Math.PI * 2);
+          ctx.ellipse(-1.5 * z, 9 * z, 3.5 * z, 1.8 * z, 0, 0, Math.PI * 2);
           ctx.fill();
           ctx.restore();
 
@@ -11452,31 +12322,39 @@ class IsometricRenderer {
           ctx.fillRect(4 * z, 8 * z, 1.5 * z, 2 * z);
           ctx.restore();
 
-          // Torso
+          // 3/4 Torso
           ctx.fillStyle = '#14532d';
           ctx.fillRect(-6 * z, torsoY + 8 * z, 12 * z, 4 * z);
-          const torsoGrad = ctx.createRadialGradient(-2 * z, torsoY + 2 * z, 2 * z, 0, torsoY + 4 * z, 9 * z);
+          const torsoGrad = ctx.createRadialGradient(-1 * z, torsoY + 2 * z, 2 * z, 0, torsoY + 4 * z, 9 * z);
           torsoGrad.addColorStop(0, '#4ade80');
           torsoGrad.addColorStop(0.4, '#22c55e');
-          torsoGrad.addColorStop(1, '#15803d');
           torsoGrad.addColorStop(1, '#14532d');
           ctx.fillStyle = torsoGrad;
           ctx.beginPath();
-          drawRoundRect(ctx, -6.5 * z, torsoY, 13 * z, 11 * z, 4 * z);
+          drawRoundRect(ctx, -6 * z, torsoY, 12 * z, 11 * z, 4 * z);
           ctx.fill();
           ctx.strokeStyle = '#14532d';
           ctx.lineWidth = 1 * z;
           ctx.stroke();
 
-          // Leather Belt & Harness
+          // Leather Belt & 3/4 Shifted Buckle
           ctx.fillStyle = '#451a03';
-          ctx.fillRect(-6.5 * z, torsoY + 8 * z, 13 * z, 2.5 * z);
-          if (!isQuarterBackView) {
-            ctx.fillStyle = '#f59e0b';
-            ctx.fillRect(-1.5 * z, torsoY + 7.5 * z, 3 * z, 3.5 * z);
-          }
+          ctx.fillRect(-6 * z, torsoY + 8 * z, 12 * z, 2.5 * z);
+          ctx.fillStyle = '#f59e0b';
+          ctx.fillRect(0, torsoY + 7.5 * z, 3.5 * z, 3.5 * z);
+          ctx.fillStyle = '#451a03';
+          ctx.fillRect(1 * z, torsoY + 8.5 * z, 1.5 * z, 1.5 * z);
 
-          // Head
+          // Far Ear (right side, behind head)
+          ctx.fillStyle = '#0f3d1e';
+          ctx.beginPath();
+          ctx.moveTo(4.5 * z, headY - 1.5 * z);
+          ctx.lineTo(10 * z, headY - 5.5 * z);
+          ctx.lineTo(5 * z, headY + 2 * z);
+          ctx.closePath();
+          ctx.fill();
+
+          // 3/4 Head
           const headGrad = ctx.createRadialGradient(-1 * z, headY - 1 * z, 2 * z, 0, headY, 8 * z);
           headGrad.addColorStop(0, '#4ade80');
           headGrad.addColorStop(0.5, '#22c55e');
@@ -11486,7 +12364,7 @@ class IsometricRenderer {
           ctx.ellipse(0, headY, 7 * z, 6.5 * z, 0, 0, Math.PI * 2);
           ctx.fill();
 
-          // Ears
+          // Near Ear (left side)
           ctx.fillStyle = '#14532d';
           ctx.beginPath();
           ctx.moveTo(-5 * z, headY - 1 * z);
@@ -11495,32 +12373,30 @@ class IsometricRenderer {
           ctx.closePath();
           ctx.fill();
 
-          if (!isQuarterBackView) {
-            // Snout, Tusks & Eyes (Front-Quarter & Side)
-            ctx.fillStyle = '#16a34a';
-            ctx.beginPath();
-            ctx.ellipse(isPureSide ? 4 * z : 3 * z, headY + 2 * z, 4 * z, 3 * z, 0, 0, Math.PI * 2);
-            ctx.fill();
+          // 3/4 Snout, Both Tusks & Both Eyes
+          ctx.fillStyle = '#16a34a';
+          ctx.beginPath();
+          ctx.ellipse(2.2 * z, headY + 2.2 * z, 4.2 * z, 2.8 * z, 0, 0, Math.PI * 2);
+          ctx.fill();
 
-            ctx.fillStyle = '#fef3c7';
+          ctx.fillStyle = '#fef3c7';
+          [[-0.2 * z], [4.2 * z]].forEach(([tx]) => {
             ctx.beginPath();
-            ctx.moveTo(3 * z, headY + 3.5 * z);
-            ctx.lineTo(4.5 * z, headY - 0.5 * z);
-            ctx.lineTo(6 * z, headY + 3.5 * z);
+            ctx.moveTo(tx - 0.8 * z, headY + 3.5 * z);
+            ctx.lineTo(tx + 0.3 * z, headY - 0.4 * z);
+            ctx.lineTo(tx + 1.1 * z, headY + 3.5 * z);
             ctx.closePath();
             ctx.fill();
+          });
 
+          [[-0.8 * z, 1.8 * z], [3.6 * z, 1.5 * z]].forEach(([ex, er]) => {
             ctx.fillStyle = '#facc15';
             ctx.beginPath();
-            ctx.arc(isPureSide ? 3 * z : 2 * z, headY - 1.5 * z, 2 * z, 0, Math.PI * 2);
+            ctx.arc(ex, headY - 1.4 * z, er, 0, Math.PI * 2);
             ctx.fill();
             ctx.fillStyle = '#0f172a';
-            ctx.fillRect(isPureSide ? 3.2 * z : 2.2 * z, headY - 2.5 * z, 1 * z, 2.2 * z);
-          } else {
-            // Back hair tuft
-            ctx.fillStyle = '#0f172a';
-            ctx.fillRect(-2 * z, headY - 8 * z, 4 * z, 3 * z);
-          }
+            ctx.fillRect(ex, headY - 2.3 * z, 0.8 * z, 1.8 * z);
+          });
 
           // Front Arm & Spiked Club
           ctx.save();
@@ -11535,7 +12411,7 @@ class IsometricRenderer {
 
           // Spiked War Club
           ctx.translate(1 * z, 6 * z);
-          ctx.rotate(isQuarterBackView ? 0.3 : -0.7);
+          ctx.rotate(-0.7);
           ctx.fillStyle = '#78350f';
           ctx.beginPath();
           ctx.moveTo(-1.5 * z, 10 * z);
@@ -11560,7 +12436,6 @@ class IsometricRenderer {
         // --- 8-AXIS 3D Undead Skeleton Warrior ---
         ctx.save();
         if (isWest) ctx.scale(-1, 1);
-        if (isPureSide) ctx.scale(0.74, 1); // seen side-on the body is narrower than at three-quarters
 
         const skelWalk = Math.sin(time * 6 + (mob.x || 0));
         const skelBob = Math.abs(skelWalk) * 1.5 * z;
@@ -11623,6 +12498,11 @@ class IsometricRenderer {
             ctx.stroke();
           }
 
+          // Left & Right Skeletal Arms
+          ctx.fillStyle = '#cbd5e1';
+          ctx.fillRect(-7.5 * z, skelTorsoY + 0.5 * z, 2 * z, 5 * z);
+          ctx.fillRect(5.5 * z, skelTorsoY + 0.5 * z, 2 * z, 5 * z);
+
           // Frontal Skull
           const skullGrad = ctx.createRadialGradient(0, skullY - 1 * z, 1 * z, 0, skullY, 7 * z);
           skullGrad.addColorStop(0, '#ffffff');
@@ -11660,7 +12540,7 @@ class IsometricRenderer {
 
           // Buckler in left hand & Broadsword in right hand
           ctx.save();
-          ctx.translate(-7 * z, skelTorsoY + 3 * z);
+          ctx.translate(-7 * z, skelTorsoY + 5 * z);
           ctx.beginPath();
           ctx.ellipse(0, 0, 7 * z, 9 * z, 0, 0, Math.PI * 2);
           ctx.fillStyle = '#475569';
@@ -11672,7 +12552,7 @@ class IsometricRenderer {
           ctx.restore();
 
           ctx.save();
-          ctx.translate(7 * z, skelTorsoY + 3 * z);
+          ctx.translate(7 * z, skelTorsoY + 5 * z);
           ctx.fillStyle = '#f1f5f9';
           ctx.fillRect(-1.5 * z, -20 * z, 3 * z, 20 * z);
           ctx.fillStyle = '#475569';
@@ -11687,9 +12567,42 @@ class IsometricRenderer {
             ctx.translate(lx, -10 * z);
             ctx.rotate(lrot);
             ctx.fillStyle = '#94a3b8';
-            ctx.fillRect(-1.2 * z, 0, 2.4 * z, 10 * z);
+            ctx.fillRect(-1.2 * z, 0, 2.4 * z, 6 * z);
+            ctx.beginPath();
+            ctx.arc(0, 6 * z, 1.8 * z, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#64748b';
+            ctx.fillRect(-1.1 * z, 6 * z, 2.2 * z, 5 * z);
             ctx.restore();
           });
+
+          // Dorsal Pelvis & Ribcage Silhouette
+          ctx.fillStyle = '#64748b';
+          ctx.beginPath();
+          ctx.moveTo(-4 * z, skelTorsoY + 9 * z);
+          ctx.lineTo(4 * z, skelTorsoY + 9 * z);
+          ctx.lineTo(2 * z, skelTorsoY + 12 * z);
+          ctx.lineTo(-2 * z, skelTorsoY + 12 * z);
+          ctx.closePath();
+          ctx.fill();
+
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
+          ctx.beginPath();
+          ctx.ellipse(0, skelTorsoY + 4 * z, 5 * z, 5 * z, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          for (let r = 0; r < 4; r++) {
+            const ry = skelTorsoY + (1.5 + r * 1.8) * z;
+            const rw = (5.4 - r * 0.4) * z;
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineWidth = 1.4 * z;
+            ctx.beginPath();
+            ctx.arc(-1 * z, ry, rw * 0.5, Math.PI * 0.6, Math.PI * 1.3, false);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(1 * z, ry, rw * 0.5, -Math.PI * 0.3, Math.PI * 0.4, false);
+            ctx.stroke();
+          }
 
           // Dorsal Spinal Column (Running up back)
           for (let s = 0; s < 6; s++) {
@@ -11707,6 +12620,28 @@ class IsometricRenderer {
             ctx.closePath();
             ctx.fill();
           });
+
+          // Left Arm & Buckler (seen from behind)
+          ctx.save();
+          ctx.translate(-6.5 * z, skelTorsoY + 3 * z);
+          ctx.fillStyle = '#94a3b8';
+          ctx.fillRect(-1 * z, -2 * z, 2 * z, 6 * z);
+          ctx.beginPath();
+          ctx.ellipse(-1 * z, 3 * z, 5.5 * z, 8 * z, 0.15, 0, Math.PI * 2);
+          ctx.fillStyle = '#334155';
+          ctx.fill();
+          ctx.restore();
+
+          // Right Arm & Broadsword angled forward
+          ctx.save();
+          ctx.translate(6.5 * z, skelTorsoY + 3 * z);
+          ctx.fillStyle = '#94a3b8';
+          ctx.fillRect(-1 * z, -2 * z, 2 * z, 6 * z);
+          ctx.fillStyle = '#f1f5f9';
+          ctx.fillRect(-1.2 * z, -18 * z, 2.4 * z, 18 * z);
+          ctx.fillStyle = '#475569';
+          ctx.fillRect(-3.5 * z, 0, 7 * z, 1.8 * z);
+          ctx.restore();
 
           // Back of Skull (No teeth or eyes)
           const skullGrad = ctx.createRadialGradient(0, skullY - 1 * z, 1 * z, 0, skullY, 7 * z);
@@ -11726,17 +12661,230 @@ class IsometricRenderer {
           ctx.moveTo(-3 * z, skullY - 2 * z); ctx.lineTo(3 * z, skullY - 2 * z);
           ctx.stroke();
 
-          // Shield and blade angled forward
+        } else if (isQuarterBack) {
+          // --- SKELETON: NE / NW (3/4 BACK) ---
+          // Far Sword Arm (reaching forward-away)
           ctx.save();
-          ctx.translate(6 * z, skelTorsoY + 2 * z);
+          ctx.translate(5 * z, skelTorsoY + 1.5 * z);
+          ctx.rotate(-0.2 + Math.sin(time * 5) * 0.1);
+          ctx.fillStyle = '#94a3b8';
+          ctx.fillRect(-1 * z, 0, 2 * z, 6.5 * z);
+          ctx.translate(0, 6 * z);
+          ctx.rotate(0.35);
           ctx.fillStyle = '#f1f5f9';
-          ctx.fillRect(-1 * z, -18 * z, 2 * z, 18 * z);
+          ctx.fillRect(-1.3 * z, -19 * z, 2.6 * z, 19 * z);
+          ctx.fillStyle = '#475569';
+          ctx.fillRect(-3.5 * z, -1 * z, 7 * z, 1.8 * z);
+          ctx.restore();
+
+          // Legs walking away with knee joints
+          [[-3 * z, skelWalk * 0.35, '#cbd5e1'], [2.5 * z, -skelWalk * 0.35, '#94a3b8']].forEach(([lx, lrot, col]) => {
+            ctx.save();
+            ctx.translate(lx, -10 * z);
+            ctx.rotate(lrot);
+            ctx.fillStyle = col;
+            ctx.fillRect(-1.1 * z, 0, 2.2 * z, 6 * z);
+            ctx.beginPath();
+            ctx.arc(0, 6 * z, 1.8 * z, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillRect(-1 * z, 6 * z, 2 * z, 5 * z);
+            ctx.restore();
+          });
+
+          // 3/4 Dorsal Pelvis & Ribcage
+          ctx.fillStyle = '#64748b';
+          ctx.beginPath();
+          ctx.moveTo(-4 * z, skelTorsoY + 9 * z);
+          ctx.lineTo(3.5 * z, skelTorsoY + 9 * z);
+          ctx.lineTo(2 * z, skelTorsoY + 12 * z);
+          ctx.lineTo(-2 * z, skelTorsoY + 12 * z);
+          ctx.closePath();
+          ctx.fill();
+
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
+          ctx.beginPath();
+          ctx.ellipse(0, skelTorsoY + 4 * z, 4.8 * z, 5.2 * z, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          for (let r = 0; r < 4; r++) {
+            const ry = skelTorsoY + (1.5 + r * 1.8) * z;
+            const rw = (5.2 - r * 0.35) * z;
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineWidth = 1.5 * z;
+            ctx.beginPath();
+            ctx.arc(-1.2 * z, ry, rw * 0.5, Math.PI * 0.55, Math.PI * 1.3, false);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(0.8 * z, ry, rw * 0.45, -Math.PI * 0.3, Math.PI * 0.45, false);
+            ctx.stroke();
+          }
+
+          // Dorsal Spine & Scapulae
+          for (let s = 0; s < 5; s++) {
+            ctx.fillStyle = s % 2 === 0 ? '#f8fafc' : '#cbd5e1';
+            ctx.fillRect(-2 * z, skelTorsoY + (s * 2.2) * z, 2.6 * z, 1.7 * z);
+          }
+          ctx.fillStyle = '#cbd5e1';
+          ctx.beginPath();
+          ctx.moveTo(-4.2 * z, skelTorsoY + 1 * z);
+          ctx.lineTo(-1.5 * z, skelTorsoY + 2 * z);
+          ctx.lineTo(-3.5 * z, skelTorsoY + 6 * z);
+          ctx.closePath();
+          ctx.fill();
+          ctx.beginPath();
+          ctx.moveTo(1.5 * z, skelTorsoY + 1 * z);
+          ctx.lineTo(4.2 * z, skelTorsoY + 2 * z);
+          ctx.lineTo(2.5 * z, skelTorsoY + 6 * z);
+          ctx.closePath();
+          ctx.fill();
+
+          // 3/4 Back Skull with Cranial Sutures & Peeking Cheek/Eye Glow
+          ctx.fillStyle = '#94a3b8';
+          ctx.fillRect(2.5 * z, skullY + 3.2 * z, 3.2 * z, 2.5 * z);
+          ctx.fillStyle = `rgba(239, 68, 68, ${flamePulse * 0.85})`;
+          ctx.beginPath();
+          ctx.arc(5.4 * z, skullY - 0.3 * z, 1.4 * z, 0, Math.PI * 2);
+          ctx.fill();
+
+          const skullGrad = ctx.createRadialGradient(-1.5 * z, skullY - 1.5 * z, 1 * z, 0, skullY, 7 * z);
+          skullGrad.addColorStop(0, '#f8fafc');
+          skullGrad.addColorStop(0.65, '#cbd5e1');
+          skullGrad.addColorStop(1, '#64748b');
+          ctx.fillStyle = skullGrad;
+          ctx.beginPath();
+          ctx.arc(0, skullY, 6.3 * z, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.strokeStyle = '#475569';
+          ctx.lineWidth = 0.8 * z;
+          ctx.beginPath();
+          ctx.moveTo(-1 * z, skullY - 5 * z); ctx.lineTo(-1 * z, skullY + 1 * z);
+          ctx.moveTo(-3.5 * z, skullY - 2 * z); ctx.lineTo(2 * z, skullY - 2 * z);
+          ctx.stroke();
+
+          // Near Back Arm & Shield in foreground
+          ctx.save();
+          ctx.translate(-5.5 * z, -19 * z - skelBob);
+          ctx.rotate(-0.15 + skelWalk * 0.2);
+          ctx.fillStyle = '#cbd5e1';
+          ctx.fillRect(-1 * z, 0, 2 * z, 7 * z);
+          ctx.translate(-1.5 * z, 6 * z);
+          ctx.beginPath();
+          ctx.ellipse(0, 0, 6.5 * z, 10.5 * z, -0.2, 0, Math.PI * 2);
+          ctx.fillStyle = '#334155';
+          ctx.fill();
+          ctx.beginPath();
+          ctx.ellipse(0, 0, 4.5 * z, 8.5 * z, -0.2, 0, Math.PI * 2);
+          ctx.fillStyle = '#78350f';
+          ctx.fill();
+          ctx.restore();
+
+        } else if (isPureSide) {
+          // --- SKELETON: E / W (PURE SIDE PROFILE) ---
+          // Far Arm & Shield (in profile at front edge)
+          ctx.save();
+          ctx.translate(3.5 * z, -19 * z - skelBob);
+          ctx.beginPath();
+          ctx.ellipse(2 * z, 5 * z, 3.2 * z, 10 * z, 0.1, 0, Math.PI * 2);
+          ctx.fillStyle = '#334155';
+          ctx.fill();
+          ctx.beginPath();
+          ctx.ellipse(2.8 * z, 5 * z, 1.8 * z, 8 * z, 0.1, 0, Math.PI * 2);
+          ctx.fillStyle = '#78350f';
+          ctx.fill();
+          ctx.restore();
+
+          // Far Leg & Near Leg (striding in profile)
+          [[-1 * z, -skelWalk * 0.4, '#94a3b8'], [1 * z, skelWalk * 0.4, '#e2e8f0']].forEach(([lx, lrot, col]) => {
+            ctx.save();
+            ctx.translate(lx, -10 * z);
+            ctx.rotate(lrot);
+            ctx.fillStyle = col;
+            ctx.fillRect(-1.1 * z, 0, 2.2 * z, 6 * z);
+            ctx.beginPath();
+            ctx.arc(0, 6 * z, 1.8 * z, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillRect(-1.1 * z, 6 * z, 2.2 * z, 5 * z);
+            ctx.fillStyle = '#f8fafc';
+            ctx.fillRect(-0.5 * z, 10 * z, 4 * z, 1.8 * z);
+            ctx.restore();
+          });
+
+          // Profile Pelvis
+          ctx.fillStyle = '#94a3b8';
+          ctx.beginPath();
+          ctx.ellipse(0, skelTorsoY + 10.5 * z, 3.2 * z, 2 * z, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Dark ribcage interior & Curved Dorsal Spine + Profile Ribs
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
+          ctx.beginPath();
+          ctx.ellipse(0.5 * z, skelTorsoY + 4.5 * z, 3.8 * z, 5 * z, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          for (let s = 0; s < 5; s++) {
+            ctx.fillStyle = s % 2 === 0 ? '#f8fafc' : '#cbd5e1';
+            ctx.fillRect(-3.2 * z, skelTorsoY + (s * 2.1) * z, 2.2 * z, 1.6 * z);
+          }
+
+          for (let r = 0; r < 4; r++) {
+            const ry = skelTorsoY + (1.5 + r * 1.9) * z;
+            ctx.strokeStyle = '#f8fafc';
+            ctx.lineWidth = 1.5 * z;
+            ctx.beginPath();
+            ctx.moveTo(-2.2 * z, ry);
+            ctx.quadraticCurveTo(2 * z, ry - 0.6 * z, (4.2 - r * 0.35) * z, ry + 0.8 * z);
+            ctx.stroke();
+          }
+
+          // Profile Skull & Protruding Jaw
+          ctx.fillStyle = '#cbd5e1';
+          ctx.fillRect(1 * z, skullY + 3.5 * z, 4.8 * z, 3.2 * z);
+          ctx.fillStyle = '#1e293b';
+          for (let t = 0; t < 3; t++) {
+            ctx.fillRect((2 + t * 1.2) * z, skullY + 4.2 * z, 0.6 * z, 2.2 * z);
+          }
+
+          const skullGrad = ctx.createRadialGradient(0.5 * z, skullY - 1.5 * z, 1 * z, -0.5 * z, skullY, 6.5 * z);
+          skullGrad.addColorStop(0, '#ffffff');
+          skullGrad.addColorStop(0.55, '#f1f5f9');
+          skullGrad.addColorStop(1, '#64748b');
+          ctx.fillStyle = skullGrad;
+          ctx.beginPath();
+          ctx.ellipse(-0.3 * z, skullY, 5.8 * z, 6.2 * z, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Profile Soul Flame Eye Socket
+          const ex = 3.2 * z;
+          ctx.beginPath();
+          ctx.ellipse(ex, skullY, 1.8 * z, 2.2 * z, 0, 0, Math.PI * 2);
+          ctx.fillStyle = '#090d16';
+          ctx.fill();
+          ctx.fillStyle = `rgba(239, 68, 68, ${flamePulse})`;
+          ctx.beginPath();
+          ctx.arc(ex + 0.2 * z, skullY - 0.3 * z, 1.6 * z, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath();
+          ctx.arc(ex + 0.4 * z, skullY - 0.5 * z, 0.7 * z, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Near Arm & Broadsword
+          ctx.save();
+          ctx.translate(0.5 * z, skelTorsoY + 1.5 * z);
+          ctx.rotate(0.25 + Math.sin(time * 5) * 0.1);
+          ctx.fillStyle = '#e2e8f0';
+          ctx.fillRect(-1.1 * z, 0, 2.2 * z, 7 * z);
+          ctx.translate(0, 7 * z);
+          ctx.rotate(-0.85);
+          ctx.fillStyle = '#f1f5f9';
+          ctx.fillRect(-1.5 * z, -20 * z, 3 * z, 20 * z);
+          ctx.fillStyle = '#475569';
+          ctx.fillRect(-4 * z, -1 * z, 8 * z, 2 * z);
           ctx.restore();
 
         } else {
-          // --- SKELETON: SE (3/4 FRONT), E (SIDE), NE (3/4 BACK) ---
-          const isQuarterBackView = isQuarterBack;
-
+          // --- SKELETON: SE / SW (3/4 FRONT) ---
           // Back Arm & Shield
           ctx.save();
           ctx.translate(-6 * z, -19 * z - skelBob);
@@ -11754,40 +12902,60 @@ class IsometricRenderer {
           ctx.fill();
           ctx.restore();
 
-          // Legs
-          ctx.save();
-          ctx.translate(-3 * z, -10 * z);
-          ctx.rotate(-skelWalk * 0.35);
+          // Legs with Knee Joints & Skeletal Feet
+          [[-3 * z, -skelWalk * 0.35, '#94a3b8'], [3 * z, skelWalk * 0.35, '#e2e8f0']].forEach(([lx, lrot, col]) => {
+            ctx.save();
+            ctx.translate(lx, -10 * z);
+            ctx.rotate(lrot);
+            ctx.fillStyle = col;
+            ctx.fillRect(-1.2 * z, 0, 2.4 * z, 6 * z);
+            ctx.beginPath();
+            ctx.arc(0, 6 * z, 1.9 * z, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillRect(-1.1 * z, 6 * z, 2.2 * z, 5 * z);
+            ctx.fillStyle = '#f8fafc';
+            ctx.fillRect(-0.8 * z, 10 * z, 3.8 * z, 1.8 * z);
+            ctx.restore();
+          });
+
+          // 3/4 Pelvic Basin & Hollow Chest Cavity
           ctx.fillStyle = '#94a3b8';
-          ctx.fillRect(-1 * z, 0, 2 * z, 11 * z);
-          ctx.restore();
+          ctx.beginPath();
+          ctx.moveTo(-3.8 * z, skelTorsoY + 9 * z);
+          ctx.lineTo(4.2 * z, skelTorsoY + 9 * z);
+          ctx.lineTo(2.4 * z, skelTorsoY + 12 * z);
+          ctx.lineTo(-1.8 * z, skelTorsoY + 12 * z);
+          ctx.closePath();
+          ctx.fill();
 
-          ctx.save();
-          ctx.translate(3 * z, -10 * z);
-          ctx.rotate(skelWalk * 0.35);
-          ctx.fillStyle = '#e2e8f0';
-          ctx.fillRect(-1.2 * z, 0, 2.4 * z, 11 * z);
-          ctx.restore();
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+          ctx.beginPath();
+          ctx.ellipse(0.5 * z, skelTorsoY + 4 * z, 5 * z, 5.2 * z, 0, 0, Math.PI * 2);
+          ctx.fill();
 
-          // Spine & Ribs
+          // Spine & Both Left/Right 3/4 Ribs
           for (let s = 0; s < 4; s++) {
             ctx.fillStyle = s % 2 === 0 ? '#f8fafc' : '#cbd5e1';
-            ctx.fillRect(-1.2 * z, skelTorsoY + (s * 2.2) * z, 2.4 * z, 1.6 * z);
+            ctx.fillRect(-0.8 * z, skelTorsoY + (s * 2.2) * z, 2.4 * z, 1.6 * z);
           }
 
-          if (!isQuarterBackView) {
-            for (let r = 0; r < 4; r++) {
-              const ry = skelTorsoY + (1.5 + r * 1.8) * z;
-              ctx.strokeStyle = '#f8fafc';
-              ctx.lineWidth = 1.6 * z;
-              ctx.beginPath();
-              ctx.arc(1 * z, ry, (5.5 - r * 0.4) * z * 0.5, -Math.PI * 0.3, Math.PI * 0.4, false);
-              ctx.stroke();
-            }
+          for (let r = 0; r < 4; r++) {
+            const ry = skelTorsoY + (1.5 + r * 1.8) * z;
+            const rw = (5.6 - r * 0.4) * z;
+            ctx.strokeStyle = '#cbd5e1';
+            ctx.lineWidth = 1.5 * z;
+            ctx.beginPath();
+            ctx.arc(-0.8 * z, ry, rw * 0.45, Math.PI * 0.6, Math.PI * 1.3, false);
+            ctx.stroke();
+            ctx.strokeStyle = '#f8fafc';
+            ctx.lineWidth = 1.6 * z;
+            ctx.beginPath();
+            ctx.arc(1.2 * z, ry, rw * 0.52, -Math.PI * 0.3, Math.PI * 0.4, false);
+            ctx.stroke();
           }
 
-          // Skull
-          const skullGrad = ctx.createRadialGradient(-1.5 * z, skullY - 2 * z, 1 * z, 0, skullY, 7 * z);
+          // 3/4 Skull, Jaw & Both Soul Flame Eye Sockets
+          const skullGrad = ctx.createRadialGradient(-1 * z, skullY - 2 * z, 1 * z, 0, skullY, 7 * z);
           skullGrad.addColorStop(0, '#ffffff');
           skullGrad.addColorStop(0.5, '#f1f5f9');
           skullGrad.addColorStop(1, '#64748b');
@@ -11796,20 +12964,27 @@ class IsometricRenderer {
           ctx.arc(0, skullY, 6.5 * z, 0, Math.PI * 2);
           ctx.fill();
 
-          if (!isQuarterBackView) {
-            ctx.fillStyle = '#cbd5e1';
-            ctx.fillRect(isPureSide ? 0 : -2 * z, skullY + 4 * z, 5 * z, 3 * z);
-            // Eye socket
-            const ex = isPureSide ? 2.5 * z : 2 * z;
+          ctx.fillStyle = '#cbd5e1';
+          ctx.fillRect(-1.5 * z, skullY + 4 * z, 5.5 * z, 3 * z);
+          ctx.fillStyle = '#1e293b';
+          for (let t = -1; t <= 2; t++) {
+            ctx.fillRect((t * 1.2 + 0.5) * z, skullY + 4.5 * z, 0.6 * z, 2.4 * z);
+          }
+
+          [[-0.8 * z, 2.0 * z], [3.2 * z, 1.7 * z]].forEach(([ex, er]) => {
             ctx.beginPath();
-            ctx.arc(ex, skullY, 2.2 * z, 0, Math.PI * 2);
+            ctx.arc(ex, skullY, er, 0, Math.PI * 2);
             ctx.fillStyle = '#090d16';
             ctx.fill();
             ctx.fillStyle = `rgba(239, 68, 68, ${flamePulse})`;
             ctx.beginPath();
-            ctx.arc(ex, skullY - 0.5 * z, 1.8 * z, 0, Math.PI * 2);
+            ctx.arc(ex, skullY - 0.4 * z, er * 0.85, 0, Math.PI * 2);
             ctx.fill();
-          }
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(ex, skullY - 0.5 * z, er * 0.35, 0, Math.PI * 2);
+            ctx.fill();
+          });
 
           // Front Arm & Sword
           ctx.save();
@@ -11818,7 +12993,7 @@ class IsometricRenderer {
           ctx.fillStyle = '#e2e8f0';
           ctx.fillRect(-1 * z, 0, 2 * z, 7 * z);
           ctx.translate(0, 7 * z);
-          ctx.rotate(isQuarterBackView ? 0.4 : -0.8);
+          ctx.rotate(-0.8);
           ctx.fillStyle = '#f1f5f9';
           ctx.fillRect(-1.5 * z, -20 * z, 3 * z, 20 * z);
           ctx.fillStyle = '#475569';
@@ -11832,22 +13007,22 @@ class IsometricRenderer {
         // --- 8-AXIS 3D Megalithic Stone Golem Titan ---
         ctx.save();
         if (isWest) ctx.scale(-1, 1);
-        if (isPureSide) ctx.scale(0.74, 1); // seen side-on the body is narrower than at three-quarters
 
         const golemBreath = Math.sin(time * 3 + (mob.x || 0)) * 1.5 * z;
+        const golemWalk = Math.sin(time * 4 + (mob.x || 0));
         const corePulse = Math.sin(time * 6) * 0.35 + 0.65;
         const golemTorsoY = -48 * z + golemBreath;
         const headY = golemTorsoY - 14 * z;
         const coreY = golemTorsoY + 14 * z;
 
-        // Pillar Stone Legs
-        ctx.fillStyle = '#1e293b';
-        ctx.fillRect(-16 * z, -20 * z, 12 * z, 18 * z);
-        ctx.fillStyle = '#334155';
-        ctx.fillRect(4 * z, -20 * z, 12 * z, 18 * z);
-
         if (isPureFront) {
           // --- GOLEM: SOUTH (PURE FRONTAL) ---
+          // Pillar Stone Legs
+          ctx.fillStyle = '#1e293b';
+          ctx.fillRect(-16 * z, (-20 + golemWalk * 1.5) * z, 12 * z, 18 * z);
+          ctx.fillStyle = '#334155';
+          ctx.fillRect(4 * z, (-20 - golemWalk * 1.5) * z, 12 * z, 18 * z);
+
           // Torso
           const stoneGrad = ctx.createLinearGradient(0, golemTorsoY, 0, golemTorsoY + 28 * z);
           stoneGrad.addColorStop(0, '#64748b');
@@ -11891,6 +13066,7 @@ class IsometricRenderer {
             ctx.arc(px, golemTorsoY + 4 * z, 9 * z, 0, Math.PI * 2);
             ctx.fill();
             ctx.fillStyle = '#334155';
+            ctx.beginPath();
             drawRoundRect(ctx, px - 5 * z, golemTorsoY + 14 * z, 10 * z, 16 * z, 3 * z);
             ctx.fill();
           });
@@ -11906,6 +13082,10 @@ class IsometricRenderer {
 
         } else if (isPureBack) {
           // --- GOLEM: NORTH (PURE BACK) ---
+          ctx.fillStyle = '#1e293b';
+          ctx.fillRect(-16 * z, (-20 - golemWalk * 1.5) * z, 12 * z, 18 * z);
+          ctx.fillRect(4 * z, (-20 + golemWalk * 1.5) * z, 12 * z, 18 * z);
+
           // Monolithic Stone Back Slabs with Runic Fissures (No Front Core)
           ctx.fillStyle = '#334155';
           ctx.beginPath();
@@ -11916,20 +13096,26 @@ class IsometricRenderer {
           ctx.stroke();
 
           // Vertical Dorsal Energy Exhaust Vent
-          ctx.strokeStyle = `rgba(34, 211, 238, ${corePulse * 0.8})`;
+          ctx.strokeStyle = `rgba(34, 211, 238, ${corePulse * 0.85})`;
           ctx.lineWidth = 2.5 * z;
           ctx.beginPath();
           ctx.moveTo(0, golemTorsoY + 4 * z);
           ctx.lineTo(0, golemTorsoY + 24 * z);
-          ctx.moveTo(-5 * z, golemTorsoY + 10 * z);
-          ctx.lineTo(5 * z, golemTorsoY + 18 * z);
+          ctx.moveTo(-8 * z, golemTorsoY + 8 * z);
+          ctx.lineTo(8 * z, golemTorsoY + 20 * z);
+          ctx.moveTo(8 * z, golemTorsoY + 8 * z);
+          ctx.lineTo(-8 * z, golemTorsoY + 20 * z);
           ctx.stroke();
 
-          // Boulder shoulders behind
-          [[-24 * z, -1], [24 * z, 1]].forEach(([px, side]) => {
+          // Boulder shoulders & stone fists behind
+          [[-24 * z, -1], [24 * z, 1]].forEach(([px]) => {
             ctx.fillStyle = '#334155';
             ctx.beginPath();
             ctx.arc(px, golemTorsoY + 4 * z, 9 * z, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#1e293b';
+            ctx.beginPath();
+            drawRoundRect(ctx, px - 5 * z, golemTorsoY + 14 * z, 10 * z, 16 * z, 3 * z);
             ctx.fill();
           });
 
@@ -11939,41 +13125,212 @@ class IsometricRenderer {
           ctx.fillStyle = '#475569';
           ctx.fillRect(-8 * z, headY + 2 * z, 16 * z, 4 * z);
 
-        } else {
-          // --- GOLEM: SE, E, NE ---
-          const stoneGrad = ctx.createLinearGradient(-22 * z, golemTorsoY, 22 * z, golemTorsoY + 26 * z);
+        } else if (isQuarterBack) {
+          // --- GOLEM: NE / NW (3/4 BACK) ---
+          // Far Stone Arm & Fist (behind torso on right)
+          ctx.fillStyle = '#475569';
+          ctx.beginPath();
+          ctx.arc(21 * z, golemTorsoY + 4 * z, 8 * z, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#1e293b';
+          ctx.beginPath();
+          drawRoundRect(ctx, 16 * z, golemTorsoY + 13 * z, 9.5 * z, 15 * z, 3 * z);
+          ctx.fill();
+
+          // Pillar Stone Legs
+          ctx.fillStyle = '#0f172a';
+          ctx.fillRect(3 * z, (-20 - golemWalk * 1.5) * z, 11 * z, 18 * z);
+          ctx.fillStyle = '#1e293b';
+          ctx.fillRect(-14 * z, (-20 + golemWalk * 1.5) * z, 11 * z, 18 * z);
+
+          // 3/4 Dorsal Stone Torso
+          const stoneGrad = ctx.createLinearGradient(-20 * z, golemTorsoY, 20 * z, golemTorsoY + 28 * z);
+          stoneGrad.addColorStop(0, '#475569');
+          stoneGrad.addColorStop(0.6, '#334155');
+          stoneGrad.addColorStop(1, '#1e293b');
+          ctx.fillStyle = stoneGrad;
+          ctx.beginPath();
+          drawRoundRect(ctx, -20 * z, golemTorsoY, 40 * z, 28 * z, 5 * z);
+          ctx.fill();
+          ctx.strokeStyle = '#1e293b';
+          ctx.lineWidth = 2 * z;
+          ctx.stroke();
+
+          // Dorsal Runic Exhaust Vent & Fissures (shifted 3/4)
+          ctx.strokeStyle = `rgba(34, 211, 238, ${corePulse * 0.85})`;
+          ctx.lineWidth = 2.2 * z;
+          ctx.beginPath();
+          ctx.moveTo(-3 * z, golemTorsoY + 4 * z);
+          ctx.lineTo(-3 * z, golemTorsoY + 24 * z);
+          ctx.moveTo(-11 * z, golemTorsoY + 9 * z);
+          ctx.lineTo(5 * z, golemTorsoY + 19 * z);
+          ctx.moveTo(5 * z, golemTorsoY + 9 * z);
+          ctx.lineTo(-11 * z, golemTorsoY + 19 * z);
+          ctx.stroke();
+
+          // 3/4 Back Helm with granite plates & peeking side visor glow
+          ctx.fillStyle = '#334155';
+          ctx.fillRect(-11 * z, headY, 22 * z, 14 * z);
+          ctx.fillStyle = '#475569';
+          ctx.fillRect(-8 * z, headY + 2 * z, 14 * z, 4 * z);
+          ctx.fillStyle = '#22d3ee';
+          ctx.fillRect(8.5 * z, headY + 5.5 * z, 2.5 * z, 3 * z);
+
+          // Near Stone Shoulder & Massive Forearm/Fist in foreground
+          ctx.fillStyle = '#64748b';
+          ctx.beginPath();
+          ctx.arc(-21 * z, golemTorsoY + 5 * z, 8.5 * z, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#334155';
+          ctx.beginPath();
+          drawRoundRect(ctx, -26 * z, golemTorsoY + 14 * z, 10 * z, 16 * z, 3 * z);
+          ctx.fill();
+
+        } else if (isPureSide) {
+          // --- GOLEM: E / W (PURE SIDE PROFILE) ---
+          // Far Stone Arm & Fist (ahead of torso)
+          ctx.fillStyle = '#334155';
+          ctx.beginPath();
+          drawRoundRect(ctx, 8 * z, golemTorsoY + 12 * z, 9 * z, 15 * z, 3 * z);
+          ctx.fill();
+
+          // Striding Stone Pillar Legs in profile
+          ctx.fillStyle = '#0f172a';
+          ctx.fillRect((-4 - golemWalk * 3) * z, -20 * z, 10 * z, 18 * z);
+          ctx.fillStyle = '#334155';
+          ctx.fillRect((-2 + golemWalk * 3) * z, -20 * z, 11 * z, 18 * z);
+
+          // Narrower Profile Megalithic Torso
+          const stoneGrad = ctx.createLinearGradient(-14 * z, golemTorsoY, 14 * z, golemTorsoY + 26 * z);
           stoneGrad.addColorStop(0, '#64748b');
           stoneGrad.addColorStop(0.5, '#475569');
           stoneGrad.addColorStop(1, '#334155');
           ctx.fillStyle = stoneGrad;
           ctx.beginPath();
-          drawRoundRect(ctx, -22 * z, golemTorsoY, 44 * z, 28 * z, 5 * z);
+          drawRoundRect(ctx, -14 * z, golemTorsoY, 28 * z, 28 * z, 5 * z);
+          ctx.fill();
+          ctx.strokeStyle = '#1e293b';
+          ctx.lineWidth = 2 * z;
+          ctx.stroke();
+
+          // Side Energy Fissures
+          ctx.strokeStyle = `rgba(34, 211, 238, ${corePulse})`;
+          ctx.lineWidth = 2 * z;
+          ctx.beginPath();
+          ctx.moveTo(2 * z, golemTorsoY + 5 * z);
+          ctx.lineTo(8 * z, golemTorsoY + 12 * z);
+          ctx.lineTo(4 * z, golemTorsoY + 23 * z);
+          ctx.stroke();
+
+          // Protruding Front Power Core on Chest Edge
+          ctx.beginPath();
+          ctx.ellipse(11 * z, coreY, 4.5 * z, 7.5 * z, 0, 0, Math.PI * 2);
+          ctx.fillStyle = '#0f172a';
+          ctx.fill();
+          const coreGrad = ctx.createRadialGradient(12 * z, coreY, 0.8 * z, 11 * z, coreY, 7 * z);
+          coreGrad.addColorStop(0, '#ffffff');
+          coreGrad.addColorStop(0.35, '#67e8f9');
+          coreGrad.addColorStop(0.75, `rgba(6, 182, 212, ${corePulse})`);
+          coreGrad.addColorStop(1, 'rgba(6, 182, 212, 0)');
+          ctx.fillStyle = coreGrad;
+          ctx.beginPath();
+          ctx.ellipse(11.5 * z, coreY, 4.2 * z, 7 * z, 0, 0, Math.PI * 2);
           ctx.fill();
 
-          if (!isQuarterBack) {
-            // Core visible on front angles
-            const cX = isPureSide ? 8 * z : 4 * z;
-            ctx.beginPath();
-            ctx.arc(cX, coreY, 8 * z, 0, Math.PI * 2);
-            ctx.fillStyle = `rgba(6, 182, 212, ${corePulse})`;
-            ctx.fill();
-          }
-
-          // Boulder shoulders
-          [[-24 * z, -1], [24 * z, 1]].forEach(([px, side]) => {
-            ctx.fillStyle = side === -1 ? '#475569' : '#64748b';
-            ctx.beginPath();
-            ctx.arc(px, golemTorsoY + 4 * z, 8 * z, 0, Math.PI * 2);
-            ctx.fill();
-          });
-
-          // Helm
+          // Profile Helm & Front Visor Eye
           ctx.fillStyle = '#334155';
-          ctx.fillRect(-12 * z, headY, 24 * z, 14 * z);
-          if (!isQuarterBack) {
-            ctx.fillStyle = '#22d3ee';
-            ctx.fillRect(isPureSide ? 3 * z : 0, headY + 5.5 * z, 4 * z, 3 * z);
-          }
+          ctx.fillRect(-9 * z, headY, 18 * z, 14 * z);
+          ctx.fillStyle = '#090d16';
+          ctx.fillRect(2 * z, headY + 5 * z, 7 * z, 4 * z);
+          ctx.fillStyle = '#22d3ee';
+          ctx.fillRect(3.5 * z, headY + 5.5 * z, 4.5 * z, 3 * z);
+
+          // Near Boulder Shoulder & Massive Stone Forearm/Fist in foreground
+          ctx.fillStyle = '#64748b';
+          ctx.beginPath();
+          ctx.arc(-2 * z, golemTorsoY + 5 * z, 8.5 * z, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#475569';
+          ctx.beginPath();
+          drawRoundRect(ctx, -7 * z, golemTorsoY + 14 * z, 10 * z, 16 * z, 3 * z);
+          ctx.fill();
+          ctx.strokeStyle = '#1e293b';
+          ctx.lineWidth = 1.5 * z;
+          ctx.stroke();
+
+        } else {
+          // --- GOLEM: SE / SW (3/4 FRONT) ---
+          // Far Shoulder & Fist
+          ctx.fillStyle = '#475569';
+          ctx.beginPath();
+          ctx.arc(21 * z, golemTorsoY + 4 * z, 8 * z, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#1e293b';
+          ctx.beginPath();
+          drawRoundRect(ctx, 16 * z, golemTorsoY + 14 * z, 9.5 * z, 15.5 * z, 3 * z);
+          ctx.fill();
+
+          // Pillar Stone Legs
+          ctx.fillStyle = '#1e293b';
+          ctx.fillRect(-14 * z, (-20 + golemWalk * 1.5) * z, 11 * z, 18 * z);
+          ctx.fillStyle = '#334155';
+          ctx.fillRect(4 * z, (-20 - golemWalk * 1.5) * z, 11 * z, 18 * z);
+
+          // 3/4 Torso
+          const stoneGrad = ctx.createLinearGradient(-20 * z, golemTorsoY, 20 * z, golemTorsoY + 26 * z);
+          stoneGrad.addColorStop(0, '#64748b');
+          stoneGrad.addColorStop(0.5, '#475569');
+          stoneGrad.addColorStop(1, '#334155');
+          ctx.fillStyle = stoneGrad;
+          ctx.beginPath();
+          drawRoundRect(ctx, -20 * z, golemTorsoY, 40 * z, 28 * z, 5 * z);
+          ctx.fill();
+          ctx.strokeStyle = '#1e293b';
+          ctx.lineWidth = 2 * z;
+          ctx.stroke();
+
+          // 3/4 Energy Fissures
+          ctx.strokeStyle = `rgba(34, 211, 238, ${corePulse})`;
+          ctx.lineWidth = 2 * z;
+          ctx.beginPath();
+          ctx.moveTo(-9 * z, golemTorsoY + 5 * z); ctx.lineTo(-2 * z, golemTorsoY + 12 * z); ctx.lineTo(-6 * z, golemTorsoY + 22 * z);
+          ctx.moveTo(15 * z, golemTorsoY + 5 * z); ctx.lineTo(10 * z, golemTorsoY + 12 * z); ctx.lineTo(13 * z, golemTorsoY + 22 * z);
+          ctx.stroke();
+
+          // 3/4 Power Core shifted right
+          const cX = 4.5 * z;
+          ctx.beginPath();
+          ctx.arc(cX, coreY, 8.5 * z, 0, Math.PI * 2);
+          ctx.fillStyle = '#0f172a';
+          ctx.fill();
+          const coreGrad = ctx.createRadialGradient(cX, coreY, 1 * z, cX, coreY, 8 * z);
+          coreGrad.addColorStop(0, '#ffffff');
+          coreGrad.addColorStop(0.3, '#67e8f9');
+          coreGrad.addColorStop(0.7, `rgba(6, 182, 212, ${corePulse})`);
+          coreGrad.addColorStop(1, 'rgba(6, 182, 212, 0)');
+          ctx.fillStyle = coreGrad;
+          ctx.beginPath();
+          ctx.arc(cX, coreY, 8 * z, 0, Math.PI * 2);
+          ctx.fill();
+
+          // 3/4 Helm with Dark Visor Slot & Both Cyan Eyes
+          ctx.fillStyle = '#334155';
+          ctx.fillRect(-11 * z, headY, 22 * z, 14 * z);
+          ctx.fillStyle = '#090d16';
+          ctx.fillRect(-5 * z, headY + 5 * z, 15 * z, 4 * z);
+          ctx.fillStyle = '#22d3ee';
+          ctx.fillRect(-3.5 * z, headY + 5.5 * z, 4 * z, 3 * z);
+          ctx.fillRect(4.5 * z, headY + 5.5 * z, 3.8 * z, 3 * z);
+
+          // Near Shoulder & Massive Fist
+          ctx.fillStyle = '#64748b';
+          ctx.beginPath();
+          ctx.arc(-21 * z, golemTorsoY + 4 * z, 8.5 * z, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#334155';
+          ctx.beginPath();
+          drawRoundRect(ctx, -26 * z, golemTorsoY + 14 * z, 10 * z, 16 * z, 3 * z);
+          ctx.fill();
         }
 
         ctx.restore();
@@ -11989,6 +13346,16 @@ class IsometricRenderer {
 
         if (isPureFront) {
           // --- FROST WOLF: SOUTH (PURE FRONTAL) ---
+          // Hind legs peeking behind
+          [[-6.5 * z, -wolfRun * 0.3], [6.5 * z, wolfRun * 0.3]].forEach(([lx, lrot]) => {
+            ctx.save();
+            ctx.translate(lx, -10 * z);
+            ctx.rotate(lrot);
+            ctx.fillStyle = '#94a3b8';
+            ctx.fillRect(-1.8 * z, 0, 3.6 * z, 9 * z);
+            ctx.restore();
+          });
+
           // Forelegs stepping toward camera
           [[-4 * z, wolfRun * 0.45], [4 * z, -wolfRun * 0.45]].forEach(([lx, lrot]) => {
             ctx.save();
@@ -11996,6 +13363,10 @@ class IsometricRenderer {
             ctx.rotate(lrot);
             ctx.fillStyle = '#e2e8f0';
             ctx.fillRect(-2 * z, 0, 4 * z, 10 * z);
+            ctx.fillStyle = '#f8fafc';
+            ctx.beginPath();
+            ctx.ellipse(0, 9.5 * z, 2.5 * z, 1.4 * z, 0, 0, Math.PI * 2);
+            ctx.fill();
             ctx.restore();
           });
 
@@ -12054,28 +13425,15 @@ class IsometricRenderer {
 
         } else if (isPureBack) {
           // --- FROST WOLF: NORTH (PURE BACK) ---
-          // Bushy animated tail waving in foreground
-          const tailWag = Math.sin(time * 7) * 3 * z;
-          ctx.save();
-          ctx.translate(0, wolfY + 4 * z);
-          ctx.rotate(tailWag * 0.08);
-          ctx.strokeStyle = '#0284c7';
-          ctx.lineWidth = 6 * z;
-          ctx.beginPath();
-          ctx.moveTo(0, 0); ctx.lineTo(tailWag * 1.5, -12 * z);
-          ctx.stroke();
-          ctx.strokeStyle = '#f8fafc';
-          ctx.lineWidth = 4 * z;
-          ctx.beginPath();
-          ctx.moveTo(0, -1 * z); ctx.lineTo(tailWag * 1.2, -11 * z);
-          ctx.stroke();
-          ctx.restore();
-
-          // Hindquarters
-          ctx.fillStyle = '#cbd5e1';
-          ctx.beginPath();
-          ctx.ellipse(0, wolfY + 2 * z, 10 * z, 8 * z, 0, 0, Math.PI * 2);
-          ctx.fill();
+          // Forelegs & Hind legs running away
+          [[-6 * z, wolfRun * 0.35, '#64748b'], [6 * z, -wolfRun * 0.35, '#64748b'], [-3.8 * z, -wolfRun * 0.45, '#94a3b8'], [3.8 * z, wolfRun * 0.45, '#94a3b8']].forEach(([lx, lrot, col]) => {
+            ctx.save();
+            ctx.translate(lx, -9.5 * z);
+            ctx.rotate(lrot);
+            ctx.fillStyle = col;
+            ctx.fillRect(-1.8 * z, 0, 3.6 * z, 9.5 * z);
+            ctx.restore();
+          });
 
           // Back of head with perked ears pointing away
           const hY = wolfY - 4 * z;
@@ -12093,90 +13451,299 @@ class IsometricRenderer {
             ctx.fill();
           });
 
-        } else {
-          // --- FROST WOLF: SE (3/4 FRONT), E (SIDE), NE (3/4 BACK) ---
-          const isQuarterBackView = isQuarterBack;
-
-          // Legs
-          ctx.save();
-          ctx.translate(-11 * z, -9 * z);
-          ctx.rotate(wolfRun * 0.45);
-          ctx.fillStyle = '#64748b';
-          ctx.fillRect(-2 * z, 0, 4 * z, 10 * z);
-          ctx.restore();
-
-          ctx.save();
-          ctx.translate(6 * z, -9 * z);
-          ctx.rotate(-wolfRun * 0.45);
-          ctx.fillStyle = '#e2e8f0';
-          ctx.fillRect(-1.8 * z, 0, 3.6 * z, 10 * z);
-          ctx.restore();
-
-          // Torso
-          ctx.fillStyle = '#e2e8f0';
+          // Dorsal Glacial Mane & Hindquarters
+          ctx.fillStyle = '#0284c7';
           ctx.beginPath();
-          drawRoundRect(ctx, -12 * z, wolfY, 22 * z, 11 * z, 5 * z);
+          ctx.ellipse(0, wolfY - 1 * z, 10.5 * z, 7.5 * z, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#cbd5e1';
+          ctx.beginPath();
+          ctx.ellipse(0, wolfY + 2.5 * z, 9.5 * z, 7.5 * z, 0, 0, Math.PI * 2);
           ctx.fill();
 
-          // Mane
+          // Bushy animated tail waving in foreground
+          const tailWag = Math.sin(time * 7) * 3 * z;
+          ctx.save();
+          ctx.translate(0, wolfY + 4 * z);
+          ctx.rotate(tailWag * 0.08);
+          ctx.strokeStyle = '#0284c7';
+          ctx.lineWidth = 6 * z;
+          ctx.beginPath();
+          ctx.moveTo(0, 0); ctx.lineTo(tailWag * 1.5, -12 * z);
+          ctx.stroke();
+          ctx.strokeStyle = '#f8fafc';
+          ctx.lineWidth = 4 * z;
+          ctx.beginPath();
+          ctx.moveTo(0, -1 * z); ctx.lineTo(tailWag * 1.2, -11 * z);
+          ctx.stroke();
+          ctx.restore();
+
+        } else if (isQuarterBack) {
+          // --- FROST WOLF: NE / NW (3/4 BACK) ---
+          // Forelegs stepping forward-away & Hind legs in foreground
+          [[5 * z, -wolfRun * 0.4, '#64748b'], [8.5 * z, wolfRun * 0.4, '#94a3b8'], [-4 * z, wolfRun * 0.45, '#94a3b8'], [-8.5 * z, -wolfRun * 0.45, '#cbd5e1']].forEach(([lx, lrot, col]) => {
+            ctx.save();
+            ctx.translate(lx, -9.5 * z);
+            ctx.rotate(lrot);
+            ctx.fillStyle = col;
+            ctx.fillRect(-1.8 * z, 0, 3.6 * z, 9.5 * z);
+            ctx.restore();
+          });
+
+          // 3/4 Back Torso & Dorsal Glacial Mane
+          ctx.fillStyle = '#cbd5e1';
+          ctx.beginPath();
+          drawRoundRect(ctx, -10 * z, wolfY + 0.5 * z, 19 * z, 10.5 * z, 5 * z);
+          ctx.fill();
+
           ctx.fillStyle = '#0369a1';
           ctx.beginPath();
-          ctx.moveTo(-4 * z, wolfY - 6 * z);
-          ctx.lineTo(8 * z, wolfY - 8 * z);
-          ctx.lineTo(12 * z, wolfY + 6 * z);
-          ctx.lineTo(2 * z, wolfY + 4 * z);
+          ctx.moveTo(-2 * z, wolfY - 5 * z);
+          ctx.lineTo(8 * z, wolfY - 7 * z);
+          ctx.lineTo(10 * z, wolfY + 4 * z);
+          ctx.lineTo(-1 * z, wolfY + 3 * z);
           ctx.closePath();
           ctx.fill();
           ctx.fillStyle = '#38bdf8';
           ctx.beginPath();
-          ctx.moveTo(-2 * z, wolfY - 5 * z);
-          ctx.lineTo(7 * z, wolfY - 6 * z);
-          ctx.lineTo(10 * z, wolfY + 3 * z);
-          ctx.lineTo(1 * z, wolfY + 2 * z);
+          ctx.moveTo(0, wolfY - 4 * z);
+          ctx.lineTo(7 * z, wolfY - 5.5 * z);
+          ctx.lineTo(8.5 * z, wolfY + 2 * z);
+          ctx.lineTo(1 * z, wolfY + 1.5 * z);
           ctx.closePath();
           ctx.fill();
 
-          // Head & Snout
-          const wolfHeadX = 11 * z;
-          const wolfHeadY = wolfY - 3 * z;
-          ctx.fillStyle = '#f8fafc';
+          // 3/4 Back Wolf Head with Peeking Snout Tip, Eye Glow & Both Pointed Ears
+          const wolfHeadX = 8.5 * z;
+          const wolfHeadY = wolfY - 3.5 * z;
+
+          // Peeking snout tip on far right
+          ctx.fillStyle = '#cbd5e1';
           ctx.beginPath();
-          ctx.ellipse(wolfHeadX, wolfHeadY, 6 * z, 5.5 * z, 0.1, 0, Math.PI * 2);
+          ctx.moveTo(wolfHeadX + 2 * z, wolfHeadY - 1 * z);
+          ctx.lineTo(wolfHeadX + 7.5 * z, wolfHeadY + 1 * z);
+          ctx.lineTo(wolfHeadX + 2 * z, wolfHeadY + 3 * z);
+          ctx.closePath();
+          ctx.fill();
+          ctx.fillStyle = '#06b6d4';
+          ctx.beginPath();
+          ctx.arc(wolfHeadX + 4.5 * z, wolfHeadY - 0.8 * z, 1.2 * z, 0, Math.PI * 2);
           ctx.fill();
 
-          if (!isQuarterBackView) {
-            ctx.fillStyle = '#e2e8f0';
-            ctx.beginPath();
-            ctx.moveTo(wolfHeadX + 2 * z, wolfHeadY - 2 * z);
-            ctx.lineTo(wolfHeadX + 9 * z, wolfHeadY + 1 * z);
-            ctx.lineTo(wolfHeadX + 2 * z, wolfHeadY + 4 * z);
-            ctx.closePath();
-            ctx.fill();
-            ctx.fillStyle = '#0f172a';
-            ctx.fillRect(wolfHeadX + 8 * z, wolfHeadY + 0.5 * z, 1.8 * z, 1.8 * z);
-            ctx.fillStyle = '#06b6d4';
-            ctx.beginPath();
-            ctx.ellipse(wolfHeadX + 3 * z, wolfHeadY - 1 * z, 2 * z, 1.3 * z, 0.2, 0, Math.PI * 2);
-            ctx.fill();
-          }
+          // Back of skull
+          ctx.fillStyle = '#cbd5e1';
+          ctx.beginPath();
+          ctx.ellipse(wolfHeadX, wolfHeadY, 5.8 * z, 5.2 * z, 0, 0, Math.PI * 2);
+          ctx.fill();
 
-          // Ears
+          // Far & Near Pointed Ears
+          ctx.fillStyle = '#0369a1';
+          ctx.beginPath();
+          ctx.moveTo(wolfHeadX + 1.5 * z, wolfHeadY - 3 * z);
+          ctx.lineTo(wolfHeadX + 5.5 * z, wolfHeadY - 10 * z);
+          ctx.lineTo(wolfHeadX + 4.5 * z, wolfHeadY - 2 * z);
+          ctx.closePath();
+          ctx.fill();
           ctx.fillStyle = '#0284c7';
           ctx.beginPath();
-          ctx.moveTo(wolfHeadX + 1 * z, wolfHeadY - 4 * z);
-          ctx.lineTo(wolfHeadX + 5 * z, wolfHeadY - 11 * z);
-          ctx.lineTo(wolfHeadX + 6 * z, wolfHeadY - 3 * z);
+          ctx.moveTo(wolfHeadX - 3 * z, wolfHeadY - 3 * z);
+          ctx.lineTo(wolfHeadX - 0.5 * z, wolfHeadY - 10.5 * z);
+          ctx.lineTo(wolfHeadX + 1 * z, wolfHeadY - 2.5 * z);
           ctx.closePath();
           ctx.fill();
 
-          // Tail
+          // Prominent Bushy Tail in near-back foreground
+          const tailWag = Math.sin(time * 7) * 2 * z;
           ctx.save();
-          ctx.translate(-12 * z, wolfY + 2 * z);
+          ctx.translate(-9.5 * z, wolfY + 2 * z);
+          ctx.rotate(-0.25 + tailWag * 0.04);
+          ctx.strokeStyle = '#0284c7';
+          ctx.lineWidth = 5.5 * z;
+          ctx.beginPath();
+          ctx.moveTo(0, 0); ctx.quadraticCurveTo(-5 * z, -5 * z, -11 * z, -3 * z + tailWag);
+          ctx.stroke();
+          ctx.strokeStyle = '#f8fafc';
+          ctx.lineWidth = 3.8 * z;
+          ctx.beginPath();
+          ctx.moveTo(0, 0); ctx.quadraticCurveTo(-5 * z, -4.5 * z, -10.5 * z, -2.5 * z + tailWag);
+          ctx.stroke();
+          ctx.restore();
+
+        } else if (isPureSide) {
+          // --- FROST WOLF: E / W (PURE SIDE PROFILE) ---
+          // 4 Quadruped Legs (Far pair darker, Near pair brighter)
+          [[-11.5 * z, -wolfRun * 0.45, '#64748b'], [4.5 * z, wolfRun * 0.45, '#94a3b8'], [-9.5 * z, wolfRun * 0.45, '#cbd5e1'], [7 * z, -wolfRun * 0.45, '#f8fafc']].forEach(([lx, lrot, col]) => {
+            ctx.save();
+            ctx.translate(lx, -9.5 * z);
+            ctx.rotate(lrot);
+            ctx.fillStyle = col;
+            ctx.fillRect(-1.8 * z, 0, 3.6 * z, 10 * z);
+            ctx.restore();
+          });
+
+          // Sleek Side Profile Torso
+          ctx.fillStyle = '#e2e8f0';
+          ctx.beginPath();
+          drawRoundRect(ctx, -13 * z, wolfY, 23 * z, 10.5 * z, 5 * z);
+          ctx.fill();
+
+          // Jagged Glacial Mane sweeping back from shoulders
+          ctx.fillStyle = '#0369a1';
+          ctx.beginPath();
+          ctx.moveTo(-5 * z, wolfY - 5.5 * z);
+          ctx.lineTo(8.5 * z, wolfY - 8 * z);
+          ctx.lineTo(12 * z, wolfY + 6 * z);
+          ctx.lineTo(1 * z, wolfY + 4 * z);
+          ctx.closePath();
+          ctx.fill();
+          ctx.fillStyle = '#38bdf8';
+          ctx.beginPath();
+          ctx.moveTo(-2.5 * z, wolfY - 4.5 * z);
+          ctx.lineTo(7.5 * z, wolfY - 6 * z);
+          ctx.lineTo(10 * z, wolfY + 3 * z);
+          ctx.lineTo(0.5 * z, wolfY + 2 * z);
+          ctx.closePath();
+          ctx.fill();
+
+          // Profile Wolf Head, Long Snout, Fang & Single Arctic Eye
+          const wolfHeadX = 11.5 * z;
+          const wolfHeadY = wolfY - 3 * z;
+          ctx.fillStyle = '#e2e8f0';
+          ctx.beginPath();
+          ctx.moveTo(wolfHeadX + 2 * z, wolfHeadY - 2 * z);
+          ctx.lineTo(wolfHeadX + 9.5 * z, wolfHeadY + 0.8 * z);
+          ctx.lineTo(wolfHeadX + 2 * z, wolfHeadY + 4 * z);
+          ctx.closePath();
+          ctx.fill();
+          ctx.fillStyle = '#0f172a';
+          ctx.fillRect(wolfHeadX + 8 * z, wolfHeadY + 0.2 * z, 1.8 * z, 1.8 * z);
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(wolfHeadX + 5.5 * z, wolfHeadY + 3 * z, 1.1 * z, 2 * z);
+
+          ctx.fillStyle = '#f8fafc';
+          ctx.beginPath();
+          ctx.ellipse(wolfHeadX, wolfHeadY, 5.8 * z, 5.2 * z, 0.1, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = '#06b6d4';
+          ctx.beginPath();
+          ctx.ellipse(wolfHeadX + 2.8 * z, wolfHeadY - 1 * z, 1.9 * z, 1.3 * z, 0.15, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(wolfHeadX + 3 * z, wolfHeadY - 1.5 * z, 0.9 * z, 0.9 * z);
+
+          // Profile Ear
+          ctx.fillStyle = '#0284c7';
+          ctx.beginPath();
+          ctx.moveTo(wolfHeadX - 0.5 * z, wolfHeadY - 3.5 * z);
+          ctx.lineTo(wolfHeadX + 3.5 * z, wolfHeadY - 11 * z);
+          ctx.lineTo(wolfHeadX + 4.5 * z, wolfHeadY - 3 * z);
+          ctx.closePath();
+          ctx.fill();
+
+          // Streaming Tail
+          ctx.save();
+          ctx.translate(-12.5 * z, wolfY + 2 * z);
+          ctx.rotate(-0.35);
+          ctx.strokeStyle = '#0284c7';
+          ctx.lineWidth = 5 * z;
+          ctx.beginPath();
+          ctx.moveTo(0, 0); ctx.quadraticCurveTo(-6 * z, -4 * z, -12 * z, -1 * z);
+          ctx.stroke();
+          ctx.strokeStyle = '#f8fafc';
+          ctx.lineWidth = 3.5 * z;
+          ctx.beginPath();
+          ctx.moveTo(0, 0); ctx.quadraticCurveTo(-6 * z, -3.5 * z, -11.5 * z, -0.8 * z);
+          ctx.stroke();
+          ctx.restore();
+
+        } else {
+          // --- FROST WOLF: SE / SW (3/4 FRONT) ---
+          // 4 Quadruped Legs in 3/4 Stance
+          [[-9.5 * z, wolfRun * 0.4, '#64748b'], [-6.5 * z, -wolfRun * 0.4, '#cbd5e1'], [3 * z, -wolfRun * 0.45, '#cbd5e1'], [6.5 * z, wolfRun * 0.45, '#f8fafc']].forEach(([lx, lrot, col]) => {
+            ctx.save();
+            ctx.translate(lx, -9.5 * z);
+            ctx.rotate(lrot);
+            ctx.fillStyle = col;
+            ctx.fillRect(-1.9 * z, 0, 3.8 * z, 10 * z);
+            ctx.restore();
+          });
+
+          // 3/4 Foreshortened Torso
+          ctx.fillStyle = '#e2e8f0';
+          ctx.beginPath();
+          drawRoundRect(ctx, -10.5 * z, wolfY, 19.5 * z, 11 * z, 5 * z);
+          ctx.fill();
+
+          // Layered Glacial Mane around Chest & Neck
+          ctx.fillStyle = '#0284c7';
+          ctx.beginPath();
+          ctx.ellipse(4 * z, wolfY + 1 * z, 9.5 * z, 8.5 * z, -0.15, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#38bdf8';
+          ctx.beginPath();
+          ctx.ellipse(4.5 * z, wolfY + 1 * z, 7.5 * z, 6.8 * z, -0.15, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#f8fafc';
+          ctx.beginPath();
+          ctx.ellipse(5 * z, wolfY + 1.5 * z, 5.2 * z, 4.8 * z, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          // 3/4 Wolf Head with Both Ears, 3/4 Snout, Fangs & Both Arctic Eyes
+          const wolfHeadX = 8 * z;
+          const wolfHeadY = wolfY - 3.5 * z;
+
+          // Far Ear & Near Ear
+          ctx.fillStyle = '#0369a1';
+          ctx.beginPath();
+          ctx.moveTo(wolfHeadX + 2.5 * z, wolfHeadY - 3 * z);
+          ctx.lineTo(wolfHeadX + 6.5 * z, wolfHeadY - 10 * z);
+          ctx.lineTo(wolfHeadX + 5 * z, wolfHeadY - 2.5 * z);
+          ctx.closePath();
+          ctx.fill();
+
+          ctx.fillStyle = '#f8fafc';
+          ctx.beginPath();
+          ctx.ellipse(wolfHeadX, wolfHeadY, 6.5 * z, 5.8 * z, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = '#0284c7';
+          ctx.beginPath();
+          ctx.moveTo(wolfHeadX - 4 * z, wolfHeadY - 3 * z);
+          ctx.lineTo(wolfHeadX - 2 * z, wolfHeadY - 10.5 * z);
+          ctx.lineTo(wolfHeadX + 0.5 * z, wolfHeadY - 3 * z);
+          ctx.closePath();
+          ctx.fill();
+
+          // 3/4 Snout, Nose & Fangs
+          ctx.fillStyle = '#e2e8f0';
+          ctx.beginPath();
+          ctx.ellipse(wolfHeadX + 3.8 * z, wolfHeadY + 2.2 * z, 4.2 * z, 2.8 * z, 0.1, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#0f172a';
+          ctx.fillRect(wolfHeadX + 5.8 * z, wolfHeadY + 1 * z, 2 * z, 1.8 * z);
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(wolfHeadX + 2.5 * z, wolfHeadY + 3.5 * z, 1 * z, 2 * z);
+          ctx.fillRect(wolfHeadX + 5.5 * z, wolfHeadY + 3.5 * z, 1 * z, 2 * z);
+
+          // Both Arctic Cyan Eyes (near & far)
+          [[wolfHeadX - 0.5 * z, 1.6 * z], [wolfHeadX + 3.8 * z, 1.3 * z]].forEach(([ex, er]) => {
+            ctx.fillStyle = '#06b6d4';
+            ctx.beginPath();
+            ctx.arc(ex, wolfHeadY - 1 * z, er, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(ex - 0.4 * z, wolfHeadY - 1.5 * z, 0.9 * z, 0.9 * z);
+          });
+
+          // Tail curving behind
+          ctx.save();
+          ctx.translate(-10 * z, wolfY + 2 * z);
           ctx.rotate(-0.4);
           ctx.strokeStyle = '#f8fafc';
           ctx.lineWidth = 4 * z;
           ctx.beginPath();
-          ctx.moveTo(0, 0); ctx.quadraticCurveTo(-6 * z, -4 * z, -12 * z, -1 * z);
+          ctx.moveTo(0, 0); ctx.quadraticCurveTo(-5 * z, -4 * z, -10.5 * z, -1 * z);
           ctx.stroke();
           ctx.restore();
         }
@@ -12188,9 +13755,22 @@ class IsometricRenderer {
         const floatY = Math.sin(time * 4 + (mob.x || 0)) * 5 * z;
         const elemY = -22 * z + floatY;
 
-        // Facing Angle in radians for 8 directions
+        // 8-Axis turn & depth vectors
         const FACING_ANGLES = { E: 0, SE: Math.PI / 4, S: Math.PI / 2, SW: 3 * Math.PI / 4, W: Math.PI, NW: -3 * Math.PI / 4, N: -Math.PI / 2, NE: -Math.PI / 4 };
+        const ELEM_AXES = {
+          S:  [0, 1],
+          SE: [0.65, 0.7],
+          E:  [1.0, 0.1],
+          NE: [0.65, -0.7],
+          N:  [0, -1],
+          NW: [-0.65, -0.7],
+          W:  [-1.0, 0.1],
+          SW: [-0.65, 0.7]
+        };
         const rotAngle = FACING_ANGLES[rawFacing] || 0;
+        const [turnX, frontDir] = ELEM_AXES[rawFacing] || ELEM_AXES.S;
+        const tSide = turnX >= 0 ? 1 : -1;
+        const absTurn = Math.abs(turnX);
 
         // Contact shadow
         ctx.beginPath();
@@ -12198,7 +13778,7 @@ class IsometricRenderer {
         ctx.fillStyle = 'rgba(2, 132, 199, 0.35)';
         ctx.fill();
 
-        // Orbiting shards (Rotates according to 8-axis direction)
+        // Orbiting shards (Back pass)
         const numShards = 4;
         const shardRadiusX = 18 * z;
         const shardRadiusY = 8 * z;
@@ -12220,44 +13800,103 @@ class IsometricRenderer {
           }
         }
 
-        // Octahedron Prism Facets (Shaded according to 8-axis facing)
+        // Octahedron Prism Facets (Central ridge vertex shifts horizontally & vertically across all 8 axes)
         const topY = elemY - 18 * z;
         const botY = elemY + 16 * z;
-        const leftX = -12 * z;
-        const rightX = 12 * z;
+        const leftX = (-12 + turnX * 1.5) * z;
+        const rightX = (12 + turnX * 1.5) * z;
         const midY = elemY;
-        const frontY = isFacingBack ? (elemY - 3 * z) : (elemY + 3 * z);
+        const ridgeX = turnX * 5.8 * z;
+        const ridgeY = elemY + frontDir * 3.5 * z;
 
-        ctx.fillStyle = isFacingBack ? '#0284c7' : '#e0f2fe';
+        // Top-Left Facet
+        ctx.fillStyle = frontDir < 0 ? (turnX < 0 ? '#0369a1' : '#0284c7') : (turnX > 0.5 ? '#bae6fd' : '#e0f2fe');
         ctx.beginPath();
-        ctx.moveTo(0, topY); ctx.lineTo(leftX, midY); ctx.lineTo(0, frontY);
+        ctx.moveTo(0, topY); ctx.lineTo(leftX, midY); ctx.lineTo(ridgeX, ridgeY);
         ctx.closePath();
         ctx.fill();
 
-        ctx.fillStyle = isFacingBack ? '#0369a1' : '#7dd3fc';
+        // Top-Right Facet
+        ctx.fillStyle = frontDir < 0 ? (turnX > 0 ? '#0284c7' : '#0369a1') : (turnX < -0.5 ? '#38bdf8' : '#7dd3fc');
         ctx.beginPath();
-        ctx.moveTo(0, topY); ctx.lineTo(rightX, midY); ctx.lineTo(0, frontY);
+        ctx.moveTo(0, topY); ctx.lineTo(rightX, midY); ctx.lineTo(ridgeX, ridgeY);
         ctx.closePath();
         ctx.fill();
 
-        ctx.fillStyle = isFacingBack ? '#0f172a' : '#0284c7';
+        // Bottom-Left Facet
+        ctx.fillStyle = frontDir < 0 ? '#0f172a' : '#0284c7';
         ctx.beginPath();
-        ctx.moveTo(leftX, midY); ctx.lineTo(0, botY); ctx.lineTo(0, frontY);
+        ctx.moveTo(leftX, midY); ctx.lineTo(0, botY); ctx.lineTo(ridgeX, ridgeY);
         ctx.closePath();
         ctx.fill();
 
-        ctx.fillStyle = isFacingBack ? '#1e293b' : '#0369a1';
+        // Bottom-Right Facet
+        ctx.fillStyle = frontDir < 0 ? '#1e293b' : '#0369a1';
         ctx.beginPath();
-        ctx.moveTo(rightX, midY); ctx.lineTo(0, botY); ctx.lineTo(0, frontY);
+        ctx.moveTo(rightX, midY); ctx.lineTo(0, botY); ctx.lineTo(ridgeX, ridgeY);
         ctx.closePath();
         ctx.fill();
 
-        // Pulsating Inner Frost Star
+        // Specular Ridge Bevel Lines
+        ctx.strokeStyle = frontDir >= 0 ? 'rgba(255, 255, 255, 0.7)' : 'rgba(56, 189, 248, 0.45)';
+        ctx.lineWidth = 1.2 * z;
+        ctx.beginPath();
+        ctx.moveTo(0, topY); ctx.lineTo(ridgeX, ridgeY); ctx.lineTo(0, botY);
+        ctx.moveTo(leftX, midY); ctx.lineTo(ridgeX, ridgeY); ctx.lineTo(rightX, midY);
+        ctx.stroke();
+
+        // Pulsating Inner Frost Star & 8-Axis Directional Arcane Eyes / Dorsal Crest
         const starPulse = Math.sin(time * 6) * 0.3 + 0.7;
         ctx.fillStyle = `rgba(255, 255, 255, ${starPulse})`;
         ctx.beginPath();
-        ctx.arc(0, elemY, 3 * z, 0, Math.PI * 2);
+        ctx.arc(ridgeX * 0.65, elemY + frontDir * 1.2 * z, 3.2 * z, 0, Math.PI * 2);
         ctx.fill();
+
+        if (frontDir > 0) {
+          // Front & Side Views (S, SE, SW, E, W): Glowing Arcane Visor Eyes on crystal face
+          const eyeCenterX = turnX * 5.2 * z;
+          const eyeY = elemY - 3.5 * z;
+          const spread = 3.2 * z * (1 - absTurn * 0.55);
+          if (absTurn < 0.9) {
+            // Two eyes in S, SE, SW
+            [[eyeCenterX - spread * tSide, 2.0 * z], [eyeCenterX + spread * tSide, 2.0 * z * (1 - absTurn * 0.3)]].forEach(([ex, ew]) => {
+              ctx.fillStyle = '#090d16';
+              ctx.beginPath();
+              ctx.ellipse(ex, eyeY, ew, 1.4 * z, -0.15 * turnX, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.fillStyle = '#ffffff';
+              ctx.beginPath();
+              ctx.ellipse(ex, eyeY, ew * 0.7, 0.9 * z, -0.15 * turnX, 0, Math.PI * 2);
+              ctx.fill();
+            });
+          } else {
+            // Single profile visor eye in E, W
+            ctx.fillStyle = '#090d16';
+            ctx.beginPath();
+            ctx.ellipse(eyeCenterX + tSide * 1.2 * z, eyeY, 2.2 * z, 1.5 * z, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.ellipse(eyeCenterX + tSide * 1.4 * z, eyeY, 1.5 * z, 1.0 * z, 0, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        } else {
+          // Back Views (N, NE, NW): Etched Dorsal Frost Rune Seal + peeking side eye on NE/NW
+          ctx.strokeStyle = `rgba(125, 211, 252, ${starPulse})`;
+          ctx.lineWidth = 1.5 * z;
+          ctx.beginPath();
+          ctx.moveTo(-turnX * 2 * z, elemY - 9 * z);
+          ctx.lineTo(-turnX * 2 * z, elemY + 7 * z);
+          ctx.moveTo((-4 - turnX * 2) * z, elemY - 2 * z);
+          ctx.lineTo((4 - turnX * 2) * z, elemY - 2 * z);
+          ctx.stroke();
+          if (absTurn > 0.3) {
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.ellipse(tSide * 8.5 * z, elemY - 3.5 * z, 1.1 * z, 1.5 * z, 0, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
 
         // Orbiting shards: Front pass
         for (let i = 0; i < numShards; i++) {
@@ -12284,18 +13923,19 @@ class IsometricRenderer {
         if (isWest) ctx.scale(-1, 1);
 
         const titanBob = Math.sin(time * 3 + (mob.x || 0)) * 2 * z;
+        const titanWalk = Math.sin(time * 4 + (mob.x || 0));
         const titanPulse = Math.sin(time * 5) * 0.25 + 0.75;
         const titanY = -56 * z + titanBob;
         const helmY = titanY - 18 * z;
         const runeY = titanY + 12 * z;
 
-        // Pillar Stone-Ice Legs
-        ctx.fillStyle = '#0f172a';
-        ctx.fillRect(-18 * z, -24 * z, 14 * z, 22 * z);
-        ctx.fillRect(4 * z, -24 * z, 14 * z, 22 * z);
-
         if (isPureFront) {
           // --- TITAN: SOUTH (PURE FRONTAL) ---
+          // Pillar Stone-Ice Legs
+          ctx.fillStyle = '#0f172a';
+          ctx.fillRect(-18 * z, (-24 + titanWalk * 1.8) * z, 14 * z, 22 * z);
+          ctx.fillRect(4 * z, (-24 - titanWalk * 1.8) * z, 14 * z, 22 * z);
+
           // Cuirass
           const plateGrad = ctx.createLinearGradient(0, titanY, 0, titanY + 26 * z);
           plateGrad.addColorStop(0, '#38bdf8');
@@ -12315,8 +13955,12 @@ class IsometricRenderer {
           ctx.lineWidth = 2 * z;
           ctx.stroke();
 
-          // Symmetrical crystalline shoulder spikes
+          // Symmetrical crystalline shoulder spikes & gauntlets
           [[-26 * z, -1], [26 * z, 1]].forEach(([sx, sdir]) => {
+            ctx.fillStyle = '#1e293b';
+            ctx.beginPath();
+            drawRoundRect(ctx, sx - 5 * z, titanY + 8 * z, 10 * z, 16 * z, 3 * z);
+            ctx.fill();
             ctx.fillStyle = '#7dd3fc';
             ctx.beginPath();
             ctx.moveTo(sx - 5 * z, titanY);
@@ -12360,11 +14004,30 @@ class IsometricRenderer {
 
         } else if (isPureBack) {
           // --- TITAN: NORTH (PURE BACK) ---
+          ctx.fillStyle = '#0f172a';
+          ctx.fillRect(-18 * z, (-24 - titanWalk * 1.8) * z, 14 * z, 22 * z);
+          ctx.fillRect(4 * z, (-24 + titanWalk * 1.8) * z, 14 * z, 22 * z);
+
           // Cuirass back with Ice Mantle / Fur Cape
           ctx.fillStyle = '#0f172a';
           ctx.beginPath();
           drawRoundRect(ctx, -26 * z, titanY, 52 * z, 26 * z, 6 * z);
           ctx.fill();
+
+          // Symmetrical Crystalline Shoulder Spikes & Gauntlets from behind
+          [[-26 * z, -1], [26 * z, 1]].forEach(([sx, sdir]) => {
+            ctx.fillStyle = '#0f172a';
+            ctx.beginPath();
+            drawRoundRect(ctx, sx - 5 * z, titanY + 8 * z, 10 * z, 16 * z, 3 * z);
+            ctx.fill();
+            ctx.fillStyle = '#38bdf8';
+            ctx.beginPath();
+            ctx.moveTo(sx - 5 * z, titanY);
+            ctx.lineTo(sx + 14 * z * sdir, titanY - 24 * z);
+            ctx.lineTo(sx + 6 * z, titanY + 6 * z);
+            ctx.closePath();
+            ctx.fill();
+          });
 
           // Cascading Ice Mantle
           ctx.fillStyle = '#0369a1';
@@ -12402,65 +14065,244 @@ class IsometricRenderer {
           // Mace held forward-away
           ctx.save();
           ctx.translate(26 * z, titanY + 6 * z);
+          ctx.fillStyle = '#38bdf8';
+          ctx.fillRect(-7 * z, -28 * z, 14 * z, 14 * z);
           ctx.fillStyle = '#475569';
           ctx.fillRect(-2 * z, -28 * z, 4 * z, 40 * z);
           ctx.restore();
 
-        } else {
-          // --- TITAN: SE, E, NE ---
-          const isQuarterBackView = isQuarterBack;
+        } else if (isQuarterBack) {
+          // --- TITAN: NE / NW (3/4 BACK) ---
+          // Great Mace held forward-away on far right
+          ctx.save();
+          ctx.translate(25 * z, titanY + 6 * z);
+          ctx.fillStyle = '#38bdf8';
+          ctx.fillRect(-8 * z, -28 * z, 16 * z, 15 * z);
+          ctx.fillStyle = '#475569';
+          ctx.fillRect(-2.2 * z, -26 * z, 4.4 * z, 42 * z);
+          ctx.restore();
 
-          const plateGrad = ctx.createLinearGradient(-26 * z, titanY, 26 * z, titanY + 24 * z);
-          plateGrad.addColorStop(0, '#38bdf8');
-          plateGrad.addColorStop(0.35, '#0284c7');
-          plateGrad.addColorStop(0.7, '#1e293b');
-          ctx.fillStyle = plateGrad;
+          // Pillar Legs
+          ctx.fillStyle = '#090d16';
+          ctx.fillRect(3 * z, (-24 - titanWalk * 1.8) * z, 13 * z, 22 * z);
+          ctx.fillStyle = '#0f172a';
+          ctx.fillRect(-16 * z, (-24 + titanWalk * 1.8) * z, 13 * z, 22 * z);
+
+          // 3/4 Back Cuirass
+          ctx.fillStyle = '#0f172a';
           ctx.beginPath();
-          drawRoundRect(ctx, -26 * z, titanY, 52 * z, 26 * z, 6 * z);
+          drawRoundRect(ctx, -23 * z, titanY, 46 * z, 26 * z, 6 * z);
           ctx.fill();
 
-          if (!isQuarterBackView) {
-            ctx.fillStyle = `rgba(56, 189, 248, ${titanPulse})`;
-            ctx.beginPath();
-            ctx.arc(4 * z, runeY, 10 * z, 0, Math.PI * 2);
-            ctx.fill();
-          }
+          // Far Shoulder Spike (right) & Near Shoulder Spike + Gauntlet (left)
+          ctx.fillStyle = '#38bdf8';
+          ctx.beginPath();
+          ctx.moveTo(18 * z, titanY + 2 * z);
+          ctx.lineTo(34 * z, titanY - 22 * z);
+          ctx.lineTo(24 * z, titanY + 8 * z);
+          ctx.closePath();
+          ctx.fill();
 
-          // Shoulder Spikes
+          ctx.fillStyle = '#1e293b';
+          ctx.beginPath();
+          drawRoundRect(ctx, -28 * z, titanY + 8 * z, 10 * z, 16 * z, 3 * z);
+          ctx.fill();
           ctx.fillStyle = '#7dd3fc';
           ctx.beginPath();
-          ctx.moveTo(20 * z, titanY + 2 * z);
-          ctx.lineTo(36 * z, titanY - 22 * z);
-          ctx.lineTo(26 * z, titanY + 8 * z);
+          ctx.moveTo(-18 * z, titanY);
+          ctx.lineTo(-36 * z, titanY - 23 * z);
+          ctx.lineTo(-25 * z, titanY + 7 * z);
+          ctx.closePath();
+          ctx.fill();
+
+          // Cascading 3/4 Ice Mantle draped across the back
+          ctx.fillStyle = '#0369a1';
+          ctx.beginPath();
+          ctx.moveTo(-20 * z, titanY + 1 * z);
+          ctx.lineTo(15 * z, titanY + 1 * z);
+          ctx.lineTo(11 * z, titanY + 23 * z);
+          ctx.lineTo(-3 * z, titanY + 29 * z);
+          ctx.lineTo(-17 * z, titanY + 23 * z);
+          ctx.closePath();
+          ctx.fill();
+          ctx.fillStyle = '#7dd3fc';
+          ctx.beginPath();
+          ctx.moveTo(-16 * z, titanY + 1 * z);
+          ctx.lineTo(11 * z, titanY + 1 * z);
+          ctx.lineTo(7 * z, titanY + 17 * z);
+          ctx.lineTo(-3 * z, titanY + 21 * z);
+          ctx.lineTo(-13 * z, titanY + 17 * z);
+          ctx.closePath();
+          ctx.fill();
+
+          // 3/4 Back Helm with Both Horns & Peeking Side Visor Glow
+          ctx.fillStyle = '#0f172a';
+          ctx.fillRect(-14 * z, helmY, 28 * z, 20 * z);
+          ctx.fillStyle = '#67e8f9';
+          ctx.fillRect(10 * z, helmY + 8 * z, 4 * z, 3 * z);
+
+          [[-1, -13 * z], [1, 13 * z]].forEach(([sdir, hx]) => {
+            ctx.fillStyle = sdir === -1 ? '#bae6fd' : '#7dd3fc';
+            ctx.beginPath();
+            ctx.moveTo(hx, helmY + 4 * z);
+            ctx.quadraticCurveTo(hx + 11 * z * sdir, helmY - 12 * z, hx + 6 * z * sdir, helmY - 23 * z);
+            ctx.quadraticCurveTo(hx + 4 * z * sdir, helmY - 10 * z, hx - 1 * z * sdir, helmY - 1 * z);
+            ctx.closePath();
+            ctx.fill();
+          });
+
+        } else if (isPureSide) {
+          // --- TITAN: E / W (PURE SIDE PROFILE) ---
+          // Flowing Ice Mantle behind back
+          ctx.fillStyle = '#0369a1';
+          ctx.beginPath();
+          ctx.moveTo(-14 * z, titanY + 2 * z);
+          ctx.lineTo(-24 * z, titanY + 26 * z);
+          ctx.lineTo(-12 * z, titanY + 28 * z);
+          ctx.closePath();
+          ctx.fill();
+
+          // Striding Pillar Legs in profile
+          ctx.fillStyle = '#090d16';
+          ctx.fillRect((-6 - titanWalk * 3.5) * z, -24 * z, 12 * z, 22 * z);
+          ctx.fillStyle = '#0f172a';
+          ctx.fillRect((-3 + titanWalk * 3.5) * z, -24 * z, 13 * z, 22 * z);
+
+          // Narrower Side Profile Cuirass
+          const plateGrad = ctx.createLinearGradient(-16 * z, titanY, 16 * z, titanY + 24 * z);
+          plateGrad.addColorStop(0, '#38bdf8');
+          plateGrad.addColorStop(0.45, '#0284c7');
+          plateGrad.addColorStop(1, '#0f172a');
+          ctx.fillStyle = plateGrad;
+          ctx.beginPath();
+          drawRoundRect(ctx, -16 * z, titanY, 32 * z, 26 * z, 6 * z);
+          ctx.fill();
+
+          // Protruding Front Frost Rune Heart on Chest Edge
+          ctx.fillStyle = `rgba(56, 189, 248, ${titanPulse})`;
+          ctx.beginPath();
+          ctx.ellipse(13 * z, runeY, 4.5 * z, 9 * z, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 1.6 * z;
+          ctx.stroke();
+
+          // Profile Helm, Front Visor & Sweeping Glacial Horn
+          ctx.fillStyle = '#0f172a';
+          ctx.fillRect(-11 * z, helmY, 22 * z, 20 * z);
+          ctx.fillStyle = '#38bdf8';
+          ctx.fillRect(-11 * z, helmY, 22 * z, 3.5 * z);
+          ctx.fillStyle = '#67e8f9';
+          ctx.fillRect(3 * z, helmY + 8 * z, 8 * z, 3 * z);
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(6 * z, helmY + 8.5 * z, 5 * z, 2 * z);
+
+          ctx.fillStyle = '#bae6fd';
+          ctx.beginPath();
+          ctx.moveTo(0, helmY + 4 * z);
+          ctx.quadraticCurveTo(-14 * z, helmY - 10 * z, -8 * z, helmY - 24 * z);
+          ctx.quadraticCurveTo(-4 * z, helmY - 12 * z, 5 * z, helmY - 2 * z);
+          ctx.closePath();
+          ctx.fill();
+
+          // Near Armored Gauntlet, Profile Shoulder Spike & Great Mace held forward
+          ctx.fillStyle = '#1e293b';
+          ctx.beginPath();
+          drawRoundRect(ctx, -4 * z, titanY + 8 * z, 11 * z, 16 * z, 3 * z);
+          ctx.fill();
+          ctx.fillStyle = '#7dd3fc';
+          ctx.beginPath();
+          ctx.moveTo(-6 * z, titanY + 3 * z);
+          ctx.lineTo(-14 * z, titanY - 23 * z);
+          ctx.lineTo(6 * z, titanY + 6 * z);
+          ctx.closePath();
+          ctx.fill();
+
+          ctx.save();
+          ctx.translate(16 * z, titanY + 10 * z);
+          ctx.rotate(0.2);
+          ctx.fillStyle = '#475569';
+          ctx.fillRect(-2.5 * z, -28 * z, 5 * z, 46 * z);
+          ctx.fillStyle = '#38bdf8';
+          ctx.fillRect(-9 * z, -30 * z, 18 * z, 17 * z);
+          ctx.restore();
+
+        } else {
+          // --- TITAN: SE / SW (3/4 FRONT) ---
+          // Pillar Stone-Ice Legs
+          ctx.fillStyle = '#0f172a';
+          ctx.fillRect(-16 * z, (-24 + titanWalk * 1.8) * z, 13 * z, 22 * z);
+          ctx.fillRect(4 * z, (-24 - titanWalk * 1.8) * z, 13 * z, 22 * z);
+
+          // 3/4 Cuirass
+          const plateGrad = ctx.createLinearGradient(-23 * z, titanY, 23 * z, titanY + 24 * z);
+          plateGrad.addColorStop(0, '#38bdf8');
+          plateGrad.addColorStop(0.35, '#0284c7');
+          plateGrad.addColorStop(0.8, '#0f172a');
+          ctx.fillStyle = plateGrad;
+          ctx.beginPath();
+          drawRoundRect(ctx, -23 * z, titanY, 46 * z, 26 * z, 6 * z);
+          ctx.fill();
+
+          // 3/4 Frost Rune Heart shifted right
+          ctx.fillStyle = `rgba(56, 189, 248, ${titanPulse})`;
+          ctx.beginPath();
+          ctx.arc(5 * z, runeY, 9.5 * z, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 1.8 * z;
+          ctx.stroke();
+
+          // Both Crystalline Shoulder Spikes & Near Gauntlet
+          ctx.fillStyle = '#1e293b';
+          ctx.beginPath();
+          drawRoundRect(ctx, -28 * z, titanY + 8 * z, 10 * z, 16 * z, 3 * z);
+          ctx.fill();
+          ctx.fillStyle = '#7dd3fc';
+          ctx.beginPath();
+          ctx.moveTo(-18 * z, titanY);
+          ctx.lineTo(-35 * z, titanY - 22 * z);
+          ctx.lineTo(-25 * z, titanY + 7 * z);
+          ctx.closePath();
+          ctx.fill();
+
+          ctx.fillStyle = '#7dd3fc';
+          ctx.beginPath();
+          ctx.moveTo(18 * z, titanY + 2 * z);
+          ctx.lineTo(35 * z, titanY - 22 * z);
+          ctx.lineTo(24 * z, titanY + 8 * z);
           ctx.closePath();
           ctx.fill();
 
           // Great Mace
           ctx.save();
-          ctx.translate(28 * z, titanY + 8 * z);
+          ctx.translate(26 * z, titanY + 8 * z);
           ctx.fillStyle = '#475569';
           ctx.fillRect(-2.5 * z, -28 * z, 5 * z, 48 * z);
           ctx.fillStyle = '#38bdf8';
           ctx.fillRect(-10 * z, -30 * z, 20 * z, 18 * z);
           ctx.restore();
 
-          // Helm
+          // 3/4 Helm, Both Horns & 3/4 Radiant Visor
           ctx.fillStyle = '#0f172a';
-          ctx.fillRect(-15 * z, helmY, 30 * z, 20 * z);
+          ctx.fillRect(-14 * z, helmY, 28 * z, 20 * z);
+          ctx.fillStyle = '#38bdf8';
+          ctx.fillRect(-14 * z, helmY, 28 * z, 3.5 * z);
 
-          // Single Horn
-          ctx.fillStyle = '#bae6fd';
-          ctx.beginPath();
-          ctx.moveTo(14 * z, helmY + 4 * z);
-          ctx.quadraticCurveTo(28 * z, helmY - 10 * z, 22 * z, helmY - 24 * z);
-          ctx.quadraticCurveTo(20 * z, helmY - 12 * z, 12 * z, helmY - 2 * z);
-          ctx.closePath();
-          ctx.fill();
+          [[-1, -13 * z], [1, 13 * z]].forEach(([sdir, hx]) => {
+            ctx.fillStyle = '#bae6fd';
+            ctx.beginPath();
+            ctx.moveTo(hx, helmY + 4 * z);
+            ctx.quadraticCurveTo(hx + 13 * z * sdir, helmY - 10 * z, hx + 7.5 * z * sdir, helmY - 24 * z);
+            ctx.quadraticCurveTo(hx + 5.5 * z * sdir, helmY - 12 * z, hx - 2 * z * sdir, helmY - 2 * z);
+            ctx.closePath();
+            ctx.fill();
+          });
 
-          if (!isQuarterBackView) {
-            ctx.fillStyle = '#67e8f9';
-            ctx.fillRect(isPureSide ? 2 * z : -5 * z, helmY + 8 * z, 14 * z, 3 * z);
-          }
+          ctx.fillStyle = '#67e8f9';
+          ctx.fillRect(-4 * z, helmY + 8 * z, 15 * z, 3 * z);
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, helmY + 8.5 * z, 9 * z, 2 * z);
         }
 
         ctx.restore();
@@ -12546,19 +14388,19 @@ class IsometricRenderer {
     });
 
     const outfits = [
-      { tunic: '#b5651d', legs: '#4b3621', hair: '#5a3825' },
-      { tunic: '#2c5d8a', legs: '#3b3b48', hair: '#1f1a17' },
+      { tunic: '#b5651d', legs: '#4b3621', hair: '#5a3825', apron: true },
+      { tunic: '#2c5d8a', legs: '#3b3b48', hair: '#1f1a17', trim: '#c9d6e3' },
       { tunic: '#6a8f3a', legs: '#5a4630', hair: '#c9772e', dress: true },
-      { tunic: '#9b2d48', legs: '#3a2f45', hair: '#2b1d14', dress: true },
-      { tunic: '#d9b45a', legs: '#4b3621', hair: '#8a5a32', hat: '#6d4423' },
-      { tunic: '#5b3a7a', legs: '#2a2a33', hair: '#d9d4cc' },
+      { tunic: '#9b2d48', legs: '#3a2f45', hair: '#2b1d14', dress: true, apron: true },
+      { tunic: '#d9b45a', legs: '#4b3621', hair: '#8a5a32', hat: '#6d4423', band: '#2f1d10' },
+      { tunic: '#5b3a7a', legs: '#2a2a33', hair: '#d9d4cc', beard: true, staff: true, trim: '#d8b75a' },
       { tunic: '#3f7f7a', legs: '#4a3b2a', hair: '#f0d38a', dress: true, basket: true },
-      { tunic: '#7a5230', legs: '#3b2a1a', hair: '#3b2a1a', hat: '#c9a227', basket: true }
+      { tunic: '#7a5230', legs: '#3b2a1a', hair: '#3b2a1a', hat: '#c9a227', band: '#8a2b1f', basket: true }
     ];
     const skins = ['#f0c9a0', '#e8b48a', '#c68b59', '#9a6440'];
     const all = Array.from(unique.values());
     const folk = [];
-    for (let i = 0; i < 18; i++) {
+    for (let i = 0; i < 24; i++) {
       const start = all[(i * 7) % all.length];
       const c = {
         id: `townsfolk_${i}`,
@@ -12637,47 +14479,237 @@ class IsometricRenderer {
     const z = this.camera.zoom;
     const p = 2 * z; // one sprite pixel
     const x = Math.round(screen.x), y = Math.round(screen.y);
-    const o = c.outfit;
-    const swing = c.moving ? Math.sin(c.phase) : 0;
-    const bob = c.moving ? Math.abs(Math.sin(c.phase)) * p * 0.6 : 0;
-    const fx = v => (c.flip ? -v : v);
-    const rect = (rx, ry, w, h, color) => {
-      const left = c.flip ? x - (rx + w) * p : x + rx * p;
-      ctx.fillStyle = '#1a1c2c';
-      ctx.fillRect(left - z, y + ry * p - bob - z, w * p + 2 * z, h * p + 2 * z);
-      ctx.fillStyle = color;
-      ctx.fillRect(left, y + ry * p - bob, w * p, h * p);
-    };
+    // idle pose, or one of four walk frames per stride cycle
+    const frame = c.moving ? 1 + (((Math.floor(c.phase / (Math.PI / 2)) % 4) + 4) % 4) : 0;
+    const sprite = this.townsfolkSprite(c, c.back, frame);
 
     ctx.save();
     ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
     ctx.beginPath();
     ctx.ellipse(x, y, 7 * p * 0.6, 3 * p * 0.6, 0, 0, Math.PI * 2);
     ctx.fill();
-
-    // legs (stride), body, arms, head
-    const stride = Math.round(swing * 1.5);
-    rect(-3, -6 + Math.max(0, stride) * -0.5, 2, 6, o.legs);
-    rect(1, -6 + Math.max(0, -stride) * -0.5, 2, 6, o.legs);
-    rect(-4, -13, 8, o.dress ? 10 : 8, o.tunic);
-    rect(-4, -8, 8, 1, '#3b2a1a');
-    rect(-6, -12 + Math.round(swing), 2, 6, o.tunic);
-    rect(4, -12 - Math.round(swing), 2, 6, o.tunic);
-    if (o.basket) rect(5, -8 - Math.round(swing), 4, 3, '#a4723f');
-    rect(-3, -19, 6, 6, c.skin);
-    rect(-3, -20, 6, c.back ? 5 : 2, o.hair);
-    if (o.hat) {
-      rect(-5, -21, 10, 1, o.hat);
-      rect(-3, -23, 6, 2, o.hat);
-    }
-    if (!c.back) {
-      ctx.fillStyle = '#1a1c2c';
-      ctx.fillRect(x + fx(-1.5) * p - (c.flip ? p * 0.8 : 0), y - 16.5 * p - bob, p * 0.8, p);
-      ctx.fillRect(x + fx(1.2) * p - (c.flip ? p * 0.8 : 0), y - 16.5 * p - bob, p * 0.8, p);
-    }
+    ctx.imageSmoothingEnabled = false;
+    ctx.translate(x, y);
+    if (c.flip) ctx.scale(-1, 1);
+    ctx.drawImage(sprite, -9 * p, -27 * p, sprite.width * p, sprite.height * p);
     ctx.restore();
 
     if (c.bubble && performance.now() < c.bubbleUntil) this.drawSpeechBubble(ctx, x, y - 26 * p, c.bubble);
+  }
+
+  // One townsperson pose as a tiny pixel-art canvas (18x28, feet at the bottom
+  // centre). Parts are laid down as materials, then lit from the top-left,
+  // shadowed on the bottom-right and outlined. Cached per person/view/frame.
+  townsfolkSprite(c, back, frame) {
+    if (!this.townsfolkSprites) this.townsfolkSprites = new Map();
+    const cacheKey = `${c.id}|${back ? 'b' : 'f'}|${frame}`;
+    const cached = this.townsfolkSprites.get(cacheKey);
+    if (cached) return cached;
+
+    const W = 18, H = 28;
+    const o = c.outfit;
+    const rgb = col => (typeof col === 'string' ? [1, 3, 5].map(i => parseInt(col.slice(i, i + 2), 16)) : col);
+    const mix = (col, t) => rgb(col).map(v => Math.round(t >= 0 ? v + (255 - v) * t : v * (1 + t)));
+    const mats = {};
+    const mat = (name, col) => { mats[name] = { b: rgb(col), l: mix(col, 0.28), d: mix(col, -0.32) }; };
+    mat('skin', c.skin);
+    mat('hair', o.hair);
+    mat('hairD', mix(o.hair, -0.3));
+    mat('tunic', o.tunic);
+    mat('fold', mix(o.tunic, -0.22));
+    mat('armL', o.tunic);
+    mat('armR', o.tunic);
+    mat('trim', o.trim || '#e8dcc0');
+    mat('belt', '#4a2f1c');
+    mat('apron', '#efe6cf');
+    mat('legL', o.legs);
+    mat('legR', o.legs);
+    mat('bootL', '#3d2817');
+    mat('bootR', '#3d2817');
+    mat('hat', o.hat || '#6d4423');
+    mat('band', o.band || '#3b2a1a');
+    mat('basket', '#a4723f');
+    mat('basketD', '#6e4520');
+    mat('wood', '#7a5233');
+    mat('gem', '#7fd4e8');
+
+    // y is shifted down one row so a hat brim on a bobbing frame keeps its outline
+    const grid = new Array(W * H).fill(null);
+    const flat = new Map();
+    const at = (x, y) => (x >= 0 && x < W && y + 1 >= 0 && y + 1 < H ? (y + 1) * W + x : -1);
+    const set = (x, y, m) => { const i = at(x, y); if (i >= 0) { grid[i] = m; flat.delete(i); } };
+    const clear = (x, y) => { const i = at(x, y); if (i >= 0) { grid[i] = null; flat.delete(i); } };
+    const fill = (x0, y0, x1, y1, m) => { for (let yy = y0; yy <= y1; yy++) for (let xx = x0; xx <= x1; xx++) set(xx, yy, m); };
+    const dot = (x, y, col) => { const i = at(x, y); if (i >= 0) { grid[i] = '*'; flat.set(i, rgb(col)); } };
+
+    const stride = [0, 1, 0, -1, 0][frame];
+    const bob = [0, 0, 1, 0, 1][frame];
+    const U = yy => yy - bob; // upper body rides the step bob
+    const liftL = stride > 0 ? 1 : 0, liftR = stride < 0 ? 1 : 0;
+
+    // staff (behind everything, planted on the ground)
+    if (o.staff) {
+      fill(2, 8, 2, 25, 'wood');
+      fill(1, 6, 3, 7, 'wood');
+      set(2, 6, 'gem');
+    }
+
+    // legs + boots
+    const leg = (x0, lift, lm, bm) => {
+      fill(x0, U(19), x0 + 2, 23 - lift, lm);
+      fill(x0, 24 - lift, x0 + 2, 25 - lift, bm);
+    };
+    leg(6, liftL, 'legL', 'bootL');
+    leg(9, liftR, 'legR', 'bootR');
+
+    // torso, skirt / dress
+    fill(5, U(11), 12, U(18), 'tunic');
+    clear(5, U(11));
+    clear(12, U(11));
+    if (o.dress) {
+      fill(5, U(17), 12, U(19), 'tunic');
+      fill(4, U(20), 13, U(22), 'tunic');
+      fill(4, U(23), 13, U(23), 'trim');
+      for (let yy = U(19); yy <= U(22); yy++) { set(7, yy, 'fold'); set(10, yy, 'fold'); }
+    } else {
+      set(8, U(18), 'fold');
+    }
+    if (back) {
+      fill(7, U(11), 10, U(11), 'trim');
+    } else {
+      set(7, U(11), 'trim');
+      set(10, U(11), 'trim');
+      set(8, U(11), 'skin');
+      set(9, U(11), 'skin');
+      set(8, U(12), 'trim');
+      set(9, U(12), 'trim');
+    }
+
+    // belt, apron
+    fill(5, U(16), 12, U(16), 'belt');
+    if (!back) dot(9, U(16), '#e8c15a');
+    if (o.apron) {
+      if (back) {
+        dot(8, U(17), '#efe6cf');
+        dot(9, U(17), '#efe6cf');
+      } else {
+        fill(7, U(13), 10, U(o.dress ? 22 : 19), 'apron');
+        set(7, U(12), 'apron');
+        set(10, U(12), 'apron');
+      }
+    }
+
+    // arms swing opposite to the legs; a staff or basket keeps that arm still
+    const arm = (x0, dy, am) => {
+      set(x0 < 5 ? 4 : 13, U(11), am);
+      fill(x0, U(12), x0 + 1, U(15) + dy, am);
+      fill(x0, U(16) + dy, x0 + 1, U(16) + dy, 'trim');
+      fill(x0, U(17) + dy, x0 + 1, U(18) + dy, 'skin');
+    };
+    arm(3, o.staff ? 0 : -stride, 'armL');
+    arm(13, o.basket ? 0 : stride, 'armR');
+
+    if (o.basket) {
+      fill(13, U(19), 16, U(21), 'basket');
+      clear(13, U(21));
+      clear(16, U(21));
+      set(14, U(20), 'basketD');
+      set(16, U(20), 'basketD');
+      set(16, U(17), 'basketD');
+      set(16, U(18), 'basketD');
+      dot(15, U(18), '#c8382c');
+      dot(15, U(17), '#d9a05b');
+    }
+
+    // head
+    fill(6, U(4), 11, U(10), 'skin');
+    clear(6, U(4));
+    clear(11, U(4));
+    clear(6, U(10));
+    clear(11, U(10));
+    const long = !!o.dress;
+    if (back) {
+      fill(6, U(3), 11, U(9), 'hair');
+      clear(6, U(3));
+      clear(11, U(3));
+      if (long) {
+        fill(5, U(4), 12, U(13), 'hair');
+        clear(5, U(13));
+        clear(12, U(13));
+      }
+      for (let yy = U(4); yy <= U(long ? 12 : 8); yy++) set(8, yy, 'hairD');
+    } else {
+      if (!long && !o.hat) { set(5, U(7), 'skin'); set(12, U(7), 'skin'); }
+      fill(7, U(3), 10, U(3), 'hair');
+      fill(6, U(4), 11, U(4), 'hair');
+      fill(6, U(5), 7, U(5), 'hair');
+      fill(10, U(5), 11, U(5), 'hair');
+      set(8, U(5), 'hair');
+      set(6, U(6), 'hair');
+      set(11, U(6), 'hair');
+      if (long) {
+        fill(5, U(4), 5, U(13), 'hair');
+        fill(12, U(4), 12, U(13), 'hair');
+        set(5, U(9), 'hairD');
+        set(12, U(10), 'hairD');
+      }
+      if (o.beard) {
+        fill(6, U(8), 11, U(11), 'hair');
+        clear(6, U(11));
+        clear(11, U(11));
+        set(8, U(10), 'hairD');
+      }
+      dot(7, U(7), '#2b1d22');
+      dot(10, U(7), '#2b1d22');
+      dot(8, U(9), mix(c.skin, -0.35));
+      dot(9, U(9), mix(c.skin, -0.35));
+      if (!o.beard) {
+        const blush = rgb(c.skin).map((v, i) => Math.round(v * 0.8 + [214, 98, 98][i] * 0.2));
+        dot(6, U(8), blush);
+        dot(11, U(8), blush);
+      }
+    }
+    if (o.hat) {
+      fill(4, U(4), 13, U(4), 'hat');
+      fill(6, U(1), 11, U(3), 'hat');
+      clear(6, U(1));
+      clear(11, U(1));
+      fill(6, U(3), 11, U(3), 'band');
+    }
+
+    // shade + outline
+    const canvas = document.createElement('canvas');
+    canvas.width = W;
+    canvas.height = H;
+    const sctx = canvas.getContext('2d');
+    const img = sctx.createImageData(W, H);
+    const OUTLINE = [26, 18, 32];
+    const cell = (x, y) => (x < 0 || y < 0 || x >= W || y >= H ? null : grid[y * W + x]);
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const i = y * W + x;
+        const m = grid[i];
+        let col = null;
+        if (m === null) {
+          if (cell(x - 1, y) || cell(x + 1, y) || cell(x, y - 1) || cell(x, y + 1)) col = OUTLINE;
+        } else if (flat.has(i)) {
+          col = flat.get(i);
+        } else {
+          const t = mats[m];
+          if (cell(x, y - 1) === null || cell(x - 1, y) === null) col = t.l;
+          else if (cell(x + 1, y) !== m || cell(x, y + 1) !== m) col = t.d;
+          else col = t.b;
+        }
+        if (!col) continue;
+        img.data[i * 4] = col[0];
+        img.data[i * 4 + 1] = col[1];
+        img.data[i * 4 + 2] = col[2];
+        img.data[i * 4 + 3] = 255;
+      }
+    }
+    sctx.putImageData(img, 0, 0);
+    this.townsfolkSprites.set(cacheKey, canvas);
+    return canvas;
   }
 
   // Role title shown in front of a player's name; admins are drawn in red
@@ -14360,21 +16392,23 @@ class IsometricRenderer {
           ctx.restore();
 
         } else if (fx.type === 'venomous_barrage') {
-          // Rogue Venom Barrage - 15 Piercing Needles
+          // Rogue Venom Barrage - 15 Piercing Pixel Needles
           const screen = Isometric.worldToScreen(fx.x, fx.y, 0.4, this.camera, this.canvas.width, this.canvas.height);
           const dirX = fx.dirX || 1, dirY = fx.dirY || 0;
           const baseAngle = Math.atan2(dirY, dirX);
+          const npx = Math.max(2, Math.round(2 * z));
           ctx.save();
           ctx.globalCompositeOperation = 'lighter';
           for (let n = -7; n <= 7; n++) {
             const nAngle = baseAngle + (n * 0.08);
             const nDist = 45 * z * Math.min(1.0, progress * 2.0);
-            const nx = screen.x + Math.cos(nAngle) * nDist;
-            const ny = screen.y + Math.sin(nAngle) * (nDist * 0.5);
-            ctx.beginPath();
-            ctx.arc(nx, ny, 3 * z, 0, Math.PI * 2);
+            const nx = Math.round((screen.x + Math.cos(nAngle) * nDist) / npx) * npx;
+            const ny = Math.round((screen.y + Math.sin(nAngle) * (nDist * 0.5)) / npx) * npx;
             ctx.fillStyle = `rgba(34, 197, 94, ${alpha * 0.95})`;
-            ctx.fill();
+            ctx.fillRect(nx - npx, ny, npx * 3, npx);
+            ctx.fillRect(nx, ny - npx, npx, npx * 3);
+            ctx.fillStyle = `rgba(187, 247, 208, ${alpha})`;
+            ctx.fillRect(nx, ny, npx, npx);
           }
           ctx.restore();
 
@@ -14538,12 +16572,16 @@ class IsometricRenderer {
       if (p.blend === 'source-over' || p.type === 'earth' || p.type === 'ice' || p.type === 'gold' || p.type === 'loot') {
         if (p.z > 0.08 && p.type !== 'dust') {
           const ground = Isometric.worldToScreen(p.x, p.y, 0, this.camera, this.canvas.width, this.canvas.height);
-          const shadowR = p.size * z * Math.max(0.35, 1 - p.z * 0.4);
+          const spx = Math.max(2, Math.round(z));
+          const sw = Math.max(1, Math.round((p.size * z * Math.max(0.35, 1 - p.z * 0.4)) / spx));
+          const gx = Math.round(ground.x);
+          const gy = Math.round(ground.y);
           ctx.globalCompositeOperation = 'source-over';
           ctx.fillStyle = `rgba(0, 0, 0, ${0.28 * alpha})`;
-          ctx.beginPath();
-          ctx.ellipse(ground.x, ground.y, shadowR, shadowR * 0.45, 0, 0, Math.PI * 2);
-          ctx.fill();
+          ctx.fillRect(gx - sw * spx, gy, sw * 2 * spx, spx);
+          if (sw > 1) {
+            ctx.fillRect(gx - (sw - 1) * spx, gy - spx, (sw - 1) * 2 * spx, spx);
+          }
         }
       }
 
@@ -14566,39 +16604,32 @@ class IsometricRenderer {
       for (let i = this.animations.floatingTexts.length - 1; i >= 0; i--) {
         const ft = this.animations.floatingTexts[i];
         ft.life -= dt;
-
-        if (ft.life <= 0) {
+        if (ft.life <= 0 || isNaN(ft.x) || isNaN(ft.y)) {
           this.animations.floatingTexts.splice(i, 1);
           continue;
         }
-
-        // Physics: arc trajectories and drag
         ft.vy = (ft.vy || 0) + (ft.gravity || 58) * dt;
         ft.vx = (ft.vx || 0) * (ft.drag || 0.94);
         ft.screenOffsetX = (ft.screenOffsetX || 0) + ft.vx * dt;
         ft.screenOffsetY = (ft.screenOffsetY || 0) + ft.vy * dt;
-
-        // Pop scale decay
         if (ft.scale && ft.scale > 1.0) {
-          ft.scale = Math.max(1.0, ft.scale - dt * 2.2);
+          ft.scale = Math.max(1.0, ft.scale - dt * 3.5);
         }
+      }
 
-        if (isNaN(ft.x) || isNaN(ft.y)) {
-          this.animations.floatingTexts.splice(i, 1);
-          continue;
-        }
-
+      // Draw from oldest (0) to newest (length - 1) so newest damage numbers always sit crisply on top
+      for (let i = 0; i < this.animations.floatingTexts.length; i++) {
+        const ft = this.animations.floatingTexts[i];
         const screen = Isometric.worldToScreen(ft.x, ft.y, 0.8, this.camera, cw, ch);
-        const drawX = screen.x + ft.screenOffsetX;
-        const drawY = screen.y + ft.screenOffsetY;
+        const drawX = Math.round(screen.x + ft.screenOffsetX);
+        const drawY = Math.round(screen.y + ft.screenOffsetY);
 
-        // Viewport Culling: Skip rendering if offscreen to eliminate unnecessary GPU calls
         if (drawX < -80 || drawX > cw + 80 || drawY < -80 || drawY > ch + 80) {
           continue;
         }
 
-        const alpha = Math.min(1.0, ft.life / (ft.maxLife * 0.3));
-        const fontSize = Math.round(ft.size * textZoom * (ft.scale || 1.0));
+        const alpha = Math.min(1.0, ft.life / (ft.maxLife * 0.25));
+        const fontSize = Math.round(ft.size * textZoom);
         ctx.globalAlpha = alpha;
 
         // If Ragnarok Online Critical: Draw the iconic jagged explosive starburst plate!
@@ -14670,235 +16701,276 @@ class IsometricRenderer {
     // 3.5 Ambient weather for the other field zones
     this.drawAmbientWeather(ctx, this.currentTheme, this.canvas.width, this.canvas.height, this.animations.time);
 
-    // 4. Ambient Snowfall Particle Weather in Frostfell Peaks
+    // 4. Ambient Snowfall Particle Weather in Frostfell Peaks (Crisp Pixel Snowflakes)
     if (this.currentTheme === 'frostfell') {
       const snowW = this.canvas.width;
       const snowH = this.canvas.height;
       const time = this.animations.time;
+      const spx = 2;
       ctx.save();
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
       for (let s = 0; s < 70; s++) {
-        const sx = ((s * 97 + time * 75) % (snowW + 100)) - 50;
-        const sy = ((s * 131 + time * 120) % (snowH + 100)) - 50;
-        const size = (s % 3) + 1.2;
-        ctx.beginPath();
-        ctx.arc(sx, sy, size, 0, Math.PI * 2);
-        ctx.fill();
+        const sx = Math.round((((s * 97 + time * 75) % (snowW + 100)) - 50) / spx) * spx;
+        const sy = Math.round((((s * 131 + time * 120) % (snowH + 100)) - 50) / spx) * spx;
+        const tier = s % 3;
+        if (tier === 2) {
+          // Stepped 5-pixel cross snowflake
+          ctx.fillStyle = 'rgba(186, 230, 253, 0.75)';
+          ctx.fillRect(sx - spx, sy, spx * 3, spx);
+          ctx.fillRect(sx, sy - spx, spx, spx * 3);
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+          ctx.fillRect(sx, sy, spx, spx);
+        } else if (tier === 1) {
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.82)';
+          ctx.fillRect(sx, sy, spx * 2, spx * 2);
+        } else {
+          ctx.fillStyle = 'rgba(224, 242, 254, 0.72)';
+          ctx.fillRect(sx, sy, spx, spx);
+        }
       }
       ctx.restore();
     }
   }
 
-  // Render individual stylized particle with custom shape, glow, and physics
+  // Render individual stylized pixel-art particle snapped to an integer pixel grid
   drawParticleItem(ctx, p, screen, z, alpha, prog) {
     ctx.save();
     ctx.globalCompositeOperation = p.blend || 'lighter';
     ctx.globalAlpha = Math.min(1.0, alpha);
 
+    // Base pixel unit scaled with camera zoom (minimum 2px for crisp retro blocks)
+    const px = Math.max(2, Math.round(z));
+    const ox = Math.round(screen.x);
+    const oy = Math.round(screen.y);
+    // Helper to draw a grid-snapped pixel rectangle at (gx, gy) of size (gw, gh) in pixel units
+    const b = (gx, gy, gw, gh, col) => {
+      if (col) ctx.fillStyle = col;
+      ctx.fillRect(ox + gx * px, oy + gy * px, gw * px, gh * px);
+    };
+
     if (p.type === 'slash' || p.type === 'spark') {
-      const speed = Math.hypot(p.vx, p.vy);
-      const angle = Math.atan2((p.vx + p.vy) * 0.5, p.vx - p.vy);
-      const len = Math.max(5 * z, speed * 3.8 * z);
-      ctx.translate(screen.x, screen.y);
-      ctx.rotate(angle);
+      // Stepped pixel velocity streak + incandescent pixel star tip
+      const svx = (p.vx - p.vy);
+      const svy = (p.vx + p.vy) * 0.5;
+      const mag = Math.hypot(svx, svy) || 1;
+      const dx = Math.round(svx / mag);
+      const dy = Math.round(svy / mag);
+      const steps = Math.max(2, Math.min(6, Math.round(Math.hypot(p.vx, p.vy) * 1.15 * (0.4 + 0.6 * alpha))));
 
-      // Outer glowing colored velocity streak
-      ctx.beginPath();
-      ctx.moveTo(-len, 0);
-      ctx.lineTo(len * 0.35, 0);
-      ctx.strokeStyle = p.color;
-      ctx.lineWidth = Math.max(1, p.size * z * alpha * 1.5);
-      ctx.lineCap = 'round';
-      ctx.stroke();
-
-      // Hot white incandescent core
-      ctx.beginPath();
-      ctx.moveTo(-len * 0.65, 0);
-      ctx.lineTo(len * 0.25, 0);
-      ctx.strokeStyle = p.coreColor || '#ffffff';
-      ctx.lineWidth = Math.max(0.8, p.size * z * alpha * 0.65);
-      ctx.stroke();
+      // Trailing colored pixel blocks stepping backward along velocity
+      for (let s = steps; s >= 1; s--) {
+        const tx = -dx * s;
+        const ty = -dy * s;
+        b(tx, ty, 1, 1, p.color);
+        if (s <= 2 && p.size > 4.2) {
+          b(tx, ty + 1, 1, 1, p.color);
+        }
+      }
+      // Cross-glint around head for larger sparks
+      if (p.size * alpha > 2.6) {
+        b(-1, 0, 3, 1, p.color);
+        b(0, -1, 1, 3, p.color);
+      }
+      // White-hot pixel core at the head
+      b(0, 0, 1, 1, p.coreColor || '#ffffff');
 
     } else if (p.type === 'fire') {
-      const r = p.size * z * (0.6 + prog * 0.8);
-      const grad = ctx.createRadialGradient(screen.x, screen.y, 0, screen.x, screen.y, r);
-      grad.addColorStop(0, '#ffffff');
-      grad.addColorStop(0.25, p.coreColor || '#fef08a');
-      grad.addColorStop(0.65, p.color);
-      grad.addColorStop(1, 'rgba(185, 28, 28, 0)');
+      // Animated stepped pixel flame cluster
+      const flick = (Math.floor(p.life * 18 + p.id) % 3) - 1; // -1, 0, 1 pixel sway
+      const stage = prog < 0.35 ? 3 : (prog < 0.7 ? 2 : 1);
 
-      ctx.fillStyle = grad;
-      ctx.beginPath();
-      ctx.arc(screen.x, screen.y, r, 0, Math.PI * 2);
-      ctx.fill();
+      if (stage === 3) {
+        // Outer flame tongue (stepped pixel silhouette)
+        b(-1, 1, 3, 1, p.color);
+        b(-2, 0, 5, 1, p.color);
+        b(-1, -1, 3, 1, p.color);
+        b(flick, -2, 2, 1, p.color);
+        b(flick, -3, 1, 1, '#dc2626');
+        // Mid warm core
+        b(-1, 0, 3, 1, p.coreColor || '#fef08a');
+        b(0, -1, 2, 1, p.coreColor || '#fef08a');
+        // White-hot heart
+        b(0, 0, 1, 1, '#ffffff');
+      } else if (stage === 2) {
+        b(-1, 0, 3, 1, p.color);
+        b(0, 1, 1, 1, p.color);
+        b(flick, -1, 2, 1, p.color);
+        b(0, -2, 1, 1, '#dc2626');
+        b(0, 0, 1, 1, p.coreColor || '#fef08a');
+      } else {
+        // Dying pixel ember
+        b(0, 0, 1, 1, p.color);
+        b(flick, -1, 1, 1, p.coreColor || '#fef08a');
+      }
 
     } else if (p.type === 'arcane') {
-      const sr = p.size * z * (0.8 + Math.sin(p.life * 18) * 0.25);
-      ctx.translate(screen.x, screen.y);
-      ctx.rotate(p.rot);
-
-      // Soft celestial glow halo
-      ctx.fillStyle = p.glowColor || 'rgba(192, 132, 252, 0.4)';
-      ctx.beginPath();
-      ctx.arc(0, 0, sr * 1.5, 0, Math.PI * 2);
-      ctx.fill();
-
-      // 4-Pointed Twinkling Star Cross
-      ctx.beginPath();
-      ctx.moveTo(0, -sr);
-      ctx.quadraticCurveTo(0, 0, sr, 0);
-      ctx.quadraticCurveTo(0, 0, 0, sr);
-      ctx.quadraticCurveTo(0, 0, -sr, 0);
-      ctx.quadraticCurveTo(0, 0, 0, -sr);
-      ctx.fillStyle = p.color;
-      ctx.fill();
-
-      // Bright white diamond core
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath();
-      ctx.arc(0, 0, sr * 0.32, 0, Math.PI * 2);
-      ctx.fill();
+      // Twinkling pixel mana star (alternating 4-point cross and diamond rune)
+      const frame = Math.floor(p.life * 14 + p.id) & 1;
+      const halo = p.glowColor || 'rgba(192, 132, 252, 0.45)';
+      if (frame === 0) {
+        b(-2, 0, 5, 1, halo);
+        b(0, -2, 1, 5, halo);
+        b(-1, -1, 3, 3, halo);
+        b(-2, 0, 5, 1, p.color);
+        b(0, -2, 1, 5, p.color);
+        b(0, 0, 1, 1, '#ffffff');
+      } else {
+        b(-1, -1, 3, 3, halo);
+        b(-1, 0, 3, 1, p.color);
+        b(0, -1, 1, 3, p.color);
+        b(-2, -2, 1, 1, p.color);
+        b(2, -2, 1, 1, p.color);
+        b(-2, 2, 1, 1, p.color);
+        b(2, 2, 1, 1, p.color);
+        b(0, 0, 1, 1, '#ffffff');
+      }
 
     } else if (p.type === 'ice') {
-      const ir = p.size * z * alpha;
-      ctx.translate(screen.x, screen.y);
-      ctx.rotate(p.rot);
-
-      ctx.beginPath();
-      ctx.moveTo(0, -ir * 1.6);
-      ctx.lineTo(ir * 0.75, 0);
-      ctx.lineTo(0, ir * 1.6);
-      ctx.lineTo(-ir * 0.75, 0);
-      ctx.closePath();
-      ctx.fillStyle = p.color;
-      ctx.fill();
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = Math.max(0.8, 1.2 * z);
-      ctx.stroke();
+      // Crisp pixel-art frost shard / diamond crystal
+      const orient = Math.floor((p.rot || 0) * 2) & 1;
+      if (orient === 0) {
+        // Vertical stepped ice crystal
+        b(0, -2, 1, 5, '#0284c7');
+        b(-1, -1, 3, 3, p.color);
+        b(0, -2, 1, 1, '#ffffff');
+        b(0, 2, 1, 1, p.color);
+        b(0, -1, 1, 2, '#ffffff');
+      } else {
+        // Diagonal stepped snowflake shard
+        b(-2, 0, 5, 1, p.color);
+        b(0, -2, 1, 5, p.color);
+        b(-1, -1, 3, 3, '#bae6fd');
+        b(0, 0, 1, 1, '#ffffff');
+        b(-1, -1, 1, 1, '#ffffff');
+      }
 
     } else if (p.type === 'lightning') {
-      const lr = p.size * 2.2 * z;
-      ctx.translate(screen.x, screen.y);
-      ctx.beginPath();
-      ctx.moveTo(-lr, 0);
-      ctx.lineTo(-lr * 0.35, Math.sin(p.id * 10 + p.life * 45) * 6 * z);
-      ctx.lineTo(lr * 0.35, Math.cos(p.id * 10 + p.life * 45) * 6 * z);
-      ctx.lineTo(lr, 0);
-      ctx.strokeStyle = p.color;
-      ctx.lineWidth = Math.max(1, 3.2 * z * alpha);
-      ctx.stroke();
-
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = Math.max(0.6, 1.4 * z * alpha);
-      ctx.stroke();
+      // Stepped pixel zig-zag electric bolt
+      const j1 = ((Math.floor(p.life * 45 + p.id * 7) % 3) - 1);
+      const j2 = ((Math.floor(p.life * 35 + p.id * 13) % 3) - 1);
+      // Outer electric glow blocks
+      b(-3, j1, 2, 2, p.color);
+      b(-1, 0, 2, 2, p.color);
+      b(1, j2, 2, 2, p.color);
+      b(3, -j1, 2, 1, p.color);
+      // Crisp 1-pixel white-hot voltage spine
+      b(-3, j1, 2, 1, '#ffffff');
+      b(-1, 0, 2, 1, '#ffffff');
+      b(1, j2, 2, 1, '#ffffff');
+      b(3, -j1, 1, 1, '#ffffff');
 
     } else if (p.type === 'poison') {
-      const pr = p.size * z * (0.6 + prog * 0.5);
-      ctx.beginPath();
-      ctx.arc(screen.x, screen.y, pr, 0, Math.PI * 2);
-      ctx.fillStyle = p.color;
-      ctx.fill();
-
-      // Specular acid shine
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath();
-      ctx.arc(screen.x - pr * 0.3, screen.y - pr * 0.3, pr * 0.28, 0, Math.PI * 2);
-      ctx.fill();
+      // Pixel-art toxic bubble / acid droplet with corner cutouts and top-left shine pixel
+      const big = p.size * (0.6 + prog * 0.4) > 3.6;
+      if (big) {
+        b(-1, -2, 2, 1, p.color);
+        b(-2, -1, 4, 2, p.color);
+        b(-1, 1, 2, 1, '#15803d');
+        b(-1, -1, 1, 1, '#ffffff');
+        b(0, -1, 1, 1, p.coreColor || '#86efac');
+      } else {
+        b(0, -1, 1, 3, p.color);
+        b(-1, 0, 3, 1, p.color);
+        b(0, 1, 1, 1, '#15803d');
+        b(0, 0, 1, 1, '#ffffff');
+      }
 
     } else if (p.type === 'shadow') {
-      const vr = p.size * z * (0.8 + prog * 0.6);
-      ctx.beginPath();
-      ctx.arc(screen.x, screen.y, vr * 1.4, 0, Math.PI * 2);
-      ctx.fillStyle = p.color;
-      ctx.fill();
-
-      ctx.beginPath();
-      ctx.arc(screen.x, screen.y, vr * 0.65, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.95)';
-      ctx.fill();
+      // Pixel-art void wisp: dark purple pixel cluster with abyssal core and detached motes
+      const drift = (Math.floor(p.life * 12 + p.id) & 1) ? 1 : -1;
+      b(-1, -2, 3, 1, p.color);
+      b(-2, -1, 5, 3, p.color);
+      b(-1, 2, 3, 1, p.color);
+      // Detached shadow pixel motes
+      b(drift * 2, -2, 1, 1, p.coreColor || '#c084fc');
+      b(-drift * 2, 2, 1, 1, p.color);
+      // Deep void pixel core
+      b(-1, -1, 3, 2, '#0f172a');
+      b(0, 0, 1, 1, '#1e1b4b');
 
     } else if (p.type === 'earth') {
-      const er = p.size * z;
-      ctx.translate(screen.x, screen.y);
-      ctx.rotate(p.rot);
-      ctx.beginPath();
-      ctx.moveTo(-er, -er * 0.6);
-      ctx.lineTo(er * 0.7, -er);
-      ctx.lineTo(er, er * 0.5);
-      ctx.lineTo(-er * 0.3, er);
-      ctx.closePath();
-      ctx.fillStyle = p.color;
-      ctx.fill();
-      ctx.strokeStyle = '#291e14';
-      ctx.lineWidth = Math.max(0.8, 1.2 * z);
-      ctx.stroke();
+      // Chunky tumbling pixel rock fragment with dark bottom bevel and top highlight
+      const tumble = Math.floor((p.rot || 0) * 2) & 1;
+      if (tumble === 0) {
+        b(-1, -2, 3, 1, '#291e14');
+        b(-2, -1, 4, 2, '#291e14');
+        b(-1, 1, 3, 1, '#291e14');
+        b(-1, -1, 2, 2, p.color);
+        b(1, -1, 1, 1, p.color);
+        b(-1, -1, 1, 1, '#d6d3d1');
+        b(-1, 0, 2, 1, p.coreColor || '#451a03');
+      } else {
+        b(-1, -1, 3, 3, '#291e14');
+        b(0, -1, 2, 2, p.color);
+        b(-1, 0, 1, 1, p.color);
+        b(0, -1, 1, 1, '#d6d3d1');
+        b(0, 1, 2, 1, p.coreColor || '#451a03');
+      }
 
     } else if (p.type === 'gold' || p.type === 'loot') {
-      const gr = p.size * z * (0.8 + Math.sin(p.life * 15) * 0.2);
-      ctx.translate(screen.x, screen.y);
-      ctx.rotate(p.rot);
-
-      ctx.fillStyle = p.color;
-      ctx.beginPath();
-      ctx.arc(0, 0, gr * 0.7, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 1.2 * z;
-      ctx.beginPath();
-      ctx.moveTo(-gr * 1.2, 0); ctx.lineTo(gr * 1.2, 0);
-      ctx.moveTo(0, -gr * 1.2); ctx.lineTo(0, gr * 1.2);
-      ctx.stroke();
+      // 4-frame spinning pixel gold coin + sparkle cross
+      const frame = Math.floor(p.life * 14 + p.id) & 3;
+      if (frame === 0) {
+        b(-1, -2, 3, 4, '#b45309');
+        b(0, -1, 2, 2, p.color);
+        b(-1, -1, 1, 1, '#ffffff');
+      } else if (frame === 1 || frame === 3) {
+        b(0, -2, 2, 4, '#b45309');
+        b(0, -1, 1, 2, p.color);
+        b(0, -1, 1, 1, '#ffffff');
+      } else {
+        // Edge-on glint cross
+        b(0, -2, 1, 5, '#fef08a');
+        b(-2, 0, 5, 1, '#fef08a');
+        b(0, -1, 1, 3, '#ffffff');
+        b(-1, 0, 3, 1, '#ffffff');
+      }
 
     } else if (p.type === 'dust') {
-      const dr = p.size * z * (0.8 + prog * 1.4);
-      ctx.beginPath();
-      ctx.arc(screen.x, screen.y, dr, 0, Math.PI * 2);
-      ctx.fillStyle = p.color;
-      ctx.fill();
+      // Dithered pixel dust puff that separates as it dissipates
+      const sep = prog > 0.55 ? 1 : 0;
+      b(-1 - sep, 0, 2, 1, p.color);
+      b(sep, -1, 2, 1, p.color);
+      b(0, sep, 1, 1, p.coreColor || p.color);
+      if (prog < 0.6) {
+        b(-1, -1, 2, 2, p.color);
+      }
 
     } else if (p.type === 'wind') {
-      const wr = p.size * z;
-      const speed = Math.hypot(p.vx, p.vy);
-      const angle = Math.atan2((p.vx + p.vy) * 0.5, p.vx - p.vy);
-      ctx.translate(screen.x, screen.y);
-      ctx.rotate(angle);
-      ctx.beginPath();
-      ctx.ellipse(0, 0, Math.max(4 * z, speed * 2.8 * z), wr * 0.5, 0, 0, Math.PI * 2);
-      ctx.fillStyle = p.color;
-      ctx.fill();
+      // Stepped pixel wind ribbon aligned to velocity
+      const svx = (p.vx - p.vy);
+      const svy = (p.vx + p.vy) * 0.5;
+      const mag = Math.hypot(svx, svy) || 1;
+      const dx = Math.round(svx / mag);
+      const dy = Math.round(svy / mag);
+      for (let s = -2; s <= 2; s++) {
+        const wave = (s & 1) ? 1 : 0;
+        b(dx * s - dy * wave, dy * s + dx * wave, 1, 1, s === 2 ? '#ffffff' : p.color);
+      }
 
     } else if (p.type === 'level') {
-      const lr = p.size * z * (0.8 + Math.sin(p.life * 12) * 0.25);
-      ctx.translate(screen.x, screen.y);
-      ctx.rotate(p.rot);
-      // Soft radial bloom
-      ctx.fillStyle = p.glowColor || 'rgba(250, 204, 21, 0.4)';
-      ctx.beginPath();
-      ctx.arc(0, 0, lr * 1.8, 0, Math.PI * 2);
-      ctx.fill();
-      // 8-pointed golden celestial star
-      ctx.strokeStyle = p.color;
-      ctx.lineWidth = 1.8 * z;
-      ctx.beginPath();
-      ctx.moveTo(-lr * 1.5, 0); ctx.lineTo(lr * 1.5, 0);
-      ctx.moveTo(0, -lr * 1.5); ctx.lineTo(0, lr * 1.5);
-      const diag = lr * 0.9;
-      ctx.moveTo(-diag, -diag); ctx.lineTo(diag, diag);
-      ctx.moveTo(diag, -diag); ctx.lineTo(-diag, diag);
-      ctx.stroke();
-      // White diamond core
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath();
-      ctx.arc(0, 0, lr * 0.4, 0, Math.PI * 2);
-      ctx.fill();
+      // Grand pixel-art celestial level-up star
+      const halo = p.glowColor || 'rgba(250, 204, 21, 0.45)';
+      // Stepped outer pixel glow
+      b(-3, 0, 7, 1, halo);
+      b(0, -3, 1, 7, halo);
+      b(-2, -1, 5, 3, halo);
+      b(-1, -2, 3, 5, halo);
+      // 8-point pixel star arms
+      b(-3, 0, 7, 1, p.color);
+      b(0, -3, 1, 7, p.color);
+      b(-2, -2, 1, 1, p.color);
+      b(2, -2, 1, 1, p.color);
+      b(-2, 2, 1, 1, p.color);
+      b(2, 2, 1, 1, p.color);
+      // Incandescent white pixel diamond core
+      b(-1, 0, 3, 1, '#ffffff');
+      b(0, -1, 1, 3, '#ffffff');
 
     } else {
-      // Default glowing particle
-      ctx.beginPath();
-      ctx.arc(screen.x, screen.y, p.size * z * alpha, 0, Math.PI * 2);
-      ctx.fillStyle = p.color;
-      ctx.fill();
+      // Default crisp pixel cluster
+      b(-1, 0, 3, 1, p.color);
+      b(0, -1, 1, 3, p.color);
+      b(0, 0, 1, 1, p.coreColor || '#ffffff');
     }
 
     ctx.restore();
