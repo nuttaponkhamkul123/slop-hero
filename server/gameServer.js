@@ -2177,6 +2177,10 @@ class GameServer {
     if (player.berserkTimer > 0) {
       attackDmg = Math.round(attackDmg * 1.35);
     }
+    if (player.spTransformed && player.spCardId === 'sp_dread_lord') {
+      const missingHp = Math.max(0, 1 - (player.hp / Math.max(1, player.maxHp)));
+      attackDmg = Math.round(attackDmg * (1 + 0.5 * missingHp));
+    }
 
     let hasSweepTriggered = false;
 
@@ -2247,13 +2251,6 @@ class GameServer {
           if (dot >= 0.35) {
             hitMobs.add(mob.id);
             this.applyDamageToMob(player, mob, swipeDmg, false);
-            this.emitZone(player.zone, 'floating_text', {
-              x: mob.x,
-              y: mob.y - 0.7,
-              text: `-${swipeDmg}`,
-              color: '#38bdf8',
-              size: 15
-            });
           }
         }
       }
@@ -2470,6 +2467,10 @@ class GameServer {
         }
       }
       if (skill.execute && mob.maxHp && mob.hp <= mob.maxHp * skill.execute[0]) m *= skill.execute[1];
+      if (skill.furyBonus) {
+        const missingHp = Math.max(0, 1 - (player.hp / Math.max(1, player.maxHp)));
+        m *= 1 + skill.furyBonus * missingHp;
+      }
       if (skill.shatter && mob.chillTimer > 0) m *= skill.shatter;
       const before = mob.hp;
       if (skill.burn) { mob.burnTimer = skill.burn; mob.burnDmg = Math.max(mob.burnDmg || 0, Math.round(player.dmg * 0.2)); }
@@ -2651,30 +2652,55 @@ class GameServer {
       }
       case 'pull': {
         spot = { x: aimX, y: aimY };
-        emit({ x: aimX, y: aimY, radius: skill.r }, true);
-        for (const m of within(aimX, aimY, skill.r)) {
-          const nx = aimX + (m.x - aimX) * 0.3, ny = aimY + (m.y - aimY) * 0.3;
+        const isDreadRoar = skill.id === 'sp_void_grasp';
+        const pullCenterX = isDreadRoar ? px : aimX;
+        const pullCenterY = isDreadRoar ? py : aimY;
+        emit({ x: pullCenterX, y: pullCenterY, radius: skill.r }, true);
+        if (isDreadRoar) say(px, py, '💀 MOCKING DREAD ROAR!', '#c084fc', 17);
+        for (const m of within(pullCenterX, pullCenterY, skill.r)) {
+          const nx = pullCenterX + (m.x - pullCenterX) * (isDreadRoar ? 0.25 : 0.3);
+          const ny = pullCenterY + (m.y - pullCenterY) * (isDreadRoar ? 0.25 : 0.3);
           if (!this.isColliding(nx, ny, zone)) { m.x = nx; m.y = ny; }
-          hit(m, 1, aimX, aimY);
+          if (isDreadRoar) {
+            m.attackCooldown = Math.max(m.attackCooldown || 0, 1.2);
+            m.targetPlayerId = player.id;
+          }
+          hit(m, 1, pullCenterX, pullCenterY);
         }
         break;
       }
       case 'cone': {
         emit({ x: px, y: py, dirX: dir.normX, dirY: dir.normY, range: skill.range, arc: skill.arc }, true);
+        if (skill.id === 'sp_dread_wave') say(px, py, '🪓 CATACLYSMIC AXE DRAG!', '#f43f5e', 17);
         const half = (skill.arc * Math.PI) / 360;
         for (const m of within(px, py, skill.range)) {
           const d = Math.hypot(m.x - px, m.y - py);
           if (d < 0.5) { hit(m); continue; }
           const cos = ((m.x - px) * dir.normX + (m.y - py) * dir.normY) / d;
-          if (Math.acos(Math.max(-1, Math.min(1, cos))) <= half) hit(m);
+          if (Math.acos(Math.max(-1, Math.min(1, cos))) <= half) {
+            hit(m);
+            if (skill.id === 'sp_dread_wave' && m.state !== 'dead') {
+              m.burnTimer = Math.max(m.burnTimer || 0, 3.5);
+              m.burnDmg = Math.max(m.burnDmg || 0, Math.round(player.dmg * 0.28));
+            }
+          }
         }
         break;
       }
       case 'line': {
         const ex = px + dir.normX * skill.len, ey = py + dir.normY * skill.len;
         emit({ startX: px, startY: py, x: ex, y: ey, width: skill.width }, true);
+        if (skill.id === 'sp_abyss_cleave') say(px, py, '🪓 ABYSSAL GUILLOTINE!', '#c084fc', 17);
         for (const m of alive()) {
           if (this.distToSegment(m.x, m.y, px, py, ex, ey) <= skill.width) hit(m);
+        }
+        if (skill.id === 'sp_abyss_cleave') {
+          later(0.32, () => {
+            emit({ startX: px, startY: py, x: ex, y: ey, width: skill.width * 1.15, wave: 1 }, false);
+            for (const m of alive()) {
+              if (this.distToSegment(m.x, m.y, px, py, ex, ey) <= skill.width * 1.15) hit(m, 0.45);
+            }
+          });
         }
         break;
       }
@@ -2684,7 +2710,15 @@ class GameServer {
         const target = atAim && Math.hypot(atAim.x - px, atAim.y - py) <= skill.range + 1 ? atAim : nearest(px, py, skill.range);
         const tx = target ? target.x : aimX, ty = target ? target.y : aimY;
         emit({ startX: px, startY: py, x: tx, y: ty, radius: 0.9 }, true);
-        if (target) hit(target);
+        if (target) {
+          if (skill.id === 'sp_soul_rend') {
+            const isExec = target.maxHp && target.hp <= target.maxHp * 0.45;
+            say(target.x, target.y, isExec ? '🪓 GUILLOTINE EXECUTE!' : '🪓 BEHEADING!', '#f43f5e', isExec ? 19 : 17);
+            hit(target, isExec ? 1.35 : 1.0);
+          } else {
+            hit(target);
+          }
+        }
         break;
       }
       case 'volley': {
@@ -2713,6 +2747,12 @@ class GameServer {
       case 'pulse': {
         const onTarget = skill.at === 'target';
         let seekX = aimX, seekY = aimY, lastPrey = null;
+        if (skill.id === 'sp_soul_bastion') {
+          const missingShare = Math.max(0, 1 - (player.hp / Math.max(1, player.maxHp)));
+          const bloodlustHeal = Math.max(1, Math.round(player.maxHp * (0.12 + 0.18 * missingShare)));
+          player.hp = Math.min(player.maxHp, player.hp + bloodlustHeal);
+          say(px, py, `🔥 UNDYING RAGE! (+${bloodlustHeal} HP)`, '#f43f5e', 18);
+        }
         const wave = (i) => {
           let cx = onTarget ? seekX : player.x, cy = onTarget ? seekY : player.y;
           if (skill.seek) {
@@ -2729,6 +2769,7 @@ class GameServer {
       }
       case 'rain': {
         // Each strike lands on a random enemy in the area, or a random spot if none
+        if (skill.id === 'sp_grave_rain') say(aimX, aimY, '🪓 GUILLOTINE SKYFALL!', '#c084fc', 17);
         const strike = (i) => {
           const inArea = within(aimX, aimY, skill.r);
           const a = Math.random() * Math.PI * 2, d = Math.sqrt(Math.random()) * skill.r;
@@ -2736,6 +2777,9 @@ class GameServer {
           const sx = pick ? pick.x : aimX + Math.cos(a) * d, sy = pick ? pick.y : aimY + Math.sin(a) * d;
           emit({ x: sx, y: sy, radius: skill.hit, wave: i, areaX: aimX, areaY: aimY, areaR: skill.r }, i === 0);
           within(sx, sy, skill.hit).forEach(m => hit(m, 1, sx, sy));
+          if (skill.id === 'sp_grave_rain' && i === skill.n - 1) {
+            within(aimX, aimY, skill.r).forEach(m => hit(m, 0.75, aimX, aimY));
+          }
         };
         strike(0);
         for (let i = 1; i < skill.n; i++) later(i * skill.every, () => strike(i));
@@ -2745,12 +2789,14 @@ class GameServer {
         const end = travel(skill.len);
         spot = { x0: px, y0: py, x1: end.x, y1: end.y };
         let resetDash = false;
+        let spinHits = 0;
         for (const m of alive()) {
           if (this.distToSegment(m.x, m.y, px, py, end.x, end.y) <= skill.width) {
             if (skill.resetOnStatic && m.staticCharge && m.staticCharge > 0) {
               m.staticCharge = 0;
               resetDash = true;
             }
+            spinHits++;
             hit(m);
           }
         }
@@ -2758,6 +2804,15 @@ class GameServer {
           player.skillCooldowns['dash'] = 0;
           player.skillCooldowns[slot] = 0;
           this.emitZone(zone, 'floating_text', { x: end.x, y: end.y - 0.7, text: '⚡ DASH RESET!', color: '#facc15', size: 16 });
+          const socket = this.io.sockets.sockets.get(player.id);
+          if (socket) socket.emit('player_updated', player);
+        } else if (skill.spinReset && spinHits > 0) {
+          const cdReduce = spinHits * skill.spinReset;
+          player.skillCooldowns['dash'] = Math.max(0, (player.skillCooldowns['dash'] || 0) - cdReduce);
+          if (player.skillCooldowns[slot] !== undefined) {
+            player.skillCooldowns[slot] = Math.max(0, (player.skillCooldowns[slot] || 0) - cdReduce);
+          }
+          this.emitZone(zone, 'floating_text', { x: end.x, y: end.y - 0.7, text: `🪓 SPIN SLAUGHTER -${cdReduce.toFixed(1)}s CD!`, color: '#c084fc', size: 15 });
           const socket = this.io.sockets.sockets.get(player.id);
           if (socket) socket.emit('player_updated', player);
         }
@@ -2792,6 +2847,7 @@ class GameServer {
       case 'blink': {
         const end = travel(skill.len);
         emit({ startX: px, startY: py, x: end.x, y: end.y, radius: skill.r || 0, origin: !!(skill.origin || skill.originOnly), landing: !skill.originOnly && !!skill.dmg, facing: player.facing }, true);
+        if (skill.id === 'sp_void_step') say(end.x, end.y, '🪓 OBLIVION SLAM!', '#c084fc', 17);
         if (skill.riftPull) {
           within(px, py, skill.riftPull).forEach((m, i) => {
             const a = (i / 6) * Math.PI * 2;
@@ -2886,6 +2942,7 @@ class GameServer {
       player.smokeScreenTimer = Math.max(player.smokeScreenTimer || 0, skill.invuln);
     }
     if (skill.hpCost) player.hp = Math.max(1, player.hp - Math.round(player.hp * skill.hpCost));
+    if (skill.undying) { player.undyingTimer = Math.max(player.undyingTimer || 0, skill.undying); buffs.push('UNDYING RAGE'); }
     if (skill.berserk) { player.berserkTimer = Math.max(player.berserkTimer || 0, skill.berserk); buffs.push('RAGE'); }
     if (skill.fortress) { player.ironFortressTimer = Math.max(player.ironFortressTimer || 0, skill.fortress); buffs.push('FORTRESS'); }
     if (skill.sprint) player.sprintTimer = Math.max(player.sprintTimer || 0, skill.sprint);
@@ -4730,7 +4787,8 @@ class GameServer {
       y: mob.y - 0.7,
       text,
       color: textColor,
-      size: textSize
+      size: textSize,
+      crit: !!isCritical
     }, instId);
 
     if (mob.hp <= 0) {
@@ -5143,6 +5201,7 @@ class GameServer {
       if (player.portalCooldown > 0) player.portalCooldown = Math.max(0, player.portalCooldown - dt);
       if (player.spCooldown > 0) player.spCooldown = Math.max(0, player.spCooldown - dt);
       if (player.berserkTimer > 0) player.berserkTimer = Math.max(0, player.berserkTimer - dt);
+      if (player.undyingTimer > 0) player.undyingTimer = Math.max(0, player.undyingTimer - dt);
       if (player.ironFortressTimer > 0) player.ironFortressTimer = Math.max(0, player.ironFortressTimer - dt);
       if (player.smokeScreenTimer > 0) player.smokeScreenTimer = Math.max(0, player.smokeScreenTimer - dt);
       if (player.stormChargeTimer > 0) {
@@ -5191,12 +5250,12 @@ class GameServer {
           if (fx.type === 'poison' && fx.tickTimer <= 0) {
             fx.tickTimer = 0.8;
             const dotDmg = Math.max(1, Math.round(fx.value));
-            player.hp = Math.max(0, player.hp - dotDmg);
+            player.hp = Math.max(player.undyingTimer > 0 ? 1 : 0, player.hp - dotDmg);
             this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.7, text: `☠️ -${dotDmg}`, color: '#22c55e', size: 14 });
           } else if (fx.type === 'burn' && fx.tickTimer <= 0) {
             fx.tickTimer = 0.6;
             const dotDmg = Math.max(1, Math.round(fx.value));
-            player.hp = Math.max(0, player.hp - dotDmg);
+            player.hp = Math.max(player.undyingTimer > 0 ? 1 : 0, player.hp - dotDmg);
             this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.7, text: `🔥 -${dotDmg}`, color: '#f97316', size: 14 });
           } else if (fx.type === 'chill') {
             isChilled = true;
@@ -5584,6 +5643,10 @@ class GameServer {
             }
 
             targetPlayer.hp -= damageDealt;
+            if (targetPlayer.undyingTimer > 0 && targetPlayer.hp < 1) {
+              targetPlayer.hp = 1;
+              this.emitZone(zone, 'floating_text', { x: targetPlayer.x, y: targetPlayer.y - 1.0, text: '💀 UNDYING RAGE!', color: '#c084fc', size: 18 });
+            }
 
             // Apply Mob Buffs/Affixes to targetPlayer
             if (mob.buffs && mob.buffs.length > 0) {
