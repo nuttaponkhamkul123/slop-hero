@@ -5,6 +5,21 @@ const RUN_DUST_OPTS = { speed: 0.6, sizeScale: 0.5 };
 // Skill effects that already play the dash animation (no separate cast pose)
 // Props that never animate, so their tinted picture can be cached (drawTinted)
 const STATIC_TINT_PROPS = new Set(['boulder', 'stone_pillar', 'oak_tree', 'pine_tree', 'ice_crystal', 'sarcophagus', 'bone_pile', 'gold_hoard']);
+// Pixel-art shopkeepers in the 3D stalls (pixelMobs.js): where they stand in
+// the stall (prop units, 32 * sqrt2 per tile; x -> world x, z -> world y), size,
+// and whether the front-facing sprite is mirrored (facing screen lower-left)
+// view picks the sprite angle ('back' = seen from behind, facing away).
+const SHOPKEEPERS = {
+  merchant: { npc: 'merchant', x: 11, z: 0 },
+  blacksmith: { npc: 'blacksmith', x: 4, z: 6 },
+  // Valka's booth is turned to open on the fountain: she faces it (screen upper-left)
+  enchanter: { npc: 'enchanter', x: -2, z: 4, view: 'back', flip: true },
+  // stall keepers face the boulevard: south-facing stalls north of the road,
+  // north-facing ones (turned round, see townProps3D) south of it
+  market_stall: { npc: 'stallkeeper', x: 0, z: -11, scale: 0.82, flip: true,
+    forObs: obs => (obs.y > 20.5 ? { npc: 'stallkeeper', x: 0, z: 11, scale: 0.82, view: 'back' } : null) }
+};
+const SMITH_BLOW_S = 1.3;   // Brom's hammer cycle; the blow lands at 68% of it
 // Furthest a mob body is drawn from its anchor, in unscaled pixels (drawMob)
 const MOB_BODY_EXTENT = { slime: 24, goblin: 38, skeleton: 38, golem: 72, frost_wolf: 38, ice_elemental: 32, frost_titan: 80 };
 // Other tinted props animate; their cached picture is redrawn this often
@@ -31,17 +46,19 @@ const SP_CARD_PARTICLES = {
   sp_nightblade: ['shadow', 'slash'], // dark tendrils and blade cuts
   sp_venom_lord: ['poison', 'dust'], // toxic mist and acid
   sp_blade_dancer: ['lightning', 'spark'], // electric bolts and sparks
+  sp_storm_herald: ['lightning', 'spark'], // storm bolts and crackle
   sp_frost_shade: ['ice', 'spark'], // glacial ice crystals and diamonds
   sp_eclipse_reaper: ['shadow', 'fire'] // void matter and blood flame
 };
 const SP_SHAPE_LIFE = {
   nova: 0.8, buff: 1.1, blast: 0.8, pull: 1.0, cone: 0.55, line: 0.7, strike: 0.5, volley: 0.55,
-  chain: 0.6, pulse: 0.55, rain: 0.6, dash: 0.5, blink: 0.6, decoy: 1.2, backstep: 0.6, detonate: 0.95, rewind: 0.8
+  chain: 0.6, pulse: 0.55, rain: 0.6, dash: 0.5, blink: 0.6, backstep: 0.6, detonate: 0.95, rewind: 0.8, aura: 0.6,
+  shuriken: 0.4 // the recall flight; thrown stars, smoke, shadow and orbit last their server 'duration'
 };
 // Skills whose visuals play in phases and need longer than their shape's default
 const SP_SKILL_LIFE = {
   // Nightblade
-  sp_night_fang: 0.7, sp_shroud: 0.9, sp_moon_volley: 0.75, sp_night_terror: 1.0, sp_shadow_hop: 0.65,
+  sp_night_fang: 0.7, sp_moon_volley: 1.0, sp_shadow_hop: 0.65,
   // Venom Lord
   sp_plague_breath: 0.75, sp_venom_rain: 0.8, sp_viper_nest: 1.0, sp_serpent_slip: 0.65,
   sp_toxic_lance: 0.75, sp_plague_chain: 0.8, sp_venom_dash: 0.6,
@@ -110,6 +127,10 @@ const SP_FLASH_MS = 700;
 const MOB_SPAWN_MS = 1000;         // dungeon summon rise (server DUNGEON_SPAWN_MS)
 // Facing -> PixelHeroes view (W / SW / NW are drawn flipped)
 const PIXEL_HERO_VIEW = { E: 'E', W: 'E', SE: 'SE', SW: 'SE', S: 'S', NE: 'NE', NW: 'NE', N: 'N' };
+// How long the zoom must hold still before zoom-keyed caches repaint sharp
+const ZOOM_SETTLE_MS = 180;
+// Facings in order of rising world angle (SE = +x, SW = +y): a spinning hero turns through these
+const SPIN_FACINGS = ['SE', 'S', 'SW', 'W', 'NW', 'N', 'NE', 'E'];
 // Floating combat text: kept small and only loosely tied to the camera zoom
 // (font px = size x FLOATING_TEXT_SCALE x zoom clamped to the range below)
 const FLOATING_TEXT_SCALE = 0.88;
@@ -476,6 +497,8 @@ class IsometricRenderer {
     this.sprites.rogueDash.src = 'sprites/rogue_dash_strip.png';
     this.sprites.rogueRun.src = 'sprites/rogue_run_strip.png';
 
+    this.renderScale = 1;      // canvas buffer px per screen px (game.js graphics setting)
+    this.lowEffects = false;   // skip purely cosmetic ambience (fog, motes, smoke, birds)
     this.initCanvasSize();
     window.addEventListener('resize', () => this.initCanvasSize());
   }
@@ -615,8 +638,19 @@ class IsometricRenderer {
   }
 
   initCanvasSize() {
-    this.canvas.width = window.innerWidth;
-    this.canvas.height = window.innerHeight;
+    // viewW / viewH are the screen size every draw call works in; the canvas
+    // buffer itself is renderScale times that and the browser stretches it,
+    // so slow GPUs can fill fewer pixels per frame
+    this.viewW = window.innerWidth;
+    this.viewH = window.innerHeight;
+    this.canvas.width = Math.max(1, Math.round(this.viewW * this.renderScale));
+    this.canvas.height = Math.max(1, Math.round(this.viewH * this.renderScale));
+  }
+
+  setRenderScale(scale) {
+    if (scale === this.renderScale) return;
+    this.renderScale = scale;
+    this.initCanvasSize();
   }
 
   setCameraTarget(worldX, worldY) {
@@ -632,9 +666,10 @@ class IsometricRenderer {
   }
 
   updateCamera(dt) {
-    // Smooth camera lerp
-    this.camera.x += (this.camera.targetX - this.camera.x) * 0.12;
-    this.camera.y += (this.camera.targetY - this.camera.y) * 0.12;
+    // Smooth camera lerp (0.12 per 60 fps frame, so it follows just as fast at low fps)
+    const follow = 1 - Math.pow(0.88, Math.min(0.1, dt || 0.016) * 60);
+    this.camera.x += (this.camera.targetX - this.camera.x) * follow;
+    this.camera.y += (this.camera.targetY - this.camera.y) * follow;
 
     // Screen Shake Processing
     if (this.shake.time > 0) {
@@ -729,6 +764,11 @@ class IsometricRenderer {
 
   triggerAttackAnimation(data) {
     if (!data || !data.attackerId) return;
+    // monsters play their pixel attack pose (drawPixelMob)
+    if (data.attackerType === 'mob') {
+      if (!this.mobAttacks) this.mobAttacks = new Map();
+      this.mobAttacks.set(data.attackerId, performance.now());
+    }
 
     // Resolve accurate world position fallback if data.x / data.y are missing
     let posX = (data.x !== undefined && !isNaN(data.x)) ? data.x : null;
@@ -865,7 +905,7 @@ class IsometricRenderer {
       if (p.age > 2.2) { this.flyingProjectiles.delete(id); continue; }
       p.x += p.vx * dt;
       p.y += p.vy * dt;
-      const sc = Isometric.worldToScreen(p.x, p.y, 0, this.camera, this.canvas.width, this.canvas.height);
+      const sc = Isometric.worldToScreen(p.x, p.y, 0, this.camera, this.viewW, this.viewH);
       const sx = sc.x, sy = sc.y - PROJECTILE_HEIGHT_PX * z;
       p.trail.unshift({ x: sx, y: sy });
       if (p.trail.length > 9) p.trail.pop();
@@ -914,8 +954,8 @@ class IsometricRenderer {
       ring.life -= dt;
       if (ring.life <= 0) { this.aoeRings.splice(i, 1); continue; }
       const k = 1 - ring.life / ring.max;
-      const c0 = Isometric.worldToScreen(ring.x, ring.y, 0, this.camera, this.canvas.width, this.canvas.height);
-      const c1 = Isometric.worldToScreen(ring.x + ring.r, ring.y - ring.r, 0, this.camera, this.canvas.width, this.canvas.height);
+      const c0 = Isometric.worldToScreen(ring.x, ring.y, 0, this.camera, this.viewW, this.viewH);
+      const c1 = Isometric.worldToScreen(ring.x + ring.r, ring.y - ring.r, 0, this.camera, this.viewW, this.viewH);
       const rx = Math.abs(c1.x - c0.x) * (0.35 + 0.65 * k);
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
@@ -961,7 +1001,7 @@ class IsometricRenderer {
       if (k >= 1.6) continue;
       const fade = k < 1 ? 1 : 1 - (k - 1) / 0.6;
       const grow = Math.min(1, k * 2.5);
-      const c = Isometric.worldToScreen(s.x, s.y, 0, this.camera, this.canvas.width, this.canvas.height);
+      const c = Isometric.worldToScreen(s.x, s.y, 0, this.camera, this.viewW, this.viewH);
       const r = (s.boss ? 46 : 22) * z * grow;
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
@@ -1059,7 +1099,8 @@ class IsometricRenderer {
     if (!player.spTransformed || player.isDead) return;
     const card = this.spCardDef(player.spCardId || (player.equipment && player.equipment.sp && player.equipment.sp.cardId));
     if (!card) return;
-    const lvl = player.spLevel || 0;
+    // cards go to +100; the aura is tuned on a 0-10 scale (10 card levels per step)
+    const lvl = (player.spLevel || 0) / 10;
     const fx = ELEMENT_FX[card.element] || ELEMENT_FX.neutral;
     const color = card.color || fx.color;
 
@@ -1116,20 +1157,23 @@ class IsometricRenderer {
 
   // Sealed doorway in a dungeon: a glowing barrier across the gap
   drawDungeonDoor(ctx, obs, z) {
+    // Iron portcullis across the doorway, as tall as the walls beside it
     const half = 1.5;
     const a = obs.axis === 'x' ? [obs.x, obs.y - half] : [obs.x - half, obs.y];
     const b = obs.axis === 'x' ? [obs.x, obs.y + half] : [obs.x + half, obs.y];
-    const p1 = Isometric.worldToScreen(a[0], a[1], 0, this.camera, this.canvas.width, this.canvas.height);
-    const p2 = Isometric.worldToScreen(b[0], b[1], 0, this.camera, this.canvas.width, this.canvas.height);
-    const h = 46 * z;
+    const p1 = Isometric.worldToScreen(a[0], a[1], 0, this.camera, this.viewW, this.viewH);
+    const p2 = Isometric.worldToScreen(b[0], b[1], 0, this.camera, this.viewW, this.viewH);
+    const h = 40 * z;
     const gs = this.lastGameState;
     const color = obs.boss ? '#ef4444' : (gs && gs.map && gs.map.color ? gs.map.color : '#facc15');
     const t = this.animations.time;
+    const at = (k, up) => [Math.round(p1.x + (p2.x - p1.x) * k), Math.round(p1.y + (p2.y - p1.y) * k - up)];
     ctx.save();
+    // magic seal shimmering between the bars
     ctx.globalCompositeOperation = 'lighter';
     const g = ctx.createLinearGradient(0, p1.y, 0, p1.y - h);
-    g.addColorStop(0, hexAlpha(color, 0.5 + 0.15 * Math.sin(t * 4)));
-    g.addColorStop(1, hexAlpha(color, 0.05));
+    g.addColorStop(0, hexAlpha(color, 0.42 + 0.12 * Math.sin(t * 4)));
+    g.addColorStop(1, hexAlpha(color, 0.04));
     ctx.fillStyle = g;
     ctx.beginPath();
     ctx.moveTo(p1.x, p1.y);
@@ -1138,27 +1182,42 @@ class IsometricRenderer {
     ctx.lineTo(p1.x, p1.y - h);
     ctx.closePath();
     ctx.fill();
-    // iron bars
     ctx.globalCompositeOperation = 'source-over';
-    ctx.strokeStyle = 'rgba(26, 28, 44, 0.85)';
-    ctx.lineWidth = 2.5 * z;
-    for (let i = 0; i <= 6; i++) {
-      const k = i / 6;
-      const bx = p1.x + (p2.x - p1.x) * k, by = p1.y + (p2.y - p1.y) * k;
+    const px = Math.max(1, Math.round(z * 1.2));   // one art pixel
+    const quad = (k0, k1, u0, u1, fill) => {
+      const [x0, y0] = at(k0, u0), [x1, y1] = at(k1, u0), [x2, y2] = at(k1, u1), [x3, y3] = at(k0, u1);
+      ctx.fillStyle = fill;
       ctx.beginPath();
-      ctx.moveTo(bx, by);
-      ctx.lineTo(bx, by - h);
-      ctx.stroke();
+      ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.lineTo(x2, y2); ctx.lineTo(x3, y3);
+      ctx.closePath();
+      ctx.fill();
+    };
+    // crossbars, then the vertical bars with spiked tips sunk into the floor
+    for (const u of [0.32, 0.66]) {
+      quad(0.02, 0.98, h * u, h * u + 3 * px, '#14161f');
+      quad(0.02, 0.98, h * u + px, h * u + 2 * px, '#565d6e');
     }
-    ctx.beginPath();
-    ctx.moveTo(p1.x, p1.y - h);
-    ctx.lineTo(p2.x, p2.y - h);
-    ctx.stroke();
+    const BARS = 7;
+    for (let i = 0; i < BARS; i++) {
+      const k = (i + 0.5) / BARS;
+      const [bx, by] = at(k, 0);
+      ctx.fillStyle = '#14161f';
+      ctx.fillRect(bx - 2 * px, by - h, 4 * px, h + px);
+      ctx.fillStyle = '#4b5263';
+      ctx.fillRect(bx - px, by - h, 2 * px, h - px);
+      ctx.fillStyle = '#8a93a6';
+      ctx.fillRect(bx - px, by - h, px, h - 2 * px);
+      ctx.fillStyle = '#14161f';
+      ctx.fillRect(bx - px, by, 2 * px, 2 * px);
+    }
+    // stone lintel along the top
+    quad(-0.02, 1.02, h - 2 * px, h + 6 * px, '#1b1e27');
+    quad(-0.02, 1.02, h + 3 * px, h + 6 * px, '#3a3f4d');
     // lock / skull emblem
     if (window.PixelIcons) {
       const size = Math.round(12 * Math.max(2, Math.round(z * 2)));
       ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(PixelIcons.image(obs.boss ? 'skull' : 'lock'), Math.round((p1.x + p2.x) / 2 - size / 2), Math.round((p1.y + p2.y) / 2 - h * 0.55 - size / 2), size, size);
+      ctx.drawImage(PixelIcons.image(obs.boss ? 'skull' : 'lock'), Math.round((p1.x + p2.x) / 2 - size / 2), Math.round((p1.y + p2.y) / 2 - h * 0.5 - size / 2), size, size);
     }
     ctx.restore();
   }
@@ -1217,7 +1276,14 @@ class IsometricRenderer {
     };
 
     const maxLife = fx.type !== 'sp_skill' ? (skillLifetimes[fx.type] || 0.65)
-      : fx.shape === 'field' ? (fx.duration || 2) : (SP_SKILL_LIFE[fx.skillId] || SP_SHAPE_LIFE[fx.shape] || 0.65);
+      : fx.shape === 'field' ? (fx.duration || 2) : (fx.duration || SP_SKILL_LIFE[fx.skillId] || SP_SHAPE_LIFE[fx.shape] || 0.65);
+    // recalled Phantom Shuriken: the hovering stars leave their spots and fly home
+    if (fx.type === 'sp_skill' && fx.shape === 'shuriken' && fx.recall) {
+      const list = this.animations.skillEffects;
+      for (let i = list.length - 1; i >= 0; i--) {
+        if (list[i].shape === 'shuriken' && !list[i].recall && list[i].ownerId === fx.ownerId) list.splice(i, 1);
+      }
+    }
     const effect = {
       ...fx,
       life: maxLife,
@@ -1506,6 +1572,12 @@ class IsometricRenderer {
       const z = this.camera.zoom;
       let cached = this._tintCache.get(cacheKey);
       const now = performance.now();
+      // mid-zoom: scale the old picture about its anchor instead of re-tinting
+      if (cached && cached.zoom !== z && cached.filter === filter && !this.zoomSettled) {
+        const r = z / cached.zoom;
+        ctx.drawImage(cached.canvas, ax + cached.offX * r, ay + cached.offY * r, cached.canvas.width * r, cached.canvas.height * r);
+        return;
+      }
       if (!cached || cached.zoom !== z || cached.filter !== filter || (maxAgeMs && now > cached.expires)) {
         const raw = document.createElement('canvas');
         raw.width = w; raw.height = h;
@@ -1518,7 +1590,7 @@ class IsometricRenderer {
         tc.filter = filter;
         tc.drawImage(raw, 0, 0);
         // jittered expiry so animated props don't all redraw on the same frame
-        cached = { zoom: z, filter, canvas: tinted, expires: now + maxAgeMs * (0.75 + Math.random() * 0.5) };
+        cached = { zoom: z, filter, canvas: tinted, offX: left - ax, offY: top - ay, expires: now + maxAgeMs * (0.75 + Math.random() * 0.5) };
         this._tintCache.set(cacheKey, cached);
       }
       ctx.drawImage(cached.canvas, left, top);
@@ -1546,12 +1618,34 @@ class IsometricRenderer {
   spSkillBurst(fx, isMove) {
     const [main, accent] = SP_CARD_PARTICLES[fx.cardId] || SP_ELEMENT_PARTICLES[fx.element] || SP_ELEMENT_PARTICLES.neutral;
     const first = !!fx.playerId;
+    if (fx.quiet) {
+      // repeats on every swing (Arc Conduit): a few sparks per target, no shake
+      for (const pt of fx.points || []) this.addParticles(pt.x, pt.y, main, 3);
+      return;
+    }
+    if (fx.shape === 'aura' && fx.bolts) {
+      for (const b of fx.bolts) this.addParticles(b.x, b.y, main, 6);
+      return;
+    }
+    if (fx.shape === 'aura') {
+      // aura ticks repeat every half second: a light ring of embers, no shake
+      const r = fx.radius || 1.4, n = fx.pulse ? 8 : 20;
+      for (let k = 0; k < n; k++) {
+        const a = (k / n) * Math.PI * 2;
+        this.addParticles(fx.x + Math.cos(a) * r * 0.9, fx.y + Math.sin(a) * r * 0.9, fx.spin ? 'slash' : k % 2 ? main : 'shadow', 1, { speed: 0.6, vz: 0.6 });
+      }
+      return;
+    }
     if (isMove) {
       if (first) this.triggerDashAnimation({ playerId: fx.playerId, duration: fx.shape === 'blink' ? 300 : 340, facing: fx.facing });
       this.addParticles(fx.startX, fx.startY, main, 30);
       this.addParticles(fx.x, fx.y, main, 30);
       this.addParticles(fx.x, fx.y, accent, 18);
       this.triggerScreenShake(7, 0.16);
+      return;
+    }
+    if (fx.stars) {
+      for (const s of fx.stars) this.addParticles(s.x, s.y, accent, 4);
       return;
     }
     if (fx.points) {
@@ -1581,7 +1675,7 @@ class IsometricRenderer {
     ctx.beginPath();
     for (let k = 0; k <= 36; k++) {
       const a = (k / 36) * Math.PI * 2;
-      const pt = Isometric.worldToScreen(cx + Math.cos(a) * r, cy + Math.sin(a) * r, 0, this.camera, this.canvas.width, this.canvas.height);
+      const pt = Isometric.worldToScreen(cx + Math.cos(a) * r, cy + Math.sin(a) * r, 0, this.camera, this.viewW, this.viewH);
       if (k === 0) ctx.moveTo(pt.x, pt.y); else ctx.lineTo(pt.x, pt.y);
     }
     ctx.closePath();
@@ -1718,6 +1812,22 @@ class IsometricRenderer {
       ctx.strokeStyle = c(pal.light, a);
       ctx.lineWidth = 1.8 * z;
       ctx.stroke();
+    };
+    // four-point twinkle (stardust, sparkles)
+    const star = (p, r, a) => {
+      if (a <= 0.01 || r <= 0.3) return;
+      ctx.fillStyle = c(pal.core, a);
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y - r * 2.2);
+      ctx.lineTo(p.x + r * 0.45, p.y - r * 0.45);
+      ctx.lineTo(p.x + r * 2.2, p.y);
+      ctx.lineTo(p.x + r * 0.45, p.y + r * 0.45);
+      ctx.lineTo(p.x, p.y + r * 2.2);
+      ctx.lineTo(p.x - r * 0.45, p.y + r * 0.45);
+      ctx.lineTo(p.x - r * 2.2, p.y);
+      ctx.lineTo(p.x - r * 0.45, p.y - r * 0.45);
+      ctx.closePath();
+      ctx.fill();
     };
     // Crescent blade: outer arc of radius R bulging toward local +x, thinned to points by an offset inner arc
     const crescent = (x, y, R, rot, span, bite, a, squash = 1) => {
@@ -1969,19 +2079,54 @@ class IsometricRenderer {
 
     return {
       pal, time, TAU, U, clamp01, seg, out3, fade, c, rnd, shade, oval, ring, pool, puff, glow, bead, lens, blade,
-      slashX, sparks, crescent, groundBand, ribbon, strip, bolt, spike, silhouette, flame, snowflake, frost, shatterBurst, ends
+      slashX, sparks, star, crescent, groundBand, ribbon, strip, bolt, spike, silhouette, flame, snowflake, frost, shatterBurst, ends
     };
   }
 
   // ---------------------------------------------------------------- Nightblade (SP tier 1)
-  // Violet shadow assassin: smoke, crescent moons, cross cuts
+  // Violet shadow assassin: shuriken, smoke bombs and a tossed shadow
   drawNightbladeSkill(ctx, fx, progress, toScreen, z) {
     const k = this.spFxKit(ctx, progress, toScreen, z, SP_FX_PALETTES.sp_nightblade);
-    const { pal, time, TAU, U, seg, out3, fade, c, rnd, shade, ring, pool, puff, glow, bead, blade, slashX, sparks, crescent, silhouette } = k;
+    const { pal, time, TAU, U, seg, out3, fade, c, rnd, shade, ring, pool, puff, glow, bead, blade, slashX, sparks, star, crescent, silhouette } = k;
     const { sx, sy, tx, ty } = k.ends(fx);
     const BY_SHAPE = {
-      strike: 'sp_night_fang', decoy: 'sp_shadow_net', nova: 'sp_shroud', backstep: 'sp_night_dash',
-      volley: 'sp_moon_volley', line: 'sp_umbral_line', blink: 'sp_shadow_hop'
+      strike: 'sp_night_fang', backstep: 'sp_night_dash', volley: 'sp_moon_volley', blink: 'sp_shadow_hop',
+      shuriken: 'sp_phantom_shuriken', smoke: 'sp_smoke_bomb', shadow: 'sp_shadow_toss', orbit: 'sp_shuriken_storm'
+    };
+    // seconds into an effect, and a 0..1 fade for the long ones (in over fadeIn, out over the last fadeOut)
+    const T = fx.maxLife || 1, t = progress * T;
+    const hold = (fadeIn, fadeOut) => Math.max(0, Math.min(1, t / fadeIn, (T - t) / fadeOut));
+    // four-bladed throwing star, spinning by rot
+    const shuriken = (p, r, rot, a) => {
+      if (a <= 0.01) return;
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(rot);
+      ctx.beginPath();
+      for (let i = 0; i < 4; i++) {
+        const b = (i * TAU) / 4;
+        ctx.lineTo(Math.cos(b) * r, Math.sin(b) * r);
+        ctx.lineTo(Math.cos(b + TAU / 8) * r * 0.3, Math.sin(b + TAU / 8) * r * 0.3);
+      }
+      ctx.closePath();
+      ctx.fillStyle = c(pal.light, a);
+      ctx.fill();
+      ctx.strokeStyle = c(pal.main, a);
+      ctx.lineWidth = 1.2 * z;
+      ctx.stroke();
+      ctx.restore();
+    };
+    const streak = (a, b, alpha) => {
+      if (alpha <= 0.01) return;
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      ctx.strokeStyle = c(pal.accent, alpha * 0.5);
+      ctx.lineWidth = 3 * z;
+      ctx.stroke();
+      ctx.strokeStyle = c(pal.core, alpha * 0.8);
+      ctx.lineWidth = 1 * z;
+      ctx.stroke();
     };
 
     switch (fx.skillId || BY_SHAPE[fx.shape]) {
@@ -2019,67 +2164,105 @@ class IsometricRenderer {
         return true;
       }
 
-      // SHADOW CLONE: smoke billows out and a shadow double stays behind (small radius = the swap back)
-      case 'sp_shadow_net': {
-        const big = (fx.radius || 3) > 2.5;
-        const g = toScreen(tx, ty, 0);
-        const R = (fx.radius || 3) * U;
-        const bl = out3(seg(0, 0.5));
-        for (let i = 0; i < 9; i++) {
-          const a = (i * TAU) / 9 + rnd(i) * 0.5;
-          const d = R * (0.15 + 0.5 * bl) * (0.7 + 0.3 * rnd(i + 9));
-          puff({ x: g.x + Math.cos(a) * d, y: g.y + Math.sin(a) * d * 0.5 - 6 * z }, (22 + 12 * rnd(i + 3)) * z * (0.5 + bl), 0.45 * fade);
+      // PHANTOM SHURIKEN: a fan of stars flies out and hovers, spinning, until it is called back
+      case 'sp_phantom_shuriken': {
+        const stars = fx.stars || [];
+        if (fx.recall) {
+          const fly = out3(seg(0, 0.85));
+          const home = toScreen(fx.x, fx.y, 0.6);
+          stars.forEach((s, i) => {
+            const from = toScreen(s.x, s.y, 0.6);
+            const p = { x: from.x + (home.x - from.x) * fly, y: from.y + (home.y - from.y) * fly };
+            const tail = Math.max(0, fly - 0.3);
+            streak({ x: from.x + (home.x - from.x) * tail, y: from.y + (home.y - from.y) * tail }, p, 1 - seg(0.8, 1));
+            shuriken(p, 9 * z, time * 22 + i, 1 - seg(0.85, 1));
+          });
+          glow(home, 26 * z, seg(0.6, 0.9) * (1 - seg(0.9, 1)));
+          return true;
         }
-        silhouette(g, 46 * z, big ? fade * (0.55 + 0.2 * Math.sin(time * 6)) : 1 - seg(0, 0.6), pal.accent);
-        ring(g, R * (0.3 + 0.7 * bl), pal.accent, (1 - seg(0.3, 1)) * 0.8, 2.5);
-        if (big) {
-          ctx.setLineDash([5 * z, 7 * z]);
-          ring(g, 0.9 * U, pal.light, fade * 0.7, 1.5);
-          ctx.setLineDash([]);
-        }
+        const fly = out3(Math.min(1, t / 0.28));
+        const vis = hold(0.05, 0.4);
+        const o = toScreen(sx, sy, 0.6);
+        stars.forEach((s, i) => {
+          const end = toScreen(s.x, s.y, 0.6);
+          const bob = fly >= 1 ? Math.sin(time * 4 + i * 1.3) * 3 * z : 0;
+          const p = { x: o.x + (end.x - o.x) * fly, y: o.y + (end.y - o.y) * fly + bob };
+          if (fly < 1) streak(o, p, 1 - fly);
+          else {
+            ring(toScreen(s.x, s.y, 0), 0.35 * U, pal.accent, vis * 0.5, 1.5);
+            glow(p, 14 * z, vis * 0.45);
+          }
+          shuriken(p, 9 * z, time * (fly < 1 ? 26 : 12) + i, vis);
+        });
         return true;
       }
 
-      // SHADOW REAP: a moon sigil opens and a spectral blade circles the assassin
-      case 'sp_shroud': {
-        const Rw = fx.radius || 4.2, R = Rw * U;
+      // SMOKE BOMB: a thick cloud swirls on the ground for its whole duration
+      case 'sp_smoke_bomb': {
+        const Rw = fx.radius || 3, R = Rw * U;
         const g = toScreen(tx, ty, 0);
-        const open = out3(seg(0, 0.35));
-        pool(g, R * open, 0.5 * fade);
-        ctx.save();
-        ctx.translate(g.x, g.y);
-        ctx.scale(1, 0.5);
-        ctx.beginPath();
-        ctx.arc(0, 0, Math.max(0.1, R * open), 0, TAU);
-        ctx.strokeStyle = c(pal.accent, fade * 0.8);
-        ctx.lineWidth = 3 * z;
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.arc(0, 0, Math.max(0.1, R * 0.7 * open), 0, TAU);
-        ctx.strokeStyle = c(pal.main, fade * 0.6);
-        ctx.lineWidth = 1.5 * z;
-        ctx.stroke();
-        for (let i = 0; i < 6; i++) {
-          const a = (i * TAU) / 6 + time * 0.8;
-          crescent(Math.cos(a) * R * 0.85 * open, Math.sin(a) * R * 0.85 * open, 9 * z, a, 3.2, 5 * z, fade * 0.8);
+        const vis = hold(0.25, 0.7);
+        const pop = seg(0, 0.4 / T);
+        if (pop < 1) {
+          ring(g, R * (0.2 + 0.8 * out3(pop)), pal.light, (1 - pop) * 0.9, 3);
+          glow(toScreen(tx, ty, 0.3), 30 * z * (1 - pop), 1 - pop, pal.light);
         }
-        ctx.restore();
-        const sw = seg(0.1, 0.6), swA = 1 - seg(0.55, 0.75);
-        if (sw > 0 && swA > 0) {
-          const head = -Math.PI / 2 + out3(sw) * TAU;
-          for (let j = 3; j >= 0; j--) {
-            const a = head - j * 0.3;
-            const q = toScreen(tx + Math.cos(a) * Rw * 0.6, ty + Math.sin(a) * Rw * 0.6, 0.5);
-            const q2 = toScreen(tx + Math.cos(a + 0.1) * Rw * 0.6, ty + Math.sin(a + 0.1) * Rw * 0.6, 0.5);
-            crescent(q.x, q.y, 30 * z, Math.atan2(q2.y - q.y, q2.x - q.x), 2.0, 18 * z, swA * (j ? 0.3 / j : 1));
+        pool(g, R * 0.95, 0.4 * vis);
+        for (let i = 0; i < 16; i++) {
+          const dir = i % 2 ? 1 : -1;
+          const a = (i * TAU) / 16 + time * 0.35 * dir + rnd(i) * 0.6;
+          const d = Rw * (0.15 + 0.7 * rnd(i + 20)) * (0.5 + 0.5 * out3(Math.min(1, t / 0.5)));
+          const p = toScreen(tx + Math.cos(a) * d, ty + Math.sin(a) * d, 0.3 + 0.5 * rnd(i + 40) + Math.sin(time * 1.5 + i) * 0.1);
+          puff(p, (22 + 16 * rnd(i + 60)) * z, 0.55 * vis);
+        }
+        ctx.setLineDash([6 * z, 8 * z]);
+        ring(g, R, pal.light, vis * 0.35, 1.2);
+        ctx.setLineDash([]);
+        return true;
+      }
+
+      // SHADOW TOSS: a dark bolt arcs to the cursor and a shadow double stands there, flickering
+      case 'sp_shadow_toss': {
+        const toss = Math.min(1, t / 0.25);
+        const g = toScreen(tx, ty, 0);
+        const vis = hold(0.25, 0.4);
+        if (toss < 1) {
+          const e = out3(toss);
+          const p = toScreen(sx + (tx - sx) * e, sy + (ty - sy) * e, 0.6 + Math.sin(e * Math.PI) * 1.4);
+          streak(toScreen(sx, sy, 0.6), p, 1 - toss);
+          bead(p, 10 * z, 1);
+          return true;
+        }
+        const land = seg(0.25 / T, 0.7 / T);
+        if (land < 1) ring(g, (fx.radius || 2) * U * out3(land), pal.accent, 1 - land, 2.5);
+        pool(g, 0.8 * U, 0.55 * vis);
+        for (let i = 0; i < 3; i++) {
+          puff({ x: g.x + (rnd(i) - 0.5) * 22 * z, y: g.y - (6 + 26 * ((time * 0.6 + rnd(i + 5)) % 1)) * z }, 10 * z, 0.35 * vis);
+        }
+        silhouette(g, 48 * z, vis * (0.75 + 0.15 * Math.sin(time * 9)), pal.accent, true);
+        return true;
+      }
+
+      // SHURIKEN STORM: stars circle the assassin for three seconds
+      case 'sp_shuriken_storm': {
+        let cx = tx, cy = ty;
+        if (fx.followId && this.lastGameState && this.lastGameState.players) {
+          const hero = this.lastGameState.players.find(p => p.id === fx.followId);
+          if (hero) { cx = hero.x; cy = hero.y; }
+        }
+        const Rw = (fx.radius || 2.6) * 0.8;
+        const vis = hold(0.2, 0.35);
+        ring(toScreen(cx, cy, 0), Rw * U, pal.accent, vis * 0.4, 1.5);
+        const n = fx.n || 6;
+        for (let i = 0; i < n; i++) {
+          const a = time * 6 + (i * TAU) / n;
+          for (let j = 2; j >= 0; j--) {
+            const aj = a - j * 0.18;
+            const p = toScreen(cx + Math.cos(aj) * Rw, cy + Math.sin(aj) * Rw, 0.6);
+            if (j) bead(p, 5 * z, vis * (0.35 / j));
+            else shuriken(p, 9 * z, time * 24 + i, vis);
           }
         }
-        const wave = seg(0.45, 1);
-        if (wave > 0) {
-          ring(g, R * (0.4 + 0.7 * out3(wave)), pal.light, (1 - wave) * 0.9, 4);
-          ring(g, R * (0.3 + 0.5 * out3(wave)), pal.main, (1 - wave) * 0.6, 2);
-        }
-        glow(toScreen(tx, ty, 0.5), 22 * z, fade * 0.5);
         return true;
       }
 
@@ -2116,111 +2299,88 @@ class IsometricRenderer {
 
       // MOON VOLLEY: spinning crescent blades arc out to each target
       case 'sp_moon_volley': {
-        const op = toScreen(sx, sy, 0.6);
-        const cast = seg(0, 0.5);
-        ring(toScreen(sx, sy, 0), (0.5 + 0.6 * out3(cast)) * U, pal.accent, (1 - cast) * 0.8, 2);
-        (fx.points || []).forEach((pt, i) => {
-          const tp = toScreen(pt.x, pt.y, 0.6);
-          const at = (t) => ({
-            x: op.x + (tp.x - op.x) * t,
-            y: op.y + (tp.y - op.y) * t - Math.sin(t * Math.PI) * 18 * z
-          });
-          const fly = seg(i * 0.04, 0.4 + i * 0.04);
-          if (fly > 0 && fly < 1) {
-            for (let j = 3; j >= 0; j--) {
-              const t = fly - j * 0.07;
-              if (t <= 0) continue;
-              const p = at(t);
-              crescent(p.x, p.y, 12 * z, t * TAU * 2.5, 3.4, 7 * z, fade * (j ? 0.25 / j : 1));
-            }
-          }
-          const hit = seg(0.4 + i * 0.04, 0.8 + i * 0.04);
-          if (hit > 0 && hit < 1) {
-            slashX(tp, 18 * z * out3(Math.min(1, hit * 2)), 1 - hit);
-            ring(toScreen(pt.x, pt.y, 0), (0.3 + 0.6 * out3(hit)) * U, pal.accent, (1 - hit) * 0.9, 2);
-          }
-        });
-        return true;
-      }
-
-      // UMBRAL LINE: a wave of shadow rolls forward behind a crescent edge
-      case 'sp_umbral_line': {
-        const dx = tx - sx, dy = ty - sy;
-        const w = (fx.width || 1.2) * 0.5;
-        const reach = out3(seg(0, 0.35));
-        const fx1 = sx + dx * reach, fy1 = sy + dy * reach;
-        shade(() => {
-          k.strip(sx, sy, fx1, fy1, w * 0.4, w, 0);
-          ctx.fillStyle = `rgba(${pal.deep}, ${0.55 * fade})`;
+        // a full moon rises over the shadow and splits into crescent blades,
+        // which arc out on trails of moonlight and bite into their targets
+        const pts = fx.points || [];
+        const rise = out3(seg(0, 0.22)), split = seg(0.18, 0.34);
+        const moon = toScreen(sx, sy, 0.9 + 0.9 * rise);
+        const moonR = (9 + 5 * rise) * z * (1 - 0.6 * split);
+        const moonA = fade * (1 - split * 0.85);
+        if (moonA > 0.02) {
+          glow(moon, moonR * 3.2, 0.5 * moonA, pal.main);
+          bead(moon, moonR * 1.4, 0.9 * moonA);
+          ctx.fillStyle = c(pal.light, 0.9 * moonA);
+          ctx.beginPath();
+          ctx.arc(moon.x, moon.y, moonR, 0, TAU);
           ctx.fill();
-        });
-        const a = toScreen(sx, sy, 0), b = toScreen(fx1, fy1, 0);
-        const grad = ctx.createLinearGradient(a.x, a.y, b.x, b.y);
-        grad.addColorStop(0, c(pal.main, 0));
-        grad.addColorStop(1, c(pal.accent, 0.7 * fade));
-        k.strip(sx, sy, fx1, fy1, w * 0.4, w, 0);
-        ctx.fillStyle = grad;
-        ctx.fill();
-        for (let i = 0; i < 8; i++) {
-          const t = (i + 0.5) / 8;
-          if (t > reach) break;
-          const p = toScreen(sx + dx * t, sy + dy * t, 0);
-          puff({ x: p.x + (rnd(i) - 0.5) * 14 * z, y: p.y - (progress * 30 + rnd(i + 4) * 10) * z }, 10 * z, 0.45 * fade);
-        }
-        const front = toScreen(fx1, fy1, 0.5);
-        const ang = Math.atan2(b.y - a.y, b.x - a.x);
-        const edgeA = 1 - seg(0.4, 0.8);
-        for (let j = 2; j >= 0; j--) {
-          const t = Math.max(0, reach - j * 0.08);
-          const p = toScreen(sx + dx * t, sy + dy * t, 0.5);
-          crescent(p.x, p.y, 26 * z, ang, 2.2, 15 * z, edgeA * (j ? 0.3 / j : 1), 0.8);
-        }
-        bead(front, 12 * z, edgeA * 0.8);
-        return true;
-      }
-
-      // NIGHT TERROR: darkness falls, shadow hands claw up from the edge, eyes open in the dark
-      case 'sp_night_terror': {
-        const Rw = fx.radius || 3.6, R = Rw * U;
-        const g = toScreen(tx, ty, 0);
-        const open = out3(seg(0, 0.4));
-        pool(g, R * open, 0.7 * fade);
-        ring(g, R * open, pal.accent, fade * 0.8, 2.5);
-        const close = seg(0.3, 0.8);
-        if (close > 0) ring(g, R * (1 - 0.8 * out3(close)), pal.light, (1 - close) * 0.7, 2);
-        for (let i = 0; i < 12; i++) {
-          const a = (i * TAU) / 12 + 0.2;
-          const base = toScreen(tx + Math.cos(a) * Rw * 0.85 * open, ty + Math.sin(a) * Rw * 0.85 * open, 0);
-          const h = (20 + 14 * rnd(i)) * z * out3(seg(0.1 + i * 0.02, 0.5 + i * 0.02));
-          if (h < 1) continue;
-          const trace = () => {
+          // craters
+          ctx.fillStyle = c(pal.accent, 0.55 * moonA);
+          for (const [ox, oy, r] of [[-0.35, -0.2, 0.28], [0.3, 0.25, 0.2], [0.1, -0.45, 0.14]]) {
             ctx.beginPath();
-            for (let j = 0; j <= 6; j++) {
-              const x = base.x + Math.sin(j * 1.2 + time * 8 + i) * 4 * z * (j / 6);
-              const y = base.y - (h * j) / 6;
-              if (j === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-            }
-          };
-          shade(() => {
-            trace();
-            ctx.strokeStyle = `rgba(${pal.deep2}, ${0.85 * fade})`;
-            ctx.lineWidth = 5 * z;
-            ctx.lineCap = 'round';
-            ctx.stroke();
+            ctx.arc(moon.x + ox * moonR, moon.y + oy * moonR, r * moonR, 0, TAU);
+            ctx.fill();
+          }
+          // stardust circling the moon
+          for (let i = 0; i < 6; i++) {
+            const an = time * 2.4 + (i * TAU) / 6;
+            star({ x: moon.x + Math.cos(an) * moonR * 2.1, y: moon.y + Math.sin(an) * moonR * 0.9 }, (2 + rnd(i)) * z, moonA * 0.8);
+          }
+        }
+        ring(toScreen(sx, sy, 0), (0.4 + 0.7 * out3(seg(0, 0.3))) * U, pal.accent, (1 - seg(0, 0.3)) * 0.6 * fade, 1.5);
+
+        pts.forEach((pt, i) => {
+          const tp = toScreen(pt.x, pt.y, 0.55);
+          // launch from the moon's rim, fanned out, then a high arc onto the target
+          const side = pts.length > 1 ? i / (pts.length - 1) - 0.5 : 0;
+          const start = { x: moon.x + side * moonR * 3, y: moon.y - Math.abs(side) * 4 * z };
+          const lift = (26 + 10 * Math.abs(side)) * z;
+          const at = (t) => ({
+            x: start.x + (tp.x - start.x) * t + side * 22 * z * Math.sin(t * Math.PI),
+            y: start.y + (tp.y - start.y) * t - Math.sin(t * Math.PI) * lift
           });
-          trace();
-          ctx.strokeStyle = c(pal.accent, fade * 0.8);
-          ctx.lineWidth = 1.5 * z;
-          ctx.stroke();
-          bead({ x: base.x + Math.sin(6 * 1.2 + time * 8 + i) * 4 * z, y: base.y - h }, 4 * z, fade);
-        }
-        for (let i = 0; i < 4; i++) {
-          const a = (i * TAU) / 4 + 0.7, d = R * 0.45;
-          const e = { x: g.x + Math.cos(a) * d, y: g.y + Math.sin(a) * d * 0.5 - 10 * z };
-          const blink = open * fade * (0.5 + 0.5 * Math.sin(time * 5 + i * 1.7));
-          bead({ x: e.x - 4 * z, y: e.y }, 3 * z, blink);
-          bead({ x: e.x + 4 * z, y: e.y }, 3 * z, blink);
-        }
+          const t0 = 0.26 + i * 0.035, t1 = t0 + 0.3;
+          const fly = seg(t0, t1);
+          if (fly > 0 && fly < 1) {
+            const e = out3(fly) * 0.25 + fly * 0.75;   // quick release, steady flight
+            // tapered ribbon of moonlight behind the blade
+            const TRAIL = 9;
+            for (let j = TRAIL; j >= 1; j--) {
+              const ta = Math.max(0, e - j * 0.03), tb = Math.max(0, e - (j - 1) * 0.03);
+              const pa = at(ta), pb = at(tb), k2 = 1 - j / (TRAIL + 1);
+              ctx.strokeStyle = c(j < 3 ? pal.light : pal.accent, fade * k2 * 0.7);
+              ctx.lineWidth = (1 + 5 * k2) * z;
+              ctx.lineCap = 'round';
+              ctx.beginPath();
+              ctx.moveTo(pa.x, pa.y);
+              ctx.lineTo(pb.x, pb.y);
+              ctx.stroke();
+              if (j % 3 === 0) star({ x: pa.x + (rnd(i * 7 + j) - 0.5) * 10 * z, y: pa.y + (rnd(i * 5 + j) - 0.5) * 10 * z }, (1.5 + rnd(j)) * z, fade * k2);
+            }
+            const p = at(e), q = at(Math.min(1, e + 0.02));
+            const ang = Math.atan2(q.y - p.y, q.x - p.x);
+            glow(p, 16 * z, 0.45 * fade);
+            crescent(p.x, p.y, 11 * z, ang + Math.sin(time * 18 + i) * 0.08, 3.3, 6 * z, fade, 0.85);
+          }
+          const hit = seg(t1, t1 + 0.32);
+          if (hit > 0 && hit < 1) {
+            if (!fx._moonHits) fx._moonHits = new Set();
+            if (!fx._moonHits.has(i)) {
+              fx._moonHits.add(i);
+              this.addParticles(pt.x, pt.y, 'arcane', 10, { speed: 1.6, z: 0.6, sizeScale: 0.6 });
+              this.addParticles(pt.x, pt.y, 'spark', 6, { speed: 2, z: 0.6, sizeScale: 0.5 });
+            }
+            const h = out3(hit), inv = 1 - hit;
+            bead(tp, (10 + 14 * h) * z, inv);
+            // the crescent sweeps across the target as it bites
+            crescent(tp.x, tp.y, (14 + 8 * h) * z, -2.2 + 2.6 * h, 3.8, 9 * z, inv, 0.7);
+            for (let k3 = 0; k3 < 7; k3++) {
+              const an = (k3 * TAU) / 7 + rnd(i * 11 + k3);
+              const d = (8 + 26 * h) * z;
+              star({ x: tp.x + Math.cos(an) * d, y: tp.y + Math.sin(an) * d * 0.6 }, (3.5 - 2 * h) * z, inv);
+            }
+            ring(toScreen(pt.x, pt.y, 0), (0.25 + 0.7 * h) * U, pal.light, inv * 0.8, 1.6);
+          }
+        });
         return true;
       }
 
@@ -3623,8 +3783,8 @@ class IsometricRenderer {
         dotGlow(tip, 16 * z, '253, 224, 71', fade);
         break;
       }
-      case 'sp_berserker': { // three ragged claw marks and flung blood
-        for (const [k, w] of [[1.1, 2.6], [0.92, 3.2], [0.74, 2.4]]) {
+      case 'sp_berserker': { // twin blade cuts, one per sword, and flung blood
+        for (const [k, w] of [[1.05, 3.2], [0.78, 2.8]]) {
           ctx.beginPath();
           ctx.arc(0, 0, outerR * k, along(0.25), head, head < fromA);
           stroke('239, 68, 68', fade * 0.9, w);
@@ -3911,7 +4071,7 @@ class IsometricRenderer {
       if (h.life <= 0) { this.cardImpacts.splice(i, 1); continue; }
       const k = 1 - h.life / h.max, a = 1 - k;
       const out = 1 - Math.pow(1 - k, 3);
-      const c = Isometric.worldToScreen(h.x, h.y, 0.75, this.camera, this.canvas.width, this.canvas.height);
+      const c = Isometric.worldToScreen(h.x, h.y, 0.75, this.camera, this.viewW, this.viewH);
       const rgba = (rgb, al) => `rgba(${rgb}, ${Math.max(0, Math.min(1, al))})`;
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
@@ -6073,7 +6233,7 @@ class IsometricRenderer {
 
   drawSpSkill(ctx, fx, progress, alpha) {
     const z = this.camera.zoom;
-    const W = this.canvas.width, H = this.canvas.height;
+    const W = this.viewW, H = this.viewH;
     const toScreen = (x, y, h = 0) => Isometric.worldToScreen(x, y, h, this.camera, W, H);
     const color = fx.color || '#e2e8f0';
     const rgba = (a) => {
@@ -6288,8 +6448,113 @@ class IsometricRenderer {
         ring(fx.x, fx.y, 1.1 + 0.4 * Math.sin(progress * Math.PI), 0, alpha * 0.9, 3);
         break;
       }
+      case 'aura': {
+        // blood aura: a pulse flashes outward, switching on swells, switching off collapses
+        const r = fx.radius || 1.4;
+        if (fx.pulse && fx.spin) break; // the whirling blade arcs (drawSpToggles) already show each cut
+        if (fx.bolts) {
+          // Thunderhead: a jagged bolt drops out of the sky onto each target
+          const fade = 1 - progress;
+          for (const b of fx.bolts) {
+            const top = toScreen(b.x - 0.6, b.y - 0.6, 7), hitPt = toScreen(b.x, b.y, 0);
+            ctx.beginPath();
+            ctx.moveTo(top.x, top.y);
+            for (let k = 1; k < 7; k++) {
+              const t = k / 7;
+              ctx.lineTo(top.x + (hitPt.x - top.x) * t + (Math.random() - 0.5) * 16 * z, top.y + (hitPt.y - top.y) * t + (Math.random() - 0.5) * 6 * z);
+            }
+            ctx.lineTo(hitPt.x, hitPt.y);
+            ctx.strokeStyle = rgba(fade * 0.9);
+            ctx.lineWidth = 5 * z;
+            ctx.stroke();
+            ctx.strokeStyle = `rgba(255, 255, 255, ${fade})`;
+            ctx.lineWidth = 2 * z;
+            ctx.stroke();
+            ring(b.x, b.y, 0.25 + 0.35 * easeOut, alpha * 0.35, alpha * 0.9, 2.5);
+          }
+          break;
+        }
+        if (fx.pulse) ring(fx.x, fx.y, r * (0.75 + 0.25 * easeOut), alpha * 0.12, alpha * 0.7, 2.5);
+        else if (fx.off) ring(fx.x, fx.y, r * (1 - 0.8 * easeOut), 0, alpha * 0.7, 3);
+        else ring(fx.x, fx.y, r * easeOut, alpha * 0.2, alpha * 0.9, 4);
+        break;
+      }
+      case 'orbs': {
+        // Storm Orbs: each crackling ball drifts from start to end over the
+        // effect's life, its shock radius flickering round it with small arcs
+        const fade = progress > 0.9 ? (1 - progress) / 0.1 : 1;
+        for (const o of fx.orbs || []) {
+          const ox = o.sx + (o.ex - o.sx) * progress, oy = o.sy + (o.ey - o.sy) * progress;
+          ring(ox, oy, (fx.radius || 2) * (0.9 + 0.1 * Math.sin(progress * 40)), 0.08 * fade, 0.5 * fade, 1.5);
+          const c = toScreen(ox, oy, 0.9);
+          const glow = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, 16 * z);
+          glow.addColorStop(0, `rgba(255, 255, 255, ${fade})`);
+          glow.addColorStop(0.35, rgba(fade * 0.9));
+          glow.addColorStop(1, rgba(0));
+          ctx.fillStyle = glow;
+          ctx.beginPath();
+          ctx.arc(c.x, c.y, 16 * z, 0, Math.PI * 2);
+          ctx.fill();
+          for (let k = 0; k < 3; k++) {
+            const a = Math.random() * Math.PI * 2, d = (fx.radius || 2) * (0.4 + Math.random() * 0.6);
+            const tip = toScreen(ox + Math.cos(a) * d, oy + Math.sin(a) * d, 0.2);
+            ctx.beginPath();
+            ctx.moveTo(c.x, c.y);
+            ctx.lineTo((c.x + tip.x) / 2 + (Math.random() - 0.5) * 10 * z, (c.y + tip.y) / 2 + (Math.random() - 0.5) * 10 * z);
+            ctx.lineTo(tip.x, tip.y);
+            ctx.strokeStyle = rgba(fade * 0.8);
+            ctx.lineWidth = 1.5 * z;
+            ctx.stroke();
+          }
+        }
+        break;
+      }
     }
     ctx.restore();
+  }
+
+  // Toggled SP skills that are on, under the hero: a slow dashed crimson ring
+  // for a blood aura, two fast blade arcs sweeping round for a spin
+  drawSpToggles(ctx, player, z, t) {
+    if (!player.spToggles || !player.spToggles.length || player.isDead) return;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.lineCap = 'round';
+    player.spToggles.forEach((a, i) => {
+      if (a.spin) {
+        const r = a.r || 2.5, spinA = t * 14;
+        for (const off of [0, Math.PI]) {
+          for (const [rk, w, col] of [[1, 5, '239, 68, 68'], [0.97, 2, '254, 226, 226']]) {
+            ctx.beginPath();
+            for (let k = 0; k <= 10; k++) {
+              const ang = spinA + off - (k / 10) * 1.3;
+              const pt = Isometric.worldToScreen(player.x + Math.cos(ang) * r * rk, player.y + Math.sin(ang) * r * rk, 0.4, this.camera, this.viewW, this.viewH);
+              if (k === 0) ctx.moveTo(pt.x, pt.y); else ctx.lineTo(pt.x, pt.y);
+            }
+            ctx.strokeStyle = `rgba(${col}, 0.75)`;
+            ctx.lineWidth = w * z;
+            ctx.stroke();
+          }
+        }
+        return;
+      }
+      const pulse = 0.8 + 0.2 * Math.sin(t * 4 + i * 1.7);
+      const r = a.r || 0.9;
+      const col = a.c || '#ef4444';
+      this.spGroundPath(ctx, player.x, player.y, r);
+      ctx.fillStyle = hexAlpha(col, (a.r ? 0.07 : 0.18) * pulse);
+      ctx.fill();
+      ctx.strokeStyle = hexAlpha(col, 0.55 * pulse);
+      ctx.lineWidth = 2 * z;
+      ctx.setLineDash([7 * z, 5 * z]);
+      ctx.lineDashOffset = -t * 18 * z * (i % 2 ? -1 : 1);
+      ctx.stroke();
+    });
+    ctx.restore();
+    if (Math.random() < 0.15) {
+      const [mote] = SP_CARD_PARTICLES[player.spCardId] || ['fire'];
+      this.addParticles(player.x + (Math.random() - 0.5) * 1.6, player.y + (Math.random() - 0.5) * 1.6, mote, 1, { sizeScale: 0.4, speed: 0.3, vz: 0.8 });
+    }
   }
 
   // ---------------------------------------------------------------- Dread Lord (Colossal Black-Violet Executioner Axe)
@@ -6722,7 +6987,7 @@ class IsometricRenderer {
   // A blade arc drawn flat on the ground plane (iso), sweeping from one side to
   // the other (fx.side picks which), with a tapering trail behind its edge
   drawSweepSlash(ctx, fx, progress) {
-    const screen = Isometric.worldToScreen(fx.x, fx.y, 0.35, this.camera, this.canvas.width, this.canvas.height);
+    const screen = Isometric.worldToScreen(fx.x, fx.y, 0.35, this.camera, this.viewW, this.viewH);
     if (isNaN(screen.x) || isNaN(screen.y)) return;
     const z = this.camera.zoom;
     const FACING = { E: 0, SE: 0.25, S: 0.5, SW: 0.75, W: 1, NW: -0.75, N: -0.5, NE: -0.25 };
@@ -6872,6 +7137,7 @@ class IsometricRenderer {
     }
 
     if (fx.type === 'sp_skill') {
+      if (fx.followId) return; // drawn around a moving hero, not at fx.x/y
       const [main] = SP_ELEMENT_PARTICLES[fx.element] || SP_ELEMENT_PARTICLES.neutral;
       if (fx.shape === 'line' || fx.shape === 'dash') {
         const t = Math.random();
@@ -7278,6 +7544,16 @@ class IsometricRenderer {
     this.lastGameState = gameState;
     this.animations.time += dt;
     this.updateCamera(dt);
+    // While the zoom is still changing (wheel / pinch) the zoom-keyed caches
+    // (ground, tinted props, 3D town props) scale what they already have and
+    // repaint once, after it has held still for ZOOM_SETTLE_MS
+    const frameNow = performance.now();
+    if (this.camera.zoom !== this._lastZoom) {
+      this._lastZoom = this.camera.zoom;
+      this._zoomChangedAt = frameNow;
+    }
+    this.zoomSettled = frameNow - (this._zoomChangedAt || 0) >= ZOOM_SETTLE_MS;
+    if (window.townProps3D) window.townProps3D.zoomSettled = this.zoomSettled;
 
     const ctx = this.ctx;
     // A draw call that throws mid-frame (game.js catches it and keeps looping)
@@ -7290,8 +7566,10 @@ class IsometricRenderer {
       ctx.globalCompositeOperation = 'source-over';
       ctx.filter = 'none';
     }
-    const w = this.canvas.width;
-    const h = this.canvas.height;
+    const w = this.viewW;
+    const h = this.viewH;
+    const bufScale = this.canvas.width / w;
+    if (bufScale !== 1) ctx.setTransform(bufScale, 0, 0, bufScale, 0, 0);
 
     const map = gameState && gameState.map;
     const isDungeon = map && (map.isDungeon || (map.tiles && map.tiles[0] && (map.tiles[0][0] === 8 || map.tiles[0][0] === 7)));
@@ -7308,6 +7586,7 @@ class IsometricRenderer {
     const wallTiles = [];
     const animatedTiles = [];
 
+    const sealed = this.sealedDoorTiles(map);
     const vis = this.visibleTileBounds(map, w, h, 160);
     for (let y = vis.y0; y <= vis.y1; y++) {
       for (let x = vis.x0; x <= vis.x1; x++) {
@@ -7323,8 +7602,9 @@ class IsometricRenderer {
         const sy = (iso.y - this.camera.y) * this.camera.zoom + h / 2;
         if (sx < -120 || sx > w + 120 || sy < -120 || sy > h + 120) continue;
 
-        // In dungeon, solid perimeter walls (7) are 3D walls rendered in Pass 2
-        if (isDungeon && tileType === 7) { wallTiles.push({ x, y }); continue; }
+        // In dungeon, solid perimeter walls (7) are 3D walls rendered in Pass 2;
+        // a sealed doorway is floor with a portcullis standing in it instead
+        if (isDungeon && tileType === 7) { if (!sealed.has(x + ',' + y)) wallTiles.push({ x, y }); continue; }
         const pal = FIELD_TILE_PALETTE[tileType];
         const overlay = !!(pal && OVERLAY_TILE_DETAILS.has(pal.detail));
         // (matches drawFieldTileDetail: only every third sparkle tile has a sparkle)
@@ -7546,9 +7826,9 @@ class IsometricRenderer {
     ctx.restore();
 
     // Chimney smoke, falling leaves and birds pass over the rooftops
-    if (townLife) townLife.drawSky(ctx, this);
+    if (townLife && !this.lowEffects) townLife.drawSky(ctx, this);
     // Low fog and floating dust / embers / spores in the dungeon air
-    if (dungeonLife) dungeonLife.drawAmbient(ctx, this);
+    if (dungeonLife && !this.lowEffects) dungeonLife.drawAmbient(ctx, this);
 
     // DRAW OVERLAYS & EFFECTS (Click Beacon, Particles, Floating Text)
     this.drawEffects(ctx, dt);
@@ -7567,8 +7847,8 @@ class IsometricRenderer {
 
   // Draw Screen Vignettes for Player Status Effects
   drawStatusVignettes(ctx, statusEffects) {
-    const w = this.canvas.width;
-    const h = this.canvas.height;
+    const w = this.viewW;
+    const h = this.viewH;
     const pulse = Math.sin(this.animations.time * 4) * 0.15 + 0.85;
 
     for (const fx of statusEffects) {
@@ -7627,6 +7907,16 @@ class IsometricRenderer {
     const tex = this.currentTheme === 'town' && window.TownLife ? window.TownLife.groundTexture(map) : null;
     const stale = !g || g.map !== map || g.theme !== this.currentTheme || g.version !== version || g.zoom !== zoom || g.w !== w || g.h !== h ||
       g.tex !== tex || Math.abs((g.camX - cam.x) * zoom) > M - 16 || Math.abs((g.camY - cam.y) * zoom) > M - 16;
+    // Mid-zoom on the same map: stretch the last painting rather than repaint
+    // every tile each frame (it repaints sharp once the zoom settles)
+    if (stale && !this.zoomSettled && g && g.map === map && g.theme === this.currentTheme && g.w === w && g.h === h) {
+      const r = zoom / g.zoom;
+      const cw = g.canvas.width, ch = g.canvas.height;
+      const dx = (g.camX - cam.x) * zoom - (cw / 2) * r + w / 2 + (cam.shakeOffsetX || 0);
+      const dy = (g.camY - cam.y) * zoom - (ch / 2) * r + h / 2 + (cam.shakeOffsetY || 0);
+      ctx.drawImage(g.canvas, Math.round(dx), Math.round(dy), Math.round(cw * r), Math.round(ch * r));
+      return;
+    }
     if (stale) {
       if (!g) g = this.groundCache = { canvas: document.createElement('canvas') };
       g.tex = tex;
@@ -7640,10 +7930,12 @@ class IsometricRenderer {
       Object.assign(g, { map, theme: this.currentTheme, version, zoom, w, h, camX: cam.x, camY: cam.y });
 
       const tiles = [];
+      const sealed = this.sealedDoorTiles(map);
       const vis = this.visibleTileBounds(map, w, h, M + 160);
       for (let y = vis.y0; y <= vis.y1; y++) {
         for (let x = vis.x0; x <= vis.x1; x++) {
-          const tileType = map.tiles[y][x];
+          let tileType = map.tiles[y][x];
+          if (isDungeon && tileType === 7 && sealed.has(x + ',' + y)) tileType = 4;
           if (tileType === 8 || (isDungeon && tileType === 7)) continue;
           const iso = Isometric.worldToIso(x, y);
           const sx = (iso.x - cam.x) * zoom + cw / 2;
@@ -7672,11 +7964,153 @@ class IsometricRenderer {
     ctx.drawImage(g.canvas, dx, dy);
   }
 
+  // Portal gate: a ring of runestones on the ground, an upright swirling
+  // vortex with a bright core, sparkles running round its rim, motes rising
+  // from the base and spiralling in, and a faint column of light above
+  drawPortalGate(ctx, screen, z, accent, second, label, seed) {
+    const t = this.animations.time + seed;
+    const x = Math.round(screen.x), y = Math.round(screen.y);
+    const cy = y - 26 * z;                 // centre of the upright vortex
+    const RX = 15 * z, RY = 24 * z;        // vortex half-width / half-height
+    const px = Math.max(1, Math.round(1.5 * z));
+    ctx.save();
+
+    // ground: dark basin, glowing pool and the runestone ring
+    ctx.fillStyle = 'rgba(8, 10, 20, 0.75)';
+    ctx.beginPath();
+    ctx.ellipse(x, y, 26 * z, 13 * z, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalCompositeOperation = 'lighter';
+    const pool = ctx.createRadialGradient(x, y, 0, x, y, 26 * z);
+    pool.addColorStop(0, hexAlpha(accent, 0.55 + 0.15 * Math.sin(t * 3)));
+    pool.addColorStop(1, hexAlpha(accent, 0));
+    ctx.fillStyle = pool;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(1, 0.5);
+    ctx.beginPath();
+    ctx.arc(0, 0, 26 * z, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    ctx.globalCompositeOperation = 'source-over';
+    const STONES = 10;
+    for (let i = 0; i < STONES; i++) {
+      const a = (i / STONES) * Math.PI * 2;
+      const sx = Math.round(x + Math.cos(a) * 24 * z), sy = Math.round(y + Math.sin(a) * 12 * z);
+      const w = 5 * px, h = (Math.sin(a) > 0 ? 5 : 4) * px;
+      ctx.fillStyle = '#1a1c2c';
+      ctx.fillRect(sx - w / 2 - px, sy - h - px, w + 2 * px, h + 2 * px);
+      ctx.fillStyle = '#566c86';
+      ctx.fillRect(sx - w / 2, sy - h, w, h);
+      ctx.fillStyle = '#94b0c2';
+      ctx.fillRect(sx - w / 2, sy - h, w, px);
+      // rune lights chase round the ring
+      const lit = 0.5 + 0.5 * Math.sin(t * 4 - i * 0.9);
+      ctx.fillStyle = hexAlpha(i % 2 ? second : accent, 0.35 + 0.65 * lit);
+      ctx.fillRect(sx - px, sy - h + px, 2 * px, 2 * px);
+    }
+
+    // column of light rising out of the gate
+    ctx.globalCompositeOperation = 'lighter';
+    const beam = ctx.createLinearGradient(0, cy, 0, cy - 70 * z);
+    beam.addColorStop(0, hexAlpha(accent, 0.28));
+    beam.addColorStop(1, hexAlpha(accent, 0));
+    ctx.fillStyle = beam;
+    ctx.fillRect(x - 9 * z, cy - 70 * z, 18 * z, 70 * z);
+
+    // the vortex: soft fill, three spiral arms, bright core
+    ctx.save();
+    ctx.translate(x, cy);
+    const fill = ctx.createRadialGradient(0, 0, 0, 0, 0, RY);
+    fill.addColorStop(0, hexAlpha('#ffffff', 0.55));
+    fill.addColorStop(0.3, hexAlpha(second, 0.4));
+    fill.addColorStop(0.75, hexAlpha(accent, 0.45));
+    fill.addColorStop(1, hexAlpha(accent, 0));
+    ctx.fillStyle = fill;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, RX, RY, 0, 0, Math.PI * 2);
+    ctx.fill();
+    for (let arm = 0; arm < 3; arm++) {
+      for (let j = 0; j < 18; j++) {
+        const k = j / 18;
+        const a = t * 2.6 + arm * (Math.PI * 2 / 3) + k * 4.2;
+        const r = 1 - k;              // arms curl in to the centre
+        const ax = Math.cos(a) * RX * 0.92 * r, ay = Math.sin(a) * RY * 0.92 * r;
+        ctx.fillStyle = hexAlpha(j % 3 ? accent : '#ffffff', 0.25 + 0.6 * k);
+        const sz = Math.max(px, Math.round((1 + 1.5 * (1 - k)) * px));
+        ctx.fillRect(Math.round(ax) - sz / 2, Math.round(ay) - sz / 2, sz, sz);
+      }
+    }
+    const core = ctx.createRadialGradient(0, 0, 0, 0, 0, 8 * z);
+    core.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+    core.addColorStop(1, hexAlpha(second, 0));
+    ctx.fillStyle = core;
+    ctx.beginPath();
+    ctx.arc(0, 0, (6 + Math.sin(t * 5)) * z, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // crisp rim with sparkles running round it
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.strokeStyle = '#1a1c2c';
+    ctx.lineWidth = 3 * px;
+    ctx.beginPath();
+    ctx.ellipse(x, cy, RX + px, RY + px, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = 1.5 * px;
+    ctx.beginPath();
+    ctx.ellipse(x, cy, RX + px, RY + px, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 4; i++) {
+      const a = t * 1.8 + i * (Math.PI / 2);
+      const sx = Math.round(x + Math.cos(a) * (RX + px)), sy = Math.round(cy + Math.sin(a) * (RY + px));
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+      ctx.fillRect(sx - px / 2, sy - 2 * px, px, 4 * px);
+      ctx.fillRect(sx - 2 * px, sy - px / 2, 4 * px, px);
+    }
+
+    // motes drifting up from the ring and spiralling into the vortex
+    const MOTES = 14;
+    for (let i = 0; i < MOTES; i++) {
+      const ph = (t * 0.45 + i / MOTES) % 1;
+      const a = i * 2.39 + ph * 3;
+      const r = 1 - ph;
+      const mx = x + Math.cos(a) * 24 * z * r;
+      const my = (y + Math.sin(a) * 12 * z * r) * (1 - ph) + cy * ph;
+      const alpha = Math.min(1, ph * 4, (1 - ph) * 3);
+      ctx.fillStyle = hexAlpha(i % 3 ? accent : second, 0.9 * alpha);
+      ctx.fillRect(Math.round(mx) - px, Math.round(my) - px, 2 * px, 2 * px);
+    }
+    ctx.restore();
+
+    // name tag above the gate
+    ctx.save();
+    ctx.font = '15px "DotGothic16", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#000';
+    ctx.fillText(label, x + 1, cy - RY - 12 * z + 1);
+    ctx.fillStyle = accent;
+    ctx.fillText(label, x, cy - RY - 12 * z);
+    ctx.restore();
+  }
+
+  // "x,y" of every tile in a still-sealed dungeon doorway (doors carry their tiles)
+  sealedDoorTiles(map) {
+    const doors = map.isDungeon && map.obstacles ? map.obstacles.filter(o => o.type === 'dungeon_door' && o.tiles) : [];
+    const key = doors.map(d => d.id).join('|');
+    if (!this._sealed || this._sealed.map !== map || this._sealed.key !== key) {
+      this._sealed = { map, key, set: new Set(doors.flatMap(d => d.tiles.map(([x, y]) => x + ',' + y))) };
+    }
+    return this._sealed.set;
+  }
+
   drawIsometricTile(ctx, x, y, tileType, topOnly = false) {
     const view = this._tileView;
     const screen = view
       ? Isometric.worldToScreen(x, y, 0, view.camera, view.w, view.h)
-      : Isometric.worldToScreen(x, y, 0, this.camera, this.canvas.width, this.canvas.height);
+      : Isometric.worldToScreen(x, y, 0, this.camera, this.viewW, this.viewH);
     const hw = (TILE_WIDTH / 2) * this.camera.zoom;
     const hh = (TILE_HEIGHT / 2) * this.camera.zoom;
     const depth = TILE_DEPTH * this.camera.zoom;
@@ -7915,7 +8349,7 @@ class IsometricRenderer {
 
   // Draw 3D Masonry Dungeon Wall
   drawDungeonWall(ctx, x, y, map, isBackWall) {
-    const screen = Isometric.worldToScreen(x, y, 0, this.camera, this.canvas.width, this.canvas.height);
+    const screen = Isometric.worldToScreen(x, y, 0, this.camera, this.viewW, this.viewH);
     const z = this.camera.zoom;
     // Pixel-art brick walls, darkened by how far they sit from any light
     if (window.DungeonLife && window.DungeonLife.has(this.currentTheme)) {
@@ -8339,7 +8773,7 @@ class IsometricRenderer {
 
   // Draw Props & Obstacles
   drawObstacle(ctx, obs) {
-    const screen = Isometric.worldToScreen(obs.x, obs.y, 0, this.camera, this.canvas.width, this.canvas.height);
+    const screen = Isometric.worldToScreen(obs.x, obs.y, 0, this.camera, this.viewW, this.viewH);
     const z = this.camera.zoom;
 
     if (obs.type === 'dungeon_door') {
@@ -8355,7 +8789,15 @@ class IsometricRenderer {
     // 3D-modelled town props (booths with NPCs, houses, towers). Falls back
     // to the 2D drawings below when WebGL is unavailable.
     if (window.townProps3D && TOWN_PROPS_3D.has(obs.type)) {
-      const drawn = window.townProps3D.draw(ctx, obs, screen.x, screen.y, z, this.animations.time);
+      // Stalls with a shopkeeper: back of the stall, the pixel-art keeper,
+      // then the counter / anvil / altar in front of them
+      const keeper = SHOPKEEPERS[obs.type] && window.PixelMobs ? SHOPKEEPERS[obs.type] : null;
+      const drawn = window.townProps3D.draw(ctx, obs, screen.x, screen.y, z, this.animations.time, keeper ? 'back' : undefined);
+      if (drawn && keeper) {
+        this.drawShopkeeper(ctx, obs, keeper, z);
+        window.townProps3D.draw(ctx, obs, screen.x, screen.y, z, this.animations.time, 'front');
+        if (obs.type === 'blacksmith') drawn.events = this.smithBlow(obs);
+      }
       if (drawn) {
         if (drawn.events && drawn.events.struck && drawn.sparkOffset) {
           const so = drawn.sparkOffset;
@@ -8600,6 +9042,9 @@ class IsometricRenderer {
 
       this.drawTorchFlame(ctx, screen.x, screen.y - 36 * z, z, 1.25, seed);
     } else if (obs.type === 'wall_torch') {
+      // a wall that has become floor (an opened doorway) has nothing to hold it
+      const tmap = this.lastGameState && this.lastGameState.map;
+      if (tmap && tmap.tiles && tmap.tiles[obs.y] && tmap.tiles[obs.y][obs.x] !== 7) return;
       // Torch in an iron sconce on the room-facing side of a dungeon wall.
       // side 'left' = face toward +y (lower-left on screen), 'right' = toward +x.
       const hw = (TILE_WIDTH / 2) * z;
@@ -8702,58 +9147,8 @@ class IsometricRenderer {
       ctx.fillText('🏪 Olaf the Trader [Shop]', screen.x, screen.y - 44 * z);
       ctx.restore();
     } else if (obs.type === 'portal') {
-      // Swirling Arcane Dungeon Portal
-      const rot = this.animations.time * 2.5;
-
-      // Base Pedestal
-      ctx.beginPath();
-      ctx.ellipse(screen.x, screen.y, 24 * z, 12 * z, 0, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
-      ctx.fill();
-      ctx.strokeStyle = '#a855f7';
-      ctx.lineWidth = 2 * z;
-      ctx.stroke();
-
-      // Swirling Vortex Layers
-      ctx.save();
-      ctx.translate(screen.x, screen.y - 14 * z);
-
-      // Radial Pulsing Glow
-      const portalGlow = ctx.createRadialGradient(0, 0, 4 * z, 0, 0, 26 * z);
-      portalGlow.addColorStop(0, 'rgba(6, 182, 212, 0.8)');
-      portalGlow.addColorStop(0.5, 'rgba(168, 85, 247, 0.5)');
-      portalGlow.addColorStop(1, 'rgba(15, 23, 42, 0)');
-      ctx.fillStyle = portalGlow;
-      ctx.beginPath();
-      ctx.arc(0, 0, 26 * z, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Rotating Rune Rings
-      ctx.rotate(rot);
-      ctx.strokeStyle = '#38bdf8';
-      ctx.lineWidth = 2 * z;
-      ctx.beginPath();
-      ctx.ellipse(0, 0, 18 * z, 8 * z, 0, 0, Math.PI * 2);
-      ctx.stroke();
-
-      ctx.rotate(-rot * 2);
-      ctx.strokeStyle = '#c084fc';
-      ctx.lineWidth = 1.5 * z;
-      ctx.beginPath();
-      ctx.ellipse(0, 0, 12 * z, 5 * z, 0, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.restore();
-
-      // Portal Overhead Tag
-      ctx.save();
-      ctx.font = '15px "DotGothic16", monospace';
-      ctx.textAlign = 'center';
-      ctx.fillStyle = '#000';
-      const portalLabel = obs.label || '🌀 Dungeon Portal';
-      ctx.fillText(portalLabel, screen.x + 1, screen.y - 42 * z + 1);
-      ctx.fillStyle = obs.color || '#38bdf8';
-      ctx.fillText(portalLabel, screen.x, screen.y - 42 * z);
-      ctx.restore();
+      // Abyssal dungeon portal on the plaza
+      this.drawPortalGate(ctx, screen, z, obs.color || '#a855f7', '#22d3ee', obs.label || '🌀 Dungeon Portal', obs.x * 7 + obs.y);
     } else if (obs.type === 'blacksmith') {
       // NPC Brom the Master Smith (Reforge / Item Enhancement)
       // Ground Shadow
@@ -9235,47 +9630,7 @@ class IsometricRenderer {
       }
     } else if (obs.type === 'field_portal') {
       // Gateway between field zones (colour/label from the destination)
-      const accent = obs.color || '#facc15';
-      const rot = this.animations.time * 2.2;
-      ctx.beginPath();
-      ctx.ellipse(screen.x, screen.y, 24 * z, 12 * z, 0, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
-      ctx.fill();
-      ctx.strokeStyle = accent;
-      ctx.lineWidth = 2 * z;
-      ctx.stroke();
-      ctx.save();
-      ctx.translate(screen.x, screen.y - 14 * z);
-      const pg = ctx.createRadialGradient(0, 0, 4 * z, 0, 0, 28 * z);
-      pg.addColorStop(0, 'rgba(255, 255, 255, 0.85)');
-      pg.addColorStop(0.45, accent);
-      pg.addColorStop(1, 'rgba(15, 23, 42, 0)');
-      ctx.globalAlpha = 0.75;
-      ctx.fillStyle = pg;
-      ctx.beginPath();
-      ctx.arc(0, 0, 28 * z, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.globalAlpha = 1;
-      ctx.rotate(rot);
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 2 * z;
-      ctx.beginPath();
-      ctx.ellipse(0, 0, 18 * z, 8 * z, 0, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.rotate(-rot * 2);
-      ctx.strokeStyle = accent;
-      ctx.beginPath();
-      ctx.ellipse(0, 0, 12 * z, 5 * z, 0, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.restore();
-      ctx.save();
-      ctx.font = '15px "DotGothic16", monospace';
-      ctx.textAlign = 'center';
-      ctx.fillStyle = '#000';
-      ctx.fillText(obs.label || 'Portal', screen.x + 1, screen.y - 42 * z + 1);
-      ctx.fillStyle = accent;
-      ctx.fillText(obs.label || 'Portal', screen.x, screen.y - 42 * z);
-      ctx.restore();
+      this.drawPortalGate(ctx, screen, z, obs.color || '#facc15', '#ffffff', obs.label || 'Portal', obs.x * 7 + obs.y);
     } else if (obs.type === 'town_portal') {
       // Gateway from Frostfell returning to Town
       const rot = this.animations.time * 2.2;
@@ -9320,9 +9675,46 @@ class IsometricRenderer {
 
   // Draw Procedural Treasure Chests
   drawChest(ctx, chest) {
-    const screen = Isometric.worldToScreen(chest.x, chest.y, 0, this.camera, this.canvas.width, this.canvas.height);
+    const screen = Isometric.worldToScreen(chest.x, chest.y, 0, this.camera, this.viewW, this.viewH);
     const z = this.camera.zoom;
     const isGold = chest.isGold;
+
+    // Pixel-isometric chest (pixelMobs.js), 1 texel per screen pixel at zoom 1
+    if (window.PixelMobs) {
+      const img = window.PixelMobs.chestFrame(isGold, chest.opened);
+      const x = Math.round(screen.x), y = Math.round(screen.y);
+      ctx.save();
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+      ctx.beginPath();
+      ctx.ellipse(x, y + 2 * z, 18 * z, 8 * z, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(img, x - img.anchorX * z, y - img.anchorY * z, img.width * z, img.height * z);
+      if (chest.opened) {
+        // treasure light rising out of the open chest
+        ctx.globalCompositeOperation = 'lighter';
+        const beam = ctx.createLinearGradient(0, y - 12 * z, 0, y - 44 * z);
+        beam.addColorStop(0, 'rgba(250, 204, 21, 0.55)');
+        beam.addColorStop(1, 'rgba(250, 204, 21, 0)');
+        ctx.fillStyle = beam;
+        ctx.beginPath();
+        ctx.moveTo(x - 9 * z, y - 12 * z);
+        ctx.lineTo(x + 9 * z, y - 12 * z);
+        ctx.lineTo(x + 15 * z, y - 44 * z);
+        ctx.lineTo(x - 15 * z, y - 44 * z);
+        ctx.closePath();
+        ctx.fill();
+      } else {
+        ctx.font = '14px "DotGothic16", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#000';
+        ctx.fillText('🗝️ Click to Open', x + 1, y - (img.anchorY - img.top + 6) * z + 1);
+        ctx.fillStyle = '#fff';
+        ctx.fillText('🗝️ Click to Open', x, y - (img.anchorY - img.top + 6) * z);
+      }
+      ctx.restore();
+      return;
+    }
 
     // Shadow
     ctx.beginPath();
@@ -9388,7 +9780,7 @@ class IsometricRenderer {
 
   // Draw Ground Items (Gold, Potions, Relics)
   drawGroundItem(ctx, item) {
-    const screen = Isometric.worldToScreen(item.x, item.y, 0, this.camera, this.canvas.width, this.canvas.height);
+    const screen = Isometric.worldToScreen(item.x, item.y, 0, this.camera, this.viewW, this.viewH);
     const z = this.camera.zoom;
     const bounce = Math.sin(this.animations.time * 4 + item.x) * 3 * z;
 
@@ -9424,7 +9816,7 @@ class IsometricRenderer {
 
   // Draw Player Character with Realistic 8-Directional Humanoid Anatomy, Facial Features, Hair, Clothes & Physics
   drawPlayer(ctx, player, isLocal) {
-    const screen = Isometric.worldToScreen(player.x, player.y, 0, this.camera, this.canvas.width, this.canvas.height);
+    const screen = Isometric.worldToScreen(player.x, player.y, 0, this.camera, this.viewW, this.viewH);
     const z = this.camera.zoom;
     const t = this.animations.time;
 
@@ -9467,7 +9859,7 @@ class IsometricRenderer {
       ctx.stroke();
     }
 
-
+    this.drawSpToggles(ctx, player, z, t);
 
     // Procedural pixel-art heroes (all classes, all actions)
     if (this.usePixelHeroes()) {
@@ -10387,7 +10779,10 @@ class IsometricRenderer {
       if (!player._deathAt) player._deathAt = now;
     } else {
       player._deathAt = 0;
-      if (player._lastHp !== undefined && player.hp < player._lastHp) player._hurtAt = now;
+      // blood auras bleed a little HP every tick: only a real hit (a bigger drop) flinches
+      const bleeding = player.spToggles && player.spToggles.some(a => !a.spin);
+      const flinchAt = bleeding ? (player.maxHp || 0) * 0.02 : 0;
+      if (player._lastHp !== undefined && player._lastHp - player.hp > flinchAt) player._hurtAt = now;
     }
     player._lastHp = player.hp;
 
@@ -10403,16 +10798,24 @@ class IsometricRenderer {
       const n = PH.meta(cls, action).frames;
       return Math.min(n - 1, Math.floor(((now - start) / dur) * n));
     };
+    // Blade Whirl (toggled spin): hold the mid-swing frame and turn through all
+    // eight facings in step with the blade arcs drawn by drawSpToggles
+    const spinning = !player.isDead && player.spToggles && player.spToggles.some(a => a.spin);
+    let spinFacing = null;
     let action, idx;
     if (player.isDead) { action = 'death'; idx = progIdx('death', player._deathAt, PIXEL_HERO_DEATH_MS); }
     else if (isDashing) { action = 'dash'; idx = progIdx('dash', dash.time, dash.duration); }
+    else if (spinning) {
+      action = 'attack'; idx = 4;
+      spinFacing = SPIN_FACINGS[((Math.round((t * 14) / (Math.PI / 4)) % 8) + 8) % 8];
+    }
     else if (isAttacking) { action = attack.side < 0 ? 'attack2' : 'attack'; idx = progIdx(action, attack.time, attack.duration); }
     else if (isCasting) { action = 'cast'; idx = progIdx('cast', cast.time, cast.duration); }
     else if (hurtAge < PIXEL_HERO_HURT_MS) { action = 'hurt'; idx = progIdx('hurt', player._hurtAt, PIXEL_HERO_HURT_MS); }
     else if (player.isMoving) { action = 'run'; idx = Math.floor(t * 14) % PH.meta(cls, 'run').frames; }
     else { action = 'idle'; idx = Math.floor(t * 6) % PH.meta(cls, 'idle').frames; }
 
-    const facing = (isAttacking && attack.facing) ? attack.facing
+    const facing = spinFacing ? spinFacing : (isAttacking && attack.facing) ? attack.facing
       : ((isDashing && dash.facing) ? dash.facing : (player.facing || 'S'));
     // Five drawn views; the west-facing ones mirror their east twins
     const flip = facing === 'W' || facing === 'SW' || facing === 'NW';
@@ -10432,7 +10835,7 @@ class IsometricRenderer {
     for (const g of player._pixelGhosts) {
       const age = (now - g.time) / 300;
       if (age >= 1) continue;
-      const gs = Isometric.worldToScreen(g.wx, g.wy, 0, this.camera, this.canvas.width, this.canvas.height);
+      const gs = Isometric.worldToScreen(g.wx, g.wy, 0, this.camera, this.viewW, this.viewH);
       this.drawPixelHeroFrame(ctx, g.frame, Math.round(gs.x), Math.round(gs.y), s, g.flip, (1 - age) * 0.45, ghostTint, 0.65);
     }
 
@@ -10485,7 +10888,7 @@ class IsometricRenderer {
         if (player.isMoving && Math.random() < 0.38) {
           const tx = x + (flip ? -frame.meta.tip[0] : frame.meta.tip[0]) * s;
           const ty = y + frame.meta.tip[1] * s;
-          const wp = Isometric.screenToWorld(tx, ty, this.camera, this.canvas.width, this.canvas.height);
+          const wp = Isometric.screenToWorld(tx, ty, this.camera, this.viewW, this.viewH);
           this.addParticles(wp.x, wp.y, Math.random() < 0.6 ? 'shadow' : 'slash', 1, { speed: 1.4, z: 0.08, sizeScale: 0.7 });
         }
       }
@@ -11547,7 +11950,7 @@ class IsometricRenderer {
 
   // Draw Monsters / Mobs
   drawMob(ctx, mob, isSelected) {
-    const rawScreen = Isometric.worldToScreen(mob.x, mob.y, 0, this.camera, this.canvas.width, this.canvas.height);
+    const rawScreen = Isometric.worldToScreen(mob.x, mob.y, 0, this.camera, this.viewW, this.viewH);
     const screen = { x: Math.round(rawScreen.x), y: Math.round(rawScreen.y) };
     const z = this.camera.zoom;
     const isBoss = mob.isBoss;
@@ -14339,7 +14742,10 @@ class IsometricRenderer {
 
       ctx.restore();
     };
-    if (mob.hue) {
+    let spriteTop = null;
+    if (window.PixelMobs && window.PixelMobs.has(mob.type)) {
+      spriteTop = this.drawPixelMob(ctx, mob, screen, z);
+    } else if (mob.hue) {
       // box just around the body: the filter cost grows with its pixel area
       const s = (mob.scale || 1) * z;
       const r = MOB_BODY_EXTENT[mob.type] || 72;
@@ -14349,7 +14755,8 @@ class IsometricRenderer {
     }
 
     // Overhead tag with Affix Badges
-    const overheadY = screen.y - (isBoss ? 75 : isMiniboss ? 58 : 44) * z * (mob.scale || 1);
+    const overheadY = spriteTop !== null ? Math.min(screen.y - 30 * z, spriteTop - 8 * z)
+      : screen.y - (isBoss ? 75 : isMiniboss ? 58 : 44) * z * (mob.scale || 1);
     this.drawEntityOverhead(
       ctx,
       screen.x,
@@ -14383,6 +14790,81 @@ class IsometricRenderer {
       ctx.stroke();
       ctx.restore();
     }
+  }
+
+  drawShopkeeper(ctx, obs, keeper, z) {
+    keeper = (keeper.forObs && keeper.forObs(obs)) || keeper;
+    const TILE = 32 * Math.SQRT2;
+    const at = Isometric.worldToScreen(obs.x + keeper.x / TILE, obs.y + keeper.z / TILE, 0, this.camera, this.viewW, this.viewH);
+    // stalls of one kind don't all move in lockstep
+    const t = this.animations.time + (obs.variant || 0) * 1.37;
+    const img = window.PixelMobs.npcFrame(keeper.npc, t, obs.variant || 0, keeper.view);
+    const s = PIXEL_HERO_SCALE * z * (keeper.scale || 1);
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.translate(Math.round(at.x), Math.round(at.y));
+    if (keeper.flip) ctx.scale(-1, 1);
+    ctx.drawImage(img, -img.anchorX * s, -img.anchorY * s, img.width * s, img.height * s);
+    ctx.restore();
+  }
+
+  // Brom's hammer meets the anvil once per cycle (matches his sprite loop)
+  smithBlow(obs) {
+    const t = this.animations.time, blow = Math.floor(t / SMITH_BLOW_S);
+    if ((t % SMITH_BLOW_S) / SMITH_BLOW_S < 0.68 || obs._lastBlow === blow) return null;
+    obs._lastBlow = blow;
+    return { struck: true };
+  }
+
+  // Pixel-art monster (pixelMobs.js). The action comes from what the client
+  // sees: an attack event, a drop in hp, or movement since the last frame.
+  // Returns the screen y of the sprite's top, for the name tag.
+  drawPixelMob(ctx, mob, screen, z) {
+    const now = performance.now();
+    if (!this.mobAnim) this.mobAnim = new Map();
+    let a = this.mobAnim.get(mob.id);
+    if (!a) {
+      a = { x: mob.x, y: mob.y, hp: mob.hp, movingUntil: 0, hurtAt: -1e9, attackAt: -1e9, seed: Math.random() * 10 };
+      this.mobAnim.set(mob.id, a);
+      // forget monsters that left a while ago
+      if (this.mobAnim.size > 400) for (const [id, v] of this.mobAnim) if (now - v.seen > 10000) this.mobAnim.delete(id);
+    }
+    a.seen = now;
+    if (Math.hypot(mob.x - a.x, mob.y - a.y) > 0.002) a.movingUntil = now + 160;
+    if (mob.hp < a.hp) a.hurtAt = now;
+    a.x = mob.x; a.y = mob.y; a.hp = mob.hp;
+    const atk = this.mobAttacks && this.mobAttacks.get(mob.id);
+    if (atk && atk > a.attackAt) a.attackAt = atk;
+
+    const PM = window.PixelMobs;
+    const t = this.animations.time + a.seed;
+    let action, k;
+    const ATTACK_MS = 420;
+    if (now - a.attackAt < ATTACK_MS) {
+      action = 'attack';
+      k = Math.floor(((now - a.attackAt) / ATTACK_MS) * PM.frameCount(mob.type, 'attack'));
+    } else if (now - a.hurtAt < 160) {
+      action = 'hurt'; k = 0;
+    } else if (now < a.movingUntil) {
+      action = 'walk'; k = Math.floor(t * 10);
+    } else {
+      action = 'idle'; k = Math.floor(t * 5);
+    }
+
+    // screen-space facing -> one of three views, west-facing ones mirrored
+    const facing = mob.facing || 'SE';
+    const view = facing === 'E' || facing === 'W' ? 'side' : facing.startsWith('N') ? 'back' : 'front';
+    const flip = facing === 'W' || facing === 'SW' || facing === 'NW';
+    const img = PM.mobFrame(mob.type, view, action, k, mob.hue || 0);
+    const s = PIXEL_HERO_SCALE * z * (mob.scale || 1);
+
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.translate(screen.x, screen.y);
+    if (flip) ctx.scale(-1, 1);
+    ctx.drawImage(img, -img.anchorX * s, -img.anchorY * s, img.width * s, img.height * s);
+    ctx.restore();
+    return screen.y - (img.anchorY - img.top) * s;
   }
 
   // Draw Overhead Name & Health Bar & Affixes
@@ -14503,12 +14985,31 @@ class IsometricRenderer {
   }
 
   drawTownsfolk(ctx, c) {
-    const screen = Isometric.worldToScreen(c.x, c.y, 0, this.camera, this.canvas.width, this.canvas.height);
-    if (screen.x < -60 || screen.y < -80 || screen.x > this.canvas.width + 60 || screen.y > this.canvas.height + 60) return;
+    const screen = Isometric.worldToScreen(c.x, c.y, 0, this.camera, this.viewW, this.viewH);
+    if (screen.x < -60 || screen.y < -80 || screen.x > this.viewW + 60 || screen.y > this.viewH + 60) return;
     const z = this.camera.zoom;
     const p = 2 * z; // one sprite pixel
     const x = Math.round(screen.x), y = Math.round(screen.y);
     // idle pose, or one of four walk frames per stride cycle
+    if (window.PixelMobs) {
+      // hero-style pixel villager: standing pose or one of six walk frames
+      const k = c.moving ? 1 + (((Math.floor(c.phase / (Math.PI / 3)) % 6) + 6) % 6) : 0;
+      const img = window.PixelMobs.townsfolkFrame(c.outfit, c.skin, c.back, k);
+      const s = PIXEL_HERO_SCALE * z;
+      const px = Math.round(screen.x), py = Math.round(screen.y);
+      ctx.save();
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+      ctx.beginPath();
+      ctx.ellipse(px, py, 8 * z, 3.6 * z, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.imageSmoothingEnabled = false;
+      ctx.translate(px, py);
+      if (c.flip) ctx.scale(-1, 1);
+      ctx.drawImage(img, -img.anchorX * s, -img.anchorY * s, img.width * s, img.height * s);
+      ctx.restore();
+      if (c.bubble && performance.now() < c.bubbleUntil) this.drawSpeechBubble(ctx, px, py - (img.anchorY - img.top + 6) * s, c.bubble);
+      return;
+    }
     const frame = c.moving ? 1 + (((Math.floor(c.phase / (Math.PI / 2)) % 4) + 4) % 4) : 0;
     const sprite = this.townsfolkSprite(c, c.back, frame);
 
@@ -14861,7 +15362,7 @@ class IsometricRenderer {
       const marker = this.animations.clickMarker;
       marker.life -= dt * 1.8;
 
-      const screen = Isometric.worldToScreen(marker.x, marker.y, 0, this.camera, this.canvas.width, this.canvas.height);
+      const screen = Isometric.worldToScreen(marker.x, marker.y, 0, this.camera, this.viewW, this.viewH);
       const ringRadius = (1.0 - marker.life) * 24 * z;
       const alpha = Math.max(0, marker.life);
 
@@ -14911,7 +15412,7 @@ class IsometricRenderer {
           continue;
         }
 
-        const toScreen = (wx, wy, wz = 0) => Isometric.worldToScreen(wx, wy, wz, this.camera, this.canvas.width, this.canvas.height);
+        const toScreen = (wx, wy, wz = 0) => Isometric.worldToScreen(wx, wy, wz, this.camera, this.viewW, this.viewH);
         if (this.drawBaseRogueSkill(ctx, fx, progress, alpha, toScreen, z)) {
           continue;
         }
@@ -14926,7 +15427,7 @@ class IsometricRenderer {
           if (fx.x === undefined || fx.y === undefined || isNaN(fx.x) || isNaN(fx.y)) {
             continue;
           }
-          const screen = Isometric.worldToScreen(fx.x, fx.y, 0.45, this.camera, this.canvas.width, this.canvas.height);
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0.45, this.camera, this.viewW, this.viewH);
           if (isNaN(screen.x) || isNaN(screen.y)) continue;
 
           const rad = (16 + progress * 24) * z;
@@ -14960,7 +15461,7 @@ class IsometricRenderer {
           // the hero on the iso ground plane, sized to the real hit radius.
           // A world-space circle of radius r projects to an axis-aligned
           // ellipse of r*TILE_W/sqrt(2) by r*TILE_H/sqrt(2) on screen.
-          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.canvas.width, this.canvas.height);
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.viewW, this.viewH);
           const hitRadius = fx.radius || 3.2;
           const grow = 1 - Math.pow(1 - Math.min(1, progress * 2.5), 3); // ease-out
           const rx = hitRadius * (TILE_WIDTH / Math.SQRT2) * z * (0.55 + 0.45 * grow);
@@ -15044,7 +15545,7 @@ class IsometricRenderer {
 
         } else if (fx.type === 'firestorm') {
           // Mage Firestorm - Expanding Volcanic Inferno Shockwave
-          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.canvas.width, this.canvas.height);
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.viewW, this.viewH);
           const rad = (fx.radius || 3.5) * 32 * z * Math.min(1.0, progress * 1.4);
 
           ctx.save();
@@ -15080,8 +15581,8 @@ class IsometricRenderer {
 
         } else if (fx.type === 'blade_charge') {
           // Warrior Blade Charge - Golden Steel Rush Streak & Sonic Boom
-          const p1 = Isometric.worldToScreen(fx.startX || fx.x, fx.startY || fx.y, 0.4, this.camera, this.canvas.width, this.canvas.height);
-          const p2 = Isometric.worldToScreen(fx.x, fx.y, 0.4, this.camera, this.canvas.width, this.canvas.height);
+          const p1 = Isometric.worldToScreen(fx.startX || fx.x, fx.startY || fx.y, 0.4, this.camera, this.viewW, this.viewH);
+          const p2 = Isometric.worldToScreen(fx.x, fx.y, 0.4, this.camera, this.viewW, this.viewH);
 
           ctx.save();
           // Outer Gold Glow Speed Tunnel
@@ -15135,7 +15636,7 @@ class IsometricRenderer {
 
         } else if (fx.type === 'earthshaker') {
           // Warrior Earthshaker Slam - Molten Magma Fissures & Ground Shatter
-          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.canvas.width, this.canvas.height);
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.viewW, this.viewH);
           const rad = (fx.radius || 3.4) * 26 * z * Math.min(1.0, progress * 1.5);
 
           ctx.save();
@@ -15187,7 +15688,7 @@ class IsometricRenderer {
 
         } else if (fx.type === 'frost_nova') {
           // Mage Frost Nova - Ancient Glacial Rune Circle & 3D Crystal Ice Spires
-          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.canvas.width, this.canvas.height);
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.viewW, this.viewH);
           const rad = (fx.radius || 4.0) * 24 * z * Math.min(1.0, progress * 1.6);
           const frostRot = this.animations.time * 2.5;
 
@@ -15238,8 +15739,8 @@ class IsometricRenderer {
           ctx.restore();
         } else if (fx.type === 'arcane_blink') {
           // Mage Arcane Blink - Cosmic Portal Rifts & Spatial Distortion
-          const p1 = Isometric.worldToScreen(fx.startX || fx.x, fx.startY || fx.y, 0.4, this.camera, this.canvas.width, this.canvas.height);
-          const p2 = Isometric.worldToScreen(fx.x, fx.y, 0.4, this.camera, this.canvas.width, this.canvas.height);
+          const p1 = Isometric.worldToScreen(fx.startX || fx.x, fx.startY || fx.y, 0.4, this.camera, this.viewW, this.viewH);
+          const p2 = Isometric.worldToScreen(fx.x, fx.y, 0.4, this.camera, this.viewW, this.viewH);
 
           ctx.save();
           ctx.globalCompositeOperation = 'lighter';
@@ -15294,7 +15795,7 @@ class IsometricRenderer {
 
         } else if (fx.type === 'fan_of_knives') {
           // Rogue Fan of Knives - 12 Whirling Poison-Tipped Razor Daggers
-          const screen = Isometric.worldToScreen(fx.x, fx.y, 0.4, this.camera, this.canvas.width, this.canvas.height);
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0.4, this.camera, this.viewW, this.viewH);
           const rad = (fx.radius || 3.4) * 26 * z * Math.min(1.0, progress * 1.4);
           const rot = this.animations.time * 14;
 
@@ -15363,7 +15864,7 @@ class IsometricRenderer {
 
         } else if (fx.type === 'toxic_bomb') {
           // Rogue Toxic Bomb - Boiling Cauldron Acid Pool & Poison Vapors
-          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.canvas.width, this.canvas.height);
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.viewW, this.viewH);
           const rad = (fx.radius || 3.2) * 28 * z * Math.min(1.0, progress * 1.5);
 
           ctx.save();
@@ -15424,8 +15925,8 @@ class IsometricRenderer {
 
         } else if (fx.type === 'shadow_dash') {
           // Rogue Shadow Dash - Obsidian Phantom Dash & Void Streamers
-          const p1 = Isometric.worldToScreen(fx.startX || fx.x, fx.startY || fx.y, 0.4, this.camera, this.canvas.width, this.canvas.height);
-          const p2 = Isometric.worldToScreen(fx.x, fx.y, 0.4, this.camera, this.canvas.width, this.canvas.height);
+          const p1 = Isometric.worldToScreen(fx.startX || fx.x, fx.startY || fx.y, 0.4, this.camera, this.viewW, this.viewH);
+          const p2 = Isometric.worldToScreen(fx.x, fx.y, 0.4, this.camera, this.viewW, this.viewH);
 
           ctx.save();
           ctx.globalCompositeOperation = 'lighter';
@@ -15466,8 +15967,8 @@ class IsometricRenderer {
 
         } else if (fx.type === 'shadow_strike') {
           // Rogue Shadow Strike - Intersecting Razor Void Cross-Cleaves
-          const p1 = Isometric.worldToScreen(fx.startX || fx.x, fx.startY || fx.y, 0.4, this.camera, this.camera, this.canvas.width, this.canvas.height);
-          const p2 = Isometric.worldToScreen(fx.x, fx.y, 0.4, this.camera, this.canvas.width, this.canvas.height);
+          const p1 = Isometric.worldToScreen(fx.startX || fx.x, fx.startY || fx.y, 0.4, this.camera, this.camera, this.viewW, this.viewH);
+          const p2 = Isometric.worldToScreen(fx.x, fx.y, 0.4, this.camera, this.viewW, this.viewH);
 
           ctx.save();
           ctx.globalCompositeOperation = 'lighter';
@@ -15511,7 +16012,7 @@ class IsometricRenderer {
 
         } else if (fx.type === 'colossus_strike') {
           // Warrior Colossus Strike - Descending Titan Greatsword & Holy Ground Shatter
-          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.canvas.width, this.canvas.height);
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.viewW, this.viewH);
           const rad = (fx.radius || 3.0) * 32 * z * Math.min(1.0, progress * 1.5);
 
           ctx.save();
@@ -15574,7 +16075,7 @@ class IsometricRenderer {
 
         } else if (fx.type === 'shield_slam') {
           // Warrior Shield Slam - Concussive Sonic Boom Cone & Radiant Aegis Crest
-          const screen = Isometric.worldToScreen(fx.x, fx.y, 0.4, this.camera, this.canvas.width, this.canvas.height);
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0.4, this.camera, this.viewW, this.viewH);
           const facingAngles = { E: 0, SE: Math.PI * 0.25, S: Math.PI * 0.5, SW: Math.PI * 0.75, W: Math.PI, NW: -Math.PI * 0.75, N: -Math.PI * 0.5, NE: -Math.PI * 0.25 };
           const baseAngle = facingAngles[fx.facing] !== undefined ? facingAngles[fx.facing] : Math.PI * 0.25;
           const rad = (20 + progress * 26) * z;
@@ -15608,7 +16109,7 @@ class IsometricRenderer {
 
         } else if (fx.type === 'blood_rage') {
           // Warrior Blood Rage - Demonic Crimson Fury Aura & Orbiting Flame Wisps
-          const screen = Isometric.worldToScreen(fx.x, fx.y, 0.2, this.camera, this.canvas.width, this.canvas.height);
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0.2, this.camera, this.viewW, this.viewH);
           const rad = 28 * z * (0.7 + progress * 0.5);
           const rot = this.animations.time * 6;
 
@@ -15652,7 +16153,7 @@ class IsometricRenderer {
 
         } else if (fx.type === 'iron_fortress') {
           // Warrior Iron Fortress - 6 Rotating Fortified Steel Pavise Shields
-          const screen = Isometric.worldToScreen(fx.x, fx.y, 0.3, this.camera, this.canvas.width, this.canvas.height);
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0.3, this.camera, this.viewW, this.viewH);
           const rad = 30 * z;
           const rot = this.animations.time * 2.5;
 
@@ -15690,7 +16191,7 @@ class IsometricRenderer {
 
         } else if (fx.type === 'war_stomp') {
           // Warrior War Stomp - Triple Cascading Seismic Shockwave Rings
-          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.canvas.width, this.canvas.height);
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.viewW, this.viewH);
           const rad = (fx.radius || 4.2) * 26 * z * Math.min(1.0, progress * 1.5);
 
           ctx.save();
@@ -15724,8 +16225,8 @@ class IsometricRenderer {
             ctx.globalCompositeOperation = 'lighter';
 
             for (let i = 0; i < fx.points.length - 1; i++) {
-              const pt1 = Isometric.worldToScreen(fx.points[i].x, fx.points[i].y, 0.4, this.camera, this.canvas.width, this.canvas.height);
-              const pt2 = Isometric.worldToScreen(fx.points[i + 1].x, fx.points[i + 1].y, 0.4, this.camera, this.canvas.width, this.canvas.height);
+              const pt1 = Isometric.worldToScreen(fx.points[i].x, fx.points[i].y, 0.4, this.camera, this.viewW, this.viewH);
+              const pt2 = Isometric.worldToScreen(fx.points[i + 1].x, fx.points[i + 1].y, 0.4, this.camera, this.viewW, this.viewH);
 
               // Draw Main Arc + 2 Branching Sub-Arcs with High-Frequency Jitter
               const segments = 6;
@@ -15778,7 +16279,7 @@ class IsometricRenderer {
 
         } else if (fx.type === 'mana_shield') {
           // Mage Mana Shield - Shimmering Hexagonal Translucent Crystal Bubble
-          const screen = Isometric.worldToScreen(fx.x, fx.y, 0.4, this.camera, this.canvas.width, this.canvas.height);
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0.4, this.camera, this.viewW, this.viewH);
           const rad = 26 * z;
           const rot = this.animations.time * 3;
 
@@ -15822,7 +16323,7 @@ class IsometricRenderer {
 
         } else if (fx.type === 'black_hole') {
           // Mage Cosmic Singularity - Absolute Event Horizon & Accretion Spiral Arms
-          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.canvas.width, this.canvas.height);
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.viewW, this.viewH);
           const rad = (fx.radius || 4.8) * 28 * z * (0.6 + progress * 0.6);
           const rot = this.animations.time * 16;
 
@@ -15873,7 +16374,7 @@ class IsometricRenderer {
 
         } else if (fx.type === 'blizzard') {
           // Mage Glacial Blizzard - Howling Glacial Vortex & Ice Spires
-          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.canvas.width, this.canvas.height);
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.viewW, this.viewH);
           const rad = (fx.radius || 4.4) * 26 * z;
           const rot = this.animations.time * 8;
 
@@ -15925,7 +16426,7 @@ class IsometricRenderer {
 
         } else if (fx.type === 'pyroblast') {
           // Mage Pyroblast - Solar Plasma Fireball Detonation
-          const screen = Isometric.worldToScreen(fx.x, fx.y, 0.4, this.camera, this.canvas.width, this.canvas.height);
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0.4, this.camera, this.viewW, this.viewH);
           const rad = 32 * z * Math.min(1.0, progress * 1.5);
 
           ctx.save();
@@ -15965,8 +16466,8 @@ class IsometricRenderer {
 
         } else if (fx.type === 'shadowstep') {
           // Rogue Shadowstep - Void Implosion & Phantom Cross-Slash
-          const p1 = Isometric.worldToScreen(fx.startX || fx.x, fx.startY || fx.y, 0.4, this.camera, this.canvas.width, this.canvas.height);
-          const p2 = Isometric.worldToScreen(fx.x, fx.y, 0.4, this.camera, this.canvas.width, this.canvas.height);
+          const p1 = Isometric.worldToScreen(fx.startX || fx.x, fx.startY || fx.y, 0.4, this.camera, this.viewW, this.viewH);
+          const p2 = Isometric.worldToScreen(fx.x, fx.y, 0.4, this.camera, this.viewW, this.viewH);
 
           ctx.save();
           ctx.globalCompositeOperation = 'lighter';
@@ -15997,7 +16498,7 @@ class IsometricRenderer {
 
         } else if (fx.type === 'smoke_screen') {
           // Rogue Smoke Screen - Volumetric Rolling Ninja Concealment Fog
-          const screen = Isometric.worldToScreen(fx.x, fx.y, 0.3, this.camera, this.canvas.width, this.canvas.height);
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0.3, this.camera, this.viewW, this.viewH);
           const rad = 32 * z * (0.8 + progress * 0.5);
 
           ctx.save();
@@ -16021,7 +16522,7 @@ class IsometricRenderer {
 
         } else if (fx.type === 'death_blossom') {
           // Rogue Death Blossom - Omnislash Multi-Directional Crimson Cleaves & Blood Lotus
-          const screen = Isometric.worldToScreen(fx.x, fx.y, 0.4, this.camera, this.canvas.width, this.canvas.height);
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0.4, this.camera, this.viewW, this.viewH);
           const rad = (fx.radius || 4.0) * 28 * z;
 
           ctx.save();
@@ -16065,7 +16566,7 @@ class IsometricRenderer {
 
         } else if (fx.type === 'poison_darts') {
           // Rogue Poison Darts - 6 Flying Venom Shurikens with Emerald Trails
-          const screen = Isometric.worldToScreen(fx.x, fx.y, 0.4, this.camera, this.canvas.width, this.canvas.height);
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0.4, this.camera, this.viewW, this.viewH);
           const rad = 28 * z * Math.min(1.0, progress * 1.5);
           const rot = this.animations.time * 20;
 
@@ -16102,7 +16603,7 @@ class IsometricRenderer {
 
         } else if (fx.type === 'caltrops') {
           // Rogue Barbed Caltrops - 12 Steel Ground Spikes with Specular Gleam
-          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.canvas.width, this.canvas.height);
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.viewW, this.viewH);
           const rad = (fx.radius || 3.2) * 24 * z;
 
           ctx.save();
@@ -16135,7 +16636,7 @@ class IsometricRenderer {
           ctx.restore();
         } else if (fx.type === 'dragon_roar') {
           // Warrior Dragon Roar - Blazing Golden Dragon Sigil & Roaring Firewave
-          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.canvas.width, this.canvas.height);
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.viewW, this.viewH);
           const rad = (fx.radius || 4.5) * 30 * z * Math.min(1.0, progress * 1.5);
           ctx.save();
           ctx.globalCompositeOperation = 'lighter';
@@ -16164,7 +16665,7 @@ class IsometricRenderer {
 
         } else if (fx.type === 'meteor_dive') {
           // Warrior Meteor Dive - Blazing Celestial Crater & Magma Impact
-          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.canvas.width, this.canvas.height);
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.viewW, this.viewH);
           const rad = (fx.radius || 4.0) * 32 * z * Math.min(1.0, progress * 1.6);
           ctx.save();
           ctx.globalCompositeOperation = 'lighter';
@@ -16188,7 +16689,7 @@ class IsometricRenderer {
 
         } else if (fx.type === 'bladestorm_frenzy') {
           // Warrior Bladestorm Frenzy - Multi-tiered Steel Hurricane
-          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.canvas.width, this.canvas.height);
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.viewW, this.viewH);
           const rad = (fx.radius || 4.2) * 30 * z;
           const rot = this.animations.time * 22;
           ctx.save();
@@ -16214,7 +16715,7 @@ class IsometricRenderer {
 
         } else if (fx.type === 'titan_bastion') {
           // Warrior Titan Bastion - Radiant Golden Aegis Wall
-          const screen = Isometric.worldToScreen(fx.x, fx.y, 0.4, this.camera, this.canvas.width, this.canvas.height);
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0.4, this.camera, this.viewW, this.viewH);
           const rad = 36 * z;
           const rot = this.animations.time * 3;
           ctx.save();
@@ -16237,8 +16738,8 @@ class IsometricRenderer {
 
         } else if (fx.type === 'sundering_cleave') {
           // Warrior Sundering Cleave - Earth-Shattering Magma Fissure
-          const start = Isometric.worldToScreen(fx.startX || fx.x, fx.startY || fx.y, 0, this.camera, this.canvas.width, this.canvas.height);
-          const end = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.canvas.width, this.canvas.height);
+          const start = Isometric.worldToScreen(fx.startX || fx.x, fx.startY || fx.y, 0, this.camera, this.viewW, this.viewH);
+          const end = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.viewW, this.viewH);
           ctx.save();
           ctx.globalCompositeOperation = 'lighter';
           ctx.beginPath();
@@ -16257,7 +16758,7 @@ class IsometricRenderer {
 
         } else if (fx.type === 'ragnarok_slash') {
           // Warrior Ragnarök Godslayer - 4 Colossal Divine Cross Cleaves
-          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.canvas.width, this.canvas.height);
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.viewW, this.viewH);
           const rad = (fx.radius || 5.5) * 32 * z * Math.min(1.0, progress * 1.5);
           ctx.save();
           ctx.globalCompositeOperation = 'lighter';
@@ -16282,7 +16783,7 @@ class IsometricRenderer {
 
         } else if (fx.type === 'thunder_storm') {
           // Mage Tempest Cataclysm - Multi-Lightning Shock Vortex
-          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.canvas.width, this.canvas.height);
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.viewW, this.viewH);
           const rad = (fx.radius || 4.5) * 30 * z;
           ctx.save();
           ctx.globalCompositeOperation = 'lighter';
@@ -16312,7 +16813,7 @@ class IsometricRenderer {
 
         } else if (fx.type === 'glacial_comet') {
           // Mage Glacial Comet - Crystalline Impact & Frost Ring
-          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.canvas.width, this.canvas.height);
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.viewW, this.viewH);
           const rad = (fx.radius || 4.2) * 30 * z * Math.min(1.0, progress * 1.5);
           ctx.save();
           ctx.globalCompositeOperation = 'lighter';
@@ -16339,8 +16840,8 @@ class IsometricRenderer {
 
         } else if (fx.type === 'arcane_hyperbeam') {
           // Mage Arcane Hyperbeam - Piercing Antimatter Laser
-          const start = Isometric.worldToScreen(fx.startX || fx.x, fx.startY || fx.y, 0.4, this.camera, this.canvas.width, this.canvas.height);
-          const end = Isometric.worldToScreen(fx.x, fx.y, 0.4, this.camera, this.canvas.width, this.canvas.height);
+          const start = Isometric.worldToScreen(fx.startX || fx.x, fx.startY || fx.y, 0.4, this.camera, this.viewW, this.viewH);
+          const end = Isometric.worldToScreen(fx.x, fx.y, 0.4, this.camera, this.viewW, this.viewH);
           ctx.save();
           ctx.globalCompositeOperation = 'lighter';
           ctx.beginPath();
@@ -16357,7 +16858,7 @@ class IsometricRenderer {
 
         } else if (fx.type === 'time_dilation') {
           // Mage Chrono Time Warp - Shimmering Chronosphere
-          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.canvas.width, this.canvas.height);
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.viewW, this.viewH);
           const rad = (fx.radius || 5.0) * 28 * z;
           const rot = this.animations.time * 1.5;
           ctx.save();
@@ -16383,7 +16884,7 @@ class IsometricRenderer {
 
         } else if (fx.type === 'supernova_blast') {
           // Mage Solar Supernova - Blinding Stellar Flare
-          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.canvas.width, this.canvas.height);
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.viewW, this.viewH);
           const rad = (fx.radius || 5.2) * 32 * z * Math.min(1.0, progress * 1.6);
           ctx.save();
           ctx.globalCompositeOperation = 'lighter';
@@ -16400,7 +16901,7 @@ class IsometricRenderer {
 
         } else if (fx.type === 'genesis_cataclysm') {
           // Mage Cataclysm of Genesis - Orbital Celestial Annihilation
-          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.canvas.width, this.canvas.height);
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.viewW, this.viewH);
           const rad = (fx.radius || 6.0) * 32 * z * Math.min(1.0, progress * 1.4);
           ctx.save();
           ctx.globalCompositeOperation = 'lighter';
@@ -16422,7 +16923,7 @@ class IsometricRenderer {
 
         } else if (fx.type === 'venomous_barrage') {
           // Rogue Venom Barrage - 15 Piercing Pixel Needles
-          const screen = Isometric.worldToScreen(fx.x, fx.y, 0.4, this.camera, this.canvas.width, this.canvas.height);
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0.4, this.camera, this.viewW, this.viewH);
           const dirX = fx.dirX || 1, dirY = fx.dirY || 0;
           const baseAngle = Math.atan2(dirY, dirX);
           const npx = Math.max(2, Math.round(2 * z));
@@ -16443,7 +16944,7 @@ class IsometricRenderer {
 
         } else if (fx.type === 'phantom_assassins') {
           // Rogue Phantom Assassins - Dual Mirage Clones
-          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.canvas.width, this.canvas.height);
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.viewW, this.viewH);
           const rad = (fx.radius || 4.2) * 26 * z;
           ctx.save();
           ctx.globalCompositeOperation = 'lighter';
@@ -16459,7 +16960,7 @@ class IsometricRenderer {
 
         } else if (fx.type === 'assassins_cull') {
           // Rogue Guillotine Execution Cleave
-          const screen = Isometric.worldToScreen(fx.x, fx.y, 0.5, this.camera, this.canvas.width, this.canvas.height);
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0.5, this.camera, this.viewW, this.viewH);
           ctx.save();
           ctx.globalCompositeOperation = 'lighter';
           ctx.beginPath();
@@ -16478,7 +16979,7 @@ class IsometricRenderer {
 
         } else if (fx.type === 'abyssal_tether') {
           // Rogue Abyssal Shadow Chains
-          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.canvas.width, this.canvas.height);
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.viewW, this.viewH);
           const rad = (fx.radius || 5.2) * 26 * z;
           ctx.save();
           ctx.globalCompositeOperation = 'lighter';
@@ -16496,7 +16997,7 @@ class IsometricRenderer {
 
         } else if (fx.type === 'blade_dance') {
           // Rogue Dancing Razor Mirage
-          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.canvas.width, this.canvas.height);
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.viewW, this.viewH);
           const rad = (fx.radius || 4.8) * 28 * z;
           const rot = this.animations.time * 18;
           ctx.save();
@@ -16517,7 +17018,7 @@ class IsometricRenderer {
 
         } else if (fx.type === 'eclipse_execution') {
           // Rogue Void Eclipse Omnislash
-          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.canvas.width, this.canvas.height);
+          const screen = Isometric.worldToScreen(fx.x, fx.y, 0, this.camera, this.viewW, this.viewH);
           const rad = (fx.radius || 6.0) * 32 * z * Math.min(1.0, progress * 1.5);
           ctx.save();
           ctx.globalCompositeOperation = 'lighter';
@@ -16594,13 +17095,13 @@ class IsometricRenderer {
         continue;
       }
 
-      const screen = Isometric.worldToScreen(p.x, p.y, Math.max(0, p.z), this.camera, this.canvas.width, this.canvas.height);
+      const screen = Isometric.worldToScreen(p.x, p.y, Math.max(0, p.z), this.camera, this.viewW, this.viewH);
       const alpha = Math.max(0, p.life / p.maxLife);
       const prog = 1.0 - alpha;
 
       if (p.blend === 'source-over' || p.type === 'earth' || p.type === 'ice' || p.type === 'gold' || p.type === 'loot') {
         if (p.z > 0.08 && p.type !== 'dust') {
-          const ground = Isometric.worldToScreen(p.x, p.y, 0, this.camera, this.canvas.width, this.canvas.height);
+          const ground = Isometric.worldToScreen(p.x, p.y, 0, this.camera, this.viewW, this.viewH);
           const spx = Math.max(2, Math.round(z));
           const sw = Math.max(1, Math.round((p.size * z * Math.max(0.35, 1 - p.z * 0.4)) / spx));
           const gx = Math.round(ground.x);
@@ -16626,8 +17127,8 @@ class IsometricRenderer {
       ctx.lineJoin = 'round';
       ctx.miterLimit = 2;
 
-      const cw = this.canvas.width;
-      const ch = this.canvas.height;
+      const cw = this.viewW;
+      const ch = this.viewH;
       const textZoom = FLOATING_TEXT_SCALE * Math.max(FLOATING_TEXT_ZOOM_MIN, Math.min(FLOATING_TEXT_ZOOM_MAX, z));
 
       for (let i = this.animations.floatingTexts.length - 1; i >= 0; i--) {
@@ -16728,12 +17229,12 @@ class IsometricRenderer {
     }
 
     // 3.5 Ambient weather for the other field zones
-    this.drawAmbientWeather(ctx, this.currentTheme, this.canvas.width, this.canvas.height, this.animations.time);
+    this.drawAmbientWeather(ctx, this.currentTheme, this.viewW, this.viewH, this.animations.time);
 
     // 4. Ambient Snowfall Particle Weather in Frostfell Peaks (Crisp Pixel Snowflakes)
     if (this.currentTheme === 'frostfell') {
-      const snowW = this.canvas.width;
-      const snowH = this.canvas.height;
+      const snowW = this.viewW;
+      const snowH = this.viewH;
       const time = this.animations.time;
       const spx = 2;
       ctx.save();

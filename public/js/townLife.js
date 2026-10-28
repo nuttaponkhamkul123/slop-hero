@@ -683,8 +683,8 @@
   }
 
   // ---------------------------------------------------------------- ambience
-  const worldToScreen = (R, x, y, z = 0) => Isometric.worldToScreen(x, y, z, R.camera, R.canvas.width, R.canvas.height);
-  const onScreen = (R, s, m = 80) => s.x > -m && s.y > -m && s.x < R.canvas.width + m && s.y < R.canvas.height + m;
+  const worldToScreen = (R, x, y, z = 0) => Isometric.worldToScreen(x, y, z, R.camera, R.viewW, R.viewH);
+  const onScreen = (R, s, m = 80) => s.x > -m && s.y > -m && s.x < R.viewW + m && s.y < R.viewH + m;
   const WIND = { x: 0.16, y: -0.1 }; // tiles per second
   const BUTTERFLY_COLOURS = [['#f8f4e6', '#b8b2a0'], ['#f7d24a', '#b8901c'], ['#f08a3c', '#a4521a'], ['#8fb8f0', '#4a6fb0'], ['#e88ad0', '#a24c8c']];
 
@@ -892,7 +892,7 @@
       this.flockTimer -= dt;
       if (this.flockTimer <= 0) {
         this.flockTimer = 14 + Math.random() * 14;
-        const c = Isometric.screenToWorld(R.canvas.width / 2, R.canvas.height / 2, R.camera, R.canvas.width, R.canvas.height);
+        const c = Isometric.screenToWorld(R.viewW / 2, R.viewH / 2, R.camera, R.viewW, R.viewH);
         const a = Math.random() * Math.PI * 2, dx = Math.cos(a), dy = Math.sin(a);
         const n = 3 + Math.floor(Math.random() * 5);
         const birds = [];
@@ -920,7 +920,7 @@
         for (const l of c.lobes) {
           const s = worldToScreen(R, c.x + l.dx, c.y + l.dy);
           const rx = l.r * TILE_PX * z;
-          if (s.x < -rx || s.x > R.canvas.width + rx || s.y < -rx / 2 || s.y > R.canvas.height + rx / 2) continue;
+          if (s.x < -rx || s.x > R.viewW + rx || s.y < -rx / 2 || s.y > R.viewH + rx / 2) continue;
           ctx.save();
           ctx.translate(s.x, s.y);
           ctx.scale(1, 0.5);

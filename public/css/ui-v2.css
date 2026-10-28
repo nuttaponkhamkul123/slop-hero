@@ -295,6 +295,11 @@
 .result-list.kept div:not(.result-list-title) { color: var(--lime); }
 .result-empty { color: var(--steel); text-align: center; }
 .dungeon-result-close { width: auto !important; padding: 8px 22px !important; }
+.leave-confirm-overlay .dungeon-result-title { font-size: 34px !important; }
+.leave-confirm-overlay .dungeon-result-sub { font-size: 13px; line-height: 1.45; margin: 10px 0 16px; }
+.leave-confirm-overlay .dungeon-result-sub b { color: #ff6b6b; }
+.leave-confirm-actions { display: flex; gap: 10px; justify-content: center; }
+.leave-confirm-actions button { width: auto !important; padding: 8px 18px !important; }
 /* Dungeon run panel: fixed on the right below the minimap */
 .dungeon-run-bag {
   position: fixed;
@@ -375,6 +380,9 @@
 .btn-revive img.pxi { width: 22px; height: 22px; }
 .btn-revive-count { font-size: 16px; color: var(--plum); }
 .btn-revive:hover { --bg: #ffe39a; }
+.btn-revive-super { --bg: #f43f5e; --hi: #ffc2cc; --lo: var(--plum); color: var(--white); margin-left: 10px; }
+.btn-revive-super .btn-revive-count { color: #fff1c4; }
+.btn-revive-super:hover { --bg: #fb7185; }
 
 /* ---------- character select (10 per account) ---------- */
 .cs-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
@@ -520,6 +528,27 @@
   content: attr(data-link); position: absolute; right: 2px; bottom: 2px; padding: 0 3px;
   font-size: 9px; line-height: 12px; color: #1a1300; background: #facc15; pointer-events: none;
 }
+/* Buff / debuff tray, right of the player frame */
+.player-frame-row { display: flex; align-items: flex-start; gap: 6px; }
+.buff-tray { display: flex; flex-wrap: wrap; gap: 4px; max-width: 230px; pointer-events: auto; }
+.buff-chip {
+  position: relative; width: 30px; height: 38px; display: flex; flex-direction: column; align-items: center;
+  background: rgba(10, 14, 24, 0.82); box-shadow: 0 0 0 2px #22c55e; border-radius: 3px;
+}
+.buff-chip.is-debuff { box-shadow: 0 0 0 2px #ef4444; }
+.buff-chip .buff-icon { font-size: 17px; line-height: 24px; }
+.buff-chip .buff-time { font-size: 9px; line-height: 12px; color: #e2e8f0; font-weight: 700; }
+.buff-chip .buff-stack {
+  position: absolute; right: -3px; top: -4px; min-width: 12px; padding: 0 2px; font-size: 9px; line-height: 12px;
+  text-align: center; color: #0b1220; background: #facc15; border-radius: 6px; font-weight: 700;
+}
+
+/* Toggled SP skills (Berserker): the slot glows red while it is on */
+.action-slot.is-toggled, .mobile-skill-btn.is-toggled {
+  box-shadow: 0 0 0 2px #ef4444, 0 0 12px rgba(239, 68, 68, 0.75);
+  animation: aura-toggled 1.2s ease-in-out infinite;
+}
+@keyframes aura-toggled { 50% { box-shadow: 0 0 0 2px #f87171, 0 0 20px rgba(239, 68, 68, 0.95); } }
 .skill-link-pill { display: inline-flex; align-items: center; gap: 6px; }
 .skill-link-pill .skill-link-icon { display: inline-flex; width: 20px; height: 20px; }
 .skill-link-pill .skill-link-icon > * { width: 20px; height: 20px; }
@@ -744,6 +773,26 @@
 .party-frame {
   transform: scale(var(--gui-scale, 1));
   transform-origin: top left;
+}
+
+/* Hero frame and party list share one top-left column, scaled as a unit so
+   the party list always sits right under the hero's stats */
+.top-left-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  transform: scale(var(--gui-scale, 1));
+  transform-origin: top left;
+}
+.top-left-stack > .player-frame-row > .player-frame,
+.top-left-stack > .party-frame {
+  transform: none;
+}
+.top-left-stack > .party-frame {
+  margin-top: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .target-hud {
@@ -1043,3 +1092,28 @@
   border-color: var(--sky, #38bdf8);
 }
 
+
+
+/* Portal prompt: centred above the hotbar while the hero stands near a portal */
+.portal-prompt {
+  position: absolute; left: 50%; bottom: calc(118px * var(--gui-scale, 1)); transform: translateX(-50%);
+  display: inline-flex; align-items: center; gap: 10px; padding: 8px 14px;
+  background: var(--night); color: var(--white); border: 3px solid var(--ink);
+  box-shadow: inset 0 0 0 2px var(--gold), 0 4px 0 var(--ink);
+  font-family: var(--font-display); font-size: 16px; letter-spacing: 1px; cursor: pointer; z-index: 40;
+  animation: portal-prompt-bob 1.6s ease-in-out infinite;
+}
+.portal-prompt:hover { background: var(--slate); }
+.portal-prompt:active { transform: translateX(-50%) translateY(2px); box-shadow: inset 0 0 0 2px var(--gold), 0 2px 0 var(--ink); }
+.portal-prompt-key {
+  font-family: var(--font-display); font-size: 13px; color: var(--ink); background: var(--gold);
+  padding: 1px 7px; border: 2px solid var(--ink);
+}
+@keyframes portal-prompt-bob { 50% { margin-bottom: 3px; } }
+@media (max-width: 768px) { .portal-prompt { display: none !important; } }
+
+
+/* Potion swap: a pixel two-way arrow icon instead of a text glyph */
+.potion-slot .slot-swap-btn { width: 18px; height: 18px; padding: 0; }
+.slot-swap-btn img.pxi, .potion-switch-btn img.pxi { width: 12px; height: 12px; display: block; image-rendering: pixelated; }
+.potion-switch-btn { display: inline-flex; align-items: center; justify-content: center; padding: 3px 5px; }

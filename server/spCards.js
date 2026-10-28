@@ -1,7 +1,7 @@
 // Slop Hero - Specialist (SP) cards, NosTale style.
 // Wearing a card and transforming swaps the hero's look and skill set. Each
 // class has five cards, one per tier; tiers need a higher job level, are
-// rarer to obtain and cost more to enhance (+0 .. +10).
+// rarer to obtain and cost more to enhance (+0 .. +100).
 const { expToNext } = require('./progression');
 
 // ---------------------------------------------------------------- job level
@@ -38,12 +38,16 @@ const FRAGMENT_DROP = { boss: 1, commander: 0.15, mob: 0.02 };
 const bossFragments = floor => 2 + Math.floor(floor / 2) + Math.floor(Math.random() * 3);
 
 // ---------------------------------------------------------------- enhancement
-const SP_MAX_LEVEL = 10;
-const SP_ENHANCE_GROWTH = 1.6;
-const SP_ENHANCE_CHANCE = [1, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.22, 0.15];
-const SP_SAFE_LEVEL = 5;            // failing from +5 upward drops one level
-const SP_STAT_PER_LEVEL = 0.08;     // +8% card stats per level
-const SP_SKILL_PER_LEVEL = 0.04;    // +4% card skill damage per level
+// Cards go to +100 in small steps: SP_LEVEL_STEP levels now give what one
+// level used to (+100 is as strong as the old +10), and cost about as much
+const SP_LEVEL_STEP = 10;
+const SP_MAX_LEVEL = 100;
+const SP_ENHANCE_GROWTH = 1.6;      // cost growth per SP_LEVEL_STEP levels
+// success chance per current level: 100% at +0 easing down to 15% at +99
+const SP_ENHANCE_CHANCE = Array.from({ length: SP_MAX_LEVEL }, (_, l) => +(1 - 0.85 * Math.pow(l / (SP_MAX_LEVEL - 1), 0.8)).toFixed(3));
+const SP_SAFE_LEVEL = 50;           // failing from +50 upward drops one level
+const SP_STAT_PER_LEVEL = 0.008;    // +0.8% card stats per level
+const SP_SKILL_PER_LEVEL = 0.004;   // +0.4% card skill damage per level
 
 // ---------------------------------------------------------------- cards
 // skills: slot -> SP skill id (see SP_SKILLS); every card has its own kit
@@ -60,8 +64,9 @@ const SP_CARDS = {
     { id: 'sp_berserker', tier: 2, name: 'Berserker', element: 'fire', color: '#ef4444',
       stats: { bonusDmg: 34, bonusAttackSpeed: 0.18 },
       palette: { cape: ['#2a0602', '#7a1a08', '#c2410c', '#fb923c'], steel: ['#1c0f0b', '#4a2a22', '#7b4436', '#b06a52'], darkSteel: ['#120806', '#33190f', '#542a1b', '#7a3f28'], tabard: ['#2a0602', '#7f1d1d', '#b91c1c', '#ef4444'] },
-      skills: { slot1: 'sp_blood_frenzy', slot2: 'sp_red_rage', slot3: 'sp_rampage_fissure', dash: 'sp_reckless_leap' },
-      desc: 'Fury made flesh. Bleeds for power, drinks it back, and burns everything in reach.' },
+      skills: { slot1: 'sp_crimson_aura', slot2: 'sp_bloodlust', slot3: 'sp_blade_whirl', dash: 'sp_crimson_rush' },
+      passive: { name: 'Bloodthirst', leech: 0.1, cap: 0.05 },
+      desc: 'Fury made flesh, wielding twin blood-blades. Burns his own blood in a crimson aura and whirls both swords for as long as his mana lasts. Bloodthirst: basic attacks and Blade Whirl heal 10% of the damage they deal.' },
     { id: 'sp_frost_templar', tier: 3, name: 'Frost Templar', element: 'ice', color: '#67e8f9',
       stats: { bonusDef: 26, bonusHp: 260, bonusDmg: 22 },
       palette: { cape: ['#06222e', '#0e7490', '#22d3ee', '#a5f3fc'], steel: ['#0c1d2b', '#4f86a6', '#9fd3ee', '#e0f6ff', '#ffffff'], tabard: ['#0b1f33', '#1e3a8a', '#3b82f6', '#93c5fd'] },
@@ -70,8 +75,8 @@ const SP_CARDS = {
     { id: 'sp_storm_herald', tier: 4, name: 'Storm Herald', element: 'lightning', color: '#facc15',
       stats: { bonusDmg: 52, bonusAttackSpeed: 0.22, bonusSpeed: 0.4 },
       palette: { cape: ['#2a2205', '#a16207', '#eab308', '#fef08a'], steel: ['#14161f', '#3f4660', '#6b7596', '#b8c2e0', '#fffbe0'], tabard: ['#1e1b4b', '#3730a3', '#6366f1', '#a5b4fc'] },
-      skills: { slot1: 'sp_thunder_cleave', slot2: 'sp_stormcall', slot3: 'sp_thunder_roar', dash: 'sp_lightning_rush' },
-      desc: 'Herald of the tempest. Every swing arrives with a thunderclap.' },
+      skills: { slot1: 'sp_thunderhead', slot2: 'sp_arc_conduit', slot3: 'sp_storm_orbs', dash: 'sp_lightning_rush' },
+      desc: 'Herald of the tempest. A thunderhead strikes whatever comes near him, his swings arc through whole packs, and storm orbs crackle ahead of him.' },
     { id: 'sp_dread_lord', tier: 5, name: 'Dread Lord', element: 'dark', color: '#a855f7',
       stats: { bonusDmg: 82, bonusDef: 32, bonusHp: 420, critChance: 15 },
       palette: { cape: ['#13041f', '#3b0764', '#6b21a8', '#a855f7'], steel: ['#0b0a12', '#2b2838', '#4a4560', '#7c7699', '#e9d5ff'], darkSteel: ['#07060b', '#1c1a26', '#302c40', '#4a4560'], tabard: ['#13041f', '#4c1d95', '#7c3aed', '#c4b5fd'], gold: ['#1a0a24', '#6b21a8', '#a855f7', '#e9d5ff'] },
@@ -109,8 +114,8 @@ const SP_CARDS = {
     { id: 'sp_nightblade', tier: 1, name: 'Nightblade', element: 'dark', color: '#a855f7',
       stats: { bonusDmg: 22, critChance: 6 },
       palette: { scarf: ['#13041f', '#4c1d95', '#7c3aed', '#a78bfa'], venom: ['#13041f', '#7e22ce', '#c084fc', '#f3e8ff', '#ffffff'] },
-      skills: { slot1: 'sp_night_fang', slot2: 'sp_shadow_net', slot3: 'sp_shroud', dash: 'sp_night_dash' },
-      desc: 'Assassin from the dark. Backstabs, shadow clones, and marks enemies for execution.' },
+      skills: { slot1: 'sp_phantom_shuriken', slot2: 'sp_smoke_bomb', slot3: 'sp_shadow_toss', dash: 'sp_night_dash' },
+      desc: 'Shuriken master of the night. Throws stars that come back, hides in smoke and tosses a shadow that copies every skill.' },
     { id: 'sp_venom_lord', tier: 2, name: 'Venom Lord', element: 'earth', color: '#4ade80',
       stats: { bonusDmg: 30, bonusAttackSpeed: 0.2, bonusHp: 90 },
       palette: { scarf: ['#052e16', '#166534', '#16a34a', '#86efac'], rogue: ['#0a120c', '#24342a', '#365043', '#4f7360'], venom: ['#052e16', '#16a34a', '#86efac', '#f0fdf4', '#ffffff'] },
@@ -145,26 +150,35 @@ const SP_CARDS = {
 // execute [hp share, mult], shatter (mult vs chilled), crit (bonus chance).
 // Self: berserk/fortress/sprint/smoke (s), shield/heal/mana (share of max),
 // hpCost (share of current HP), origin (blink: also burst where you left).
+// aura: a toggle (cast again to switch off) that drains `drain` of max HP or
+// `mpDrain` of max MP per second and strikes everything within r every
+// `every` s (spin: the hero whirls, and the card passive leeches those hits).
+// bloodlust: { dur, rage, atkSpeed, thirst } - timed +damage, +attack speed
+// and a multiplier on the card passive's leech.
 const SP_SKILLS = {
   // Warrior - Crusader: holy guardian - knockback, light from above, shields & heals
   sp_holy_cleave: { name: 'Shield Bash', shape: 'strike', range: 3.2, dmg: 2.8, knock: 2.4, shield: 0.06, mp: 14, cd: 3.5 },
   sp_judgement: { name: 'Judgement', shape: 'rain', r: 2.4, range: 7, n: 3, every: 0.3, hit: 1.8, dmg: 1.5, chill: 1.5, mp: 18, cd: 5 },
   sp_sanctuary: { name: 'Sanctuary', shape: 'buff', r: 3, dmg: 1.5, fortress: 5, heal: 0.2, shield: 0.15, mp: 30, cd: 14 },
   sp_divine_charge: { name: 'Divine Charge', shape: 'dash', len: 5.2, width: 1.4, dmg: 2.0, shield: 0.08, mp: 10, cd: 3.5 },
-  // Warrior - Berserker: blood-fire savage - pays HP, steals it back, burns up close
-  sp_blood_frenzy: { name: 'Blood Frenzy', shape: 'pulse', r: 2.8, n: 5, every: 0.2, dmg: 0.85, burn: 3, leech: 0.06, hpCost: 0.03, mp: 12, cd: 4 },
-  sp_red_rage: { name: 'Red Rage', shape: 'buff', berserk: 7, sprint: 3, hpCost: 0.08, mp: 12, cd: 14 },
-  sp_rampage_fissure: { name: 'Rampage Fissure', shape: 'cone', range: 6.5, arc: 50, dmg: 4.2, burn: 4, knock: 1, mp: 26, cd: 8 },
-  sp_reckless_leap: { name: 'Reckless Leap', shape: 'blink', len: 6, r: 2.6, dmg: 2.4, knock: 1.2, mp: 10, cd: 4 },
+  // Warrior - Berserker: twin blood-blades - a toggled aura that burns HP, a
+  // toggled blade spin that burns MP, and a Bloodlust buff; the card's
+  // Bloodthirst passive drinks HP back from sword hits
+  sp_crimson_aura: { name: 'Crimson Aura', shape: 'aura', icon: '🩸', r: 3, every: 0.5, dmg: 0.5, burn: 2, drain: 0.015, mp: 10, cd: 1 },
+  sp_bloodlust: { name: 'Bloodlust', shape: 'buff', bloodlust: { dur: 8, rage: 0.3, atkSpeed: 0.25, thirst: 2 }, hpCost: 0.06, mp: 14, cd: 16 },
+  sp_blade_whirl: { name: 'Blade Whirl', shape: 'aura', icon: '🌀', spin: true, r: 2.6, every: 0.25, dmg: 0.4, mpDrain: 0.09, mp: 6, cd: 1 },
+  sp_crimson_rush: { name: 'Crimson Rush', shape: 'dash', len: 6, width: 1.5, dmg: 2.4, leech: 0.12, mp: 10, cd: 3.5 },
   // Warrior - Frost Templar
   sp_glacier_strike: { name: 'Glacier Strike', shape: 'strike', range: 3.5, dmg: 3.6, chill: 3, execute: [0.3, 1.5], mp: 14, cd: 3.5 },
   sp_winter_ward: { name: 'Winter Ward', shape: 'buff', r: 3.2, dmg: 1.6, chill: 3, shield: 0.25, mp: 20, cd: 9 },
   sp_avalanche: { name: 'Avalanche', shape: 'rain', r: 3.5, range: 7, n: 6, every: 0.18, hit: 1.4, dmg: 1.6, chill: 2, mp: 32, cd: 11 },
   sp_ice_glide: { name: 'Ice Glide', shape: 'dash', len: 6, width: 1.2, dmg: 1.8, chill: 2, sprint: 2, mp: 10, cd: 3.5 },
-  // Warrior - Storm Herald
-  sp_thunder_cleave: { name: 'Thunder Cleave', shape: 'chain', range: 4, jump: 4.5, n: 5, decay: 0.85, dmg: 3.0, mp: 16, cd: 4 },
-  sp_stormcall: { name: 'Stormcall', shape: 'rain', r: 4, range: 7, n: 8, every: 0.15, hit: 1.2, dmg: 1.5, chill: 0.6, mp: 24, cd: 7 },
-  sp_thunder_roar: { name: 'Thunder Roar', shape: 'nova', r: 4.5, dmg: 3.8, chill: 2, berserk: 5, mp: 30, cd: 12 },
+  // Warrior - Storm Herald: area storm - a toggled thunderhead that strikes
+  // whatever comes near, a toggled conduit that chains every swing (paid in
+  // MP per swing), and two storm orbs that shock everything they pass
+  sp_thunderhead: { name: 'Thunderhead', shape: 'aura', icon: '🌩️', skyStrike: 5, r: 3, every: 0.6, dmg: 0.8, chill: 0.4, mpDrain: 0.05, mp: 10, cd: 1 },
+  sp_arc_conduit: { name: 'Arc Conduit', shape: 'aura', icon: '⚡', chainAttack: { n: 5, jump: 4, decay: 0.85, mp: 5 }, mp: 6, cd: 1 },
+  sp_storm_orbs: { name: 'Storm Orbs', shape: 'orbs', n: 2, spread: 0.3, len: 7, dur: 1.8, r: 2, every: 0.25, dmg: 0.5, mp: 22, cd: 6 },
   sp_lightning_rush: { name: 'Lightning Rush', shape: 'blink', len: 7, r: 2, dmg: 2.2, origin: true, mp: 10, cd: 3.5 },
   // Warrior - Dread Lord (Colossal Black-Violet Executioner Axe: Missing-HP Fury, Spinning Slash & Undying Rage)
   sp_abyss_cleave: { name: 'Abyssal Guillotine', shape: 'line', len: 6.5, width: 2.2, dmg: 4.2, execute: [0.35, 1.8], leech: 0.10, furyBonus: 0.75, knock: 1.2, mp: 16, cd: 3.5 },
@@ -198,10 +212,10 @@ const SP_SKILLS = {
   sp_void_ray: { name: 'Void Ray', shape: 'line', len: 11, width: 2, dmg: 3.8, devour: 0.02, mp: 36, cd: 10 },
   sp_rift_walk: { name: 'Rift Walk', shape: 'blink', len: 7, r: 2.4, dmg: 2.0, origin: true, riftPull: 3, mp: 14, cd: 4 },
 
-  // Rogue - Nightblade (Assassin: Backstab, Shadow Decoy, Mark & Execute)
-  sp_night_fang: { name: 'Assassinate', shape: 'strike', range: 3.2, dmg: 3.4, crit: 0.35, execute: [0.35, 1.8], backstab: true, mp: 12, cd: 3.0 },
-  sp_shadow_net: { name: 'Shadow Clone', shape: 'decoy', r: 3.5, dmg: 1.5, smoke: 3.0, sprint: 3.0, mp: 18, cd: 8.0 },
-  sp_shroud: { name: 'Shadow Reap', shape: 'nova', r: 4.2, dmg: 3.0, reapsMark: true, mp: 24, cd: 7.0 },
+  // Rogue - Nightblade (Shuriken thrower: recalled stars, smoke and a mirroring shadow)
+  sp_phantom_shuriken: { name: 'Phantom Shuriken', shape: 'shuriken', n: 5, range: 7, spread: 40, width: 0.8, dmg: 1.0, back: 1.3, hold: 5, mp: 16, cd: 6 },
+  sp_smoke_bomb: { name: 'Smoke Bomb', shape: 'smoke', r: 3, dur: 5, miss: 0.5, dmg: 0.8, mp: 18, cd: 10 },
+  sp_shadow_toss: { name: 'Shadow Toss', shape: 'shadow', range: 7, r: 2, dur: 3, mirror: 0.7, dmg: 1.2, mp: 14, cd: 8 },
   sp_night_dash: { name: 'Shadowstep', shape: 'backstep', range: 7, dmg: 2.2, crit: 0.5, mp: 8, cd: 3.0 },
   // Rogue - Venom Lord (Poison Alchemist: Stacks, Epidemic & Detonate)
   sp_plague_breath: { name: 'Toxic Injection', shape: 'cone', range: 5.0, arc: 80, dmg: 2.2, poisonStacks: 3, poison: 7, mp: 14, cd: 3.0 },
@@ -230,10 +244,10 @@ const SP_SKILLS = {
   sp_halo_burst: { name: 'Halo Burst', shape: 'nova', r: 3.6, dmg: 2.4, shield: 0.1, mp: 24, cd: 8 },
   sp_angel_step: { name: 'Angel Step', shape: 'blink', len: 6, r: 2, dmg: 1.6, heal: 0.05, mp: 10, cd: 4 },
   // Warrior - Berserker
-  sp_skull_splitter: { name: 'Skull Splitter', shape: 'strike', range: 3.5, dmg: 4.4, burn: 2, execute: [0.3, 1.5], leech: 0.1, hpCost: 0.04, mp: 16, cd: 4 },
-  sp_war_cry: { name: 'War Cry', shape: 'buff', r: 4.5, dmg: 0.8, chill: 2.5, berserk: 4, mp: 18, cd: 8 },
-  sp_inferno_spin: { name: 'Inferno Spin', shape: 'nova', r: 3.4, dmg: 2.6, burn: 3, mp: 20, cd: 5 },
-  sp_bull_rush: { name: 'Bull Rush', shape: 'dash', len: 5.5, width: 1.6, dmg: 2.2, knock: 1.5, mp: 10, cd: 4 },
+  sp_twin_rend: { name: 'Twin Rend', shape: 'cone', range: 3.6, arc: 120, dmg: 3.2, leech: 0.12, mp: 14, cd: 3.5 },
+  sp_exsanguinate: { name: 'Exsanguinate', shape: 'nova', r: 3.8, dmg: 4.4, burn: 3, hpCost: 0.12, mp: 18, cd: 7 },
+  sp_crimson_cross: { name: 'Crimson Cross', shape: 'line', len: 6, width: 1.4, dmg: 3.4, burn: 2, leech: 0.1, mp: 16, cd: 4 },
+  sp_blood_leap: { name: 'Blood Leap', shape: 'blink', len: 6, r: 2.4, dmg: 2.2, leech: 0.1, mp: 10, cd: 4 },
   // Warrior - Frost Templar
   sp_frost_lance: { name: 'Frost Lance', shape: 'line', len: 7, width: 1.2, dmg: 3.0, chill: 2, mp: 16, cd: 4 },
   sp_hail_shards: { name: 'Hail Shards', shape: 'volley', range: 6, n: 4, dmg: 1.8, chill: 1.5, mp: 18, cd: 4.5 },
@@ -277,9 +291,9 @@ const SP_SKILLS = {
   sp_void_dash: { name: 'Void Dash', shape: 'dash', len: 6.5, width: 1.6, dmg: 1.8, leech: 0.05, devour: 0.01, mp: 14, cd: 3.5 },
 
   // Rogue - Nightblade
-  sp_moon_volley: { name: 'Moon Volley', shape: 'volley', range: 6, n: 4, dmg: 2.0, crit: 0.15, mp: 14, cd: 4 },
-  sp_umbral_line: { name: 'Umbral Line', shape: 'line', len: 7, width: 1.2, dmg: 3.0, mp: 16, cd: 4 },
-  sp_night_terror: { name: 'Night Terror', shape: 'nova', r: 3.6, dmg: 2.2, chill: 3, smoke: 1.5, mp: 22, cd: 9 },
+  sp_shuriken_storm: { name: 'Shuriken Storm', shape: 'orbit', r: 2.6, n: 6, dur: 3, every: 0.25, dmg: 0.5, mp: 24, cd: 9 },
+  sp_moon_volley: { name: 'Shuriken Volley', shape: 'volley', range: 6, n: 4, dmg: 2.0, crit: 0.15, mp: 14, cd: 4 },
+  sp_night_fang: { name: 'Assassinate', shape: 'strike', range: 3.2, dmg: 3.4, crit: 0.35, execute: [0.35, 1.8], backstab: true, mp: 12, cd: 3.0 },
   sp_shadow_hop: { name: 'Shadow Hop', shape: 'blink', len: 6, r: 2, dmg: 1.8, origin: true, mp: 8, cd: 3 },
   // Rogue - Venom Lord
   sp_toxic_lance: { name: 'Toxic Lance', shape: 'line', len: 7, width: 1.4, dmg: 2.0, poison: 4, mp: 14, cd: 4 },
@@ -306,7 +320,7 @@ const SP_SKILLS = {
 // Extra skills each card can swap in (its arsenal = default four + these)
 const SP_CARD_EXTRAS = {
   sp_crusader: ['sp_radiant_lance', 'sp_consecration', 'sp_halo_burst', 'sp_angel_step'],
-  sp_berserker: ['sp_skull_splitter', 'sp_war_cry', 'sp_inferno_spin', 'sp_bull_rush'],
+  sp_berserker: ['sp_twin_rend', 'sp_exsanguinate', 'sp_crimson_cross', 'sp_blood_leap'],
   sp_frost_templar: ['sp_frost_lance', 'sp_hail_shards', 'sp_glacial_prison', 'sp_frost_vault'],
   sp_storm_herald: ['sp_thunder_spear', 'sp_static_cleave', 'sp_storm_aegis', 'sp_storm_dash'],
   sp_dread_lord: ['sp_soul_rend', 'sp_dread_wave', 'sp_grave_rain', 'sp_void_step'],
@@ -315,7 +329,7 @@ const SP_CARD_EXTRAS = {
   sp_tempest: ['sp_ball_lightning', 'sp_thunder_nova', 'sp_spark_rain', 'sp_storm_surge'],
   sp_chronomancer: ['sp_rewind', 'sp_chrono_lance', 'sp_stasis_field', 'sp_time_skip'],
   sp_void_archon: ['sp_dark_nova', 'sp_shadow_chain', 'sp_oblivion_rain', 'sp_void_dash'],
-  sp_nightblade: ['sp_moon_volley', 'sp_umbral_line', 'sp_night_terror', 'sp_shadow_hop'],
+  sp_nightblade: ['sp_shuriken_storm', 'sp_moon_volley', 'sp_night_fang', 'sp_shadow_hop'],
   sp_venom_lord: ['sp_toxic_lance', 'sp_plague_chain', 'sp_miasma', 'sp_venom_dash'],
   sp_blade_dancer: ['sp_whirling_edge', 'sp_lightning_lunge', 'sp_blade_tempest', 'sp_spark_blink'],
   sp_frost_shade: ['sp_frost_daggers', 'sp_cold_snap', 'sp_frozen_veil', 'sp_ice_slide'],
@@ -336,15 +350,28 @@ const SP_SHAPE_TEXT = {
   dash: s => `Dash ${s.len} tiles through enemies`,
   blink: s => `Teleport ${s.len} tiles${s.dmg ? (s.originOnly ? ', bursting where you left' : s.origin ? ', bursting at both ends' : ', bursting on landing') : ''}`,
   buff: s => (s.dmg ? `Burst around you (radius ${s.r})` : 'Empower yourself'),
-  decoy: s => `Deploy a shadow clone & stealth (cast again within 3s to swap positions)`,
+  shuriken: s => `Throw ${s.n} shuriken at the cursor; cast again within ${s.hold}s to call them back, cutting through enemies on the way (${s.back}x)`,
+  smoke: s => `Drop a smoke bomb (radius ${s.r}) for ${s.dur}s: enemies attacking anyone inside miss ${Math.round(s.miss * 100)}% of the time`,
+  shadow: s => `Toss your shadow at the cursor for ${s.dur}s; it copies every skill you cast at ${Math.round(s.mirror * 100)}% damage`,
+  orbit: s => `Shuriken spin around you for ${s.dur}s (radius ${s.r})`,
   backstep: s => `Shadowstep behind the nearest enemy with +50% Crit Chance`,
   detonate: s => `Detonate all poison stacks on nearby enemies for massive burst damage`,
-  rewind: s => `Rewind yourself ${s.back}s: back to where you stood, with the HP you had then (if higher)`
+  rewind: s => `Rewind yourself ${s.back}s: back to where you stood, with the HP you had then (if higher)`,
+  aura: s => (s.spin ? `Toggle: spin your blades, cutting everything within ${s.r}`
+    : s.skyStrike ? `Toggle: lightning strikes from the sky on up to ${s.skyStrike} enemies within ${s.r} of you`
+    : s.chainAttack ? `Toggle: basic attacks arc through up to ${s.chainAttack.n} enemies (each jump x${s.chainAttack.decay})`
+    : `Toggle: blood aura around you (radius ${s.r})`),
+  orbs: s => `Launch ${s.n} storm orbs ${s.len} tiles ahead over ${s.dur}s, shocking everything within ${s.r} of each`
 };
 
 function spSkillDesc(s) {
   const parts = [(SP_SHAPE_TEXT[s.shape] || (() => 'Special ability'))(s)];
-  if (s.dmg) parts.push(`${s.dmg}x damage${s.n && (s.shape === 'pulse' || s.shape === 'rain') ? ' each' : ''}`);
+  if (s.dmg) parts.push(`${s.dmg}x damage${s.shape === 'aura' || s.shape === 'orbit' || s.shape === 'orbs' ? ` every ${s.every}s` : s.n && (s.shape === 'pulse' || s.shape === 'rain' || s.shape === 'shuriken') ? ' each' : ''}`);
+  if (s.bloodlust) {
+    const b = s.bloodlust;
+    parts.push(`Bloodlust ${b.dur}s: +${Math.round(b.rage * 100)}% damage, +${b.atkSpeed} attack speed, Bloodthirst heals x${b.thirst}`);
+  }
+  if (s.spin) parts.push('heals through Bloodthirst');
   if (s.backstab) parts.push('2.8x Backstab & marks target');
   if (s.poisonStacks) parts.push(`+${s.poisonStacks} poison stacks`);
   if (s.staticCharge) parts.push('applies Static Charge');
@@ -369,6 +396,9 @@ function spSkillDesc(s) {
   if (s.sprint) parts.push(`haste ${s.sprint}s`);
   if (s.smoke) parts.push(`vanish ${s.smoke}s`);
   if (s.hpCost) parts.push(`costs ${Math.round(s.hpCost * 100)}% HP`);
+  if (s.drain) parts.push(`drains ${+(s.drain * 100).toFixed(1)}% max HP/s while on (HP regen stops)`);
+  if (s.chainAttack) parts.push(`costs ${s.chainAttack.mp} MP per swing, fades when MP runs out`);
+  if (s.mpDrain) parts.push(`costs ${+(s.mpDrain * 100).toFixed(1)}% max MP/s while on, stops when MP runs out`);
   // mage card mechanics
   if (s.scorch) parts.push(`+${s.scorch} Scorch`);
   if (s.combust) parts.push(`Combust: consumes Scorch for +${Math.round(s.combust * 100)}% per stack`);
@@ -424,6 +454,7 @@ function makeCardItem(cardId, upgradeLevel = 0) {
     name: `SP Card: ${c.name}`,
     rarity: c.rarity,
     upgradeLevel,
+    spScale: SP_LEVEL_STEP,
     sellPrice: 500 * c.tier,
     desc: `${c.desc} Requires Job Lv. ${c.jobReq}.`
   };
@@ -441,7 +472,20 @@ function cardStats(cardId, upgradeLevel = 0) {
 function cardEnhanceCost(cardId, upgradeLevel) {
   const c = CARD_BY_ID[cardId];
   const tier = SP_TIERS[c ? c.tier : 1];
-  return { gold: Math.round(tier.enhanceBase * Math.pow(SP_ENHANCE_GROWTH, upgradeLevel)), fragments: (upgradeLevel + 1) * 2 };
+  const stage = upgradeLevel / SP_LEVEL_STEP;
+  return {
+    gold: Math.round((tier.enhanceBase * Math.pow(SP_ENHANCE_GROWTH, stage)) / SP_LEVEL_STEP),
+    fragments: Math.max(1, Math.round(((stage + 1) * 2) / SP_LEVEL_STEP))
+  };
+}
+
+// Cards saved before the +100 scale keep their strength: old +N becomes +N*10
+function upgradeCardScale(item) {
+  if (!item || item.type !== 'sp_card' || item.spScale === SP_LEVEL_STEP) return;
+  item.upgradeLevel = Math.min(SP_MAX_LEVEL, Math.round((item.upgradeLevel || 0) * SP_LEVEL_STEP));
+  item.spScale = SP_LEVEL_STEP;
+  const c = CARD_BY_ID[item.cardId];
+  if (c) item.name = `SP Card: ${c.name}${item.upgradeLevel ? ' +' + item.upgradeLevel : ''}`;
 }
 
 // Roll at most one card (the highest tier that hits) for a boss kill
@@ -464,7 +508,7 @@ function clientCatalog() {
   for (const cls of Object.keys(SP_CARDS)) {
     out[cls] = SP_CARDS[cls].map(c => ({
       id: c.id, tier: c.tier, name: c.name, element: c.element, color: c.color, jobReq: c.jobReq, rarity: c.rarity,
-      stats: c.stats, palette: c.palette, desc: c.desc,
+      stats: c.stats, palette: c.palette, desc: c.desc, passive: c.passive || null,
       skills: c.skills, arsenal: c.arsenal,
       exchange: SP_TIERS[c.tier].exchange,
       drop: { minFloor: SP_DROP_TABLE[c.tier][0], chances: SP_DROP_TABLE[c.tier][1] }
@@ -479,7 +523,7 @@ function clientCatalog() {
     skills,
     maxLevel: SP_MAX_LEVEL, chance: SP_ENHANCE_CHANCE, safeLevel: SP_SAFE_LEVEL,
     statPerLevel: SP_STAT_PER_LEVEL, skillPerLevel: SP_SKILL_PER_LEVEL,
-    enhanceBase: Object.fromEntries(Object.entries(SP_TIERS).map(([t, v]) => [t, v.enhanceBase])), growth: SP_ENHANCE_GROWTH,
+    enhanceBase: Object.fromEntries(Object.entries(SP_TIERS).map(([t, v]) => [t, v.enhanceBase])), growth: SP_ENHANCE_GROWTH, levelStep: SP_LEVEL_STEP,
     jobMax: JOB_MAX_LEVEL
   };
 }
@@ -487,5 +531,5 @@ function clientCatalog() {
 module.exports = {
   JOB_MAX_LEVEL, JOB_LEVEL_BONUS, jobExpToNext,
   SP_TIERS, SP_CARDS, SP_SKILLS, CARD_BY_ID, SP_MAX_LEVEL, SP_ENHANCE_CHANCE, SP_SAFE_LEVEL, SP_SKILL_PER_LEVEL, FRAGMENT_DROP, bossFragments,
-  makeCardItem, cardStats, cardEnhanceCost, rollCardDrop, clientCatalog, normalizeSpSkill
+  makeCardItem, cardStats, cardEnhanceCost, upgradeCardScale, rollCardDrop, clientCatalog, normalizeSpSkill
 };

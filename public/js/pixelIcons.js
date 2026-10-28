@@ -59,6 +59,8 @@
     bolt: ['.......kkk..', '......kyyk..', '.....kyyk...', '....kyyk....', '...kyyykkk..', '..kyyyyyyk..', '..kkkyyyk...', '....kyyk....', '...kyyk.....', '..kyyk......', '..kyk.......', '..kk........'],
     crown: ['............', '............', '.k...kk...k.', '.kk.kyyk.kk.', '.kyk.kk.kyk.', '.kyykyykyyk.', '.kyyyyyyyyk.', '.kyrryyrryk.', '.kyyyyyyyyk.', '.kkkkkkkkkk.', '............', '............'],
     refresh: ['....kkkk....', '..kkBBBBkk.k', '.kBBkkkkBBkk', '.kBk....kBBk', 'kBk....kBBBk', 'kBk....kkkkk', 'kBk.........', 'kkkkk....kBk', 'kBBBk....kBk', 'kBBk....kBk.', 'kk.kkBBBBkk.', 'k...kkkk....'],
+    // two arrows, back and forth (potion swap)
+    swap: ['............', '........k...', '.kkkkkkkyk..', '.kyyyyyyyyk.', '.kkkkkkkyk..', '........k...', '...k........', '..kwkkkkkkk.', '.kwwwwwwwwk.', '..kwkkkkkkk.', '...k........', '............'],
     online: ['............', '............', '....kkkk....', '...kLLggk...', '..kLwLgggk..', '..kLLgggtk..', '..kggggttk..', '...kgttgk...', '....kkkk....', '............', '............', '............'],
     gear: ['....kkkk....', '..kkllllkk..', '.klkllllklk.', '.kllllllllk.', 'kkllllllllkk', 'klllk..klllk', 'klllk..klllk', 'kkllllllllkk', '.kllllllllk.', '.klkllllklk.', '..kkllllkk..', '....kkkk....'],
     // --- expanded equipment shapes ---

@@ -24,7 +24,7 @@ const {
 } = require('./items');
 const accountManager = require('./accountManager');
 const { FIELD_ZONES, FIELD_ZONE_BY_ID, generateFieldMap, buildFieldMobs } = require('./fieldZones');
-const { expToNext, mobExp, levelGapMult, lootGapMult } = require('./progression');
+const { expToNext, mobExp, levelGapMult, lootGapMult, masteryMult, MOB_DEF_K } = require('./progression');
 const SP = require('./spCards');
 const adminCommands = require('./adminCommands');
 const SP_TRANSFORM_COOLDOWN = 8;
@@ -32,6 +32,10 @@ const SP_TRANSFORM_COOLDOWN = 8;
 // Global tuning knob for every skill's damage against monsters
 // (multiplies player.dmg * skill.dmgMult before rune/berserk/crit).
 const SKILL_DAMAGE_SCALE = 0.9;
+// Berserker blood auras (SP 'aura' skills): need this share of max HP to switch
+// one on, and all of them fade once HP is drained down to BLOOD_AURA_MIN_HP
+const BLOOD_AURA_START_HP = 0.2;
+const BLOOD_AURA_MIN_HP = 0.1;
 // Mana tuning. Skill costs grow with level so they keep pace with max MP
 // (+15 per level): cost = base * MANA_COST_SCALE * (1 + MANA_COST_PER_LEVEL * (level - 1)).
 // Regen per second = MANA_REGEN_PCT of max MP + MANA_REGEN_FLAT.
@@ -45,6 +49,8 @@ const FROST_TO_FREEZE = 3, FROST_SECONDS = 5, FREEZE_SECONDS = 2, BOSS_FREEZE_SE
 const STORM_CHARGE_MAX = 5, STORM_CHARGE_SECONDS = 8;
 const VOID_SOUL_MAX = 10, VOID_SOUL_SECONDS = 12, VOID_SOUL_BONUS = 0.04;
 const ECHO_DAMAGE = 0.6;
+// Skills a Nightblade shadow does not copy: tossing the shadow itself, and ones that only move or buff the hero
+const SHADOW_SKIPS_SHAPES = new Set(['shadow', 'aura', 'rewind', 'buff']);
 const REWIND_SAMPLE_S = 0.25, REWIND_KEEP_S = 4;
 // Dungeon snapshots carry only mobs a hero in the instance could see: the iso
 // screen is a diamond in world space, |dx - dy| and |dx + dy| bounded (sized
@@ -351,6 +357,12 @@ const CLASS_SKILLS = {
 };
 
 const SKILL_TREES = require('./talents');
+// How close a hero must stand to a portal to use it (client shows the button in range)
+const PORTAL_USE_RANGE = 2.5;
+// Party EXP sharing: members within this many tiles (1 tile = 1 metre) of the
+// killer, on the same map, split the kill's EXP; each extra member adds this bonus
+const PARTY_EXP_RANGE = 10;
+const PARTY_EXP_BONUS = 0.1;
 const TALENT_PROCS = SKILL_TREES.TALENT_PROCS;
 
 
@@ -413,6 +425,7 @@ class GameServer {
     this.ctxInstanceId = null;
 
     this.projectiles = new Map();
+    this.smokeClouds = []; // Nightblade Smoke Bomb: { zone, instanceId, x, y, r, miss, until }
     this.nextEntityId = 1000;
 
     this.TICK_RATE = 25;
@@ -787,7 +800,7 @@ class GameServer {
     if (player.spTransformed && data.target === 'equipped') {
       this.emitZone(player.zone, 'sp_transform', { playerId: player.id, on: true, cardId: item.cardId, level: item.upgradeLevel || 0, x: player.x, y: player.y, refresh: true });
     }
-    if (success && item.upgradeLevel >= 7) this.broadcastSystemMessage(`[${player.name}] enhanced [${card.name}] to +${item.upgradeLevel}!`);
+    if (success && item.upgradeLevel >= 70) this.broadcastSystemMessage(`[${player.name}] enhanced [${card.name}] to +${item.upgradeLevel}!`);
   }
 
   // Enchanter: trade fragments + gold for a card of your class (any tier)
@@ -1297,6 +1310,8 @@ class GameServer {
   }
 
   initFrostfellMonsters() {
+    // Frostfell is a generated field now (fieldZones.js) and spawns with the rest
+    if (!this.fields.get('frostfell').zone.custom) return;
     this.frostfellMobs.clear();
     const frostDefs = [
       { type: 'frost_wolf', name: 'Frostbite Wolf', level: 6, maxHp: 550, def: 15, dmg: 38, speed: 3.8, exp: 160, gold: 90, count: 6, buffs: ['frostbite'], element: 'ice', elementResist: { fire: -0.5, ice: 0.5 }, zone: { minX: 5, maxX: 18, minY: 20, maxY: 33 } },
@@ -1602,6 +1617,10 @@ class GameServer {
       player.equipment.weapon = null;
     }
 
+    // SP cards from before the +100 scale: keep their strength (+N -> +N*10)
+    SP.upgradeCardScale(player.equipment.sp);
+    for (const it of player.inventory.items || []) SP.upgradeCardScale(it);
+
     this.recalculatePlayerStats(player);
 
     this.players.set(socket.id, player);
@@ -1648,12 +1667,13 @@ class GameServer {
     }
   }
 
-  // Handle using Revival Stone (หินชุบชีวิต)
-  handleUseRevivalStone(socketId) {
+  // Handle using Revival Stone (หินชุบชีวิต); superStone picks the Super Revival Stone
+  handleUseRevivalStone(socketId, superStone = false) {
     const player = this.players.get(socketId);
     if (!player || !player.isDead) return;
 
-    const stoneIdx = player.inventory && player.inventory.items ? player.inventory.items.findIndex(it => it.id === 'revival_stone') : -1;
+    const stoneId = superStone ? 'super_revival_stone' : 'revival_stone';
+    const stoneIdx = player.inventory && player.inventory.items ? player.inventory.items.findIndex(it => it.id === stoneId) : -1;
     if (stoneIdx === -1) {
       const socket = this.io.sockets.sockets.get(socketId);
       if (socket) {
@@ -1704,11 +1724,12 @@ class GameServer {
       player.inventory.items.splice(stoneIdx, 1);
     }
 
-    // Revive on the spot with 100% HP & MP
+    // Revive on the spot with the stone's share of HP & MP (30% normal, 100% super)
+    const share = (ITEMS[stoneId] && ITEMS[stoneId].reviveShare) || 0.3;
     player.isDead = false;
     player.respawnTimer = 0;
-    player.hp = player.maxHp;
-    player.mp = player.maxMp;
+    player.hp = Math.max(1, Math.round(player.maxHp * share));
+    player.mp = Math.round(player.maxMp * share);
 
     const socket = this.io.sockets.sockets.get(socketId);
     if (socket) {
@@ -1716,7 +1737,7 @@ class GameServer {
       socket.emit('player_updated', player);
       const revMsg = player.zone === 'dungeon'
         ? `✨ ชุบชีวิตสำเร็จ! (หินชุบในดัน: ${player.dungeonRun.revivalsUsed}/${player.dungeonRun.maxRevivals || 10})`
-        : '✨ ชุบชีวิตสำเร็จ! (Revival Stone)';
+        : `✨ ชุบชีวิตสำเร็จ! (${superStone ? 'Super Revival Stone' : 'Revival Stone'} - ${Math.round(share * 100)}% HP)`;
       socket.emit('floating_text', {
         x: player.x,
         y: player.y - 0.9,
@@ -1769,13 +1790,21 @@ class GameServer {
     }
   }
 
-  // Handle Portals & Chests
+  // Portals no longer fire by walking onto them: the client shows a button
+  // near one and sends 'use_portal' (handleUsePortal)
+  handleUsePortal(socketId) {
+    const player = this.players.get(socketId);
+    const socket = this.io.sockets.sockets.get(socketId);
+    if (!player || !socket || player.isDead) return;
+    this.checkPortalAndInteractions(player, socket);
+  }
+
   checkPortalAndInteractions(player, socket) {
     if (player.portalCooldown > 0) return;
 
     if (player.zone === 'town') {
       for (const obs of this.townMap.obstacles) {
-        if (Math.hypot(player.x - obs.x, player.y - obs.y) >= 1.3) continue;
+        if (Math.hypot(player.x - obs.x, player.y - obs.y) >= PORTAL_USE_RANGE) continue;
         // Abyssal Dungeon Portal on the plaza
         if (obs.id === 'portal_dungeon') {
           player.portalCooldown = 2.0;
@@ -1793,7 +1822,7 @@ class GameServer {
       const map = this.fields.get(player.zone).map;
       for (const obs of map.obstacles) {
         if (obs.type !== 'field_portal') continue;
-        if (Math.hypot(player.x - obs.x, player.y - obs.y) >= 1.3) continue;
+        if (Math.hypot(player.x - obs.x, player.y - obs.y) >= PORTAL_USE_RANGE) continue;
         if (obs.target === 'town') this.teleportPlayerToTown(player, socket, this.townMap.arrivals && this.townMap.arrivals[obs.arrive]);
         else this.teleportPlayerToField(player, socket, obs.target, obs.arrive);
         return;
@@ -2181,6 +2210,14 @@ class GameServer {
       const missingHp = Math.max(0, 1 - (player.hp / Math.max(1, player.maxHp)));
       attackDmg = Math.round(attackDmg * (1 + 0.5 * missingHp));
     }
+    if (player.bloodlust) attackDmg = Math.round(attackDmg * this.bloodRage(player));
+    // melee hits below add up what they took, for the SP card passive leech
+    let meleeDealt = 0;
+    const strike = (mob, dmg, crit) => {
+      const before = mob.hp;
+      this.applyDamageToMob(player, mob, dmg, crit);
+      meleeDealt += Math.max(0, before - Math.max(0, mob.hp));
+    };
 
     let hasSweepTriggered = false;
 
@@ -2210,7 +2247,7 @@ class GameServer {
       if (targetMob) {
         const dist = Math.hypot(targetMob.x - player.x, targetMob.y - player.y);
         if (dist <= player.attackRange + 1.1) {
-          this.applyDamageToMob(player, targetMob, attackDmg, isCrit);
+          strike(targetMob, attackDmg, isCrit);
           hitMobs.add(targetMob.id);
           primaryHit = true;
           if (player.berserkTimer > 0) {
@@ -2218,6 +2255,7 @@ class GameServer {
             const lifesteal = Math.min(maxHeal, Math.max(1, Math.round(attackDmg * 0.04)));
             player.hp = Math.min(player.maxHp, player.hp + lifesteal);
           }
+          this.chainBasicAttack(player, targetMob, attackDmg, mobsMap, strike);
         }
       }
 
@@ -2250,10 +2288,11 @@ class GameServer {
           const dot = dist > 0.001 ? (dx * fv.x + dy * fv.y) / dist : 1.0;
           if (dot >= 0.35) {
             hitMobs.add(mob.id);
-            this.applyDamageToMob(player, mob, swipeDmg, false);
+            strike(mob, swipeDmg, false);
           }
         }
       }
+      this.cardPassiveLeech(player, meleeDealt);
     }
 
     this.emitZone(player.zone, 'entity_attack_fx', {
@@ -2383,14 +2422,162 @@ class GameServer {
     return Object.assign({}, spSkill, { dmgMult: spSkill.dmgMult * k });
   }
 
+  // Damage multiplier from Bloodlust (Berserker buff)
+  bloodRage(player) {
+    return player.bloodlust ? 1 + (player.bloodlust.rage || 0) : 1;
+  }
+
+  // SP card passive leech (Berserker Bloodthirst) on `dealt` damage; Bloodlust multiplies it
+  cardPassiveLeech(player, dealt) {
+    const card = player.spTransformed && player.equipment && player.equipment.sp && SP.CARD_BY_ID[player.equipment.sp.cardId];
+    const passive = card && card.passive;
+    if (!passive || !passive.leech || dealt <= 0) return;
+    const thirst = player.bloodlust ? player.bloodlust.thirst || 1 : 1;
+    const heal = Math.min(Math.round(player.maxHp * passive.cap * thirst), Math.max(1, Math.round(dealt * passive.leech * thirst)));
+    player.hp = Math.min(player.maxHp, player.hp + heal);
+    this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.6, text: `🩸 +${heal}`, color: '#f87171', size: 13 });
+  }
+
+  // Storm Herald Arc Conduit (a toggled chainAttack): a basic attack that lands
+  // arcs on to the nearest enemies, each jump weaker; every swing costs MP and
+  // the conduit fades when there is not enough
+  chainBasicAttack(player, first, attackDmg, mobsMap, strike) {
+    const toggle = Object.values(player.spToggles || {}).find(a => a.skill.chainAttack);
+    if (!toggle) return;
+    const sk = toggle.skill, C = sk.chainAttack;
+    const cost = Math.round(C.mp * (player.manaCostMult || 1));
+    if (player.mp < cost) {
+      this.endSpToggle(player, sk.id, true);
+      this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.8, text: '💧 OUT OF MANA - conduit fades', color: '#38bdf8', size: 16 });
+      return;
+    }
+    player.mp -= cost;
+    const visited = new Set([first]);
+    const points = [{ x: first.x, y: first.y }];
+    let cur = first, mult = 1;
+    while (points.length < C.n) {
+      let next = null, best = C.jump;
+      for (const m of mobsMap.values()) {
+        if (m.state === 'dead' || visited.has(m)) continue;
+        const d = Math.hypot(m.x - cur.x, m.y - cur.y);
+        if (d <= best) { best = d; next = m; }
+      }
+      if (!next) break;
+      mult *= C.decay;
+      visited.add(next);
+      points.push({ x: next.x, y: next.y });
+      strike(next, Math.max(1, Math.round(attackDmg * mult)), false);
+      cur = next;
+    }
+    if (points.length > 1) {
+      this.emitZone(player.zone, 'skill_fx', {
+        type: 'sp_skill', shape: 'chain', quiet: true, x: player.x, y: player.y, startX: player.x, startY: player.y, points,
+        element: sk.element, color: sk.color, cardId: sk.cardId, skillId: sk.id
+      });
+    }
+  }
+
+  endSpToggle(player, skillId, quiet = false) {
+    const toggle = player.spToggles && player.spToggles[skillId];
+    if (!toggle) return;
+    delete player.spToggles[skillId];
+    if (!quiet) this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.8, text: `${toggle.skill.name.toUpperCase()} OFF`, color: '#94a3b8' });
+  }
+
+  // Every frame: toggled SP skills pay their upkeep (HP `drain` - natural HP
+  // regen is off meanwhile - or MP `mpDrain`) and strike everything within r
+  // every `every` seconds. Out of blood or mana, the toggles paying it end.
+  tickSpToggles(player, dt) {
+    const loadout = Object.values(player.equippedSkills || {});
+    for (const id of Object.keys(player.spToggles)) {
+      if (!player.spTransformed || !loadout.includes(id)) this.endSpToggle(player, id);
+    }
+    const all = Object.values(player.spToggles);
+    if (!all.length) return false;
+    const sum = (k) => all.reduce((s, a) => s + (a.skill[k] || 0), 0);
+    const hpDrain = sum('drain'), mpDrain = sum('mpDrain');
+    if (!player.godMode) {
+      player.hp = Math.max(1, player.hp - player.maxHp * hpDrain * dt);
+      player.mp = Math.max(0, player.mp - player.maxMp * mpDrain * dt);
+    }
+    const say = (text) => this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.8, text, color: '#ef4444', size: 16 });
+    if (hpDrain && player.hp <= player.maxHp * BLOOD_AURA_MIN_HP) {
+      for (const a of all) if (a.skill.drain) this.endSpToggle(player, a.skill.id, true);
+      say('🩸 OUT OF BLOOD - aura fades');
+    }
+    if (mpDrain && player.mp <= 0) {
+      for (const a of all) if (a.skill.mpDrain) this.endSpToggle(player, a.skill.id, true);
+      say('💧 OUT OF MANA - blades stop');
+    }
+    const mobsMap = this.getMobsMap(player.zone, player);
+    const rage = this.bloodRage(player);
+    const critChance = 0.15 + (player.critChanceBonus || 0);
+    for (const a of Object.values(player.spToggles)) {
+      const sk = a.skill;
+      if (!sk.r || !sk.dmgMult) continue;
+      a.clock += dt;
+      if (a.clock + 1e-6 < sk.every) continue;
+      a.clock -= sk.every;
+      const dmg = Math.max(1, Math.round(player.dmg * sk.dmgMult * rage * SKILL_DAMAGE_SCALE));
+      let struck = 0, dealt = 0;
+      let targets = [...mobsMap.values()].filter(m => m.state !== 'dead' && Math.hypot(m.x - player.x, m.y - player.y) <= sk.r);
+      // skyStrike: a bolt from the sky on each of the nearest few instead of a ring
+      if (sk.skyStrike) {
+        targets = targets.sort((p1, p2) => Math.hypot(p1.x - player.x, p1.y - player.y) - Math.hypot(p2.x - player.x, p2.y - player.y)).slice(0, sk.skyStrike);
+      }
+      const bolts = sk.skyStrike ? targets.map(m => ({ x: m.x, y: m.y })) : null;
+      for (const mob of targets) {
+        if (sk.burn) { mob.burnTimer = Math.max(mob.burnTimer || 0, sk.burn); mob.burnDmg = Math.max(mob.burnDmg || 0, Math.round(player.dmg * 0.2)); }
+        if (sk.chill) mob.chillTimer = Math.max(mob.chillTimer || 0, sk.chill);
+        const before = mob.hp;
+        this.applyDamageToMob(player, mob, dmg, Math.random() < critChance);
+        dealt += Math.max(0, before - Math.max(0, mob.hp));
+        struck++;
+      }
+      if (sk.spin) this.cardPassiveLeech(player, dealt);
+      if (struck) {
+        this.emitZone(player.zone, 'skill_fx', {
+          type: 'sp_skill', shape: 'aura', pulse: true, spin: !!sk.spin, bolts, x: player.x, y: player.y, radius: sk.r,
+          element: sk.element, color: sk.color, cardId: sk.cardId, skillId: sk.id
+        });
+      }
+    }
+    return hpDrain > 0;
+  }
+
+  // Buffs and debuffs on a hero, for the HUD tray: [{ k, n, i, t?, v?, d? }]
+  // (k key, n name, i icon, t seconds left, v stacks / amount, d = debuff)
+  heroBuffs(p) {
+    const out = [];
+    const timed = (k, n, i, t) => { if (t > 0) out.push({ k, n, i, t: Math.ceil(t) }); };
+    for (const a of Object.values(p.spToggles || {})) out.push({ k: a.skill.id, n: a.skill.name, i: a.skill.icon || '✨' });
+    if (p.bloodlust) timed('bloodlust', 'Bloodlust', '🔥', p.bloodlust.timer);
+    timed('rage', 'Rage', '💢', p.berserkTimer);
+    timed('fortress', 'Fortress', '🛡️', p.ironFortressTimer);
+    timed('vanish', 'Vanish', '👤', p.smokeScreenTimer);
+    timed('undying', 'Undying', '💀', p.undyingTimer);
+    timed('haste', 'Haste', '💨', p.sprintTimer);
+    if (p.shieldHp > 0) out.push({ k: 'shield', n: 'Shield', i: '🔰', v: Math.round(p.shieldHp) });
+    if (p.flowStacks > 0) out.push({ k: 'flow', n: 'Flow', i: '🌊', v: p.flowStacks, t: Math.ceil(p.flowTimer || 0) });
+    if (p.stormCharge > 0) out.push({ k: 'charge', n: 'Static Charge', i: '⚡', v: p.stormCharge, t: Math.ceil(p.stormChargeTimer || 0) });
+    if (p.voidSouls > 0) out.push({ k: 'souls', n: 'Souls', i: '👻', v: p.voidSouls, t: Math.ceil(p.voidSoulTimer || 0) });
+    const DEBUFFS = { poison: ['Poison', '☠️'], burn: ['Burn', '🔥'], chill: ['Chill', '❄️'] };
+    for (const e of p.statusEffects || []) {
+      const [n, i] = DEBUFFS[e.type] || [e.type, '⚠️'];
+      out.push({ k: 'd_' + e.type, n, i, t: Math.ceil(e.duration), d: 1 });
+    }
+    return out;
+  }
+
   // Run a card skill from its SP_SKILLS data (see the shape list in spCards.js)
   castSpSkill(player, skill, ctx) {
-    const { slot, cooldown, runeId, skillData, mobsMap, applySkillDamage, computeDashVector, isEcho } = ctx;
+    const { slot, cooldown, runeId, skillData, mobsMap, applySkillDamage, computeDashVector, isEcho, isShadow, recall } = ctx;
     const zone = player.zone;
     const instanceId = player.dungeonInstanceId || null;
-    const px = player.x, py = player.y;
+    // a Nightblade shadow casts from where it stands
+    const px = ctx.origin ? ctx.origin.x : player.x, py = ctx.origin ? ctx.origin.y : player.y;
     const fxBase = { type: 'sp_skill', shape: skill.spShape, element: skill.element, color: skill.color, cardId: skill.cardId, rune: runeId, skillId: skill.id, name: skill.name };
-    const emit = (data, first) => this.emitZone(zone, 'skill_fx', first && !isEcho
+    const emit = (data, first) => this.emitZone(zone, 'skill_fx', first && !isEcho && !isShadow
       ? { ...fxBase, ...data, skillSlot: slot, cooldown, playerId: player.id }
       : { ...fxBase, ...data });
     const alive = () => [...mobsMap.values()].filter(m => m.state !== 'dead');
@@ -2546,14 +2733,20 @@ class GameServer {
     const aimX = td > range ? px + dir.normX * range : (td > 0.3 ? rawTx : px + dir.normX * Math.min(range, 3));
     const aimY = td > range ? py + dir.normY * range : (td > 0.3 ? rawTy : py + dir.normY * Math.min(range, 3));
 
-    // Walk along dir until a wall, returning the furthest free point
-    const travel = (len) => {
-      let nx = px, ny = py;
+    // Walk from (x0, y0) along (nx, ny) until a wall, returning the furthest free point
+    const ray = (x0, y0, nx, ny, len, radius) => {
+      let ex = x0, ey = y0;
       for (let d = 0.25; d <= len; d += 0.25) {
-        const tx = px + dir.normX * d, ty = py + dir.normY * d;
-        if (this.isColliding(tx, ty, zone)) break;
-        nx = tx; ny = ty;
+        const tx = x0 + nx * d, ty = y0 + ny * d;
+        if (this.isColliding(tx, ty, zone, radius)) break;
+        ex = tx; ey = ty;
       }
+      return { x: ex, y: ey };
+    };
+    // Move the hero along dir (a shadow's copy only measures the path)
+    const travel = (len) => {
+      const { x: nx, y: ny } = ray(px, py, dir.normX, dir.normY, len);
+      if (isShadow) return { x: nx, y: ny };
       player.x = nx; player.y = ny;
       player.targetX = null; player.targetY = null;
       player.facing = this.calculateFacing(px, py, nx, ny);
@@ -2562,6 +2755,14 @@ class GameServer {
 
     let spot = null; // where a lingering field (skill.field) settles
     switch (skill.spShape) {
+      case 'aura': {
+        // toggled on here; tickSpToggles pays the upkeep and strikes every frame after
+        if (!player.spToggles) player.spToggles = {};
+        player.spToggles[skill.id] = { skill, clock: 0 };
+        emit({ x: px, y: py, radius: skill.r || 1.4, spin: !!skill.spin }, true);
+        say(px, py, `${skill.icon || '✨'} ${skill.name.toUpperCase()} ON`, skill.color || '#ef4444', 16);
+        break;
+      }
       case 'rewind': {
         // back to the oldest sample within 'back' seconds
         const trail = player.timeTrail || [];
@@ -2580,47 +2781,96 @@ class GameServer {
       case 'nova':
       case 'buff': {
         emit({ x: px, y: py, radius: skill.r || 1.4 }, true);
-        if (skill.reapsMark) {
-          for (const m of within(px, py, skill.r || 4.2)) {
-            if (m.shadowMarkTimer > 0) {
-              hit(m, 2.5);
-              m.attackCooldown = 3.0; // Stun
-              m.shadowMarkTimer = 0;
-              this.emitZone(zone, 'floating_text', { x: m.x, y: m.y - 0.8, text: '💀 REAPED! (Stun)', color: '#ef4444', size: 16 });
-            } else {
-              hit(m, 1.0);
-            }
-          }
-        } else if (skill.dmg) {
-          within(px, py, skill.r).forEach(m => hit(m));
-        }
+        if (skill.dmg) within(px, py, skill.r).forEach(m => hit(m));
         break;
       }
-      case 'decoy': {
-        if (player.shadowDecoy && (Date.now() - player.shadowDecoy.createdAt < 5000)) {
-          const oldX = player.x, oldY = player.y;
-          player.x = player.shadowDecoy.x;
-          player.y = player.shadowDecoy.y;
-          player.targetX = null; player.targetY = null;
-          player.shadowDecoy = null;
-          emit({ x: oldX, y: oldY, radius: 2.0 }, true);
-          emit({ x: player.x, y: player.y, radius: 2.0 }, false);
-          this.emitZone(zone, 'floating_text', { x: player.x, y: player.y - 0.7, text: '👤 SHADOW SWAP!', color: '#a855f7', size: 16 });
-          const socket = this.io.sockets.sockets.get(player.id);
-          if (socket) socket.emit('player_updated', player);
+      case 'shuriken': {
+        const width = skill.width || 0.8;
+        if (recall) {
+          // every star out there (the shadow's too) flies back to the hero, cutting what it passes
+          const out = player.nbStars;
+          player.nbStars = null;
+          const hx = player.x, hy = player.y;
+          emit({ recall: true, ownerId: player.id, x: hx, y: hy, stars: out.stars }, false);
+          for (const s of out.stars) {
+            for (const m of alive()) {
+              if (this.distToSegment(m.x, m.y, s.x, s.y, hx, hy) <= width) hit(m, skill.back || 1, s.x, s.y);
+            }
+          }
+          say(hx, hy, '🌀 RECALL!', '#c084fc', 15);
           break;
         }
-        player.shadowDecoy = { x: px, y: py, createdAt: Date.now() };
-        player.smokeScreenTimer = skill.smoke || 3.0;
-        player.sprintTimer = skill.sprint || 3.0;
-        emit({ x: px, y: py, radius: skill.r || 3.0 }, true);
-        this.emitZone(zone, 'floating_text', { x: px, y: py - 0.7, text: '👤 SHADOW CLONE (Stealth)', color: '#c084fc' });
-        for (const m of within(px, py, 8.0)) {
-          m.targetPlayerId = null;
-          m.wanderTarget = { x: px, y: py };
+        // a fan of stars toward the cursor; each stops at its spot (or a wall) and hovers there
+        const n = skill.n || 5;
+        const reach = Math.min(range, Math.max(3, Math.hypot(aimX - px, aimY - py)));
+        const base = Math.atan2(dir.normY, dir.normX), step = n > 1 ? (skill.spread * Math.PI / 180) / (n - 1) : 0;
+        const stars = [];
+        for (let i = 0; i < n; i++) {
+          const ang = base + (i - (n - 1) / 2) * step;
+          const end = ray(px, py, Math.cos(ang), Math.sin(ang), reach, 0.2);
+          stars.push({ x: end.x, y: end.y });
+          for (const m of alive()) {
+            if (this.distToSegment(m.x, m.y, px, py, end.x, end.y) <= width) hit(m);
+          }
         }
-        const socket = this.io.sockets.sockets.get(player.id);
-        if (socket) socket.emit('player_updated', player);
+        if (isShadow) {
+          // the shadow's stars come back with the hero's on recall
+          if (player.nbStars) player.nbStars.stars.push(...stars);
+        } else {
+          player.nbStars = { slot, skillId: skill.id, stars, until: Date.now() + (skill.hold || 5) * 1000, zone, instanceId };
+        }
+        emit({ startX: px, startY: py, x: aimX, y: aimY, stars, ownerId: player.id, duration: skill.hold || 5 }, true);
+        break;
+      }
+      case 'smoke': {
+        // anyone standing in the cloud makes monster attacks miss (see smokeMissChance)
+        this.smokeClouds.push({ zone, instanceId, x: px, y: py, r: skill.r, miss: skill.miss, until: Date.now() + skill.dur * 1000 });
+        emit({ x: px, y: py, radius: skill.r, duration: skill.dur }, true);
+        if (skill.dmg) within(px, py, skill.r).forEach(m => hit(m));
+        if (!isShadow) say(px, py, '💨 SMOKE BOMB', '#cbd5e1', 15);
+        break;
+      }
+      case 'shadow': {
+        const spotAt = ray(px, py, dir.normX, dir.normY, Math.hypot(aimX - px, aimY - py), 0.3);
+        player.nbShadow = { x: spotAt.x, y: spotAt.y, mirror: skill.mirror, until: Date.now() + skill.dur * 1000, zone, instanceId };
+        emit({ startX: px, startY: py, x: spotAt.x, y: spotAt.y, radius: skill.r, duration: skill.dur }, true);
+        if (skill.dmg) within(spotAt.x, spotAt.y, skill.r).forEach(m => hit(m, 1, spotAt.x, spotAt.y));
+        say(spotAt.x, spotAt.y, '👤 SHADOW', '#a855f7', 15);
+        break;
+      }
+      case 'orbit': {
+        // stars circle the hero (or stay put around the shadow) and cut on every tick
+        const centre = () => (isShadow ? { x: px, y: py } : { x: player.x, y: player.y });
+        emit({ x: px, y: py, radius: skill.r, n: skill.n, duration: skill.dur, followId: isShadow ? null : player.id }, true);
+        const spin = () => {
+          const c = centre();
+          within(c.x, c.y, skill.r).forEach(m => hit(m, 1, c.x, c.y));
+        };
+        spin();
+        const ticks = Math.round(skill.dur / skill.every);
+        for (let i = 1; i < ticks; i++) later(i * skill.every, spin);
+        break;
+      }
+      case 'orbs': {
+        // n storm orbs fan out ahead (±spread rad) and drift len tiles over dur s,
+        // stopping at walls, shocking everything within r of each every `every` s
+        const n = skill.n || 2, base = Math.atan2(dir.normY, dir.normX);
+        const orbs = [];
+        for (let i = 0; i < n; i++) {
+          const ang = base + (n > 1 ? (i / (n - 1) * 2 - 1) * skill.spread : 0);
+          const end = ray(px, py, Math.cos(ang), Math.sin(ang), skill.len, 0.3);
+          orbs.push({ sx: px, sy: py, ex: end.x, ey: end.y });
+        }
+        emit({ x: px, y: py, orbs, radius: skill.r, duration: skill.dur }, true);
+        const ticks = Math.round(skill.dur / skill.every);
+        const shock = (i) => {
+          const k = i / ticks;
+          for (const o of orbs) {
+            const ox = o.sx + (o.ex - o.sx) * k, oy = o.sy + (o.ey - o.sy) * k;
+            within(ox, oy, skill.r).forEach(m => hit(m, 1, ox, oy));
+          }
+        };
+        for (let i = 1; i <= ticks; i++) later(i * skill.every, () => shock(i));
         break;
       }
       case 'detonate': {
@@ -2830,14 +3080,16 @@ class GameServer {
             destY = target.y + tdir.normY * 1.0;
           }
           emit({ startX: px, startY: py, x: destX, y: destY, radius: 1.5 }, true);
-          player.x = destX; player.y = destY;
-          player.targetX = null; player.targetY = null;
-          player.facing = this.calculateFacing(destX, destY, target.x, target.y);
           hit(target, 2.2);
           target.shadowMarkTimer = 6.0;
-          this.emitZone(zone, 'floating_text', { x: player.x, y: player.y - 0.7, text: '👤 SHADOWSTEP!', color: '#a855f7' });
-          const socket = this.io.sockets.sockets.get(player.id);
-          if (socket) socket.emit('player_updated', player);
+          if (!isShadow) {
+            player.x = destX; player.y = destY;
+            player.targetX = null; player.targetY = null;
+            player.facing = this.calculateFacing(destX, destY, target.x, target.y);
+            this.emitZone(zone, 'floating_text', { x: player.x, y: player.y - 0.7, text: '👤 SHADOWSTEP!', color: '#a855f7' });
+            const socket = this.io.sockets.sockets.get(player.id);
+            if (socket) socket.emit('player_updated', player);
+          }
         } else {
           const end = travel(skill.len || 6);
           emit({ startX: px, startY: py, x: end.x, y: end.y, radius: 1.5 }, true);
@@ -2908,6 +3160,11 @@ class GameServer {
         }
       });
     }
+    // a shadow's copy only deals damage: no self buffs, cooldown cuts or echoes
+    if (isShadow) {
+      settleLeech();
+      return;
+    }
     // Chronomancer Echo: the whole skill replays later at reduced strength
     if (skill.echo && !isEcho) {
       later(skill.echo, () => {
@@ -2944,6 +3201,12 @@ class GameServer {
     if (skill.hpCost) player.hp = Math.max(1, player.hp - Math.round(player.hp * skill.hpCost));
     if (skill.undying) { player.undyingTimer = Math.max(player.undyingTimer || 0, skill.undying); buffs.push('UNDYING RAGE'); }
     if (skill.berserk) { player.berserkTimer = Math.max(player.berserkTimer || 0, skill.berserk); buffs.push('RAGE'); }
+    if (skill.bloodlust) {
+      const b = skill.bloodlust;
+      player.bloodlust = { timer: b.dur, rage: b.rage, atkSpeed: b.atkSpeed, thirst: b.thirst };
+      this.recalculatePlayerStats(player);
+      buffs.push('BLOODLUST');
+    }
     if (skill.fortress) { player.ironFortressTimer = Math.max(player.ironFortressTimer || 0, skill.fortress); buffs.push('FORTRESS'); }
     if (skill.sprint) player.sprintTimer = Math.max(player.sprintTimer || 0, skill.sprint);
     if (skill.smoke) { player.smokeScreenTimer = Math.max(player.smokeScreenTimer || 0, skill.smoke); buffs.push('VANISH'); }
@@ -2961,6 +3224,18 @@ class GameServer {
     }
   }
 
+  // Chance a monster's attack on this hero misses because they stand in a Smoke Bomb cloud
+  smokeMissChance(player) {
+    const now = Date.now();
+    if (this.smokeClouds.length) this.smokeClouds = this.smokeClouds.filter(c => c.until > now);
+    const instanceId = player.dungeonInstanceId || null;
+    let miss = 0;
+    for (const c of this.smokeClouds) {
+      if (c.zone === player.zone && c.instanceId === instanceId && Math.hypot(player.x - c.x, player.y - c.y) <= c.r) miss = Math.max(miss, c.miss);
+    }
+    return miss;
+  }
+
   // linkedSkillId is only set by the server itself (Skill Link casts)
   handlePlayerSkill(socketId, skillData = {}, linkedSkillId = null) {
     const player = this.players.get(socketId);
@@ -2976,7 +3251,11 @@ class GameServer {
     if (!player.skillCooldowns) {
       player.skillCooldowns = { slot1: 0, slot2: 0, slot3: 0, dash: 0, skill1: 0, skill2: 0 };
     }
-    if (player.skillCooldowns[slot] > 0 || (player.skillCooldowns[rawSlot] > 0)) return;
+    // Nightblade: casting Phantom Shuriken again while its stars are out calls them back (free, ignores cooldown)
+    const stars = player.nbStars;
+    const recall = !!(stars && stars.slot === slot && Date.now() < stars.until && player.equippedSkills && player.equippedSkills[slot] === stars.skillId
+      && stars.zone === player.zone && stars.instanceId === (player.dungeonInstanceId || null));
+    if (!recall && (player.skillCooldowns[slot] > 0 || (player.skillCooldowns[rawSlot] > 0))) return;
 
     const socket0 = this.io.sockets.sockets.get(socketId);
     const skillId = linkedSkillId ? linkedSkillId : slot === 'weapon' ? 'weapon'
@@ -2991,12 +3270,30 @@ class GameServer {
     const socket = this.io.sockets.sockets.get(socketId);
     const playerTalents = player.skills || {};
 
+    if (skill.spShape === 'aura') {
+      // casting an active blood aura again switches it off, for free
+      if (player.spToggles && player.spToggles[skill.id]) {
+        player.skillCooldowns[slot] = player.skillCooldowns[rawSlot] = skill.cooldown;
+        this.endSpToggle(player, skill.id);
+        this.emitZone(player.zone, 'skill_fx', {
+          type: 'sp_skill', shape: 'aura', off: true, x: player.x, y: player.y, radius: skill.r || 1.4, element: skill.element, color: skill.color,
+          cardId: skill.cardId, skillId: skill.id, name: skill.name, skillSlot: slot, cooldown: skill.cooldown, playerId: player.id
+        });
+        if (socket) socket.emit('player_updated', player);
+        return;
+      }
+      if (skill.drain && player.hp <= player.maxHp * BLOOD_AURA_START_HP) {
+        if (socket) socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: '🩸 Not enough blood!', color: '#ef4444' });
+        return;
+      }
+    }
+
     let mpCost = Math.round(skill.mpCost * (player.manaCostMult || 1));
     if (playerTalents.mana_flow) {
       mpCost = Math.max(2, Math.round(mpCost * (1 - playerTalents.mana_flow * 0.15)));
     }
 
-    if (player.mp < mpCost) {
+    if (!recall && player.mp < mpCost) {
       if (socket) {
         socket.emit('floating_text', {
           x: player.x,
@@ -3018,12 +3315,13 @@ class GameServer {
       if (playerTalents.shadow_sprint) cooldown = Math.max(1.2, cooldown - playerTalents.shadow_sprint * 0.5);
     }
 
-    player.mp -= mpCost;
-    player.skillCooldowns[slot] = cooldown;
-    player.skillCooldowns[rawSlot] = cooldown;
-    if (slot === 'slot1') player.skillCooldown = cooldown;
-
-    if (socket) socket.emit('player_updated', player);
+    if (!recall) {
+      player.mp -= mpCost;
+      player.skillCooldowns[slot] = cooldown;
+      player.skillCooldowns[rawSlot] = cooldown;
+      if (slot === 'slot1') player.skillCooldown = cooldown;
+      if (socket) socket.emit('player_updated', player);
+    }
 
     const mobsMap = this.getMobsMap(player.zone);
     let totalDmgDealt = 0;
@@ -3049,6 +3347,7 @@ class GameServer {
       if (player.berserkTimer > 0) {
         dmg = Math.round(dmg * 1.35);
       }
+      if (player.bloodlust) dmg = Math.round(dmg * this.bloodRage(player));
       this.applyDamageToMob(player, mob, dmg, isCrit);
       totalDmgDealt += dmg;
     };
@@ -3087,9 +3386,18 @@ class GameServer {
 
     // EXECUTE SPECIFIC ABILITY
     switch (skill.spShape ? 'sp_skill' : skill.id) {
-      case 'sp_skill':
-        this.castSpSkill(player, skill, { slot, cooldown, runeId, skillData, mobsMap, applySkillDamage, computeDashVector });
+      case 'sp_skill': {
+        const spCtx = { slot, cooldown, runeId, skillData, mobsMap, applySkillDamage, computeDashVector, recall };
+        this.castSpSkill(player, skill, spCtx);
+        // Nightblade's tossed shadow casts the same skill from where it stands
+        const shadow = player.nbShadow;
+        if (shadow && Date.now() < shadow.until && shadow.zone === player.zone && shadow.instanceId === (player.dungeonInstanceId || null)
+          && !recall && !SHADOW_SKIPS_SHAPES.has(skill.spShape)) {
+          const echo = Object.assign({}, skill, { dmgMult: skill.dmgMult * shadow.mirror });
+          this.castSpSkill(player, echo, Object.assign({}, spCtx, { isShadow: true, origin: { x: shadow.x, y: shadow.y } }));
+        }
         break;
+      }
 
       // === WARRIOR SKILLS ===
       case 'whirlwind': {
@@ -3848,8 +4156,11 @@ class GameServer {
       totalBonusAttackSpeed += cs.bonusAttackSpeed || 0;
       totalCritChanceBonus += (cs.critChance || 0) / 100;
     }
+    if (player.bloodlust) totalBonusAttackSpeed += player.bloodlust.atkSpeed || 0;
 
-    player.dmg = player.baseStats.dmg + totalBonusDmg;
+    // Combat Mastery multiplies every source of damage at high level
+    player.mastery = Number(masteryMult(player.level).toFixed(2));
+    player.dmg = Math.round((player.baseStats.dmg + totalBonusDmg) * player.mastery);
     player.def = player.baseStats.def + totalBonusDef;
     player.maxHp = player.baseStats.maxHp + totalBonusHp;
     player.maxMp = player.baseStats.maxMp + totalBonusMp;
@@ -4717,10 +5028,9 @@ class GameServer {
       rawDamage = Math.round(rawDamage * critMultiplier);
     }
 
-    // Apply mob defense reduction
+    // Mob defense removes a share of every hit (see MOB_DEF_K)
     const mobDef = (mob.def || 0) + (mob.hasCommanderBuff ? 8 : 0);
-    const defReduction = mobDef * 0.45;
-    let damage = isDeflected ? 1 : Math.max(1, Math.round(rawDamage - defReduction));
+    let damage = isDeflected ? 1 : Math.max(1, Math.round(rawDamage * MOB_DEF_K / (MOB_DEF_K + mobDef)));
 
     // Fortified affix absorbs 30% damage
     if (mob.buffs && mob.buffs.includes('fortified')) {
@@ -4871,10 +5181,19 @@ class GameServer {
 
       killerPlayer.inventory.kills++;
       if (killerPlayer.dungeonRun) killerPlayer.dungeonRun.kills = (killerPlayer.dungeonRun.kills || 0) + 1;
-      // full EXP near your level, much less for monsters far below you
-      const killExp = Math.max(1, Math.round(mob.exp * levelGapMult(killerPlayer.level, mob.level)));
-      this.awardExp(killerPlayer, killExp);
-      this.awardJobExp(killerPlayer, killExp);
+      // full EXP near your level, much less for monsters far below you; party
+      // members nearby on the same map split it (see partyExpSharers)
+      const sharers = this.partyExpSharers(killerPlayer);
+      const share = mob.exp * (1 + PARTY_EXP_BONUS * (sharers.length - 1)) / sharers.length;
+      for (const member of sharers) {
+        const memberExp = Math.max(1, Math.round(share * levelGapMult(member.level, mob.level)));
+        this.awardExp(member, memberExp);
+        this.awardJobExp(member, memberExp);
+        if (member !== killerPlayer) {
+          const mSocket = this.io.sockets.sockets.get(member.id);
+          if (mSocket) mSocket.emit('player_updated', member);
+        }
+      }
 
       // Talent on-kill effects (Juggernaut, Astral Overload, Vampiric Edge)
       if (killerPlayer.skills) {
@@ -5000,6 +5319,23 @@ class GameServer {
     }
 
     this.emitZone(zone, 'mob_died', { mobId: mob.id, killerId: killerPlayer ? killerPlayer.id : null }, instId);
+  }
+
+  // Who shares the EXP of a kill: the killer plus party members who are alive,
+  // on the same map (same field zone, or the same dungeon run) and within
+  // PARTY_EXP_RANGE tiles of the killer
+  partyExpSharers(killer) {
+    const party = killer.partyId && this.parties.get(killer.partyId);
+    if (!party) return [killer];
+    const out = [killer];
+    for (const id of party.memberIds) {
+      const m = this.players.get(id);
+      if (!m || m === killer || m.isDead || m.zone !== killer.zone) continue;
+      if (killer.zone === 'dungeon' && m.dungeonInstanceId !== killer.dungeonInstanceId) continue;
+      if (Math.hypot(m.x - killer.x, m.y - killer.y) > PARTY_EXP_RANGE) continue;
+      out.push(m);
+    }
+    return out;
   }
 
   awardExp(player, amount) {
@@ -5158,6 +5494,13 @@ class GameServer {
       const socket = this.io.sockets.sockets.get(player.id);
       this.ctxInstanceId = player.dungeonInstanceId || null;
       if (player.isDead) {
+        if (player.spToggles) {
+          for (const id of Object.keys(player.spToggles)) this.endSpToggle(player, id, true);
+        }
+        if (player.bloodlust) {
+          player.bloodlust = null;
+          this.recalculatePlayerStats(player);
+        }
         player.respawnTimer -= dt;
         if (player.respawnTimer <= 0) {
           if (player.zone === 'dungeon') {
@@ -5232,7 +5575,16 @@ class GameServer {
         if (player.speechTimer <= 0) player.speechBubble = null;
       }
 
-      player.hp = Math.min(player.maxHp, player.hp + (player.maxHp * 0.015 * dt));
+      // an HP-draining toggle (Crimson Aura) stops natural HP regen
+      const bleeding = player.spToggles && Object.keys(player.spToggles).length && this.tickSpToggles(player, dt);
+      if (!bleeding) player.hp = Math.min(player.maxHp, player.hp + (player.maxHp * 0.015 * dt));
+      if (player.bloodlust) {
+        player.bloodlust.timer -= dt;
+        if (player.bloodlust.timer <= 0) {
+          player.bloodlust = null;
+          this.recalculatePlayerStats(player);
+        }
+      }
       player.mp = Math.min(player.maxMp, player.mp + (player.maxMp * MANA_REGEN_PCT * dt) + (MANA_REGEN_FLAT * dt));
 
       if (player.zone === 'dungeon') this.applyDungeonHazard(player);
@@ -5353,10 +5705,6 @@ class GameServer {
         }
       }
 
-      // Check Portal Teleports
-      if (socket) {
-        this.checkPortalAndInteractions(player, socket);
-      }
     }
 
     this.ctxInstanceId = null;
@@ -5599,6 +5947,10 @@ class GameServer {
               this.emitZone(zone, 'floating_text', { x: targetPlayer.x, y: targetPlayer.y - 0.7, text: '💨 MISS! (Stealth)', color: '#94a3b8' });
               continue;
             }
+            if (Math.random() < this.smokeMissChance(targetPlayer)) {
+              this.emitZone(zone, 'floating_text', { x: targetPlayer.x, y: targetPlayer.y - 0.7, text: '💨 MISS! (Smoke)', color: '#94a3b8' });
+              continue;
+            }
 
             // Dodge chance from talents
             if (targetPlayer.dodgeChance && Math.random() < targetPlayer.dodgeChance) {
@@ -5757,6 +6109,9 @@ class GameServer {
       spLevel: p.spTransformed && p.equipment && p.equipment.sp ? (p.equipment.sp.upgradeLevel || 0) : 0,
       shieldHp: Math.round(p.shieldHp || 0),
       berserkTimer: Number((p.berserkTimer || 0).toFixed(1)),
+      spToggles: p.spToggles ? Object.values(p.spToggles).map(a => ({ id: a.skill.id, r: a.skill.r || 0, spin: !!a.skill.spin, c: a.skill.color })) : [],
+      buffs: this.heroBuffs(p),
+      mastery: p.mastery || 1,
       ironFortressTimer: Number((p.ironFortressTimer || 0).toFixed(1)),
       smokeScreenTimer: Number((p.smokeScreenTimer || 0).toFixed(1))
       };

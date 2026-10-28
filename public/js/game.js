@@ -840,6 +840,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Skill definition by id: class skills, or an SP card's own skills
+  // SP skill shapes aimed at the mouse cursor instead of the nearest monster
+  const CURSOR_AIMED_SHAPES = new Set(['shuriken', 'shadow']);
+  let lastCursor = null; // canvas px of the mouse
+  let shurikenRecall = null; // { slot, until }: Phantom Shuriken stars are out and can be called back
+
   function findSkillDef(skillId) {
     if (!skillId) return null;
     if (spCatalog && spCatalog.skills && spCatalog.skills[skillId]) return spCatalog.skills[skillId];
@@ -1144,7 +1149,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (localPlayer.zone === 'town') {
         openDungeonPortalModal();
       } else {
-        if (confirmLeaveDungeon()) socket.emit('leave_dungeon');
+        confirmLeaveDungeon(() => socket.emit('leave_dungeon'));
       }
     });
   }
@@ -1176,6 +1181,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (p.equipment) existing.equipment = p.equipment;
         if (p.baseStats) existing.baseStats = p.baseStats;
         existing.dmg = p.dmg;
+        existing.mastery = p.mastery;
         existing.def = p.def;
         existing.speed = p.speed;
         if (p.elementResist) existing.elementResist = p.elementResist;
@@ -1183,6 +1189,8 @@ document.addEventListener('DOMContentLoaded', () => {
         existing.spTransformed = p.spTransformed;
         existing.spCardId = p.spCardId;
         existing.spLevel = p.spLevel;
+        existing.spToggles = p.spToggles || [];
+        existing.buffs = p.buffs || [];
         existing.skillPoints = p.skillPoints !== undefined ? p.skillPoints : (existing.skillPoints || 0);
         existing.skills = p.skills || existing.skills || {};
         existing.equippedSkills = p.equippedSkills || existing.equippedSkills;
@@ -1403,6 +1411,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // SP card skills: pick a sound from the skill's shape and element
   function playSpSkillSound(fx) {
     const se = window.soundEngine;
+    if (fx.shape === 'aura') return fx.off ? se.playSkillWhoosh() : se.playBerserk();
     if (fx.shape === 'blink') return se.playBlink();
     if (fx.shape === 'dash') return se.playBladeCharge();
     if (fx.shape === 'pull') return se.playSingularity();
@@ -1418,6 +1427,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   socket.on('skill_fx', (fx) => {
     if (renderer) renderer.addSkillEffect(fx);
+
+    if (fx.type === 'sp_skill' && fx.shape === 'shuriken' && fx.ownerId === localPlayerId) {
+      if (fx.recall) {
+        shurikenRecall = null;
+        window.soundEngine.playFanOfKnives();
+      } else if (fx.skillSlot) {
+        shurikenRecall = { slot: fx.skillSlot, until: performance.now() + (fx.duration || 5) * 1000 - 150 };
+      }
+    }
 
     if (fx.playerId === localPlayerId) {
       const slot = fx.skillSlot === 'skill1' ? 'slot1' : fx.skillSlot === 'skill2' ? 'slot2' : fx.skillSlot === 'skill3' ? 'slot3' : fx.skillSlot;
@@ -1542,6 +1560,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // Death Screen & Revival Stone Handling
   const btnUseRevivalStone = document.getElementById('btnUseRevivalStone');
   const revivalStoneCount = document.getElementById('revivalStoneCount');
+  const btnUseSuperRevivalStone = document.getElementById('btnUseSuperRevivalStone');
+  const superRevivalStoneCount = document.getElementById('superRevivalStoneCount');
 
   if (btnUseRevivalStone) {
     btnUseRevivalStone.addEventListener('click', () => {
@@ -1549,14 +1569,26 @@ document.addEventListener('DOMContentLoaded', () => {
       window.soundEngine.playLevelUp();
     });
   }
+  if (btnUseSuperRevivalStone) {
+    btnUseSuperRevivalStone.addEventListener('click', () => {
+      socket.emit('use_revival_stone', { super: true });
+      window.soundEngine.playLevelUp();
+    });
+  }
 
+  // One button per stone the hero carries: normal (30% HP) and super (100% HP)
   function updateDeathScreenRevivalButton() {
-    if (!btnUseRevivalStone || !localPlayer) return;
+    if (!localPlayer) return;
     const invItems = (localPlayer.inventory && localPlayer.inventory.items) || [];
-    const stone = invItems.find(i => i.id === 'revival_stone');
-    const count = stone ? (stone.count || 1) : 0;
-    if (revivalStoneCount) revivalStoneCount.textContent = count;
-    btnUseRevivalStone.style.display = count > 0 ? 'inline-block' : 'none';
+    const show = (btn, label, id) => {
+      if (!btn) return;
+      const stone = invItems.find(i => i.id === id);
+      const count = stone ? (stone.count || 1) : 0;
+      if (label) label.textContent = count;
+      btn.style.display = count > 0 ? 'inline-block' : 'none';
+    };
+    show(btnUseRevivalStone, revivalStoneCount, 'revival_stone');
+    show(btnUseSuperRevivalStone, superRevivalStoneCount, 'super_revival_stone');
   }
 
   socket.on('player_died', (data) => {
@@ -1664,7 +1696,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     document.getElementById('btnRunLeave').addEventListener('click', () => {
-      if (confirmLeaveDungeon()) socket.emit('leave_dungeon');
+      confirmLeaveDungeon(() => socket.emit('leave_dungeon'));
     });
   });
 
@@ -1753,10 +1785,36 @@ document.addEventListener('DOMContentLoaded', () => {
     if (data.success) window.soundEngine.playLevelUp();
   });
 
-  // Ask before leaving a dungeon run that has not been cleared yet
-  function confirmLeaveDungeon() {
-    if (!dungeonRunState.active || dungeonRunState.cleared) return true;
-    return window.confirm('The boss is still alive. Leaving now counts as a FAILED mission and you will lose most of the chest loot. Leave anyway?');
+  // Ask (with an in-game dialog) before leaving a dungeon run that has not been cleared yet
+  function confirmLeaveDungeon(onLeave) {
+    if (!dungeonRunState.active || dungeonRunState.cleared) return onLeave();
+    if (document.querySelector('.leave-confirm-overlay')) return;
+    const overlay = document.createElement('div');
+    overlay.className = 'dungeon-result-overlay leave-confirm-overlay is-failed';
+    overlay.innerHTML = `
+      <div class="dungeon-result-card hud-panel">
+        <div class="dungeon-result-title">LEAVE DUNGEON?</div>
+        <div class="dungeon-result-sub">The boss is still alive. Leaving now counts as a <b>FAILED</b> mission and you will lose most of the chest loot.</div>
+        <div class="leave-confirm-actions">
+          <button class="btn-secondary leave-confirm-stay">STAY</button>
+          <button class="btn-primary leave-confirm-go">LEAVE ANYWAY</button>
+        </div>
+      </div>`;
+    const close = () => {
+      overlay.remove();
+      window.removeEventListener('keydown', onKey, true);
+    };
+    // Esc stays; keys don't reach the game (skills, movement) while the dialog is open
+    const onKey = (e) => {
+      e.stopPropagation();
+      if (e.key === 'Escape') close();
+    };
+    overlay.querySelector('.leave-confirm-stay').addEventListener('click', close);
+    overlay.querySelector('.leave-confirm-go').addEventListener('click', () => { close(); onLeave(); });
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    window.addEventListener('keydown', onKey, true);
+    document.body.appendChild(overlay);
+    overlay.querySelector('.leave-confirm-stay').focus();
   }
 
   // ================= INPUT & CONTROLS =================
@@ -1782,7 +1840,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const rect = canvas.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
-    const worldPos = Isometric.screenToWorld(mouseX, mouseY, renderer.camera, canvas.width, canvas.height);
+    const worldPos = Isometric.screenToWorld(mouseX, mouseY, renderer.camera, renderer.viewW, renderer.viewH);
 
     // If dragging / holding mouse down, continuously stream destination
     if (isDragging) {
@@ -1962,6 +2020,8 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   canvas.addEventListener('mousemove', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    lastCursor = { x: e.clientX - rect.left, y: e.clientY - rect.top };
     if (isPointerDown && !selectedTargetId) {
       handlePointerAction(e, true);
     }
@@ -2094,6 +2154,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (code === 'KeyE' || key === 'e') {
       useSkill('slot2');
+      return;
+    }
+
+    if (code === 'KeyF' || key === 'f') {
+      usePortal();
       return;
     }
 
@@ -2362,6 +2427,19 @@ document.addEventListener('DOMContentLoaded', () => {
     if (slot === 'skill2') slot = 'slot2';
     if (slot === 'skill3') slot = 'slot3';
 
+    const rawEquipped = localPlayer.equippedSkills && localPlayer.equippedSkills[slot];
+    const equippedDef = findSkillDef(typeof rawEquipped === 'object' && rawEquipped ? rawEquipped.skillId : rawEquipped);
+    // Nightblade throws go where the mouse points, not at the nearest monster
+    if (!aim && equippedDef && CURSOR_AIMED_SHAPES.has(equippedDef.shape) && lastCursor && renderer) {
+      aim = Isometric.screenToWorld(lastCursor.x, lastCursor.y, renderer.camera, renderer.viewW, renderer.viewH);
+    }
+    // Phantom Shuriken out: pressing again calls the stars back, cooldown or not
+    if (shurikenRecall && shurikenRecall.slot === slot && performance.now() < shurikenRecall.until) {
+      shurikenRecall = null;
+      socket.emit('player_skill', { skillSlot: slot, targetX: localPlayer.x, targetY: localPlayer.y, dirX: 0, dirY: 0 });
+      return;
+    }
+
     if (slot === 'slot1' && skill1CooldownTimer > 0) return;
     if (slot === 'slot2' && skill2CooldownTimer > 0) return;
     if (slot === 'slot3' && skill3CooldownTimer > 0) return;
@@ -2605,7 +2683,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const mBtnOpenSettings = document.getElementById('mBtnOpenSettings');
   const sliderGuiScale = document.getElementById('sliderGuiScale');
   const lblGuiScaleVal = document.getElementById('lblGuiScaleVal');
-  const guiScalePresets = document.querySelectorAll('.gui-scale-preset');
+  const guiScalePresets = document.querySelectorAll('.gui-scale-preset[data-scale]');
+  const graphicsPresets = document.querySelectorAll('.gui-scale-preset[data-quality]');
+  const lblGraphicsVal = document.getElementById('lblGraphicsVal');
   const btnResetGuiScale = document.getElementById('btnResetGuiScale');
   const btnSettingsResetCamera = document.getElementById('btnSettingsResetCamera');
   const sliderBgm = document.getElementById('sliderBgm');
@@ -2664,6 +2744,68 @@ document.addEventListener('DOMContentLoaded', () => {
       applyGuiScale(100);
     });
   }
+
+  // Graphics quality (persisted in localStorage): the world is drawn into a
+  // smaller canvas buffer and stretched, which is what slow laptops need most.
+  // Auto starts sharp and steps down while the frame rate stays low.
+  const GRAPHICS_SCALES = { high: 1, medium: 0.75, low: 0.55 };
+  const AUTO_SCALE_STEPS = [1, 0.75, 0.55];
+  const AUTO_LOW_FPS = 42;          // average fps over one window that counts as lagging
+  const AUTO_WINDOW_MS = 2000;
+  let graphicsQuality = 'auto';
+  let autoScaleStep = 0;
+  const fpsWindow = { start: 0, frames: 0 };
+  try {
+    const saved = localStorage.getItem('slop_graphics_quality');
+    if (saved === 'auto' || GRAPHICS_SCALES[saved]) graphicsQuality = saved;
+  } catch (_) {}
+
+  function applyGraphicsQuality(quality) {
+    graphicsQuality = quality;
+    const scale = quality === 'auto' ? AUTO_SCALE_STEPS[autoScaleStep] : GRAPHICS_SCALES[quality];
+    renderer.setRenderScale(scale);
+    renderer.lowEffects = quality === 'low' || (quality === 'auto' && autoScaleStep === AUTO_SCALE_STEPS.length - 1);
+    fpsWindow.start = 0;
+    graphicsPresets.forEach(b => b.classList.toggle('active', b.dataset.quality === quality));
+    if (lblGraphicsVal) {
+      const label = quality.charAt(0).toUpperCase() + quality.slice(1);
+      lblGraphicsVal.textContent = `${label} · ${Math.round(scale * 100)}%`;
+    }
+    try {
+      localStorage.setItem('slop_graphics_quality', quality);
+    } catch (_) {}
+  }
+
+  // Called once per frame by the game loop
+  function trackFrameRate(now) {
+    // only judge the world itself, not the login screen's 3D class preview
+    if (graphicsQuality !== 'auto' || autoScaleStep >= AUTO_SCALE_STEPS.length - 1 || !localPlayer) return;
+    // a long gap (tab hidden, alert, loading) is not lag; start a fresh window
+    if (!fpsWindow.start || now - fpsWindow.last > 250) {
+      fpsWindow.start = now;
+      fpsWindow.frames = 0;
+    }
+    fpsWindow.last = now;
+    fpsWindow.frames++;
+    const elapsed = now - fpsWindow.start;
+    if (elapsed < AUTO_WINDOW_MS) return;
+    const fps = (fpsWindow.frames * 1000) / elapsed;
+    fpsWindow.start = 0;
+    if (fps < AUTO_LOW_FPS) {
+      autoScaleStep++;
+      applyGraphicsQuality('auto');
+    }
+  }
+
+  applyGraphicsQuality(graphicsQuality);
+
+  graphicsPresets.forEach(btn => {
+    btn.addEventListener('click', () => {
+      // picking Auto again gives it a fresh start at full sharpness
+      if (btn.dataset.quality === 'auto') autoScaleStep = 0;
+      applyGraphicsQuality(btn.dataset.quality);
+    });
+  });
 
   if (btnSettingsResetCamera) {
     btnSettingsResetCamera.addEventListener('click', () => {
@@ -3065,7 +3207,40 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
   // HUD Update
+  // Buff / debuff chips right of the player frame. Ticks carry p.buffs as
+  // [{ k, n, i, t?, v?, d? }] (see heroBuffs on the server); a raw
+  // 'player_updated' object has none, so the tray keeps what it shows.
+  const buffTray = document.getElementById('buffTray');
+  let buffTraySig = '';
+  function renderBuffTray(p) {
+    if (!buffTray || !Array.isArray(p.buffs)) return;
+    const sig = JSON.stringify(p.buffs);
+    if (sig === buffTraySig) return;
+    buffTraySig = sig;
+    buffTray.replaceChildren(...p.buffs.map(b => {
+      const chip = document.createElement('div');
+      chip.className = 'buff-chip' + (b.d ? ' is-debuff' : '');
+      chip.title = b.n + (b.v !== undefined ? ` (${b.v})` : '') + (b.t ? ` - ${b.t}s` : b.d ? '' : ' - until switched off');
+      const icon = document.createElement('span');
+      icon.className = 'buff-icon';
+      icon.textContent = b.i;
+      chip.appendChild(icon);
+      if (b.v !== undefined) {
+        const v = document.createElement('span');
+        v.className = 'buff-stack';
+        v.textContent = b.v;
+        chip.appendChild(v);
+      }
+      const time = document.createElement('span');
+      time.className = 'buff-time';
+      time.textContent = b.t ? `${b.t}s` : (b.d ? '' : 'ON');
+      chip.appendChild(time);
+      return chip;
+    }));
+  }
+
   function updatePlayerHUD(p) {
+    renderBuffTray(p);
     hudPlayerName.textContent = p.name;
     hudPlayerClass.textContent = p.characterClass;
     playerLevelBadge.textContent = `Lv. ${p.level}`;
@@ -3205,6 +3380,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const critDmg = Math.round((1.5 + (p.critDmgBonus || 0)) * 100);
     const statCards = [
       ['sword', 'Attack', p.dmg, bonus(gear.bonusDmg)],
+      ['crown', 'Mastery', `x${(p.mastery || 1).toFixed(2)}`, '<i>ATK, from Lv 21</i>'],
       ['shield', 'Defense', p.def, bonus(gear.bonusDef)],
       ['heart', 'Max HP', p.maxHp, bonus(gear.bonusHp)],
       ['mp_potion', 'Max MP', p.maxMp, bonus(gear.bonusMp)],
@@ -3769,8 +3945,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const c = spCatalog;
     return {
       lvl, max: c.maxLevel, safe: c.safeLevel, card,
-      gold: Math.round(c.enhanceBase[card.tier] * Math.pow(c.growth, lvl)),
-      fragments: (lvl + 1) * 2,
+      // same formula as server/spCards.js cardEnhanceCost
+      gold: Math.round((c.enhanceBase[card.tier] * Math.pow(c.growth, lvl / (c.levelStep || 1))) / (c.levelStep || 1)),
+      fragments: Math.max(1, Math.round((((lvl / (c.levelStep || 1)) + 1) * 2) / (c.levelStep || 1))),
       chance: c.chance[lvl] || 0
     };
   }
@@ -3886,7 +4063,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <div>${cardStatLines(card, maxed ? info.lvl : info.lvl + 1)}</div>
         ${maxed ? '' : chanceBar(info.chance)}
         ${maxed ? '' : `<div class="ench-cost"><span class="${shortGold ? 'short' : ''}">${info.gold.toLocaleString()} Gold</span><span class="${shortFrag ? 'short' : ''}">${info.fragments} Spirit Fragments</span></div>`}
-        <div class="ench-warn">+8% card stats and +4% card skill power per level; the aura grows at +4, +7 and +10.${info.lvl >= info.safe ? ` Failing at +${info.safe} or higher drops the card one level.` : ''}</div>
+        <div class="ench-warn">+0.8% card stats and +0.4% card skill power per level; the aura grows at +40, +70 and +100.${info.lvl >= info.safe ? ` Failing at +${info.safe} or higher drops the card one level.` : ''}</div>
         <button class="ench-btn" id="enchAction" ${maxed || shortGold || shortFrag ? 'disabled' : ''}>EMPOWER CARD</button>
         ${resultHtml}`;
       const btn = document.getElementById('enchAction');
@@ -5130,6 +5307,41 @@ card.innerHTML = `
   // 📱 Mobile Contextual Interaction Logic
   let mobileContextualAction = null;
 
+  // Portals are used on purpose: standing near one shows a button (click or F)
+  const PORTAL_USE_RANGE = 2.5;   // matches server/gameServer.js
+  const portalPrompt = document.getElementById('portalPrompt');
+  const portalPromptText = document.getElementById('portalPromptText');
+  function nearbyPortal() {
+    if (!localPlayer || localPlayer.isDead || !gameState.map) return null;
+    let best = null, bestD = PORTAL_USE_RANGE;
+    for (const o of gameState.map.obstacles || []) {
+      if (o.type !== 'field_portal' && o.id !== 'portal_dungeon') continue;
+      const d = Math.hypot(o.x - localPlayer.x, o.y - localPlayer.y);
+      if (d < bestD) { bestD = d; best = o; }
+    }
+    return best;
+  }
+  function portalLabel(o) {
+    if (o.id === 'portal_dungeon') return 'Enter the Abyssal Dungeon';
+    const text = (o.label || o.name || 'Portal').replace(/^.*?→\s*/, '').replace(/^Back to\s*/i, '');
+    return `Travel to ${text}`;
+  }
+  function usePortal() {
+    if (nearbyPortal()) socket.emit('use_portal');
+  }
+  function updatePortalPrompt() {
+    if (!portalPrompt) return;
+    const o = nearbyPortal();
+    if (!o) {
+      if (portalPrompt.style.display !== 'none') portalPrompt.style.display = 'none';
+      return;
+    }
+    const label = portalLabel(o);
+    if (portalPromptText.textContent !== label) portalPromptText.textContent = label;
+    if (portalPrompt.style.display !== 'inline-flex') portalPrompt.style.display = 'inline-flex';
+  }
+  if (portalPrompt) portalPrompt.addEventListener('click', (e) => { e.stopPropagation(); usePortal(); });
+
   function updateMobileContextualInteract() {
     if (!mobileBtnInteract || !localPlayer) return;
 
@@ -5198,9 +5410,15 @@ card.innerHTML = `
         targetInteract = {
           icon: 'door',
           label: 'ENTER',
-          action: () => socket.emit('player_input', { type: 'click_move', x: fieldPortal.x, y: fieldPortal.y })
+          action: () => socket.emit('use_portal')
         };
       }
+    }
+
+    // any other portal in reach (e.g. the town's north gate)
+    if (!targetInteract) {
+      const portal = nearbyPortal();
+      if (portal && portal.type === 'field_portal') targetInteract = { icon: 'door', label: 'ENTER', action: () => socket.emit('use_portal') };
     }
 
     if (!targetInteract && gameState.groundItems && gameState.groundItems.length > 0) {
@@ -5477,6 +5695,7 @@ card.innerHTML = `
   function gameLoop(currentTime) {
     const dt = Math.min(0.1, (currentTime - lastFrameTime) / 1000);
     lastFrameTime = currentTime;
+    trackFrameRate(currentTime);
 
     if (skill1CooldownTimer > 0) {
       skill1CooldownTimer = Math.max(0, skill1CooldownTimer - dt);
@@ -5527,6 +5746,18 @@ card.innerHTML = `
       cdOverlayWeapon.style.height = '0%';
     }
 
+    // Toggled blood auras light up their hotbar slots
+    if (localPlayer) {
+      // ticks send a list; a raw 'player_updated' object holds the server's map
+      const auras = localPlayer.spToggles || [];
+      const on = new Set(Array.isArray(auras) ? auras.map(a => a.id) : Object.keys(auras));
+      const eq = localPlayer.equippedSkills || {};
+      for (const [slot, els] of [['slot1', [slotSkill1, mobileBtnSkill1]], ['slot2', [slotSkill2, mobileBtnSkill2]], ['slot3', [slotSkill3, mobileBtnSkill3]]]) {
+        const active = on.has(eq[slot]);
+        for (const el of els) if (el && el.classList.contains('is-toggled') !== active) el.classList.toggle('is-toggled', active);
+      }
+    }
+
     // Basic Attack Cooldown on Mobile
     if (localPlayer) {
       const atkSpeed = Math.max(0.4, localPlayer.attackSpeed || 1.0);
@@ -5540,11 +5771,13 @@ card.innerHTML = `
       }
     }
 
-    // Contextual interaction detection for mobile
+    // Contextual interaction detection for mobile, and the portal button
     updateMobileContextualInteract();
+    updatePortalPrompt();
 
-    // Smooth entity position interpolation (60+ FPS lerp)
-    const lerpFactor = 0.35;
+    // Smooth entity position interpolation (0.35 per 60 fps frame, scaled by
+    // dt so heroes and mobs don't trail behind on slow machines)
+    const lerpFactor = 1 - Math.pow(0.65, dt * 60);
     if (gameState.players) {
       gameState.players.forEach(p => {
         if (p.targetX !== undefined) {

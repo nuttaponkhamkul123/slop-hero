@@ -75,15 +75,30 @@ const ITEMS = {
     sellPrice: 40,
     desc: 'Alchemical stone draught. Fortifies body against strikes.'
   },
+  // Revive on the spot; reviveShare = share of max HP & MP restored
   revival_stone: {
     id: 'revival_stone',
     name: 'หินชุบชีวิต (Revival Stone)',
     type: 'consumable',
     icon: '💎',
+    iconKey: 'gem',
     rarity: 'legendary',
-    buyPrice: 250,
-    sellPrice: 120,
-    desc: 'หินเวทมนตร์ศักดิ์สิทธิ์ ชุบชีวิตฟื้นคืนชีพ 100% HP & MP ทันที ณ จุดที่ตาย โดยไม่ถูกส่งกลับเมืองและไม่สูญเสียความคืบหน้าดันเจี้ยน'
+    buyPrice: 5000,
+    sellPrice: 1500,
+    reviveShare: 0.3,
+    desc: 'หินเวทมนตร์ศักดิ์สิทธิ์ ชุบชีวิตฟื้นคืนชีพ ณ จุดที่ตาย พร้อม 30% HP & MP โดยไม่ถูกส่งกลับเมืองและไม่สูญเสียความคืบหน้าดันเจี้ยน'
+  },
+  super_revival_stone: {
+    id: 'super_revival_stone',
+    name: 'หินชุบชีวิตระดับซุปเปอร์ (Super Revival Stone)',
+    type: 'consumable',
+    icon: '💎',
+    iconKey: 'ruby',
+    rarity: 'mythic',
+    buyPrice: 50000,
+    sellPrice: 15000,
+    reviveShare: 1,
+    desc: 'หินชุบชีวิตระดับสูงสุด ฟื้นคืนชีพ ณ จุดที่ตาย พร้อม 100% HP & MP เต็ม โดยไม่ถูกส่งกลับเมืองและไม่สูญเสียความคืบหน้าดันเจี้ยน'
   },
 
   // SP card material: exchanged and spent at the enchanter

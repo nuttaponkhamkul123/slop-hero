@@ -922,6 +922,24 @@ for (const [classKey, tree] of Object.entries(SKILL_TREES)) {
   }
 }
 
+// ==========================================
+// PASSIVE BALANCE
+// ==========================================
+// Every talent bonus (stats and per-rank mechanic growth) is scaled by this
+// after the trees are built; descriptions are rebuilt to match.
+const PASSIVE_SCALE = 0.5;
+for (const [classKey, tree] of Object.entries(SKILL_TREES)) {
+  for (const talent of tree) {
+    for (const [stat, v] of Object.entries(talent.effects)) {
+      talent.effects[stat] = INT_STATS.has(stat) ? Math.max(1, Math.round(v * PASSIVE_SCALE)) : +(v * PASSIVE_SCALE).toFixed(4);
+    }
+    const sig = BRANCH_SIGNATURES[talent.id.replace(/_t\d+_[abc]$/, '')];
+    const unlock = sig && talent.tier === 1 && talent.desc.startsWith(sig.unlock) ? sig.unlock + ' ' : '';
+    if (unlock) talent.desc = talent.desc.slice(unlock.length);
+    talent.desc = unlock + describeEffects(talent, classKey);
+  }
+}
+
 module.exports = SKILL_TREES;
 // Not enumerable: the trees object is sent to clients and iterated by class
 Object.defineProperty(module.exports, 'TALENT_PROCS', { value: TALENT_PROCS });
