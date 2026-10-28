@@ -6,7 +6,9 @@ const BGM_TRACKS = {
   town: '/city.wav',
   dungeon: '/dunjion.wav',
   frostfell: '/frosfell.wav',
-  shadowfell: '/shadowfell-ruins.wav'
+  wildwood: '/wildwood.wav',
+  shadowfell: '/shadowfell-ruins.wav',
+  celestial: '/celestial.wav'
 };
 class SoundFX {
   constructor() {
