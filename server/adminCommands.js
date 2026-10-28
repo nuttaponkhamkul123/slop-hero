@@ -221,12 +221,12 @@ const COMMANDS = {
   },
 
   givesp: {
-    usage: '/givesp <cardId> [upgradeLevel 0-10] [playerName]',
-    desc: 'เสก SP Card พร้อมเลเวลบวก (+0 ถึง +10)',
+    usage: '/givesp <cardId> [upgradeLevel 0-100] [playerName]',
+    desc: 'เสก SP Card พร้อมเลเวลบวก (+0 ถึง +100)',
     run(gameServer, player, args) {
       if (!args[0]) {
         const availableCards = Object.keys(SP.CARD_BY_ID).join(', ');
-        return sendFeedback(gameServer, player, `❌ รูปแบบ: /givesp <cardId> [upgradeLevel 0-10] [playerName]\nการ์ดที่มี: ${availableCards}`);
+        return sendFeedback(gameServer, player, `❌ รูปแบบ: /givesp <cardId> [upgradeLevel 0-100] [playerName]\nการ์ดที่มี: ${availableCards}`);
       }
 
       const rawId = args[0].toLowerCase().replace(/^sp_card_/, '');
@@ -235,7 +235,7 @@ const COMMANDS = {
         return sendFeedback(gameServer, player, `❌ ไม่พบ SP Card: ${args[0]} (ดูชื่อการ์ดพิมพ์ /items sp)`);
       }
 
-      const upgrade = Math.max(0, Math.min(10, parseInt(args[1], 10) || 0));
+      const upgrade = Math.max(0, Math.min(SP.SP_MAX_LEVEL, parseInt(args[1], 10) || 0));
       let targetPlayer = player;
       if (args[2]) {
         const found = findPlayerByName(gameServer, args[2]);

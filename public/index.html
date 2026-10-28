@@ -18,8 +18,17 @@
 
   <!-- Interactive MMORPG HUD -->
   <div id="ui-container">
+    <!-- Shown while standing near a portal: click or press F to go through -->
+    <button type="button" id="portalPrompt" class="portal-prompt interactive" style="display: none;">
+      <span data-pxi="whirl"></span>
+      <span class="portal-prompt-text" id="portalPromptText">Enter Portal</span>
+      <kbd class="portal-prompt-key">F</kbd>
+    </button>
     <!-- Top HUD Row -->
     <div class="top-hud">
+      <!-- Top-left column: hero frame with the party list underneath -->
+      <div class="top-left-stack">
+      <div class="player-frame-row">
       <!-- Player Info Frame (Top-Left) -->
       <div class="hud-panel player-frame interactive" id="playerFrame">
         <div class="avatar-wrapper">
@@ -57,6 +66,9 @@
           </div>
         </div>
       </div>
+      <!-- Buffs / debuffs on the hero (right of the player frame) -->
+      <div class="buff-tray" id="buffTray"></div>
+      </div>
 
       <!-- Party Frame (Top-Left under hero frame) -->
       <div class="hud-panel party-frame interactive" id="partyFrame" style="display: none;">
@@ -70,6 +82,7 @@
         <div class="party-members-list" id="partyMembersList">
           <!-- Populated dynamically via game.js -->
         </div>
+      </div>
       </div>
 
       <!-- Target HUD (Top-Center) -->
@@ -201,7 +214,7 @@
             <span class="slot-key">1</span>
             <span class="slot-icon" id="slotHpIcon" data-pxi="hp_potion"></span>
             <span class="slot-badge" id="badgeHealthPotion">3</span>
-            <span class="slot-swap-btn" id="btnSwapHp" title="Click to Switch Potion Size">⇄</span>
+            <span class="slot-swap-btn" id="btnSwapHp" title="Click to Switch Potion Size"><span data-pxi="swap"></span></span>
           </div>
 
           <!-- Mana Potion -->
@@ -209,7 +222,7 @@
             <span class="slot-key">2</span>
             <span class="slot-icon" id="slotMpIcon" data-pxi="mp_potion"></span>
             <span class="slot-badge" id="badgeManaPotion">2</span>
-            <span class="slot-swap-btn" id="btnSwapMp" title="Click to Switch Potion Size">⇄</span>
+            <span class="slot-swap-btn" id="btnSwapMp" title="Click to Switch Potion Size"><span data-pxi="swap"></span></span>
           </div>
         </div>
       </div>
@@ -489,7 +502,29 @@
           </div>
         </div>
 
-        <!-- Section 2: Audio Settings -->
+        <!-- Section 2: Graphics -->
+        <div class="settings-section">
+          <div class="settings-section-title">
+            <span data-pxi="cube"></span> GRAPHICS & PERFORMANCE
+          </div>
+          <div class="settings-control-row">
+            <div class="settings-label-col">
+              <span class="settings-label-main">Graphics Quality</span>
+              <span class="settings-label-sub">Lower it if the game feels laggy; Auto lowers it by itself</span>
+            </div>
+            <div class="settings-value-col">
+              <span class="settings-badge" id="lblGraphicsVal">Auto · 100%</span>
+            </div>
+          </div>
+          <div class="gui-scale-presets">
+            <button type="button" class="gui-scale-preset active" data-quality="auto">Auto</button>
+            <button type="button" class="gui-scale-preset" data-quality="high">High</button>
+            <button type="button" class="gui-scale-preset" data-quality="medium">Medium</button>
+            <button type="button" class="gui-scale-preset" data-quality="low">Low</button>
+          </div>
+        </div>
+
+        <!-- Section 3: Audio Settings -->
         <div class="settings-section">
           <div class="settings-section-title">
             <span data-pxi="sound"></span> AUDIO & SOUND EFFECTS
@@ -662,13 +697,13 @@
             <div class="action-slot potion-quick-btn" id="invHpSlot" title="Click to Drink Health Potion (1)">
               <span class="slot-icon" data-pxi="hp_potion"></span>
               <span class="potion-label" id="invHpLabel">Health Potion</span>
-              <button class="potion-switch-btn" id="invHpSwitch" title="Switch potion type for key 1">SWAP</button>
+              <button class="potion-switch-btn" id="invHpSwitch" title="Switch potion type for key 1"><span data-pxi="swap"></span></button>
               <span class="slot-badge" id="invHpCount">3</span>
             </div>
             <div class="action-slot potion-quick-btn" id="invMpSlot" title="Click to Drink Mana Potion (2)">
               <span class="slot-icon" data-pxi="mp_potion"></span>
               <span class="potion-label" id="invMpLabel">Mana Potion</span>
-              <button class="potion-switch-btn" id="invMpSwitch" title="Switch potion type for key 2">SWAP</button>
+              <button class="potion-switch-btn" id="invMpSwitch" title="Switch potion type for key 2"><span data-pxi="swap"></span></button>
               <span class="slot-badge" id="invMpCount">2</span>
             </div>
           </div>
@@ -1080,8 +1115,13 @@
     <p class="death-timer">Respawning in <span id="respawnCountdown">5</span> seconds...</p>
     <button id="btnUseRevivalStone" class="btn-revive" style="display: none;">
       <span data-pxi="gem"></span>
-      <span class="btn-revive-text">ชุบชีวิตทันที</span>
+      <span class="btn-revive-text">ชุบชีวิตทันที (30% HP)</span>
       <span class="btn-revive-count">x<span id="revivalStoneCount">0</span></span>
+    </button>
+    <button id="btnUseSuperRevivalStone" class="btn-revive btn-revive-super" style="display: none;">
+      <span data-pxi="ruby"></span>
+      <span class="btn-revive-text">ชุบชีวิตระดับซุปเปอร์ (100% HP)</span>
+      <span class="btn-revive-count">x<span id="superRevivalStoneCount">0</span></span>
     </button>
     <p style="color: var(--text-muted); font-size: 14px; margin-top: 12px;">Tip: Watch out for boss monsters and drink potions when low on HP!</p>
   </div>
@@ -1099,6 +1139,7 @@
   <script src="js/pixelIcons.js"></script>
   <script src="js/tooltip.js"></script>
   <script src="js/pixelHeroes.js"></script>
+  <script src="js/pixelMobs.js"></script>
   <script src="js/townLife.js"></script>
   <script src="js/dungeonLife.js"></script>
   <script src="js/renderer.js"></script>

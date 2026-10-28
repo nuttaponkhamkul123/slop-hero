@@ -427,8 +427,15 @@
     };
     const weapon = C.weapon || ((ff, hand, d) => sword(ff, hand, d, 18));
     const wTipUp = sk.handF[1] + sk.wdir[1] * 12 < sk.neck[1];
+    // the sword hand itself up at the shoulders (overhead swings), not just the blade pointing up
+    const wRaised = sk.handF[1] < sk.neck[1] + 3;
     const swordBehind = !!p.wBack;
     const drawSword = () => { if (!p.drop) f.meta.tip = weapon(f, sk.handF, sk.wdir); };
+    // off-hand blade (dual-wield costumes), drawn just under the back arm
+    const armB = (r) => {
+      if (C.weaponB && !p.drop) f.meta.tipB = C.weaponB(f, sk.handB, sk.wdirB);
+      arm(f, sk, 'B', armMatsB, r);
+    };
     const torso = () => {
       paint(f, poly([L(sk, sk.hip, -4.6, 1.8), L(sk, sk.hip, 4.8, 1.8), L(sk, sk.hip, 5.2, -3.6), L(sk, sk.hip, -4.8, -3.6)]), M.plate || M.darkSteel);
       paint(f, poly([L(sk, sk.shC, -4.5, 1.1), L(sk, sk.shC, 4.9, 1.1), L(sk, sk.hip, 4.3, 1.4), L(sk, sk.hip, -4.1, 1.4)]), M.steel, { spec: true });
@@ -497,7 +504,7 @@
       leg(f, sk, 'B', legMats, [2.3, 2.0, 1.7]);
       leg(f, sk, 'F', legMats, [2.5, 2.1, 1.8]);
       torso();
-      arm(f, sk, 'B', armMatsB, [1.9, 1.7, 1.5]);
+      armB([1.9, 1.7, 1.5]);
       pauldron(sk.shB, M.darkSteel);
       head();
       if (!swordBehind) drawSword();
@@ -505,21 +512,21 @@
       pauldron(sk.shF, M.steel);
     } else if (frontal) {
       // Facing away: the blade held in front is hidden by the body unless raised
-      if (!wTipUp) drawSword();
+      if (!wRaised) drawSword();
       leg(f, sk, 'F', legMats, [2.5, 2.1, 1.8]);
       leg(f, sk, 'B', legMats, [2.3, 2.0, 1.7]);
       torso();
       head();
       drawCape();
       arm(f, sk, 'F', armMatsF, [2, 1.8, 1.6]);
-      arm(f, sk, 'B', armMatsB, [1.9, 1.7, 1.5]);
+      armB([1.9, 1.7, 1.5]);
       pauldron(sk.shF, M.steel);
       pauldron(sk.shB, M.steel);
-      if (wTipUp) drawSword();
+      if (wRaised) drawSword();
     } else if (view === 'front') {
       drawCape();
       if (swordBehind) drawSword();
-      arm(f, sk, 'B', armMatsB, [1.9, 1.7, 1.5]);
+      armB([1.9, 1.7, 1.5]);
       leg(f, sk, 'B', legMats, [2.3, 2.0, 1.7]);
       leg(f, sk, 'F', legMats, [2.5, 2.1, 1.8]);
       torso();
@@ -538,13 +545,14 @@
       head();
       if (!wTipUp) drawSword();
       drawCape();
-      arm(f, sk, 'B', armMatsB, [1.9, 1.7, 1.5]);
+      armB([1.9, 1.7, 1.5]);
       pauldron(sk.shF, M.steel);
       pauldron(sk.shB, M.steel);
       if (wTipUp) drawSword();
     }
     if (C.front) C.front(X);
     if (p.drop) weapon(f, [6, -1.4], [1, 0.02]);
+    if (p.drop && C.weaponB) C.weaponB(f, [-10, -1.2], [-1, 0.05]);
   }
 
   // Battle mage: long split coat over armoured legs, breastplate, ornate
@@ -884,19 +892,6 @@
     return add(head, d, 4);
   }
 
-  function greatAxe(f, hand, d) {
-    const n = perpOf(d);
-    paint(f, capsule(add(hand, d, -5), add(hand, d, 17), 0.95), M.wood);
-    const h = add(hand, d, 14);
-    for (const k of [-1, 1]) {
-      const s = (a, b) => add(add(h, d, a), n, b * k);
-      paint(f, poly([s(-1.6, 0.8), s(-4.4, 5.6), s(-1, 7.6), s(2.6, 7.8), s(5.6, 5.2), s(2.4, 0.8)]), CM.iron, { spec: true });
-    }
-    paint(f, capsule(add(h, d, -1.5), add(h, d, 2.5), 1.4), M.darkSteel);
-    spike(f, add(hand, d, 17), d, 3, 1, CM.iron, { spec: true });
-    return add(hand, d, 20);
-  }
-
   function warhammer(f, hand, d) {
     const n = perpOf(d);
     paint(f, capsule(add(hand, d, -5), add(hand, d, 15), 0.9), M.darkSteel);
@@ -939,6 +934,20 @@
     paint(f, capsule(s(0, 9.4), s(-6.5, 8.2), 0.5), CM.voidGlow, { tone: 'l', rim: false });
     paint(f, disc(s(-0.5, 5), 1), CM.voidGlow, { tone: 'l', rim: false });
     return s(0, 9.8);
+  }
+
+  // Berserker twin blade: short heavy cleaver-sword with a blood-red fuller,
+  // one in each hand
+  function bloodBlade(f, hand, d) {
+    const n = perpOf(d);
+    const s = (a, b) => add(add(hand, d, a), n, b);
+    paint(f, capsule(s(-3, 0), s(1.2, 0), 0.85), M.leather);
+    paint(f, disc(s(-3.7, 0), 1.1), CM.bone, { spec: true });
+    paint(f, poly([s(1.2, 2.6), s(2.4, 2.2), s(2.4, -2.2), s(1.2, -2.6)]), M.darkSteel, { spec: true });
+    // widens toward a clipped, back-swept tip
+    paint(f, poly([s(2.4, 1.2), s(10, 1.8), s(13.5, 1.3), s(15.5, -0.4), s(12.5, -1.6), s(2.4, -1.2)]), CM.iron, { spec: true });
+    paint(f, capsule(s(3.4, 0.1), s(11.5, 0.3), 0.45), CM.crimson, { tone: 'm', rim: false });
+    return s(15.5, -0.4);
   }
 
   // ---- mage staves: (f, hand, d, glow, ph) -> orb point
@@ -1112,8 +1121,17 @@
       }
     },
     sp_berserker: {
-      smear: () => CM.fire,
-      weapon: greatAxe,
+      smear: () => CM.crimson,
+      smearR: [5, 16.5],
+      weapon: bloodBlade,
+      weaponB: bloodBlade,
+      // dual wield: the off hand lets go of the grip and carries its own blade,
+      // trailing low behind when the arm is free (run, dash)
+      pose(p) {
+        if (p.drop) return p;
+        if (!p.twoHand && p.handB) return p.wpnB !== undefined ? p : Object.assign({}, p, { wpnB: -0.7 });
+        return Object.assign({}, p, { twoHand: false, handB: [p.handF[0] - 5, p.handF[1] + 3], wpnB: p.wpn - 0.9 });
+      },
       cape: null,
       armMatsF: () => ({ upper: M.skin, fore: M.leather, hand: M.leather }),
       armMatsB: () => ({ upper: M.skin, fore: M.leather, hand: M.leather }),
@@ -1681,7 +1699,9 @@
   function poseAt(def, i) {
     const n = def.frames;
     const t = def.loop ? i / n : (def.hold ? i / (n - 1) : i / n);
-    return { pose: def.pose ? def.pose(t) : sampleKeys(def.keys, t), t };
+    const pose = def.pose ? def.pose(t) : sampleKeys(def.keys, t);
+    // a costume may re-grip the class poses (e.g. dual wield)
+    return { pose: COSTUME && COSTUME.pose ? COSTUME.pose(pose) : pose, t };
   }
 
   function buildFrame(cls, view, action, i) {
@@ -1695,7 +1715,7 @@
       const C = COSTUME || {};
       const prev = poseAt(def, i - 1).pose;
       const pairs = [[prev.wpn, pose.wpn, sk.handF, WEAPON_TILT]];
-      if (cls === 'rogue' && !C.noSmearB) pairs.push([prev.wpnB === undefined ? prev.wpn : prev.wpnB, pose.wpnB, sk.handB, -WEAPON_TILT]);
+      if ((cls === 'rogue' || C.weaponB) && !C.noSmearB) pairs.push([prev.wpnB === undefined ? prev.wpn : prev.wpnB, pose.wpnB, sk.handB, -WEAPON_TILT]);
       const sm = C.smear ? C.smear() : cls === 'rogue' ? M.venom : cls === 'mage' ? M.orb : M.smear;
       const r = C.smearR || (cls === 'warrior' ? [8, 19] : cls === 'mage' ? [12, 18.5] : [3.5, 11.5]);
       for (const [a0, a1, pivot, tilt] of pairs) {

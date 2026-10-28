@@ -426,7 +426,7 @@
     update(dt, R) {
       dt = Math.min(dt, 0.1);
       this.time += dt;
-      const c = Isometric.screenToWorld(R.canvas.width / 2, R.canvas.height / 2, R.camera, R.canvas.width, R.canvas.height);
+      const c = Isometric.screenToWorld(R.viewW / 2, R.viewH / 2, R.camera, R.viewW, R.viewH);
       const span = 9 / Math.max(0.65, R.camera.zoom) + 3;
       const kind = this.T.mote, M = MOTES[kind] || MOTES.dust;
       const spawn = (m, fresh) => {
@@ -457,7 +457,7 @@
     // The lights near the screen this frame, with flicker
     gatherLights(R, gameState, localPlayerId) {
       const out = [];
-      const z = R.camera.zoom, W = R.canvas.width, H = R.canvas.height, t = this.time;
+      const z = R.camera.zoom, W = R.viewW, H = R.viewH, t = this.time;
       const add = (l) => {
         const s = Isometric.worldToScreen(l.x, l.y, 0, R.camera, W, H);
         const rp = l.r * TILE_PX * z;
@@ -493,7 +493,7 @@
     // anyway, and full-size stamps of every light are a lot of overdraw.
     drawLighting(ctx, R, gameState, localPlayerId) {
       const lights = this.gatherLights(R, gameState, localPlayerId);
-      const W = R.canvas.width, H = R.canvas.height, z = R.camera.zoom, q = 0.25;
+      const W = R.viewW, H = R.viewH, z = R.camera.zoom, q = 0.25;
       const lw = Math.ceil(W * q), lh = Math.ceil(H * q);
       const layer = (c) => {
         if (c.width !== lw || c.height !== lh) { c.width = lw; c.height = lh; }
@@ -527,7 +527,7 @@
 
     // Low drifting fog and floating particles over the scene
     drawAmbient(ctx, R) {
-      const z = R.camera.zoom, W = R.canvas.width, H = R.canvas.height, t = this.time;
+      const z = R.camera.zoom, W = R.viewW, H = R.viewH, t = this.time;
       const [lr, lg, lb] = this.T.light;
       ctx.save();
       const fogImg = glowBlob([lr, lg, lb]);

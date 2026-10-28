@@ -419,8 +419,32 @@
       ${[[12, 48], [28, 18], [40, 40], [54, 12]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="5" fill="${p.hot}" stroke="${p.acc}" stroke-width="2"/>`).join('')}`,
     pulse: p => `<circle cx="32" cy="32" r="22" fill="none" stroke="${p.acc}" stroke-width="3"/><circle cx="32" cy="32" r="14" fill="none" stroke="${p.fg}" stroke-width="4"/><circle cx="32" cy="32" r="6" fill="${p.hot}"/>`,
     dash: p => `<path d="M20 22 H40 V12 L58 32 L40 52 V42 H20 Z" fill="${p.fg}"/><g stroke="${p.acc}" stroke-width="3" stroke-linecap="round"><line x1="6" y1="24" x2="14" y2="24"/><line x1="4" y1="32" x2="14" y2="32"/><line x1="6" y1="40" x2="14" y2="40"/></g>`,
+    // toggled blood aura: a drop inside a dashed ring
+    aura: p => `<circle cx="32" cy="32" r="23" fill="none" stroke="${p.acc}" stroke-width="3" stroke-dasharray="7 5"/>
+      <path d="M32 12 C40 24 46 31 46 39 A14 14 0 0 1 18 39 C18 31 24 24 32 12 Z" fill="${p.fg}" stroke="${p.acc}" stroke-width="2"/>
+      <ellipse cx="27" cy="38" rx="3" ry="5" fill="${p.hot}"/>`,
+    // toggled thunderhead: a storm cloud with bolts dropping out of it
+    cloud: p => `<path d="M14 30 A9 9 0 0 1 22 18 A12 12 0 0 1 44 16 A9 9 0 0 1 52 30 Z" fill="${p.fg}" stroke="${p.acc}" stroke-width="2"/>
+      <path d="M22 34 L18 44 L24 44 L20 56 M40 34 L36 44 L42 44 L38 56" fill="none" stroke="${p.hot}" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>`,
+    // two storm orbs flying forward, sparks around each
+    orbs: p => [[20, 40], [42, 22]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="12" fill="none" stroke="${p.acc}" stroke-width="2" stroke-dasharray="3 3"/><circle cx="${x}" cy="${y}" r="7" fill="${p.fg}"/><circle cx="${x - 2}" cy="${y - 2}" r="2.5" fill="${p.hot}"/>`).join('')
+      + `<path d="M6 58 L14 50 M28 58 L36 48" stroke="${p.acc}" stroke-width="2.5" stroke-linecap="round"/>`,
+    // toggled blade spin: two swords crossed over swirling arcs
+    whirl: p => `<path d="M10 30 A22 22 0 0 1 46 12 M54 34 A22 22 0 0 1 18 52" fill="none" stroke="${p.acc}" stroke-width="4" stroke-linecap="round"/>
+      <path d="M46 6 L50 16 L40 14 Z M18 58 L14 48 L24 50 Z" fill="${p.acc}"/>
+      <path d="M16 16 L44 44 M48 16 L20 44" stroke="${p.fg}" stroke-width="5" stroke-linecap="round"/>
+      <path d="M40 48 L48 40 M16 40 L24 48" stroke="${p.hot}" stroke-width="4" stroke-linecap="round"/>`,
     blink: p => `<circle cx="16" cy="44" r="9" fill="none" stroke="${p.fg}" stroke-width="3" stroke-dasharray="4 3"/><circle cx="48" cy="18" r="10" fill="${p.fg}"/>
-      <path d="M22 36 Q28 16 40 18" fill="none" stroke="${p.hot}" stroke-width="3" stroke-dasharray="3 4" stroke-linecap="round"/>`
+      <path d="M22 36 Q28 16 40 18" fill="none" stroke="${p.hot}" stroke-width="3" stroke-dasharray="3 4" stroke-linecap="round"/>`,
+    // Nightblade: a fan of throwing stars with a return arrow
+    shuriken: p => star(20, 42, 12, 4, 4, p.fg) + star(44, 20, 12, 4, 4, p.fg) + star(44, 46, 8, 3, 4, p.acc)
+      + `<path d="M14 22 Q20 8 34 10" fill="none" stroke="${p.hot}" stroke-width="3" stroke-linecap="round"/><path d="M14 14 L13 23 L22 22" fill="none" stroke="${p.hot}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`,
+    smoke: p => `<g fill="${p.fg}"><circle cx="20" cy="38" r="11"/><circle cx="34" cy="30" r="13"/><circle cx="46" cy="40" r="10"/><rect x="18" y="38" width="30" height="12" rx="6"/></g>
+      <circle cx="32" cy="14" r="6" fill="${p.acc}"/><path d="M36 10 L42 4" stroke="${p.hot}" stroke-width="3" stroke-linecap="round"/>`,
+    shadow: p => `<path d="M18 52 C16 36 20 28 24 24 A7 7 0 1 1 32 24 C36 28 40 36 38 52 Z" fill="${p.fg}" opacity="0.55" stroke="${p.acc}" stroke-width="2"/>
+      <path d="M36 50 L54 18" stroke="${p.hot}" stroke-width="3" stroke-dasharray="4 4" stroke-linecap="round"/>` + star(54, 16, 7, 2.5, 4, p.hot),
+    orbit: p => `<circle cx="32" cy="32" r="18" fill="none" stroke="${p.acc}" stroke-width="2.5" stroke-dasharray="6 5"/>`
+      + star(32, 14, 8, 3, 4, p.fg) + star(48, 41, 8, 3, 4, p.fg) + star(16, 41, 8, 3, 4, p.fg) + `<circle cx="32" cy="32" r="5" fill="${p.hot}"/>`
   };
   const SP_EMBLEMS = {
     warrior: p => `<path d="M50 44 L53 47 L46 54 L43 51 Z M41 53 L48 60 M44 50 L51 57" stroke="${p.hot}" stroke-width="2" fill="${p.hot}"/>`,
@@ -431,23 +455,23 @@
   const SP_ICONS = {};
   const spKit = (palette, cls, kit) => Object.entries(kit).forEach(([id, shape]) => { SP_ICONS[id] = [palette, shape, cls]; });
   spKit('gold', 'warrior', { sp_holy_cleave: 'cone', sp_judgement: 'blast', sp_sanctuary: 'buff', sp_divine_charge: 'dash' });
-  spKit('blood', 'warrior', { sp_blood_frenzy: 'pulse', sp_red_rage: 'buff', sp_rampage_fissure: 'line', sp_reckless_leap: 'blink' });
+  spKit('blood', 'warrior', { sp_crimson_aura: 'aura', sp_bloodlust: 'buff', sp_blade_whirl: 'whirl', sp_crimson_rush: 'dash' });
   spKit('ice', 'warrior', { sp_glacier_strike: 'strike', sp_winter_ward: 'buff', sp_avalanche: 'rain', sp_ice_glide: 'dash' });
-  spKit('bolt', 'warrior', { sp_thunder_cleave: 'chain', sp_stormcall: 'rain', sp_thunder_roar: 'nova', sp_lightning_rush: 'blink' });
+  spKit('bolt', 'warrior', { sp_thunderhead: 'cloud', sp_arc_conduit: 'chain', sp_storm_orbs: 'orbs', sp_lightning_rush: 'blink' });
   spKit('shadow', 'warrior', { sp_abyss_cleave: 'line', sp_void_grasp: 'pull', sp_soul_bastion: 'pulse', sp_shadow_charge: 'dash' });
   spKit('fire', 'mage', { sp_flame_wave: 'cone', sp_ember_volley: 'volley', sp_sunburst: 'pulse', sp_flame_step: 'dash' });
   spKit('ice', 'mage', { sp_ice_lance: 'line', sp_frozen_orb: 'pulse', sp_permafrost: 'nova', sp_ice_blink: 'blink' });
   spKit('bolt', 'mage', { sp_arc_bolt: 'strike', sp_static_field: 'volley', sp_storm_lance: 'line', sp_static_blink: 'blink' });
   spKit('arcane', 'mage', { sp_time_warp: 'blast', sp_temporal_ward: 'buff', sp_dawn_rain: 'rain', sp_phase_shift: 'blink' });
   spKit('shadow', 'mage', { sp_event_horizon: 'pull', sp_void_volley: 'volley', sp_void_ray: 'line', sp_rift_walk: 'blink' });
-  spKit('shadow', 'rogue', { sp_night_fang: 'strike', sp_shadow_net: 'cone', sp_shroud: 'buff', sp_night_dash: 'dash' });
+  spKit('shadow', 'rogue', { sp_phantom_shuriken: 'shuriken', sp_smoke_bomb: 'smoke', sp_shadow_toss: 'shadow', sp_night_dash: 'dash' });
   spKit('poison', 'rogue', { sp_plague_breath: 'cone', sp_venom_rain: 'rain', sp_viper_nest: 'pulse', sp_serpent_slip: 'blink' });
   spKit('bolt', 'rogue', { sp_storm_waltz: 'pulse', sp_knife_storm: 'volley', sp_mirror_dance: 'chain', sp_flash_step: 'dash' });
   spKit('ice', 'rogue', { sp_frozen_execution: 'strike', sp_shatter: 'nova', sp_ice_spikes: 'line', sp_cold_step: 'blink' });
   spKit('blood', 'rogue', { sp_total_eclipse: 'strike', sp_blood_tether: 'volley', sp_crimson_bloom: 'nova', sp_reaper_step: 'dash' });
   // arsenal extras
   spKit('gold', 'warrior', { sp_radiant_lance: 'line', sp_consecration: 'pulse', sp_halo_burst: 'nova', sp_angel_step: 'blink' });
-  spKit('blood', 'warrior', { sp_skull_splitter: 'strike', sp_war_cry: 'cone', sp_inferno_spin: 'nova', sp_bull_rush: 'dash' });
+  spKit('blood', 'warrior', { sp_twin_rend: 'cone', sp_exsanguinate: 'nova', sp_crimson_cross: 'line', sp_blood_leap: 'blink' });
   spKit('ice', 'warrior', { sp_frost_lance: 'line', sp_hail_shards: 'volley', sp_glacial_prison: 'pull', sp_frost_vault: 'blink' });
   spKit('bolt', 'warrior', { sp_thunder_spear: 'line', sp_static_cleave: 'cone', sp_storm_aegis: 'buff', sp_storm_dash: 'dash' });
   spKit('shadow', 'warrior', { sp_soul_rend: 'strike', sp_dread_wave: 'cone', sp_grave_rain: 'rain', sp_void_step: 'blink' });
@@ -456,7 +480,7 @@
   spKit('bolt', 'mage', { sp_ball_lightning: 'pulse', sp_thunder_nova: 'nova', sp_spark_rain: 'rain', sp_storm_surge: 'dash' });
   spKit('arcane', 'mage', { sp_rewind: 'nova', sp_chrono_lance: 'line', sp_stasis_field: 'pulse', sp_time_skip: 'dash' });
   spKit('shadow', 'mage', { sp_dark_nova: 'nova', sp_shadow_chain: 'chain', sp_oblivion_rain: 'rain', sp_void_dash: 'dash' });
-  spKit('shadow', 'rogue', { sp_moon_volley: 'volley', sp_umbral_line: 'line', sp_night_terror: 'nova', sp_shadow_hop: 'blink' });
+  spKit('shadow', 'rogue', { sp_shuriken_storm: 'orbit', sp_moon_volley: 'volley', sp_night_fang: 'strike', sp_shadow_hop: 'blink' });
   spKit('poison', 'rogue', { sp_toxic_lance: 'line', sp_plague_chain: 'chain', sp_miasma: 'buff', sp_venom_dash: 'dash' });
   spKit('bolt', 'rogue', { sp_whirling_edge: 'cone', sp_lightning_lunge: 'strike', sp_blade_tempest: 'rain', sp_spark_blink: 'blink' });
   spKit('ice', 'rogue', { sp_frost_daggers: 'volley', sp_cold_snap: 'blast', sp_frozen_veil: 'buff', sp_ice_slide: 'dash' });

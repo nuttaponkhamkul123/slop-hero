@@ -18,11 +18,30 @@
   const ISO_YAW = -Math.PI / 4;   // +X -> screen lower-right, +Z -> lower-left
 
   // ---------- small modelling helpers ----------
+  // Old-world colour grade: every painted surface is aged toward dusty, faded
+  // earth tones (half the saturation, dimmer highlights, a warm brown cast).
+  // Glowing parts (windows, lanterns, coals, runes) fade only a little.
+  const AGE = { sat: 0.38, light: 0.72, lightLift: 0.05, warmHue: 30 / 360, warmPull: 0.22 };
+  const AGE_GLOW = { sat: 0.55, light: 0.9, lightLift: 0, warmHue: 30 / 360, warmPull: 0.1 };
+  function aged(color, k = AGE) {
+    const c = new THREE.Color(color), hsl = {};
+    c.getHSL(hsl);
+    let dh = AGE.warmHue - hsl.h;
+    if (dh > 0.5) dh -= 1; else if (dh < -0.5) dh += 1;
+    const h = (hsl.h + dh * k.warmPull + 1) % 1;
+    c.setHSL(h, hsl.s * k.sat, hsl.l * k.light + k.lightLift);
+    return c;
+  }
   const matCache = new Map();
   function mat(color, opts) {
     const key = color + (opts ? JSON.stringify(opts) : '');
     if (!matCache.has(key)) {
-      matCache.set(key, new THREE.MeshStandardMaterial(Object.assign({ color, roughness: 0.82, metalness: 0.05, flatShading: true }, opts || {})));
+      // flat faces without specular sheen: each face reads as one colour, as in pixel art
+      const o = Object.assign({}, opts || {});
+      delete o.roughness; delete o.metalness;
+      const tint = aged(color, o.emissive ? AGE_GLOW : AGE);
+      if (o.emissive) o.emissive = aged(o.emissive, AGE_GLOW);
+      matCache.set(key, new THREE.MeshPhongMaterial(Object.assign({ color: tint, flatShading: true, shininess: 0, specular: 0x000000 }, o)));
     }
     return matCache.get(key);
   }
@@ -67,95 +86,64 @@
     return new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 }));
   }
 
-  // ---------- humanoid NPC (front faces +Z, ~52 units tall) ----------
-  function makeHuman(o) {
-    const g = new THREE.Group();
-    const parts = {};
-    const broad = o.broad || 1;
-
-    // legs & boots
-    for (const sx of [-1, 1]) {
-      cyl(g, 2.8 * broad, 2.4, 17, o.pants, sx * 3.2 * broad, 3, 0, 8);
-      box(g, 5.4 * broad, 3.4, 8, o.boots, sx * 3.2 * broad, 0, 1.2);
+  // ---------- pixel-art pass ----------
+  // The rendered prop is turned into pixel art so it sits with the pixel ground
+  // and sprites: hard alpha, colours snapped to ramps with an ordered-dither
+  // grain, 1px lines where faces of different brightness meet, dark outline.
+  const BAYER4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+  const STEP = 14;   // colour ramp step per channel
+  // weathering: grime patches, chipped specks, dirt collecting toward the ground
+  const hash = (x, y) => { const n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return n - Math.floor(n); };
+  function grime(x, y) {
+    const C = 7, gx = x / C, gy = y / C, x0 = Math.floor(gx), y0 = Math.floor(gy), fx = gx - x0, fy = gy - y0;
+    const sm = t => t * t * (3 - 2 * t);
+    const a = hash(x0, y0), b = hash(x0 + 1, y0), c = hash(x0, y0 + 1), d = hash(x0 + 1, y0 + 1);
+    return a + (b - a) * sm(fx) + (c - a) * sm(fy) + (a - b - c + d) * sm(fx) * sm(fy);
+  }
+  function pixelize(canvas) {
+    const W = canvas.width, H = canvas.height;
+    if (!W || !H) return;
+    const g = canvas.getContext('2d');
+    const img = g.getImageData(0, 0, W, H), d = img.data;
+    const src = new Uint8ClampedArray(d);
+    const lum = new Float32Array(W * H);
+    for (let i = 0, p = 0; p < W * H; p++, i += 4) {
+      if (src[i + 3] < 110) { d[i + 3] = 0; lum[p] = -1; continue; }
+      const x = p % W, y = (p / W) | 0;
+      const dither = (BAYER4[((y & 3) << 2) | (x & 3)] / 16 - 0.5) * STEP;
+      const glowing = src[i] + src[i + 1] + src[i + 2] > 600;   // lit windows / flames stay clean
+      let wear = 1;
+      if (!glowing) {
+        const patch = grime(x, y);
+        if (patch > 0.62) wear -= (patch - 0.62) * 0.55;          // soot and grime stains
+        if (hash(x * 3.1, y * 1.7) > 0.965) wear -= 0.16;          // chipped specks
+        wear -= 0.1 * (y / H) * (y / H);                           // dirt toward the ground
+      }
+      for (let c = 0; c < 3; c++) d[i + c] = Math.round((src[i + c] * wear + dither) / STEP) * STEP;
+      d[i + 3] = 255;
+      lum[p] = src[i] * 0.3 + src[i + 1] * 0.59 + src[i + 2] * 0.11;
     }
-
-    // torso (slightly tapered) + belly for the burly smith
-    parts.torso = new THREE.Group();
-    parts.torso.position.y = 19;
-    g.add(parts.torso);
-    cyl(parts.torso, 7.6 * broad, 6.4 * broad, 17, o.shirt, 0, 0, 0, 10);
-    if (o.belly) sphere(parts.torso, 6.6 * broad, o.shirt, 0, 5, 2.2, 10).scale.set(1, 1, 0.75);
-    box(parts.torso, 13.6 * broad, 2.4, 11 * broad, o.belt, 0, 1.2, 0);
-    sphere(parts.torso, 1.3, '#d4a017', 0, 2.4, 5.6 * broad, 6);
-    if (o.apron) box(parts.torso, 11 * broad, 18, 1.2, o.apron, 0, -6, 6.6 * broad);
-    if (o.vest) {
-      box(parts.torso, 4.4, 16, 1.2, o.vest, -4.2 * broad, 0.5, 6.3 * broad);
-      box(parts.torso, 4.4, 16, 1.2, o.vest, 4.2 * broad, 0.5, 6.3 * broad);
-    }
-    // shoulders
-    sphere(parts.torso, 3.8 * broad, o.sleeve || o.shirt, -7.4 * broad, 15.6, 0, 8);
-    sphere(parts.torso, 3.8 * broad, o.sleeve || o.shirt, 7.4 * broad, 15.6, 0, 8);
-
-    // arms: pivot at the shoulder, hanging down -Y
-    for (const side of ['L', 'R']) {
-      const sx = side === 'L' ? 1 : -1; // character's left is +X when facing +Z
-      const arm = new THREE.Group();
-      arm.position.set(sx * 8.4 * broad, 15.4, 0);
-      parts.torso.add(arm);
-      cyl(arm, 2.5 * broad, 2.2 * broad, 9, o.sleeve || o.shirt, 0, -9, 0, 8);
-      const fore = new THREE.Group();
-      fore.position.y = -9;
-      arm.add(fore);
-      cyl(fore, 2.1 * broad, 1.9 * broad, 8.5, o.forearm || o.skin, 0, -8.5, 0, 8);
-      const hand = sphere(fore, 2.4 * broad, o.skin, 0, -9.6, 0, 8);
-      parts['arm' + side] = arm;
-      parts['fore' + side] = fore;
-      parts['hand' + side] = hand;
-    }
-
-    // head
-    parts.head = new THREE.Group();
-    parts.head.position.y = 17.5;
-    parts.torso.add(parts.head);
-    cyl(parts.head, 2.4, 2.8, 3, o.skin, 0, 0, 0, 8);
-    const skull = sphere(parts.head, 6.2, o.skin, 0, 8.4, 0, 14);
-    skull.scale.set(0.95, 1.08, 1);
-    for (const sx of [-1, 1]) {
-      sphere(parts.head, 0.95, '#1b1410', sx * 2.3, 9.4, 5.6, 6);           // eye
-      box(parts.head, 2.6, 0.7, 0.8, o.brow || o.hair, sx * 2.3, 10.9, 5.4); // brow
-      sphere(parts.head, 1.4, o.skin, sx * 6.1, 8.4, 0, 6);                  // ear
-    }
-    box(parts.head, 1.6, 2.6, 2.2, o.nose || o.skin, 0, 6.8, 6.2);          // nose
-    sphere(parts.head, 1.1, '#e8a17a', -3.4, 6.6, 5.0, 6).scale.set(1, 0.6, 0.4); // cheeks
-    sphere(parts.head, 1.1, '#e8a17a', 3.4, 6.6, 5.0, 6).scale.set(1, 0.6, 0.4);
-    if (o.hair) {
-      const cap = new THREE.Mesh(new THREE.SphereGeometry(6.5, 14, 10, 0, Math.PI * 2, 0, Math.PI * (o.bald ? 0.18 : 0.52)), mat(o.hair));
-      cap.position.y = 8.8;
-      cap.rotation.x = o.bald ? 0 : -0.25;
-      parts.head.add(cap);
-      if (o.bald) {
-        // fringe around the back of a bald head
-        const fringe = new THREE.Mesh(new THREE.TorusGeometry(5.6, 1.4, 6, 14, Math.PI * 1.2), mat(o.hair));
-        fringe.rotation.set(Math.PI / 2, 0, Math.PI * 0.9);
-        fringe.position.set(0, 7.4, -1);
-        parts.head.add(fringe);
+    for (let p = 0; p < W * H; p++) {
+      const i = p * 4, x = p % W, y = (p / W) | 0;
+      if (lum[p] < 0) {
+        // outline: an empty pixel touching the prop takes a deep shade of it
+        const n = [x > 0 ? p - 1 : -1, x < W - 1 ? p + 1 : -1, y > 0 ? p - W : -1, y < H - 1 ? p + W : -1].find(q => q >= 0 && lum[q] >= 0);
+        if (n !== undefined) {
+          const j = n * 4;
+          d[i] = src[j] * 0.22 + 6; d[i + 1] = src[j + 1] * 0.22 + 6; d[i + 2] = src[j + 2] * 0.22 + 14; d[i + 3] = 255;
+        }
+        continue;
+      }
+      // internal line on the darker side of a strong brightness step
+      const r = x < W - 1 ? lum[p + 1] : -1, b = y < H - 1 ? lum[p + W] : -1;
+      if ((r >= 0 && lum[p] < r - 38) || (b >= 0 && lum[p] < b - 38)) {
+        d[i] *= 0.62; d[i + 1] *= 0.62; d[i + 2] *= 0.66;
       }
     }
-    if (o.beard) {
-      const beard = new THREE.Mesh(new THREE.ConeGeometry(5.2, o.longBeard ? 11 : 7, 10), mat(o.beard));
-      beard.rotation.x = Math.PI;
-      beard.position.set(0, o.longBeard ? 1.4 : 3.2, 4.2);
-      beard.scale.z = 0.7;
-      parts.head.add(beard);
-      box(parts.head, 6.4, 1.4, 1.6, o.beard, 0, 5.2, 6.0); // moustache
-    }
-    if (o.hat) o.hat(parts.head);
-
-    g.userData.parts = parts;
-    return g;
+    g.putImageData(img, 0, 0);
   }
 
-  // ---------- prop builders: return { root, animate?(t, state) } ----------
+  // ---------- prop builders: return { root, front?, animate?(t, state) } ----------
   const BUILDERS = {};
 
   BUILDERS.merchant = () => {
@@ -200,151 +188,100 @@
       }
     }
 
+    // nearest the camera: drawn over the pixel-art shopkeeper (renderer.drawShopkeeper)
+    const front = new THREE.Group();
+    root.add(front);
     // counter
-    box(root, 12, 22, 64, wood, 24, 2, 0);
-    box(root, 15, 2, 68, light, 24, 24, 0);
-    box(root, 1, 16, 58, '#6d4423', 30.4, 5, 0);
+    box(front, 12, 22, 64, wood, 24, 2, 0);
+    box(front, 15, 2, 68, light, 24, 24, 0);
+    box(front, 1, 16, 58, '#6d4423', 30.4, 5, 0);
     // goods: apples crate, potions, cloth rolls, bread
-    box(root, 12, 5, 16, darkWood, 24, 26, -20);
-    for (let a = 0; a < 7; a++) sphere(root, 2.5, a % 3 ? '#c62828' : '#7cb342', 21 + (a % 3) * 3, 31.4, -25 + Math.floor(a / 3) * 4.5 + (a % 2), 8);
+    box(front, 12, 5, 16, darkWood, 24, 26, -20);
+    for (let a = 0; a < 7; a++) sphere(front, 2.5, a % 3 ? '#c62828' : '#7cb342', 21 + (a % 3) * 3, 31.4, -25 + Math.floor(a / 3) * 4.5 + (a % 2), 8);
     const potionColors = ['#e53935', '#1e88e5', '#43a047', '#8e24aa'];
     potionColors.forEach((c, i) => {
-      cyl(root, 1.8, 2.4, 6.5, mat(c, { emissive: c, emissiveIntensity: 0.35, roughness: 0.2 }), 21 + (i % 2) * 5, 26, -4 + i * 3.4, 8);
-      cyl(root, 1, 1, 1.6, '#c8a165', 21 + (i % 2) * 5, 32.5, -4 + i * 3.4, 6);
+      cyl(front, 1.8, 2.4, 6.5, mat(c, { emissive: c, emissiveIntensity: 0.35, roughness: 0.2 }), 21 + (i % 2) * 5, 26, -4 + i * 3.4, 8);
+      cyl(front, 1, 1, 1.6, '#c8a165', 21 + (i % 2) * 5, 32.5, -4 + i * 3.4, 6);
     });
     for (let r = 0; r < 3; r++) {
-      const roll = cyl(root, 2.8, 2.8, 12, ['#5e35b1', '#00897b', '#f9a825'][r], 0, 0, 0, 10);
+      const roll = cyl(front, 2.8, 2.8, 12, ['#5e35b1', '#00897b', '#f9a825'][r], 0, 0, 0, 10);
       roll.rotation.x = Math.PI / 2;
       roll.position.set(22 + (r === 2 ? 3 : 0), 28.8 + (r === 2 ? 4.6 : 0), 14 + (r === 2 ? 2.8 : r * 5.6));
     }
     // barrels & crate by the stall
-    cyl(root, 7, 6.2, 16, '#7b4a22', 42, 0, 30, 12);
-    for (const by of [3, 12]) cyl(root, 7.3, 7.3, 1.2, '#3e3e3e', 42, by, 30, 12);
-    box(root, 13, 12, 13, light, 42, 0, -30);
-    box(root, 13.4, 1, 13.4, darkWood, 42, 6, -30);
+    cyl(front, 7, 6.2, 16, '#7b4a22', 42, 0, 30, 12);
+    for (const by of [3, 12]) cyl(front, 7.3, 7.3, 1.2, '#3e3e3e', 42, by, 30, 12);
+    box(front, 13, 12, 13, light, 42, 0, -30);
+    box(front, 13.4, 1, 13.4, darkWood, 42, 6, -30);
 
     // sign board on the counter front
     const sign = textPlane("OLAF'S GOODS", 40, 10.5, '#d9b67c', '#3b2412');
     sign.position.set(30.8, 12, 0);
     sign.rotation.y = Math.PI / 2;
-    root.add(sign);
+    front.add(sign);
     // lanterns hanging from the awning edge
     for (const lz of [-30, 30]) {
       box(root, 0.6, 6, 0.6, '#222', 4, 60, lz);
       box(root, 3.6, 5, 3.6, glow('#ffb347', 0.9), 4, 55, lz);
     }
 
-    // Olaf: green cap with a feather, rosy cheeks, ginger moustache
-    const olaf = makeHuman({
-      skin: '#e9b48f', hair: '#b5651d', brow: '#8d4b16', beard: '#b5651d',
-      shirt: '#2f6fb0', sleeve: '#2f6fb0', vest: '#7a4b23', pants: '#5d4037', boots: '#3e2723', belt: '#3e2723',
-      hat: head => {
-        cyl(head, 6.8, 6.8, 3.6, '#2e7d32', 0, 12.2, 0, 14);
-        cyl(head, 9.4, 9.4, 0.8, '#1b5e20', 0, 11.6, 0, 16);
-        const feather = new THREE.Mesh(new THREE.ConeGeometry(1.2, 11, 6), mat('#e53935'));
-        feather.position.set(-5, 18, -2);
-        feather.rotation.z = 0.6;
-        head.add(feather);
-      }
-    });
-    olaf.position.set(11, 2, 0);
-    olaf.rotation.y = Math.PI / 2;
-    root.add(olaf);
-    const P = olaf.userData.parts;
-    P.armL.rotation.set(-0.5, 0, 0.12);
-    P.foreL.rotation.x = -0.9;
-
-    return {
-      root,
-      animate(t) {
-        P.torso.scale.y = 1 + Math.sin(t * 2.2) * 0.012;
-        P.head.rotation.y = Math.sin(t * 0.6) * 0.45;
-        P.head.rotation.x = Math.sin(t * 0.9) * 0.05;
-        // friendly wave every ~6 seconds
-        const cyc = t % 6;
-        const wave = cyc < 1.6 ? Math.sin((cyc / 1.6) * Math.PI) : 0;
-        P.armR.rotation.set(-wave * 0.4, 0, -0.1 - wave * 2.3);
-        P.foreR.rotation.set(0, 0, -wave * (0.6 + Math.sin(t * 14) * 0.35));
-      }
-    };
+    return { root, front };
   };
 
   // Valka's rune forge: an awning stall with a floating crystal over a rune
   // altar, where gear and SP cards are enhanced
+  // Valka's stall opens toward the fountain (world -x): the whole booth is
+  // turned half round, so the altar lies beyond her and the roof and posts
+  // sit between her and the camera (the front layer, painted over her)
   BUILDERS.enchanter = () => {
     const root = new THREE.Group();
     const stone = '#5b5f7a', darkStone = '#3b3f57', wood = '#5d3a6e';
+    const back = new THREE.Group(), front = new THREE.Group();
+    back.rotation.y = front.rotation.y = Math.PI;
+    root.add(back, front);
 
-    box(root, 78, 2, 78, '#4a4e66', 0, 0, 0);
-    for (let i = -3; i <= 3; i++) box(root, 78, 0.3, 0.6, '#3c3f55', 0, 2, i * 11);
-    for (const [px, pz, h] of [[-36, -36, 70], [-36, 36, 70], [-8, -36, 62], [-8, 36, 62]]) box(root, 4.4, h, 4.4, wood, px, 2, pz);
+    box(back, 78, 2, 78, '#4a4e66', 0, 0, 0);
+    for (let i = -3; i <= 3; i++) box(back, 78, 0.3, 0.6, '#3c3f55', 0, 2, i * 11);
+    for (const [px, pz, h] of [[-36, -36, 70], [-36, 36, 70], [-8, -36, 62], [-8, 36, 62]]) box(front, 4.4, h, 4.4, wood, px, 2, pz);
     const roof = new THREE.Group();
     roof.position.set(-22, 67, 0);
     roof.rotation.z = -Math.atan2(10, 42);
-    root.add(roof);
+    front.add(roof);
     for (let r = 0; r < 4; r++) box(roof, 12.4, 2.2, 84, r % 2 ? '#6d28d9' : '#4c1d95', -19 + r * 11.6, -r * 0.5, 0);
 
     // rune altar with a hovering crystal and a spinning ring
-    box(root, 22, 14, 22, stone, 16, 2, -14);
-    box(root, 25, 3, 25, darkStone, 16, 16, -14);
-    for (const [rx, rz] of [[6, -24], [26, -24], [6, -4], [26, -4]]) sphere(root, 1.4, glow('#c084fc', 1.4), rx, 19.5, rz, 6);
+    box(back, 22, 14, 22, stone, 16, 2, -14);
+    box(back, 25, 3, 25, darkStone, 16, 16, -14);
+    for (const [rx, rz] of [[6, -24], [26, -24], [6, -4], [26, -4]]) sphere(back, 1.4, glow('#c084fc', 1.4), rx, 19.5, rz, 6);
     const crystal = new THREE.Mesh(new THREE.OctahedronGeometry(6, 0), glow('#c084fc', 1.6));
     crystal.position.set(16, 34, -14);
-    root.add(crystal);
+    back.add(crystal);
     const ring = new THREE.Mesh(new THREE.TorusGeometry(9, 0.8, 6, 20), glow('#a855f7', 1.2));
     ring.rotation.x = Math.PI / 2;
     ring.position.set(16, 24, -14);
-    root.add(ring);
+    back.add(ring);
 
-    // shelf of glowing SP cards on the back wall
-    box(root, 2, 30, 44, wood, -36, 18, 0);
-    box(root, 6, 1.6, 44, darkStone, -33, 30, 0);
+    // low display of glowing SP cards along the camera side (kept low so it
+    // doesn't hide her)
+    box(front, 2, 12, 44, wood, -36, 2, 0);
+    box(front, 6, 1.6, 44, darkStone, -33, 14, 0);
     ['#facc15', '#38bdf8', '#f97316', '#4ade80', '#c084fc'].forEach((c, k) => {
-      box(root, 1.2, 8, 6, glow(c, 1.1), -33.4, 32, -16 + k * 8);
+      box(front, 1.2, 8, 6, glow(c, 1.1), -33.4, 15.6, -16 + k * 8);
     });
 
     const sign = textPlane('VALKA RUNES', 26, 7, '#2e1065', '#e9d5ff');
     sign.position.set(-34.6, 58, 0);
-    sign.rotation.y = Math.PI / 2;
-    root.add(sign);
-
-    // Valka: silver-haired enchantress in violet robes and a pointed hat
-    const valka = makeHuman({
-      broad: 0.92,
-      skin: '#e8b48f', hair: '#e5e7eb', brow: '#9ca3af',
-      shirt: '#6d28d9', sleeve: '#6d28d9', forearm: '#e8b48f', apron: '#4c1d95',
-      pants: '#312e81', boots: '#1e1b4b', belt: '#facc15',
-      hat: (head) => {
-        const brim = new THREE.Mesh(new THREE.CylinderGeometry(9, 9, 1, 14), mat('#4c1d95'));
-        brim.position.y = 13;
-        head.add(brim);
-        const cone = new THREE.Mesh(new THREE.ConeGeometry(6.6, 15, 12), mat('#5b21b6'));
-        cone.position.set(0, 20, -1);
-        cone.rotation.x = -0.18;
-        head.add(cone);
-        const band = new THREE.Mesh(new THREE.CylinderGeometry(6.4, 6.6, 1.6, 12), mat('#facc15'));
-        band.position.y = 14.2;
-        head.add(band);
-      }
-    });
-    valka.position.set(2, 2, -4);
-    valka.rotation.y = Math.PI / 2 + 0.5;
-    root.add(valka);
-    const P = valka.userData.parts;
+    sign.rotation.y = -Math.PI / 2;   // the booth is turned round; keep the sign facing the camera
+    front.add(sign);
 
     return {
       root,
+      front,
+      animateLayer: 'back',
       animate(t) {
         crystal.position.y = 34 + Math.sin(t * 2) * 2.5;
         crystal.rotation.y = t * 1.4;
         ring.rotation.z = t * 0.9;
-        // hands raised toward the crystal, weaving slowly
-        P.armR.rotation.set(-1.25 + Math.sin(t * 2) * 0.18, 0, -0.25);
-        P.armL.rotation.set(-1.05 + Math.sin(t * 2 + 1.2) * 0.18, 0, 0.25);
-        P.foreR.rotation.x = -0.35;
-        P.foreL.rotation.x = -0.35;
-        P.head.rotation.x = -0.1;
-        P.torso.scale.y = 1 + Math.sin(t * 2) * 0.01;
         return null;
       }
     };
@@ -376,16 +313,19 @@
     const bellows = box(root, 10, 5, 14, '#5d4037', -8, 2, -40);
     bellows.rotation.z = 0.25;
 
+    // nearest the camera: drawn over the pixel-art shopkeeper (renderer.drawShopkeeper)
+    const front = new THREE.Group();
+    root.add(front);
     // anvil on a stump, with a glowing blade on it
-    cyl(root, 7, 8, 10, '#8d6e63', 18, 2, 6, 12);
-    box(root, 9, 3, 7, '#2b2f36', 18, 12, 6, { metalness: 0.6, roughness: 0.4 });
-    box(root, 5, 4, 5, '#2b2f36', 18, 15, 6, { metalness: 0.6, roughness: 0.4 });
-    box(root, 7, 4, 18, '#3a3f47', 18, 19, 6, { metalness: 0.7, roughness: 0.35 });
+    cyl(front, 7, 8, 10, '#8d6e63', 18, 2, 6, 12);
+    box(front, 9, 3, 7, '#2b2f36', 18, 12, 6, { metalness: 0.6, roughness: 0.4 });
+    box(front, 5, 4, 5, '#2b2f36', 18, 15, 6, { metalness: 0.6, roughness: 0.4 });
+    box(front, 7, 4, 18, '#3a3f47', 18, 19, 6, { metalness: 0.7, roughness: 0.35 });
     const horn = new THREE.Mesh(new THREE.ConeGeometry(3, 8, 8), mat('#3a3f47', { metalness: 0.7, roughness: 0.35 }));
     horn.rotation.x = Math.PI / 2;
     horn.position.set(18, 21, 19);
-    root.add(horn);
-    box(root, 1.6, 0.8, 14, glow('#ff8f00', 1.2), 18, 23, 4);
+    front.add(horn);
+    box(front, 1.6, 0.8, 14, glow('#ff8f00', 1.2), 18, 23, 4);
 
     // tool rack on the back wall
     box(root, 2, 24, 30, wood, -36, 30, 18);
@@ -394,13 +334,13 @@
       box(root, 3, 3.4, 5, '#4b5058', -34.5, 46, 7 + k * 7, { metalness: 0.6 });
     }
     // quench trough and a barrel of finished swords
-    box(root, 14, 9, 22, wood, 30, 2, -22);
-    box(root, 11, 0.6, 19, mat('#3d7ab8', { roughness: 0.15 }), 30, 10.6, -22);
-    cyl(root, 6, 5.4, 13, '#7b4a22', 36, 2, 28, 12);
+    box(front, 14, 9, 22, wood, 30, 2, -22);
+    box(front, 11, 0.6, 19, mat('#3d7ab8', { roughness: 0.15 }), 30, 10.6, -22);
+    cyl(front, 6, 5.4, 13, '#7b4a22', 36, 2, 28, 12);
     for (let k = 0; k < 3; k++) {
-      const sw = box(root, 1.4, 22, 3, '#c9d1d9', 34 + k * 2.4, 10, 26 + k * 2, { metalness: 0.8, roughness: 0.25 });
+      const sw = box(front, 1.4, 22, 3, '#c9d1d9', 34 + k * 2.4, 10, 26 + k * 2, { metalness: 0.8, roughness: 0.25 });
       sw.rotation.z = -0.15 + k * 0.12;
-      box(root, 6, 1.2, 1.2, '#8d6e63', 34 + k * 2.4, 31, 26 + k * 2);
+      box(front, 6, 1.2, 1.2, '#8d6e63', 34 + k * 2.4, 31, 26 + k * 2);
     }
 
     // sign on the chimney, above the roofline
@@ -409,51 +349,11 @@
     sign.rotation.y = Math.PI / 2;
     root.add(sign);
 
-    // Brom: burly, bald, big grey beard, leather apron, hammer in hand
-    const brom = makeHuman({
-      broad: 1.22, belly: true, bald: true, longBeard: true,
-      skin: '#d79b72', hair: '#5d4037', brow: '#4e342e', beard: '#9e9e9e',
-      shirt: '#7b5e45', sleeve: '#d79b72', forearm: '#d79b72', apron: '#4e342e',
-      pants: '#37474f', boots: '#212121', belt: '#212121'
-    });
-    brom.position.set(4, 2, 6);
-    brom.rotation.y = Math.PI / 2;
-    root.add(brom);
-    const P = brom.userData.parts;
-    const hammer = new THREE.Group();
-    hammer.position.y = -9.6;
-    P.foreR.add(hammer);
-    cyl(hammer, 0.9, 0.9, 13, '#6d4c41', 0, -1, 0, 6).rotation.x = Math.PI / 2;
-    hammer.children[0].position.set(0, 0, 5);
-    box(hammer, 4.4, 4.4, 7, '#3d4249', 0, -2.2, 11, { metalness: 0.7, roughness: 0.3 });
-    P.armL.rotation.set(-0.7, 0, 0.15);
-    P.foreL.rotation.x = -0.6;
-
-    const STRIKE = 1.3; // seconds per hammer blow
-    const state = { lastBlow: -1 };
     return {
       root,
+      front,
       // world-space offset (in tiles) and height of the anvil face for sparks
-      sparkOffset: { x: 18 / TILE, y: 6 / TILE, z: 0.6 },
-      animate(t) {
-        const ph = (t % STRIKE) / STRIKE;
-        // slow lift, fast slam, short rest
-        let lift;
-        if (ph < 0.55) lift = Math.sin((ph / 0.55) * Math.PI * 0.5);
-        else if (ph < 0.68) lift = 1 - (ph - 0.55) / 0.13;
-        else lift = 0;
-        P.armR.rotation.set(-0.55 - lift * 1.9, 0, -0.05);
-        P.foreR.rotation.x = -0.75 + lift * 0.35;
-        P.torso.rotation.x = 0.06 + (1 - lift) * 0.06;
-        P.head.rotation.x = 0.15;
-        P.torso.scale.y = 1 + Math.sin(t * 2) * 0.01;
-        const blow = Math.floor(t / STRIKE);
-        if (ph >= 0.68 && blow !== state.lastBlow) {
-          state.lastBlow = blow;
-          return { struck: true };
-        }
-        return null;
-      }
+      sparkOffset: { x: 18 / TILE, y: 6 / TILE, z: 0.6 }
     };
   };
 
@@ -586,37 +486,34 @@
   // ---------- city street furniture ----------
 
   // Market stall: counter, striped awning and goods. Variant picks colours,
-  // wares and the stall keeper.
+  // wares and the stall keeper; variant + 4 turns the stall to face north
+  // (stalls on the south side of the boulevard face the road)
   BUILDERS.market_stall = (variant = 0) => {
     const root = new THREE.Group();
+    const north = variant >= 4;
     const awnings = [['#c0392b', '#f5efe0'], ['#2e6fb5', '#f5efe0'], ['#2f9e57', '#fdf2d0'], ['#8e44ad', '#f9e79f']];
     const [stripeA, stripeB] = awnings[variant % 4];
     const wood = '#7a4a26', dark = '#4a2f1d';
     const W = 54, D = 30;
 
-    // keeper stands behind the counter, facing the street
-    const keepers = [
-      { skin: '#e8b48a', shirt: '#b5651d', pants: '#4b3621', boots: '#2b1d14', belt: '#3b2a1a', hair: '#5a3825', apron: '#f2e6cf' },
-      { skin: '#c68b59', shirt: '#2c5d8a', pants: '#3b3b48', boots: '#22222a', belt: '#2a2a33', hair: '#1f1a17', beard: '#1f1a17' },
-      { skin: '#f0c9a0', shirt: '#6a8f3a', pants: '#5a4630', boots: '#2b1d14', belt: '#3b2a1a', hair: '#c9772e', apron: '#e9dcc0' },
-      { skin: '#d9a77a', shirt: '#5b3a7a', pants: '#3a2f45', boots: '#1f1a24', belt: '#2b2233', hair: '#d9d4cc', bald: true, beard: '#d9d4cc' }
-    ];
-    const keeper = makeHuman(keepers[variant % 4]);
-    keeper.scale.setScalar(0.82);
-    keeper.position.set(0, 0, -D / 2 + 4);
-    root.add(keeper);
+    // front = painted over the pixel-art keeper (renderer.drawShopkeeper): the
+    // awning always (it hangs over their head), the counter when it is the near side
+    const back = new THREE.Group(), front = new THREE.Group();
+    if (north) back.rotation.y = front.rotation.y = Math.PI;
+    root.add(back, front);
+    const counter = north ? back : front;
 
-    box(root, W, 20, D * 0.55, wood, 0, 0, D * 0.2);                    // counter
-    box(root, W + 4, 2.4, D * 0.55 + 4, '#a8743f', 0, 20, D * 0.2);      // counter top
-    for (let i = 0; i < 4; i++) box(root, W, 1.2, 0.8, dark, 0, 4 + i * 4, D * 0.2 + D * 0.275 + 0.4); // planks
+    box(counter, W, 20, D * 0.55, wood, 0, 0, D * 0.2);                    // counter
+    box(counter, W + 4, 2.4, D * 0.55 + 4, '#a8743f', 0, 20, D * 0.2);      // counter top
+    for (let i = 0; i < 4; i++) box(counter, W, 1.2, 0.8, dark, 0, 4 + i * 4, D * 0.2 + D * 0.275 + 0.4); // planks
     for (const sx of [-1, 1]) {
-      for (const sz of [-1, 1]) box(root, 3, 50, 3, dark, sx * (W / 2 - 1), 0, sz * (D / 2 - 1));
+      for (const sz of [-1, 1]) box(front, 3, 50, 3, dark, sx * (W / 2 - 1), 0, sz * (D / 2 - 1));
     }
     // sloped striped awning
     const awning = new THREE.Group();
     awning.position.set(0, 52, 0);
     awning.rotation.x = 0.28;
-    root.add(awning);
+    front.add(awning);
     const stripes = 7;
     for (let i = 0; i < stripes; i++) {
       box(awning, W / stripes + 0.2, 2, D + 10, i % 2 ? stripeB : stripeA, -W / 2 + (i + 0.5) * W / stripes, 0, 2);
@@ -626,27 +523,27 @@
     // wares on the counter
     const top = 22.4, zc = D * 0.2;
     if (variant % 4 === 0) {
-      for (let i = 0; i < 9; i++) sphere(root, 3, i % 3 ? '#d63031' : '#7cb342', -18 + (i % 5) * 9, top + 3, zc - 4 + Math.floor(i / 5) * 7, 7);
+      for (let i = 0; i < 9; i++) sphere(counter, 3, i % 3 ? '#d63031' : '#7cb342', -18 + (i % 5) * 9, top + 3, zc - 4 + Math.floor(i / 5) * 7, 7);
     } else if (variant % 4 === 1) {
       for (let i = 0; i < 4; i++) {
-        const fish = sphere(root, 3.2, '#8fb3c9', -16 + i * 10, top + 2.4, zc, 7);
+        const fish = sphere(counter, 3.2, '#8fb3c9', -16 + i * 10, top + 2.4, zc, 7);
         fish.scale.set(2.2, 0.7, 1);
       }
-      box(root, 14, 6, 10, '#c9d6df', 16, top, zc - 2);
+      box(counter, 14, 6, 10, '#c9d6df', 16, top, zc - 2);
     } else if (variant % 4 === 2) {
       for (let i = 0; i < 4; i++) {
-        const loaf = sphere(root, 4, '#c98b3c', -18 + i * 9, top + 3, zc, 8);
+        const loaf = sphere(counter, 4, '#c98b3c', -18 + i * 9, top + 3, zc, 8);
         loaf.scale.set(1.5, 0.8, 1);
       }
-      for (let i = 0; i < 3; i++) sphere(root, 4, '#6fbf4a', 18, top + 4, zc - 6 + i * 6, 8);
+      for (let i = 0; i < 3; i++) sphere(counter, 4, '#6fbf4a', 18, top + 4, zc - 6 + i * 6, 8);
     } else {
       const glass = ['#e74c3c', '#3498db', '#2ecc71', '#f1c40f', '#9b59b6'];
       for (let i = 0; i < 5; i++) {
-        cyl(root, 2.6, 3.2, 7, glow(glass[i], 0.6), -18 + i * 9, top, zc, 8);
-        cyl(root, 1, 1, 2.4, '#7a4a26', -18 + i * 9, top + 7, zc, 6);
+        cyl(counter, 2.6, 3.2, 7, glow(glass[i], 0.25), -18 + i * 9, top, zc, 8);
+        cyl(counter, 1, 1, 2.4, '#7a4a26', -18 + i * 9, top + 7, zc, 6);
       }
     }
-    return { root };
+    return { root, front };
   };
 
   BUILDERS.lamp_post = () => {
@@ -733,12 +630,17 @@
     return { root };
   };
 
+  // Market stalls south of the east-west boulevard (y 18-22) turn to face it
+  const BOULEVARD_MID_Y = 20.5;
+  const propVariant = obs => (obs.type === 'market_stall' && obs.y > BOULEVARD_MID_Y ? (obs.variant || 0) + 4 : obs.variant);
+
   // ---------- offscreen renderer ----------
   class TownProps3D {
     constructor() {
       this.canvas = document.createElement('canvas');
-      this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, alpha: true, antialias: true });
-      this.pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+      // no anti-aliasing and one buffer pixel per screen pixel: the pixel pass needs crisp edges
+      this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, alpha: true, antialias: false });
+      this.pixelRatio = 1;
       this.renderer.setPixelRatio(this.pixelRatio);
       this.renderer.setClearColor(0x000000, 0);
       this.bufW = 0;
@@ -746,9 +648,10 @@
       this.ensureBuffer(256, 256);
 
       this.scene = new THREE.Scene();
-      this.scene.add(new THREE.HemisphereLight(0xe0ecff, 0x4a3a2a, 0.75));
-      this.scene.add(new THREE.AmbientLight(0xffffff, 0.35));
-      const sun = new THREE.DirectionalLight(0xfff4e0, 1.25);
+      // softer than before: the flat Phong faces wash out to white under strong light
+      this.scene.add(new THREE.HemisphereLight(0xe0ecff, 0x4a3a2a, 0.5));
+      this.scene.add(new THREE.AmbientLight(0xffffff, 0.22));
+      const sun = new THREE.DirectionalLight(0xfff4e0, 0.85);
       sun.position.set(-320, 520, 420);
       this.scene.add(sun);
 
@@ -759,6 +662,9 @@
       this.instances = new Map(); // key -> { tilt, prop, frame }
       this.cache = new Map();     // key|zoom -> canvas
       this.cacheZoom = null;
+      // set by the renderer: false while the camera zoom is still changing, when
+      // cached images are scaled instead of re-rendered through WebGL
+      this.zoomSettled = true;
     }
 
     ensureBuffer(w, h) {
@@ -768,12 +674,21 @@
       this.renderer.setSize(this.bufW, this.bufH, false);
     }
 
-    getInstance(type, variant) {
-      const key = `${type}|${variant || 0}`;
+    // layer: 'back' (everything but prop.front) or 'front' (only prop.front),
+    // so a 2D shopkeeper can be painted in between; omitted = the whole prop
+    getInstance(type, variant, layer) {
+      const key = `${type}|${variant || 0}${layer ? '|' + layer : ''}`;
       if (this.instances.has(key)) return this.instances.get(key);
       const builder = BUILDERS[type];
       if (!builder) return null;
       const prop = builder(variant || 0);
+      if (layer && prop.front) {
+        if (layer === 'back') prop.root.remove(prop.front);
+        else {
+          prop.root.clear();
+          prop.root.add(prop.front);
+        }
+      }
       const tilt = new THREE.Group();
       tilt.rotation.x = ISO_TILT;
       const yaw = new THREE.Group();
@@ -789,7 +704,8 @@
       const bb = new THREE.Box3().setFromObject(tilt);
       const pad = 8;
       const frame = { minX: bb.min.x - pad, maxX: bb.max.x + pad, minY: bb.min.y - pad, maxY: bb.max.y + pad };
-      const inst = { key, tilt, prop, frame, animated: !!prop.animate };
+      // a layered prop animates only in the layer that holds its moving parts
+      const inst = { key, tilt, prop, frame, empty: bb.isEmpty(), animated: !!prop.animate && (!layer || layer === (prop.animateLayer || 'front')) };
       this.instances.set(key, inst);
       return inst;
     }
@@ -820,9 +736,11 @@
     // Paint a prop at its ground anchor. Returns null if the type is not a
     // 3D prop, otherwise { top, events } where top is the screen y of the
     // prop's highest point (for name tags).
-    draw(ctx, obs, screenX, screenY, zoom, time) {
-      const inst = this.getInstance(obs.type, obs.variant);
+    draw(ctx, obs, screenX, screenY, zoom, time, layer) {
+      const inst = this.getInstance(obs.type, propVariant(obs), layer);
       if (!inst) return null;
+      // a layer with nothing in it (e.g. the back of a stall whose counter faces us)
+      if (inst.empty) return { top: screenY, events: null, sparkOffset: inst.prop.sparkOffset };
       const f = inst.frame;
       const dx = screenX + f.minX * zoom;
       const dy = screenY - f.maxY * zoom;
@@ -834,7 +752,9 @@
         events = inst.prop.animate(time) || null;
         const now = performance.now();
         const zoomKey = zoom.toFixed(3);
-        if (!inst.frameImg || now - inst.frameAt > 66 || inst.frameZoom !== zoomKey) {
+        // mid-zoom: keep the last frame (scaled below) until the zoom settles
+        const rezoom = inst.frameZoom !== zoomKey && this.zoomSettled;
+        if (!inst.frameImg || rezoom || (now - inst.frameAt > 66 && inst.frameZoom === zoomKey)) {
           const { w, h } = this.renderInstance(inst, zoom);
           const pr = this.pixelRatio;
           const img = inst.frameImg || (inst.frameImg = document.createElement('canvas'));
@@ -846,20 +766,31 @@
           const ic = img.getContext('2d');
           ic.clearRect(0, 0, iw, ih);
           ic.drawImage(this.canvas, 0, 0, w * pr, h * pr, 0, 0, iw, ih);
+          pixelize(img);
           img.cssW = w;
           img.cssH = h;
           inst.frameAt = now;
           inst.frameZoom = zoomKey;
         }
-        ctx.drawImage(inst.frameImg, dx, dy, inst.frameImg.cssW, inst.frameImg.cssH);
+        const fs = zoom / Number(inst.frameZoom);
+        ctx.save();
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(inst.frameImg, Math.round(dx), Math.round(dy), Math.round(inst.frameImg.cssW * fs), Math.round(inst.frameImg.cssH * fs));
+        ctx.restore();
       } else {
         // Cache at zoom steps of 0.05 and scale the image in between, so a
-        // smooth camera zoom doesn't re-render every static prop each frame
-        const bucket = Math.max(0.3, Math.round(zoom * 20) / 20);
-        const zoomKey = bucket.toFixed(2);
+        // smooth camera zoom doesn't re-render every static prop each frame;
+        // mid-zoom the whole cache stays at its old step and is scaled
+        let bucket = Math.max(0.3, Math.round(zoom * 20) / 20);
+        let zoomKey = bucket.toFixed(2);
         if (this.cacheZoom !== zoomKey) {
-          this.cache.clear();
-          this.cacheZoom = zoomKey;
+          if (this.zoomSettled || this.cacheZoom === null) {
+            this.cache.clear();
+            this.cacheZoom = zoomKey;
+          } else {
+            zoomKey = this.cacheZoom;
+            bucket = Number(zoomKey);
+          }
         }
         let img = this.cache.get(inst.key);
         if (!img) {
@@ -869,12 +800,16 @@
           img.width = Math.ceil(w * pr);
           img.height = Math.ceil(h * pr);
           img.getContext('2d').drawImage(this.canvas, 0, 0, w * pr, h * pr, 0, 0, img.width, img.height);
+          pixelize(img);
           img.cssW = w;
           img.cssH = h;
           this.cache.set(inst.key, img);
         }
         const s = zoom / bucket;
-        ctx.drawImage(img, dx, dy, img.cssW * s, img.cssH * s);
+        ctx.save();
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(img, Math.round(dx), Math.round(dy), Math.round(img.cssW * s), Math.round(img.cssH * s));
+        ctx.restore();
       }
 
       return { top: dy, events, sparkOffset: inst.prop.sparkOffset };

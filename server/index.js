@@ -77,6 +77,26 @@ app.get('/shadowfell-ruins.wav', (req, res) => {
   }
 });
 
+// Explicit route to serve wildwood.wav music file for the Verdant Wildwood zone
+app.get('/wildwood.wav', (req, res) => {
+  const wildwoodPath = path.join(__dirname, '..', 'wildwood.wav');
+  if (fs.existsSync(wildwoodPath)) {
+    res.sendFile(wildwoodPath);
+  } else {
+    res.status(404).send('Not Found');
+  }
+});
+
+// Explicit route to serve celestial.wav music file for the Celestial Reach zone
+app.get('/celestial.wav', (req, res) => {
+  const celestialPath = path.join(__dirname, '..', 'celestial.wav');
+  if (fs.existsSync(celestialPath)) {
+    res.sendFile(celestialPath);
+  } else {
+    res.status(404).send('Not Found');
+  }
+});
+
 // Initialize Game Engine
 const gameServer = new GameServer(io);
 
@@ -109,8 +129,8 @@ io.on('connection', (socket) => {
     gameServer.addPlayer(socket, data);
   });
 
-  socket.on('use_revival_stone', () => {
-    gameServer.handleUseRevivalStone(socket.id);
+  socket.on('use_revival_stone', (data) => {
+    gameServer.handleUseRevivalStone(socket.id, !!(data && data.super));
   });
 
   socket.on('player_input', (input) => {
@@ -127,6 +147,10 @@ io.on('connection', (socket) => {
 
   socket.on('use_potion', (potionType) => {
     gameServer.handleUsePotion(socket.id, potionType);
+  });
+
+  socket.on('use_portal', () => {
+    gameServer.handleUsePortal(socket.id);
   });
 
   socket.on('pickup_item', (itemId) => {
