@@ -1066,5 +1066,9 @@
     }
   }
 
-  window.TownLife = { groundTexture, treeSprite, Ambience, hash2 };
+  window.TownLife = {
+    groundTexture, treeSprite, Ambience, hash2,
+    // shared pixel-art helpers (dungeonLife.js)
+    pixel: { hash2, vnoise, fbm, BAYER, rgb, pack, paintSprite }
+  };
 })();

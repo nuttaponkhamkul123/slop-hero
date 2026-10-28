@@ -7360,6 +7360,18 @@ class IsometricRenderer {
       townLife.drawGround(ctx, this);
     }
 
+    // Dungeon atmosphere (cosmetic): the floor sinks into darkness except for
+    // pools of torch, hazard and hero light; walls are shaded to match
+    let dungeonLife = null;
+    if (isDungeon && window.DungeonLife && window.DungeonLife.has(this.currentTheme)) {
+      if (!this.dungeonLife || this.dungeonLife.map !== map) this.dungeonLife = new window.DungeonLife.Atmosphere(map, this.currentTheme);
+      dungeonLife = this.dungeonLife;
+      dungeonLife.update(dt || 0.016, this);
+      dungeonLife.drawLighting(ctx, this, gameState, localPlayerId);
+    } else {
+      this.dungeonLife = null;
+    }
+
     // PASS 2: ENTITIES, PROPS & 3D DUNGEON WALLS (Depth Sorted with Painter's Algorithm)
     const renderList = [];
 
@@ -7535,6 +7547,8 @@ class IsometricRenderer {
 
     // Chimney smoke, falling leaves and birds pass over the rooftops
     if (townLife) townLife.drawSky(ctx, this);
+    // Low fog and floating dust / embers / spores in the dungeon air
+    if (dungeonLife) dungeonLife.drawAmbient(ctx, this);
 
     // DRAW OVERLAYS & EFFECTS (Click Beacon, Particles, Floating Text)
     this.drawEffects(ctx, dt);
@@ -7640,8 +7654,11 @@ class IsometricRenderer {
       }
       tiles.sort((a, b) => a.depth - b.depth);
       this._tileView = { camera: { x: cam.x, y: cam.y, zoom }, w: cw, h: ch };
+      // dungeon floor tiles look at their neighbours for wall contact shadows
+      this._dungeonMap = isDungeon && window.DungeonLife && window.DungeonLife.has(this.currentTheme) ? map : null;
       for (const t of tiles) this.drawIsometricTile(gctx, t.x, t.y, t.tileType);
       this._tileView = null;
+      this._dungeonMap = null;
       // The town's tile tops are replaced by one continuous pixel-art ground
       // (1 texel per screen px at zoom 1); tile side faces stay underneath
       if (tex) {
@@ -7786,6 +7803,12 @@ class IsometricRenderer {
       ctx.fill();
     }
 
+    // Pixel-art flagstones (with contact shadows and clutter) for dungeon floors
+    if (this._dungeonMap && (tileType === 4 || tileType === 1)) {
+      window.DungeonLife.drawFloor(ctx, this.currentTheme, this._dungeonMap, x, y, tileType, screen, this.camera.zoom);
+      return;
+    }
+
     // 3. Draw Isometric Diamond Top Face
     ctx.beginPath();
     ctx.moveTo(screen.x, screen.y - hh);
@@ -7894,6 +7917,12 @@ class IsometricRenderer {
   drawDungeonWall(ctx, x, y, map, isBackWall) {
     const screen = Isometric.worldToScreen(x, y, 0, this.camera, this.canvas.width, this.canvas.height);
     const z = this.camera.zoom;
+    // Pixel-art brick walls, darkened by how far they sit from any light
+    if (window.DungeonLife && window.DungeonLife.has(this.currentTheme)) {
+      const dark = this.dungeonLife ? this.dungeonLife.darknessAt(x, y) : 0;
+      window.DungeonLife.drawWall(ctx, this.currentTheme, x, y, isBackWall, screen, z, dark);
+      return;
+    }
     const hw = (TILE_WIDTH / 2) * z;
     const hh = (TILE_HEIGHT / 2) * z;
     const wallH = (isBackWall ? 40 : 12) * z;
