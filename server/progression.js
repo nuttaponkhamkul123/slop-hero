@@ -65,4 +65,28 @@ function lootGapMult(playerLevel, mobLevel) {
   return 1 - (under - LOOT_FULL_GAP) / (LOOT_NONE_GAP - LOOT_FULL_GAP);
 }
 
-module.exports = { expToNext, killsPerLevel, mobExp, levelGapMult, lootGapMult, KIND_MULT, DUNGEON_EXP_MULT, DUNGEON_TRASH_FACTOR, BOSS_LEVEL_SHARE, KILLS_PER_LEVEL };
+// Monsters past level 20 get tougher gradually: their HP multiplier climbs
+// exponentially from x1 at HIGH_LEVEL_HP_FROM to x HIGH_LEVEL_HP_MULT at
+// HIGH_LEVEL_HP_FULL and stays there (no cliff between two levels)
+const HIGH_LEVEL_HP_FROM = 20;
+const HIGH_LEVEL_HP_FULL = 100;
+const HIGH_LEVEL_HP_MULT = 10;
+function mobHpMult(level) {
+  const lv = Math.min(level || 1, HIGH_LEVEL_HP_FULL);
+  if (lv <= HIGH_LEVEL_HP_FROM) return 1;
+  return Math.pow(HIGH_LEVEL_HP_MULT, (lv - HIGH_LEVEL_HP_FROM) / (HIGH_LEVEL_HP_FULL - HIGH_LEVEL_HP_FROM));
+}
+
+// Combat Mastery: a hero's damage is multiplied along the same curve, a little
+// slower (x6.3 at level 100 against x10 monster HP), so high-level fights take
+// only gently longer than low-level ones
+const MASTERY_EXP = 0.8;
+function masteryMult(level) {
+  return Math.pow(mobHpMult(level), MASTERY_EXP);
+}
+
+// Monster defense cuts every hit by the share def / (def + MOB_DEF_K): about
+// 5% at level 20, 18% at level 100, the same for a big hit and a small tick
+const MOB_DEF_K = 800;
+
+module.exports = { expToNext, mobHpMult, masteryMult, MOB_DEF_K, killsPerLevel, mobExp, levelGapMult, lootGapMult, KIND_MULT, DUNGEON_EXP_MULT, DUNGEON_TRASH_FACTOR, BOSS_LEVEL_SHARE, KILLS_PER_LEVEL };

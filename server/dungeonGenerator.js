@@ -1,7 +1,7 @@
 // Procedural Dungeon Generator for Aetheria Online
 // Generates randomized rooms, corridors, chests, and dungeon monsters
 const { ITEMS, generateRandomizedGear, pickGearForLevel } = require('./items');
-const { mobExp, DUNGEON_EXP_MULT, DUNGEON_TRASH_FACTOR } = require('./progression');
+const { mobExp, mobHpMult, DUNGEON_EXP_MULT, DUNGEON_TRASH_FACTOR } = require('./progression');
 
 const DUNGEON_WIDTH = 38;
 const DUNGEON_HEIGHT = 38;
@@ -558,8 +558,9 @@ function generateProceduralDungeon(floorLevel = 1, difficulty = 'normal') {
       to: c.index,
       boss: c === bossCell,
       tiles: doorTiles,
-      x: (Math.min(...xs) + Math.max(...xs) + 1) / 2,
-      y: (Math.min(...ys) + Math.max(...ys) + 1) / 2,
+      // tile centres sit on whole numbers, so the doorway's centre is the mean
+      x: (Math.min(...xs) + Math.max(...xs)) / 2,
+      y: (Math.min(...ys) + Math.max(...ys)) / 2,
       axis: a.cell.cy === b.cell.cy ? 'x' : 'y',
       open: false
     });
@@ -626,8 +627,9 @@ function generateProceduralDungeon(floorLevel = 1, difficulty = 'normal') {
   let nextEntityId = 5000;
 
   // Sealed doorways (removed by the server as rooms are cleared)
+  const doorTileSet = new Set(doors.flatMap(d => d.tiles.map(([x, y]) => x + ',' + y)));
   for (const d of doors) {
-    obstacles.push({ id: d.id, x: d.x, y: d.y, type: 'dungeon_door', axis: d.axis, boss: d.boss, collidable: false });
+    obstacles.push({ id: d.id, x: d.x, y: d.y, type: 'dungeon_door', axis: d.axis, boss: d.boss, tiles: d.tiles, collidable: false });
   }
 
   // Wall-mounted torches on the room's back walls (the north and west walls
@@ -640,7 +642,8 @@ function generateProceduralDungeon(floorLevel = 1, difficulty = 'normal') {
       { x: r.x - 1, y: r.y + Math.floor(r.h / 2), side: 'right' }
     ];
     sconces.forEach((sc, sIdx) => {
-      if (tiles[sc.y] && tiles[sc.y][sc.x] === DUNGEON_TILES.WALL) {
+      // never on a sealed doorway: it opens into floor and the torch would float
+      if (tiles[sc.y] && tiles[sc.y][sc.x] === DUNGEON_TILES.WALL && !doorTileSet.has(sc.x + ',' + sc.y)) {
         obstacles.push({
           id: `dungeon_torch_${idx}_${sIdx}`,
           x: sc.x,
@@ -985,6 +988,11 @@ function generateProceduralDungeon(floorLevel = 1, difficulty = 'normal') {
       }
     }
   });
+
+  for (const m of mobs) {
+    m.maxHp = Math.round(m.maxHp * mobHpMult(m.level));
+    m.hp = m.maxHp;
+  }
 
   const floorConfig = DUNGEON_FLOORS[floorLevel - 1] || DUNGEON_FLOORS[0];
   return {
