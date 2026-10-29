@@ -1291,6 +1291,10 @@ document.addEventListener('DOMContentLoaded', () => {
           existingMob.targetX = m.x;
           existingMob.targetY = m.y;
           existingMob.facing = m.facing;
+          // hp dropped -> the monster just got hit: pop the impact slash on it
+          if ((m.hp != null) && existingMob.hp !== undefined && m.hp < existingMob.hp && renderer) {
+            renderer.queueMobHit(m.id, existingMob.hp - m.hp, m.x, m.y);
+          }
           existingMob.hp = m.hp;
           existingMob.maxHp = m.maxHp;
           existingMob.state = m.state;
