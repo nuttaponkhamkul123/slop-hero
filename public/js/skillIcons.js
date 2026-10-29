@@ -638,7 +638,20 @@
     sp_sentinel_aegis: alias('iron_fortress', 'gold'),
     sp_bannerman_call: alias('dragon_roar', 'gold'),
     sp_warchief_warcry: alias('earthshaker', 'blood'),
-    sp_phoenix_rebirth: ['fire', p => `${heart(p.hot)}${rays(32, 34, 18, 26, 12, p.acc, 2)}`]
+    sp_phoenix_rebirth: ['fire', p => `${heart(p.hot)}${rays(32, 34, 18, 26, 12, p.acc, 2)}`],
+    // ---- reworked kits (extra distinct iteration) ----
+    sp_gravelord_aftershock: ['earth', p => `${rays(32, 32, 10, 21, 8, p.acc, 2)}${heart(p.fg)}`],
+    sp_dragoon_impact: alias('meteor_dive', 'bolt'),
+    sp_dragoon_vantage: alias('colossus_strike', 'bolt'),
+    sp_reaver_stance: ['fire', p => `${rays(32, 32, 14, 22, 12, p.acc, 2)}${drop(p.fg, 'translate(32 40) scale(0.7) translate(-32 -32)')}`],
+    sp_reaver_firebrand: alias('chain_lightning', 'fire'),
+    sp_runeknight_storm: alias('meteor_dive', 'earth'),
+    sp_sentinel_mist: alias('smoke_screen', 'gold'),
+    sp_duskblade_wail: alias('eclipse_execution', 'shadow'),
+    sp_warchief_howl: ['blood', p => `${cloud(p, p.acc)}${rays(32, 30, 12, 20, 10, p.hot, 2.5)}`],
+    sp_warchief_carnage: alias('blood_rage', 'blood'),
+    sp_phoenix_orbs: ['fire', p => `${[0, 0.35, 0.7].map((o) => `<circle cx="${(26 + Math.cos(o * Math.PI * 2) * 18).toFixed(1)}" cy="${(32 + Math.sin(o * Math.PI * 2) * 10).toFixed(1)}" r="4" fill="${o === 0 ? p.hot : p.acc}"/>`).join('')}
+      ${rays(32, 32, 20, 26, 8, p.hot, 2)}`]
   });
 
 
