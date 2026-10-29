@@ -8,7 +8,11 @@ yarn-error.log*
 Thumbs.db
 
 # Live account data (password hashes) - never commit
-server/data/
+server/data/accounts.json
 
 # Background music: several files exceed GitHub's 100 MB limit
 *.wav
+scratch/
+dist/
+
+.agents/

@@ -1,9 +1,9 @@
 // Map Generator and Collision Data for Isometric World
-const MAP_WIDTH = 42;
-const MAP_HEIGHT = 42;
+export const MAP_WIDTH = 42;
+export const MAP_HEIGHT = 42;
 
 // Tile types
-const TILES = {
+export const TILES = {
   GRASS: 0,
   COBBLESTONE: 1,
   DIRT: 2,
@@ -18,26 +18,59 @@ const TILES = {
   FROST_CLIFF: 12
 };
 
+export interface MapObstacle {
+  id: string;
+  x: number;
+  y: number;
+  type: string;
+  name?: string;
+  collidable: boolean;
+  radius?: number;
+  variant?: number;
+  axis?: string;
+  back?: boolean;
+  target?: string;
+  arrive?: string;
+  label?: string;
+  color?: string;
+  [key: string]: any;
+}
+
+export interface MapData {
+  width: number;
+  height: number;
+  theme: string;
+  tiles: number[][];
+  obstacles: MapObstacle[];
+  arrivals?: Record<string, { x: number; y: number }>;
+  spawnPoint?: { x: number; y: number };
+  zoneId?: string;
+  zoneName?: string;
+  blockingTiles?: number[];
+  [key: string]: any;
+}
+
 // The starting map is one walled city: a grand plaza at the crossing of two
 // boulevards, a grid of side streets, housing blocks, a market street, a
 // lakeside park in the north-east and a garden in the south-west. Monsters
 // live outside, past the north gate (first field zone).
-const CITY = {
+export const CITY = {
   WALL_MIN: 2,
   WALL_MAX: 39,
-  BOULEVARD: [18, 22],          // main roads (x and y), tiles inclusive
-  LANES: [[9, 10], [31, 32]],   // side streets (x and y), tiles inclusive
-  PLAZA: [16, 24],              // polished plaza around the fountain
+  BOULEVARD: [18, 22] as [number, number],          // main roads (x and y), tiles inclusive
+  LANES: [[9, 10], [31, 32]] as [number, number][], // side streets (x and y), tiles inclusive
+  PLAZA: [16, 24] as [number, number],              // polished plaza around the fountain
   NORTH_GATE: { x: 20.5, y: 3.6 }
 };
-const inRange = (v, [a, b]) => v >= a && v <= b;
-const isRoadTile = v => inRange(v, CITY.BOULEVARD) || CITY.LANES.some(l => inRange(v, l));
-const inPond = (x, y) => Math.hypot((x + 0.5 - 30.5) * 0.55, y + 0.5 - 5.8) < 2.5;
-const inGarden = (x, y) => x >= 3 && x <= 17 && y >= 25 && y <= 38;
 
-function generateMap() {
-  const tiles = [];
-  const obstacles = []; // { x, y, type, collidable, radius? }
+const inRange = (v: number, [a, b]: [number, number]) => v >= a && v <= b;
+const isRoadTile = (v: number) => inRange(v, CITY.BOULEVARD) || CITY.LANES.some(l => inRange(v, l));
+const inPond = (x: number, y: number) => Math.hypot((x + 0.5 - 30.5) * 0.55, y + 0.5 - 5.8) < 2.5;
+const inGarden = (x: number, y: number) => x >= 3 && x <= 17 && y >= 25 && y <= 38;
+
+export function generateMap(): MapData {
+  const tiles: number[][] = [];
+  const obstacles: MapObstacle[] = []; // { x, y, type, collidable, radius? }
 
   for (let y = 0; y < MAP_HEIGHT; y++) {
     tiles[y] = [];
@@ -58,10 +91,10 @@ function generateMap() {
     }
   }
 
-  const add = (o) => obstacles.push(o);
-  const near = (x, y, r) => obstacles.some(o => Math.hypot(o.x - x, o.y - y) < r);
+  const add = (o: MapObstacle) => obstacles.push(o);
+  const near = (x: number, y: number, r: number) => obstacles.some(o => Math.hypot(o.x - x, o.y - y) < r);
   const WALL_TYPES = new Set(['town_wall', 'gate_tower', 'corner_keep']);
-  const nearProp = (x, y, r) => obstacles.some(o => !WALL_TYPES.has(o.type) && Math.hypot(o.x - x, o.y - y) < r);
+  const nearProp = (x: number, y: number, r: number) => obstacles.some(o => !WALL_TYPES.has(o.type) && Math.hypot(o.x - x, o.y - y) < r);
 
   // ---- plaza: fountain, braziers, flower beds ----
   add({ id: 'fountain_center', x: 20, y: 20, type: 'fountain', collidable: false });
@@ -83,7 +116,7 @@ function generateMap() {
 
   // ---- city wall around the whole map, gate on the north boulevard ----
   const { WALL_MIN, WALL_MAX } = CITY;
-  const isGateTower = (v) => v === CITY.BOULEVARD[0] - 1 || v === CITY.BOULEVARD[1] + 1;
+  const isGateTower = (v: number) => v === CITY.BOULEVARD[0] - 1 || v === CITY.BOULEVARD[1] + 1;
   for (let v = WALL_MIN + 1; v < WALL_MAX; v++) {
     [
       { x: v, y: WALL_MIN, axis: 'x', back: true, gate: true },
@@ -126,7 +159,7 @@ function generateMap() {
           const y = by0 + (by1 - by0 + 1) * (r + 0.5) / rows;
           const tx = Math.floor(x), ty = Math.floor(y);
           if (tiles[ty][tx] !== TILES.GRASS || inGarden(tx, ty)) continue;
-          if (inRange(tx, [14, 26]) && inRange(ty, [14, 26])) continue; // plaza, booths & portal
+          if (inRange(tx, [14, 26] as [number, number]) && inRange(ty, [14, 26] as [number, number])) continue; // plaza, booths & portal
           if (Math.hypot(x - 30.5, (y - 5.8) * 1.6) < 8.5) continue;    // lakeside park
           if (nearProp(x, y, 2.3) || near(x, y, 1.2)) continue;
           add({ id: `house_${houseN}`, x, y, type: 'house', variant: houseN % 3, collidable: true, radius: 1.3 });
@@ -164,7 +197,7 @@ function generateMap() {
   [[11.8, 26.2], [16.2, 28.6], [6, 37.6], [12, 37.6], [14.6, 30.4]].forEach(([x, y], i) => add({ id: `garden_flowers_${i}`, x, y, type: 'flower_bed', variant: (i + 1) % 3, collidable: true, radius: 0.45 }));
 
   // ---- yard trees, crates and flowers in leftover grass ----
-  const pseudoRandom = (seed) => {
+  const pseudoRandom = (seed: number) => {
     const x = Math.sin(seed) * 10000;
     return x - Math.floor(x);
   };
@@ -193,11 +226,11 @@ function generateMap() {
 }
 
 // Generate New Map: Frostfell Peaks (Winter Realm)
-function generateFrostfellMap() {
+export function generateFrostfellMap(): MapData {
   const width = MAP_WIDTH;
   const height = MAP_HEIGHT;
-  const tiles = [];
-  const obstacles = [];
+  const tiles: number[][] = [];
+  const obstacles: MapObstacle[] = [];
 
   for (let y = 0; y < height; y++) {
     tiles[y] = [];
@@ -236,7 +269,7 @@ function generateFrostfellMap() {
   });
 
   // Frost Obelisks & Shards
-  const obelisks = [
+  const obelisks: [number, number, string][] = [
     [10, 12, 'frost_monolith'],
     [32, 10, 'frost_monolith'],
     [31, 28, 'frost_monolith'],
@@ -254,7 +287,7 @@ function generateFrostfellMap() {
   });
 
   // Snow Pine Trees & Glacial Ice Crystals
-  const pseudoRandom = (seed) => {
+  const pseudoRandom = (seed: number) => {
     const x = Math.sin(seed++) * 10000;
     return x - Math.floor(x);
   };
@@ -296,6 +329,8 @@ module.exports = {
   MAP_WIDTH,
   MAP_HEIGHT,
   TILES,
+  CITY,
   generateMap,
   generateFrostfellMap
 };
+

@@ -1,8 +1,8 @@
 // Open-world field zones, chained by level from the city outskirts (Lv 1) to Lv 100.
 // Each zone is a 42x42 map entered from the south (portal back to the previous
 // zone) with a portal to the next zone on its far north side.
-const { generateFrostfellMap } = require('./mapData');
-const { mobExp, mobHpMult } = require('./progression');
+import { generateFrostfellMap } from './mapData';
+import { mobExp, mobHpMult } from './progression';
 
 // Themed ground tiles (13+). The renderer has a matching palette.
 const FIELD_TILES = {
@@ -36,7 +36,7 @@ function mobStats(level, isBoss) {
 }
 
 // Mob "type" picks the body drawn by the renderer; hue tints it per zone.
-const FIELD_ZONES = [
+const FIELD_ZONES: any[] = [
   {
     // Just outside the city's north gate: the starter monsters that used to roam the town
     id: 'meadow', name: 'Greenmeadow Outskirts', minLevel: 1, maxLevel: 5, gateLevel: 1,
@@ -330,4 +330,8 @@ function buildFieldMobs(zone, map) {
   return defs;
 }
 
-module.exports = { FIELD_ZONES, FIELD_ZONE_BY_ID, FIELD_TILES, generateFieldMap, buildFieldMobs, mobStats };
+export { FIELD_ZONES, FIELD_ZONE_BY_ID, FIELD_TILES, FIELD_MID, generateFieldMap, buildFieldMobs, mobStats };
+export default FIELD_ZONES;
+module.exports = { FIELD_ZONES, FIELD_ZONE_BY_ID, FIELD_TILES, FIELD_MID, generateFieldMap, buildFieldMobs, mobStats };
+
+

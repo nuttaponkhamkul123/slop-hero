@@ -1,0 +1,47 @@
+{
+  "ancient_ruby": {
+    "id": "ancient_ruby",
+    "name": "Ancient Ruby",
+    "type": "treasure",
+    "icon": "💎",
+    "rarity": "rare",
+    "sellPrice": 65,
+    "desc": "A sparkling blood-red gem mined from the abyss. High sell value."
+  },
+  "cursed_chalice": {
+    "id": "cursed_chalice",
+    "name": "Cursed Chalice",
+    "type": "treasure",
+    "icon": "🏆",
+    "rarity": "rare",
+    "sellPrice": 90,
+    "desc": "An ornate silver goblet inlaid with ancient engravings."
+  },
+  "dragon_scale": {
+    "id": "dragon_scale",
+    "name": "Dragon Scale",
+    "type": "treasure",
+    "icon": "🐉",
+    "rarity": "epic",
+    "sellPrice": 160,
+    "desc": "A hardened iridescent dragon scale prized by merchants."
+  },
+  "golden_idol": {
+    "id": "golden_idol",
+    "name": "Golden Idol",
+    "type": "treasure",
+    "icon": "🗿",
+    "rarity": "legendary",
+    "sellPrice": 300,
+    "desc": "A priceless relic of a forgotten sun deity."
+  },
+  "shadow_essence": {
+    "id": "shadow_essence",
+    "name": "Shadow Essence",
+    "type": "treasure",
+    "icon": "✨",
+    "rarity": "rare",
+    "sellPrice": 75,
+    "desc": "Concentrated dark energy captured from dungeon wraiths."
+  }
+}

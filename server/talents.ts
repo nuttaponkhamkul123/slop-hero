@@ -807,13 +807,19 @@ const SKILL_TREES = {
 // worth 8-20x the hero's own base damage. Offensive stats are scaled down here
 // so a well-spent branch adds roughly +20% (early) to +75% (late) of base
 // attack, and the other damage multipliers stay in the same range.
+// Every stat listed here is scaled ONCE by this table and then skipped by the
+// PASSIVE_SCALE pass below, so the documented branch totals are actually
+// delivered instead of being halved a second time.
 const TALENT_DAMAGE_SCALE = {
   bonusDmg: 0.04,          // attack: integer, at least +1 per rank
   thorns: 0.04,            // integer, at least +1 per rank
   bonusSwipe: 0.02,        // % cleave: integer, at least +1 per rank
   bonusAttackSpeed: 0.03,  // full branch ~ +50-80% attack speed
   critChanceBonus: 0.025,  // full branch ~ +25% crit chance
-  critDmgBonus: 0.015      // full branch ~ +100% crit damage
+  critDmgBonus: 0.015,     // full branch ~ +100% crit damage
+  bonusSpeed: 0.03,        // full speed track ~ +0.6-0.9 move speed (base 4.4-4.8)
+  lifeSteal: 0.038,        // full branch ~ 8% lifesteal (hits the hard cap)
+  dodgeChance: 0.05        // full branch ~ 50% dodge (hits the hard cap)
 };
 const INT_STATS = new Set(['bonusDmg', 'thorns', 'bonusSwipe']);
 
@@ -913,7 +919,7 @@ for (const [classKey, tree] of Object.entries(SKILL_TREES)) {
       // keystones of the branch all carry the mechanic's capstone
       Object.assign(talent.effects, sig.keystone);
     } else if (talent.id.endsWith('_' + sig.node)) {
-      for (const [stat, [flat, perTier]] of Object.entries(sig.perRank)) {
+      for (const [stat, values] of Object.entries(sig.perRank as Record<string, [number, number]>)) { const [flat, perTier] = values;
         talent.effects[stat] = +(flat + perTier * talent.tier).toFixed(4);
       }
     } else continue;
@@ -925,12 +931,16 @@ for (const [classKey, tree] of Object.entries(SKILL_TREES)) {
 // ==========================================
 // PASSIVE BALANCE
 // ==========================================
-// Every talent bonus (stats and per-rank mechanic growth) is scaled by this
-// after the trees are built; descriptions are rebuilt to match.
+// Flat support stats (HP / MP / armor) and branch mechanics (burn, chill, ...)
+// are scaled by this after the trees are built; descriptions are rebuilt to
+// match. Stats already scaled by TALENT_DAMAGE_SCALE above are SKIPPED here -
+// applying 0.5 again would halve all offense a second time (and stats like
+// speed that were never in TALENT_DAMAGE_SCALE used to run away to +1000%+).
 const PASSIVE_SCALE = 0.5;
 for (const [classKey, tree] of Object.entries(SKILL_TREES)) {
   for (const talent of tree) {
-    for (const [stat, v] of Object.entries(talent.effects)) {
+    for (const [stat, rawV] of Object.entries(talent.effects)) { const v = rawV as number;
+      if (stat in TALENT_DAMAGE_SCALE) continue;
       talent.effects[stat] = INT_STATS.has(stat) ? Math.max(1, Math.round(v * PASSIVE_SCALE)) : +(v * PASSIVE_SCALE).toFixed(4);
     }
     const sig = BRANCH_SIGNATURES[talent.id.replace(/_t\d+_[abc]$/, '')];
@@ -940,6 +950,11 @@ for (const [classKey, tree] of Object.entries(SKILL_TREES)) {
   }
 }
 
+export { TALENT_PROCS, SKILL_TREES };
+export default SKILL_TREES;
 module.exports = SKILL_TREES;
 // Not enumerable: the trees object is sent to clients and iterated by class
 Object.defineProperty(module.exports, 'TALENT_PROCS', { value: TALENT_PROCS });
+
+
+

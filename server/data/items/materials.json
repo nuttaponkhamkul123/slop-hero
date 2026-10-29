@@ -1,0 +1,11 @@
+{
+  "spirit_fragment": {
+    "id": "spirit_fragment",
+    "name": "Spirit Fragment",
+    "type": "material",
+    "iconKey": "fragment",
+    "rarity": "epic",
+    "sellPrice": 150,
+    "desc": "A shard of a hero's spirit. Valka the Enchanter trades SP cards and card enhancements for these."
+  }
+}

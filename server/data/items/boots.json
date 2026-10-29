@@ -1,0 +1,79 @@
+{
+  "iron_greaves": {
+    "id": "iron_greaves",
+    "name": "Reinforced Greaves",
+    "type": "equipment",
+    "slot": "boots",
+    "icon": "👢",
+    "rarity": "common",
+    "sellPrice": 35,
+    "bonusDef": 3,
+    "bonusSpeed": 0.3,
+    "desc": "+3 Defense, +0.3 Speed."
+  },
+  "winged_boots": {
+    "id": "winged_boots",
+    "name": "Hermes Winged Boots",
+    "type": "equipment",
+    "slot": "boots",
+    "icon": "🥾",
+    "rarity": "epic",
+    "sellPrice": 110,
+    "bonusSpeed": 0.9,
+    "bonusDef": 4,
+    "desc": "+0.9 Movement Speed, +4 Defense."
+  },
+  "traveler_boots": {
+    "id": "traveler_boots",
+    "name": "Traveler's Boots",
+    "type": "equipment",
+    "slot": "boots",
+    "iconKey": "boots",
+    "rarity": "common",
+    "sellPrice": 30,
+    "bonusSpeed": 0.4,
+    "desc": "+0.4 Speed. Broken in by a thousand roads."
+  },
+  "steel_sabatons": {
+    "id": "steel_sabatons",
+    "name": "Steel Sabatons",
+    "type": "equipment",
+    "slot": "boots",
+    "iconKey": "boots_steel",
+    "rarity": "rare",
+    "sellPrice": 90,
+    "bonusDef": 7,
+    "bonusHp": 25,
+    "desc": "+7 Defense, +25 Max Health. Articulated plate for the feet."
+  },
+  "ember_treads": {
+    "id": "ember_treads",
+    "name": "Ember Treads",
+    "type": "equipment",
+    "slot": "boots",
+    "iconKey": "boots_ember",
+    "rarity": "epic",
+    "sellPrice": 150,
+    "bonusSpeed": 0.6,
+    "bonusDmg": 6,
+    "elementResist": {
+      "fire": 0.12
+    },
+    "desc": "+0.6 Speed, +6 Attack Power, Fire RES +12%. Leave smouldering footprints."
+  },
+  "shadowstep_boots": {
+    "id": "shadowstep_boots",
+    "name": "Shadowstep Boots",
+    "type": "equipment",
+    "slot": "boots",
+    "iconKey": "boots_shadow",
+    "rarity": "legendary",
+    "sellPrice": 260,
+    "bonusSpeed": 1,
+    "bonusAttackSpeed": 0.1,
+    "elementResist": {
+      "dark": 0.1
+    },
+    "desc": "+1 Speed, +10% Attack Speed, Dark RES +10%. Step between the shadows."
+  }
+}

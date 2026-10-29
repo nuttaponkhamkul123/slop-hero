@@ -4539,3 +4539,26 @@ body, html {
 }
 
 
+
+/* ===== Field Raid / World Boss widget ===== */
+.raid-panel {
+  position: relative;
+  margin-top: 8px;
+  width: 240px;
+  padding: 8px 10px;
+  border-color: rgba(239, 68, 68, 0.55);
+}
+.raid-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px; }
+.raid-title { color: #f87171; font-weight: 700; font-size: 11px; letter-spacing: 1px; display:flex; align-items:center; gap:5px; }
+.raid-timer { color: #fde68a; font-size: 11px; font-variant-numeric: tabular-nums; }
+.raid-name { color: #fca5a5; font-size: 13px; font-weight: 700; margin-bottom: 4px; text-shadow: 0 0 6px rgba(239,68,68,0.5); }
+.raid-hp-bar { height: 8px; margin-bottom: 5px; }
+.raid-hp-fill { background: linear-gradient(180deg, #f87171, #b91c1c); }
+.raid-dmg-row { display: flex; flex-direction: column; gap: 1px; font-size: 11px; color: #e2e8f0; min-height: 46px; }
+.rd-line { display: flex; justify-content: space-between; }
+.rd-line.rd-1 { color: #fde047; }
+.rd-line.rd-2 { color: #cbd5e1; }
+.rd-line.rd-3 { color: #e8a06a; }
+.rd-line.rd-you { outline: 1px dashed rgba(56, 189, 248, 0.6); padding: 0 3px; }
+.raid-foot { display: flex; justify-content: space-between; margin-top: 5px; font-size: 10.5px; color: #94a3b8; }
+

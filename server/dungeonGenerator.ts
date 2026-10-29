@@ -1,7 +1,7 @@
 // Procedural Dungeon Generator for Aetheria Online
 // Generates randomized rooms, corridors, chests, and dungeon monsters
-const { ITEMS, generateRandomizedGear, pickGearForLevel } = require('./items');
-const { mobExp, mobHpMult, DUNGEON_EXP_MULT, DUNGEON_TRASH_FACTOR } = require('./progression');
+import { ITEMS, generateRandomizedGear, pickGearForLevel } from './items';
+import { mobExp, mobHpMult, DUNGEON_EXP_MULT, DUNGEON_TRASH_FACTOR } from './progression';
 
 const DUNGEON_WIDTH = 38;
 const DUNGEON_HEIGHT = 38;
@@ -360,7 +360,7 @@ function shapeRoom(tiles, r, style, calm) {
   const cheb = (lx, ly) => Math.max(Math.abs(lx - 4), Math.abs(ly - 4));
   const edge = (lx, ly) => Math.min(lx, 8 - lx, ly, 8 - ly);
   const pillar = (lx, ly) => set(lx, ly, DUNGEON_TILES.VOID);
-  const scatter = (t, chance, where = () => true) => each((lx, ly) => {
+  const scatter = (t: number, chance: number, where: (lx: number, ly: number) => boolean = () => true) => each((lx, ly) => {
     if (get(lx, ly) === F && where(lx, ly) && Math.random() < chance) set(lx, ly, t);
   });
   const blob = (t, n, rad) => {
@@ -499,7 +499,7 @@ function generateProceduralDungeon(floorLevel = 1, difficulty = 'normal') {
     ...cellList.filter(c => c.parent && c !== bossCell).sort((a, b) => a.depth - b.depth),
     bossCell];
 
-  const rooms = ordered.map((c, i) => {
+  const rooms: any[] = ordered.map((c: any, i) => {
     const x = 2 + c.cx * ROOM_CELL + 1, y = 2 + c.cy * ROOM_CELL + 1;
     const room = { x, y, w: ROOM_INNER, h: ROOM_INNER, cx: x + Math.floor(ROOM_INNER / 2), cy: y + Math.floor(ROOM_INNER / 2), cell: c, kind: 'combat' };
     c.room = room;
@@ -536,7 +536,7 @@ function generateProceduralDungeon(floorLevel = 1, difficulty = 'normal') {
   const doors = [];
   for (const c of ordered) {
     if (!c.parent) continue;
-    const a = c.parent.room, b = c.room;
+    const a = (c.parent as any).room, b = (c as any).room;
     const doorTiles = [];
     if (a.cell.cy === b.cell.cy) {
       const left = a.x < b.x ? a : b;
@@ -554,8 +554,8 @@ function generateProceduralDungeon(floorLevel = 1, difficulty = 'normal') {
     const xs = doorTiles.map(t => t[0]), ys = doorTiles.map(t => t[1]);
     doors.push({
       id: 'door_' + doors.length,
-      from: c.parent.index,
-      to: c.index,
+      from: (c.parent as any).index,
+      to: (c as any).index,
       boss: c === bossCell,
       tiles: doorTiles,
       // tile centres sit on whole numbers, so the doorway's centre is the mean
@@ -724,7 +724,7 @@ function generateProceduralDungeon(floorLevel = 1, difficulty = 'normal') {
 
       // Elemental assignment for bosses based on floor theme
       const bossElement = floorConfig.element || 'dark';
-      const bossResists = {};
+      const bossResists: Record<string, number> = {};
       if (bossElement === 'fire') { bossResists.ice = -0.5; bossResists.fire = 0.6; }
       else if (bossElement === 'ice') { bossResists.fire = -0.5; bossResists.ice = 0.6; }
       else if (bossElement === 'lightning') { bossResists.earth = -0.5; bossResists.lightning = 0.6; }
@@ -1065,6 +1065,18 @@ function rollDungeonLoot(isBoss = false, floorLevel = 1, cls = null) {
   return drops;
 }
 
+export {
+  DUNGEON_WIDTH,
+  DUNGEON_HEIGHT,
+  DUNGEON_TILES,
+  DIFFICULTIES,
+  AFFIX_POOL,
+  DUNGEON_FLOORS,
+  BLOCKING_FEATURES,
+  DUNGEON_HAZARDS,
+  generateProceduralDungeon,
+  rollDungeonLoot
+};
 module.exports = {
   DUNGEON_WIDTH,
   DUNGEON_HEIGHT,
@@ -1077,3 +1089,6 @@ module.exports = {
   generateProceduralDungeon,
   rollDungeonLoot
 };
+
+
+

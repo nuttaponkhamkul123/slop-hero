@@ -85,6 +85,23 @@
       </div>
       </div>
 
+      <!-- Field Raid / World Boss widget (hidden until a raid boss is up) -->
+      <div class="hud-panel raid-panel" id="raidPanel" style="display: none;">
+        <div class="raid-header">
+          <span class="raid-title"><span data-pxi="skull"></span> RAID BOSS</span>
+          <span class="raid-timer" id="raidTimer">--</span>
+        </div>
+        <div class="raid-name" id="raidName">—</div>
+        <div class="stat-bar-container raid-hp-bar">
+          <div class="stat-bar-fill raid-hp-fill" id="raidHpFill" style="width: 100%;"></div>
+        </div>
+        <div class="raid-dmg-row" id="raidDmgRow"></div>
+        <div class="raid-foot">
+          <span id="raidCount">0 Raiders</span>
+          <span id="raidYou">—</span>
+        </div>
+      </div>
+
       <!-- Target HUD (Top-Center) -->
       <div class="hud-panel target-hud interactive" id="targetHud">
         <div class="avatar-wrapper" style="width: 44px; height: 44px; border-color: #ef4444;">

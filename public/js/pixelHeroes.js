@@ -936,6 +936,32 @@
     return s(0, 9.8);
   }
 
+  // War lance: long octagonal shaft, gold grip, leaf-shaped steel head
+  // (Dragoon / Bannerman)
+  function lance(f, hand, d) {
+    const n = perpOf(d);
+    paint(f, capsule(add(hand, d, -6), add(hand, d, 15), 0.8), M.wood);
+    paint(f, disc(add(hand, d, -6.6), 1.1), M.gold, { spec: true });
+    paint(f, capsule(add(hand, d, 6), add(hand, d, 8), 1.05), M.leather);
+    const h = add(hand, d, 15.4);
+    const s = (a, b) => add(add(h, d, a), n, b);
+    paint(f, poly([s(0.8, -3.4), s(1.4, 4.4), s(7, 2.6), s(7, -2.6)]), M.steel, { spec: true });
+    paint(f, capsule(s(1.6, 0), s(6.2, 0), 0.42), M.gold, { tone: 'h', rim: false, spec: true });
+    return s(7, 0);
+  }
+
+  // Single-hand war axe: bearded crescent head on a leather grip (Warchief pairs)
+  function battleAxe(f, hand, d) {
+    const n = perpOf(d);
+    const s = (a, b) => add(add(hand, d, a), n, b);
+    paint(f, capsule(s(-2.6, 0), s(1.4, 0), 0.9), M.leather);
+    paint(f, disc(s(-3.4, 0), 1.2), M.gold, { spec: true });
+    spike(f, s(1.6, 0), d, 2.7, 1.1, M.gold, { spec: true });
+    paint(f, poly([s(1.6, -1.5), s(4.2, -5.4), s(6.4, -5), s(4.6, 0), s(6.4, 5), s(4.2, 5.4), s(1.6, 1.5)]), M.steel, { spec: true });
+    paint(f, capsule(s(3.1, 0), s(5.2, 0), 0.5), M.gold, { tone: 'h', rim: false, spec: true });
+    return s(6.4, -4);
+  }
+
   // Berserker twin blade: short heavy cleaver-sword with a blood-red fuller,
   // one in each hand
   function bloodBlade(f, hand, d) {
@@ -1494,6 +1520,257 @@
             dot(f, Hd(sk, ex, -0.6), GLOW_EYE.blood);
           }
           paint(f, capsule(Hd(sk, 2.4, 2.6), Hd(sk, 4.6, 2.6), 0.35), CM.shadow, { rim: false });
+        }
+      }
+    },
+    sp_gravelord: {
+      smear: () => CM.iron,
+      weapon: warhammer,
+      capeMat: () => CM.fur,
+      head({ f, sk, view }) {
+        paint(f, disc(Hd(sk, -0.6, -0.4), 5.6), M.darkSteel, { spec: true });
+        paint(f, poly([Hd(sk, -4.4, -4.8), Hd(sk, 4.4, -4.8), Hd(sk, 3.4, 4.6), Hd(sk, -3.4, 4.6)]), M.steel);
+        spike(f, Hd(sk, 0.2, -5), [0, -1], 3.2, 1.1, M.gold, { spec: true });
+        if (view === 'front') {
+          paint(f, capsule(Hd(sk, -2.4, -1.6), Hd(sk, 2.4, -1.6), 0.7), CM.slit, { rim: false });
+          paint(f, capsule(Hd(sk, 0, -1.6), Hd(sk, 0, 3), 0.7), CM.slit, { rim: false });
+        }
+        paint(f, capsule(Hd(sk, -3.8, 4), Hd(sk, 4.2, 4), 0.5), M.gold, { rim: false, spec: true });
+      },
+      torso({ f, sk, view }) {
+        if (view === 'front') paint(f, disc(L(sk, sk.shC, 0.9, -3.2), 1.7), M.gold, { spec: true });
+      },
+      // stone pavise slung across the fur cape
+      onBack({ f, sk }) {
+        const S = (a, b) => L(sk, sk.shC, a, b);
+        paint(f, poly([S(-9.6, 3.4), S(-1.6, 3.4), S(-2.2, -7), S(-5.6, -12.6), S(-9.4, -7)]), M.steel, { spec: true });
+        paint(f, capsule(S(-2.6, -4.6), S(-9, 1.2), 0.7), M.gold, { rim: false, spec: true });
+      }
+    },
+    sp_dragoon: {
+      smear: () => CM.bolt,
+      weapon: lance,
+      cape: null,
+      armMatsF: () => ({ upper: M.steel, fore: M.steel, hand: M.leather }),
+      armMatsB: () => ({ upper: M.darkSteel, fore: M.darkSteel, hand: M.leather }),
+      // wing crest pauldrons
+      pauldron: ({ f, sk }, pt) => {
+        const c = add(pt, sk.up, 0.7);
+        paint(f, disc(c, 3.2, 2.6), M.steel, { spec: true });
+        spike(f, add(c, sk.side, -2.2), [-sk.side[0], -sk.side[1]], 3.2, 1.1, CM.bolt, { spec: true });
+        spike(f, add(c, sk.side, 2.2), sk.side, 3.2, 1.1, CM.bolt, { spec: true });
+      },
+      head({ f, sk, view }) {
+        paint(f, disc(Hd(sk, -0.6, -0.3), 5.4), M.steel, { spec: true });
+        paint(f, capsule(Hd(sk, -4.6, -2.4), Hd(sk, 4.8, -2.4), 0.6), M.gold, { rim: false, spec: true });
+        spike(f, Hd(sk, -3.4, -4.2), Hv(sk, -1, -0.7), 3.2, 1, M.gold, { spec: true });
+        spike(f, Hd(sk, 4.4, -4.2), Hv(sk, 1, -0.7), 3.2, 1, M.gold, { spec: true });
+        if (view === 'front') {
+          paint(f, poly([Hd(sk, -1.2, -4), Hd(sk, 4.8, -3.2), Hd(sk, 4.6, 2.4), Hd(sk, -0.6, 2)]), M.skin);
+          dot(f, Hd(sk, 1.2, -0.6), EYE);
+          dot(f, Hd(sk, 4, -0.6), EYE);
+        }
+      }
+    },
+    sp_reaver: {
+      smear: () => CM.fire,
+      weapon: (f, hand, d) => { const tip = sword(f, hand, d, 27); flame(f, add(hand, d, 24), 4.5, 2, 0); return tip; },
+      capeMat: () => CM.crimson,
+      cape: (X) => [
+        L(X.sk, X.sk.shC, -4.2, 1), L(X.sk, X.sk.shC, 4.4, 1),
+        ...ragged(X.sk.hip, [X.sk.hip[0] + X.sway * 2 + 1, X.sk.hip[1] + 13 + X.tr * 6], 6, 2),
+        [X.sk.hip[0] - 4.5, X.sk.hip[1] + 12]
+      ],
+      head({ f, sk, view }) {
+        paint(f, disc(Hd(sk, -0.5, -0.2), 5.2), CM.hair);
+        paint(f, poly([Hd(sk, -1.6, -5), Hd(sk, 1.4, -5.2), Hd(sk, 0.2, -8.6)]), CM.hair);
+        if (view === 'front') {
+          paint(f, poly([Hd(sk, -1, -4.2), Hd(sk, 5, -4), Hd(sk, 4.6, 2.6), Hd(sk, -0.4, 2.8)]), M.skin);
+          dot(f, Hd(sk, 1.2, -0.6), EYE);
+          dot(f, Hd(sk, 4, -0.6), EYE);
+          paint(f, capsule(Hd(sk, 0.4, 1), Hd(sk, 4, 1.6), 0.8), CM.crimson, { rim: false });
+        }
+      }
+    },
+    sp_runeknight: {
+      smear: () => CM.ghost,
+      weapon: (f, hand, d) => {
+        const tip = sword(f, hand, d, 25);
+        paint(f, disc(add(hand, d, 15), 1.2), M.orb, { spec: true });
+        paint(f, disc(add(hand, d, 19), 0.8), M.venom, { spec: true });
+        return tip;
+      },
+      capeMat: () => M.robeTrim,
+      behind({ f, sk, p }) {
+        if (p.drop) return;
+        for (const dx of [-8.5, 0, 8]) {
+          const c = Hd(sk, dx, -9);
+          paint(f, disc(c, 1.5), M.orb, { tone: 'l', rim: false, alpha: 150 });
+          paint(f, disc(c, 0.8), M.venom, { spec: true });
+        }
+      },
+      head({ f, sk, view }) {
+        paint(f, disc(Hd(sk, -0.6, -0.3), 5.4), M.hood);
+        paint(f, poly([Hd(sk, -1, -5.5), Hd(sk, 4.6, -4.4), Hd(sk, 6.4, -1.6), Hd(sk, 3, -3.6)]), M.hood);
+        paint(f, capsule(Hd(sk, -3.8, -3), Hd(sk, 4.8, -3), 0.6), M.robeTrim, { rim: false, spec: true });
+        paint(f, disc(Hd(sk, -3.2, -3), 0.8), M.orb, { spec: true });
+        paint(f, disc(Hd(sk, 4.2, -3), 0.8), M.orb, { spec: true });
+        if (view === 'front') {
+          paint(f, poly([Hd(sk, 1.4, -2.2), Hd(sk, 5.4, -2.2), Hd(sk, 5.2, 0.6), Hd(sk, 1.6, 0.6)]), CM.shadow, { rim: false });
+          dot(f, Hd(sk, 3, -0.8), GLOW_EYE.venom);
+          dot(f, Hd(sk, 4.6, -0.8), GLOW_EYE.venom);
+        }
+      }
+    },
+    sp_sentinel: {
+      smear: () => CM.feather,
+      weapon: mace,
+      cape: null,
+      // knightly tower shield slung on the back
+      onBack({ f, sk }) {
+        const S = (a, b) => L(sk, sk.shC, a, b);
+        paint(f, poly([S(-11, 3.5), S(-1.6, 3.5), S(-2.2, -6.5), S(-6.3, -12.5), S(-10.4, -6.5)]), M.steel, { spec: true });
+        paint(f, capsule(S(-6.4, -10.6), S(-6.4, 0.8), 0.8), M.gold, { rim: false, spec: true });
+        paint(f, capsule(S(-10, -3.6), S(-2.6, -3.6), 0.8), M.gold, { rim: false, spec: true });
+      },
+      head({ f, sk, view }) {
+        paint(f, disc(Hd(sk, -0.6, -0.4), 5.8), M.plate || M.steel, { spec: true });
+        if (view === 'front') {
+          paint(f, capsule(Hd(sk, -1.4, -1.8), Hd(sk, 2.6, -1.8), 0.9), CM.slit, { rim: false });
+          paint(f, capsule(Hd(sk, 0.6, -1.8), Hd(sk, 0.6, 2.6), 0.9), CM.slit, { rim: false });
+        } else {
+          paint(f, poly([Hd(sk, -4.6, 1), Hd(sk, 3, 1), Hd(sk, 2.6, 4.6), Hd(sk, -4.2, 4.2)]), M.darkSteel);
+        }
+        paint(f, capsule(Hd(sk, -4.6, -2.2), Hd(sk, 4.8, -2.2), 0.6), M.gold, { rim: false, spec: true });
+        for (const dx of [-3.2, 0, 3.2]) paint(f, disc(Hd(sk, dx, -3.4), 0.7), M.gold, { spec: true });
+      }
+    },
+    sp_duskblade: {
+      smear: () => CM.voidGlow,
+      weapon: (f, hand, d) => {
+        const tip = sword(f, hand, d, 26);
+        paint(f, disc(add(hand, d, 15), 1.2), CM.voidGlow, { spec: true });
+        return tip;
+      },
+      capeMat: () => CM.shadow,
+      cape: (X) => [
+        L(X.sk, X.sk.shC, -4.2, 1), L(X.sk, X.sk.shC, 4.4, 1),
+        ...ragged(X.sk.hip, [X.sk.hip[0] + X.sway + 0.5, X.sk.hip[1] + 14 + X.tr * 6], 5, 2),
+        [X.sk.hip[0] - 4.6, X.sk.hip[1] + 13]
+      ],
+      behind({ f, sk, p }) {
+        if (p.drop) return;
+        paint(f, disc(Hd(sk, -6.5, -7), 1.1), CM.voidGlow, { alpha: 170 });
+        paint(f, disc(Hd(sk, 6.5, -7.5), 1), CM.voidGlow, { alpha: 170 });
+      },
+      head({ f, sk, view }) {
+        paint(f, disc(Hd(sk, -0.6, -0.3), 5.6), M.darkSteel);
+        for (const dx of [-2.6, 0.4, 3.4]) spike(f, Hd(sk, dx, -5.4), Hv(sk, dx, -1), 3, 1.05, M.gold, { spec: true });
+        if (view === 'front') {
+          paint(f, poly([Hd(sk, 1.2, -2), Hd(sk, 5.4, -2), Hd(sk, 5, 2.4), Hd(sk, 1.4, 2.6)]), CM.shadow, { rim: false });
+          dot(f, Hd(sk, 2.8, -0.6), GLOW_EYE.blood);
+          dot(f, Hd(sk, 4.4, -0.6), GLOW_EYE.blood);
+        } else {
+          paint(f, poly([Hd(sk, -4.6, 1), Hd(sk, 3, 1), Hd(sk, 2.6, 4.6), Hd(sk, -4.2, 4.2)]), M.darkSteel);
+        }
+      }
+    },
+    sp_titan: {
+      smear: () => CM.iron,
+      weapon: warhammer,
+      cape: null,
+      // slab pauldrons
+      pauldron: ({ f, sk }, pt) => {
+        const c = add(pt, sk.up, 1.2);
+        paint(f, disc(c, 4.6, 3.6), M.darkSteel, { spec: true });
+        paint(f, disc(add(c, sk.up, 1.2), 2.6, 1.8), M.steel, { spec: true });
+        spike(f, add(c, sk.side, -3.4), [-sk.side[0], -sk.side[1]], 3.4, 1.2, M.gold, { spec: true });
+      },
+      // megalith slab across the back
+      onBack({ f, sk }) {
+        const S = (a, b) => L(sk, sk.shC, a, b);
+        paint(f, poly([S(-10.5, 3), S(-2.5, 3), S(-3, -8), S(-6.5, -12.5), S(-10, -8)]), M.darkSteel, { spec: true });
+        paint(f, poly([S(-9, 0.5), S(-4.5, 0.5), S(-5, -7), S(-6.5, -9.5), S(-8.5, -7)]), M.steel, { spec: true });
+      },
+      head({ f, sk, view }) {
+        paint(f, poly([Hd(sk, -5.4, -6.4), Hd(sk, 5.4, -6.4), Hd(sk, 4.6, 4.6), Hd(sk, -4.6, 4.6)]), M.darkSteel, { spec: true });
+        paint(f, poly([Hd(sk, -4, -7.2), Hd(sk, 4.8, -7.2), Hd(sk, 3.4, -9.4), Hd(sk, -3.2, -9.4)]), M.steel, { spec: true });
+        if (view === 'front') {
+          paint(f, capsule(Hd(sk, -3, -0.6), Hd(sk, 3, -0.6), 0.55), CM.slit, { rim: false });
+        } else {
+          paint(f, poly([Hd(sk, -4.6, 1.4), Hd(sk, 3, 1.4), Hd(sk, 2.6, 4.6), Hd(sk, -4.2, 4.6)]), M.darkSteel);
+        }
+      }
+    },
+    sp_bannerman: {
+      smear: () => M.gold,
+      weapon: lance,
+      cape: null,
+      // furled war banner slung across the back
+      onBack({ f, sk }) {
+        const S = (a, b) => L(sk, sk.shC, a, b);
+        paint(f, capsule(S(-5.4, -8), S(-5.4, 4), 0.7), M.wood);
+        paint(f, poly([S(-5.8, -8.4), S(-0.4, -8), S(-5.8, -4)]), M.tabard, { spec: true });
+        paint(f, poly([S(-6, -8.9), S(0.4, -8.4), S(-6, -3.4)]), M.gold, { rim: false, spec: true });
+        paint(f, disc(S(-5.4, 4.4), 1), M.gold, { spec: true });
+      },
+      head({ f, sk, view }) {
+        paint(f, disc(Hd(sk, -0.6, -0.3), 5.3), M.steel, { spec: true });
+        horn(f, [Hd(sk, -4.6, -4.6), Hd(sk, -7, -7.4), Hd(sk, -6.4, -10.4)], 1.1, 0.7, M.darkSteel);
+        horn(f, [Hd(sk, 4.6, -4.6), Hd(sk, 7, -7.4), Hd(sk, 6.4, -10.4)], 1.1, 0.7, M.darkSteel);
+        if (view === 'front') {
+          paint(f, poly([Hd(sk, -1.4, -3.4), Hd(sk, 4.6, -3.2), Hd(sk, 4.4, 2.6), Hd(sk, -0.8, 2.8)]), M.skin);
+          dot(f, Hd(sk, 1.2, -0.6), EYE);
+          dot(f, Hd(sk, 3.8, -0.6), EYE);
+          paint(f, capsule(Hd(sk, 0, 2.4), Hd(sk, 3.8, 2.4), 0.5), M.tabard, { rim: false });
+        }
+      }
+    },
+    sp_warchief: {
+      smear: () => CM.crimson,
+      smearR: [6, 18],
+      weapon: battleAxe,
+      weaponB: battleAxe,
+      capeMat: () => CM.fur,
+      armMatsF: () => ({ upper: M.skin, fore: M.leather, hand: M.leather }),
+      armMatsB: () => ({ upper: M.skin, fore: M.leather, hand: M.leather }),
+      torso({ f, sk, view }) {
+        if (view !== 'front') return;
+        for (const dx of [-1.4, 1.4]) {
+          paint(f, disc(L(sk, sk.shC, 0.2, -1.6 + dx), 1.1), CM.bone, { spec: true });
+        }
+      },
+      head({ f, sk, view }) {
+        paint(f, disc(Hd(sk, -0.6, -0.4), 5.4), CM.hair);
+        paint(f, poly([Hd(sk, -1.6, -5.2), Hd(sk, 1.6, -5.2), Hd(sk, 0, -9.6)]), CM.hair, { spec: true });
+        if (view === 'front') {
+          paint(f, poly([Hd(sk, -1.4, -1.8), Hd(sk, 5, -1.8), Hd(sk, 4.8, 3), Hd(sk, -0.8, 3.2)]), M.skin);
+          dot(f, Hd(sk, 1.2, -0.4), EYE);
+          dot(f, Hd(sk, 3.8, -0.4), EYE);
+          paint(f, capsule(Hd(sk, 0.2, 1.6), Hd(sk, 3.6, 1.6), 0.6), CM.crimson, { rim: false });
+        }
+      }
+    },
+    sp_phoenix_oath: {
+      smear: () => CM.fire,
+      smearR: [8, 20],
+      weapon: (f, hand, d) => { const tip = sword(f, hand, d, 25); flame(f, add(hand, d, 22), 5, 1.8, 0); return tip; },
+      capeMat: () => CM.fire,
+      // warm rebirth halo behind the head
+      behind({ f, sk, p }) {
+        if (p.drop) return;
+        const c = Hd(sk, -1, -5);
+        paint(f, disc(c, 7), CM.fire, { tone: 'l', rim: false, alpha: 90 });
+        paint(f, disc(add(c, [2, -2.4], 1), 5.4), CM.fire, { tone: 'm', rim: false, alpha: 120 });
+      },
+      head({ f, sk, view }) {
+        paint(f, disc(Hd(sk, -0.6, -0.3), 5.2), M.gold, { spec: true });
+        flame(f, Hd(sk, 1, -5.4), 4.6, 1.6, 0.5);
+        flame(f, Hd(sk, -2.4, -5), 3.4, 1.2, -0.4);
+        if (view === 'front') {
+          paint(f, poly([Hd(sk, 1.2, -1.8), Hd(sk, 5.2, -1.8), Hd(sk, 5, 2.4), Hd(sk, 1.4, 2.6)]), M.skin);
+          dot(f, Hd(sk, 2.8, -0.6), EYE);
+          dot(f, Hd(sk, 4.6, -0.6), EYE);
         }
       }
     }
