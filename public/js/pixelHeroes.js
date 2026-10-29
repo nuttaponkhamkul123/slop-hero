@@ -511,15 +511,17 @@
       arm(f, sk, 'F', armMatsF, [2, 1.8, 1.6]);
       pauldron(sk.shF, M.steel);
     } else if (frontal) {
-      // Facing away: the blade held in front is hidden by the body unless raised
+      // Facing away: the blade held in front is hidden by the body unless raised.
+      // Arms go under the cape (it hangs over the back between them), so a swinging
+      // arm passes behind it and only shows where it reaches past the cape's edge.
       if (!wRaised) drawSword();
       leg(f, sk, 'F', legMats, [2.5, 2.1, 1.8]);
       leg(f, sk, 'B', legMats, [2.3, 2.0, 1.7]);
       torso();
-      head();
-      drawCape();
       arm(f, sk, 'F', armMatsF, [2, 1.8, 1.6]);
       armB([1.9, 1.7, 1.5]);
+      head();
+      drawCape();
       pauldron(sk.shF, M.steel);
       pauldron(sk.shB, M.steel);
       if (wRaised) drawSword();
@@ -544,8 +546,9 @@
       torso();
       head();
       if (!wTipUp) drawSword();
-      drawCape();
+      // the near arm also passes under the cape (see the facing-away case)
       armB([1.9, 1.7, 1.5]);
+      drawCape();
       pauldron(sk.shF, M.steel);
       pauldron(sk.shB, M.steel);
       if (wTipUp) drawSword();
@@ -1981,9 +1984,22 @@
     return { pose: COSTUME && COSTUME.pose ? COSTUME.pose(pose) : pose, t };
   }
 
-  function buildFrame(cls, view, action, i) {
+  // Attacking on the move: the swing's upper body over the run cycle's legs
+  // (run phase ri), the hip riding the run's bob plus half the swing's crouch
+  function runBlend(cls, ri) {
+    const runPose = poseAt(CLASS_ANIMS[cls].run, ri).pose;
+    const stand = poseAt(CLASS_ANIMS[cls].idle, 0).pose;
+    return up => Object.assign({}, up, {
+      footF: runPose.footF, footB: runPose.footB,
+      hip: [up.hip[0], runPose.hip[1] + (up.hip[1] - stand.hip[1]) * 0.5],
+      cape: Math.max(up.cape || 0, runPose.cape || 0)
+    });
+  }
+
+  function buildFrame(cls, view, action, i, blend) {
     const def = CLASS_ANIMS[cls][action];
-    const { pose, t } = poseAt(def, i);
+    const { pose: rawPose, t } = poseAt(def, i);
+    const pose = blend ? blend(rawPose) : rawPose;
     const f = newFrame();
     const vd = VIEW_DEF[view] || VIEW_DEF.E;
     const sk = skeleton(pose, (COSTUME && COSTUME.rig) || RIGS[cls], vd.phi);
@@ -2031,7 +2047,7 @@
   // Build a class wearing an SP card: its costume parts (COSTUMES[costumeKey])
   // plus some materials recoloured.
   // palette: { materialName: [outline, dark, mid, light, highlight?] }
-  function buildVariant(cls, palette, costumeKey, views) {
+  function withLook(palette, costumeKey, fn) {
     const saved = {};
     for (const [k, cols] of Object.entries(palette || {})) {
       if (!M[k]) continue;
@@ -2040,11 +2056,20 @@
     }
     COSTUME = (costumeKey && COSTUMES[costumeKey]) || null;
     try {
-      return buildClass(cls, views);
+      return fn();
     } finally {
       Object.assign(M, saved);
       COSTUME = null;
     }
+  }
+
+  function buildVariant(cls, palette, costumeKey, views) {
+    return withLook(palette, costumeKey, () => buildClass(cls, views));
+  }
+
+  // One swing frame (action frame ai) over run frame ri, optionally in an SP card's look
+  function buildRunAttack(cls, palette, costumeKey, view, action, ai, ri) {
+    return withLook(palette, costumeKey, () => buildFrame(cls, view, action, ai, runBlend(cls, ri)));
   }
 
   // Highest opaque row of a frame (for placing name tags above the head)
@@ -2062,7 +2087,7 @@
       const d = CLASS_ANIMS[cls][action];
       return { frames: d.frames, loop: !!d.loop, hold: !!d.hold };
     },
-    buildAll, buildFrame, buildVariant, topRow
+    buildAll, buildFrame, buildVariant, buildRunAttack, topRow
   };
 
   // ---------------------------------------------------------------- browser
@@ -2116,6 +2141,22 @@
         sheets.set(k, toSheet(raw));
       }
       return pick(sheets.get(k)[action], idx);
+    };
+    // Swing-while-running frame: attack frame ai on run frame ri (key: SP card id or null)
+    const runAttacks = new Map();
+    api.runAttackFrame = (cls, key, palette, view, action, ai, ri) => {
+      if (!CLASS_ANIMS[cls]) cls = 'warrior';
+      if (!VIEW_DEF[view]) view = 'E';
+      if (palette) palettes.set(key, palette);
+      const n = CLASS_ANIMS[cls][action].frames, m = CLASS_ANIMS[cls].run.frames;
+      ai = Math.max(0, Math.min(n - 1, ai)); ri = ((ri % m) + m) % m;
+      const k = (key || cls) + '|' + view + '|' + action + '|' + ai + '|' + ri;
+      let c = runAttacks.get(k);
+      if (!c) {
+        c = toCanvas(buildRunAttack(cls, key ? palettes.get(key) : null, key, view, action, ai, ri));
+        runAttacks.set(k, c);
+      }
+      return c;
     };
     // Head-and-shoulders portrait for HUD avatars
     api.portrait = (cls, size) => {

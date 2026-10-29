@@ -49,6 +49,13 @@ const FROST_TO_FREEZE = 3, FROST_SECONDS = 5, FREEZE_SECONDS = 2, BOSS_FREEZE_SE
 const STORM_CHARGE_MAX = 5, STORM_CHARGE_SECONDS = 8;
 const VOID_SOUL_MAX = 10, VOID_SOUL_SECONDS = 12, VOID_SOUL_BONUS = 0.04;
 const ECHO_DAMAGE = 0.6;
+// Variant warrior card mechanics (see spCards.ts)
+const FRACTURE_MAX = 5, FRACTURE_SECONDS = 6, FRACTURE_STUN = 0.35;         // Gravelord
+const HEAT_MAX = 100, HEAT_HOLD_MS = 3000, HEAT_DECAY = 10;                   // Reaver: Heat fades 10/s after 3s idle
+const OVERHEAT_SECONDS = 6, OVERHEAT_BONUS = 0.4, OVERHEAT_BURN = 0.015;     // Reaver Overheat
+const RUNE_MAX = 4, RUNE_POLL = 0.25, RUNE_ARM_MS = 400, RUNE_TRIGGER_R = 1.1; // Rune Knight glyphs
+const COMBO_MAX = 6, COMBO_SECONDS = 4, COMBO_BONUS = 0.1;                   // Warchief
+let spObjSeq = 0; // ids for placed card objects (glyphs, banners, lances) so the client can clear them
 // Skills a Nightblade shadow does not copy: tossing the shadow itself, and ones that only move or buff the hero
 const SHADOW_SKIPS_SHAPES = new Set(['shadow', 'aura', 'rewind', 'buff']);
 const REWIND_SAMPLE_S = 0.25, REWIND_KEEP_S = 4;
@@ -722,14 +729,16 @@ class GameServer {
   // The card's four equipped skills for this hero (their picks from its arsenal)
   spLoadout(player, card) {
     if (!player.spLoadouts) player.spLoadouts = {};
-    const saved = player.spLoadouts[card.id] || {};
+    // a reworked kit (card.kit bumped) starts over from the card's new defaults
+    const stored = player.spLoadouts[card.id];
+    const saved = stored && (stored.kit || 0) === (card.kit || 0) ? stored : {};
     const out = {};
     for (const slot of ['slot1', 'slot2', 'slot3', 'dash']) {
       const id = saved[slot];
       const sk = id && card.arsenal.includes(id) && SP.SP_SKILLS[id];
       out[slot] = sk && sk.isDash === (slot === 'dash') ? id : card.skills[slot];
     }
-    player.spLoadouts[card.id] = out;
+    player.spLoadouts[card.id] = { ...out, kit: card.kit || 0 };
     return { ...out };
   }
 
@@ -750,7 +759,7 @@ class GameServer {
       // already in another slot: trade places
       for (const slot of slots) if (slot !== data.slot && loadout[slot] === data.skillId) loadout[slot] = loadout[data.slot];
       loadout[data.slot] = data.skillId;
-      player.spLoadouts[card.id] = loadout;
+      player.spLoadouts[card.id] = { ...loadout, kit: card.kit || 0 };
       Object.assign(player.equippedSkills, loadout);
       notice = `Set [${sk.name}]`;
     }
@@ -2226,6 +2235,14 @@ class GameServer {
 
     if (targetMob) {
       player.facing = this.calculateFacing(player.x, player.y, targetMob.x, targetMob.y);
+      // In reach of a click-moved hero: plant the feet and swing instead of walking on into the monster
+      const reach = (player.attackRange || 1.6) + 0.6;
+      const wasd = player.moveDir && (player.moveDir.dx || player.moveDir.dy);
+      if (!wasd && Math.hypot(targetMob.x - player.x, targetMob.y - player.y) <= reach) {
+        player.targetX = null;
+        player.targetY = null;
+        player.isMoving = false;
+      }
     } else if (targetInfo && targetInfo.worldX !== undefined) {
       player.facing = this.calculateFacing(player.x, player.y, targetInfo.worldX, targetInfo.worldY);
     }
@@ -2581,6 +2598,34 @@ class GameServer {
     return hpDrain > 0;
   }
 
+  // Bannerman: the War Standard this hero planted, if it still stands where they are
+  ownBanner(player) {
+    const b = player.banner;
+    if (!b || Date.now() >= b.until || b.zone !== player.zone || b.instanceId !== (player.dungeonInstanceId || null)) return null;
+    return b;
+  }
+
+  // Phoenix Oath passive: a lethal blow sets the hero alight instead (once per cd)
+  phoenixRebirth(player) {
+    const card = player.spTransformed && player.equipment && player.equipment.sp && SP.CARD_BY_ID[player.equipment.sp.cardId];
+    const rb = card && card.passive && card.passive.rebirth;
+    if (!rb || Date.now() < (player.rebirthReadyAt || 0)) return false;
+    player.rebirthReadyAt = Date.now() + rb.cd * 1000;
+    player.hp = Math.round(player.maxHp * rb.hp);
+    player.isDead = false;
+    for (const m of this.getMobsMap(player.zone, player).values()) {
+      if (m.state === 'dead' || Math.hypot(m.x - player.x, m.y - player.y) > rb.r) continue;
+      m.burnTimer = Math.max(m.burnTimer || 0, 4);
+      m.burnDmg = Math.max(m.burnDmg || 0, Math.round(player.dmg * 0.3));
+      this.applyDamageToMob(player, m, Math.round(player.dmg * rb.dmg * SKILL_DAMAGE_SCALE), false);
+    }
+    this.emitZone(player.zone, 'skill_fx', {
+      type: 'sp_skill', shape: 'rebirth', x: player.x, y: player.y, radius: rb.r, element: card.element, color: card.color, cardId: card.id, skillId: 'sp_phoenix_rebirth', name: 'Rebirth'
+    });
+    this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 1.0, text: '🔥 REBIRTH!', color: '#fbbf24', size: 22 });
+    return true;
+  }
+
   // Buffs and debuffs on a hero, for the HUD tray: [{ k, n, i, t?, v?, d? }]
   // (k key, n name, i icon, t seconds left, v stacks / amount, d = debuff)
   heroBuffs(p) {
@@ -2597,6 +2642,18 @@ class GameServer {
     if (p.flowStacks > 0) out.push({ k: 'flow', n: 'Flow', i: '🌊', v: p.flowStacks, t: Math.ceil(p.flowTimer || 0) });
     if (p.stormCharge > 0) out.push({ k: 'charge', n: 'Static Charge', i: '⚡', v: p.stormCharge, t: Math.ceil(p.stormChargeTimer || 0) });
     if (p.voidSouls > 0) out.push({ k: 'souls', n: 'Souls', i: '👻', v: p.voidSouls, t: Math.ceil(p.voidSoulTimer || 0) });
+    // variant warrior card states
+    const now = Date.now();
+    const left = (until) => (until || 0) > now ? (until - now) / 1000 : 0;
+    if (p.heat > 0) out.push({ k: 'heat', n: 'Heat', i: '🌡️', v: Math.round(p.heat) });
+    timed('overheat', 'Overheat', '🔥', left(p.overheatUntil));
+    if (p.combo && p.combo.n > 0 && p.combo.until > now) out.push({ k: 'combo', n: 'Combo', i: '🪓', v: p.combo.n, t: Math.ceil(left(p.combo.until)) });
+    timed('riposte', 'Riposte', '🛡️', left(p.parry && p.parry.until));
+    if (this.ownBanner(p)) timed('banner', 'War Standard', '🚩', left(p.banner.until));
+    if (p.spTransformed && p.equipment && p.equipment.sp && p.equipment.sp.cardId === 'sp_phoenix_oath') {
+      const cd = left(p.rebirthReadyAt);
+      out.push(cd > 0 ? { k: 'rebirth', n: 'Rebirth (recharging)', i: '🪶', t: Math.ceil(cd), d: 1 } : { k: 'rebirth', n: 'Rebirth ready', i: '🪶' });
+    }
     const DEBUFFS = { poison: ['Poison', '☠️'], burn: ['Burn', '🔥'], chill: ['Chill', '❄️'] };
     for (const e of p.statusEffects || []) {
       const [n, i] = DEBUFFS[e.type] || [e.type, '⚠️'];
@@ -2876,10 +2933,62 @@ class GameServer {
       player.voidSouls = Math.min(VOID_SOUL_MAX, (player.voidSouls || 0) + n);
       player.voidSoulTimer = VOID_SOUL_SECONDS;
     };
+    // Warchief Combo: a skill different from the last one stacks Combo,
+    // repeating one drops it; a finisher cashes the whole chain in
+    let comboMult = 1;
+    if (skill.combo && !isEcho && !isShadow) {
+      const nowC = Date.now();
+      const c = player.combo && player.combo.until > nowC ? player.combo : { n: 0, last: null };
+      let n = c.last === skill.id ? 0 : Math.min(COMBO_MAX, c.n + 1);
+      if (skill.comboGain) n = Math.min(COMBO_MAX, n + skill.comboGain);
+      comboMult = 1 + COMBO_BONUS * n;
+      if (skill.finisher && n > 0) {
+        comboMult *= 1 + skill.finisher * n;
+        say(px, py, `🪓 FINISHER x${n}`, '#f97316', 18);
+        n = 0;
+      } else if (c.last === skill.id && c.n > 1) {
+        say(px, py, 'COMBO BROKEN', '#94a3b8', 14);
+      } else if (n > 1) {
+        say(px, py, `🪓 COMBO x${n}`, '#fb923c', 13 + n);
+      }
+      player.combo = { n, last: skill.id, until: nowC + COMBO_SECONDS * 1000 };
+    }
+    // Reaver: Overheat powers every skill of the card; Vent spends the Heat
+    let heatMult = 1;
+    if (skill.cardId === 'sp_reaver' && player.overheatUntil > Date.now()) heatMult = 1 + OVERHEAT_BONUS;
+    if (skill.vent && player.heat > 0 && !isEcho && !isShadow) {
+      heatMult *= 1 + skill.vent * player.heat / 10;
+      say(px, py, `🔥 VENT ${Math.round(player.heat)} HEAT`, '#fb923c', 17);
+      player.heat = 0;
+    }
+    // Duskblade Doom: the brand replays a share of what it soaked up when it ends
+    const burstDoom = (mob, brand) => {
+      if (!mob || mob.doom !== brand) return;
+      mob.doom = null;
+      const dmg = Math.round(brand.stored * brand.share);
+      if (dmg <= 0) return;
+      emit({ shape: 'doom', x: mob.x, y: mob.y, radius: 1.8, burst: true }, false);
+      if (mob.state !== 'dead' && mob.hp > 0) {
+        this.applyDamageToMob(player, mob, dmg, false);
+        say(mob.x, mob.y, `☠️ DOOM -${dmg}`, '#c084fc', 18);
+      } else {
+        // the brand outlives its bearer and bursts onto whoever stood beside it
+        for (const m of within(mob.x, mob.y, 2.5)) this.applyDamageToMob(player, m, Math.round(dmg * 0.5), false);
+        say(mob.x, mob.y, '☠️ DOOM SPREADS', '#c084fc', 16);
+      }
+    };
     let chargeHits = 0;
     const hit = (mob, mult = 1, fromX = px, fromY = py) => {
       if (!mob || mob.state === 'dead') return;
-      let m = skill.dmgMult * mult * dischargeMult * soulMult;
+      let m = skill.dmgMult * mult * dischargeMult * soulMult * comboMult * heatMult;
+      // Gravelord: shatter the Fracture cracks for bonus damage and a stun
+      let shatterStun = 0;
+      if (skill.shatterEarth && mob.fracture > 0 && mob.fractureUntil > Date.now()) {
+        m *= 1 + skill.shatterEarth * mob.fracture;
+        shatterStun = FRACTURE_STUN * mob.fracture;
+        say(mob.x, mob.y, `🪨 SHATTER x${mob.fracture}`, '#a3e635', 16);
+        mob.fracture = 0;
+      }
       // Pyromancer: Combust detonates Scorch, Fire Chain feeds on it
       if (skill.combust && mob.scorchStacks > 0) {
         m *= 1 + skill.combust * mob.scorchStacks;
@@ -2955,6 +3064,18 @@ class GameServer {
         mob.frozenKind = 'time';
       }
       if (stillUp && skill.stun) mob.attackCooldown = Math.max(mob.attackCooldown || 0, skill.stun);
+      if (stillUp && shatterStun) mob.attackCooldown = Math.max(mob.attackCooldown || 0, shatterStun);
+      if (stillUp && skill.fracture) {
+        const cracks = mob.fractureUntil > Date.now() ? mob.fracture || 0 : 0;
+        mob.fracture = Math.min(FRACTURE_MAX, cracks + skill.fracture);
+        mob.fractureUntil = Date.now() + FRACTURE_SECONDS * 1000;
+      }
+      if (stillUp && skill.doom && !(mob.doom && mob.doom.until > Date.now())) {
+        const brand = { owner: player.id, stored: 0, share: skill.doom.share, until: Date.now() + skill.doom.delay * 1000 };
+        mob.doom = brand;
+        emit({ shape: 'doom', x: mob.x, y: mob.y, radius: 0.9, duration: skill.doom.delay, followMob: mob.id }, false);
+        later(skill.doom.delay, () => burstDoom(mob, brand));
+      }
       if (skill.souls) gainSouls(skill.souls);
       else if (!stillUp && isSoulCard) gainSouls(1);
       if (skill.chargeHit && chargeHits < STORM_CHARGE_MAX) { chargeHits++; gainCharge(skill.chargeHit); }
@@ -3010,6 +3131,44 @@ class GameServer {
       return { x: nx, y: ny };
     };
 
+    // Rune Knight glyphs: carved at a spot, armed after a beat, burst when an
+    // enemy steps on them (or all at once on Invocation)
+    const burstRune = (g, mult) => {
+      if (g.spent) return;
+      g.spent = true;
+      const sk = g.skill;
+      emit({ shape: 'rune', burst: true, kind: sk.kind, skillId: sk.id, x: g.x, y: g.y, radius: sk.r * (mult > 1 ? 1.15 : 1), clearObj: g.id }, false);
+      for (const m of within(g.x, g.y, sk.r * (mult > 1 ? 1.15 : 1))) {
+        if (sk.stun) m.attackCooldown = Math.max(m.attackCooldown || 0, sk.stun);
+        if (sk.stun) m.chillTimer = Math.max(m.chillTimer || 0, sk.stun);
+        if (sk.chill) m.chillTimer = Math.max(m.chillTimer || 0, sk.chill);
+        const before = m.hp;
+        applySkillDamage(m, Math.round(player.dmg * sk.dmgMult * mult), true);
+        dealt += Math.max(0, before - Math.max(0, m.hp));
+      }
+    };
+    const placeRune = (sk, x, y, first) => {
+      const nowR = Date.now();
+      const live = (player.runeGlyphs || []).filter(g => !g.spent && g.until > nowR && g.zone === zone && g.instanceId === instanceId);
+      while (live.length >= RUNE_MAX) {
+        const old = live.shift();
+        old.spent = true;
+        emit({ shape: 'rune', clearObj: old.id, x: old.x, y: old.y, radius: 0 }, false);
+      }
+      const g = { id: 'g' + (++spObjSeq), skill: sk, x, y, until: nowR + sk.dur * 1000, armAt: nowR + RUNE_ARM_MS, spent: false, zone, instanceId };
+      live.push(g);
+      player.runeGlyphs = live;
+      emit({ shape: 'rune', kind: sk.kind, skillId: sk.id, name: sk.name, x, y, radius: sk.r, duration: sk.dur, objId: g.id }, first);
+      const ticks = Math.ceil(sk.dur / RUNE_POLL);
+      for (let i = 1; i <= ticks; i++) {
+        later(i * RUNE_POLL, () => {
+          if (g.spent) return;
+          if (Date.now() >= g.until) { g.spent = true; return; }
+          if (Date.now() >= g.armAt && within(g.x, g.y, RUNE_TRIGGER_R).length) burstRune(g, 1);
+        });
+      }
+    };
+
     let spot = null; // where a lingering field (skill.field) settles
     switch (skill.spShape) {
       case 'aura': {
@@ -3038,7 +3197,253 @@ class GameServer {
       case 'nova':
       case 'buff': {
         emit({ x: px, y: py, radius: skill.r || 1.4 }, true);
+        if (skill.provoke) {
+          for (const m of within(px, py, skill.r)) {
+            const nx = px + (m.x - px) * (1 - skill.provoke), ny = py + (m.y - py) * (1 - skill.provoke);
+            if (!m.isBoss && !this.isColliding(nx, ny, zone)) { m.x = nx; m.y = ny; }
+            m.targetPlayerId = player.id;
+            m.state = 'chase';
+          }
+          say(px, py, '📯 CHALLENGE!', '#fde68a', 17);
+        }
         if (skill.dmg) within(px, py, skill.r).forEach(m => hit(m));
+        if (skill.reap) {
+          // Devour: every Doom brand of this hero bursts now
+          for (const m of alive()) if (m.doom && m.doom.owner === player.id) burstDoom(m, m.doom);
+        }
+        break;
+      }
+      case 'fault': {
+        // the crack crawls forward a segment at a time; each enemy cracks once
+        const n = skill.n || 5, step = skill.step || 1;
+        const pts = [];
+        for (let i = 1; i <= n; i++) pts.push(ray(px, py, dir.normX, dir.normY, i * step, 0.3));
+        emit({ startX: px, startY: py, x: pts[n - 1].x, y: pts[n - 1].y, segs: pts, radius: skill.hit, every: skill.every, duration: n * skill.every + 0.7 }, true);
+        const struck = new Set();
+        pts.forEach((p, i) => later(i * skill.every, () => {
+          for (const m of within(p.x, p.y, skill.hit)) {
+            if (struck.has(m)) continue;
+            struck.add(m);
+            hit(m, 1, p.x, p.y);
+          }
+        }));
+        break;
+      }
+      case 'spear': {
+        if (recall && player.dgSpear) {
+          // dive onto the planted lance
+          const sp = player.dgSpear;
+          player.dgSpear = null;
+          player.x = sp.x; player.y = sp.y;
+          player.targetX = null; player.targetY = null;
+          player.facing = this.calculateFacing(px, py, sp.x, sp.y);
+          emit({ dive: true, ownerId: player.id, startX: px, startY: py, x: sp.x, y: sp.y, radius: skill.diveR, clearObj: sp.objId }, false);
+          say(sp.x, sp.y, '🐉 LANCE DIVE!', '#facc15', 17);
+          within(sp.x, sp.y, skill.diveR).forEach(m => hit(m, skill.dive / (skill.dmgMult || 1), sp.x, sp.y));
+          const socket = this.io.sockets.sockets.get(player.id);
+          if (socket) socket.emit('player_updated', player);
+          break;
+        }
+        const end = ray(px, py, dir.normX, dir.normY, skill.len, 0.25);
+        const objId = 's' + (++spObjSeq);
+        emit({ startX: px, startY: py, x: end.x, y: end.y, width: skill.width, duration: skill.hold, objId, ownerId: player.id }, true);
+        for (const m of alive()) {
+          if (this.distToSegment(m.x, m.y, px, py, end.x, end.y) <= skill.width) hit(m);
+        }
+        if (!isShadow) player.dgSpear = { slot, skillId: skill.id, x: end.x, y: end.y, objId, until: Date.now() + skill.hold * 1000, zone, instanceId };
+        break;
+      }
+      case 'jump': {
+        // up into the clouds (untouchable), down onto the cursor a moment later
+        const land = ray(px, py, dir.normX, dir.normY, Math.min(range, Math.max(1, Math.hypot(aimX - px, aimY - py))), 0.35);
+        if (!isShadow) player.airborneUntil = Date.now() + skill.air * 1000;
+        emit({ startX: px, startY: py, x: land.x, y: land.y, radius: skill.r, air: skill.air, duration: skill.air + 0.5 }, true);
+        later(skill.air, () => {
+          if (!isShadow) {
+            player.x = land.x; player.y = land.y;
+            player.targetX = null; player.targetY = null;
+            player.airborneUntil = 0;
+            const socket = this.io.sockets.sockets.get(player.id);
+            if (socket) socket.emit('player_updated', player);
+          }
+          emit({ landed: true, x: land.x, y: land.y, radius: skill.r }, false);
+          within(land.x, land.y, skill.r).forEach(m => hit(m, 1, land.x, land.y));
+        });
+        break;
+      }
+      case 'wall': {
+        // a wall of fire across the aim point, at right angles to it
+        const half = (skill.len || 5) / 2, qx = -dir.normY, qy = dir.normX;
+        spot = { x0: aimX - qx * half, y0: aimY - qy * half, x1: aimX + qx * half, y1: aimY + qy * half };
+        emit({ startX: spot.x0, startY: spot.y0, x: spot.x1, y: spot.y1, width: 1, duration: skill.field ? skill.field.dur : 0.8 }, true);
+        for (const m of alive()) {
+          if (this.distToSegment(m.x, m.y, spot.x0, spot.y0, spot.x1, spot.y1) <= 1) hit(m, 1, aimX, aimY);
+        }
+        break;
+      }
+      case 'rune': {
+        const at = ray(px, py, dir.normX, dir.normY, Math.hypot(aimX - px, aimY - py), 0.3);
+        placeRune(skill, at.x, at.y, true);
+        break;
+      }
+      case 'invoke': {
+        const nowI = Date.now();
+        const glyphs = (player.runeGlyphs || []).filter(g => !g.spent && g.until > nowI && g.zone === zone && g.instanceId === instanceId);
+        emit({ x: px, y: py, radius: skill.r, points: glyphs.map(g => ({ x: g.x, y: g.y })) }, true);
+        if (!glyphs.length) {
+          say(px, py, 'No glyphs carved', '#94a3b8', 14);
+          within(px, py, 2).forEach(m => hit(m, 0.6));
+          break;
+        }
+        say(px, py, `✴️ INVOCATION x${glyphs.length}`, '#a3e635', 17);
+        glyphs.forEach((g, i) => later(i * 0.08, () => burstRune(g, skill.dmgMult)));
+        break;
+      }
+      case 'ricochet': {
+        // the shield bounces from enemy to enemy, then flies home
+        const visited = new Set();
+        const points = [];
+        const atAim = nearest(aimX, aimY, 2.5);
+        let cur = atAim && Math.hypot(atAim.x - px, atAim.y - py) <= range ? atAim : nearest(px, py, range);
+        while (cur && points.length < skill.n) {
+          visited.add(cur);
+          const from = points.length ? points[points.length - 1] : { x: px, y: py };
+          points.push({ x: cur.x, y: cur.y });
+          hit(cur, 1, from.x, from.y);
+          cur = nearest(cur.x, cur.y, skill.jump || 4, visited);
+        }
+        emit({ startX: px, startY: py, x: px, y: py, bounces: points, duration: 0.25 + points.length * 0.14 }, true);
+        if (points.length && skill.shieldPerHit && !isShadow) {
+          const v = Math.round(player.maxHp * skill.shieldPerHit * points.length);
+          player.shieldHp = (player.shieldHp || 0) + v;
+          say(px, py, `🛡️ +${v} SHIELD`, '#fde68a', 14);
+        }
+        break;
+      }
+      case 'phantom': {
+        // a phantom blade leaps from enemy to enemy, a new one each slash
+        emit({ x: px, y: py, radius: 1.2, duration: skill.n * skill.every + 0.5 }, true);
+        let cx = px, cy = py, last = null;
+        for (let i = 0; i < skill.n; i++) {
+          later(0.1 + i * skill.every, () => {
+            const prey = nearest(cx, cy, skill.range, last ? new Set([last]) : null) || (last && last.state !== 'dead' ? last : null);
+            if (!prey) return;
+            emit({ slash: true, startX: cx, startY: cy, x: prey.x, y: prey.y, wave: i }, false);
+            hit(prey, 1, cx, cy);
+            cx = prey.x; cy = prey.y; last = prey;
+          });
+        }
+        break;
+      }
+      case 'hurl': {
+        // grab the nearest enemy and throw it at the cursor; bosses are only slammed in place
+        const victim = nearest(px, py, skill.range);
+        if (!victim) {
+          emit({ startX: px, startY: py, x: px + dir.normX, y: py + dir.normY, radius: 1, miss: true }, true);
+          say(px, py, 'Nothing to grab', '#94a3b8', 14);
+          break;
+        }
+        const heavy = !!victim.isBoss;
+        // thrown toward the cursor itself (aimX/aimY are clamped to the short grab range)
+        const to = ray(victim.x, victim.y, dir.normX, dir.normY, Math.min(skill.throw, Math.max(2, Math.hypot(rawTx - victim.x, rawTy - victim.y))), 0.35);
+        const land = heavy ? { x: victim.x, y: victim.y } : to;
+        emit({ startX: victim.x, startY: victim.y, x: land.x, y: land.y, radius: skill.land.r, heavy, duration: 0.85 }, true);
+        if (!heavy) { victim.x = land.x; victim.y = land.y; }
+        victim.attackCooldown = Math.max(victim.attackCooldown || 0, 0.5);
+        later(0.35, () => {
+          hit(victim, 1, px, py);
+          within(land.x, land.y, skill.land.r).filter(m => m !== victim).forEach(m => hit(m, skill.land.mult, land.x, land.y));
+        });
+        break;
+      }
+      case 'banner': {
+        if (isShadow) break;
+        const at = ray(px, py, dir.normX, dir.normY, Math.hypot(aimX - px, aimY - py), 0.3);
+        if (player.banner) emit({ shape: 'banner', clearObj: player.banner.id, x: player.banner.x, y: player.banner.y, radius: 0 }, false);
+        const b = { id: 'b' + (++spObjSeq), x: at.x, y: at.y, r: skill.r, bonus: skill.bonus, until: Date.now() + skill.dur * 1000, zone, instanceId };
+        player.banner = b;
+        emit({ x: b.x, y: b.y, radius: b.r, duration: skill.dur, objId: b.id }, true);
+        within(b.x, b.y, b.r).forEach(m => hit(m, 1, b.x, b.y));
+        const ticks = Math.floor(skill.dur / skill.every);
+        for (let i = 1; i <= ticks; i++) {
+          later(i * skill.every, () => {
+            if (player.banner !== b) return;
+            within(b.x, b.y, b.r).forEach(m => hit(m, skill.tick, b.x, b.y));
+            if (Math.hypot(player.x - b.x, player.y - b.y) <= b.r) player.hp = Math.min(player.maxHp, player.hp + player.maxHp * skill.regen * skill.every);
+          });
+        }
+        break;
+      }
+      case 'rally': {
+        const b = this.ownBanner(player);
+        let cx = px, cy = py;
+        if (b && !isShadow) {
+          player.x = b.x; player.y = b.y;
+          player.targetX = null; player.targetY = null;
+          player.facing = this.calculateFacing(px, py, b.x, b.y);
+          cx = b.x; cy = b.y;
+          const socket = this.io.sockets.sockets.get(player.id);
+          if (socket) socket.emit('player_updated', player);
+        }
+        emit({ startX: px, startY: py, x: cx, y: cy, radius: skill.r, leap: !!b }, true);
+        if (b) say(cx, cy, '🚩 RALLY!', '#fbbf24', 17);
+        within(cx, cy, skill.r).forEach(m => hit(m, 1, cx, cy));
+        break;
+      }
+      case 'boomerang': {
+        // axes fly out, then turn and come back to wherever the hero is now
+        const n = skill.n || 2, base = Math.atan2(dir.normY, dir.normX), w = skill.width || 1;
+        const axes = [];
+        for (let i = 0; i < n; i++) {
+          const ang = base + (n > 1 ? (i / (n - 1) * 2 - 1) * skill.spread : 0);
+          const end = ray(px, py, Math.cos(ang), Math.sin(ang), skill.len, 0.3);
+          axes.push({ ex: end.x, ey: end.y });
+        }
+        emit({ x: px, y: py, startX: px, startY: py, axes, width: w, duration: skill.dur, followId: player.id }, true);
+        const pass = (back) => {
+          const hx = player.x, hy = player.y;
+          const struck = new Set();
+          for (const a of axes) {
+            for (const m of alive()) {
+              if (struck.has(m)) continue;
+              const d = back ? this.distToSegment(m.x, m.y, a.ex, a.ey, hx, hy) : this.distToSegment(m.x, m.y, px, py, a.ex, a.ey);
+              if (d <= w) { struck.add(m); hit(m, 1, back ? a.ex : px, back ? a.ey : py); }
+            }
+          }
+        };
+        later(skill.dur * 0.2, () => pass(false));
+        later(skill.dur * 0.8, () => pass(true));
+        break;
+      }
+      case 'firebird': {
+        // a teardrop loop: out toward the cursor, sweeping round, and home
+        const L = skill.len, N = 24, path = [];
+        for (let i = 0; i <= N; i++) {
+          const t = i / N, fwd = Math.sin(t * Math.PI) * L, lat = Math.sin(t * Math.PI * 2) * L * 0.35;
+          path.push({ x: px + dir.normX * fwd - dir.normY * lat, y: py + dir.normY * fwd + dir.normX * lat });
+        }
+        emit({ x: px, y: py, path, radius: skill.r, duration: skill.dur }, true);
+        const ticks = Math.round(skill.dur / skill.every);
+        for (let i = 1; i <= ticks; i++) {
+          later(i * skill.every, () => {
+            const p = path[Math.min(N, Math.round((i / ticks) * N))];
+            within(p.x, p.y, skill.r).forEach(m => hit(m, 1, p.x, p.y));
+          });
+        }
+        break;
+      }
+      case 'sacrifice': {
+        // burn your own life into the blast; it grows with what you spent, then regrows
+        const spent = isShadow ? 0 : Math.round(player.hp * skill.burnHp);
+        if (spent) player.hp = Math.max(1, player.hp - spent);
+        const boost = 1 + 4 * spent / Math.max(1, player.maxHp);
+        emit({ x: px, y: py, radius: skill.r, spent }, true);
+        if (spent) say(px, py, `🔥 SACRIFICE -${spent} HP`, '#f97316', 17);
+        within(px, py, skill.r).forEach(m => hit(m, boost));
+        if (skill.regrow && spent) {
+          const per = spent * skill.regrow / 10;
+          for (let i = 1; i <= 10; i++) later(i * 0.5, () => { player.hp = Math.min(player.maxHp, player.hp + per); });
+        }
         break;
       }
       case 'shuriken': {
@@ -3305,6 +3710,11 @@ class GameServer {
             }
             spinHits++;
             hit(m);
+            if (skill.plow && m.state !== 'dead' && !m.isBoss) {
+              const side = ((m.x - px) * -dir.normY + (m.y - py) * dir.normX) >= 0 ? 0.6 : -0.6;
+              const nx = end.x + dir.normX * 0.8 - dir.normY * side, ny = end.y + dir.normY * 0.8 + dir.normX * side;
+              if (!this.isColliding(nx, ny, zone)) { m.x = nx; m.y = ny; }
+            }
           }
         }
         if (resetDash) {
@@ -3357,6 +3767,7 @@ class GameServer {
         const end = travel(skill.len);
         emit({ startX: px, startY: py, x: end.x, y: end.y, radius: skill.r || 0, origin: !!(skill.origin || skill.originOnly), landing: !skill.originOnly && !!skill.dmg, facing: player.facing }, true);
         if (skill.id === 'sp_void_step') say(end.x, end.y, '🪓 OBLIVION SLAM!', '#c084fc', 17);
+        if (skill.leaveRune && !isShadow && SP.SP_SKILLS[skill.leaveRune]) placeRune(SP.SP_SKILLS[skill.leaveRune], px, py, false);
         if (skill.riftPull) {
           within(px, py, skill.riftPull).forEach((m, i) => {
             const a = (i / 6) * Math.PI * 2;
@@ -3433,6 +3844,25 @@ class GameServer {
       });
     }
     if (skill.charge) gainCharge(skill.charge);
+    // Reaver Heat: at 100 the hero Overheats
+    if (skill.heat && !(player.overheatUntil > Date.now())) {
+      player.heat = Math.min(HEAT_MAX, (player.heat || 0) + skill.heat);
+      player.heatAt = Date.now();
+      if (player.heat >= HEAT_MAX) {
+        player.heat = 0;
+        player.overheatUntil = Date.now() + OVERHEAT_SECONDS * 1000;
+        say(player.x, player.y - 0.3, '🔥 OVERHEAT!', '#f97316', 20);
+        emit({ shape: 'aura', x: player.x, y: player.y, radius: 2.4 }, false);
+      }
+    }
+    if (skill.parry) {
+      player.parry = { until: Date.now() + skill.parry * 1000, riposte: skill.riposte || 2 };
+      say(player.x, player.y - 0.3, '🛡️ RIPOSTE STANCE', '#fde68a', 16);
+    }
+    if (skill.rekindle) {
+      player.rebirthReadyAt = 0;
+      say(player.x, player.y - 0.3, '🔥 REBIRTH READY', '#fbbf24', 16);
+    }
     if (skill.haste && player.skillCooldowns) {
       for (const k of Object.keys(player.skillCooldowns)) {
         if (k !== slot && player.skillCooldowns[k] > 0) player.skillCooldowns[k] = Math.max(0, player.skillCooldowns[k] - skill.haste);
@@ -3509,9 +3939,10 @@ class GameServer {
       player.skillCooldowns = { slot1: 0, slot2: 0, slot3: 0, dash: 0, skill1: 0, skill2: 0 };
     }
     // Nightblade: casting Phantom Shuriken again while its stars are out calls them back (free, ignores cooldown)
-    const stars = player.nbStars;
-    const recall = !!(stars && stars.slot === slot && Date.now() < stars.until && player.equippedSkills && player.equippedSkills[slot] === stars.skillId
-      && stars.zone === player.zone && stars.instanceId === (player.dungeonInstanceId || null));
+    // Dragoon: casting Sky Lance again while it is planted dives onto it (also free)
+    const recast = (o) => !!(o && o.slot === slot && Date.now() < o.until && player.equippedSkills && player.equippedSkills[slot] === o.skillId
+      && o.zone === player.zone && o.instanceId === (player.dungeonInstanceId || null));
+    const recall = recast(player.nbStars) || recast(player.dgSpear);
     if (!recall && (player.skillCooldowns[slot] > 0 || (player.skillCooldowns[rawSlot] > 0))) return;
 
     const socket0 = this.io.sockets.sockets.get(socketId);
@@ -3549,6 +3980,8 @@ class GameServer {
     if (playerTalents.mana_flow) {
       mpCost = Math.max(2, Math.round(mpCost * (1 - playerTalents.mana_flow * 0.15)));
     }
+
+    if (skill.cardId === 'sp_reaver' && player.overheatUntil > Date.now()) mpCost = 0;
 
     if (!recall && player.mp < mpCost) {
       if (socket) {
@@ -5254,6 +5687,10 @@ class GameServer {
     const elemMult = calculateElementalMultiplier(atkElement, mobElement, mobResists);
     rawDamage = Math.max(1, Math.round(rawDamage * elemMult));
 
+    // Bannerman: fighting inside your own War Standard
+    const banner = player && this.ownBanner(player);
+    if (banner && Math.hypot(player.x - banner.x, player.y - banner.y) <= banner.r) rawDamage = Math.round(rawDamage * (1 + banner.bonus));
+
     // Cryomancer Frostbite: chilled enemies take extra damage
     const procs = player && player.talentProcs;
     if (procs && procs.shatterBonus && mob.chillTimer > 0) {
@@ -5295,6 +5732,8 @@ class GameServer {
     }
 
     mob.hp -= damage;
+    // Duskblade Doom brand soaks up what its owner deals (replayed when it ends)
+    if (player && mob.doom && mob.doom.owner === player.id && mob.doom.until > Date.now()) mob.doom.stored += damage;
     mob.state = 'chase';
     mob.targetPlayerId = player ? player.id : null;
     if (player) mob.lastHitBy = player.id; // burn / poison kills are credited to them
@@ -5823,6 +6262,9 @@ class GameServer {
         player.voidSoulTimer -= dt;
         if (player.voidSoulTimer <= 0) player.voidSouls = 0;
       }
+      // Reaver: Heat cools off when he stops; Overheat cooks him (never below 1 HP)
+      if (player.heat > 0 && Date.now() - (player.heatAt || 0) > HEAT_HOLD_MS) player.heat = Math.max(0, player.heat - HEAT_DECAY * dt);
+      if (player.overheatUntil > Date.now() && !player.godMode) player.hp = Math.max(1, player.hp - player.maxHp * OVERHEAT_BURN * dt);
       // where we were a moment ago (Chronomancer Rewind)
       player.timeTrailClock = (player.timeTrailClock || 0) + dt;
       if (player.timeTrailClock >= REWIND_SAMPLE_S && !player.isDead) {
@@ -5881,6 +6323,7 @@ class GameServer {
             isChilled = true;
           }
 
+          if (player.hp <= 0 && !player.isDead) this.phoenixRebirth(player);
           if (player.hp <= 0 && !player.isDead) {
             player.hp = 0;
             player.isDead = true;
@@ -5953,6 +6396,7 @@ class GameServer {
       if (moveX !== 0 || moveY !== 0) {
         const nextX = player.x + moveX;
         const nextY = player.y + moveY;
+        const fromX = player.x, fromY = player.y;
 
         if (!this.isColliding(nextX, nextY, player.zone)) {
           player.x = nextX;
@@ -5961,6 +6405,12 @@ class GameServer {
           player.x = nextX;
         } else if (!this.isColliding(player.x, nextY, player.zone)) {
           player.y = nextY;
+        }
+        // Walking into a wall: stand still instead of running on the spot
+        if (Math.hypot(player.x - fromX, player.y - fromY) < Math.hypot(moveX, moveY) * 0.15) {
+          player.isMoving = false;
+          player.targetX = null;
+          player.targetY = null;
         }
       }
 
@@ -6218,6 +6668,17 @@ class GameServer {
               this.emitZone(zone, 'floating_text', { x: targetPlayer.x, y: targetPlayer.y - 0.7, text: '💨 MISS! (Stealth)', color: '#94a3b8' });
               continue;
             }
+            // Dragoon in the air: nothing on the ground can reach him
+            if (targetPlayer.airborneUntil > now) continue;
+            // Sentinel Riposte Stance: the blow is blocked and returned
+            if (targetPlayer.parry && targetPlayer.parry.until > now) {
+              const back = Math.max(1, Math.round(targetPlayer.dmg * targetPlayer.parry.riposte * SKILL_DAMAGE_SCALE));
+              this.applyDamageToMob(targetPlayer, mob, back, false);
+              mob.attackCooldown = Math.max(mob.attackCooldown, 1.6);
+              this.emitZone(zone, 'skill_fx', { type: 'sp_skill', shape: 'riposte', startX: targetPlayer.x, startY: targetPlayer.y, x: mob.x, y: mob.y, element: 'holy', color: '#fde68a', cardId: 'sp_sentinel', skillId: 'sp_sentinel_riposte' });
+              this.emitZone(zone, 'floating_text', { x: targetPlayer.x, y: targetPlayer.y - 0.7, text: '🛡️ RIPOSTE!', color: '#fde68a', size: 16 });
+              continue;
+            }
             if (Math.random() < this.smokeMissChance(targetPlayer)) {
               this.emitZone(zone, 'floating_text', { x: targetPlayer.x, y: targetPlayer.y - 0.7, text: '💨 MISS! (Smoke)', color: '#94a3b8' });
               continue;
@@ -6270,6 +6731,7 @@ class GameServer {
               targetPlayer.hp = 1;
               this.emitZone(zone, 'floating_text', { x: targetPlayer.x, y: targetPlayer.y - 1.0, text: '💀 UNDYING RAGE!', color: '#c084fc', size: 18 });
             }
+            if (targetPlayer.hp <= 0) this.phoenixRebirth(targetPlayer);
 
             // Apply Mob Buffs/Affixes to targetPlayer
             if (mob.buffs && mob.buffs.length > 0) {

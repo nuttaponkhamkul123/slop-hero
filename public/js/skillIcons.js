@@ -654,6 +654,76 @@
       ${rays(32, 32, 20, 26, 8, p.hot, 2)}`]
   });
 
+  // ---- variant warrior signature skills (one picture per mechanic) ----
+  Object.assign(GLYPHS, {
+    // Gravelord: a crack running away with stone shards
+    sp_gravelord_fault: ['earth', p => `<path d="M8 54 L20 44 L18 36 L32 30 L30 22 L44 16 L56 8" fill="none" stroke="${p.acc}" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M14 50 L18 36 L24 46 Z M28 40 L32 24 L38 36 Z M42 28 L46 12 L52 24 Z" fill="${p.fg}"/>`],
+    sp_gravelord_rupture: ['earth', p => `${rays(32, 34, 8, 26, 8, p.acc, 3)}<path d="M22 44 L26 26 L32 40 L38 22 L42 44 Z" fill="${p.fg}"/>`],
+    sp_gravelord_bastion: alias('iron_fortress', 'earth'),
+    // Dragoon: planted lance / dive from the sky
+    sp_dragoon_impale: ['bolt', p => `<line x1="12" y1="10" x2="46" y2="50" stroke="${p.fg}" stroke-width="4"/>
+      <path d="M46 50 L40 38 L54 44 Z" fill="${p.hot}"/><path d="M10 58 Q32 50 56 58" fill="none" stroke="${p.acc}" stroke-width="3"/>${bolt(p.acc, 'translate(14 18) scale(0.35)')}`],
+    sp_dragoon_leap: ['bolt', p => `<path d="M14 54 Q20 6 32 8 Q44 10 48 50" fill="none" stroke="${p.acc}" stroke-width="4" stroke-dasharray="5 4"/>
+      <path d="M48 52 L42 40 L54 40 Z" fill="${p.hot}"/><ellipse cx="48" cy="56" rx="12" ry="4" fill="none" stroke="${p.fg}" stroke-width="2.5"/>`],
+    sp_dragoon_updraft: ['bolt', p => `${cloud(p, p.acc)}<path d="M24 54 V36 M32 58 V30 M40 54 V36" stroke="${p.hot}" stroke-width="3.5" stroke-linecap="round"/>
+      <path d="M20 40 L24 32 L28 40 M28 34 L32 26 L36 34 M36 40 L40 32 L44 40" fill="none" stroke="${p.hot}" stroke-width="3"/>`],
+    // Reaver: heat gauge, wall, meltdown
+    sp_reaver_slash: alias('firestorm', 'fire'),
+    sp_reaver_wall: ['fire', p => `${[12, 22, 32, 42, 52].map((x, i) => drop(i % 2 ? p.acc : p.fg, `translate(${x} ${i % 2 ? 36 : 32}) scale(0.32) translate(-32 -32)`)).join('')}
+      <path d="M6 50 H58" stroke="${p.hot}" stroke-width="4" stroke-linecap="round"/>`],
+    sp_reaver_inferno: ['fire', p => `<rect x="26" y="8" width="12" height="36" rx="6" fill="none" stroke="${p.fg}" stroke-width="3"/>
+      <rect x="29" y="22" width="6" height="20" fill="${p.hot}"/><circle cx="32" cy="48" r="9" fill="${p.acc}"/>${rays(32, 48, 12, 20, 8, p.hot, 2)}`],
+    sp_reaver_step: ['fire', p => `<path d="M8 50 Q32 40 56 18" fill="none" stroke="${p.acc}" stroke-width="6" stroke-linecap="round"/>
+      ${[16, 28, 40].map((x, i) => drop(p.hot, `translate(${x} ${46 - i * 9}) scale(0.25) translate(-32 -32)`)).join('')}`],
+    // Rune Knight: glyph circles
+    sp_runeknight_glyph: ['earth', p => `<ellipse cx="32" cy="36" rx="24" ry="14" fill="none" stroke="${p.acc}" stroke-width="3"/>
+      <path d="M32 24 L44 42 H20 Z M32 48 L20 30 H44 Z" fill="none" stroke="${p.fg}" stroke-width="2.5"/><circle cx="32" cy="36" r="3" fill="${p.hot}"/>`],
+    sp_runeknight_bind: ['gold', p => `<ellipse cx="32" cy="36" rx="24" ry="14" fill="none" stroke="${p.acc}" stroke-width="3"/>
+      <path d="M12 36 H52 M32 22 V50" stroke="${p.fg}" stroke-width="3" stroke-dasharray="4 3"/><circle cx="32" cy="36" r="5" fill="none" stroke="${p.hot}" stroke-width="2.5"/>`],
+    sp_runeknight_frost: ['ice', p => `<ellipse cx="32" cy="40" rx="24" ry="13" fill="none" stroke="${p.acc}" stroke-width="3"/>
+      ${snowflake(p, 32, 30, 14, 3)}`],
+    sp_runeknight_invoke: ['earth', p => `${[[14, 46], [50, 46], [32, 18]].map(([x, y]) => `<ellipse cx="${x}" cy="${y}" rx="9" ry="5" fill="none" stroke="${p.acc}" stroke-width="2.5"/><line x1="32" y1="36" x2="${x}" y2="${y}" stroke="${p.hot}" stroke-width="2.5"/>`).join('')}
+      <circle cx="32" cy="36" r="6" fill="${p.fg}"/>`],
+    // Sentinel: shield ricochet, challenge horn, riposte
+    sp_sentinel_throw: ['gold', p => `<path d="M8 50 L24 18 L40 44 L56 14" fill="none" stroke="${p.acc}" stroke-width="2.5" stroke-dasharray="4 3"/>
+      ${shield(p, 'translate(44 24) scale(0.5) translate(-32 -32)')}`],
+    sp_sentinel_warcry: ['gold', p => `<path d="M14 40 L34 26 V54 Z" fill="${p.fg}"/><path d="M34 26 Q50 20 54 12 M34 54 Q50 58 54 62" fill="none" stroke="${p.acc}" stroke-width="3"/>
+      ${rays(14, 40, 4, 12, 6, p.hot, 2)}`],
+    sp_sentinel_riposte: ['gold', p => `${shield(p, 'translate(24 34) scale(0.7) translate(-32 -32)')}
+      <path d="M30 30 L56 8" stroke="${p.hot}" stroke-width="4" stroke-linecap="round"/><path d="M48 8 H56 V16" fill="none" stroke="${p.hot}" stroke-width="3"/>`],
+    sp_sentinel_ram: alias('colossus_strike', 'gold'),
+    sp_sentinel_bulwark: alias('iron_fortress', 'gold'),
+    // Duskblade: doom brand, phantom blades
+    sp_duskblade_doom: ['shadow', p => `<circle cx="32" cy="32" r="20" fill="none" stroke="${p.acc}" stroke-width="4" stroke-dasharray="90 40" transform="rotate(-90 32 32)"/>
+      <circle cx="32" cy="32" r="9" fill="#14061f" stroke="${p.hot}" stroke-width="2.5"/><path d="M28 30 h2 M34 30 h2 M28 37 h8" stroke="${p.fg}" stroke-width="2"/>`],
+    sp_duskblade_phantom: ['shadow', p => `${sword(p, 'rotate(35 32 32) translate(-8 0)')}<g opacity="0.45">${sword(p, 'rotate(35 32 32) translate(8 -6)')}</g>
+      <g opacity="0.25">${sword(p, 'rotate(35 32 32) translate(20 -12)')}</g>`],
+    // Titan: grab and throw
+    sp_titan_hurl: ['steel', p => `<path d="M10 52 Q28 0 54 40" fill="none" stroke="${p.acc}" stroke-width="3" stroke-dasharray="5 4"/>
+      <circle cx="40" cy="16" r="8" fill="${p.fg}" stroke="${p.hot}" stroke-width="2"/>${rays(54, 44, 3, 10, 7, p.hot, 2)}
+      <path d="M8 52 q4 -10 10 -6 q2 6 -4 10 Z" fill="${p.acc}"/>`],
+    // Bannerman: planted standard, rally
+    sp_bannerman_plant: ['gold', p => `<ellipse cx="28" cy="52" rx="22" ry="7" fill="none" stroke="${p.acc}" stroke-width="2.5" stroke-dasharray="5 3"/>
+      <rect x="26" y="6" width="4" height="46" fill="#7c4a24"/><path d="M30 8 Q42 4 54 10 Q46 16 54 24 Q42 20 30 24 Z" fill="${p.fg}" stroke="${p.hot}" stroke-width="1.5"/>`],
+    sp_bannerman_rally: ['gold', p => `<rect x="44" y="10" width="3" height="34" fill="#7c4a24"/><path d="M47 12 L58 16 L47 22 Z" fill="${p.fg}"/>
+      <path d="M8 50 Q24 14 42 40" fill="none" stroke="${p.hot}" stroke-width="3.5" stroke-dasharray="5 4"/><path d="M42 40 L34 38 L40 32 Z" fill="${p.hot}"/>`],
+    sp_bannerman_warshout: alias('dragon_roar', 'gold'),
+    sp_bannerman_call: alias('war_stomp', 'gold'),
+    // Warchief: boomerang axes, combo finisher
+    sp_warchief_axes: ['blood', p => `<path d="M10 40 Q32 4 54 40" fill="none" stroke="${p.acc}" stroke-width="3" stroke-dasharray="5 4"/>
+      <path d="M10 40 Q32 60 54 40" fill="none" stroke="${p.fg}" stroke-width="2" stroke-dasharray="3 4"/>
+      <path d="M46 34 a9 9 0 1 1 10 10 l-6 -4 Z" fill="${p.hot}"/><path d="M8 46 a9 9 0 0 1 10 -10 l-2 6 Z" fill="${p.hot}"/>`],
+    sp_warchief_devastate: ['blood', p => `${[0, 1, 2, 3, 4].map(i => `<rect x="${8 + i * 10}" y="${46 - i * 8}" width="7" height="${10 + i * 8}" fill="${i === 4 ? p.hot : p.acc}"/>`).join('')}`],
+    sp_warchief_howl: alias('dragon_roar', 'blood'),
+    sp_warchief_carnage: alias('death_blossom', 'blood'),
+    // Phoenix Oath: firebird, sacrifice, kindled heart
+    sp_phoenix_firebird: ['fire', p => `<path d="M10 50 C10 10 56 10 52 30 C48 50 20 44 10 50" fill="none" stroke="${p.acc}" stroke-width="2.5" stroke-dasharray="4 3"/>
+      <path d="M44 22 L30 14 L36 24 L22 26 L36 30 L30 40 Z" fill="${p.hot}"/><circle cx="46" cy="24" r="3" fill="#ffffff"/>`],
+    sp_phoenix_sacrifice: ['fire', p => `${heart(p.acc)}${rays(32, 34, 16, 28, 10, p.hot, 2.5)}<path d="M32 22 V44" stroke="#1c0a05" stroke-width="3"/>`],
+    sp_phoenix_rebirth: ['fire', p => `${heart(p.hot)}<path d="M32 30 Q14 10 4 22 Q14 26 20 38 M32 30 Q50 10 60 22 Q50 26 44 38" fill="${p.acc}" stroke="${p.fg}" stroke-width="1.5"/>`]
+  });
+
 
   let uid = 0;
 
