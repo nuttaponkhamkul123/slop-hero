@@ -48,7 +48,18 @@ const SP_CARD_PARTICLES = {
   sp_blade_dancer: ['lightning', 'spark'], // electric bolts and sparks
   sp_storm_herald: ['lightning', 'spark'], // storm bolts and crackle
   sp_frost_shade: ['ice', 'spark'], // glacial ice crystals and diamonds
-  sp_eclipse_reaper: ['shadow', 'fire'] // void matter and blood flame
+  sp_eclipse_reaper: ['shadow', 'fire'], // void matter and blood flame
+  // 10 variant warrior cards: each casts with its own element signature
+  sp_gravelord: ['dust', 'earth'],      // crumbling stone and dust
+  sp_dragoon: ['lightning', 'slash'],   // storm lance and speed cuts
+  sp_reaver: ['fire', 'spark'],         // flame tongues and embers
+  sp_runeknight: ['arcane', 'spark'],   // glowing rune-gold and glyph sparks
+  sp_sentinel: ['gold', 'spark'],       // holy wall shimmers
+  sp_duskblade: ['shadow', 'arcane'],   // soul wisps and violet power
+  sp_titan: ['earth', 'spark'],         // mountain shards and bisque sparks
+  sp_bannerman: ['level', 'gold'],      // rising banners of light
+  sp_warchief: ['fire', 'slash'],       // rage fire and axe cuts
+  sp_phoenix_oath: ['fire', 'gold']     // ember glows and rebirth radiance
 };
 const SP_SHAPE_LIFE = {
   nova: 0.8, buff: 1.1, blast: 0.8, pull: 1.0, cone: 0.55, line: 0.7, strike: 0.5, volley: 0.55,
@@ -125,6 +136,7 @@ const ELEMENT_FX = {
 const PROJECTILE_HEIGHT_PX = 24;   // flight height above the ground at zoom 1
 const SP_FLASH_MS = 700;
 const MOB_SPAWN_MS = 1000;         // dungeon summon rise (server DUNGEON_SPAWN_MS)
+const MOB_HIT_FX_MS = 150;         // hurt slash / impact burst lifetime after a mob takes damage
 // Facing -> PixelHeroes view (W / SW / NW are drawn flipped)
 const PIXEL_HERO_VIEW = { E: 'E', W: 'E', SE: 'SE', SW: 'SE', S: 'S', NE: 'NE', NW: 'NE', N: 'N' };
 // How long the zoom must hold still before zoom-keyed caches repaint sharp
@@ -460,6 +472,7 @@ class IsometricRenderer {
     this.mobSpawns = new Map();         // mobId -> { at, x, y, color } while rising from a summon
     this._ftStacks = new Map();         // spot -> { t, n } for stacking floating texts
     this.spFlashes = new Map();         // playerId -> time of last SP transform
+    this.mobHits = new Map();           // mobId -> { at, dmg, angle, sparks } while a hurt slash is showing
 
     // Authentic Pixel Art Sprite Assets (Idle, Walk/Run, Attack Slash & Dash)
     this.sprites = {
@@ -1070,6 +1083,95 @@ class IsometricRenderer {
   spCardFor(player) {
     if (!player.spTransformed) return null;
     return this.spCardDef(player.spCardId || (player.equipment && player.equipment.sp && player.equipment.sp.cardId));
+  }
+
+  // A mob just took damage (client-side game_tick hp diff): remember it so the
+  // hurt slash pops on its next frame. Rapid consecutive hits keep it alive.
+  queueMobHit(id, dmg, x, y) {
+    const now = performance.now();
+    const prev = this.mobHits.get(id);
+    if (prev && now - prev.at < MOB_HIT_FX_MS) {
+      prev.at = now;
+      prev.dmg = (prev.dmg || 0) + (dmg || 0);
+      return;
+    }
+    const sparks = [];
+    for (let i = 0; i < 6; i++) sparks.push(Math.random() * Math.PI * 2);
+    this.mobHits.set(id, { at: now, dmg: dmg || 1, angle: Math.random() * Math.PI, sparks });
+  }
+
+  // "Smashed" feedback drawn on top of a hurt mob: a white X-slash that forks
+  // off red slashes, a burst of sparks and a ground ring that expands & fades.
+  drawMobImpact(ctx, mob) {
+    const hit = this.mobHits.get(mob.id);
+    if (!hit) return;
+    const age = performance.now() - hit.at;
+    const t = age / MOB_HIT_FX_MS;
+    if (t >= 1 || t < 0) {
+      this.mobHits.delete(mob.id);
+      return;
+    }
+    const k = 1 - t;                       // fade-out over the lifetime
+    const z = this.camera.zoom;
+    const p = Isometric.worldToScreen(mob.x, mob.y, 0, this.camera, this.viewW, this.viewH);
+    // big hits pop harder: strength 0..1 from damage vs a share of max HP
+    const strong = Math.min(1, Math.pow((hit.dmg || 1) / Math.max(30, (mob.maxHp || 100) * 0.06), 0.4));
+    const R = (8 + strong * 15) * z * (0.7 + k);
+    const L = (10 + strong * 12) * z * (0.5 + k);
+
+    ctx.save();
+    ctx.translate(p.x, p.y);
+
+    // expanding ground ring
+    ctx.globalAlpha = k * 0.85;
+    ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+    ctx.lineWidth = 2.2 * z;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, R, R * 0.5, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = k * 0.35;
+    ctx.lineWidth = 1.2 * z;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, R * 0.6, R * 0.3, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // the slash: two crossed cuts over the body
+    ctx.lineCap = 'round';
+    ctx.rotate(hit.angle);
+    // glow slashes (wide, red)
+    ctx.strokeStyle = 'rgba(248, 113, 113, 0.8)';
+    ctx.globalAlpha = k * 0.85;
+    ctx.lineWidth = (4.5 + strong * 2.5) * z;
+    ctx.beginPath(); ctx.moveTo(-L, -L * 0.55); ctx.lineTo(L, L * 0.55); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-L, L * 0.55); ctx.lineTo(L, -L * 0.55); ctx.stroke();
+    // white razor core, splayed a touch wider
+    ctx.strokeStyle = 'rgba(255,255,255,0.98)';
+    ctx.globalAlpha = k;
+    ctx.lineWidth = (2 + strong * 1.5) * z;
+    ctx.rotate(0.32);
+    ctx.beginPath(); ctx.moveTo(-L * 0.85, -L * 0.5); ctx.lineTo(L * 0.85, L * 0.5); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-L * 0.85, L * 0.5); ctx.lineTo(L * 0.85, -L * 0.5); ctx.stroke();
+
+    // momentum sparks flying off the cut
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+    ctx.globalAlpha = k * 0.9;
+    ctx.lineWidth = (1.6 + strong) * z;
+    const sp = hit.sparks || [];
+    for (let i = 0; i < sp.length; i++) {
+      const r = (7 + strong * 9) * z * k;
+      ctx.rotate(sp[i]);
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(r, 0); ctx.stroke();
+      ctx.rotate(-sp[i]);
+    }
+
+    // bright impact core flash at the contact point
+    ctx.globalAlpha = k * 0.55;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(0, 0, (2.2 + strong * 2.5) * z * (1 + k * 0.7), 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
   }
 
   // Sprite frame for a hero, wearing their SP card costume when transformed
@@ -6273,6 +6375,7 @@ class IsometricRenderer {
 
     if (fx.shape === 'field') {
       this.drawSpField(ctx, fx, progress, toScreen, z);
+      this.drawWarriorVariantFlair(ctx, fx, progress, alpha, toScreen, z, rgba);
       ctx.restore();
       return;
     }
@@ -6509,12 +6612,104 @@ class IsometricRenderer {
         }
         break;
       }
+      case 'smoke': {
+        // mist cloud (Sentinel Bulwark Mist): rolling haze, tinted rim, drifting swells
+        const fade = progress > 0.85 ? (1 - progress) / 0.15 : 1;
+        const rSm = fx.radius || 3;
+        ctx.fillStyle = rgba(fade * 0.14);
+        for (let o = 0; o < 3; o++) {
+          const a = progress * 1.3 + o * 2.1;
+          this.spGroundPath(ctx, fx.x + Math.cos(a) * rSm * 0.4, fx.y + Math.sin(a) * rSm * 0.4,
+            rSm * (0.85 + 0.12 * Math.sin(progress * 7 + o * 2)));
+          ctx.fill();
+        }
+        ctx.strokeStyle = rgba(fade * 0.45);
+        ctx.lineWidth = 1.6 * z;
+        this.spGroundPath(ctx, fx.x, fx.y, rSm * (0.8 + 0.2 * Math.sin(progress * 5)));
+        ctx.stroke();
+        for (let i = 0; i < 5; i++) {
+          const a = progress * 2.2 + (i / 5) * Math.PI * 2;
+          const top = toScreen(fx.x + Math.cos(a) * rSm * 0.6, fx.y + Math.sin(a) * rSm * 0.6, ((progress + i * 0.2) % 1) * 1.6);
+          ctx.beginPath();
+          ctx.arc(top.x, top.y, (3 + i) * z, 0, Math.PI * 2);
+          ctx.fillStyle = rgba(fade * 0.1);
+          ctx.fill();
+        }
+        break;
+      }
     }
+    // per-card signature layer for the variant warrior skills
+    this.drawWarriorVariantFlair(ctx, fx, progress, alpha, toScreen, z, rgba);
     ctx.restore();
   }
 
   // Toggled SP skills that are on, under the hero: a slow dashed crimson ring
   // for a blood aura, two fast blade arcs sweeping round for a spin
+  drawWarriorVariantFlair(ctx, fx, progress, alpha, toScreen, z, rgba) {
+    const C = fx.cardId, T = ['sp_gravelord','sp_dragoon','sp_reaver','sp_runeknight','sp_sentinel','sp_duskblade','sp_titan','sp_bannerman','sp_warchief','sp_phoenix_oath'];
+    if (!T.includes(C)) return;
+    const t = progress, k = Math.max(0, 1 - t), rad = (fx.radius > 1 ? fx.radius : 2.4);
+    const cx = fx.x, cy = fx.y, c = toScreen(cx, cy, 0);
+    const W = a => `rgba(255,255,255,${a})`;
+    const ln = (x1,y1,x2,y2,w,a,col) => { ctx.strokeStyle = col || rgba(a); ctx.lineWidth = w*z; ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke(); };
+    const dt = (x,y,r,a,col) => { ctx.fillStyle = col || rgba(a); ctx.beginPath(); ctx.arc(x,y,r*z,0,Math.PI*2); ctx.fill(); };
+    if (C==='sp_gravelord') {
+      for (let i=0;i<6;i++){ const a=i/6*Math.PI*2+t*0.9, d=rad*(0.55+0.3*Math.sin(t*Math.PI+i)); const p=toScreen(cx+Math.cos(a)*d,cy+Math.sin(a)*d,(1-t)*2.6); dt(p.x,p.y,1.7+(i%2),k*0.55); }
+      for (let i=0;i<3;i++){ const a=i*2.1+0.9; ln(c.x,c.y,c.x+Math.cos(a)*rad*9*z*t,c.y+Math.sin(a)*rad*4.5*z*t,2,k*0.5); }
+      return;
+    }
+    if (C==='sp_dragoon') {
+      const sx=fx.startX!==undefined?fx.startX:cx, sy=fx.startY!==undefined?fx.startY:cy, s=toScreen(sx,sy,0);
+      if (fx.shape==='line'||fx.shape==='dash'||fx.shape==='blink') {
+        const mx=s.x+(c.x-s.x)*t, my=s.y+(c.y-s.y)*t;
+        ln(s.x,s.y,mx,my,3.5,k,W(k*0.85)); ln(s.x-3*z,s.y+4*z,mx-3*z,my+4*z,1.3,k*0.4); ln(s.x+3*z,s.y-4*z,mx+3*z,my-4*z,1.3,k*0.4); dt(mx,my,2.4,k,W(k));
+      } else { for (let i=0;i<5;i++){ const a=t*3+i/5*Math.PI*2; dt(c.x+Math.cos(a)*9*z*k,c.y+Math.sin(a)*4*z*k,1.5,k*0.8,W(k*0.9)); } }
+      return;
+    }
+    if (C==='sp_reaver') {
+      for (let i=0;i<9;i++){ const a=i/9*Math.PI*2+t*1.2, d=rad*(0.35+0.2*Math.sin(t*6+i*1.3)), h=((t*4+i/9)%1)*3, p=toScreen(cx+Math.cos(a)*d,cy+Math.sin(a)*d,h); const f=0.5+0.5*Math.sin(t*9+i*2.1); dt(p.x,p.y,1.2+f*1.2,k*f*0.8); }
+      return;
+    }
+    if (C==='sp_runeknight') {
+      const beat=0.5+0.5*Math.sin(t*Math.PI*2);
+      for (let i=0;i<8;i++){ const a=t*2.4+i/8*Math.PI*2, r1=rad*9*z*(0.8+0.15*Math.sin(t*5+i)), r2=r1*1.35; ln(c.x+Math.cos(a)*r1,c.y+Math.sin(a)*r1*0.5,c.x+Math.cos(a)*r2,c.y+Math.sin(a)*r2*0.5,1.3,k*(0.4+0.45*beat)); }
+      return;
+    }
+    if (C==='sp_sentinel') {
+      const rr=rad*11*z;
+      for (let i=0;i<6;i++){ const a=t*1.1+i/6*Math.PI*2; ln(c.x+Math.cos(a)*rr,c.y+Math.sin(a)*rr*0.5,c.x+Math.cos(a+0.52)*rr,c.y+Math.sin(a+0.52)*rr*0.5,1.2,k*0.35); }
+      for (let i=0;i<3;i++){ const ph=(t*2+i/3)%1, p=toScreen(cx+Math.sin(t*3+i*2)*0.5,cy+Math.cos(t*2.4+i)*0.5,ph*2.4); dt(p.x,p.y,1.2,k*(1-Math.abs(ph*2-1))*0.7); }
+      return;
+    }
+    if (C==='sp_duskblade') {
+      for (let s=0;s<3;s++){ for (let d=0;d<3;d++){ const a=s*2.1+t*5+d*0.5, w=(t+d*0.35)%1; const p=toScreen(cx+Math.cos(a)*(1.5+d*0.9)*w*2,cy+Math.sin(a)*(1.5+d*0.9)*w,w*2.8); dt(p.x,p.y,1.7-d*0.4,k*(1-w)*0.8); } }
+      return;
+    }
+    if (C==='sp_titan') {
+      const pull=Math.min(1,t*1.6);
+      for (let i=0;i<8;i++){ const a=i/8*Math.PI*2+t*0.5, ro=rad*15*z, ri=ro*(1-0.85*pull); ln(c.x+Math.cos(a)*ro,c.y+Math.sin(a)*ro*0.5,c.x+Math.cos(a)*ri,c.y+Math.sin(a)*ri*0.5,1.8,k*(0.25+0.55*pull)); }
+      dt(c.x,c.y,3+pull*4,k*pull*0.6,W(k*0.5));
+      return;
+    }
+    if (C==='sp_bannerman') {
+      for (let f=0;f<2;f++){ const a=t*2+f*Math.PI, px=c.x+Math.cos(a)*rad*10*z, py=c.y+Math.sin(a)*rad*5*z, wv=Math.sin(t*12+f*3)*3*z; ln(c.x,c.y,px,py,1.6,k*0.6); ln(px,py,px+7*z,py+wv,1.4,k*0.7,W(k*0.7)); ln(px+7*z,py+wv,px+13*z,py-2*z,1.4,k*0.7,W(k*0.7)); }
+      for (let i=0;i<3;i++){ const h=((t*2.2+i/3)%1)*2.2, p=toScreen(cx+(Math.random()-0.5)*rad,cy+(Math.random()-0.5)*rad,h); dt(p.x,p.y,1.1,k*0.6); }
+      return;
+    }
+    if (C==='sp_warchief') {
+      const spin=t*Math.PI*2;
+      for (let f=0;f<2;f++){ const a0=spin+f*Math.PI; ctx.beginPath(); ctx.arc(c.x,c.y,rad*10*z,a0,a0+1.7); ctx.strokeStyle=rgba(k*0.8); ctx.lineWidth=3*z; ctx.stroke(); ctx.strokeStyle=W(k*0.9); ctx.lineWidth=1.2*z; ctx.stroke(); }
+      for (let i=0;i<5;i++){ const a=i/5*Math.PI*2+t*4; dt(c.x+Math.cos(a)*12*z,c.y+Math.sin(a)*6*z,1.5,k*0.7,W(k*0.7)); }
+      return;
+    }
+    if (C==='sp_phoenix_oath') {
+      ctx.beginPath(); ctx.arc(c.x,c.y,rad*12*z*(0.9+0.1*Math.sin(t*8)),0,Math.PI*2); ctx.strokeStyle=rgba(k*0.3); ctx.lineWidth=6*z; ctx.stroke();
+      for (let i=0;i<3;i++){ const a=t*6+i/3*Math.PI*2; dt(c.x+Math.cos(a)*rad*8*z,c.y-4*z+Math.sin(a)*rad*4*z,2,k*0.9,W(k*0.9)); }
+      for (let i=0;i<4;i++){ const ph=(t*2.6+i/4)%1, p=toScreen(cx+Math.sin(t*4+i*1.7)*0.6,cy,ph*2.6); dt(p.x,p.y,1-0.5*Math.abs(ph*2-1),k*0.4); }
+      return;
+    }
+  }
+
   drawSpToggles(ctx, player, z, t) {
     if (!player.spToggles || !player.spToggles.length || player.isDead) return;
     ctx.save();
@@ -7805,6 +8000,7 @@ class IsometricRenderer {
             ctx.translate(0, (1 - k) * 22 * this.camera.zoom);
           }
           this.drawMob(ctx, item.data, item.data.id === selectedTargetId);
+          this.drawMobImpact(ctx, item.data);
           if (k < 1) ctx.restore();
           break;
         }
