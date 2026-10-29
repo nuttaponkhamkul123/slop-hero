@@ -359,6 +359,7 @@ const CLASS_SKILLS = {
 const SKILL_TREES = require('./talents');
 // How close a hero must stand to a portal to use it (client shows the button in range)
 const PORTAL_USE_RANGE = 2.5;
+const RAID = require('./raidBosses');
 // Party EXP sharing: members within this many tiles (1 tile = 1 metre) of the
 // killer, on the same map, split the kill's EXP; each extra member adds this bonus
 const PARTY_EXP_RANGE = 10;
@@ -457,6 +458,14 @@ class GameServer {
     this.TICK_RATE = 25;
     this.tickInterval = null;
     this._ftQueue = new Map<any, any>(); // socket room -> floating texts waiting for this tick's batch
+
+    // Field raid / world boss events: per-zone live state and spawn schedule.
+    this.raidStates = new Map<any, any>();   // zoneId -> { conf, def, mobId, damage: Map(id->amt), despawnAt, lastBroadcast }
+    this.raidNextSpawn = new Map<string, number>();
+    for (const zid of Object.keys(RAID.RAID_BOSSES)) {
+      const conf = RAID.RAID_BOSSES[zid];
+      this.raidNextSpawn.set(zid, Date.now() + (conf.firstDelayMinutes || 5) * RAID.MINUTE);
+    }
 
     this.initFrostfellMonsters();
     this.initFieldMonsters();
@@ -1993,7 +2002,8 @@ class GameServer {
       player,
       players: Array.from(this.players.values()).filter(p => p.zone === zoneId),
       mobs: Array.from(field.mobs.values()),
-      groundItems: Array.from(field.groundItems.values())
+      groundItems: Array.from(field.groundItems.values()),
+      raid: this.raidInfo(zoneId)
     });
 
     this.broadcastSystemMessage(`🧭 [${player.name}] ventured into ${zone.name} (Lv. ${zone.minLevel}-${zone.maxLevel})!`);
@@ -2595,6 +2605,226 @@ class GameServer {
     return out;
   }
 
+  // =================================================================
+  // FIELD RAID / WORLD BOSS EVENTS
+  // =================================================================
+  updateRaidEvents() {
+    const now = Date.now();
+    for (const zoneId of Object.keys(RAID.RAID_BOSSES)) {
+      const st = this.raidStates.get(zoneId);
+      if (!st) {
+        if (now >= (this.raidNextSpawn.get(zoneId) || 0)) this.spawnRaidBoss(zoneId);
+        continue;
+      }
+      // the boss window expired without a kill: it retreats and the clock resets
+      if (now >= st.despawnAt) {
+        this.despawnRaidBoss(zoneId, 'timeup');
+        continue;
+      }
+      if (now - st.lastBroadcast >= 4000) {
+        st.lastBroadcast = now;
+        this.broadcastRaidLeaderboard(zoneId, st);
+      }
+    }
+  }
+
+  spawnRaidBoss(zoneId) {
+    const conf = RAID.RAID_BOSSES[zoneId];
+    const field = this.fields.get(zoneId);
+    if (!conf || !field || this.raidStates.has(zoneId)) return;
+    const def = RAID.buildRaidMobDef(zoneId);
+    if (!def) return;
+    const id = `${zoneId}_raid_${this.nextEntityId++}`;
+    const mob: any = {
+      id,
+      type: def.type,
+      name: def.name,
+      level: def.level,
+      x: def.spawn.x,
+      y: def.spawn.y,
+      spawnX: def.spawn.x,
+      spawnY: def.spawn.y,
+      zone: def.zone,
+      fieldZone: zoneId,
+      hue: def.hue,
+      scale: def.scale,
+      isBoss: true,
+      isRaidBoss: true,
+      isCommander: true,
+      auraRadius: 0,
+      hp: def.maxHp,
+      maxHp: def.maxHp,
+      dmg: def.dmg,
+      def: def.def,
+      speed: def.speed,
+      exp: def.exp,
+      gold: def.gold,
+      element: def.element,
+      elementResist: def.elementResist,
+      buffs: [...def.buffs],
+      targetPlayerId: null,
+      state: 'idle',
+      nextWanderTime: Date.now() + 600,
+      wanderTarget: null,
+      attackCooldown: 0,
+      respawnTimer: Infinity,          // raid respawn is handled by the schedule, not the normal mob timer
+      facing: 'SE',
+      spawnUntil: Date.now() + 900     // brief rise-in before it can be hit
+    };
+    field.mobs.set(id, mob);
+    const now = Date.now();
+    this.raidStates.set(zoneId, {
+      conf,
+      def,
+      mobId: id,
+      damage: new Map(),
+      despawnAt: now + (conf.windowMinutes || 15) * RAID.MINUTE,
+      lastBroadcast: 0
+    });
+    this.broadcastSystemMessage(`☠️ RAID EVENT! [${def.name}] (Lv.${def.level}) has awakened in [${field.zone.name}]! It won't fall alone.`);
+    this.emitZone(zoneId, 'raid_spawn', {
+      zoneId,
+      name: def.name,
+      level: def.level,
+      hp: mob.maxHp,
+      maxHp: mob.maxHp,
+      endsIn: (conf.windowMinutes || 15) * 60
+    });
+  }
+
+  despawnRaidBoss(zoneId, why = 'timeup') {
+    const st = this.raidStates.get(zoneId);
+    if (!st) return;
+    const field = this.fields.get(zoneId);
+    if (field) field.mobs.delete(st.mobId);
+    this.raidStates.delete(zoneId);
+    const conf = RAID.RAID_BOSSES[zoneId];
+    this.raidNextSpawn.set(zoneId, Date.now() + (conf ? conf.respawnMinutes : 25) * RAID.MINUTE);
+    if (why === 'timeup') {
+      this.broadcastSystemMessage(`💨 [${st.def.name}] senses the odds and retreats into the deep. It returns in ${conf ? conf.respawnMinutes : 25} minutes.`);
+      this.emitZone(zoneId, 'raid_gone', { zoneId, reason: 'timeup' });
+    }
+  }
+
+  recordRaidDamage(zoneId, playerId, amount) {
+    const st = this.raidStates.get(zoneId);
+    if (!st || !playerId || !(amount > 0)) return;
+    st.damage.set(playerId, (st.damage.get(playerId) || 0) + amount);
+  }
+
+  // Live standings for the boss: online players sorted by damage dealt
+  raidStandings(st) {
+    const rows = [];
+    for (const [pid, dmg] of st.damage) {
+      const p = this.players.get(pid);
+      if (!p || p.isDead) continue;
+      rows.push({ id: pid, name: p.name, dmg: Math.round(dmg) });
+    }
+    rows.sort((a, b) => b.dmg - a.dmg);
+    return rows;
+  }
+
+  broadcastRaidLeaderboard(zoneId, st) {
+    const mob = this.fields.get(zoneId) && this.fields.get(zoneId).mobs.get(st.mobId);
+    if (!mob || mob.state === 'dead') return;
+    const standings = this.raidStandings(st);   // full board: clients resolve their own rank
+    this.emitZone(zoneId, 'raid_leaderboard', {
+      zoneId,
+      name: st.def.name,
+      level: st.def.level,
+      hp: Math.max(0, Math.round(mob.hp)),
+      maxHp: st.def.maxHp,
+      endsIn: Math.max(0, Math.round((st.despawnAt - Date.now()) / 1000)),
+      top: standings,
+      count: standings.length
+    });
+  }
+
+  // Snapshot for players entering the zone mid-fight (rides zone_change)
+  raidInfo(zoneId) {
+    const st = this.raidStates.get(zoneId);
+    if (!st) return { active: false };
+    const field = this.fields.get(zoneId);
+    const mob = field && field.mobs.get(st.mobId);
+    if (!mob || mob.state === 'dead') return { active: false };
+    const standings = this.raidStandings(st);   // full board: clients resolve their own rank
+    return {
+      active: true,
+      zoneId,
+      name: st.def.name,
+      level: st.def.level,
+      hp: Math.max(0, Math.round(mob.hp)),
+      maxHp: st.def.maxHp,
+      endsIn: Math.max(0, Math.round((st.despawnAt - Date.now()) / 1000)),
+      top: standings,
+      count: standings.length
+    };
+  }
+
+  onRaidBossDeath(mob, killerPlayer) {
+    const zoneId = mob.fieldZone || (killerPlayer && killerPlayer.zone) || Object.keys(RAID.RAID_BOSSES)[0];
+    const st = this.raidStates.get(zoneId);
+    if (!st || !mob.isRaidBoss) return;
+    const def = st.def;
+    const standings = this.raidStandings(st);
+
+    const podium = standings.slice(0, 5).map((r, i) => `${i + 1}. ${r.name} (${r.dmg.toLocaleString()})`).join('  ');
+    this.broadcastSystemMessage(`🏆 RAID SLAYED! [${def.name}] has fallen! Damage: ${podium || 'no one recorded'}`);
+    this.emitZone(zoneId, 'raid_gone', { zoneId, reason: 'kill' });
+    this.emitZone(zoneId, 'mob_died', { mobId: mob.id, killerId: killerPlayer ? killerPlayer.id : null });
+
+    let rank = 0;
+    const total = standings.length;
+    for (const row of standings) {
+      rank++;
+      const p = this.players.get(row.id);
+      if (!p) continue;
+      this.payRaidReward(p, def, RAID.raidBucketFor(rank), rank, total);
+    }
+    this.despawnRaidBoss(zoneId, 'kill');
+  }
+
+  payRaidReward(player, def, bucket, rank, total) {
+    const gold = Math.max(1, Math.round(def.gold * bucket.gold * (0.85 + Math.random() * 0.3)));
+    this.giveLootToPlayer(player, { type: 'gold', amount: gold }, false);
+
+    const exp = Math.max(1, Math.round(def.exp * bucket.exp * (0.9 + Math.random() * 0.2)));
+    this.awardExp(player, exp);
+    this.awardJobExp(player, exp);
+
+    const [fmin, fmax] = bucket.frag;
+    const frags = fmin + Math.floor(Math.random() * (fmax - fmin + 1));
+    if (frags > 0) this.giveLootToPlayer(player, { type: 'item', itemId: 'spirit_fragment', amount: frags }, false);
+
+    // gear roll (top ranks roll guaranteed, boss-quality gear)
+    if (Math.random() < bucket.gear) {
+      const cls = player.characterClass;
+      let gear = generateRandomizedGear(pickGearForLevel(def.level, { boss: bucket.gearBoss, cls }), def.level, bucket.gearBoss);
+      const reforge = (bucket.mythic || Math.random() < 0.5) ? rollSkyblockReforge(gear) : null;
+      if (reforge) gear = applySkyblockReforge(gear, reforge);
+      this.giveLootToPlayer(player, { type: 'item', itemId: gear.id, customItemData: gear, amount: 1 }, false);
+    }
+
+    // SP-card roll from the boss's card tier pool
+    if (Math.random() < bucket.card) {
+      const pool = (SP.SP_CARDS[player.characterClass] || []).filter(c => c.tier === (def.cardTier || 1));
+      const chosen = pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
+      if (chosen) {
+        const cardItem = SP.makeCardItem(chosen.id);
+        if (cardItem) {
+          this.giveLootToPlayer(player, { type: 'item', itemId: 'sp_card', customItemData: { ...cardItem, custom: true }, amount: 1 }, false);
+          this.broadcastSystemMessage(`🃏 [${player.name}] pulled an SP Card [${chosen.name}] from the raid bounty!`);
+        }
+      }
+    }
+
+    const socket = this.io.sockets.sockets.get(player.id);
+    if (socket) {
+      socket.emit('raid_reward', { rank, total, label: bucket.label, gold, exp, fragments: frags, bossName: def.name });
+      socket.emit('player_updated', player);
+    }
+  }
+
   // Run a card skill from its SP_SKILLS data (see the shape list in spCards.js)
   castSpSkill(player, skill, ctx) {
     const { slot, cooldown, runeId, skillData, mobsMap, applySkillDamage, computeDashVector, isEcho, isShadow, recall } = ctx;
@@ -2631,8 +2861,9 @@ class GameServer {
       player.stormCharge = Math.min(STORM_CHARGE_MAX, (player.stormCharge || 0) + n);
       player.stormChargeTimer = STORM_CHARGE_SECONDS;
     };
-    // Void Archon: every Soul empowers its skills; Devour spends them
-    const souls = skill.cardId === 'sp_void_archon' ? (player.voidSouls || 0) : 0;
+    // Soul harvesters (Void Archon, Duskblade): every Soul empowers its skills; Devour spends them
+    const isSoulCard = skill.souls !== undefined || skill.devour !== undefined;
+    const souls = isSoulCard ? (player.voidSouls || 0) : 0;
     let soulMult = 1 + VOID_SOUL_BONUS * souls;
     if (skill.devour && souls > 0) {
       soulMult *= 1 + 0.12 * souls;
@@ -2725,7 +2956,7 @@ class GameServer {
       }
       if (stillUp && skill.stun) mob.attackCooldown = Math.max(mob.attackCooldown || 0, skill.stun);
       if (skill.souls) gainSouls(skill.souls);
-      else if (!stillUp && skill.cardId === 'sp_void_archon') gainSouls(1);
+      else if (!stillUp && isSoulCard) gainSouls(1);
       if (skill.chargeHit && chargeHits < STORM_CHARGE_MAX) { chargeHits++; gainCharge(skill.chargeHit); }
       if (skill.knock && mob.state !== 'dead') {
         const d = Math.hypot(mob.x - fromX, mob.y - fromY) || 1;
@@ -3242,7 +3473,7 @@ class GameServer {
     if (buffs.length && !isEcho) {
       this.emitZone(zone, 'floating_text', { x: player.x, y: player.y - 0.8, text: `${skill.name.toUpperCase()} (${buffs.join(' / ')})`, color: skill.color || '#e2e8f0' });
     }
-    if (skill.cardId === 'sp_void_archon' && player.voidSouls > 0 && !isEcho) say(player.x, player.y - 0.3, `👻 SOULS ${player.voidSouls}/${VOID_SOUL_MAX}`, '#c084fc', 13);
+    if (isSoulCard && player.voidSouls > 0 && !isEcho) say(player.x, player.y - 0.3, `👻 SOULS ${player.voidSouls}/${VOID_SOUL_MAX}`, '#c084fc', 13);
     settleLeech();
     if (skill.haste || skill.spShape === 'rewind') {
       const socket = this.io.sockets.sockets.get(player.id);
@@ -4194,10 +4425,10 @@ class GameServer {
     player.speed = Number((player.baseStats.speed + totalBonusSpeed).toFixed(2));
     player.attackSpeed = Number(((player.baseStats.attackSpeed || 1.0) + totalBonusAttackSpeed).toFixed(2));
     player.swipe = Math.round((player.baseStats.swipe || 0) + totalBonusSwipe);
-    player.critChanceBonus = Number(totalCritChanceBonus.toFixed(3));
+    player.critChanceBonus = Math.min(0.75, Number(totalCritChanceBonus.toFixed(3)));
     player.critDmgBonus = Number(totalCritDmgBonus.toFixed(3));
     player.thorns = Math.round(totalThorns);
-    player.dodgeChance = Number(totalDodgeChance.toFixed(3));
+    player.dodgeChance = Math.min(0.50, Number(totalDodgeChance.toFixed(3)));
     player.lifeSteal = Math.min(0.08, Number(totalLifeSteal.toFixed(3)));
     // Branch mechanics (burn, chill, echo, venom): the first rank unlocks the base strength
     player.talentProcs = {};
@@ -5068,6 +5299,11 @@ class GameServer {
     mob.targetPlayerId = player ? player.id : null;
     if (player) mob.lastHitBy = player.id; // burn / poison kills are credited to them
 
+    // Field raid boss: feed the live leaderboard (actual damage dealt)
+    if (mob.isRaidBoss && player) {
+      this.recordRaidDamage(mob.fieldZone || player.zone, player.id, damage);
+    }
+
     // Apply Talent Life Steal (balanced with per-hit cap and throttled floating text)
     if (player && player.lifeSteal && player.lifeSteal > 0 && damage > 0 && !isDeflected) {
       const maxLeech = Math.max(2, Math.round(player.maxHp * 0.04));
@@ -5161,6 +5397,12 @@ class GameServer {
   }
 
   handleMobDeath(mob, killerPlayer) {
+    // Field raid bosses are paid out by participation rank, not ground loot:
+    // give everyone their bounty, broadcast the kill, and let the schedule reset.
+    if (mob.isRaidBoss) {
+      this.onRaidBossDeath(mob, killerPlayer);
+      return;
+    }
     mob.state = 'dead';
     mob.hp = 0;
     const isDungeon = (mob.zone === 'dungeon') || (mob.id && mob.id.startsWith('dungeon_')) || (killerPlayer && killerPlayer.zone === 'dungeon');
@@ -5738,6 +5980,9 @@ class GameServer {
     // Update Town and Field Mobs
     this.updateMobsList(this.townMobs, 'town', dt);
     for (const [fieldId, field] of this.fields) this.updateMobsList(field.mobs, fieldId, dt);
+
+    // Field raid / world boss schedule & live leaderboards
+    this.updateRaidEvents();
 
     // Update Dungeon Mobs per Instance
     for (const inst of this.dungeonInstances.values()) {

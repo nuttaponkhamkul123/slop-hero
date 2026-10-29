@@ -330,8 +330,8 @@ function buildFieldMobs(zone, map) {
   return defs;
 }
 
-export { FIELD_ZONES, FIELD_ZONE_BY_ID, FIELD_TILES, generateFieldMap, buildFieldMobs, mobStats };
+export { FIELD_ZONES, FIELD_ZONE_BY_ID, FIELD_TILES, FIELD_MID, generateFieldMap, buildFieldMobs, mobStats };
 export default FIELD_ZONES;
-module.exports = { FIELD_ZONES, FIELD_ZONE_BY_ID, FIELD_TILES, generateFieldMap, buildFieldMobs, mobStats };
+module.exports = { FIELD_ZONES, FIELD_ZONE_BY_ID, FIELD_TILES, FIELD_MID, generateFieldMap, buildFieldMobs, mobStats };
 
 
