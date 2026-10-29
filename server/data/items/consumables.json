@@ -1,0 +1,100 @@
+{
+  "health_potion": {
+    "id": "health_potion",
+    "name": "Health Potion",
+    "type": "consumable",
+    "icon": "🧪",
+    "rarity": "common",
+    "buyPrice": 25,
+    "sellPrice": 12,
+    "healAmount": 60,
+    "desc": "Restores 60 Health instantly."
+  },
+  "mana_potion": {
+    "id": "mana_potion",
+    "name": "Mana Potion",
+    "type": "consumable",
+    "icon": "🔮",
+    "rarity": "common",
+    "buyPrice": 30,
+    "sellPrice": 15,
+    "manaAmount": 50,
+    "desc": "Restores 50 Mana instantly."
+  },
+  "greater_health_potion": {
+    "id": "greater_health_potion",
+    "name": "Greater Health Potion",
+    "type": "consumable",
+    "icon": "🧪",
+    "rarity": "rare",
+    "buyPrice": 70,
+    "sellPrice": 32,
+    "healAmount": 140,
+    "desc": "Potent draught. Restores 140 Health instantly."
+  },
+  "greater_mana_potion": {
+    "id": "greater_mana_potion",
+    "name": "Greater Mana Potion",
+    "type": "consumable",
+    "icon": "🔮",
+    "rarity": "rare",
+    "buyPrice": 80,
+    "sellPrice": 38,
+    "manaAmount": 120,
+    "desc": "Potent brew. Restores 120 Mana instantly."
+  },
+  "town_scroll": {
+    "id": "town_scroll",
+    "name": "Town Portal Scroll",
+    "type": "consumable",
+    "icon": "📜",
+    "rarity": "rare",
+    "buyPrice": 50,
+    "sellPrice": 25,
+    "desc": "Instantly teleports you back to town safely."
+  },
+  "elixir_of_fury": {
+    "id": "elixir_of_fury",
+    "name": "Elixir of Fury",
+    "type": "consumable",
+    "icon": "⚗️",
+    "rarity": "rare",
+    "buyPrice": 95,
+    "sellPrice": 45,
+    "desc": "Restores 40 Mana and grants ferocious battle vigor."
+  },
+  "elixir_of_iron": {
+    "id": "elixir_of_iron",
+    "name": "Elixir of Iron Skin",
+    "type": "consumable",
+    "icon": "🛡️",
+    "rarity": "rare",
+    "buyPrice": 90,
+    "sellPrice": 40,
+    "desc": "Alchemical stone draught. Fortifies body against strikes."
+  },
+  "revival_stone": {
+    "id": "revival_stone",
+    "name": "หินชุบชีวิต (Revival Stone)",
+    "type": "consumable",
+    "icon": "💎",
+    "iconKey": "gem",
+    "rarity": "legendary",
+    "buyPrice": 5000,
+    "sellPrice": 1500,
+    "reviveShare": 0.3,
+    "desc": "หินเวทมนตร์ศักดิ์สิทธิ์ ชุบชีวิตฟื้นคืนชีพ ณ จุดที่ตาย พร้อม 30% HP & MP โดยไม่ถูกส่งกลับเมืองและไม่สูญเสียความคืบหน้าดันเจี้ยน"
+  },
+  "super_revival_stone": {
+    "id": "super_revival_stone",
+    "name": "หินชุบชีวิตระดับซุปเปอร์ (Super Revival Stone)",
+    "type": "consumable",
+    "icon": "💎",
+    "iconKey": "ruby",
+    "rarity": "mythic",
+    "buyPrice": 50000,
+    "sellPrice": 15000,
+    "reviveShare": 1,
+    "desc": "หินชุบชีวิตระดับสูงสุด ฟื้นคืนชีพ ณ จุดที่ตาย พร้อม 100% HP & MP เต็ม โดยไม่ถูกส่งกลับเมืองและไม่สูญเสียความคืบหน้าดันเจี้ยน"
+  }
+}

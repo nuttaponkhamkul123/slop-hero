@@ -1,7 +1,9 @@
 // Slop Hero - Elemental System (Weapons & Monsters)
 // Elements: neutral, fire, ice, lightning, earth, holy, dark
 
-const ELEMENTS = {
+import { ElementId, ElementInfo } from './types';
+
+export const ELEMENTS: Record<string, ElementId> = {
   NEUTRAL: 'neutral',
   FIRE: 'fire',
   ICE: 'ice',
@@ -11,7 +13,7 @@ const ELEMENTS = {
   DARK: 'dark'
 };
 
-const ELEMENT_INFO = {
+export const ELEMENT_INFO: Record<ElementId, ElementInfo> = {
   neutral: { name: 'Neutral', nameTh: 'ไร้ธาตุ', icon: '⚪', color: '#94a3b8' },
   fire: { name: 'Fire', nameTh: 'ไฟ', icon: '🔥', color: '#ef4444' },
   ice: { name: 'Ice', nameTh: 'น้ำแข็ง', icon: '❄️', color: '#38bdf8' },
@@ -29,7 +31,7 @@ const ELEMENT_INFO = {
 // Holy > Dark (1.75x)
 // Dark > Holy (1.5x)
 // Same element attacker vs defender deals 0.6x (resisted)
-function getBaseElementAdvantage(atkElement, defElement) {
+export function getBaseElementAdvantage(atkElement?: string, defElement?: string): number {
   if (!atkElement || atkElement === 'neutral' || !defElement || defElement === 'neutral') {
     return 1.0;
   }
@@ -62,12 +64,12 @@ function getBaseElementAdvantage(atkElement, defElement) {
 /**
  * Calculate final elemental multiplier factoring in attacker element,
  * defender natural element, and specific defender element resistances.
- * @param {string} atkElement - Attacking element
- * @param {string} defElement - Defender element
- * @param {Object} defResists - Specific resistance values e.g. { fire: 0.2, holy: -0.5 }
- * @returns {number} multiplier (e.g. 1.5 for weakness, 0.5 for resist)
  */
-function calculateElementalMultiplier(atkElement, defElement = 'neutral', defResists = {}) {
+export function calculateElementalMultiplier(
+  atkElement?: string,
+  defElement: string = 'neutral',
+  defResists: Record<string, number> = {}
+): number {
   const normAtk = (atkElement || 'neutral').toLowerCase();
   const normDef = (defElement || 'neutral').toLowerCase();
 
@@ -86,3 +88,4 @@ module.exports = {
   calculateElementalMultiplier,
   getBaseElementAdvantage
 };
+

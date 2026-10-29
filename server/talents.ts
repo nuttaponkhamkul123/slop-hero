@@ -913,7 +913,7 @@ for (const [classKey, tree] of Object.entries(SKILL_TREES)) {
       // keystones of the branch all carry the mechanic's capstone
       Object.assign(talent.effects, sig.keystone);
     } else if (talent.id.endsWith('_' + sig.node)) {
-      for (const [stat, [flat, perTier]] of Object.entries(sig.perRank)) {
+      for (const [stat, values] of Object.entries(sig.perRank as Record<string, [number, number]>)) { const [flat, perTier] = values;
         talent.effects[stat] = +(flat + perTier * talent.tier).toFixed(4);
       }
     } else continue;
@@ -930,7 +930,7 @@ for (const [classKey, tree] of Object.entries(SKILL_TREES)) {
 const PASSIVE_SCALE = 0.5;
 for (const [classKey, tree] of Object.entries(SKILL_TREES)) {
   for (const talent of tree) {
-    for (const [stat, v] of Object.entries(talent.effects)) {
+    for (const [stat, rawV] of Object.entries(talent.effects)) { const v = rawV as number;
       talent.effects[stat] = INT_STATS.has(stat) ? Math.max(1, Math.round(v * PASSIVE_SCALE)) : +(v * PASSIVE_SCALE).toFixed(4);
     }
     const sig = BRANCH_SIGNATURES[talent.id.replace(/_t\d+_[abc]$/, '')];
@@ -940,6 +940,11 @@ for (const [classKey, tree] of Object.entries(SKILL_TREES)) {
   }
 }
 
+export { TALENT_PROCS, SKILL_TREES };
+export default SKILL_TREES;
 module.exports = SKILL_TREES;
 // Not enumerable: the trees object is sent to clients and iterated by class
 Object.defineProperty(module.exports, 'TALENT_PROCS', { value: TALENT_PROCS });
+
+
+

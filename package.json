@@ -2,9 +2,12 @@
   "name": "slop-hero",
   "version": "1.0.0",
   "description": "Slop Hero - Isometric Web MMORPG",
-  "main": "index.js",
+  "main": "dist/server/index.js",
   "scripts": {
-    "start": "node server/index.js",
+    "dev": "tsx server/index.ts",
+    "build": "tsc",
+    "start": "node dist/server/index.js",
+    "typecheck": "tsc --noEmit",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -16,5 +19,11 @@
     "socket.io": "^4.8.4",
     "socket.io-client": "^4.8.4",
     "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.6.6",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
   }
 }
