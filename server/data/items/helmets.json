@@ -1,0 +1,105 @@
+{
+  "iron_helm": {
+    "id": "iron_helm",
+    "name": "Knight Great Helm",
+    "type": "equipment",
+    "slot": "helmet",
+    "icon": "🪖",
+    "rarity": "common",
+    "sellPrice": 40,
+    "bonusDef": 5,
+    "bonusHp": 25,
+    "desc": "+5 Defense, +25 Max Health."
+  },
+  "shadow_hood": {
+    "id": "shadow_hood",
+    "name": "Assassin Shadow Cowl",
+    "type": "equipment",
+    "slot": "helmet",
+    "icon": "🥷",
+    "rarity": "rare",
+    "sellPrice": 80,
+    "bonusDmg": 8,
+    "bonusSpeed": 0.3,
+    "desc": "+8 Attack Power, +0.3 Speed."
+  },
+  "archmage_cowl": {
+    "id": "archmage_cowl",
+    "name": "Crown of the Astral Sea",
+    "type": "equipment",
+    "slot": "helmet",
+    "icon": "👑",
+    "rarity": "epic",
+    "sellPrice": 140,
+    "bonusDmg": 12,
+    "bonusMp": 45,
+    "desc": "+12 Attack Power, +45 Max Mana."
+  },
+  "rogue_bandana": {
+    "id": "rogue_bandana",
+    "name": "Rogue Bandana",
+    "type": "equipment",
+    "slot": "helmet",
+    "iconKey": "bandana",
+    "rarity": "common",
+    "sellPrice": 35,
+    "bonusSpeed": 0.3,
+    "bonusDmg": 4,
+    "desc": "+0.3 Speed, +4 Attack Power. Keeps the hair out of the eyes."
+  },
+  "horned_helm": {
+    "id": "horned_helm",
+    "name": "Horned Viking Helm",
+    "type": "equipment",
+    "slot": "helmet",
+    "iconKey": "horned",
+    "rarity": "rare",
+    "sellPrice": 95,
+    "bonusDef": 7,
+    "bonusHp": 40,
+    "bonusDmg": 4,
+    "desc": "+7 Defense, +40 Max Health, +4 Attack Power. Worn by raiders of the north."
+  },
+  "starweaver_hat": {
+    "id": "starweaver_hat",
+    "name": "Starweaver Hat",
+    "type": "equipment",
+    "slot": "helmet",
+    "iconKey": "hat",
+    "rarity": "rare",
+    "sellPrice": 100,
+    "bonusMp": 50,
+    "bonusDmg": 8,
+    "desc": "+50 Max Mana, +8 Attack Power. Embroidered with living constellations."
+  },
+  "winter_crown": {
+    "id": "winter_crown",
+    "name": "Crown of Winter",
+    "type": "equipment",
+    "slot": "helmet",
+    "iconKey": "crown_frost",
+    "rarity": "epic",
+    "sellPrice": 160,
+    "bonusDef": 6,
+    "bonusMp": 40,
+    "elementResist": {
+      "ice": 0.15
+    },
+    "desc": "+6 Defense, +40 Max Mana, Ice RES +15%. A circlet of never-melting ice."
+  },
+  "bone_warden_mask": {
+    "id": "bone_warden_mask",
+    "name": "Bone Warden Mask",
+    "type": "equipment",
+    "slot": "helmet",
+    "iconKey": "skull_mask",
+    "rarity": "epic",
+    "sellPrice": 165,
+    "bonusDef": 8,
+    "bonusDmg": 10,
+    "elementResist": {
+      "dark": 0.1
+    },
+    "desc": "+8 Defense, +10 Attack Power, Dark RES +10%. The face of a long-dead warden."
+  }
+}

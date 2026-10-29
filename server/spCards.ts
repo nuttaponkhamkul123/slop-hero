@@ -2,7 +2,7 @@
 // Wearing a card and transforming swaps the hero's look and skill set. Each
 // class has five cards, one per tier; tiers need a higher job level, are
 // rarer to obtain and cost more to enhance (+0 .. +100).
-const { expToNext } = require('./progression');
+import { expToNext } from './progression';
 
 // ---------------------------------------------------------------- job level
 // Job EXP comes from the same kills as base EXP but each job level needs 30%
@@ -54,7 +54,7 @@ const SP_SKILL_PER_LEVEL = 0.004;   // +0.4% card skill damage per level
 // palette: PixelHeroes material overrides [outline, dark, mid, light, highlight?]
 // (the costume itself - head, weapon, cape... - is in pixelHeroes.js COSTUMES,
 // keyed by card id)
-const SP_CARDS = {
+const SP_CARDS: Record<string, any[]> = {
   warrior: [
     { id: 'sp_crusader', tier: 1, name: 'Crusader', element: 'holy', color: '#fde68a',
       stats: { bonusDef: 18, bonusHp: 160 },
@@ -155,7 +155,7 @@ const SP_CARDS = {
 // `every` s (spin: the hero whirls, and the card passive leeches those hits).
 // bloodlust: { dur, rage, atkSpeed, thirst } - timed +damage, +attack speed
 // and a multiplier on the card passive's leech.
-const SP_SKILLS = {
+const SP_SKILLS: Record<string, any> = {
   // Warrior - Crusader: holy guardian - knockback, light from above, shields & heals
   sp_holy_cleave: { name: 'Shield Bash', shape: 'strike', range: 3.2, dmg: 2.8, knock: 2.4, shield: 0.06, mp: 14, cd: 3.5 },
   sp_judgement: { name: 'Judgement', shape: 'rain', r: 2.4, range: 7, n: 3, every: 0.3, hit: 1.8, dmg: 1.5, chill: 1.5, mp: 18, cd: 5 },
@@ -465,7 +465,7 @@ function cardStats(cardId, upgradeLevel = 0) {
   if (!c) return {};
   const k = 1 + SP_STAT_PER_LEVEL * upgradeLevel;
   const out = {};
-  for (const [stat, v] of Object.entries(c.stats)) out[stat] = stat === 'bonusAttackSpeed' || stat === 'bonusSpeed' ? Number((v * k).toFixed(2)) : Math.round(v * k);
+  for (const [stat, rawV] of Object.entries(c.stats)) { const v = rawV as number; out[stat] = stat === 'bonusAttackSpeed' || stat === 'bonusSpeed' ? Number((v * k).toFixed(2)) : Math.round(v * k); }
   return out;
 }
 
@@ -528,8 +528,16 @@ function clientCatalog() {
   };
 }
 
+export {
+  JOB_MAX_LEVEL, JOB_LEVEL_BONUS, jobExpToNext,
+  SP_TIERS, SP_CARDS, SP_SKILLS, CARD_BY_ID, SP_MAX_LEVEL, SP_ENHANCE_CHANCE, SP_SAFE_LEVEL, SP_SKILL_PER_LEVEL, FRAGMENT_DROP, bossFragments,
+  makeCardItem, cardStats, cardEnhanceCost, upgradeCardScale, rollCardDrop, clientCatalog, normalizeSpSkill
+};
+export default SP_CARDS;
 module.exports = {
   JOB_MAX_LEVEL, JOB_LEVEL_BONUS, jobExpToNext,
   SP_TIERS, SP_CARDS, SP_SKILLS, CARD_BY_ID, SP_MAX_LEVEL, SP_ENHANCE_CHANCE, SP_SAFE_LEVEL, SP_SKILL_PER_LEVEL, FRAGMENT_DROP, bossFragments,
   makeCardItem, cardStats, cardEnhanceCost, upgradeCardScale, rollCardDrop, clientCatalog, normalizeSpSkill
 };
+
+

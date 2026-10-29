@@ -1,10 +1,11 @@
 // server/adminCommands.js
 // Slop Hero - Admin & Game Master Command Handler
 
-const { ITEMS, generateRandomizedGear } = require('./items');
-const SP = require('./spCards');
-const { mobStats, FIELD_ZONES } = require('./fieldZones');
-const accountManager = require('./accountManager');
+import { ITEMS, generateRandomizedGear } from './items';
+import * as SP from './spCards';
+import { mobStats, FIELD_ZONES } from './fieldZones';
+import accountManager from './accountManager';
+import { UserRole } from './types';
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'slopadmin';
 
@@ -55,7 +56,8 @@ function isPlayerAdmin(player) {
 }
 
 // Command Definitions & Documentation
-const COMMANDS = {
+export interface AdminCommandDef { usage: string; desc: string; public?: boolean; run: (gameServer: any, player: any, args: string[]) => void; [key: string]: any; }
+const COMMANDS: Record<string, AdminCommandDef> = {
   help: {
     usage: '/help [command]',
     desc: 'แสดงรายชื่อคำสั่งทั้งหมด หรือวิธีใช้คำสั่งนั้นๆ',
@@ -106,7 +108,7 @@ const COMMANDS = {
     desc: 'ดูรายชื่อผู้เล่นที่ออนไลน์ทั้งหมด',
     public: true,
     run(gameServer, player) {
-      const list = Array.from(gameServer.players.values()).map(p => 
+      const list = Array.from(gameServer.players.values()).map((p: any) => 
         `• [${p.characterClass || 'hero'}] ${p.name} (Lv.${p.level || 1}) ใน ${p.zone} @ (${Math.round(p.x)}, ${Math.round(p.y)})`
       );
       sendFeedback(gameServer, player, `👥 ผู้เล่นออนไลน์ (${list.length} คน):\n` + list.join('\n'));
@@ -597,7 +599,7 @@ const COMMANDS = {
       if (!mobsMap) return sendFeedback(gameServer, player, `❌ ไม่พบมอนสเตอร์ในโซนนี้`);
 
       let count = 0;
-      for (const mob of Array.from(mobsMap.values())) {
+      for (const mob of (Array.from(mobsMap.values()) as any[])) {
         if (mob.state === 'dead') continue;
         if (radius > 0) {
           const dist = Math.hypot(mob.x - player.x, mob.y - player.y);
@@ -695,7 +697,7 @@ const COMMANDS = {
         return sendFeedback(gameServer, player, `❌ รูปแบบ: /role <username> <admin|player>`);
       }
 
-      const ok = accountManager.setRole(targetUsername, newRole);
+      const ok = accountManager.setRole(targetUsername, newRole as UserRole);
       if (!ok) return sendFeedback(gameServer, player, `❌ ไม่พบบัญชี "${targetUsername}" หรือบันทึกไม่สำเร็จ`);
 
       // Update online player role immediately if currently connected
@@ -734,11 +736,11 @@ function buildCatalog(gameServer, player) {
   if (player.role !== 'admin') player.role = 'admin';
   return {
     isAdmin: true,
-    items: Object.entries(ITEMS).map(([id, it]) => ({ id, name: it.name, slot: it.slot || it.type, rarity: it.rarity })),
-    cards: Object.values(SP.CARD_BY_ID).map(c => ({ id: c.id, name: c.name, cls: c.cls, tier: c.tier })),
+    items: Object.entries(ITEMS).map(([id, it]: [string, any]) => ({ id, name: it.name, slot: it.slot || it.type, rarity: it.rarity })),
+    cards: Object.values(SP.CARD_BY_ID as Record<string, any>).map((c: any) => ({ id: c.id, name: c.name, cls: c.cls, tier: c.tier })),
     zones: ['town', 'dungeon', ...gameServer.fields.keys()],
     mobTypes: MOB_TYPES,
-    players: [...gameServer.players.values()].map(p => ({ name: p.name, level: p.level || 1, zone: p.zone })),
+    players: [...gameServer.players.values()].map((p: any) => ({ name: p.name, level: p.level || 1, zone: p.zone })),
     godMode: !!player.godMode
   };
 }
@@ -782,9 +784,14 @@ function handleCommand(gameServer, player, rawText) {
   return true;
 }
 
+export { handleCommand, buildCatalog, COMMANDS, ADMIN_PASSWORD };
 module.exports = {
   handleCommand,
   buildCatalog,
   COMMANDS,
   ADMIN_PASSWORD
 };
+
+
+
+

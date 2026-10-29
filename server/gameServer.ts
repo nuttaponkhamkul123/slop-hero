@@ -1,7 +1,7 @@
-const { calculateElementalMultiplier, ELEMENTS, ELEMENT_INFO } = require('./elements');
-const { MAP_WIDTH, MAP_HEIGHT, TILES, generateMap, generateFrostfellMap } = require('./mapData');
-const { generateProceduralDungeon, rollDungeonLoot, DIFFICULTIES, AFFIX_POOL, DUNGEON_FLOORS, DUNGEON_TILES, BLOCKING_FEATURES, DUNGEON_HAZARDS } = require('./dungeonGenerator');
-const {
+import { calculateElementalMultiplier, ELEMENTS, ELEMENT_INFO } from './elements';
+import { MAP_WIDTH, MAP_HEIGHT, TILES, generateMap, generateFrostfellMap } from './mapData';
+import { generateProceduralDungeon, rollDungeonLoot, DIFFICULTIES, AFFIX_POOL, DUNGEON_FLOORS, DUNGEON_TILES, BLOCKING_FEATURES, DUNGEON_HAZARDS } from './dungeonGenerator';
+import {
   ITEMS,
   SKYBLOCK_REFORGES,
   REFORGE_COSTS,
@@ -21,12 +21,12 @@ const {
   requiredClass,
   WEAPON_ABILITIES,
   weaponAbility
-} = require('./items');
-const accountManager = require('./accountManager');
-const { FIELD_ZONES, FIELD_ZONE_BY_ID, generateFieldMap, buildFieldMobs } = require('./fieldZones');
-const { expToNext, mobExp, levelGapMult, lootGapMult, masteryMult, MOB_DEF_K } = require('./progression');
-const SP = require('./spCards');
-const adminCommands = require('./adminCommands');
+} from './items';
+import accountManager from './accountManager';
+import { FIELD_ZONES, FIELD_ZONE_BY_ID, generateFieldMap, buildFieldMobs } from './fieldZones';
+import { expToNext, mobExp, levelGapMult, lootGapMult, masteryMult, MOB_DEF_K } from './progression';
+import * as SP from './spCards';
+import * as adminCommands from './adminCommands';
 const SP_TRANSFORM_COOLDOWN = 8;
 
 // Global tuning knob for every skill's damage against monsters
@@ -392,15 +392,41 @@ const BOSS_BONUS_GEAR_DROP_CHANCE = 0.06;
 const BOSS_REVIVAL_STONE_CHANCE = 0.4;
 
 class GameServer {
+  [key: string]: any;
+  io: any;
+  townMap: any;
+  fields: Map<string, any>;
+  frostfellMap: any;
+  dungeonFloor: number;
+  dungeonDifficulty: string;
+  dungeon: any;
+  players: Map<string, any>;
+  townMobs: Map<string, any>;
+  frostfellMobs: Map<string, any>;
+  dungeonMobs: Map<string, any>;
+  townGroundItems: Map<string, any>;
+  frostfellGroundItems: Map<string, any>;
+  dungeonGroundItems: Map<string, any>;
+  parties: Map<string, any>;
+  playerParties: Map<string, any>;
+  nextPartyId: number;
+  dungeonInstances: Map<string, any>;
+  ctxInstanceId: any;
+  projectiles: Map<string, any>;
+  smokeClouds: any[];
+  nextEntityId: number;
+  TICK_RATE: number;
+  tickInterval: any;
+  _ftQueue: Map<string, any>;
   constructor(io) {
     this.io = io;
     this.townMap = generateMap();
 
     // Level-chained open-world field zones (Greenmeadow Lv 1 ... Celestial Reach Lv 100).
     // The town itself is monster-free; townMobs stays empty.
-    this.fields = new Map();
+    this.fields = new Map<any, any>();
     FIELD_ZONES.forEach(zone => {
-      this.fields.set(zone.id, { zone, map: generateFieldMap(zone), mobs: new Map(), groundItems: new Map() });
+      this.fields.set(zone.id, { zone, map: generateFieldMap(zone), mobs: new Map<any, any>(), groundItems: new Map<any, any>() });
     });
     const frostfell = this.fields.get('frostfell');
     this.frostfellMap = frostfell.map;
@@ -408,29 +434,29 @@ class GameServer {
     this.dungeonDifficulty = 'normal';
     this.dungeon = generateProceduralDungeon(this.dungeonFloor, this.dungeonDifficulty);
 
-    this.players = new Map();
-    this.townMobs = new Map();
+    this.players = new Map<any, any>();
+    this.townMobs = new Map<any, any>();
     this.frostfellMobs = frostfell.mobs;
-    this.dungeonMobs = new Map();
+    this.dungeonMobs = new Map<any, any>();
 
-    this.townGroundItems = new Map();
+    this.townGroundItems = new Map<any, any>();
     this.frostfellGroundItems = frostfell.groundItems;
-    this.dungeonGroundItems = new Map();
-    this.parties = new Map(); // partyId -> { id, leaderId, memberIds: Set }
-    this.playerParties = new Map(); // socketId -> partyId
+    this.dungeonGroundItems = new Map<any, any>();
+    this.parties = new Map<any, any>(); // partyId -> { id, leaderId, memberIds: Set }
+    this.playerParties = new Map<any, any>(); // socketId -> partyId
     this.nextPartyId = 1;
-    this.dungeonInstances = new Map(); // instanceId -> { id, partyId, floor, difficulty, dungeon, mobs, groundItems, chests, cleared }
+    this.dungeonInstances = new Map<any, any>(); // instanceId -> { id, partyId, floor, difficulty, dungeon, mobs, groundItems, chests, cleared }
     // Dungeon instance the current handler / tick step is acting in. Lookups and
     // emits that only know the zone name 'dungeon' resolve against it.
     this.ctxInstanceId = null;
 
-    this.projectiles = new Map();
+    this.projectiles = new Map<any, any>();
     this.smokeClouds = []; // Nightblade Smoke Bomb: { zone, instanceId, x, y, r, miss, until }
     this.nextEntityId = 1000;
 
     this.TICK_RATE = 25;
     this.tickInterval = null;
-    this._ftQueue = new Map(); // socket room -> floating texts waiting for this tick's batch
+    this._ftQueue = new Map<any, any>(); // socket room -> floating texts waiting for this tick's batch
 
     this.initFrostfellMonsters();
     this.initFieldMonsters();
@@ -615,7 +641,7 @@ class GameServer {
     const dungeonMap = generateProceduralDungeon(floor, difficulty);
     // Monsters wait per room and only appear once a door into their room
     // opens (see updateDungeonRooms / spawnDungeonRoom)
-    const pendingMobs = new Map(); // roomIdx -> mobs
+    const pendingMobs = new Map<any, any>(); // roomIdx -> mobs
     if (dungeonMap && dungeonMap.mobs) {
       dungeonMap.mobs.forEach(mob => {
         if (!pendingMobs.has(mob.roomIdx)) pendingMobs.set(mob.roomIdx, []);
@@ -630,15 +656,15 @@ class GameServer {
       });
     }
 
-    const inst = {
+    const inst: any = {
       id: instanceId,
       partyId: player.partyId || null,
       floor,
       difficulty,
       dungeon: dungeonMap,
-      mobs: new Map(),
+      mobs: new Map<any, any>(),
       pendingMobs,
-      groundItems: new Map(),
+      groundItems: new Map<any, any>(),
       chests: dungeonMap.chests || [],
       cleared: false,
       startedAt: Date.now()
@@ -890,7 +916,7 @@ class GameServer {
     // An opened room with no monsters (treasure) is clear straight away and
     // opens its own doors, so repeat until nothing changes
     for (let pass = 0; pass <= dung.rooms.length; pass++) {
-      const alive = new Map();
+      const alive = new Map<any, any>();
       for (const m of inst.mobs.values()) {
         if (m.roomIdx !== undefined && m.state !== 'dead' && m.hp > 0) alive.set(m.roomIdx, (alive.get(m.roomIdx) || 0) + 1);
       }
@@ -1519,7 +1545,7 @@ class GameServer {
       jobLevel: savedChar ? (savedChar.jobLevel || 1) : 1,
       spLoadouts: (savedChar && savedChar.spLoadouts) || {},
       // (links saved by the older slot-to-slot version are dropped)
-      skillLinks: Object.fromEntries(Object.entries((savedChar && savedChar.skillLinks) || {}).filter(([, id]) => ALL_CLASS_SKILLS[id])),
+      skillLinks: Object.fromEntries(Object.entries((savedChar && savedChar.skillLinks) || {}).filter(([, id]) => ALL_CLASS_SKILLS[id as string])),
       jobExp: savedChar ? (savedChar.jobExp || 0) : 0,
       jobExpNext: SP.jobExpToNext(savedChar ? (savedChar.jobLevel || 1) : 1),
       spTransformed: false,
@@ -1830,7 +1856,7 @@ class GameServer {
     }
   }
 
-  handleEnterDungeon(socketId, options = {}) {
+  handleEnterDungeon(socketId: any, options: any = {}) {
     const player = this.players.get(socketId);
     if (!player || player.zone !== 'town' || player.isDead) return;
     const socket = this.io.sockets.sockets.get(socketId);
@@ -1880,7 +1906,7 @@ class GameServer {
       const br = dung.bossRoom;
       const inBossRoom = (player.x >= br.x - 1 && player.x <= br.x + br.w + 1 && player.y >= br.y - 1 && player.y <= br.y + br.h + 1);
       if (inBossRoom) {
-        const bossMob = Array.from(mobsMap.values()).find(m => m.isBoss && m.state !== 'dead' && m.hp > 0);
+        const bossMob = (Array.from(mobsMap.values()) as any[]).find(m => m.isBoss && m.state !== 'dead' && m.hp > 0);
         if (bossMob) {
           socket.emit('floating_text', {
             x: player.x,
@@ -1928,7 +1954,7 @@ class GameServer {
         player,
         players: Array.from(this.players.values()).filter(p => p.zone === 'dungeon' && p.dungeonInstanceId === inst.id),
         // big floors hold thousands of mobs: send the living ones in view (game_tick adds the rest as they come into view)
-        mobs: Array.from(inst.mobs.values()).filter(m => m.state !== 'dead' && (m.isBoss || mobInView(m, player))),
+        mobs: (Array.from(inst.mobs.values()) as any[]).filter(m => m.state !== 'dead' && (m.isBoss || mobInView(m, player))),
         groundItems: Array.from(inst.groundItems.values()),
         chests: inst.chests
       });
@@ -2079,7 +2105,7 @@ class GameServer {
 
     let pointsSpent = 0;
     for (const rank of Object.values(player.skills)) {
-      pointsSpent += (rank || 0);
+      pointsSpent += Number(rank || 0);
     }
     if (pointsSpent === 0) return;
 
@@ -2442,7 +2468,7 @@ class GameServer {
   // arcs on to the nearest enemies, each jump weaker; every swing costs MP and
   // the conduit fades when there is not enough
   chainBasicAttack(player, first, attackDmg, mobsMap, strike) {
-    const toggle = Object.values(player.spToggles || {}).find(a => a.skill.chainAttack);
+    const toggle = (Object.values(player.spToggles || {}) as any[]).find(a => a.skill.chainAttack);
     if (!toggle) return;
     const sk = toggle.skill, C = sk.chainAttack;
     const cost = Math.round(C.mp * (player.manaCostMult || 1));
@@ -2492,7 +2518,7 @@ class GameServer {
     for (const id of Object.keys(player.spToggles)) {
       if (!player.spTransformed || !loadout.includes(id)) this.endSpToggle(player, id);
     }
-    const all = Object.values(player.spToggles);
+    const all: any[] = Object.values(player.spToggles);
     if (!all.length) return false;
     const sum = (k) => all.reduce((s, a) => s + (a.skill[k] || 0), 0);
     const hpDrain = sum('drain'), mpDrain = sum('mpDrain');
@@ -2512,7 +2538,7 @@ class GameServer {
     const mobsMap = this.getMobsMap(player.zone, player);
     const rage = this.bloodRage(player);
     const critChance = 0.15 + (player.critChanceBonus || 0);
-    for (const a of Object.values(player.spToggles)) {
+    for (const a of (Object.values(player.spToggles) as any[])) {
       const sk = a.skill;
       if (!sk.r || !sk.dmgMult) continue;
       a.clock += dt;
@@ -2550,7 +2576,7 @@ class GameServer {
   heroBuffs(p) {
     const out = [];
     const timed = (k, n, i, t) => { if (t > 0) out.push({ k, n, i, t: Math.ceil(t) }); };
-    for (const a of Object.values(p.spToggles || {})) out.push({ k: a.skill.id, n: a.skill.name, i: a.skill.icon || '✨' });
+    for (const a of (Object.values(p.spToggles || {}) as any[])) out.push({ k: a.skill.id, n: a.skill.name, i: a.skill.icon || '✨' });
     if (p.bloodlust) timed('bloodlust', 'Bloodlust', '🔥', p.bloodlust.timer);
     timed('rage', 'Rage', '💢', p.berserkTimer);
     timed('fortress', 'Fortress', '🛡️', p.ironFortressTimer);
@@ -2582,7 +2608,7 @@ class GameServer {
       : { ...fxBase, ...data });
     const alive = () => [...mobsMap.values()].filter(m => m.state !== 'dead');
     const within = (cx, cy, r) => alive().filter(m => Math.hypot(m.x - cx, m.y - cy) <= r);
-    const nearest = (cx, cy, r, exclude) => {
+    const nearest = (cx: number, cy: number, r: number, exclude: any = null) => {
       let best = null, bestD = r;
       for (const m of alive()) {
         if (exclude && exclude.has(m)) continue;
@@ -2734,7 +2760,7 @@ class GameServer {
     const aimY = td > range ? py + dir.normY * range : (td > 0.3 ? rawTy : py + dir.normY * Math.min(range, 3));
 
     // Walk from (x0, y0) along (nx, ny) until a wall, returning the furthest free point
-    const ray = (x0, y0, nx, ny, len, radius) => {
+    const ray = (x0: number, y0: number, nx: number, ny: number, len: number, radius: number = 0.35) => {
       let ex = x0, ey = y0;
       for (let d = 0.25; d <= len; d += 0.25) {
         const tx = x0 + nx * d, ty = y0 + ny * d;
@@ -3237,7 +3263,7 @@ class GameServer {
   }
 
   // linkedSkillId is only set by the server itself (Skill Link casts)
-  handlePlayerSkill(socketId, skillData = {}, linkedSkillId = null) {
+  handlePlayerSkill(socketId: any, skillData: any = {}, linkedSkillId: any = null) {
     const player = this.players.get(socketId);
     if (!player || player.isDead) return;
 
@@ -4079,14 +4105,14 @@ class GameServer {
     let totalThorns = 0;
     let totalDodgeChance = 0;
     let totalLifeSteal = 0;
-    const totalElementResist = {};
+    const totalElementResist: Record<string, number> = {};
 
     if (player.equipment) {
-      for (const eq of Object.values(player.equipment)) {
+      for (const eq of (Object.values(player.equipment) as any[])) {
         if (!eq) continue;
         if (eq.elementResist) {
           for (const [el, val] of Object.entries(eq.elementResist)) {
-            totalElementResist[el] = (totalElementResist[el] || 0) + val;
+            totalElementResist[el] = (totalElementResist[el] || 0) + (val as number);
           }
         }
         if (eq.bonusDmg) totalBonusDmg += eq.bonusDmg;
@@ -4147,7 +4173,7 @@ class GameServer {
     // Specialist card stats apply only while transformed
     const spCard = player.equipment && player.equipment.sp;
     if (player.spTransformed && spCard) {
-      const cs = SP.cardStats(spCard.cardId, spCard.upgradeLevel || 0);
+      const cs: any = SP.cardStats(spCard.cardId, spCard.upgradeLevel || 0);
       totalBonusDmg += cs.bonusDmg || 0;
       totalBonusDef += cs.bonusDef || 0;
       totalBonusHp += cs.bonusHp || 0;
@@ -4181,7 +4207,7 @@ class GameServer {
     // Elemental resistance from gear, capped so no element is fully negated
     player.elementResist = {};
     for (const [el, val] of Object.entries(totalElementResist)) {
-      player.elementResist[el] = Number(Math.min(MAX_PLAYER_ELEMENT_RESIST, val).toFixed(2));
+      player.elementResist[el] = Number(Math.min(MAX_PLAYER_ELEMENT_RESIST, val as number).toFixed(2));
     }
 
     player.hp = Math.min(player.hp, player.maxHp);
@@ -4285,7 +4311,7 @@ class GameServer {
     const player = this.players.get(socketId);
     if (!player || player.isDead) return;
 
-    const qty = Math.max(1, Math.min(999, parseInt(count, 10) || 1));
+    const qty = Math.max(1, Math.min(999, parseInt(String(count), 10) || 1));
     const itemDef = ITEMS[itemId];
     if (!itemDef || !itemDef.buyPrice || itemDef.type !== 'consumable') return;
 
@@ -4338,7 +4364,7 @@ class GameServer {
 
     const item = player.inventory.items[itemIndex];
     const stackCount = item.count || 1;
-    const sellCount = Math.max(1, Math.min(stackCount, parseInt(quantity, 10) || 1));
+    const sellCount = Math.max(1, Math.min(stackCount, parseInt(String(quantity), 10) || 1));
     const sellPrice = (item.sellPrice || 10) * sellCount;
 
     player.gold += sellPrice;
@@ -4368,7 +4394,7 @@ class GameServer {
     if (!Array.isArray(entries) || entries.length === 0) return;
 
     const items = player.inventory.items;
-    const qtyByIndex = new Map();
+    const qtyByIndex = new Map<any, any>();
     for (const e of entries.slice(0, items.length)) {
       if (!e || !Number.isInteger(e.itemIndex) || e.itemIndex < 0 || e.itemIndex >= items.length) continue;
       const item = items[e.itemIndex];
@@ -4750,7 +4776,7 @@ class GameServer {
     return { id: entry.itemId || 'unknown', name: this.lootEntryName(entry), count: entry.amount || 1, rarity: 'common' };
   }
 
-  emitDungeonRunUpdate(player, socket) {
+  emitDungeonRunUpdate(player: any, socket?: any) {
     socket = socket || this.io.sockets.sockets.get(player.id);
     if (!socket) return;
     const run = player.dungeonRun;
@@ -4810,7 +4836,7 @@ class GameServer {
     player.gold += bonusGold;
     this.awardExp(player, bonusExp);
 
-    const floorConfig = DUNGEON_FLOORS[run.floor - 1] || {};
+    const floorConfig: any = DUNGEON_FLOORS[run.floor - 1] || {};
     const socket = this.io.sockets.sockets.get(player.id);
     if (socket) {
       socket.emit('player_updated', player);
@@ -4919,7 +4945,7 @@ class GameServer {
     });
   }
 
-  spawnProjectile(caster, targetX, targetY, targetId, targetType, damage, opts = {}) {
+  spawnProjectile(caster, targetX, targetY, targetId, targetType, damage, opts: any = {}) {
     const element = (caster.equipment && caster.equipment.weapon && caster.equipment.weapon.element) || 'neutral';
     const id = `proj_${this.nextEntityId++}`;
     let dx = (targetX !== undefined ? targetX : caster.x) - caster.x;
@@ -5473,7 +5499,7 @@ class GameServer {
     const now = Date.now();
     if (this._lastItemSweep && now - this._lastItemSweep < ITEM_SWEEP_INTERVAL_MS) return;
     this._lastItemSweep = now;
-    const sweep = (map, zone, instanceId) => {
+    const sweep = (map: any, zone: string, instanceId: any = null) => {
       for (const [id, item] of map) {
         if (item.expiresAt && item.expiresAt <= now) {
           map.delete(id);
@@ -5727,7 +5753,7 @@ class GameServer {
         // Bucket commanders on a grid as coarse as the widest aura, so each mob
         // only checks the commanders in its own and the 8 surrounding cells
         const cell = Math.max(...commanderMobs.map(c => c.auraRadius));
-        const buckets = new Map();
+        const buckets = new Map<any, any>();
         for (const cmdr of commanderMobs) {
           const k = Math.floor(cmdr.x / cell) + ',' + Math.floor(cmdr.y / cell);
           if (!buckets.has(k)) buckets.set(k, []);
@@ -6109,7 +6135,7 @@ class GameServer {
       spLevel: p.spTransformed && p.equipment && p.equipment.sp ? (p.equipment.sp.upgradeLevel || 0) : 0,
       shieldHp: Math.round(p.shieldHp || 0),
       berserkTimer: Number((p.berserkTimer || 0).toFixed(1)),
-      spToggles: p.spToggles ? Object.values(p.spToggles).map(a => ({ id: a.skill.id, r: a.skill.r || 0, spin: !!a.skill.spin, c: a.skill.color })) : [],
+      spToggles: p.spToggles ? Object.values(p.spToggles).map((a: any) => ({ id: a.skill.id, r: a.skill.r || 0, spin: !!a.skill.spin, c: a.skill.color })) : [],
       buffs: this.heroBuffs(p),
       mastery: p.mastery || 1,
       ironFortressTimer: Number((p.ironFortressTimer || 0).toFixed(1)),
@@ -6137,8 +6163,8 @@ class GameServer {
       frozen: m.frozenTimer > 0 ? (m.frozenKind === 'time' ? 2 : 1) : 0, scorch: m.scorchStacks || 0, frost: m.frostStacks || 0
     });
     // Moving parts only; defaults (no buffs, not a commander) are left out
-    const snapMobDelta = m => {
-      const d = { id: m.id, x: round2(m.x), y: round2(m.y), facing: m.facing, hp: Math.round(m.hp), maxHp: m.maxHp, state: m.state,
+    const snapMobDelta = (m: any) => {
+      const d: any = { id: m.id, x: round2(m.x), y: round2(m.y), facing: m.facing, hp: Math.round(m.hp), maxHp: m.maxHp, state: m.state,
         frozen: m.frozenTimer > 0 ? (m.frozenKind === 'time' ? 2 : 1) : 0, scorch: m.scorchStacks || 0, frost: m.frostStacks || 0 };
       if (m.buffs && m.buffs.length) d.buffs = m.buffs;
       if (m.isCommander) { d.isCommander = true; d.auraRadius = m.auraRadius || 0; }
@@ -6150,7 +6176,7 @@ class GameServer {
 
     // Only send field zones somebody is actually standing in
     const occupied = new Set(playersArr.map(p => p.zone));
-    const fieldMobs = {};
+    const fieldMobs: Record<string, any[]> = {};
     for (const [fieldId, field] of this.fields) {
       if (occupied.has(fieldId)) fieldMobs[fieldId] = Array.from(field.mobs.values()).map(snapMob);
     }
@@ -6179,8 +6205,8 @@ class GameServer {
       // unchanged ones left out, and the ids that left view or died as `gone`.
       const instMobsArr = [];
       const mobRefresh = this._snapTick % (this.TICK_RATE * MOB_FULL_REFRESH_S) === 0;
-      const sentBefore = (!mobRefresh && inst._sentMobs) || new Map();
-      const sentNow = new Map();
+      const sentBefore = (!mobRefresh && inst._sentMobs) || new Map<any, any>();
+      const sentNow = new Map<any, any>();
       for (const m of inst.mobs.values()) {
         if (m.state === 'dead') continue;
         if (!m.isBoss && !instPlayers.some(p => mobInView(m, p))) continue;
@@ -6213,4 +6239,13 @@ class GameServer {
   }
 }
 
+export { GameServer };
+export default GameServer;
 module.exports = GameServer;
+
+
+
+
+
+
+

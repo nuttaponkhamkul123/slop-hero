@@ -1,16 +1,57 @@
-const fs = require('fs');
-const path = require('path');
-const crypto = require('crypto');
+import fs from 'fs';
+import path from 'path';
+import crypto from 'crypto';
+import { UserRole } from './types';
 
-const DATA_DIR = path.join(__dirname, 'data');
+// Check local directory or root project server/data directory
+const DATA_DIR = process.env.DATA_DIR || (
+  fs.existsSync(path.join(__dirname, 'data')) 
+    ? path.join(__dirname, 'data') 
+    : path.join(process.cwd(), 'server', 'data')
+);
 const ACCOUNTS_FILE = path.join(DATA_DIR, 'accounts.json');
 const MAX_CHARACTERS = 10;
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
-const ROLES = ['player', 'admin'];
-// Accounts that start as admin; extend via ADMIN_USERNAMES=alice,bob
-const DEFAULT_ADMINS = (process.env.ADMIN_USERNAMES || 'admin,test').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+const ROLES: UserRole[] = ['player', 'admin'];
 
-class AccountManager {
+// Accounts that start as admin; extend via ADMIN_USERNAMES=alice,bob
+const DEFAULT_ADMINS = (process.env.ADMIN_USERNAMES || 'admin,test')
+  .split(',')
+  .map(s => s.trim().toLowerCase())
+  .filter(Boolean);
+
+export interface CharacterSummary {
+  slot: number;
+  name: string;
+  characterClass: string;
+  level: number;
+  jobLevel: number;
+  gold: number;
+  savedAt: number | null;
+}
+
+export interface AccountPayload {
+  username: string;
+  role: UserRole;
+  characters: CharacterSummary[];
+  maxCharacters: number;
+}
+
+export interface AccountRecord {
+  username: string;
+  salt: string;
+  passwordHash: string;
+  createdAt: number;
+  lastLogin: number;
+  role: UserRole;
+  characters: any[];
+  character?: any;
+}
+
+export class AccountManager {
+  public accounts: Record<string, AccountRecord>;
+  public sessions: Map<string, { key: string; expiresAt: number }>;
+
   constructor() {
     this.accounts = {};
     this.sessions = new Map(); // token -> { key, expiresAt }
@@ -18,7 +59,7 @@ class AccountManager {
   }
 
   // Older accounts stored a single `character`; they now hold a list
-  normalize(account) {
+  normalize(account: AccountRecord): AccountRecord {
     if (!account.characters) {
       account.characters = account.character ? [account.character] : [];
       delete account.character;
@@ -29,14 +70,14 @@ class AccountManager {
     return account;
   }
 
-  roleFor(username) {
+  roleFor(username?: string): UserRole {
     const u = String(username || '').trim().toLowerCase();
     if (u === 'admin' || u === 'test') return 'admin';
     const acc = username && this.accounts[u];
     return acc ? this.normalize(acc).role : 'player';
   }
 
-  setRole(username, role) {
+  setRole(username: string, role: UserRole): boolean {
     const acc = username && this.accounts[String(username).trim().toLowerCase()];
     if (!acc || !ROLES.includes(role)) return false;
     acc.role = role;
@@ -45,13 +86,13 @@ class AccountManager {
   }
 
   // Session token handed out at login/register; join_game must present it
-  issueToken(key) {
+  issueToken(key: string): string {
     const token = crypto.randomBytes(24).toString('hex');
     this.sessions.set(token, { key, expiresAt: Date.now() + SESSION_TTL_MS });
     return token;
   }
 
-  usernameForToken(token) {
+  usernameForToken(token?: string): string | null {
     const s = token && this.sessions.get(token);
     if (!s) return null;
     if (Date.now() > s.expiresAt) {
@@ -61,26 +102,38 @@ class AccountManager {
     return this.accounts[s.key] ? this.accounts[s.key].username : null;
   }
 
-  summaries(key) {
+  summaries(key: string): CharacterSummary[] {
     const acc = this.accounts[key];
     if (!acc) return [];
     return this.normalize(acc).characters.map((c, slot) => ({
-      slot, name: c.name, characterClass: c.characterClass, level: c.level || 1,
-      jobLevel: c.jobLevel || 1, gold: c.gold || 0, savedAt: c.savedAt || null
+      slot,
+      name: c.name,
+      characterClass: c.characterClass,
+      level: c.level || 1,
+      jobLevel: c.jobLevel || 1,
+      gold: c.gold || 0,
+      savedAt: c.savedAt || null
     }));
   }
 
-  accountPayload(key) {
+  accountPayload(key: string): AccountPayload {
     const acc = this.accounts[key];
-    return { username: acc.username, role: this.normalize(acc).role, characters: this.summaries(key), maxCharacters: MAX_CHARACTERS };
+    return {
+      username: acc.username,
+      role: this.normalize(acc).role,
+      characters: this.summaries(key),
+      maxCharacters: MAX_CHARACTERS
+    };
   }
 
-  isNameTaken(name) {
+  isNameTaken(name?: string): boolean {
     const n = String(name || '').trim().toLowerCase();
-    return Object.values(this.accounts).some(acc => this.normalize(acc).characters.some(c => (c.name || '').toLowerCase() === n));
+    return Object.values(this.accounts).some(acc =>
+      this.normalize(acc).characters.some(c => (c.name || '').toLowerCase() === n)
+    );
   }
 
-  createCharacter(username, characterData) {
+  createCharacter(username: string, characterData: any): { success: boolean; message?: string; account?: AccountPayload } {
     const key = String(username || '').trim().toLowerCase();
     const acc = this.accounts[key];
     if (!acc) return { success: false, message: 'ไม่พบบัญชีผู้ใช้' };
@@ -92,7 +145,7 @@ class AccountManager {
     return { success: true, account: this.accountPayload(key) };
   }
 
-  deleteCharacter(username, slot) {
+  deleteCharacter(username: string, slot: number): { success: boolean; message?: string; account?: AccountPayload } {
     const key = String(username || '').trim().toLowerCase();
     const acc = this.accounts[key];
     if (!acc) return { success: false, message: 'ไม่พบบัญชีผู้ใช้' };
@@ -103,7 +156,7 @@ class AccountManager {
     return { success: true, account: this.accountPayload(key) };
   }
 
-  init() {
+  init(): void {
     try {
       if (!fs.existsSync(DATA_DIR)) {
         fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -122,7 +175,7 @@ class AccountManager {
     }
   }
 
-  saveAccounts() {
+  saveAccounts(): void {
     try {
       if (!fs.existsSync(DATA_DIR)) {
         fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -133,11 +186,17 @@ class AccountManager {
     }
   }
 
-  hashPassword(password, salt) {
+  hashPassword(password: string, salt: string): string {
     return crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
   }
 
-  register(username, password, characterData = null) {
+  register(username: string, password: string, characterData: any = null): {
+    success: boolean;
+    message?: string;
+    username?: string;
+    token?: string;
+    account?: AccountPayload;
+  } {
     if (!username || !password) {
       return { success: false, message: 'กรุณากรอก Username และ Password' };
     }
@@ -148,6 +207,7 @@ class AccountManager {
     if (cleanUsername.length < 3 || cleanUsername.length > 20) {
       return { success: false, message: 'Username ต้องมีความยาว 3 - 20 ตัวอักษร' };
     }
+
     if (password.length < 4) {
       return { success: false, message: 'Password ต้องมีความยาวอย่างน้อย 4 ตัวอักษร' };
     }
@@ -179,7 +239,13 @@ class AccountManager {
     };
   }
 
-  login(username, password) {
+  login(username: string, password: string): {
+    success: boolean;
+    message?: string;
+    username?: string;
+    token?: string;
+    account?: AccountPayload;
+  } {
     if (!username || !password) {
       return { success: false, message: 'กรุณากรอก Username และ Password' };
     }
@@ -209,14 +275,14 @@ class AccountManager {
     };
   }
 
-  getCharacter(username, slot = 0) {
+  getCharacter(username: string, slot: number = 0): any {
     if (!username) return null;
     const key = username.trim().toLowerCase();
     const acc = this.accounts[key];
     return acc ? (this.normalize(acc).characters[slot] || null) : null;
   }
 
-  saveCharacter(username, characterData, slot = 0) {
+  saveCharacter(username: string, characterData: any, slot: number = 0): boolean {
     if (!username || !characterData) return false;
     const key = username.trim().toLowerCase();
     if (!this.accounts[key]) return false;
@@ -252,4 +318,7 @@ class AccountManager {
   }
 }
 
-module.exports = new AccountManager();
+const defaultAccountManager = new AccountManager();
+export default defaultAccountManager;
+module.exports = defaultAccountManager;
+
