@@ -27,6 +27,26 @@ const ANIMATED_TINT_REFRESH_MS = 120;
 // Basic swings closer together than this (after the previous one ends) chain
 // into a combo: they alternate direction and every third is a finisher
 const SWING_COMBO_WINDOW_MS = 650;
+// Warrior basic swing timing (share of the swing): the blade meets the target at
+// SWING_CONTACT, then the pose freezes for a hit-stop if something is in reach
+// Enhancement glow (gear goes to +15): nothing below +5, then a colour per tier
+// and more layers the higher it goes. Armour uses the average of armour, helmet and boots.
+const ENHANCE_TIERS = [
+  { min: 15, color: '#ef4444' },  // +15 crimson
+  { min: 13, color: '#facc15' },  // +13-14 gold
+  { min: 10, color: '#a855f7' },  // +10-12 violet
+  { min: 7, color: '#38bdf8' },   // +7-9 blue
+  { min: 5, color: '#e2e8f0' }    // +5-6 silver
+];
+const ENHANCE_ELEMENT_PARTICLE = { fire: 'fire', ice: 'ice', lightning: 'lightning', dark: 'shadow', holy: 'level', earth: 'earth' };
+const ENHANCE_OTHERS_RATE = 0.5; // other heroes shed half the particles of your own
+const SWING_CONTACT = 0.42;
+const SWING_HIT_STOP_MS = 70, SWING_FINISHER_HIT_STOP_MS = 120;
+const SWING_IMPACT_MS = 190, SWING_FINISHER_IMPACT_MS = 280;
+// screen-space direction of each facing (y squashed for the iso view)
+const FACING_SCREEN = {
+  N: [0, -0.6], NE: [0.71, -0.42], E: [1, 0], SE: [0.71, 0.42], S: [0, 0.6], SW: [-0.71, 0.42], W: [-1, 0], NW: [-0.71, -0.42]
+};
 // Sweep slash shape: half-arc (radians) of a normal swing and of a finisher
 const SWEEP_HALF_ARC = Math.PI * 0.36;
 const SWEEP_HALF_ARC_FINISHER = Math.PI * 0.62;
@@ -64,8 +84,13 @@ const SP_CARD_PARTICLES = {
 const SP_SHAPE_LIFE = {
   nova: 0.8, buff: 1.1, blast: 0.8, pull: 1.0, cone: 0.55, line: 0.7, strike: 0.5, volley: 0.55,
   chain: 0.6, pulse: 0.55, rain: 0.6, dash: 0.5, blink: 0.6, backstep: 0.6, detonate: 0.95, rewind: 0.8, aura: 0.6,
-  shuriken: 0.4 // the recall flight; thrown stars, smoke, shadow and orbit last their server 'duration'
+  shuriken: 0.4, // the recall flight; thrown stars, smoke, shadow and orbit last their server 'duration'
+  // variant warrior one-shot beats (placed glyphs, banners, lances... carry a 'duration')
+  spear: 0.7, jump: 0.8, rune: 0.75, invoke: 0.9, rally: 0.8, sacrifice: 1.0, doom: 0.8, riposte: 0.5, rebirth: 1.4, phantom: 0.35
 };
+// Variant warrior shapes drawn by drawVariantWarriorShape; placed objects skip the card flair layer
+const VARIANT_SHAPES = new Set(['fault', 'spear', 'jump', 'wall', 'rune', 'invoke', 'ricochet', 'phantom', 'hurl', 'banner', 'rally', 'boomerang', 'firebird', 'sacrifice', 'doom', 'riposte', 'rebirth']);
+const VARIANT_PLACED = new Set(['spear', 'rune', 'banner', 'doom', 'riposte']);
 // Skills whose visuals play in phases and need longer than their shape's default
 const SP_SKILL_LIFE = {
   // Nightblade
@@ -863,7 +888,7 @@ class IsometricRenderer {
     } else {
       // Warrior Heavy Cleave
       const life = finisher ? 0.4 : 0.3;
-      this.animations.skillEffects.push({
+      const sweep = {
         type: 'sweeping_edge',
         x: posX,
         y: posY,
@@ -875,10 +900,15 @@ class IsometricRenderer {
         cardId,
         side: combo.side,
         finisher
-      });
-      const pMain = cardId === 'sp_berserker' ? 'fire' : cardId === 'sp_frost_templar' ? 'ice' : cardId === 'sp_dread_lord' ? 'shadow' : 'spark';
-      this.addParticles(posX, posY, 'slash', finisher ? 12 : 6);
-      this.addParticles(posX, posY, pMain, finisher ? 9 : 5);
+      };
+      // pixel heroes spawn it at the contact frame (warriorSwing); the old sprites right away
+      if (this.usePixelHeroes()) this.attacks.get(data.attackerId).pendingSweep = sweep;
+      else {
+        this.animations.skillEffects.push(sweep);
+        const pMain = cardId === 'sp_berserker' ? 'fire' : cardId === 'sp_frost_templar' ? 'ice' : cardId === 'sp_dread_lord' ? 'shadow' : 'spark';
+        this.addParticles(posX, posY, 'slash', finisher ? 12 : 6);
+        this.addParticles(posX, posY, pMain, finisher ? 9 : 5);
+      }
     }
   }
 
@@ -1183,6 +1213,14 @@ class IsometricRenderer {
     return PH.frame(cls, view, action, idx);
   }
 
+  // Swinging on the move: the attack's upper body over the legs of run frame runIdx
+  heroRunAttackFrame(player, view, action, idx, runIdx) {
+    const PH = window.PixelHeroes;
+    const cls = PH.classes.includes(player.characterClass) ? player.characterClass : 'warrior';
+    const card = this.spCardFor(player);
+    return PH.runAttackFrame(cls, card ? card.id : null, card ? card.palette : null, view, action, idx, runIdx);
+  }
+
   // SP aura: grows with the card's +level. 'back' draws under the hero,
   // 'front' spawns particles over it.
   drawSpAura(ctx, player, x, y, z, t, layer) {
@@ -1385,6 +1423,18 @@ class IsometricRenderer {
       for (let i = list.length - 1; i >= 0; i--) {
         if (list[i].shape === 'shuriken' && !list[i].recall && list[i].ownerId === fx.ownerId) list.splice(i, 1);
       }
+    }
+    if (fx.type === 'sp_skill' && fx.clearObj) {
+      const list = this.animations.skillEffects;
+      for (let i = list.length - 1; i >= 0; i--) {
+        if (list[i].objId === fx.clearObj) list.splice(i, 1);
+      }
+      if (fx.radius === 0) return;
+    }
+    // Dragoon Dragon Dive: the hero arcs through the sky to the landing spot
+    if (fx.type === 'sp_skill' && fx.shape === 'jump' && !fx.landed && fx.playerId) {
+      if (!this.heroLeaps) this.heroLeaps = new Map();
+      this.heroLeaps.set(fx.playerId, { start: performance.now(), air: (fx.air || 0.75) * 1000, x0: fx.startX, y0: fx.startY, x1: fx.x, y1: fx.y });
     }
     const effect = {
       ...fx,
@@ -6388,6 +6438,12 @@ class IsometricRenderer {
       return;
     }
 
+    if (VARIANT_SHAPES.has(fx.shape) && this.drawVariantWarriorShape(ctx, fx, progress, alpha, toScreen, z, rgba)) {
+      if (!VARIANT_PLACED.has(fx.shape)) this.drawWarriorVariantFlair(ctx, fx, progress, alpha, toScreen, z, rgba);
+      ctx.restore();
+      return;
+    }
+
     switch (fx.shape) {
       case 'nova':
       case 'pulse':
@@ -6643,8 +6699,574 @@ class IsometricRenderer {
     ctx.restore();
   }
 
-  // Toggled SP skills that are on, under the hero: a slow dashed crimson ring
-  // for a blood aura, two fast blade arcs sweeping round for a spin
+  // ---------------------------------------------------------------- variant warrior signature shapes
+  // One look per mechanic: crawling fault, planted lance, sky dive, fire wall,
+  // ground glyphs, ricochet shield, phantom blade, thrown monster, war standard,
+  // boomerang axes, firebird loop, sacrifice, doom brand, riposte and rebirth.
+  drawVariantWarriorShape(ctx, fx, progress, alpha, toScreen, z, rgba) {
+    const t = progress, k = Math.max(0, 1 - t);
+    const life = fx.maxLife || 0.8, el = t * life;
+    const ease = 1 - Math.pow(1 - Math.min(1, t * 1.8), 3);
+    const clamp = (v) => Math.max(0, Math.min(1, v));
+    const W = (a) => `rgba(255, 255, 255, ${clamp(a)})`;
+    const hexA = (hex, a) => {
+      const n = parseInt(hex.slice(1), 16);
+      return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${clamp(a)})`;
+    };
+    const ring = (cx, cy, r, fillA, strokeA, width, col) => {
+      if (r <= 0.02) return;
+      this.spGroundPath(ctx, cx, cy, r);
+      if (fillA) { ctx.fillStyle = col ? hexA(col, fillA) : rgba(fillA); ctx.fill(); }
+      if (strokeA) { ctx.strokeStyle = col ? hexA(col, strokeA) : rgba(strokeA); ctx.lineWidth = width * z; ctx.stroke(); }
+    };
+    const seg = (a, b, w, style) => {
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
+      ctx.strokeStyle = style; ctx.lineWidth = w * z; ctx.stroke();
+    };
+    const glow = (p, r, a, col) => {
+      if (r <= 0.5 || a <= 0.01) return;
+      const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
+      g.addColorStop(0, W(a));
+      g.addColorStop(0.35, col ? hexA(col, a * 0.85) : rgba(a * 0.85));
+      g.addColorStop(1, col ? hexA(col, 0) : rgba(0));
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill();
+    };
+    // fade in over `fin` s, out over the last `fout` s
+    const holdFade = (fin, fout) => clamp(Math.min(el / fin, (life - el) / fout));
+    const lerp = (a, b, s) => a + (b - a) * s;
+    const time = this.animations.time;
+
+    switch (fx.shape) {
+      case 'fault': {
+        // Gravelord: the crack crawls out segment by segment, rock spikes erupt behind it
+        const segs = fx.segs || [];
+        const every = fx.every || 0.09;
+        const fade = clamp((life - el) / 0.35);
+        let prev = toScreen(fx.startX, fx.startY, 0);
+        ctx.save();
+        ctx.globalCompositeOperation = 'source-over';
+        segs.forEach((p, i) => {
+          const age = el - i * every;
+          if (age < 0) return;
+          const cur = toScreen(p.x, p.y, 0);
+          const mid = { x: (prev.x + cur.x) / 2 + Math.sin(i * 7.3) * 6 * z, y: (prev.y + cur.y) / 2 + Math.cos(i * 5.1) * 3 * z };
+          ctx.beginPath(); ctx.moveTo(prev.x, prev.y); ctx.lineTo(mid.x, mid.y); ctx.lineTo(cur.x, cur.y);
+          ctx.strokeStyle = `rgba(28, 20, 10, ${0.85 * fade})`; ctx.lineWidth = 6 * z; ctx.stroke();
+          prev = cur;
+        });
+        ctx.restore();
+        prev = toScreen(fx.startX, fx.startY, 0);
+        segs.forEach((p, i) => {
+          const age = el - i * every;
+          if (age < 0) return;
+          const cur = toScreen(p.x, p.y, 0);
+          seg(prev, cur, 2, rgba(0.9 * fade));
+          prev = cur;
+          // three stone shards jut up, then sink back
+          const rise = Math.sin(clamp(age / 0.5) * Math.PI);
+          for (let s = 0; s < 3; s++) {
+            const a = i * 2.4 + s * 2.1, off = 0.35 + 0.25 * s;
+            const bx = p.x + Math.cos(a) * off * 0.6, by = p.y + Math.sin(a) * off * 0.6;
+            const h = (1.1 - s * 0.25) * rise * (fx.radius || 1.2);
+            const b0 = toScreen(bx - 0.18, by, 0), b1 = toScreen(bx + 0.18, by, 0), tip = toScreen(bx, by, h);
+            ctx.beginPath(); ctx.moveTo(b0.x, b0.y); ctx.lineTo(tip.x, tip.y); ctx.lineTo(b1.x, b1.y); ctx.closePath();
+            ctx.fillStyle = `rgba(110, 92, 60, ${0.9 * fade})`; ctx.fill();
+            ctx.strokeStyle = rgba(0.8 * fade); ctx.lineWidth = 1.4 * z; ctx.stroke();
+          }
+          if (age < 0.3) ring(p.x, p.y, (fx.radius || 1.2) * clamp(age / 0.2), 0.12 * (1 - age / 0.3), 0.8 * (1 - age / 0.3), 2.5);
+        });
+        return true;
+      }
+
+      case 'spear': {
+        // Dragoon: a lance streaks out and stays planted, crackling, until he dives onto it
+        if (fx.dive) {
+          const s = clamp(t * 3);
+          const top = toScreen(lerp(fx.startX, fx.x, s), lerp(fx.startY, fx.y, s), 3.5 * (1 - s) * (1 - s) + 0.2);
+          const from = toScreen(fx.startX, fx.startY, 3.5);
+          seg(from, top, 9 * k, rgba(0.6 * k));
+          seg(from, top, 3, W(0.9 * k));
+          if (t > 0.3) {
+            const q = clamp((t - 0.3) / 0.7);
+            ring(fx.x, fx.y, (fx.radius || 2.4) * q, 0.18 * (1 - q), 0.95 * (1 - q), 4);
+            ring(fx.x, fx.y, (fx.radius || 2.4) * q * 0.6, 0, 0.7 * (1 - q), 2);
+            const c = toScreen(fx.x, fx.y, 0);
+            for (let i = 0; i < 8; i++) {
+              const a = i / 8 * Math.PI * 2 + i;
+              const r = (fx.radius || 2.4) * (0.5 + 0.5 * q) * 10 * z;
+              seg(c, { x: c.x + Math.cos(a) * r, y: c.y + Math.sin(a) * r * 0.5 }, 1.6, W(0.7 * (1 - q)));
+            }
+          }
+          return true;
+        }
+        const fly = clamp(el / 0.14);
+        const fade = clamp((life - el) / 0.3);
+        const ex = lerp(fx.startX, fx.x, fly), ey = lerp(fx.startY, fx.y, fly);
+        if (el < 0.4) {
+          const q = 1 - el / 0.4;
+          seg(toScreen(fx.startX, fx.startY, 0.6), toScreen(ex, ey, 0.6), 7 * q, rgba(0.5 * q));
+          seg(toScreen(fx.startX, fx.startY, 0.6), toScreen(ex, ey, 0.6), 2, W(0.8 * q));
+        }
+        // the lance itself: leaning shaft, bright tip buried in the ground
+        const dx = fx.x - fx.startX, dy = fx.y - fx.startY, len = Math.hypot(dx, dy) || 1;
+        const base = toScreen(ex, ey, 0), butt = toScreen(ex - dx / len * 0.9, ey - dy / len * 0.9, 2.2);
+        seg(butt, base, 4, `rgba(40, 52, 90, ${fade})`);
+        seg(butt, base, 1.5, rgba(fade));
+        glow(base, 12 * z, fade * (0.6 + 0.4 * Math.sin(time * 18)));
+        if (fly >= 1) {
+          ring(fx.x, fx.y, 0.7 + 0.15 * Math.sin(time * 6), 0.05 * fade, 0.55 * fade, 1.5);
+          for (let i = 0; i < 2; i++) {
+            const a = time * 9 + i * Math.PI;
+            const tip = toScreen(fx.x + Math.cos(a) * 0.8, fx.y + Math.sin(a) * 0.8, 0.1);
+            seg(base, { x: (base.x + tip.x) / 2 + (Math.random() - 0.5) * 8 * z, y: (base.y + tip.y) / 2 }, 1.2, rgba(0.8 * fade));
+          }
+        }
+        return true;
+      }
+
+      case 'jump': {
+        // Dragoon: a column into the sky, a closing reticle where he will land, then the crash
+        if (fx.landed) {
+          for (const [d, w] of [[0, 5], [0.12, 2.5]]) {
+            const q = clamp((t - d) / (1 - d));
+            ring(fx.x, fx.y, (fx.radius || 3) * (0.2 + 0.8 * q), 0.2 * (1 - q), 0.95 * (1 - q), w);
+          }
+          const c = toScreen(fx.x, fx.y, 0);
+          for (let i = 0; i < 10; i++) {
+            const a = i / 10 * Math.PI * 2 + 0.3;
+            const r = (fx.radius || 3) * 11 * z * ease;
+            seg(c, { x: c.x + Math.cos(a) * r, y: c.y + Math.sin(a) * r * 0.5 }, 2, rgba(0.8 * k));
+          }
+          glow(c, 40 * z * k, k);
+          return true;
+        }
+        const air = fx.air || 0.75;
+        const up = clamp(el / (air * 0.35));
+        const b = toScreen(fx.startX, fx.startY, 0), top = toScreen(fx.startX, fx.startY, 7);
+        if (el < air * 0.6) {
+          const q = 1 - el / (air * 0.6);
+          seg(b, { x: lerp(b.x, top.x, up), y: lerp(b.y, top.y, up) }, 14 * q, rgba(0.35 * q));
+          seg(b, { x: lerp(b.x, top.x, up), y: lerp(b.y, top.y, up) }, 3, W(0.8 * q));
+          ring(fx.startX, fx.startY, 1.2 * up, 0, 0.7 * q, 2.5);
+        }
+        if (el < air + 0.05) {
+          const s = clamp(el / air);
+          const r = (fx.radius || 3) * (1.6 - 0.6 * s);
+          ring(fx.x, fx.y, r, 0.06 + 0.12 * s, 0.4 + 0.5 * s, 2);
+          const c = toScreen(fx.x, fx.y, 0);
+          for (let i = 0; i < 4; i++) {
+            const a = i * Math.PI / 2 + time * 2;
+            const r1 = r * 10 * z, r2 = r1 * 0.55;
+            seg({ x: c.x + Math.cos(a) * r1, y: c.y + Math.sin(a) * r1 * 0.5 }, { x: c.x + Math.cos(a) * r2, y: c.y + Math.sin(a) * r2 * 0.5 }, 2.5, rgba(0.9));
+          }
+          if (s > 0.7) {
+            const f = (s - 0.7) / 0.3;
+            seg(toScreen(fx.x, fx.y, 7), toScreen(fx.x, fx.y, 7 * (1 - f)), 6, W(0.9));
+          }
+        }
+        return true;
+      }
+
+      case 'wall': {
+        // Reaver: a row of roaring flame tongues across the aim point
+        const fade = holdFade(0.15, 0.5);
+        const n = 14;
+        for (let i = 0; i <= n; i++) {
+          const s = i / n;
+          const wx = lerp(fx.startX, fx.x, s), wy = lerp(fx.startY, fx.y, s);
+          const flick = 0.75 + 0.25 * Math.sin(time * 14 + i * 1.9);
+          const h = (1.3 + 0.5 * Math.sin(i * 2.3)) * flick * clamp(el / 0.2);
+          const b0 = toScreen(wx - 0.22, wy, 0), b1 = toScreen(wx + 0.22, wy, 0), tip = toScreen(wx + Math.sin(time * 6 + i) * 0.12, wy, h);
+          ctx.beginPath(); ctx.moveTo(b0.x, b0.y);
+          ctx.quadraticCurveTo((b0.x + tip.x) / 2 - 4 * z, (b0.y + tip.y) / 2, tip.x, tip.y);
+          ctx.quadraticCurveTo((b1.x + tip.x) / 2 + 4 * z, (b1.y + tip.y) / 2, b1.x, b1.y);
+          ctx.closePath();
+          ctx.fillStyle = rgba(0.55 * fade); ctx.fill();
+          const core = toScreen(wx, wy, h * 0.45);
+          glow(core, 7 * z, 0.55 * fade, '#fde68a');
+        }
+        return true;
+      }
+
+      case 'rune': {
+        const KIND = { ruin: fx.color || '#a3e635', bind: '#facc15', frost: '#7dd3fc' };
+        const col = KIND[fx.kind] || fx.color || '#a3e635';
+        if (fx.burst) {
+          // the glyph goes off: ruin shatters outward, bind snaps chains shut, frost spikes up
+          const r = fx.radius || 2.4;
+          ring(fx.x, fx.y, r * ease, 0.2 * k, 0.95 * k, 4, col);
+          const c = toScreen(fx.x, fx.y, 0);
+          for (let i = 0; i < 8; i++) {
+            const a = i / 8 * Math.PI * 2;
+            const o = { x: c.x + Math.cos(a) * r * 10 * z, y: c.y + Math.sin(a) * r * 5 * z };
+            if (fx.kind === 'bind') {
+              // chains drawn inward from the rim
+              const s = ease;
+              const e = { x: lerp(o.x, c.x, s), y: lerp(o.y, c.y, s) };
+              ctx.setLineDash([4 * z, 3 * z]);
+              seg(o, e, 2.5, hexA(col, 0.9 * k));
+              ctx.setLineDash([]);
+            } else if (fx.kind === 'frost') {
+              const p = { x: fx.x + Math.cos(a) * r * 0.6 * ease, y: fx.y + Math.sin(a) * r * 0.6 * ease };
+              const b = toScreen(p.x, p.y, 0), tip = toScreen(p.x, p.y, 1.4 * k);
+              seg(b, tip, 4, hexA(col, 0.9 * k));
+              seg(b, tip, 1.5, W(k));
+            } else {
+              seg(c, { x: lerp(c.x, o.x, ease), y: lerp(c.y, o.y, ease) }, 2.5, hexA(col, 0.9 * k));
+            }
+          }
+          glow(toScreen(fx.x, fx.y, 0.3), 30 * z * k, k, col);
+          return true;
+        }
+        // a carved glyph waiting on the ground
+        const fade = holdFade(0.35, 0.6);
+        const r = (fx.radius || 2.4) * 0.55;
+        const armed = el > 0.4;
+        const pulse = armed ? 0.75 + 0.25 * Math.sin(time * 5) : clamp(el / 0.4);
+        ring(fx.x, fx.y, fx.radius || 2.4, 0, 0.18 * fade, 1, col);
+        ring(fx.x, fx.y, r, 0.1 * fade * pulse, 0.9 * fade * pulse, 2, col);
+        ring(fx.x, fx.y, r * 0.78, 0, 0.5 * fade, 1, col);
+        // hexagram: two triangles in the ground plane, slowly turning
+        for (const off of [0, Math.PI / 3]) {
+          ctx.beginPath();
+          for (let i = 0; i <= 3; i++) {
+            const a = off + i * Math.PI * 2 / 3 + time * 0.4;
+            const p = toScreen(fx.x + Math.cos(a) * r * 0.75, fx.y + Math.sin(a) * r * 0.75, 0);
+            if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+          }
+          ctx.strokeStyle = hexA(col, 0.75 * fade * pulse); ctx.lineWidth = 1.6 * z; ctx.stroke();
+        }
+        if (Math.random() < 0.08 * fade) this.addParticles(fx.x + (Math.random() - 0.5) * r, fx.y + (Math.random() - 0.5) * r, 'arcane', 1, { sizeScale: 0.4, speed: 0.2, vz: 0.6 });
+        return true;
+      }
+
+      case 'invoke': {
+        // Rune Knight: rune light leaps from the knight to every glyph
+        const c = toScreen(fx.x, fx.y, 0.8);
+        ring(fx.x, fx.y, (fx.radius || 3) * ease, 0.12 * k, 0.8 * k, 3);
+        for (const p of fx.points || []) {
+          const e = toScreen(p.x, p.y, 0.2);
+          seg(c, { x: lerp(c.x, e.x, ease), y: lerp(c.y, e.y, ease) }, 4 * k, rgba(0.7 * k));
+          seg(c, { x: lerp(c.x, e.x, ease), y: lerp(c.y, e.y, ease) }, 1.5, W(0.9 * k));
+        }
+        glow(c, 26 * z * k, k);
+        return true;
+      }
+
+      case 'ricochet': {
+        // Sentinel: the shield caroms from foe to foe and flies home
+        const path = [{ x: fx.startX, y: fx.startY }, ...(fx.bounces || []), { x: fx.x, y: fx.y }];
+        const legs = path.length - 1;
+        if (legs < 1) return true;
+        const pos = clamp(t * 1.05) * legs, leg = Math.min(legs - 1, Math.floor(pos)), s = pos - leg;
+        const a = path[leg], b = path[leg + 1];
+        const sx = lerp(a.x, b.x, s), sy = lerp(a.y, b.y, s);
+        for (let i = 1; i <= leg; i++) {
+          const hit = path[i];
+          ring(hit.x, hit.y, 0.9, 0.08 * k, 0.6 * k, 2);
+        }
+        const tail = toScreen(lerp(a.x, b.x, Math.max(0, s - 0.35)), lerp(a.y, b.y, Math.max(0, s - 0.35)), 0.7);
+        const p = toScreen(sx, sy, 0.7);
+        seg(tail, p, 6, rgba(0.35));
+        // the spinning shield: a tilted disc with a holy cross
+        const spin = time * 22;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(spin);
+        ctx.beginPath(); ctx.ellipse(0, 0, 11 * z, 8 * z, 0, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(90, 100, 133, 0.95)'; ctx.fill();
+        ctx.strokeStyle = rgba(1); ctx.lineWidth = 2.5 * z; ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-6 * z, 0); ctx.lineTo(6 * z, 0); ctx.moveTo(0, -5 * z); ctx.lineTo(0, 5 * z);
+        ctx.strokeStyle = W(0.9); ctx.lineWidth = 2 * z; ctx.stroke();
+        ctx.restore();
+        return true;
+      }
+
+      case 'phantom': {
+        if (fx.slash) {
+          // a ghost greatsword cuts from one victim to the next
+          const s = clamp(t * 2.2);
+          const a = toScreen(fx.startX, fx.startY, 0.8), b = toScreen(fx.x, fx.y, 0.8);
+          const e = { x: lerp(a.x, b.x, s), y: lerp(a.y, b.y, s) };
+          seg(a, e, 8 * k, rgba(0.35 * k));
+          seg(a, e, 2, W(0.85 * k));
+          ctx.beginPath();
+          ctx.arc(b.x, b.y, 14 * z, -1.2 + t * 2, 0.6 + t * 2);
+          ctx.strokeStyle = rgba(k); ctx.lineWidth = 3 * z; ctx.stroke();
+          return true;
+        }
+        // the summoning: a swirl of soul wisps around the knight
+        const fade = holdFade(0.15, 0.3);
+        for (let i = 0; i < 6; i++) {
+          const a = time * 6 + i / 6 * Math.PI * 2;
+          const p = toScreen(fx.x + Math.cos(a) * 1.1, fx.y + Math.sin(a) * 1.1, 0.6 + 0.4 * Math.sin(time * 4 + i));
+          glow(p, 7 * z, 0.7 * fade);
+        }
+        return true;
+      }
+
+      case 'hurl': {
+        // Titan: the grabbed monster sails in an arc and craters where it lands
+        const fl = clamp(el / 0.35);
+        const wx = lerp(fx.startX, fx.x, fl), wy = lerp(fx.startY, fx.y, fl);
+        const h = fx.heavy ? 1.5 * Math.sin(fl * Math.PI) : 3 * Math.sin(fl * Math.PI);
+        if (fl < 1) {
+          const sh = toScreen(wx, wy, 0);
+          ctx.beginPath(); ctx.ellipse(sh.x, sh.y, 10 * z, 5 * z, 0, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.35)'; ctx.fill();
+          const p = toScreen(wx, wy, h);
+          for (let i = 1; i <= 4; i++) {
+            const q = Math.max(0, fl - i * 0.06);
+            const tp = toScreen(lerp(fx.startX, fx.x, q), lerp(fx.startY, fx.y, q), (fx.heavy ? 1.5 : 3) * Math.sin(q * Math.PI));
+            glow(tp, (10 - i * 2) * z, 0.35 / i);
+          }
+          ctx.save(); ctx.globalCompositeOperation = 'source-over';
+          ctx.beginPath(); ctx.arc(p.x, p.y, 9 * z, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(60, 54, 40, 0.95)'; ctx.fill();
+          ctx.strokeStyle = rgba(1); ctx.lineWidth = 2.5 * z; ctx.stroke();
+          ctx.restore();
+        } else {
+          const q = clamp((el - 0.35) / Math.max(0.1, life - 0.35));
+          const r = fx.radius || 2.2;
+          ring(fx.x, fx.y, r * (0.3 + 0.7 * q), 0.25 * (1 - q), 0.95 * (1 - q), 5);
+          const c = toScreen(fx.x, fx.y, 0);
+          for (let i = 0; i < 7; i++) {
+            const a = i / 7 * Math.PI * 2 + 0.5;
+            const rr = r * 11 * z * (0.4 + 0.6 * q);
+            ctx.beginPath(); ctx.moveTo(c.x, c.y);
+            ctx.lineTo(c.x + Math.cos(a) * rr * 0.5 + 3 * z, c.y + Math.sin(a) * rr * 0.25);
+            ctx.lineTo(c.x + Math.cos(a) * rr, c.y + Math.sin(a) * rr * 0.5);
+            ctx.strokeStyle = `rgba(30, 24, 12, ${0.8 * (1 - q)})`; ctx.lineWidth = 3 * z; ctx.stroke();
+          }
+          if (q < 0.1) this.triggerScreenShake(10, 0.2);
+        }
+        return true;
+      }
+
+      case 'banner': {
+        // Bannerman: a planted war standard, its ring of command glowing on the ground
+        const fade = holdFade(0.3, 0.8);
+        const r = fx.radius || 3.2;
+        ring(fx.x, fx.y, r, 0.07 * fade, 0, 0);
+        ctx.setLineDash([10 * z, 7 * z]);
+        ctx.lineDashOffset = -time * 20 * z;
+        ring(fx.x, fx.y, r, 0, 0.75 * fade, 2.5);
+        ctx.setLineDash([]);
+        ctx.lineDashOffset = 0;
+        const drop = clamp(el / 0.25);
+        const top = toScreen(fx.x, fx.y, 3.4 + 3 * (1 - drop));
+        const foot = toScreen(fx.x, fx.y, 3 * (1 - drop));
+        ctx.save(); ctx.globalCompositeOperation = 'source-over';
+        seg(foot, top, 3.5, `rgba(92, 58, 22, ${fade})`);
+        // the flag waves from the top of the pole
+        ctx.beginPath();
+        ctx.moveTo(top.x, top.y);
+        for (let i = 1; i <= 8; i++) {
+          const s = i / 8;
+          ctx.lineTo(top.x + s * 26 * z, top.y + Math.sin(time * 7 - s * 4) * 3 * z * s);
+        }
+        for (let i = 8; i >= 0; i--) {
+          const s = i / 8;
+          ctx.lineTo(top.x + s * 26 * z, top.y + 16 * z + Math.sin(time * 7 - s * 4) * 3 * z * s);
+        }
+        ctx.closePath();
+        ctx.fillStyle = hexA('#b8860b', 0.95 * fade); ctx.fill();
+        ctx.strokeStyle = hexA('#fff1a8', 0.9 * fade); ctx.lineWidth = 1.5 * z; ctx.stroke();
+        ctx.restore();
+        glow(top, 10 * z, 0.6 * fade);
+        if (drop >= 1 && el < 0.55) ring(fx.x, fx.y, r * clamp((el - 0.25) / 0.3), 0.15, 0.9, 3);
+        if (Math.random() < 0.15 * fade) {
+          const a = Math.random() * Math.PI * 2, d = Math.random() * r;
+          this.addParticles(fx.x + Math.cos(a) * d, fx.y + Math.sin(a) * d, 'gold', 1, { sizeScale: 0.5, speed: 0.2, vz: 1 });
+        }
+        return true;
+      }
+
+      case 'rally': {
+        // Bannerman: a golden arc back to the standard, then the rallying burst
+        if (fx.leap) {
+          ctx.setLineDash([6 * z, 6 * z]);
+          ctx.beginPath();
+          for (let i = 0; i <= 16; i++) {
+            const s = i / 16;
+            const p = toScreen(lerp(fx.startX, fx.x, s), lerp(fx.startY, fx.y, s), 2.5 * Math.sin(s * Math.PI));
+            if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+          }
+          ctx.strokeStyle = rgba(0.8 * k); ctx.lineWidth = 2.5 * z; ctx.stroke();
+          ctx.setLineDash([]);
+        }
+        ring(fx.x, fx.y, (fx.radius || 3) * ease, 0.18 * k, 0.95 * k, 4);
+        const c = toScreen(fx.x, fx.y, 0);
+        for (let i = 0; i < 12; i++) {
+          const a = i / 12 * Math.PI * 2;
+          seg(toScreen(fx.x + Math.cos(a) * 0.5, fx.y + Math.sin(a) * 0.5, 0), toScreen(fx.x + Math.cos(a) * 0.5, fx.y + Math.sin(a) * 0.5, 2.6 * ease), 2, rgba(0.6 * k));
+        }
+        glow(c, 30 * z * k, k);
+        return true;
+      }
+
+      case 'boomerang': {
+        // Warchief: twin axes spin out, turn, and chase the chief back
+        let hx = fx.startX, hy = fx.startY;
+        if (fx.followId && this.lastGameState && this.lastGameState.players) {
+          const hero = this.lastGameState.players.find(p => p.id === fx.followId);
+          if (hero) { hx = hero.x; hy = hero.y; }
+        }
+        for (const ax of fx.axes || []) {
+          let wx, wy;
+          if (t < 0.5) {
+            const s = 1 - Math.pow(1 - t / 0.5, 2);
+            wx = lerp(fx.startX, ax.ex, s); wy = lerp(fx.startY, ax.ey, s);
+          } else {
+            const s = Math.pow((t - 0.5) / 0.5, 2);
+            wx = lerp(ax.ex, hx, s); wy = lerp(ax.ey, hy, s);
+          }
+          const p = toScreen(wx, wy, 0.8);
+          const spin = time * 26;
+          for (let i = 0; i < 2; i++) {
+            const a0 = spin + i * Math.PI;
+            ctx.beginPath(); ctx.arc(p.x, p.y, 11 * z, a0, a0 + 1.6);
+            ctx.strokeStyle = rgba(0.95); ctx.lineWidth = 5 * z; ctx.stroke();
+            ctx.strokeStyle = W(0.9); ctx.lineWidth = 1.6 * z; ctx.stroke();
+          }
+          seg({ x: p.x - 4 * z, y: p.y }, { x: p.x + 4 * z, y: p.y }, 3, 'rgba(80, 50, 30, 0.9)');
+          if (Math.random() < 0.5) this.addParticles(wx, wy, 'slash', 1, { sizeScale: 0.5, speed: 0.5, z: 0.6 });
+        }
+        return true;
+      }
+
+      case 'firebird': {
+        // Phoenix Oath: a bird of flame traces its loop, wings beating, a tail of embers behind
+        const path = fx.path || [];
+        if (path.length < 2) return true;
+        const at = (s) => {
+          const f = clamp(s) * (path.length - 1), i = Math.min(path.length - 2, Math.floor(f)), q = f - i;
+          return { x: lerp(path[i].x, path[i + 1].x, q), y: lerp(path[i].y, path[i + 1].y, q) };
+        };
+        const fade = holdFade(0.1, 0.2);
+        for (let i = 8; i >= 1; i--) {
+          const p = at(t - i * 0.02);
+          glow(toScreen(p.x, p.y, 1), (12 - i) * z, 0.5 * fade * (1 - i / 9), '#fb923c');
+        }
+        const p = at(t), n = at(t + 0.02);
+        const c = toScreen(p.x, p.y, 1.1), ahead = toScreen(n.x, n.y, 1.1);
+        const ang = Math.atan2(ahead.y - c.y, ahead.x - c.x);
+        const flap = Math.sin(time * 20) * 0.6;
+        ctx.save();
+        ctx.translate(c.x, c.y);
+        ctx.rotate(ang);
+        for (const side of [-1, 1]) {
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.quadraticCurveTo(-8 * z, side * (14 + 8 * flap) * z, -20 * z, side * (22 + 10 * flap) * z);
+          ctx.quadraticCurveTo(-12 * z, side * 8 * z, -16 * z, side * 2 * z);
+          ctx.closePath();
+          ctx.fillStyle = rgba(0.8 * fade); ctx.fill();
+        }
+        ctx.restore();
+        glow(c, 14 * z, fade, '#fde68a');
+        ring(p.x, p.y, fx.radius || 1.6, 0.05 * fade, 0.3 * fade, 1);
+        return true;
+      }
+
+      case 'sacrifice': {
+        // Phoenix Oath: flames rush into the knight, then burst outward as a pillar and ring
+        const r = fx.radius || 3.6;
+        const c = toScreen(fx.x, fx.y, 0.6);
+        if (t < 0.3) {
+          const s = t / 0.3;
+          for (let i = 0; i < 12; i++) {
+            const a = i / 12 * Math.PI * 2;
+            const o = toScreen(fx.x + Math.cos(a) * r * (1 - s), fx.y + Math.sin(a) * r * (1 - s), 0.3);
+            seg(o, { x: lerp(o.x, c.x, 0.4), y: lerp(o.y, c.y, 0.4) }, 2.5, rgba(0.9));
+          }
+          glow(c, 20 * z * s, s);
+        } else {
+          const q = (t - 0.3) / 0.7;
+          ring(fx.x, fx.y, r * (1 - Math.pow(1 - q, 3)), 0.25 * (1 - q), 0.95 * (1 - q), 5);
+          const b = toScreen(fx.x, fx.y, 0), top = toScreen(fx.x, fx.y, 5 * (1 - q * 0.5));
+          const g = ctx.createLinearGradient(b.x, b.y, top.x, top.y);
+          g.addColorStop(0, rgba(0.8 * (1 - q)));
+          g.addColorStop(1, rgba(0));
+          ctx.fillStyle = g;
+          ctx.fillRect(b.x - 18 * z, top.y, 36 * z, b.y - top.y);
+          glow(c, 40 * z * (1 - q), 1 - q, '#fde68a');
+        }
+        return true;
+      }
+
+      case 'doom': {
+        if (fx.burst) {
+          // the brand comes due: an implosion, then black-violet spikes
+          const c = toScreen(fx.x, fx.y, 0.8);
+          const inn = t < 0.35 ? 1 - t / 0.35 : 0, out = t < 0.35 ? 0 : (t - 0.35) / 0.65;
+          if (inn) ring(fx.x, fx.y, (fx.radius || 1.8) * inn, 0.25, 0.9, 3);
+          if (out) {
+            ring(fx.x, fx.y, (fx.radius || 1.8) * out, 0.15 * (1 - out), 0.9 * (1 - out), 3);
+            for (let i = 0; i < 9; i++) {
+              const a = i / 9 * Math.PI * 2;
+              const rr = (fx.radius || 1.8) * 14 * z * out;
+              seg(c, { x: c.x + Math.cos(a) * rr, y: c.y + Math.sin(a) * rr * 0.6 }, 3 * (1 - out), rgba(0.9 * (1 - out)));
+            }
+          }
+          ctx.save(); ctx.globalCompositeOperation = 'source-over';
+          ctx.beginPath(); ctx.arc(c.x, c.y, 10 * z * (inn + out * 0.4), 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(15, 5, 25, ${0.8 * (1 - out)})`; ctx.fill();
+          ctx.restore();
+          return true;
+        }
+        // the brand hangs over its bearer, its countdown ring emptying
+        let mx = fx.x, my = fx.y;
+        if (fx.followMob && this.lastGameState && this.lastGameState.mobs) {
+          const mob = this.lastGameState.mobs.find(m => m.id === fx.followMob);
+          if (mob) { mx = mob.x; my = mob.y; }
+        }
+        const fade = holdFade(0.15, 0.1);
+        const p = toScreen(mx, my, 2.1);
+        ctx.beginPath(); ctx.arc(p.x, p.y, 9 * z, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (1 - t));
+        ctx.strokeStyle = rgba(0.95 * fade); ctx.lineWidth = 3 * z; ctx.stroke();
+        ctx.save(); ctx.globalCompositeOperation = 'source-over';
+        ctx.beginPath(); ctx.arc(p.x, p.y, 5.5 * z, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(20, 6, 34, ${0.85 * fade})`; ctx.fill();
+        ctx.restore();
+        glow(p, 6 * z, 0.7 * fade * (0.6 + 0.4 * Math.sin(time * (6 + t * 18))));
+        ring(mx, my, 0.75, 0, 0.45 * fade, 1.5);
+        return true;
+      }
+
+      case 'riposte': {
+        // Sentinel: a flash of the shield and a cut straight back at the attacker
+        const a = toScreen(fx.startX, fx.startY, 0.8), b = toScreen(fx.x, fx.y, 0.8);
+        ctx.beginPath(); ctx.ellipse(a.x, a.y, 16 * z * ease, 22 * z * ease, 0, 0, Math.PI * 2);
+        ctx.strokeStyle = rgba(0.9 * k); ctx.lineWidth = 3 * z; ctx.stroke();
+        seg(a, { x: lerp(a.x, b.x, ease), y: lerp(a.y, b.y, ease) }, 4 * k, W(0.9 * k));
+        glow(b, 18 * z * k, k);
+        return true;
+      }
+
+      case 'rebirth': {
+        // Phoenix Oath: wings of fire unfold around the risen knight
+        const r = fx.radius || 4;
+        const c = toScreen(fx.x, fx.y, 1.2);
+        ring(fx.x, fx.y, r * ease, 0.22 * k, 0.95 * k, 5);
+        for (const side of [-1, 1]) {
+          ctx.beginPath();
+          ctx.moveTo(c.x, c.y);
+          ctx.quadraticCurveTo(c.x + side * 40 * z * ease, c.y - 60 * z * ease, c.x + side * 80 * z * ease, c.y - 30 * z * ease);
+          ctx.quadraticCurveTo(c.x + side * 50 * z * ease, c.y - 10 * z, c.x + side * 60 * z * ease, c.y + 10 * z * ease);
+          ctx.quadraticCurveTo(c.x + side * 25 * z, c.y, c.x, c.y);
+          ctx.fillStyle = rgba(0.55 * k); ctx.fill();
+          ctx.strokeStyle = W(0.7 * k); ctx.lineWidth = 2 * z; ctx.stroke();
+        }
+        glow(c, 50 * z * k, k, '#fde68a');
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // Per-card signature layer drawn over the variant warrior skills
   drawWarriorVariantFlair(ctx, fx, progress, alpha, toScreen, z, rgba) {
     const C = fx.cardId, T = ['sp_gravelord','sp_dragoon','sp_reaver','sp_runeknight','sp_sentinel','sp_duskblade','sp_titan','sp_bannerman','sp_warchief','sp_phoenix_oath'];
     if (!T.includes(C)) return;
@@ -7332,7 +7954,7 @@ class IsometricRenderer {
     }
 
     if (fx.type === 'sp_skill') {
-      if (fx.followId) return; // drawn around a moving hero, not at fx.x/y
+      if (fx.followId || fx.followMob) return; // drawn around a moving hero / monster, not at fx.x/y
       const [main] = SP_ELEMENT_PARTICLES[fx.element] || SP_ELEMENT_PARTICLES.neutral;
       if (fx.shape === 'line' || fx.shape === 'dash') {
         const t = Math.random();
@@ -7687,6 +8309,8 @@ class IsometricRenderer {
       }
 
       if (customOpts.sizeScale) size *= customOpts.sizeScale;
+      if (customOpts.color) { color = customOpts.color; coreColor = '#ffffff'; glowColor = hexAlpha(customOpts.color, 0.7); }
+      if (customOpts.life) life = customOpts.life * (0.8 + Math.random() * 0.4);
 
       this.animations.particles.push({
         id: Math.random() * 1000,
@@ -10011,8 +10635,20 @@ class IsometricRenderer {
   }
 
   // Draw Player Character with Realistic 8-Directional Humanoid Anatomy, Facial Features, Hair, Clothes & Physics
+  // Where a hero mid Dragon Dive is: along the arc from take-off to landing, h tiles up
+  heroLeap(id) {
+    const leap = this.heroLeaps && this.heroLeaps.get(id);
+    if (!leap) return null;
+    const s = (performance.now() - leap.start) / leap.air;
+    if (s >= 1.1) { this.heroLeaps.delete(id); return null; }
+    const q = Math.min(1, s), e = q * q * (3 - 2 * q);
+    return { x: leap.x0 + (leap.x1 - leap.x0) * e, y: leap.y0 + (leap.y1 - leap.y0) * e, h: 6 * Math.sin(q * Math.PI) };
+  }
+
   drawPlayer(ctx, player, isLocal) {
-    const screen = Isometric.worldToScreen(player.x, player.y, 0, this.camera, this.viewW, this.viewH);
+    const leap = this.heroLeap(player.id);
+    let screen = leap ? Isometric.worldToScreen(leap.x, leap.y, 0, this.camera, this.viewW, this.viewH)
+      : Isometric.worldToScreen(player.x, player.y, 0, this.camera, this.viewW, this.viewH);
     const z = this.camera.zoom;
     const t = this.animations.time;
 
@@ -10056,6 +10692,7 @@ class IsometricRenderer {
     }
 
     this.drawSpToggles(ctx, player, z, t);
+    if (leap) screen = Isometric.worldToScreen(leap.x, leap.y, leap.h, this.camera, this.viewW, this.viewH);
 
     // Procedural pixel-art heroes (all classes, all actions)
     if (this.usePixelHeroes()) {
@@ -10964,6 +11601,334 @@ class IsometricRenderer {
     ctx.restore();
   }
 
+  // Enhancement levels of a hero's gear -> { weapon, armor }, each { lvl, color, particle? } or null below +5
+  enhanceGlowFor(player) {
+    const eq = player.equipment;
+    if (!eq || player.isDead) return null;
+    const tier = (lvl) => {
+      const tr = ENHANCE_TIERS.find(e => lvl >= e.min);
+      return tr ? { lvl, color: tr.color } : null;
+    };
+    const w = eq.weapon && tier(eq.weapon.upgradeLevel || 0);
+    if (w) w.particle = ENHANCE_ELEMENT_PARTICLE[eq.weapon.element] || null;
+    const lv = ['armor', 'helmet', 'boots'].map(k => (eq[k] && eq[k].upgradeLevel) || 0);
+    const a = tier(Math.floor(lv.reduce((s, v) => s + v, 0) / 3));
+    return w || a ? { weapon: w, armor: a } : null;
+  }
+
+  // On screen (with a margin)? Off-screen heroes shed no particles
+  onScreen(x, y) {
+    return x > -80 && y > -120 && x < this.viewW + 80 && y < this.viewH + 80;
+  }
+
+  // Armour glow: ground light (+5), rising motes (+8), a turning rune ring (+11),
+  // a light pillar and halo (+14) and wings of light (+15)
+  drawArmorEnhance(ctx, player, enhance, x, y, z, t, layer, isLocal) {
+    const a = enhance.armor;
+    if (!a) return;
+    const L = a.lvl, col = a.color;
+    const pulse = 0.85 + 0.15 * Math.sin(t * 2.6);
+    if (layer === 'back') {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const r = (14 + (L - 5) * 1.2) * z * pulse;
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, hexAlpha(col, 0.18 + (L - 5) * 0.02));
+      g.addColorStop(1, hexAlpha(col, 0));
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.ellipse(x, y, r, r / 2, 0, 0, Math.PI * 2); ctx.fill();
+      if (L >= 11) {
+        // rune ring: two counter-turning dashed rings with glyph ticks
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.scale(1, 0.5);
+        ctx.strokeStyle = hexAlpha(col, 0.65 * pulse);
+        ctx.lineWidth = 1.6 * z;
+        ctx.setLineDash([3 * z, 4 * z]);
+        ctx.rotate(-t * 0.7);
+        ctx.beginPath(); ctx.arc(0, 0, 26 * z, 0, Math.PI * 2); ctx.stroke();
+        ctx.setLineDash([]);
+        for (let i = 0; i < 8; i++) {
+          const ang = i / 8 * Math.PI * 2;
+          ctx.beginPath();
+          ctx.moveTo(Math.cos(ang) * 22 * z, Math.sin(ang) * 22 * z);
+          ctx.lineTo(Math.cos(ang + 0.12) * 29 * z, Math.sin(ang + 0.12) * 29 * z);
+          ctx.stroke();
+        }
+        ctx.rotate(t * 1.6);
+        ctx.setLineDash([8 * z, 6 * z]);
+        ctx.beginPath(); ctx.arc(0, 0, 19 * z, 0, Math.PI * 2); ctx.stroke();
+        ctx.restore();
+      }
+      if (L >= 14) {
+        // a pillar of light behind the hero
+        const pg = ctx.createLinearGradient(0, y, 0, y - 95 * z);
+        pg.addColorStop(0, hexAlpha(col, 0.3 * pulse));
+        pg.addColorStop(1, hexAlpha(col, 0));
+        ctx.fillStyle = pg;
+        ctx.fillRect(x - 12 * z, y - 95 * z, 24 * z, 95 * z);
+      }
+      if (L >= 15) {
+        // wings of light, slowly beating, behind the body
+        const beat = Math.sin(t * 2.2) * 0.12;
+        for (const side of [-1, 1]) {
+          ctx.beginPath();
+          const sx = x + side * 4 * z, sy = y - 30 * z;
+          ctx.moveTo(sx, sy);
+          ctx.quadraticCurveTo(sx + side * 22 * z, sy - (26 + 30 * beat) * z, sx + side * 40 * z, sy - (20 + 26 * beat) * z);
+          ctx.quadraticCurveTo(sx + side * 30 * z, sy - 4 * z, sx + side * 34 * z, sy + 8 * z);
+          ctx.quadraticCurveTo(sx + side * 16 * z, sy + 2 * z, sx, sy + 6 * z);
+          ctx.closePath();
+          const wg = ctx.createLinearGradient(sx, sy, sx + side * 40 * z, sy - 20 * z);
+          wg.addColorStop(0, hexAlpha(col, 0.45 * pulse));
+          wg.addColorStop(1, hexAlpha('#ffffff', 0.08));
+          ctx.fillStyle = wg;
+          ctx.fill();
+          ctx.strokeStyle = hexAlpha('#ffffff', 0.35 * pulse);
+          ctx.lineWidth = 1 * z;
+          ctx.stroke();
+        }
+      }
+      ctx.restore();
+      return;
+    }
+    // front: halo and motes
+    if (L >= 14) {
+      const PH = window.PixelHeroes;
+      const cls = PH.classes.includes(player.characterClass) ? player.characterClass : 'warrior';
+      const spCard = this.spCardFor(player);
+      const headY = y - (PH.AY - PH.headTop(cls, spCard && spCard.id)) * PIXEL_HERO_SCALE * z;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.beginPath();
+      ctx.ellipse(x, headY - 4 * z + Math.sin(t * 2) * 1.2 * z, 9 * z, 3 * z, 0, 0, Math.PI * 2);
+      ctx.strokeStyle = hexAlpha(col, 0.9 * pulse);
+      ctx.lineWidth = 2 * z;
+      ctx.stroke();
+      ctx.strokeStyle = hexAlpha('#ffffff', 0.6 * pulse);
+      ctx.lineWidth = 0.8 * z;
+      ctx.stroke();
+      ctx.restore();
+    }
+    if (L >= 8 && this.onScreen(x, y)) {
+      const rate = (0.03 + (L - 8) * 0.02) * (isLocal ? 1 : ENHANCE_OTHERS_RATE);
+      if (Math.random() < rate) {
+        this.addParticles(player.x + (Math.random() - 0.5) * 0.9, player.y + (Math.random() - 0.5) * 0.9, 'level', 1,
+          { color: col, sizeScale: 0.35 + (L - 8) * 0.03, speed: 0.2, vz: 0.5 + Math.random() * 0.5, life: 0.9 });
+      }
+    }
+  }
+
+  // Weapon glow at each blade tip / staff orb: glow (+5), a light trail that
+  // follows the swing and sparks (+8), element particles (+11), arcs crackling
+  // up the blade (+14)
+  drawWeaponEnhance(ctx, player, enhance, tips, x, y, s, flip, z, t, now, attacking, isLocal) {
+    const w = enhance.weapon;
+    if (!w) return;
+    const L = w.lvl, col = w.color;
+    const visible = this.onScreen(x, y);
+    const rateK = isLocal ? 1 : ENHANCE_OTHERS_RATE;
+    if (!player._tipTrails) player._tipTrails = {};
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.lineCap = 'round';
+    for (const [key, pt] of tips) {
+      if (!pt) { delete player._tipTrails[key]; continue; }
+      const dx = (flip ? -pt[0] : pt[0]) * s, dy = pt[1] * s;
+      const tx = x + dx, ty = y + dy;
+      // trail kept relative to the hero so it rides along with them
+      if (L >= 8) {
+        const keep = 70 + (L - 8) * 14;
+        const trail = player._tipTrails[key] || (player._tipTrails[key] = []);
+        trail.push({ dx, dy, at: now });
+        while (trail.length && now - trail[0].at > keep) trail.shift();
+        for (let i = 1; i < trail.length; i++) {
+          const a = trail[i - 1], b = trail[i];
+          const k = 1 - (now - b.at) / keep;
+          ctx.beginPath();
+          ctx.moveTo(x + a.dx, y + a.dy);
+          ctx.lineTo(x + b.dx, y + b.dy);
+          ctx.strokeStyle = hexAlpha(col, 0.55 * k);
+          ctx.lineWidth = (2 + (L - 8) * 0.6) * z * k + 0.5;
+          ctx.stroke();
+        }
+      }
+      // tip glow
+      const pulse = 0.75 + 0.25 * Math.sin(t * (4 + L * 0.3));
+      const r = (5 + (L - 5) * 0.9) * z * (attacking ? 1.25 : 1) * pulse;
+      const g = ctx.createRadialGradient(tx, ty, 0, tx, ty, r);
+      g.addColorStop(0, hexAlpha('#ffffff', 0.7));
+      g.addColorStop(0.35, hexAlpha(col, 0.55));
+      g.addColorStop(1, hexAlpha(col, 0));
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(tx, ty, r, 0, Math.PI * 2); ctx.fill();
+      if (L >= 14) {
+        // arcs crackling from the grip up to the tip
+        const gx = x + (flip ? -1 : 1) * 4 * z, gy = y - 20 * z;
+        for (let n = 0; n < 2; n++) {
+          if (Math.random() < 0.35) continue;
+          ctx.beginPath();
+          ctx.moveTo(gx, gy);
+          for (let i = 1; i < 5; i++) {
+            const q = i / 5;
+            ctx.lineTo(gx + (tx - gx) * q + (Math.random() - 0.5) * 7 * z, gy + (ty - gy) * q + (Math.random() - 0.5) * 7 * z);
+          }
+          ctx.lineTo(tx, ty);
+          ctx.strokeStyle = hexAlpha(col, 0.8);
+          ctx.lineWidth = 1.4 * z;
+          ctx.stroke();
+          ctx.strokeStyle = hexAlpha('#ffffff', 0.7);
+          ctx.lineWidth = 0.6 * z;
+          ctx.stroke();
+        }
+      }
+      if (!visible || L < 8) continue;
+      // sparks shed from the tip: a trickle at rest, a stream while swinging
+      const wp = Isometric.screenToWorld(tx, y, this.camera, this.viewW, this.viewH);
+      const h = Math.max(0.1, (y - ty) / (32 * z));
+      const rate = ((attacking ? 0.35 : 0.04) + (L - 8) * (attacking ? 0.06 : 0.015)) * rateK;
+      if (Math.random() < rate) this.addParticles(wp.x, wp.y, 'spark', 1, { color: col, sizeScale: 0.45, speed: 0.6, z: h, vz: 0.4 });
+      if (L >= 11 && w.particle && Math.random() < rate * 0.6) this.addParticles(wp.x, wp.y, w.particle, 1, { sizeScale: 0.4, speed: 0.4, z: h });
+    }
+    ctx.restore();
+  }
+
+  // A warrior basic swing, beat by beat: a slower wind-up (anticipation), a snap
+  // through the strike, a hit-stop freeze on contact if a monster is in reach,
+  // then the follow-through. Returns { q: pose progress 0..1, lunge: 0..1 }.
+  warriorSwing(player, attack, now, isLocal) {
+    if (attack.baseDuration === undefined) {
+      attack.baseDuration = attack.duration;
+      // something to hit in front of us? then the blow lands with a hit-stop
+      const fv = FACING_SCREEN[attack.facing] || FACING_SCREEN.SE;
+      const mobs = (this.lastGameState && this.lastGameState.mobs) || [];
+      attack.connects = mobs.some(m => {
+        if (m.state === 'dead') return false;
+        const dx = m.x - player.x, dy = m.y - player.y, d = Math.hypot(dx, dy);
+        if (d > (m.isBoss ? 3.6 : 2.8)) return false;
+        if (d < 0.6) return true;
+        const sx = (dx - dy) / d, sy = (dx + dy) * 0.5 / d; // world step -> screen direction
+        return sx * fv[0] + sy * fv[1] / 0.6 > 0;
+      });
+      attack.hitStop = attack.connects ? (attack.finisher ? SWING_FINISHER_HIT_STOP_MS : SWING_HIT_STOP_MS) : 0;
+      attack.duration = attack.baseDuration + attack.hitStop;
+    }
+    const base = attack.baseDuration;
+    const contactMs = SWING_CONTACT * base;
+    const el = now - attack.time;
+    const frozen = Math.max(0, Math.min(attack.hitStop, el - contactMs));
+    const p = Math.max(0, Math.min(1, (el - frozen) / base));
+    // remap swing time onto the pose keys (wind-up ends at 0.24, contact 0.44, follow-through 0.62)
+    let q;
+    if (p < 0.3) q = 0.24 * (p / 0.3);
+    else if (p < SWING_CONTACT) q = 0.24 + 0.2 * ((p - 0.3) / (SWING_CONTACT - 0.3));
+    else if (p < 0.64) q = 0.44 + 0.18 * ((p - SWING_CONTACT) / (0.64 - SWING_CONTACT));
+    else q = 0.62 + 0.38 * ((p - 0.64) / 0.36);
+    const lunge = p < 0.3 ? -0.25 * (p / 0.3) : p < SWING_CONTACT ? -0.25 + 1.25 * ((p - 0.3) / (SWING_CONTACT - 0.3)) : p < 0.64 ? 1 : Math.max(0, 1 - (p - 0.64) / 0.3);
+
+    if (el >= contactMs && !attack.impacted) {
+      attack.impacted = true;
+      const spCard = this.spCardFor(player);
+      const color = spCard ? spCard.color : '#e2e8f0';
+      player._swingImpact = { at: now, color, cardId: spCard ? spCard.id : null, finisher: !!attack.finisher, connects: attack.connects, facing: attack.facing, side: attack.side || 1 };
+      if (attack.pendingSweep) {
+        // the slash arc appears as the blade lands
+        const sw = attack.pendingSweep;
+        sw.x = player.x; sw.y = player.y;
+        this.animations.skillEffects.push(sw);
+        attack.pendingSweep = null;
+      }
+      // sparks of the card's element fly from the point of contact
+      const fv = FACING_SCREEN[attack.facing] || FACING_SCREEN.SE;
+      const wdx = fv[0] * 0.5 + fv[1] / 0.6, wdy = fv[1] / 0.6 - fv[0] * 0.5; // screen dir -> world dir
+      const wl = Math.hypot(wdx, wdy) || 1;
+      const cx = player.x + (wdx / wl) * 1.1, cy = player.y + (wdy / wl) * 1.1;
+      const [main, accent] = (spCard && SP_CARD_PARTICLES[spCard.id]) || ['spark', 'slash'];
+      const big = attack.finisher ? 1.8 : 1;
+      this.addParticles(cx, cy, 'slash', Math.round((attack.connects ? 8 : 4) * big), { speed: 2.6, z: 0.5 });
+      this.addParticles(cx, cy, main, Math.round((attack.connects ? 7 : 3) * big), { speed: 2.2, z: 0.5 });
+      if (accent && attack.connects) this.addParticles(cx, cy, accent, Math.round(4 * big), { speed: 1.6, z: 0.4 });
+      // an enhanced blade bursts in its tier colour on contact (+14 and up also hits harder on screen)
+      const eg = this.enhanceGlowFor(player);
+      const heavyBlade = !!(eg && eg.weapon && eg.weapon.lvl >= 14);
+      if (isLocal && attack.connects) {
+        this.triggerScreenShake((attack.finisher ? 6 : 2.6) * (heavyBlade ? 1.4 : 1), attack.finisher ? 0.16 : heavyBlade ? 0.12 : 0.09);
+      }
+      if (eg && eg.weapon && attack.connects) {
+        const w = eg.weapon;
+        this.addParticles(cx, cy, 'spark', Math.round((2 + (w.lvl - 4)) * big), { color: w.color, speed: 2.4, z: 0.5 });
+        if (w.lvl >= 11 && w.particle) this.addParticles(cx, cy, w.particle, Math.round(4 * big), { speed: 1.8, z: 0.5 });
+        if (w.lvl >= 14) {
+          this.addParticles(cx, cy, 'level', Math.round(5 * big), { color: w.color, speed: 1.4, z: 0.4 });
+        }
+        player._swingImpact.tierColor = w.color;
+        player._swingImpact.tier = w.lvl;
+      }
+    }
+    return { q, lunge };
+  }
+
+  // The blow landing in front of a warrior: a bright crescent in the card's colour
+  // following the swing, a star of streaks and a ring at the point of contact
+  drawSwingImpact(ctx, imp, k, x, y, z) {
+    const fv = FACING_SCREEN[imp.facing] || FACING_SCREEN.SE;
+    const big = imp.finisher ? 1.45 : 1;
+    const reach = (imp.connects ? 26 : 22) * z * big;
+    const cx = x + fv[0] * reach, cy = y - 20 * z + fv[1] * reach;
+    const fade = 1 - k, grow = 1 - Math.pow(1 - k, 3);
+    const ang = Math.atan2(fv[1], fv[0]);
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.lineCap = 'round';
+    // crescent: the arc the edge just cut, sweeping the way this swing went
+    const R = (18 + 10 * grow) * z * big;
+    const a0 = ang - 1.25 * imp.side, a1 = ang + 0.95 * imp.side;
+    if (imp.tierColor) {
+      // enhanced weapon: a wider halo of the tier colour around the cut
+      ctx.beginPath();
+      ctx.ellipse(x, y - 20 * z, R * 1.18, R * 0.82, 0, Math.min(a0, a1), Math.max(a0, a1));
+      ctx.strokeStyle = hexAlpha(imp.tierColor, 0.55 * fade);
+      ctx.lineWidth = (4 + (imp.tier - 4) * 0.8) * z * (1 - 0.4 * k);
+      ctx.stroke();
+    }
+    ctx.beginPath();
+    ctx.ellipse(x, y - 20 * z, R, R * 0.7, 0, Math.min(a0, a1), Math.max(a0, a1));
+    ctx.strokeStyle = hexAlpha(imp.color, 0.85 * fade);
+    ctx.lineWidth = (imp.finisher ? 9 : 6) * z * (1 - 0.5 * k);
+    ctx.stroke();
+    ctx.strokeStyle = `rgba(255, 255, 255, ${0.95 * fade})`;
+    ctx.lineWidth = 2 * z;
+    ctx.stroke();
+    if (imp.connects) {
+      // contact star + ring
+      const n = imp.finisher ? 10 : 7;
+      for (let i = 0; i < n; i++) {
+        const a = ang + (i / n) * Math.PI * 2 + i * 0.37;
+        const r0 = 3 * z, r1 = (8 + 16 * grow) * z * big * (i % 2 ? 0.65 : 1);
+        ctx.beginPath();
+        ctx.moveTo(cx + Math.cos(a) * r0, cy + Math.sin(a) * r0 * 0.7);
+        ctx.lineTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1 * 0.7);
+        ctx.strokeStyle = i % 2 ? hexAlpha(imp.color, fade) : `rgba(255, 255, 255, ${fade})`;
+        ctx.lineWidth = (i % 2 ? 1.6 : 2.4) * z;
+        ctx.stroke();
+      }
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, (6 + 18 * grow) * z * big, (4 + 11 * grow) * z * big, 0, 0, Math.PI * 2);
+      ctx.strokeStyle = hexAlpha(imp.color, 0.7 * fade);
+      ctx.lineWidth = 2 * z;
+      ctx.stroke();
+      const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, 14 * z * big);
+      g.addColorStop(0, `rgba(255, 255, 255, ${0.9 * fade})`);
+      g.addColorStop(0.4, hexAlpha(imp.color, 0.6 * fade));
+      g.addColorStop(1, hexAlpha(imp.color, 0));
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 14 * z * big, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
   drawPixelHero(ctx, player, isLocal, screen, z, t) {
     const PH = window.PixelHeroes;
     if (!PH.ready) PH.init();
@@ -10999,13 +11964,20 @@ class IsometricRenderer {
     const spinning = !player.isDead && player.spToggles && player.spToggles.some(a => a.spin);
     let spinFacing = null;
     let action, idx;
+    let swing = null; // warrior swing state: { q, lunge, impact }
     if (player.isDead) { action = 'death'; idx = progIdx('death', player._deathAt, PIXEL_HERO_DEATH_MS); }
     else if (isDashing) { action = 'dash'; idx = progIdx('dash', dash.time, dash.duration); }
     else if (spinning) {
       action = 'attack'; idx = 4;
       spinFacing = SPIN_FACINGS[((Math.round((t * 14) / (Math.PI / 4)) % 8) + 8) % 8];
     }
-    else if (isAttacking) { action = attack.side < 0 ? 'attack2' : 'attack'; idx = progIdx(action, attack.time, attack.duration); }
+    else if (isAttacking) {
+      action = attack.side < 0 ? 'attack2' : 'attack';
+      if (cls === 'warrior') {
+        swing = this.warriorSwing(player, attack, now, isLocal);
+        idx = Math.min(PH.meta(cls, action).frames - 1, Math.floor(swing.q * PH.meta(cls, action).frames));
+      } else idx = progIdx(action, attack.time, attack.duration);
+    }
     else if (isCasting) { action = 'cast'; idx = progIdx('cast', cast.time, cast.duration); }
     else if (hurtAge < PIXEL_HERO_HURT_MS) { action = 'hurt'; idx = progIdx('hurt', player._hurtAt, PIXEL_HERO_HURT_MS); }
     else if (player.isMoving) { action = 'run'; idx = Math.floor(t * 14) % PH.meta(cls, 'run').frames; }
@@ -11016,9 +11988,18 @@ class IsometricRenderer {
     // Five drawn views; the west-facing ones mirror their east twins
     const flip = facing === 'W' || facing === 'SW' || facing === 'NW';
     const view = PIXEL_HERO_VIEW[facing] || 'S';
-    const frame = this.heroFrameFor(player, view, action, idx);
+    // attacking while walking: the legs keep running under the swing instead of sliding
+    const runIdx = Math.floor(t * 14) % PH.meta(cls, 'run').frames;
+    const runSwing = player.isMoving && !player.isDead && (action === 'attack' || action === 'attack2') && !spinning && PH.runAttackFrame;
+    const frame = runSwing ? this.heroRunAttackFrame(player, view, action, idx, runIdx) : this.heroFrameFor(player, view, action, idx);
     const s = PIXEL_HERO_SCALE * z;
-    const x = Math.round(screen.x), y = Math.round(screen.y);
+    let lx = 0, ly = 0;
+    if (swing && swing.lunge) {
+      const fv = FACING_SCREEN[facing] || FACING_SCREEN.SE;
+      const push = (attack.finisher ? 7 : 5) * z * swing.lunge * (player.isMoving ? 0.35 : 1);
+      lx = fv[0] * push; ly = fv[1] * push;
+    }
+    const x = Math.round(screen.x + lx), y = Math.round(screen.y + ly);
 
     // Dash afterimages: remember recent poses in world space, draw them fading out
     player._pixelGhosts = player._pixelGhosts || [];
@@ -11036,7 +12017,7 @@ class IsometricRenderer {
     }
 
     // Dust kicked up as each foot strikes the ground (run frames 0 and 4)
-    const footfall = action === 'run' && idx % 4 === 0 ? idx : -1;
+    const footfall = (action === 'run' && idx % 4 === 0) ? idx : (runSwing && runIdx % 4 === 0 ? runIdx : -1);
     if (footfall >= 0 && player._lastFootfall !== footfall) {
       this.addParticles(player.x, player.y, 'dust', 2, RUN_DUST_OPTS);
     }
@@ -11044,8 +12025,30 @@ class IsometricRenderer {
 
     // Body (red flash while recoiling from a hit), wrapped in the SP aura
     this.drawSpAura(ctx, player, x, y, z, t, 'back');
+    const enhance = this.enhanceGlowFor(player);
+    if (enhance) this.drawArmorEnhance(ctx, player, enhance, x, y, z, t, 'back', isLocal);
     const hurtFlash = action === 'hurt' ? 0.55 * (1 - hurtAge / PIXEL_HERO_HURT_MS) : 0;
-    this.drawPixelHeroFrame(ctx, frame, x, y, s, flip, 1, hurtFlash > 0 ? '#ff3b3b' : null, hurtFlash);
+    const impactAge = player._swingImpact ? now - player._swingImpact.at : Infinity;
+    const impactLife = player._swingImpact && player._swingImpact.finisher ? SWING_FINISHER_IMPACT_MS : SWING_IMPACT_MS;
+    const flash = hurtFlash > 0 ? 0 : Math.max(0, 1 - impactAge / 110);
+    if (flash > 0) {
+      // squash against the blow: wider and lower for a moment, pinned at the feet
+      const sq = 0.07 * flash * (player._swingImpact.finisher ? 1.6 : 1);
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.scale(1 + sq, 1 - sq);
+      ctx.translate(-x, -y);
+      this.drawPixelHeroFrame(ctx, frame, x, y, s, flip, 1, player._swingImpact.color, 0.45 * flash);
+      ctx.restore();
+    } else {
+      this.drawPixelHeroFrame(ctx, frame, x, y, s, flip, 1, hurtFlash > 0 ? '#ff3b3b' : null, hurtFlash);
+    }
+    if (impactAge < impactLife) this.drawSwingImpact(ctx, player._swingImpact, impactAge / impactLife, x, y, z);
+    if (enhance) {
+      this.drawArmorEnhance(ctx, player, enhance, x, y, z, t, 'front', isLocal);
+      const tips = [['tip', frame.meta.tip], ['tipB', frame.meta.tipB], ['tipF', frame.meta.tipF], ['orb', frame.meta.orb]];
+      this.drawWeaponEnhance(ctx, player, enhance, tips, x, y, s, flip, z, t, now, isAttacking, isLocal);
+    }
     this.drawSpAura(ctx, player, x, y, z, t, 'front');
 
     // Additive glow on the mage orb and the rogue's venom blades

@@ -51,6 +51,7 @@ const SP_SKILL_PER_LEVEL = 0.004;   // +0.4% card skill damage per level
 
 // ---------------------------------------------------------------- cards
 // skills: slot -> SP skill id (see SP_SKILLS); every card has its own kit
+// kit: bumped when a card's skills are reworked, so saved loadouts reset to the new defaults
 // palette: PixelHeroes material overrides [outline, dark, mid, light, highlight?]
 // (the costume itself - head, weapon, cape... - is in pixelHeroes.js COSTUMES,
 // keyed by card id)
@@ -83,55 +84,56 @@ const SP_CARDS: Record<string, any[]> = {
       skills: { slot1: 'sp_abyss_cleave', slot2: 'sp_void_grasp', slot3: 'sp_soul_bastion', dash: 'sp_shadow_charge' },
       desc: 'An undying warlord dragging a colossal black-violet executioner axe. Hits harder as his blood runs low and refuses to die.' },
     // ---- variant cards below: each has its own 8-axis costume (pixelHeroes.js COSTUMES) ----
-    { id: 'sp_gravelord', tier: 1, name: 'Gravelord', element: 'earth', color: '#4ade80',
+    { id: 'sp_gravelord', kit: 2, tier: 1, name: 'Gravelord', element: 'earth', color: '#4ade80',
       stats: { bonusDef: 22, bonusHp: 150, bonusDmg: 12 },
       palette: { steel: ['#14130d', '#4a4a3a', '#6e6e58', '#9a9a7d', '#d6d6ba'], darkSteel: ['#0d0f0a', '#2c3324', '#45573a', '#647c52'], tabard: ['#0c1a10', '#1f4d2e', '#2e7d46', '#4c9e63'], cape: ['#171008', '#4a3018', '#6e4a28', '#996a3c'], gold: ['#2a2005', '#9a6b12', '#cba72a', '#e8d46a', '#fff3c4'], leather: ['#180f08', '#4a2c15', '#6b4322', '#93653a'], robeTrim: ['#101607', '#3a5c1c', '#5c8a2e', '#8ab84e'] },
-      skills: { slot1: 'sp_gravelord_slam', slot2: 'sp_gravelord_momentum', slot3: 'sp_gravelord_cataclysm', dash: 'sp_gravelord_siege' },
+      skills: { slot1: 'sp_gravelord_slam', slot2: 'sp_gravelord_fault', slot3: 'sp_gravelord_cataclysm', dash: 'sp_gravelord_siege' },
       desc: 'A walking avalanche in rusted plate, swinging a seismic warhammer. Every strike grinds the earth into Seismic Charge — then Cataclysm lets it all loose and leaves a quaking ruin behind.' },
-    { id: 'sp_dragoon', tier: 1, name: 'Dragoon', element: 'lightning', color: '#facc15',
+    { id: 'sp_dragoon', kit: 2, tier: 1, name: 'Dragoon', element: 'lightning', color: '#facc15',
       stats: { bonusDmg: 30, bonusAttackSpeed: 0.15, bonusSpeed: 0.3 },
       palette: { steel: ['#0e1426', '#3b4f78', '#5f7ea8', '#8fb2dd', '#e6f2ff'], darkSteel: ['#0a0f1c', '#22304d', '#3a5176', '#5a76a3'], tabard: ['#0b1630', '#1e3a8a', '#2563eb', '#60a5fa'], cape: ['#0b1630', '#1e3a8a', '#3b82f6', '#93c5fd'], gold: ['#2a2205', '#a16207', '#eab308', '#fde047', '#fffbe0'], robeTrim: ['#0f1526', '#334a86', '#5a7cc9', '#93b4f0'] },
-      skills: { slot1: 'sp_dragoon_impale', slot2: 'sp_dragoon_leap', slot3: 'sp_dragoon_barrage', dash: 'sp_dragoon_wind' },
+      skills: { slot1: 'sp_dragoon_impale', slot2: 'sp_dragoon_wing_slash', slot3: 'sp_dragoon_leap', dash: 'sp_dragoon_wind' },
       desc: 'A winged lancer who fights from the air. Leaping impales finish wounded prey, and a skyfall barrage of lances rains down on the field below.' },
-    { id: 'sp_reaver', tier: 2, name: 'Reaver', element: 'fire', color: '#fb923c',
+    { id: 'sp_reaver', kit: 2, tier: 2, name: 'Reaver', element: 'fire', color: '#fb923c',
       stats: { bonusDmg: 40, bonusAttackSpeed: 0.12 },
       palette: { steel: ['#24100a', '#5a2418', '#7e3624', '#a64e34', '#e8b894'], darkSteel: ['#160806', '#38150d', '#542418', '#7a3824'], tabard: ['#1c0602', '#7f1d1d', '#b91c1c', '#ef4444'], cape: ['#170705', '#4a140c', '#6e200f', '#93351c'], gold: ['#241203', '#8a4a0a', '#c8791a', '#efac3c', '#ffe2a0'], leather: ['#160b07', '#402313', '#5f341c', '#8a5230'], venom: ['#2a0702', '#c2410c', '#fb8c1c', '#ffd166', '#fff6d5'] },
-      skills: { slot1: 'sp_reaver_slash', slot2: 'sp_reaver_sear', slot3: 'sp_reaver_inferno', dash: 'sp_reaver_step' },
+      skills: { slot1: 'sp_reaver_slash', slot2: 'sp_reaver_wall', slot3: 'sp_reaver_inferno', dash: 'sp_reaver_step' },
       desc: 'A living bonfire with a greatsword. Pyre Slashes stack long-burning flames, a toggled Flame Stance scours the ground around him, and Firebrand Chain drags the blaze through whole packs.' },
-    { id: 'sp_runeknight', tier: 2, name: 'Rune Knight', element: 'earth', color: '#a3e635',
+    { id: 'sp_runeknight', kit: 2, tier: 2, name: 'Rune Knight', element: 'earth', color: '#a3e635',
       stats: { bonusDmg: 34, bonusMp: 130, bonusAttackSpeed: 0.10 },
       palette: { steel: ['#101418', '#35414b', '#56707c', '#82a4b3', '#d6ecf2'], darkSteel: ['#0b0f13', '#232f37', '#3a4d59', '#5a7686'], tabard: ['#071414', '#123c3c', '#1d5f5f', '#2e8c8c'], cape: ['#0a1013', '#1e3a42', '#2e5a66', '#4a7f8c'], gold: ['#211304', '#8a5a0a', '#c8921a', '#e9c94e', '#fff3b0'], robeTrim: ['#0a140d', '#1e4d30', '#2e7a4a', '#4cae6b'], orb: ['#03200c', '#14a04c', '#4be08a', '#c9ffe0', '#ffffff'], venom: ['#03200c', '#14a04c', '#4be08a', '#c9ffe0', '#ffffff'] },
-      skills: { slot1: 'sp_runeknight_wave', slot2: 'sp_runeknight_burst', slot3: 'sp_runeknight_sigil', dash: 'sp_runeknight_step' },
+      skills: { slot1: 'sp_runeknight_wave', slot2: 'sp_runeknight_glyph', slot3: 'sp_runeknight_invoke', dash: 'sp_runeknight_step' },
       desc: 'A scholar-knight whose greatsword is a spell focus. Every blow is carved with runes that echo — each cast replays itself moments later at half strength.' },
-    { id: 'sp_sentinel', tier: 2, name: 'Sentinel', element: 'holy', color: '#fde68a',
+    { id: 'sp_sentinel', kit: 2, tier: 2, name: 'Sentinel', element: 'holy', color: '#fde68a',
       stats: { bonusDef: 30, bonusHp: 230, bonusDmg: 8 },
       palette: { steel: ['#141824', '#5a6485', '#8a97b9', '#c5cee6', '#f7f9ff'], darkSteel: ['#0e121b', '#313a4d', '#586280', '#808cae'], tabard: ['#1c1206', '#7a5216', '#b8860b', '#e6c23a'], cape: ['#1c1606', '#6e5210', '#a88416', '#d4ac28'], gold: ['#382403', '#b8941f', '#e6b63d', '#f7d86e', '#fff3c4'], leather: ['#150f08', '#4a3324', '#6e5227', '#8a6a3c'] },
-      skills: { slot1: 'sp_sentinel_warcry', slot2: 'sp_sentinel_bulwark', slot3: 'sp_sentinel_ram', dash: 'sp_sentinel_guard' },
+      skills: { slot1: 'sp_sentinel_throw', slot2: 'sp_sentinel_warcry', slot3: 'sp_sentinel_riposte', dash: 'sp_sentinel_guard' },
       desc: 'The shield that never breaks. A holy bulwark of the king\'s hall — war cries that stun, fortresses that refuse to fall, a shield ram that scatters packs, and a Bulwark Mist that blinds anything daring to swing at him.' },
-    { id: 'sp_duskblade', tier: 3, name: 'Duskblade', element: 'dark', color: '#c084fc',
+    { id: 'sp_duskblade', kit: 2, tier: 3, name: 'Duskblade', element: 'dark', color: '#c084fc',
       stats: { bonusDmg: 52, bonusDef: 16, bonusHp: 180, critChance: 6 },
       palette: { steel: ['#140d1e', '#3a2a58', '#544080', '#7a61ab', '#cfc2ee'], darkSteel: ['#0b0712', '#241a3e', '#362a5c', '#4f3f80'], tabard: ['#12071f', '#3b0764', '#6b21a8', '#a855f7'], cape: ['#0c0614', '#2b1a40', '#402a63', '#5c3f85'], gold: ['#180d26', '#4a2a70', '#7a45a5', '#a77bd4', '#e9d5ff'], robeTrim: ['#140826', '#4c1d95', '#7c3aed', '#c4b5fd'], venom: ['#150826', '#6d28d9', '#a855f7', '#f3e8ff', '#ffffff'] },
-      skills: { slot1: 'sp_duskblade_soul_rend', slot2: 'sp_duskblade_shadow_cleave', slot3: 'sp_duskblade_devour', dash: 'sp_duskblade_tread' },
+      skills: { slot1: 'sp_duskblade_soul_rend', slot2: 'sp_duskblade_doom', slot3: 'sp_duskblade_devour', dash: 'sp_duskblade_tread' },
       desc: 'A prisoner of his own curse, wielding a greatsword that drinks souls. Strikes harvest Souls; Devour spends them in a burst of raw spirit and stolen life.' },
-    { id: 'sp_titan', tier: 3, name: 'Titan', element: 'earth', color: '#84cc16',
+    { id: 'sp_titan', kit: 2, tier: 3, name: 'Titan', element: 'earth', color: '#84cc16',
       stats: { bonusDef: 36, bonusHp: 340, bonusDmg: 16 },
       palette: { steel: ['#161511', '#4a463a', '#6e6a58', '#9a9580', '#d6d2ba'], darkSteel: ['#0f0e0a', '#2e2c21', '#464438', '#635f4c'], tabard: ['#101906', '#2f4d17', '#47782e', '#4a8a52'], cape: ['#151a10', '#3a4a2c', '#55683f', '#7c9357'], gold: ['#241a05', '#8a6410', '#c89c28', '#e6c85e', '#fff3a8'], leather: ['#150f08', '#423015', '#63491f', '#8a6a30'], robeTrim: ['#121a12', '#2f522f', '#487f3f', '#6aa852'] },
-      skills: { slot1: 'sp_titan_maul', slot2: 'sp_titan_graviton', slot3: 'sp_titan_fissure', dash: 'sp_titan_stomp' },
+      skills: { slot1: 'sp_titan_hurl', slot2: 'sp_titan_graviton', slot3: 'sp_titan_fissure', dash: 'sp_titan_stomp' },
       desc: 'A mountain given fists. The Titan warps gravity around a Graviton Core to drag packs in, then collapses everything into a Titan Fissure that leaves the ground stunned.' },
-    { id: 'sp_bannerman', tier: 3, name: 'Bannerman', element: 'holy', color: '#fbbf24',
+    { id: 'sp_bannerman', kit: 2, tier: 3, name: 'Bannerman', element: 'holy', color: '#fbbf24',
       stats: { bonusHp: 260, bonusDmg: 26, bonusMp: 120, bonusAttackSpeed: 0.08 },
       palette: { steel: ['#141824', '#5a6485', '#8a97b9', '#c5cee6', '#f7f9ff'], darkSteel: ['#0e121b', '#313a4d', '#586280', '#808cae'], tabard: ['#2a2005', '#b8860b', '#e6c23a', '#fff1a8'], cape: ['#1c1606', '#6e5210', '#a88416', '#d4ac28'], gold: ['#382403', '#b8941f', '#e6b63d', '#f7d86e', '#fff3c4'], leather: ['#1a0f08', '#5a3018', '#7f4827', '#a86a3c'], robeTrim: ['#241206', '#5c3a10', '#935a16', '#c98c2a'] },
-      skills: { slot1: 'sp_bannerman_warshout', slot2: 'sp_bannerman_plant', slot3: 'sp_bannerman_call', dash: 'sp_bannerman_flag' },
+      skills: { slot1: 'sp_bannerman_plant', slot2: 'sp_bannerman_warshout', slot3: 'sp_bannerman_rally', dash: 'sp_bannerman_flag' },
       desc: 'The war banner made flesh. Plants radiant standards that scorch the field, rallies the blood with war shouts, and refuses to let his line fall.' },
-    { id: 'sp_warchief', tier: 4, name: 'Warchief', element: 'fire', color: '#f97316',
+    { id: 'sp_warchief', kit: 2, tier: 4, name: 'Warchief', element: 'fire', color: '#f97316',
       stats: { bonusDmg: 64, bonusAttackSpeed: 0.2, bonusHp: 160 },
       palette: { steel: ['#1a1210', '#54342a', '#75493a', '#a06a54', '#e0b49a'], darkSteel: ['#120b08', '#33211a', '#4f3126', '#734a38'], tabard: ['#260603', '#991b1b', '#dc2626', '#f87171'], cape: ['#1f140b', '#5c3d22', '#86603a', '#b48a5c'], gold: ['#2a1003', '#93490a', '#c96b16', '#efa348', '#ffe0a8'], leather: ['#180c06', '#4a2412', '#6b351c', '#935028'] },
-      skills: { slot1: 'sp_warchief_hack', slot2: 'sp_warchief_whirl', slot3: 'sp_warchief_devastate', dash: 'sp_warchief_charge' },
+      skills: { slot1: 'sp_warchief_hack', slot2: 'sp_warchief_axes', slot3: 'sp_warchief_devastate', dash: 'sp_warchief_charge' },
       desc: 'A roaring chieftain of twin war-axes. Rage fades in seconds if the blades stop moving — so he never stops; Howl of War ignites it in an instant and Devastate spends it all in a blood-drinking cleave.' },
-    { id: 'sp_phoenix_oath', tier: 5, name: 'Phoenix Oath', element: 'fire', color: '#fbbf24',
+    { id: 'sp_phoenix_oath', kit: 2, tier: 5, name: 'Phoenix Oath', element: 'fire', color: '#fbbf24',
       stats: { bonusDmg: 76, bonusDef: 24, bonusHp: 300, critChance: 10 },
       palette: { steel: ['#241606', '#7a5216', '#b8860b', '#e6c23a', '#fff6c8'], darkSteel: ['#1c1105', '#4a330e', '#6e4e16', '#9a7430'], tabard: ['#250a03', '#93340c', '#d95f1a', '#f59e0b'], cape: ['#2a1202', '#8a3c08', '#c96b14', '#efa63c'], gold: ['#382403', '#b8941f', '#e6b63d', '#f7d86e', '#fff3c4'], robeTrim: ['#2a0d02', '#8a2f0a', '#c85a14', '#ef9a2e'], orb: ['#3b0a02', '#e05a10', '#ffb84c', '#ffe8b0', '#ffffff'] },
-      skills: { slot1: 'sp_phoenix_strike', slot2: 'sp_phoenix_orbs', slot3: 'sp_phoenix_immolation', dash: 'sp_phoenix_ember' },
+      passive: { name: 'Rebirth', rebirth: { cd: 90, hp: 0.4, r: 4, dmg: 4 } },
+      skills: { slot1: 'sp_phoenix_strike', slot2: 'sp_phoenix_firebird', slot3: 'sp_phoenix_immolation', dash: 'sp_phoenix_ember' },
       desc: 'The eternal flame given a knight. Ember Orbs wheel around him scorching whatever they touch; his Immolation Oath refuses to die, and every rebirth erupts in a blinding conflagration.' }
   ],
   mage: [
@@ -237,103 +239,107 @@ const SP_SKILLS: Record<string, any> = {
   sp_soul_bastion: { name: 'Undying Dread Rage', shape: 'pulse', r: 3.8, n: 4, every: 0.35, dmg: 1.8, leech: 0.12, undying: 6, berserk: 7, sprint: 4, shield: 0.35, furyBonus: 0.75, mp: 32, cd: 15 },
   sp_shadow_charge: { name: 'Spinning Void Slash', shape: 'dash', len: 7.0, width: 2.2, dmg: 3.4, crit: 0.3, leech: 0.08, furyBonus: 0.6, spinReset: 1.0, mp: 10, cd: 3.5 },
 
-  // Warrior - Gravelord: the slow collapse. Every hammer hit grinds Seismic
-  // Charge; Cataclysm lets it all out and leaves a quaking ruin behind.
-  sp_gravelord_slam: { name: 'Seismic Hammer', shape: 'strike', range: 3.4, dmg: 2.8, chargeHit: 1, knock: 1.2, mp: 12, cd: 2.8 },
-  sp_gravelord_momentum: { name: 'Momentum Crash', shape: 'nova', r: 3.2, dmg: 2.0, chargeHit: 1, mp: 14, cd: 4.5 },
-  sp_gravelord_cataclysm: { name: 'Cataclysm Detonate', shape: 'blast', r: 3.4, range: 7, dmg: 3.2, discharge: 0.6, stun: 1.2, field: { dur: 2.5, every: 0.5, r: 2.6, mult: 0.35 }, mp: 24, cd: 9 },
-  sp_gravelord_siege: { name: 'Siege Charge', shape: 'dash', len: 5.5, width: 1.5, dmg: 1.8, chargeHit: 1, mp: 8, cd: 3.5 },
-  sp_gravelord_quakes: { name: 'Quake Line', shape: 'line', len: 7, width: 1.8, dmg: 2.4, knock: 1.4, chargeHit: 1, mp: 16, cd: 5 },
-  sp_gravelord_aftershock: { name: 'Aftershock', shape: 'pulse', at: 'target', r: 3, range: 7, n: 2, every: 0.6, dmg: 1.3, stun: 0.6, chargeHit: 1, mp: 20, cd: 8 },
-  sp_gravelord_bastion: { name: 'Granite Bastion', shape: 'buff', r: 3, dmg: 1.0, fortress: 5, heal: 0.05, mp: 22, cd: 10 },
-  sp_gravelord_boulder: { name: 'Quake Boulders', shape: 'rain', r: 3.2, range: 7, n: 5, every: 0.2, hit: 1.2, dmg: 1.2, chargeHit: 1, mp: 26, cd: 9 },
-  // Warrior - Dragoon: the only executioner. Leap around, finish low-health prey.
-  sp_dragoon_impale: { name: 'Sky Impale', shape: 'line', len: 6.5, width: 1.2, dmg: 2.6, execute: [0.3, 1.6], mp: 12, cd: 3 },
-  sp_dragoon_leap: { name: 'Leap Strike', shape: 'blink', len: 6.5, r: 2.4, dmg: 2.2, origin: true, execute: [0.3, 1.7], sprint: 1.5, mp: 10, cd: 4 },
-  sp_dragoon_barrage: { name: 'Skyfall Barrage', shape: 'rain', r: 3.2, range: 7, n: 5, every: 0.2, hit: 1.2, dmg: 1.5, execute: [0.35, 1.8], mp: 26, cd: 9 },
-  sp_dragoon_wind: { name: 'Wind Lance Dash', shape: 'dash', len: 6, width: 1.3, dmg: 1.8, crit: 0.1, sprint: 1.5, mp: 8, cd: 3.5 },
+  // ---- Variant warriors: every card plays around its own mechanic ----
+  // Warrior - Gravelord: Fracture. Hits crack enemies (up to 5 Fracture);
+  // Cataclysm and Rupture shatter the cracks for bonus damage and a stun.
+  sp_gravelord_slam: { name: 'Seismic Hammer', shape: 'strike', range: 3.4, dmg: 2.8, fracture: 2, knock: 0.8, mp: 12, cd: 2.8 },
+  sp_gravelord_fault: { name: 'Fault Line', shape: 'fault', n: 6, step: 1.1, every: 0.09, hit: 1.2, dmg: 1.3, fracture: 1, stun: 0.4, mp: 16, cd: 5 },
+  sp_gravelord_cataclysm: { name: 'Cataclysm', shape: 'blast', r: 3.2, range: 7, dmg: 2.4, shatterEarth: 0.45, field: { dur: 2.5, every: 0.5, r: 2.6, mult: 0.3 }, mp: 24, cd: 9 },
+  sp_gravelord_siege: { name: 'Siege Plow', shape: 'dash', len: 5.5, width: 1.5, dmg: 1.6, plow: true, fracture: 1, mp: 8, cd: 4 },
+  sp_gravelord_aftershock: { name: 'Aftershock', shape: 'pulse', at: 'target', r: 2.8, range: 7, n: 3, every: 0.6, dmg: 1.0, fracture: 1, mp: 20, cd: 8 },
+  sp_gravelord_rupture: { name: 'Rupture', shape: 'nova', r: 3.4, dmg: 1.6, shatterEarth: 0.3, knock: 1.5, mp: 18, cd: 6 },
+  sp_gravelord_boulder: { name: 'Quake Boulders', shape: 'rain', r: 3.2, range: 7, n: 5, every: 0.2, hit: 1.2, dmg: 1.2, fracture: 1, mp: 26, cd: 9 },
+  sp_gravelord_bastion: { name: 'Granite Skin', shape: 'buff', fortress: 5, shield: 0.12, mp: 22, cd: 12 },
+  // Warrior - Dragoon: the air is his. Hurl the Sky Lance and dive onto it,
+  // or vanish upward with Dragon Dive and come down on the cursor.
+  sp_dragoon_impale: { name: 'Sky Lance', shape: 'spear', len: 7, width: 1.1, dmg: 2.4, hold: 4, dive: 1.8, diveR: 2.4, mp: 12, cd: 4 },
   sp_dragoon_wing_slash: { name: 'Wing Slash', shape: 'cone', range: 4, arc: 110, dmg: 2.2, crit: 0.15, mp: 14, cd: 3.5 },
-  sp_dragoon_impact: { name: 'Impact Wake', shape: 'nova', r: 3, dmg: 2.0, knock: 1.0, sprint: 1, mp: 16, cd: 6 },
-  sp_dragoon_vantage: { name: 'Vantage Strike', shape: 'pulse', at: 'target', r: 2.6, range: 7, n: 2, every: 0.5, dmg: 1.2, execute: [0.3, 1.6], mp: 20, cd: 8 },
+  sp_dragoon_leap: { name: 'Dragon Dive', shape: 'jump', air: 0.75, range: 7, r: 3, dmg: 3.4, execute: [0.3, 1.7], stun: 0.6, mp: 22, cd: 8 },
+  sp_dragoon_wind: { name: 'Wind Lance Dash', shape: 'dash', len: 6, width: 1.3, dmg: 1.8, crit: 0.1, sprint: 1.5, mp: 8, cd: 3.5 },
   sp_dragoon_pierce: { name: 'Piercing Lance', shape: 'chain', range: 5.5, jump: 4, n: 5, decay: 0.88, dmg: 1.8, execute: [0.3, 1.5], mp: 18, cd: 4.5 },
-
-  // Warrior - Reaver: the burning machine. Long-lasting pyres, a toggled Flame
-  // Stance that scours what comes near, and a firebrand that spreads the blaze.
-  sp_reaver_slash: { name: 'Pyre Slash', shape: 'strike', range: 3.4, dmg: 2.6, burn: 4, mp: 10, cd: 2.8 },
-  sp_reaver_sear: { name: 'Flame Sweep', shape: 'cone', range: 4, arc: 100, dmg: 2.0, burn: 4, mp: 14, cd: 3.5 },
+  sp_dragoon_impact: { name: 'Impact Wake', shape: 'nova', r: 3, dmg: 2.0, knock: 1.0, mp: 16, cd: 6 },
+  sp_dragoon_barrage: { name: 'Skyfall Barrage', shape: 'rain', r: 3.2, range: 7, n: 5, every: 0.2, hit: 1.2, dmg: 1.5, execute: [0.35, 1.8], mp: 26, cd: 9 },
+  sp_dragoon_updraft: { name: 'Updraft', shape: 'buff', sprint: 3, haste: 2.5, mp: 16, cd: 12 },
+  // Warrior - Reaver: Heat. Every skill stokes Heat; at 100 he Overheats -
+  // free skills and +40% damage while his own armour cooks him. Meltdown vents it all.
+  sp_reaver_slash: { name: 'Pyre Slash', shape: 'cone', range: 3.8, arc: 120, dmg: 2.4, burn: 4, heat: 15, mp: 10, cd: 2.8 },
+  sp_reaver_wall: { name: 'Wall of Fire', shape: 'wall', len: 5, range: 7, dmg: 1.4, burn: 3, heat: 20, field: { dur: 4, every: 0.5, r: 0.9, mult: 0.4 }, mp: 16, cd: 7 },
+  sp_reaver_inferno: { name: 'Meltdown', shape: 'nova', r: 3.8, dmg: 2.4, burn: 5, vent: 0.12, mp: 24, cd: 9 },
+  sp_reaver_step: { name: 'Scorched Path', shape: 'dash', len: 5.5, width: 1.4, dmg: 1.6, burn: 3, heat: 10, field: { dur: 3, every: 0.5, r: 1, mult: 0.35 }, mp: 10, cd: 4 },
   sp_reaver_stance: { name: 'Flame Stance', shape: 'aura', icon: '🔥', r: 3, every: 0.5, dmg: 0.5, burn: 2, mpDrain: 0.05, mp: 8, cd: 1 },
-  sp_reaver_inferno: { name: 'Inferno Ring', shape: 'nova', r: 3.8, dmg: 2.6, burn: 5, leech: 0.08, mp: 26, cd: 9 },
-  sp_reaver_step: { name: 'Flame Step', shape: 'dash', len: 5.5, width: 1.4, dmg: 1.8, burn: 3, mp: 10, cd: 4 },
-  sp_reaver_ember_cleave: { name: 'Ember Cleave', shape: 'line', len: 6.5, width: 1.4, dmg: 2.2, burn: 3, mp: 14, cd: 4 },
-  sp_reaver_firebrand: { name: 'Firebrand Chain', shape: 'chain', range: 5.5, jump: 4, n: 5, decay: 0.85, dmg: 1.6, burn: 3, mp: 18, cd: 5 },
-  sp_reaver_crater: { name: 'Searing Crater', shape: 'blast', r: 2.8, range: 7, dmg: 1.6, burn: 2, field: { dur: 3, every: 0.5, r: 1.8, mult: 0.4 }, mp: 20, cd: 7 },
-  // Warrior - Rune Knight: greatsword spell focus, everything echoes
-  sp_runeknight_wave: { name: 'Runic Bladewave', shape: 'line', len: 6.5, width: 1.3, dmg: 2.4, echo: 0.9, mp: 14, cd: 4 },
-  sp_runeknight_burst: { name: 'Rune Burst', shape: 'nova', r: 3.2, dmg: 2.0, echo: 1.0, mp: 16, cd: 6 },
-  sp_runeknight_sigil: { name: 'Sigil Sanctum', shape: 'pulse', at: 'target', r: 2.8, range: 7, n: 3, every: 0.5, dmg: 1.2, echo: 1.4, mp: 22, cd: 9 },
-  sp_runeknight_step: { name: 'Runic Step', shape: 'blink', len: 5.5, r: 2, dmg: 1.4, mp: 10, cd: 4 },
-  sp_runeknight_volley: { name: 'Glyph Volley', shape: 'volley', range: 6.5, n: 4, dmg: 1.2, echo: 0.8, mp: 16, cd: 4 },
-  sp_runeknight_chain: { name: 'Ley Chain', shape: 'chain', range: 5.5, jump: 4, n: 5, decay: 0.85, dmg: 1.6, echo: 1.2, mp: 20, cd: 5 },
-  sp_runeknight_storm: { name: 'Sigil Storm', shape: 'nova', r: 3.6, dmg: 2.6, echo: 1.2, mp: 26, cd: 10 },
-  sp_runeknight_guard: { name: 'Guardian Glyph', shape: 'buff', r: 3, dmg: 1.0, fortress: 4, mana: 0.10, shield: 0.12, mp: 24, cd: 10 },
-
-  // Warrior - Sentinel: the wall. War-cry stuns, an unbreakable Bulwark, a
-  // blinding mist that makes attacks miss, and a tower-shield ram.
-  sp_sentinel_warcry: { name: 'War Cry', shape: 'nova', r: 3.4, dmg: 1.4, stun: 1.2, shield: 0.06, mp: 16, cd: 6 },
-  sp_sentinel_bulwark: { name: 'Bulwark', shape: 'buff', r: 3, dmg: 1.0, fortress: 5, shield: 0.25, heal: 0.05, mp: 24, cd: 10 },
-  sp_sentinel_ram: { name: 'Shield Ram', shape: 'line', len: 6, width: 2.0, dmg: 2.4, knock: 2.0, shield: 0.08, mp: 18, cd: 5 },
-  sp_sentinel_guard: { name: 'Guard Dash', shape: 'dash', len: 5, width: 1.8, dmg: 1.6, shield: 0.12, sprint: 1.5, mp: 8, cd: 4 },
+  sp_reaver_ember_cleave: { name: 'Ember Cleave', shape: 'line', len: 6.5, width: 1.4, dmg: 2.2, burn: 3, heat: 15, mp: 14, cd: 4 },
+  sp_reaver_firebrand: { name: 'Firebrand Chain', shape: 'chain', range: 5.5, jump: 4, n: 5, decay: 0.85, dmg: 1.6, burn: 3, heat: 15, mp: 18, cd: 5 },
+  sp_reaver_crater: { name: 'Searing Crater', shape: 'blast', r: 2.8, range: 7, dmg: 1.6, burn: 2, heat: 15, field: { dur: 3, every: 0.5, r: 1.8, mult: 0.4 }, mp: 20, cd: 7 },
+  // Warrior - Rune Knight: glyph traps. Carve glyphs on the ground (4 at most);
+  // they burst when an enemy steps on them, or all at once on Invocation.
+  sp_runeknight_wave: { name: 'Runic Bladewave', shape: 'line', len: 6.5, width: 1.3, dmg: 2.4, mp: 12, cd: 3.5 },
+  sp_runeknight_glyph: { name: 'Glyph of Ruin', shape: 'rune', kind: 'ruin', r: 2.4, range: 7, dur: 12, dmg: 2.6, mp: 14, cd: 2.5 },
+  sp_runeknight_invoke: { name: 'Invocation', shape: 'invoke', r: 3, dmg: 1.6, mp: 20, cd: 8 },
+  sp_runeknight_step: { name: 'Runic Step', shape: 'blink', len: 5.5, r: 2, dmg: 1.2, leaveRune: 'sp_runeknight_bind', mp: 10, cd: 4 },
+  sp_runeknight_bind: { name: 'Binding Glyph', shape: 'rune', kind: 'bind', r: 2.2, range: 7, dur: 12, dmg: 1.2, stun: 1.6, mp: 14, cd: 5 },
+  sp_runeknight_frost: { name: 'Frost Glyph', shape: 'rune', kind: 'frost', r: 2.8, range: 7, dur: 12, dmg: 1.4, chill: 4, mp: 14, cd: 5 },
+  sp_runeknight_chain: { name: 'Ley Chain', shape: 'chain', range: 5.5, jump: 4, n: 5, decay: 0.85, dmg: 1.6, mp: 18, cd: 5 },
+  sp_runeknight_guard: { name: 'Guardian Glyph', shape: 'buff', fortress: 4, mana: 0.10, shield: 0.12, mp: 24, cd: 10 },
+  // Warrior - Sentinel: the wall. Riposte Stance blocks every blow and strikes
+  // back, Challenge drags packs onto him, and the shield ricochets home.
+  sp_sentinel_throw: { name: 'Shield Throw', shape: 'ricochet', range: 6, jump: 4, n: 4, dmg: 1.8, shieldPerHit: 0.03, mp: 14, cd: 4 },
+  sp_sentinel_warcry: { name: 'Challenge', shape: 'nova', r: 4, dmg: 1.0, provoke: 0.35, stun: 0.8, mp: 14, cd: 7 },
+  sp_sentinel_riposte: { name: 'Riposte Stance', shape: 'buff', parry: 2.5, riposte: 2.5, mp: 16, cd: 9 },
+  sp_sentinel_guard: { name: 'Guard Dash', shape: 'dash', len: 5, width: 1.8, dmg: 1.6, shield: 0.12, mp: 8, cd: 4 },
   sp_sentinel_mist: { name: 'Bulwark Mist', shape: 'smoke', r: 3, dur: 6, miss: 0.45, mp: 18, cd: 11 },
-  sp_sentinel_retribution: { name: 'Retribution', shape: 'pulse', r: 3, n: 3, every: 0.6, dmg: 1.0, fortress: 1, shield: 0.05, mp: 20, cd: 9 },
-  sp_sentinel_aegis: { name: 'Aegis Nova', shape: 'nova', r: 3.4, dmg: 1.8, shield: 0.16, mp: 22, cd: 8 },
+  sp_sentinel_ram: { name: 'Shield Ram', shape: 'line', len: 6, width: 2.0, dmg: 2.4, knock: 2.0, mp: 18, cd: 5 },
+  sp_sentinel_bulwark: { name: 'Bulwark', shape: 'buff', fortress: 5, shield: 0.25, mp: 24, cd: 12 },
   sp_sentinel_hallowed: { name: 'Hallowed Ground', shape: 'blast', r: 3, range: 7, dmg: 1.4, field: { dur: 3, every: 0.5, r: 2.2, mult: 0.45 }, mp: 20, cd: 7 },
-  // Warrior - Duskblade: soul-harvesting greatsword
+  // Warrior - Duskblade: Doom. Branded enemies store the damage they take from
+  // him and suffer it again when the brand runs out; Devour reaps every brand now.
   sp_duskblade_soul_rend: { name: 'Soul Rend', shape: 'strike', range: 3.6, dmg: 3.0, souls: 1, leech: 0.05, mp: 12, cd: 3 },
-  sp_duskblade_shadow_cleave: { name: 'Shadow Cleave', shape: 'cone', range: 4.2, arc: 120, dmg: 2.4, souls: 1, mp: 16, cd: 4 },
-  sp_duskblade_devour: { name: 'Devour', shape: 'nova', r: 3.6, dmg: 1.8, devour: 0.06, mp: 20, cd: 7 },
-  sp_duskblade_tread: { name: 'Soul Tread', shape: 'dash', len: 5.5, width: 1.3, dmg: 1.8, souls: 1, leech: 0.06, mp: 10, cd: 3.5 },
-  sp_duskblade_chain: { name: 'Soul Chain', shape: 'chain', range: 5.5, jump: 4, n: 6, decay: 0.9, dmg: 1.6, souls: 1, mp: 18, cd: 5 },
+  sp_duskblade_doom: { name: 'Doom Brand', shape: 'cone', range: 4.2, arc: 120, dmg: 1.8, doom: { delay: 3.5, share: 0.6 }, souls: 1, mp: 16, cd: 6 },
+  sp_duskblade_devour: { name: 'Devour', shape: 'nova', r: 3.6, dmg: 1.8, devour: 0.06, reap: true, mp: 20, cd: 7 },
+  sp_duskblade_tread: { name: 'Soul Tread', shape: 'dash', len: 5.5, width: 1.3, dmg: 1.8, souls: 1, mp: 10, cd: 3.5 },
+  sp_duskblade_phantom: { name: 'Phantom Blades', shape: 'phantom', range: 6, n: 6, every: 0.18, dmg: 1.0, souls: 1, mp: 20, cd: 8 },
   sp_duskblade_rain: { name: 'Grave Rain', shape: 'rain', r: 3.5, range: 7, n: 6, every: 0.18, hit: 1.2, dmg: 1.3, souls: 1, mp: 28, cd: 9 },
   sp_duskblade_wail: { name: 'Lantern Wail', shape: 'buff', r: 3, dmg: 1.0, souls: 2, shield: 0.2, mp: 22, cd: 12 },
   sp_duskblade_soul_mirror: { name: 'Soul Mirror', shape: 'blink', len: 6, r: 2.4, dmg: 1.6, origin: true, souls: 1, mp: 12, cd: 4 },
-
-  // Warrior - Titan: gravity-warping mountain. Drag packs in, then collapse.
-  sp_titan_maul: { name: 'Colossal Maul', shape: 'strike', range: 3.8, dmg: 3.2, stun: 0.8, mp: 14, cd: 3.5 },
+  // Warrior - Titan: picks monsters up and throws them; bends gravity to
+  // gather packs, then collapses the ground under them.
+  sp_titan_hurl: { name: "Titan's Grip", shape: 'hurl', range: 3.5, throw: 7, dmg: 2.4, land: { r: 2.2, mult: 1.4 }, stun: 1.2, mp: 16, cd: 5 },
   sp_titan_graviton: { name: 'Graviton Core', shape: 'blast', r: 3, range: 7, dmg: 1.4, field: { dur: 3, every: 0.5, r: 2.5, pull: 0.25, mult: 0.5 }, mp: 18, cd: 7 },
   sp_titan_fissure: { name: 'Titan Fissure', shape: 'blast', r: 2, range: 7, dmg: 1.2, implode: { delay: 0.8, r: 4, mult: 3.0 }, mp: 26, cd: 9 },
   sp_titan_stomp: { name: 'Stomp Dash', shape: 'dash', len: 5, width: 2.2, dmg: 2.0, stun: 1, mp: 10, cd: 4 },
+  sp_titan_maul: { name: 'Colossal Maul', shape: 'strike', range: 3.8, dmg: 3.2, stun: 0.8, mp: 14, cd: 3.5 },
   sp_titan_cataclysm: { name: 'Titanquake', shape: 'nova', r: 4, dmg: 2.8, stun: 1.8, knock: 1.2, mp: 24, cd: 10 },
-  sp_titan_landslide: { name: 'Landslide Line', shape: 'line', len: 7, width: 2.0, dmg: 2.4, knock: 1.2, mp: 16, cd: 5 },
-  sp_titan_mountain: { name: 'Mountain Shrug', shape: 'buff', r: 3, dmg: 0.8, fortress: 6, heal: 0.05, mp: 24, cd: 12 },
-  sp_titan_afterquake: { name: 'Afterquake', shape: 'pulse', r: 3.4, n: 2, every: 0.7, dmg: 1.1, stun: 0.8, mp: 20, cd: 8 },
-  // Warrior - Bannerman: field support. Planted standards, war shouts, rallies.
-  sp_bannerman_warshout: { name: 'War Shout', shape: 'nova', r: 3.6, dmg: 1.6, haste: 1.5, fortress: 2, mp: 16, cd: 7 },
-  sp_bannerman_plant: { name: 'Plant Banner', shape: 'blast', r: 2.6, range: 7, dmg: 1.2, field: { dur: 4, every: 0.5, r: 2.4, mult: 0.4 }, mp: 20, cd: 8 },
-  sp_bannerman_call: { name: 'Call to Arms', shape: 'pulse', at: 'target', r: 3, range: 7, n: 3, every: 0.5, dmg: 1.1, haste: 0.5, mp: 22, cd: 9 },
-  sp_bannerman_flag: { name: 'Flag Dash', shape: 'dash', len: 5.5, width: 1.4, dmg: 1.5, haste: 0.8, mp: 10, cd: 4 },
-  sp_bannerman_inspire: { name: 'Inspiring Presence', shape: 'buff', r: 3.5, heal: 0.12, shield: 0.12, mana: 0.1, sprint: 3, mp: 24, cd: 12 },
+  sp_titan_landslide: { name: 'Landslide', shape: 'line', len: 7, width: 2.0, dmg: 2.4, knock: 1.2, mp: 16, cd: 5 },
+  sp_titan_mountain: { name: 'Mountain Shrug', shape: 'buff', fortress: 6, heal: 0.08, mp: 24, cd: 12 },
+  // Warrior - Bannerman: the War Standard. Plant it and fight beside it -
+  // inside its ring he hits harder and mends; Rally leaps him back to it.
+  sp_bannerman_plant: { name: 'War Standard', shape: 'banner', r: 3.2, range: 7, dur: 12, bonus: 0.3, dmg: 1.2, every: 1, tick: 0.4, regen: 0.02, mp: 20, cd: 10 },
+  sp_bannerman_warshout: { name: 'War Shout', shape: 'nova', r: 3.6, dmg: 1.6, haste: 1.5, mp: 16, cd: 7 },
+  sp_bannerman_rally: { name: 'Rally to the Standard', shape: 'rally', r: 3, dmg: 2.2, shield: 0.1, mp: 16, cd: 6 },
+  sp_bannerman_flag: { name: 'Flag Dash', shape: 'dash', len: 5.5, width: 1.4, dmg: 1.5, mp: 10, cd: 4 },
+  sp_bannerman_inspire: { name: 'Inspiring Presence', shape: 'buff', heal: 0.12, mana: 0.1, sprint: 3, mp: 24, cd: 12 },
   sp_bannerman_vanguard: { name: 'Vanguard Volley', shape: 'volley', range: 6.5, n: 4, dmg: 1.5, mp: 16, cd: 4 },
-  sp_bannerman_last_stand: { name: 'Last Stand', shape: 'buff', r: 3, dmg: 1.0, fortress: 6, shield: 0.18, heal: 0.05, mp: 26, cd: 14 },
-  sp_bannerman_boon: { name: 'War Horn', shape: 'nova', r: 3.2, dmg: 1.2, heal: 0.08, haste: 1.0, mp: 20, cd: 8 },
-  // Warrior - Warchief: hot blood that burns out. Rage fades in seconds if the
-  // axes stop swinging; Howl of War whips it up at once, Devastate spends it.
-  sp_warchief_hack: { name: 'Hack', shape: 'strike', range: 3.4, dmg: 2.8, chargeHit: 1, mp: 10, cd: 2.4 },
-  sp_warchief_whirl: { name: 'Fury Whirl', shape: 'nova', r: 2.8, dmg: 1.8, chargeHit: 1, mp: 12, cd: 3.8 },
-  sp_warchief_howl: { name: 'Howl of War', shape: 'buff', r: 3, dmg: 1.0, charge: 3, berserk: 4, mp: 20, cd: 14 },
-  sp_warchief_devastate: { name: 'Devastate', shape: 'line', len: 6, width: 2, dmg: 2.8, discharge: 0.6, leech: 0.05, mp: 24, cd: 8 },
-  sp_warchief_charge: { name: 'Rage Charge', shape: 'dash', len: 5.5, width: 1.6, dmg: 2.4, chargeHit: 1, crit: 0.15, mp: 10, cd: 4 },
-  sp_warchief_axe_rain: { name: 'Axe Rain', shape: 'rain', r: 3.5, range: 7, n: 6, every: 0.18, hit: 1.2, dmg: 1.3, chargeHit: 1, mp: 28, cd: 9 },
-  sp_warchief_volley: { name: 'Twin Axe Volley', shape: 'volley', range: 6, n: 3, dmg: 1.5, chargeHit: 1, mp: 16, cd: 4.5 },
-  sp_warchief_carnage: { name: 'Carnage', shape: 'nova', r: 3, dmg: 1.4, leech: 0.1, chargeHit: 1, mp: 14, cd: 5 },
-  // Warrior - Phoenix Oath: embers and rebirth. Orbs wheel around scorching all
-  // they touch; the Immolation Oath refuses to die and erupts on rebirth.
+  sp_bannerman_last_stand: { name: 'Last Stand', shape: 'buff', fortress: 6, shield: 0.18, mp: 26, cd: 14 },
+  sp_bannerman_call: { name: 'Call to Arms', shape: 'pulse', at: 'target', r: 3, range: 7, n: 3, every: 0.5, dmg: 1.1, mp: 22, cd: 9 },
+  // Warrior - Warchief: Combo. Each skill that differs from the one before
+  // stacks Combo (+10% damage each, up to 6); repeating a skill drops it to 1.
+  // Devastate cashes the whole chain in.
+  sp_warchief_hack: { name: 'Hack', shape: 'strike', range: 3.4, dmg: 2.8, combo: true, mp: 10, cd: 2.4 },
+  sp_warchief_axes: { name: 'Twin Axe Throw', shape: 'boomerang', n: 2, spread: 0.25, len: 6, width: 1.1, dur: 1, dmg: 1.6, combo: true, mp: 14, cd: 4 },
+  sp_warchief_devastate: { name: 'Devastate', shape: 'line', len: 6, width: 2, dmg: 2.6, finisher: 0.25, leech: 0.08, combo: true, mp: 22, cd: 8 },
+  sp_warchief_charge: { name: 'Rage Charge', shape: 'dash', len: 5.5, width: 1.6, dmg: 2.2, crit: 0.15, combo: true, mp: 10, cd: 4 },
+  sp_warchief_howl: { name: 'Howl of War', shape: 'buff', comboGain: 3, berserk: 4, combo: true, mp: 20, cd: 14 },
+  sp_warchief_whirl: { name: 'Fury Whirl', shape: 'nova', r: 2.8, dmg: 1.8, combo: true, mp: 12, cd: 3.8 },
+  sp_warchief_axe_rain: { name: 'Axe Rain', shape: 'rain', r: 3.5, range: 7, n: 6, every: 0.18, hit: 1.2, dmg: 1.3, combo: true, mp: 28, cd: 9 },
+  sp_warchief_carnage: { name: 'Carnage', shape: 'cone', range: 3.8, arc: 150, dmg: 2.0, leech: 0.1, combo: true, mp: 14, cd: 5 },
+  // Warrior - Phoenix Oath: Rebirth. A lethal blow sets him alight instead and
+  // he rises at 40% HP in an explosion (once per 90s). The Firebird loops out and home.
   sp_phoenix_strike: { name: 'Radiant Strike', shape: 'strike', range: 3.6, dmg: 3.0, burn: 2, mp: 12, cd: 3 },
-  sp_phoenix_orbs: { name: 'Ember Orbs', shape: 'orbs', n: 3, spread: 0.25, len: 6.5, dur: 2.2, r: 1.8, every: 0.22, dmg: 0.55, burn: 1.5, mp: 20, cd: 7 },
+  sp_phoenix_firebird: { name: 'Firebird', shape: 'firebird', len: 6.5, dur: 1.6, r: 1.6, every: 0.12, dmg: 0.6, burn: 2, mp: 20, cd: 7 },
   sp_phoenix_immolation: { name: 'Immolation Oath', shape: 'pulse', r: 3.4, n: 3, every: 0.6, dmg: 1.4, burn: 2, undying: 6, mp: 30, cd: 14 },
   sp_phoenix_ember: { name: 'Ember Step', shape: 'dash', len: 5.5, width: 1.5, dmg: 1.8, burn: 2, mp: 10, cd: 4 },
   sp_phoenix_conflagration: { name: 'Conflagration', shape: 'blast', r: 3, range: 7, dmg: 1.6, burn: 2, field: { dur: 3, every: 0.5, r: 2, mult: 0.45 }, mp: 24, cd: 8 },
-  sp_phoenix_winged: { name: 'Winged Nova', shape: 'nova', r: 3.2, dmg: 1.6, shield: 0.1, heal: 0.04, mp: 20, cd: 8 },
-  sp_phoenix_rebirth: { name: 'Rebirth', shape: 'buff', r: 3, dmg: 1.0, undying: 5, heal: 0.12, shield: 0.15, mp: 28, cd: 15 },
+  sp_phoenix_sacrifice: { name: 'Ashen Sacrifice', shape: 'sacrifice', r: 3.6, dmg: 2.0, burnHp: 0.25, regrow: 1.2, mp: 18, cd: 10 },
+  sp_phoenix_rebirth: { name: 'Kindled Heart', shape: 'buff', rekindle: true, shield: 0.15, mp: 28, cd: 30 },
   sp_phoenix_talon: { name: 'Phoenix Talon', shape: 'chain', range: 5.5, jump: 4, n: 5, decay: 0.85, dmg: 1.7, burn: 2, mp: 18, cd: 5 },
 
   // Mage - Pyromancer
@@ -474,16 +480,16 @@ const SP_CARD_EXTRAS = {
   sp_frost_templar: ['sp_frost_lance', 'sp_hail_shards', 'sp_glacial_prison', 'sp_frost_vault'],
   sp_storm_herald: ['sp_thunder_spear', 'sp_static_cleave', 'sp_storm_aegis', 'sp_storm_dash'],
   sp_dread_lord: ['sp_soul_rend', 'sp_dread_wave', 'sp_grave_rain', 'sp_void_step'],
-  sp_gravelord: ['sp_gravelord_quakes', 'sp_gravelord_aftershock', 'sp_gravelord_bastion', 'sp_gravelord_boulder'],
-  sp_dragoon: ['sp_dragoon_wing_slash', 'sp_dragoon_impact', 'sp_dragoon_vantage', 'sp_dragoon_pierce'],
+  sp_gravelord: ['sp_gravelord_aftershock', 'sp_gravelord_rupture', 'sp_gravelord_boulder', 'sp_gravelord_bastion'],
+  sp_dragoon: ['sp_dragoon_pierce', 'sp_dragoon_impact', 'sp_dragoon_barrage', 'sp_dragoon_updraft'],
   sp_reaver: ['sp_reaver_stance', 'sp_reaver_ember_cleave', 'sp_reaver_firebrand', 'sp_reaver_crater'],
-  sp_runeknight: ['sp_runeknight_volley', 'sp_runeknight_chain', 'sp_runeknight_storm', 'sp_runeknight_guard'],
-  sp_sentinel: ['sp_sentinel_mist', 'sp_sentinel_retribution', 'sp_sentinel_aegis', 'sp_sentinel_hallowed'],
-  sp_duskblade: ['sp_duskblade_chain', 'sp_duskblade_rain', 'sp_duskblade_wail', 'sp_duskblade_soul_mirror'],
-  sp_titan: ['sp_titan_cataclysm', 'sp_titan_landslide', 'sp_titan_mountain', 'sp_titan_afterquake'],
-  sp_bannerman: ['sp_bannerman_inspire', 'sp_bannerman_vanguard', 'sp_bannerman_last_stand', 'sp_bannerman_boon'],
-  sp_warchief: ['sp_warchief_howl', 'sp_warchief_axe_rain', 'sp_warchief_volley', 'sp_warchief_carnage'],
-  sp_phoenix_oath: ['sp_phoenix_conflagration', 'sp_phoenix_winged', 'sp_phoenix_rebirth', 'sp_phoenix_talon'],
+  sp_runeknight: ['sp_runeknight_bind', 'sp_runeknight_frost', 'sp_runeknight_chain', 'sp_runeknight_guard'],
+  sp_sentinel: ['sp_sentinel_mist', 'sp_sentinel_ram', 'sp_sentinel_bulwark', 'sp_sentinel_hallowed'],
+  sp_duskblade: ['sp_duskblade_phantom', 'sp_duskblade_rain', 'sp_duskblade_wail', 'sp_duskblade_soul_mirror'],
+  sp_titan: ['sp_titan_maul', 'sp_titan_cataclysm', 'sp_titan_landslide', 'sp_titan_mountain'],
+  sp_bannerman: ['sp_bannerman_inspire', 'sp_bannerman_vanguard', 'sp_bannerman_last_stand', 'sp_bannerman_call'],
+  sp_warchief: ['sp_warchief_howl', 'sp_warchief_whirl', 'sp_warchief_axe_rain', 'sp_warchief_carnage'],
+  sp_phoenix_oath: ['sp_phoenix_conflagration', 'sp_phoenix_sacrifice', 'sp_phoenix_rebirth', 'sp_phoenix_talon'],
   sp_pyromancer: ['sp_meteor_call', 'sp_fire_chain', 'sp_cinder_rain', 'sp_phoenix_blink'],
   sp_cryo_sage: ['sp_ice_shards', 'sp_frost_cone', 'sp_glacial_pull', 'sp_frost_slide'],
   sp_tempest: ['sp_ball_lightning', 'sp_thunder_nova', 'sp_spark_rain', 'sp_storm_surge'],
@@ -521,7 +527,22 @@ const SP_SHAPE_TEXT = {
     : s.skyStrike ? `Toggle: lightning strikes from the sky on up to ${s.skyStrike} enemies within ${s.r} of you`
     : s.chainAttack ? `Toggle: basic attacks arc through up to ${s.chainAttack.n} enemies (each jump x${s.chainAttack.decay})`
     : `Toggle: blood aura around you (radius ${s.r})`),
-  orbs: s => `Launch ${s.n} storm orbs ${s.len} tiles ahead over ${s.dur}s, shocking everything within ${s.r} of each`
+  orbs: s => `Launch ${s.n} storm orbs ${s.len} tiles ahead over ${s.dur}s, shocking everything within ${s.r} of each`,
+  // variant warrior shapes
+  fault: s => `A crack crawls ${Math.round(s.n * s.step)} tiles through the ground, erupting ${s.n} times`,
+  spear: s => `Hurl a lance ${s.len} tiles; cast again within ${s.hold}s to dive onto it (${s.dive}x around the landing)`,
+  jump: s => `Leap into the sky for ${s.air}s (untouchable), then crash down on the cursor (radius ${s.r})`,
+  wall: s => `Raise a ${s.len}-tile wall of fire across the target point`,
+  rune: s => `Carve a glyph at the cursor for ${s.dur}s (4 at most); it bursts (radius ${s.r}) when an enemy steps on it`,
+  invoke: s => `Set off every glyph you have carved at once (radius ${s.r})`,
+  ricochet: s => `Throw your shield: it bounces through ${s.n} enemies and flies back to you`,
+  phantom: s => `A phantom blade slashes ${s.n} times, leaping to a new enemy each time`,
+  hurl: s => `Grab the nearest enemy and throw it up to ${s.throw} tiles at the cursor; where it lands takes ${s.land.mult}x (radius ${s.land.r})`,
+  banner: s => `Plant a War Standard for ${s.dur}s (radius ${s.r}): inside it you deal +${Math.round(s.bonus * 100)}% damage and heal ${Math.round(s.regen * 100)}% max HP/s, and it burns enemies around it`,
+  rally: s => `Leap to your War Standard and burst there (radius ${s.r}); without one, burst where you stand`,
+  boomerang: s => `Throw ${s.n} axes ${s.len} tiles out; they cut on the way out and again on the way back`,
+  firebird: s => `Release a Firebird that loops ${s.len} tiles out and back over ${s.dur}s, burning everything within ${s.r} of it`,
+  sacrifice: s => `Burn ${Math.round(s.burnHp * 100)}% of your current HP into a blast (radius ${s.r}) that grows with the HP spent`
 };
 
 function spSkillDesc(s) {
@@ -578,6 +599,24 @@ function spSkillDesc(s) {
   if (s.souls) parts.push(`+${s.souls} Soul per enemy hit`);
   if (s.devour) parts.push(`Devour: spends Souls for +12% damage and ${Math.round(s.devour * 100)}% HP each`);
   if (s.riftPull) parts.push('drags nearby enemies through the rift with you');
+  // variant warrior mechanics
+  if (s.fracture) parts.push(`+${s.fracture} Fracture (max 5)`);
+  if (s.shatterEarth) parts.push(`shatters Fracture: +${Math.round(s.shatterEarth * 100)}% damage and a 0.35s stun per crack`);
+  if (s.plow) parts.push('shoves enemies along to the end of the charge');
+  if (s.heat) parts.push(`+${s.heat} Heat (100 = Overheat 6s: free skills, +40% damage, you burn)`);
+  if (s.vent) parts.push(`Vent: spends all Heat for +${Math.round(s.vent * 100)}% per 10 Heat`);
+  if (s.leaveRune) parts.push('leaves a Binding Glyph where you stood');
+  if (s.kind === 'bind') parts.push('the glyph binds what it catches');
+  if (s.provoke) parts.push('drags enemies toward you and makes them attack you');
+  if (s.parry) parts.push(`Riposte ${s.parry}s: blocks every monster attack and strikes back for ${s.riposte}x`);
+  if (s.shieldPerHit) parts.push(`+${Math.round(s.shieldPerHit * 100)}% max HP shield per enemy hit`);
+  if (s.doom) parts.push(`Doom ${s.doom.delay}s: replays ${Math.round(s.doom.share * 100)}% of the damage you deal the target`);
+  if (s.reap) parts.push('reaps every Doom brand at once');
+  if (s.combo) parts.push('Combo skill');
+  if (s.comboGain) parts.push(`+${s.comboGain} Combo`);
+  if (s.finisher) parts.push(`Finisher: spends Combo for +${Math.round(s.finisher * 100)}% per stack`);
+  if (s.rekindle) parts.push('Rebirth is ready again');
+  if (s.regrow) parts.push(`regrows ${Math.round(s.regrow * 100)}% of the HP spent over 5s`);
   if (s.implode) parts.push(`collapses after ${s.implode.delay}s, pulling in everything within ${s.implode.r} for ${s.implode.mult}x`);
   return parts.join(', ') + '.';
 }

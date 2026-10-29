@@ -841,7 +841,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Skill definition by id: class skills, or an SP card's own skills
   // SP skill shapes aimed at the mouse cursor instead of the nearest monster
-  const CURSOR_AIMED_SHAPES = new Set(['shuriken', 'shadow']);
+  const CURSOR_AIMED_SHAPES = new Set(['shuriken', 'shadow', 'spear', 'jump', 'wall', 'rune', 'banner', 'hurl', 'fault', 'boomerang', 'firebird']);
   let lastCursor = null; // canvas px of the mouse
   let shurikenRecall = null; // { slot, until }: Phantom Shuriken stars are out and can be called back
 
@@ -1479,6 +1479,13 @@ document.addEventListener('DOMContentLoaded', () => {
   // SP card skills: pick a sound from the skill's shape and element
   function playSpSkillSound(fx) {
     const se = window.soundEngine;
+    // variant warrior signature shapes
+    const VARIANT = {
+      fault: 'playEarthshaker', spear: 'playShuriken', jump: 'playBlink', wall: 'playFireball', rune: 'playTargetLock',
+      invoke: 'playExplosion', ricochet: 'playShuriken', phantom: 'playShadowDash', hurl: 'playEarthshaker',
+      banner: 'playShield', rally: 'playBladeCharge', boomerang: 'playSweepingEdge', firebird: 'playFireball', sacrifice: 'playExplosion'
+    };
+    if (VARIANT[fx.shape] && se[VARIANT[fx.shape]]) return se[VARIANT[fx.shape]]();
     if (fx.shape === 'aura') return fx.off ? se.playSkillWhoosh() : se.playBerserk();
     if (fx.shape === 'blink') return se.playBlink();
     if (fx.shape === 'dash') return se.playBladeCharge();
@@ -1496,8 +1503,20 @@ document.addEventListener('DOMContentLoaded', () => {
   socket.on('skill_fx', (fx) => {
     if (renderer) renderer.addSkillEffect(fx);
 
-    if (fx.type === 'sp_skill' && fx.shape === 'shuriken' && fx.ownerId === localPlayerId) {
-      if (fx.recall) {
+    // follow-up beats of variant warrior skills (landings, bursts) get their own sound
+    if (fx.type === 'sp_skill' && !fx.playerId) {
+      const se = window.soundEngine;
+      if (fx.shape === 'jump' && fx.landed) se.playEarthshaker();
+      else if (fx.shape === 'spear' && fx.dive) se.playThunder();
+      else if (fx.shape === 'rune' && fx.burst) se.playExplosion();
+      else if (fx.shape === 'doom' && fx.burst) se.playSingularity();
+      else if (fx.shape === 'riposte') se.playShield();
+      else if (fx.shape === 'rebirth') se.playFireball();
+    }
+
+    // Phantom Shuriken stars / a planted Sky Lance: the next press recalls (dives), cooldown or not
+    if (fx.type === 'sp_skill' && (fx.shape === 'shuriken' || fx.shape === 'spear') && fx.ownerId === localPlayerId) {
+      if (fx.recall || fx.dive) {
         shurikenRecall = null;
         window.soundEngine.playFanOfKnives();
       } else if (fx.skillSlot) {
@@ -2446,12 +2465,14 @@ document.addEventListener('DOMContentLoaded', () => {
       const dist = Math.hypot(targetMob.x - localPlayer.x, targetMob.y - localPlayer.y);
       const attackRange = localPlayer.characterClass === 'mage' ? 5.5 : 2.2;
 
-      // For melee, if slightly out of reach (e.g. 2.2 to 4.5 tiles), step forward to engage
+      // For melee, if slightly out of reach (e.g. 2.2 to 4.5 tiles), step forward to engage:
+      // stop at sword's length in front of the monster, not on top of it
       if (dist > attackRange && dist <= 4.5) {
+        const stopAt = Math.max(0.9, attackRange * 0.6);
         socket.emit('player_input', {
           type: 'click_move',
-          x: targetMob.x,
-          y: targetMob.y
+          x: targetMob.x - ((targetMob.x - localPlayer.x) / dist) * stopAt,
+          y: targetMob.y - ((targetMob.y - localPlayer.y) / dist) * stopAt
         });
       }
 
