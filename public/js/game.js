@@ -1139,6 +1139,70 @@ document.addEventListener('DOMContentLoaded', () => {
         window.soundEngine.playLevelUp();
       }
     }
+
+    // Field raid / world boss widget: show while a raid boss is up in this zone
+    if (data.raid && data.raid.active) {
+      showRaidWidget(data.raid);
+    } else {
+      hideRaidWidget();
+    }
+  });
+
+  // ---------------------------------------------------------------- field raid / world boss
+  const raidPanel = document.getElementById('raidPanel');
+  const raidNameEl = document.getElementById('raidName');
+  const raidHpFill = document.getElementById('raidHpFill');
+  const raidTimerEl = document.getElementById('raidTimer');
+  const raidDmgRow = document.getElementById('raidDmgRow');
+  const raidCountEl = document.getElementById('raidCount');
+  const raidYouEl = document.getElementById('raidYou');
+
+  function hideRaidWidget() {
+    if (raidPanel) raidPanel.style.display = 'none';
+  }
+
+  function showRaidWidget(info) {
+    if (!raidPanel) return;
+    raidPanel.style.display = 'block';
+    if (raidNameEl) raidNameEl.textContent = `${info.name || 'Raid Boss'}${info.level ? ` (Lv. ${info.level})` : ''}`;
+    const pct = info.maxHp ? Math.max(0, Math.min(100, (info.hp / info.maxHp) * 100)) : 100;
+    if (raidHpFill) raidHpFill.style.width = `${pct}%`;
+    if (raidTimerEl) {
+      raidTimerEl.textContent = info.endsIn != null && info.endsIn >= 0
+        ? `⏳ ${Math.floor(info.endsIn / 60)}:${String(Math.floor(info.endsIn % 60)).padStart(2, '0')}`
+        : '';
+    }
+    const top = info.top || [];
+    const medals = ['🥇', '🥈', '🥉'];
+    let html = '';
+    top.slice(0, 3).forEach((r, i) => {
+      const me = r.id === localPlayerId ? ' rd-you' : '';
+      html += `<div class="rd-line rd-${i + 1}${me}">${medals[i]} ${escapeHtml(r.name)}<span>${r.dmg.toLocaleString()}</span></div>`;
+    });
+    if (raidDmgRow) raidDmgRow.innerHTML = html;
+    if (raidCountEl) raidCountEl.textContent = `${info.count || 0} Raider${(info.count || 0) === 1 ? '' : 's'}`;
+    if (raidYouEl) {
+      const myIdx = top.findIndex(r => r.id === localPlayerId);
+      raidYouEl.textContent = myIdx >= 0
+        ? `You: #${myIdx + 1} · ${top[myIdx].dmg.toLocaleString()} dmg`
+        : 'Strike the boss to enter the board!';
+    }
+  }
+
+  socket.on('raid_spawn', (data) => showRaidWidget(data));
+  socket.on('raid_leaderboard', (data) => showRaidWidget(data));
+  socket.on('raid_gone', () => hideRaidWidget());
+  socket.on('raid_reward', (data) => {
+    if (!data) return;
+    const parts = [
+      data.gold ? `+${data.gold.toLocaleString()} Gold` : null,
+      data.exp ? `+${data.exp.toLocaleString()} EXP` : null,
+      data.fragments ? `+${data.fragments} Fragments` : null
+    ].filter(Boolean);
+    appendChatMessage({
+      senderClass: 'system',
+      text: `🏆 RAID REWARD (${data.label || 'Reward'} ${data.rank}/${data.total}): ${parts.join(', ') || '—'} from [${data.bossName || 'the Raid Boss'}].`
+    });
   });
 
   if (zoneBadge) {

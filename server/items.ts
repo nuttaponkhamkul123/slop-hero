@@ -1,810 +1,36 @@
 // Item Database & Loot Tables for Slop Hero
-const ITEMS = {
-  // Consumables (Potions, Scrolls & Elixirs sold in Olaf's Shop)
-  health_potion: {
-    id: 'health_potion',
-    name: 'Health Potion',
-    type: 'consumable',
-    icon: '🧪',
-    rarity: 'common',
-    buyPrice: 25,
-    sellPrice: 12,
-    healAmount: 60,
-    desc: 'Restores 60 Health instantly.'
-  },
-  mana_potion: {
-    id: 'mana_potion',
-    name: 'Mana Potion',
-    type: 'consumable',
-    icon: '🔮',
-    rarity: 'common',
-    buyPrice: 30,
-    sellPrice: 15,
-    manaAmount: 50,
-    desc: 'Restores 50 Mana instantly.'
-  },
-  greater_health_potion: {
-    id: 'greater_health_potion',
-    name: 'Greater Health Potion',
-    type: 'consumable',
-    icon: '🧪',
-    rarity: 'rare',
-    buyPrice: 70,
-    sellPrice: 32,
-    healAmount: 140,
-    desc: 'Potent draught. Restores 140 Health instantly.'
-  },
-  greater_mana_potion: {
-    id: 'greater_mana_potion',
-    name: 'Greater Mana Potion',
-    type: 'consumable',
-    icon: '🔮',
-    rarity: 'rare',
-    buyPrice: 80,
-    sellPrice: 38,
-    manaAmount: 120,
-    desc: 'Potent brew. Restores 120 Mana instantly.'
-  },
-  town_scroll: {
-    id: 'town_scroll',
-    name: 'Town Portal Scroll',
-    type: 'consumable',
-    icon: '📜',
-    rarity: 'rare',
-    buyPrice: 50,
-    sellPrice: 25,
-    desc: 'Instantly teleports you back to town safely.'
-  },
-  elixir_of_fury: {
-    id: 'elixir_of_fury',
-    name: 'Elixir of Fury',
-    type: 'consumable',
-    icon: '⚗️',
-    rarity: 'rare',
-    buyPrice: 95,
-    sellPrice: 45,
-    desc: 'Restores 40 Mana and grants ferocious battle vigor.'
-  },
-  elixir_of_iron: {
-    id: 'elixir_of_iron',
-    name: 'Elixir of Iron Skin',
-    type: 'consumable',
-    icon: '🛡️',
-    rarity: 'rare',
-    buyPrice: 90,
-    sellPrice: 40,
-    desc: 'Alchemical stone draught. Fortifies body against strikes.'
-  },
-  // Revive on the spot; reviveShare = share of max HP & MP restored
-  revival_stone: {
-    id: 'revival_stone',
-    name: 'หินชุบชีวิต (Revival Stone)',
-    type: 'consumable',
-    icon: '💎',
-    iconKey: 'gem',
-    rarity: 'legendary',
-    buyPrice: 5000,
-    sellPrice: 1500,
-    reviveShare: 0.3,
-    desc: 'หินเวทมนตร์ศักดิ์สิทธิ์ ชุบชีวิตฟื้นคืนชีพ ณ จุดที่ตาย พร้อม 30% HP & MP โดยไม่ถูกส่งกลับเมืองและไม่สูญเสียความคืบหน้าดันเจี้ยน'
-  },
-  super_revival_stone: {
-    id: 'super_revival_stone',
-    name: 'หินชุบชีวิตระดับซุปเปอร์ (Super Revival Stone)',
-    type: 'consumable',
-    icon: '💎',
-    iconKey: 'ruby',
-    rarity: 'mythic',
-    buyPrice: 50000,
-    sellPrice: 15000,
-    reviveShare: 1,
-    desc: 'หินชุบชีวิตระดับสูงสุด ฟื้นคืนชีพ ณ จุดที่ตาย พร้อม 100% HP & MP เต็ม โดยไม่ถูกส่งกลับเมืองและไม่สูญเสียความคืบหน้าดันเจี้ยน'
-  },
+import { ELEMENT_INFO } from './elements';
+import consumables from './data/items/consumables.json';
+import materials from './data/items/materials.json';
+import treasures from './data/items/treasures.json';
+import weapons from './data/items/weapons.json';
+import armor from './data/items/armor.json';
+import helmets from './data/items/helmets.json';
+import boots from './data/items/boots.json';
+import rings from './data/items/rings.json';
 
-  // SP card material: exchanged and spent at the enchanter
-  spirit_fragment: {
-    id: 'spirit_fragment',
-    name: 'Spirit Fragment',
-    type: 'material',
-    iconKey: 'fragment',
-    rarity: 'epic',
-    sellPrice: 150,
-    desc: 'A shard of a hero\'s spirit. Valka the Enchanter trades SP cards and card enhancements for these.'
-  },
-
-  // Dungeon Relics & Treasures (Valuable loot to sell in shop for Gold)
-  ancient_ruby: {
-    id: 'ancient_ruby',
-    name: 'Ancient Ruby',
-    type: 'treasure',
-    icon: '💎',
-    rarity: 'rare',
-    sellPrice: 65,
-    desc: 'A sparkling blood-red gem mined from the abyss. High sell value.'
-  },
-  cursed_chalice: {
-    id: 'cursed_chalice',
-    name: 'Cursed Chalice',
-    type: 'treasure',
-    icon: '🏆',
-    rarity: 'rare',
-    sellPrice: 90,
-    desc: 'An ornate silver goblet inlaid with ancient engravings.'
-  },
-  dragon_scale: {
-    id: 'dragon_scale',
-    name: 'Dragon Scale',
-    type: 'treasure',
-    icon: '🐉',
-    rarity: 'epic',
-    sellPrice: 160,
-    desc: 'A hardened iridescent dragon scale prized by merchants.'
-  },
-  golden_idol: {
-    id: 'golden_idol',
-    name: 'Golden Idol',
-    type: 'treasure',
-    icon: '🗿',
-    rarity: 'legendary',
-    sellPrice: 300,
-    desc: 'A priceless relic of a forgotten sun deity.'
-  },
-  shadow_essence: {
-    id: 'shadow_essence',
-    name: 'Shadow Essence',
-    type: 'treasure',
-    icon: '✨',
-    rarity: 'rare',
-    sellPrice: 75,
-    desc: 'Concentrated dark energy captured from dungeon wraiths.'
-  },
-
-  // Weapons & Equipment (Drop from dungeon chests with randomized stats; NOT sold in shop!)
-  iron_blade: {
-    id: 'iron_blade',
-    name: 'Knight Broadsword',
-    type: 'equipment',
-    slot: 'weapon',
-    icon: '🗡️',
-    rarity: 'common',
-    sellPrice: 50,
-    bonusDmg: 10,
-    bonusSwipe: 30,
-    element: 'neutral',
-    desc: '+10 Attack Power, +30% Swipe (Cleave) [⚪ Neutral Element].'
-  },
-  shadow_daggers: {
-    id: 'shadow_daggers',
-    name: 'Obsidian Daggers',
-    type: 'equipment',
-    slot: 'weapon',
-    icon: '🔪',
-    rarity: 'rare',
-    sellPrice: 95,
-    bonusDmg: 16,
-    bonusSpeed: 0.5,
-    bonusAttackSpeed: 0.25,
-    element: 'dark',
-    desc: '+16 Attack Power, +25% Attack Speed, +0.5 Speed [💀 Dark Element].'
-  },
-  sweeping_claymore: {
-    id: 'sweeping_claymore',
-    name: 'Sweeping Claymore',
-    type: 'equipment',
-    slot: 'weapon',
-    icon: '⚔️',
-    rarity: 'rare',
-    sellPrice: 110,
-    bonusDmg: 18,
-    bonusSwipe: 55,
-    bonusAttackSpeed: 0.10,
-    element: 'earth',
-    desc: '+18 Attack Power, +55% Sweeping Edge, +10% Attack Speed [🌿 Earth Element].'
-  },
-  inferno_blade: {
-    id: 'inferno_blade',
-    name: 'Inferno Edge',
-    type: 'equipment',
-    slot: 'weapon',
-    icon: '🔥',
-    rarity: 'rare',
-    sellPrice: 120,
-    bonusDmg: 20,
-    bonusSwipe: 35,
-    element: 'fire',
-    desc: '+20 Attack Power, +35% Swipe [🔥 Fire Element]. Scorches foes with blistering heat.'
-  },
-  glacial_spire: {
-    id: 'glacial_spire',
-    name: 'Glacial Spire',
-    type: 'equipment',
-    slot: 'weapon',
-    icon: '❄️',
-    rarity: 'rare',
-    sellPrice: 125,
-    bonusDmg: 21,
-    bonusMp: 35,
-    element: 'ice',
-    desc: '+21 Attack Power, +35 Max Mana [❄️ Ice Element]. Freezes monsters upon strike.'
-  },
-  storm_breaker: {
-    id: 'storm_breaker',
-    name: 'Storm Breaker',
-    type: 'equipment',
-    slot: 'weapon',
-    icon: '⚡',
-    rarity: 'epic',
-    sellPrice: 175,
-    bonusDmg: 26,
-    bonusAttackSpeed: 0.22,
-    bonusSwipe: 40,
-    element: 'lightning',
-    desc: '+26 Attack Power, +22% Attack Speed, +40% Swipe [⚡ Lightning Element].'
-  },
-  wind_rapier: {
-    id: 'wind_rapier',
-    name: 'Zephyr Swiftblade',
-    type: 'equipment',
-    slot: 'weapon',
-    icon: '🗡️',
-    rarity: 'epic',
-    sellPrice: 160,
-    bonusDmg: 22,
-    bonusAttackSpeed: 0.35,
-    bonusSwipe: 25,
-    element: 'lightning',
-    desc: '+22 Attack Power, +35% Attack Speed, +25% Swipe [⚡ Wind/Lightning Element].'
-  },
-  archmage_staff: {
-    id: 'archmage_staff',
-    name: 'Archmage Staff',
-    type: 'equipment',
-    slot: 'weapon',
-    icon: '🪄',
-    rarity: 'epic',
-    sellPrice: 150,
-    bonusDmg: 24,
-    bonusMp: 40,
-    bonusAttackSpeed: 0.10,
-    element: 'fire',
-    desc: '+24 Attack Power, +40 Max Mana, +10% Attack Speed [🔥 Arcane Fire Element].'
-  },
-  excalibur: {
-    id: 'excalibur',
-    name: 'Radiant Holy Blade',
-    type: 'equipment',
-    slot: 'weapon',
-    icon: '⚔️',
-    rarity: 'legendary',
-    sellPrice: 280,
-    bonusDmg: 35,
-    bonusHp: 50,
-    bonusSwipe: 45,
-    bonusAttackSpeed: 0.20,
-    element: 'holy',
-    desc: '+35 Attack Power, +45% Swipe, +20% Attack Speed, +50 Max Health [✨ Holy Element]. Annihilates dark creatures.'
-  },
-
-  // Armor Slot
-  leather_tunic: {
-    id: 'leather_tunic',
-    name: 'Rogue Leather Armor',
-    type: 'equipment',
-    slot: 'armor',
-    icon: '🥋',
-    rarity: 'common',
-    sellPrice: 45,
-    bonusDef: 4,
-    bonusSpeed: 0.4,
-    desc: '+4 Defense, +0.4 Speed.'
-  },
-  plate_cuirass: {
-    id: 'plate_cuirass',
-    name: 'Gilded Plate Armor',
-    type: 'equipment',
-    slot: 'armor',
-    icon: '🛡️',
-    rarity: 'rare',
-    sellPrice: 120,
-    bonusHp: 60,
-    bonusDef: 9,
-    elementResist: { fire: 0.10 },
-    desc: '+60 Max Health, +9 Defense, 🔥 Fire RES +10%.'
-  },
-  mystic_robe: {
-    id: 'mystic_robe',
-    name: 'Ethereal Silk Robes',
-    type: 'equipment',
-    slot: 'armor',
-    icon: '🥻',
-    rarity: 'epic',
-    sellPrice: 155,
-    bonusHp: 40,
-    bonusMp: 60,
-    bonusDef: 6,
-    elementResist: { dark: 0.12, holy: 0.12 },
-    desc: '+40 HP, +60 MP, +6 Defense, 💀 Dark / ✨ Holy RES +12%.'
-  },
-
-  // Helmet Slot
-  iron_helm: {
-    id: 'iron_helm',
-    name: 'Knight Great Helm',
-    type: 'equipment',
-    slot: 'helmet',
-    icon: '🪖',
-    rarity: 'common',
-    sellPrice: 40,
-    bonusDef: 5,
-    bonusHp: 25,
-    desc: '+5 Defense, +25 Max Health.'
-  },
-  shadow_hood: {
-    id: 'shadow_hood',
-    name: 'Assassin Shadow Cowl',
-    type: 'equipment',
-    slot: 'helmet',
-    icon: '🥷',
-    rarity: 'rare',
-    sellPrice: 80,
-    bonusDmg: 8,
-    bonusSpeed: 0.3,
-    desc: '+8 Attack Power, +0.3 Speed.'
-  },
-  archmage_cowl: {
-    id: 'archmage_cowl',
-    name: 'Crown of the Astral Sea',
-    type: 'equipment',
-    slot: 'helmet',
-    icon: '👑',
-    rarity: 'epic',
-    sellPrice: 140,
-    bonusDmg: 12,
-    bonusMp: 45,
-    desc: '+12 Attack Power, +45 Max Mana.'
-  },
-
-  // Boots Slot
-  iron_greaves: {
-    id: 'iron_greaves',
-    name: 'Reinforced Greaves',
-    type: 'equipment',
-    slot: 'boots',
-    icon: '👢',
-    rarity: 'common',
-    sellPrice: 35,
-    bonusDef: 3,
-    bonusSpeed: 0.3,
-    desc: '+3 Defense, +0.3 Speed.'
-  },
-  winged_boots: {
-    id: 'winged_boots',
-    name: 'Hermes Winged Boots',
-    type: 'equipment',
-    slot: 'boots',
-    icon: '🥾',
-    rarity: 'epic',
-    sellPrice: 110,
-    bonusSpeed: 0.9,
-    bonusDef: 4,
-    desc: '+0.9 Movement Speed, +4 Defense.'
-  },
-
-  // Ring / Accessory Slot
-  ring_of_power: {
-    id: 'ring_of_power',
-    name: 'Ring of the Abyss',
-    type: 'equipment',
-    slot: 'ring',
-    icon: '💍',
-    rarity: 'legendary',
-    sellPrice: 200,
-    bonusDmg: 15,
-    bonusHp: 40,
-    bonusMp: 30,
-    elementResist: { dark: 0.15 },
-    desc: '+15 DMG, +40 HP, +30 MP, 💀 Dark RES +15%. Pulsing dark power.'
-  },
-
-  // ---- Expanded equipment catalogue (drops only) ----
-  woodsman_axe: {
-    id: 'woodsman_axe',
-    name: "Woodsman Axe",
-    type: 'equipment',
-    slot: 'weapon',
-    iconKey: 'axe',
-    rarity: 'common',
-    sellPrice: 45,
-    bonusDmg: 12,
-    bonusSwipe: 40,
-    element: 'earth',
-    desc: "+12 Attack Power, +40% Swipe, [Earth Element]. A heavy logging axe that bites deep."
-  },
-  iron_morningstar: {
-    id: 'iron_morningstar',
-    name: "Iron Morningstar",
-    type: 'equipment',
-    slot: 'weapon',
-    iconKey: 'mace',
-    rarity: 'common',
-    sellPrice: 50,
-    bonusDmg: 14,
-    bonusDef: 2,
-    element: 'neutral',
-    desc: "+14 Attack Power, +2 Defense, [Neutral Element]. Spiked iron that cracks armor."
-  },
-  hunter_spear: {
-    id: 'hunter_spear',
-    name: "Hunter's Spear",
-    type: 'equipment',
-    slot: 'weapon',
-    iconKey: 'spear',
-    rarity: 'common',
-    sellPrice: 48,
-    bonusDmg: 13,
-    bonusAttackSpeed: 0.1,
-    element: 'neutral',
-    desc: "+13 Attack Power, +10% Attack Speed, [Neutral Element]. Long reach, quick jabs."
-  },
-  frostbite_katana: {
-    id: 'frostbite_katana',
-    name: "Frostbite Katana",
-    type: 'equipment',
-    slot: 'weapon',
-    iconKey: 'katana',
-    rarity: 'rare',
-    sellPrice: 130,
-    bonusDmg: 22,
-    bonusAttackSpeed: 0.2,
-    element: 'ice',
-    desc: "+22 Attack Power, +20% Attack Speed, [Ice Element]. Its edge never thaws."
-  },
-  venom_kris: {
-    id: 'venom_kris',
-    name: "Venom Fang Kris",
-    type: 'equipment',
-    slot: 'weapon',
-    iconKey: 'dagger',
-    rarity: 'rare',
-    sellPrice: 115,
-    bonusDmg: 18,
-    bonusAttackSpeed: 0.3,
-    element: 'earth',
-    desc: "+18 Attack Power, +30% Attack Speed, [Earth Element]. A wavy blade dripping with toxin."
-  },
-  voidcaller_wand: {
-    id: 'voidcaller_wand',
-    name: "Voidcaller Wand",
-    type: 'equipment',
-    slot: 'weapon',
-    iconKey: 'wand',
-    rarity: 'rare',
-    sellPrice: 125,
-    bonusDmg: 19,
-    bonusMp: 50,
-    element: 'dark',
-    desc: "+19 Attack Power, +50 Max Mana, [Dark Element]. Whispers from the abyss guide each bolt."
-  },
-  ember_scythe: {
-    id: 'ember_scythe',
-    name: "Ember Reaper Scythe",
-    type: 'equipment',
-    slot: 'weapon',
-    iconKey: 'scythe',
-    rarity: 'epic',
-    sellPrice: 190,
-    bonusDmg: 28,
-    bonusSwipe: 60,
-    element: 'fire',
-    desc: "+28 Attack Power, +60% Swipe, [Fire Element]. Harvests souls in sweeping arcs of flame."
-  },
-  thunder_maul: {
-    id: 'thunder_maul',
-    name: "Thunder Maul",
-    type: 'equipment',
-    slot: 'weapon',
-    iconKey: 'hammer',
-    rarity: 'epic',
-    sellPrice: 200,
-    bonusDmg: 32,
-    bonusSwipe: 35,
-    element: 'lightning',
-    desc: "+32 Attack Power, +35% Swipe, [Lightning Element]. Every blow rolls like a storm."
-  },
-  dawn_scepter: {
-    id: 'dawn_scepter',
-    name: "Scepter of Dawn",
-    type: 'equipment',
-    slot: 'weapon',
-    iconKey: 'scepter',
-    rarity: 'legendary',
-    sellPrice: 300,
-    bonusDmg: 34,
-    bonusMp: 60,
-    bonusHp: 40,
-    element: 'holy',
-    desc: "+34 Attack Power, +60 Max Mana, +40 Max Health, [Holy Element]. Radiates the first light of morning."
-  },
-  dragonbone_glaive: {
-    id: 'dragonbone_glaive',
-    name: "Dragonbone Glaive",
-    type: 'equipment',
-    slot: 'weapon',
-    iconKey: 'spear',
-    rarity: 'legendary',
-    sellPrice: 320,
-    bonusDmg: 38,
-    bonusSwipe: 55,
-    element: 'fire',
-    desc: "+38 Attack Power, +55% Swipe, [Fire Element]. Carved from the spine of an elder wyrm."
-  },
-  chain_hauberk: {
-    id: 'chain_hauberk',
-    name: "Chainmail Hauberk",
-    type: 'equipment',
-    slot: 'armor',
-    iconKey: 'chainmail',
-    rarity: 'common',
-    sellPrice: 50,
-    bonusDef: 7,
-    bonusHp: 30,
-    desc: "+7 Defense, +30 Max Health. Riveted rings of honest steel."
-  },
-  ranger_jerkin: {
-    id: 'ranger_jerkin',
-    name: "Ranger's Jerkin",
-    type: 'equipment',
-    slot: 'armor',
-    iconKey: 'armor_leather',
-    rarity: 'common',
-    sellPrice: 45,
-    bonusDef: 4,
-    bonusSpeed: 0.3,
-    desc: "+4 Defense, +0.3 Speed. Light leather for long patrols."
-  },
-  glacier_plate: {
-    id: 'glacier_plate',
-    name: "Glacier Plate",
-    type: 'equipment',
-    slot: 'armor',
-    iconKey: 'armor_ice',
-    rarity: 'rare',
-    sellPrice: 135,
-    bonusDef: 11,
-    bonusHp: 50,
-    elementResist:  {ice: 0.15},
-    desc: "+11 Defense, +50 Max Health, Ice RES +15%. Frost-forged plates that shrug off cold."
-  },
-  nightstalker_garb: {
-    id: 'nightstalker_garb',
-    name: "Nightstalker Garb",
-    type: 'equipment',
-    slot: 'armor',
-    iconKey: 'robe_dark',
-    rarity: 'epic',
-    sellPrice: 170,
-    bonusDef: 7,
-    bonusDmg: 10,
-    bonusAttackSpeed: 0.15,
-    elementResist:  {dark: 0.12},
-    desc: "+7 Defense, +10 Attack Power, +15% Attack Speed, Dark RES +12%. Woven from shadow silk."
-  },
-  dragonscale_plate: {
-    id: 'dragonscale_plate',
-    name: "Dragonscale Plate",
-    type: 'equipment',
-    slot: 'armor',
-    iconKey: 'armor_dragon',
-    rarity: 'legendary',
-    sellPrice: 320,
-    bonusDef: 16,
-    bonusHp: 120,
-    elementResist:  {fire: 0.2},
-    desc: "+16 Defense, +120 Max Health, Fire RES +20%. Scales that once withstood dragonfire."
-  },
-  archon_vestments: {
-    id: 'archon_vestments',
-    name: "Archon Vestments",
-    type: 'equipment',
-    slot: 'armor',
-    iconKey: 'robe_gold',
-    rarity: 'legendary',
-    sellPrice: 300,
-    bonusDef: 9,
-    bonusHp: 70,
-    bonusMp: 110,
-    elementResist:  {holy: 0.15},
-    desc: "+9 Defense, +70 Max Health, +110 Max Mana, Holy RES +15%. Robes of the high archons."
-  },
-  rogue_bandana: {
-    id: 'rogue_bandana',
-    name: "Rogue Bandana",
-    type: 'equipment',
-    slot: 'helmet',
-    iconKey: 'bandana',
-    rarity: 'common',
-    sellPrice: 35,
-    bonusSpeed: 0.3,
-    bonusDmg: 4,
-    desc: "+0.3 Speed, +4 Attack Power. Keeps the hair out of the eyes."
-  },
-  horned_helm: {
-    id: 'horned_helm',
-    name: "Horned Viking Helm",
-    type: 'equipment',
-    slot: 'helmet',
-    iconKey: 'horned',
-    rarity: 'rare',
-    sellPrice: 95,
-    bonusDef: 7,
-    bonusHp: 40,
-    bonusDmg: 4,
-    desc: "+7 Defense, +40 Max Health, +4 Attack Power. Worn by raiders of the north."
-  },
-  starweaver_hat: {
-    id: 'starweaver_hat',
-    name: "Starweaver Hat",
-    type: 'equipment',
-    slot: 'helmet',
-    iconKey: 'hat',
-    rarity: 'rare',
-    sellPrice: 100,
-    bonusMp: 50,
-    bonusDmg: 8,
-    desc: "+50 Max Mana, +8 Attack Power. Embroidered with living constellations."
-  },
-  winter_crown: {
-    id: 'winter_crown',
-    name: "Crown of Winter",
-    type: 'equipment',
-    slot: 'helmet',
-    iconKey: 'crown_frost',
-    rarity: 'epic',
-    sellPrice: 160,
-    bonusDef: 6,
-    bonusMp: 40,
-    elementResist:  {ice: 0.15},
-    desc: "+6 Defense, +40 Max Mana, Ice RES +15%. A circlet of never-melting ice."
-  },
-  bone_warden_mask: {
-    id: 'bone_warden_mask',
-    name: "Bone Warden Mask",
-    type: 'equipment',
-    slot: 'helmet',
-    iconKey: 'skull_mask',
-    rarity: 'epic',
-    sellPrice: 165,
-    bonusDef: 8,
-    bonusDmg: 10,
-    elementResist:  {dark: 0.1},
-    desc: "+8 Defense, +10 Attack Power, Dark RES +10%. The face of a long-dead warden."
-  },
-  traveler_boots: {
-    id: 'traveler_boots',
-    name: "Traveler's Boots",
-    type: 'equipment',
-    slot: 'boots',
-    iconKey: 'boots',
-    rarity: 'common',
-    sellPrice: 30,
-    bonusSpeed: 0.4,
-    desc: "+0.4 Speed. Broken in by a thousand roads."
-  },
-  steel_sabatons: {
-    id: 'steel_sabatons',
-    name: "Steel Sabatons",
-    type: 'equipment',
-    slot: 'boots',
-    iconKey: 'boots_steel',
-    rarity: 'rare',
-    sellPrice: 90,
-    bonusDef: 7,
-    bonusHp: 25,
-    desc: "+7 Defense, +25 Max Health. Articulated plate for the feet."
-  },
-  ember_treads: {
-    id: 'ember_treads',
-    name: "Ember Treads",
-    type: 'equipment',
-    slot: 'boots',
-    iconKey: 'boots_ember',
-    rarity: 'epic',
-    sellPrice: 150,
-    bonusSpeed: 0.6,
-    bonusDmg: 6,
-    elementResist:  {fire: 0.12},
-    desc: "+0.6 Speed, +6 Attack Power, Fire RES +12%. Leave smouldering footprints."
-  },
-  shadowstep_boots: {
-    id: 'shadowstep_boots',
-    name: "Shadowstep Boots",
-    type: 'equipment',
-    slot: 'boots',
-    iconKey: 'boots_shadow',
-    rarity: 'legendary',
-    sellPrice: 260,
-    bonusSpeed: 1,
-    bonusAttackSpeed: 0.1,
-    elementResist:  {dark: 0.1},
-    desc: "+1 Speed, +10% Attack Speed, Dark RES +10%. Step between the shadows."
-  },
-  copper_band: {
-    id: 'copper_band',
-    name: "Copper Band",
-    type: 'equipment',
-    slot: 'ring',
-    iconKey: 'ring_copper',
-    rarity: 'common',
-    sellPrice: 25,
-    bonusDmg: 4,
-    bonusHp: 15,
-    desc: "+4 Attack Power, +15 Max Health. Simple, sturdy, slightly green."
-  },
-  sapphire_signet: {
-    id: 'sapphire_signet',
-    name: "Sapphire Signet",
-    type: 'equipment',
-    slot: 'ring',
-    iconKey: 'ring_sapphire',
-    rarity: 'rare',
-    sellPrice: 95,
-    bonusMp: 40,
-    bonusDmg: 6,
-    elementResist:  {ice: 0.08},
-    desc: "+40 Max Mana, +6 Attack Power, Ice RES +8%. A cold blue stone set in silver."
-  },
-  ruby_signet: {
-    id: 'ruby_signet',
-    name: "Ruby Signet",
-    type: 'equipment',
-    slot: 'ring',
-    iconKey: 'ring_ruby',
-    rarity: 'rare',
-    sellPrice: 100,
-    bonusDmg: 10,
-    elementResist:  {fire: 0.08},
-    desc: "+10 Attack Power, Fire RES +8%. Warm to the touch."
-  },
-  emerald_loop: {
-    id: 'emerald_loop',
-    name: "Emerald Loop",
-    type: 'equipment',
-    slot: 'ring',
-    iconKey: 'ring_emerald',
-    rarity: 'rare',
-    sellPrice: 95,
-    bonusHp: 50,
-    bonusSpeed: 0.2,
-    elementResist:  {earth: 0.08},
-    desc: "+50 Max Health, +0.2 Speed, Earth RES +8%. Hums with the life of the forest."
-  },
-  void_eye_ring: {
-    id: 'void_eye_ring',
-    name: "Void Eye Ring",
-    type: 'equipment',
-    slot: 'ring',
-    iconKey: 'ring_void',
-    rarity: 'epic',
-    sellPrice: 170,
-    bonusDmg: 14,
-    bonusAttackSpeed: 0.12,
-    elementResist:  {dark: 0.1},
-    desc: "+14 Attack Power, +12% Attack Speed, Dark RES +10%. An eye that stares back."
-  },
-  phoenix_ring: {
-    id: 'phoenix_ring',
-    name: "Phoenix Feather Ring",
-    type: 'equipment',
-    slot: 'ring',
-    iconKey: 'ring_phoenix',
-    rarity: 'legendary',
-    sellPrice: 280,
-    bonusHp: 90,
-    bonusDmg: 12,
-    elementResist:  {fire: 0.15, holy: 0.1},
-    desc: "+90 Max Health, +12 Attack Power, Fire RES +15%, Holy RES +10%. Reborn from its own ashes."
-  }
+const ITEM_CATEGORIES = {
+  consumables,
+  materials,
+  treasures,
+  weapons,
+  armor,
+  helmets,
+  boots,
+  rings
 };
+
+const ITEMS: Record<string, any> = {
+  ...consumables,
+  ...materials,
+  ...treasures,
+  ...weapons,
+  ...armor,
+  ...helmets,
+  ...boots,
+  ...rings
+};
+
 
 // Weapons are class-locked: only the listed class can equip them.
 const WEAPON_CLASS = {
@@ -819,7 +45,7 @@ for (const [cls, ids] of Object.entries(WEAPON_CLASS)) {
 
 // Weapon abilities (right click). Same data shape and engine as SP card skills
 // (see SP_SKILLS in spCards.js); colour and element come from the weapon.
-const WEAPON_ABILITIES = {
+const WEAPON_ABILITIES: Record<string, any> = {
   // Warrior
   iron_blade: { name: 'Shield Breaker', shape: 'strike', range: 3, dmg: 2.4, knock: 1, mp: 10, cd: 6 },
   sweeping_claymore: { name: 'Grand Sweep', shape: 'cone', range: 4, arc: 200, dmg: 2.0, mp: 12, cd: 6 },
@@ -916,7 +142,7 @@ function weightedPick(entries) {
 function pickGearForLevel(level, { boss = false, cls = null } = {}) {
   const weights = boss ? BOSS_TIER_WEIGHT : NORMAL_TIER_WEIGHT;
   const reach = boss ? BOSS_LEVEL_REACH : 0;
-  const fits = Object.entries(GEAR_TIER)
+  const fits = (Object.entries(GEAR_TIER) as [string, number][])
     .filter(([, tier]) => weights[tier] > 0 && GEAR_TIER_BANDS[tier][0] <= level + reach && level <= GEAR_TIER_BANDS[tier][1])
     .map(([id, tier]) => ({ id, w: weights[tier] }));
   if (!fits.length) return pickGear(boss ? 'boss' : 'common');
@@ -950,7 +176,7 @@ function enhanceChance(item) {
  * Generates an item instance with rolled stats, quality prefix, and secondary affixes
  * Weapons & gear found in chests will have unique stats instead of generic fixed values!
  */
-const { ELEMENT_INFO } = require('./elements');
+// ELEMENT_INFO imported at top
 const RESIST_ELEMENTS = ['fire', 'ice', 'lightning', 'earth', 'holy', 'dark'];
 
 // itemLevel = level of the monster (or dungeon floor band) that dropped it.
@@ -1069,7 +295,7 @@ function generateRandomizedGear(baseId, itemLevel = 1, isBoss = false) {
   if (item.bonusAttackSpeed) statList.push(`+${Math.round(item.bonusAttackSpeed * 100)}% Atk Spd`);
   if (item.bonusSwipe) statList.push(`+${item.bonusSwipe}% Swipe`);
   if (item.elementResist) {
-    for (const [el, val] of Object.entries(item.elementResist)) {
+    for (const [el, rawVal] of Object.entries(item.elementResist)) { const val = rawVal as number;
       const info = ELEMENT_INFO[el];
       statList.push(`${info ? `${info.icon} ${info.name}` : el} RES +${Math.round(val * 100)}%`);
     }
@@ -1313,8 +539,9 @@ function applySkyblockReforge(item, reforgeName) {
   return item;
 }
 
-module.exports = {
+export {
   ITEMS,
+  ITEM_CATEGORIES,
   requiredClass,
   WEAPON_ABILITIES,
   weaponAbility,
@@ -1335,4 +562,32 @@ module.exports = {
   rollSkyblockReforge,
   applySkyblockReforge
 };
+export default ITEMS;
+module.exports = {
+  ITEMS,
+  ITEM_CATEGORIES,
+  requiredClass,
+  WEAPON_ABILITIES,
+  weaponAbility,
+  GEAR_POOLS,
+  pickGear,
+  pickGearForLevel,
+  ENHANCE_MAX,
+  ENHANCE_SAFE_LEVEL,
+  ENHANCE_BASE_COST,
+  ENHANCE_COST_GROWTH,
+  ENHANCE_CHANCE,
+  enhanceCost,
+  enhanceChance,
+  generateRandomizedGear,
+  SKYBLOCK_REFORGES,
+  REFORGE_COSTS,
+  getReforgeCategory,
+  rollSkyblockReforge,
+  applySkyblockReforge
+};
+
+
+
+
 

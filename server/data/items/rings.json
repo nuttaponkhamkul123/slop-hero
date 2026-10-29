@@ -1,0 +1,105 @@
+{
+  "ring_of_power": {
+    "id": "ring_of_power",
+    "name": "Ring of the Abyss",
+    "type": "equipment",
+    "slot": "ring",
+    "icon": "💍",
+    "rarity": "legendary",
+    "sellPrice": 200,
+    "bonusDmg": 15,
+    "bonusHp": 40,
+    "bonusMp": 30,
+    "elementResist": {
+      "dark": 0.15
+    },
+    "desc": "+15 DMG, +40 HP, +30 MP, 💀 Dark RES +15%. Pulsing dark power."
+  },
+  "copper_band": {
+    "id": "copper_band",
+    "name": "Copper Band",
+    "type": "equipment",
+    "slot": "ring",
+    "iconKey": "ring_copper",
+    "rarity": "common",
+    "sellPrice": 25,
+    "bonusDmg": 4,
+    "bonusHp": 15,
+    "desc": "+4 Attack Power, +15 Max Health. Simple, sturdy, slightly green."
+  },
+  "sapphire_signet": {
+    "id": "sapphire_signet",
+    "name": "Sapphire Signet",
+    "type": "equipment",
+    "slot": "ring",
+    "iconKey": "ring_sapphire",
+    "rarity": "rare",
+    "sellPrice": 95,
+    "bonusMp": 40,
+    "bonusDmg": 6,
+    "elementResist": {
+      "ice": 0.08
+    },
+    "desc": "+40 Max Mana, +6 Attack Power, Ice RES +8%. A cold blue stone set in silver."
+  },
+  "ruby_signet": {
+    "id": "ruby_signet",
+    "name": "Ruby Signet",
+    "type": "equipment",
+    "slot": "ring",
+    "iconKey": "ring_ruby",
+    "rarity": "rare",
+    "sellPrice": 100,
+    "bonusDmg": 10,
+    "elementResist": {
+      "fire": 0.08
+    },
+    "desc": "+10 Attack Power, Fire RES +8%. Warm to the touch."
+  },
+  "emerald_loop": {
+    "id": "emerald_loop",
+    "name": "Emerald Loop",
+    "type": "equipment",
+    "slot": "ring",
+    "iconKey": "ring_emerald",
+    "rarity": "rare",
+    "sellPrice": 95,
+    "bonusHp": 50,
+    "bonusSpeed": 0.2,
+    "elementResist": {
+      "earth": 0.08
+    },
+    "desc": "+50 Max Health, +0.2 Speed, Earth RES +8%. Hums with the life of the forest."
+  },
+  "void_eye_ring": {
+    "id": "void_eye_ring",
+    "name": "Void Eye Ring",
+    "type": "equipment",
+    "slot": "ring",
+    "iconKey": "ring_void",
+    "rarity": "epic",
+    "sellPrice": 170,
+    "bonusDmg": 14,
+    "bonusAttackSpeed": 0.12,
+    "elementResist": {
+      "dark": 0.1
+    },
+    "desc": "+14 Attack Power, +12% Attack Speed, Dark RES +10%. An eye that stares back."
+  },
+  "phoenix_ring": {
+    "id": "phoenix_ring",
+    "name": "Phoenix Feather Ring",
+    "type": "equipment",
+    "slot": "ring",
+    "iconKey": "ring_phoenix",
+    "rarity": "legendary",
+    "sellPrice": 280,
+    "bonusHp": 90,
+    "bonusDmg": 12,
+    "elementResist": {
+      "fire": 0.15,
+      "holy": 0.1
+    },
+    "desc": "+90 Max Health, +12 Attack Power, Fire RES +15%, Holy RES +10%. Reborn from its own ashes."
+  }
+}

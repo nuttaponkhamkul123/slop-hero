@@ -574,6 +574,74 @@
       <circle cx="12" cy="48" r="7" fill="${p.acc}" stroke="#ffffff" stroke-width="2.5"/>`]
   });
 
+  // ---- 10 new variant warrior cards (gravelord / dragoon / reaver / rune knight / sentinel /
+  // duskblade / titan / bannerman / warchief / phoenix oath) ----
+  Object.assign(GLYPHS, {
+    // Gravelord: seismic hammer & charge bursts
+    sp_gravelord_slam: alias('earthshaker', 'earth'),
+    sp_gravelord_momentum: ['earth', p => `${rays(32, 32, 14, 22, 10, p.acc, 2)}${star(32, 32, 13, 5, 4, p.hot)}`],
+    sp_gravelord_cataclysm: alias('meteor_dive', 'earth'),
+    sp_gravelord_siege: alias('blade_charge', 'earth'),
+    // Dragoon: storm lance, leaps & skyfall
+    sp_dragoon_impale: ['bolt', p => `${sword(p, 'rotate(90 32 32) translate(32 34) scale(0.75) translate(-32 -32)')}\n
+      <path d="M20 18 L44 18" stroke="${p.acc}" stroke-width="4" stroke-linecap="round"/>`],
+    sp_dragoon_leap: alias('meteor_dive', 'bolt'),
+    sp_dragoon_barrage: alias('blizzard', 'bolt'),
+    sp_dragoon_wind: alias('blade_charge', 'bolt'),
+    // Reaver: flame greatsword & executions
+    sp_reaver_slash: alias('sundering_cleave', 'fire'),
+    sp_reaver_sear: alias('firestorm', 'fire'),
+    sp_reaver_inferno: alias('pyroblast', 'fire'),
+    sp_reaver_step: alias('arcane_blink', 'fire'),
+    // Rune Knight: echoing rune-cast blades
+    sp_runeknight_wave: alias('ragnarok_slash', 'earth'),
+    sp_runeknight_burst: alias('mana_shield', 'earth'),
+    sp_runeknight_sigil: alias('black_hole', 'earth'),
+    sp_runeknight_step: alias('arcane_blink', 'earth'),
+    // Sentinel: unbreakable holy bulwark
+    sp_sentinel_warcry: alias('shield_slam', 'gold'),
+    sp_sentinel_bulwark: alias('iron_fortress', 'gold'),
+    sp_sentinel_ram: alias('colossus_strike', 'gold'),
+    sp_sentinel_guard: ['gold', p => `${shield(p, 'rotate(20 32 32)')}${bolt(p.acc, 'translate(46 44) scale(0.5) translate(-32 -32)')}`],
+    // Duskblade: soul-harvesting greatsword
+    sp_duskblade_soul_rend: alias('sundering_cleave', 'shadow'),
+    sp_duskblade_shadow_cleave: alias('death_blossom', 'shadow'),
+    sp_duskblade_devour: alias('black_hole', 'shadow'),
+    sp_duskblade_tread: alias('arcane_blink', 'shadow'),
+    // Titan: gravity-pulling mountain
+    sp_titan_maul: alias('colossus_strike', 'steel'),
+    sp_titan_graviton: alias('black_hole', 'steel'),
+    sp_titan_cataclysm: alias('earthshaker', 'steel'),
+    sp_titan_stomp: alias('meteor_dive', 'steel'),
+    // Bannerman: radiant war-banner support
+    sp_bannerman_warshout: alias('dragon_roar', 'gold'),
+    sp_bannerman_plant: ['gold', p => `${rays(32, 26, 16, 23, 8, p.acc, 2)}<rect x="29" y="8" width="5" height="22" fill="#7c4a24"/>\n
+      <path d="M32 10 L52 16 L32 24 Z" fill="${p.fg}"/>`],
+    sp_bannerman_inspire: alias('shield_slam', 'gold'),
+    sp_bannerman_flag: alias('blade_charge', 'gold'),
+    // Warchief: twin-axe rage machine
+    sp_warchief_hack: alias('sundering_cleave', 'blood'),
+    sp_warchief_whirl: alias('whirlwind', 'blood'),
+    sp_warchief_devastate: alias('ragnarok_slash', 'blood'),
+    sp_warchief_charge: alias('meteor_dive', 'blood'),
+    // Phoenix Oath: undying rebirth in flame
+    sp_phoenix_strike: alias('ragnarok_slash', 'fire'),
+    sp_phoenix_flare: alias('pyroblast', 'fire'),
+    sp_phoenix_immolation: alias('bladestorm_frenzy', 'fire'),
+    sp_phoenix_ember: alias('arcane_blink', 'fire'),
+    // extras share the generic sp_* pool below
+    sp_gravelord_tremor: alias('black_hole', 'earth'),
+    sp_gravelord_quakes: ['earth', p => `<path d="M6 46 Q32 20 58 46" fill="none" stroke="${p.acc}" stroke-width="6" stroke-linecap="round"/>\n
+      <path d="M10 54 Q32 34 54 54" fill="none" stroke="${p.fg}" stroke-width="3" stroke-linecap="round"/>`],
+    sp_reaver_crater: ['fire', p => `${drop(p.fg, 'translate(32 40) scale(0.8) translate(-32 -32)')}<path d="M10 52 H54" stroke="${p.hot}" stroke-width="3" stroke-linecap="round"/>`],
+    sp_titan_fissure: ['steel', p => `${rays(32, 32, 18, 25, 10, p.acc, 2)}${star(32, 32, 12, 5, 4, p.hot)}`],
+    sp_sentinel_aegis: alias('iron_fortress', 'gold'),
+    sp_bannerman_call: alias('dragon_roar', 'gold'),
+    sp_warchief_warcry: alias('earthshaker', 'blood'),
+    sp_phoenix_rebirth: ['fire', p => `${heart(p.hot)}${rays(32, 34, 18, 26, 12, p.acc, 2)}`]
+  });
+
+
   let uid = 0;
 
   function hashStr(s) {
@@ -622,6 +690,14 @@
     if (skillId.startsWith('rog_wind')) {
       const list = [GLYPHS.fleet_footwork, GLYPHS.wind_flurry, GLYPHS.evasive_reflexes, GLYPHS.phantom_duelist];
       return list[h % list.length] || GLYPHS.fleet_footwork;
+    }
+    // Generic SP cards: any skill without a bespoke icon picks from a broad pool
+    if (skillId.startsWith('sp_')) {
+      const list = [GLYPHS.shield_slam, GLYPHS.iron_fortress, GLYPHS.titan_bastion, GLYPHS.earthshaker, GLYPHS.whirlwind,
+        GLYPHS.blade_charge, GLYPHS.bladestorm_frenzy, GLYPHS.ragnarok_slash, GLYPHS.blood_rage, GLYPHS.colossus_strike,
+        GLYPHS.sundering_cleave, GLYPHS.dragon_roar, GLYPHS.firestorm, GLYPHS.pyroblast, GLYPHS.meteor_dive,
+        GLYPHS.frost_nova, GLYPHS.blizzard, GLYPHS.arcane_blink, GLYPHS.mana_shield, GLYPHS.black_hole, GLYPHS.chain_lightning];
+      return list[h % list.length] || GLYPHS.empty;
     }
 
     return GLYPHS.empty;

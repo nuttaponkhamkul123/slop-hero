@@ -1,0 +1,132 @@
+{
+  "leather_tunic": {
+    "id": "leather_tunic",
+    "name": "Rogue Leather Armor",
+    "type": "equipment",
+    "slot": "armor",
+    "icon": "🥋",
+    "rarity": "common",
+    "sellPrice": 45,
+    "bonusDef": 4,
+    "bonusSpeed": 0.4,
+    "desc": "+4 Defense, +0.4 Speed."
+  },
+  "plate_cuirass": {
+    "id": "plate_cuirass",
+    "name": "Gilded Plate Armor",
+    "type": "equipment",
+    "slot": "armor",
+    "icon": "🛡️",
+    "rarity": "rare",
+    "sellPrice": 120,
+    "bonusHp": 60,
+    "bonusDef": 9,
+    "elementResist": {
+      "fire": 0.1
+    },
+    "desc": "+60 Max Health, +9 Defense, 🔥 Fire RES +10%."
+  },
+  "mystic_robe": {
+    "id": "mystic_robe",
+    "name": "Ethereal Silk Robes",
+    "type": "equipment",
+    "slot": "armor",
+    "icon": "🥻",
+    "rarity": "epic",
+    "sellPrice": 155,
+    "bonusHp": 40,
+    "bonusMp": 60,
+    "bonusDef": 6,
+    "elementResist": {
+      "dark": 0.12,
+      "holy": 0.12
+    },
+    "desc": "+40 HP, +60 MP, +6 Defense, 💀 Dark / ✨ Holy RES +12%."
+  },
+  "chain_hauberk": {
+    "id": "chain_hauberk",
+    "name": "Chainmail Hauberk",
+    "type": "equipment",
+    "slot": "armor",
+    "iconKey": "chainmail",
+    "rarity": "common",
+    "sellPrice": 50,
+    "bonusDef": 7,
+    "bonusHp": 30,
+    "desc": "+7 Defense, +30 Max Health. Riveted rings of honest steel."
+  },
+  "ranger_jerkin": {
+    "id": "ranger_jerkin",
+    "name": "Ranger's Jerkin",
+    "type": "equipment",
+    "slot": "armor",
+    "iconKey": "armor_leather",
+    "rarity": "common",
+    "sellPrice": 45,
+    "bonusDef": 4,
+    "bonusSpeed": 0.3,
+    "desc": "+4 Defense, +0.3 Speed. Light leather for long patrols."
+  },
+  "glacier_plate": {
+    "id": "glacier_plate",
+    "name": "Glacier Plate",
+    "type": "equipment",
+    "slot": "armor",
+    "iconKey": "armor_ice",
+    "rarity": "rare",
+    "sellPrice": 135,
+    "bonusDef": 11,
+    "bonusHp": 50,
+    "elementResist": {
+      "ice": 0.15
+    },
+    "desc": "+11 Defense, +50 Max Health, Ice RES +15%. Frost-forged plates that shrug off cold."
+  },
+  "nightstalker_garb": {
+    "id": "nightstalker_garb",
+    "name": "Nightstalker Garb",
+    "type": "equipment",
+    "slot": "armor",
+    "iconKey": "robe_dark",
+    "rarity": "epic",
+    "sellPrice": 170,
+    "bonusDef": 7,
+    "bonusDmg": 10,
+    "bonusAttackSpeed": 0.15,
+    "elementResist": {
+      "dark": 0.12
+    },
+    "desc": "+7 Defense, +10 Attack Power, +15% Attack Speed, Dark RES +12%. Woven from shadow silk."
+  },
+  "dragonscale_plate": {
+    "id": "dragonscale_plate",
+    "name": "Dragonscale Plate",
+    "type": "equipment",
+    "slot": "armor",
+    "iconKey": "armor_dragon",
+    "rarity": "legendary",
+    "sellPrice": 320,
+    "bonusDef": 16,
+    "bonusHp": 120,
+    "elementResist": {
+      "fire": 0.2
+    },
+    "desc": "+16 Defense, +120 Max Health, Fire RES +20%. Scales that once withstood dragonfire."
+  },
+  "archon_vestments": {
+    "id": "archon_vestments",
+    "name": "Archon Vestments",
+    "type": "equipment",
+    "slot": "armor",
+    "iconKey": "robe_gold",
+    "rarity": "legendary",
+    "sellPrice": 300,
+    "bonusDef": 9,
+    "bonusHp": 70,
+    "bonusMp": 110,
+    "elementResist": {
+      "holy": 0.15
+    },
+    "desc": "+9 Defense, +70 Max Health, +110 Max Mana, Holy RES +15%. Robes of the high archons."
+  }
+}
