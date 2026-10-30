@@ -96,5 +96,44 @@
     "sellPrice": 15000,
     "reviveShare": 1,
     "desc": "หินชุบชีวิตระดับสูงสุด ฟื้นคืนชีพ ณ จุดที่ตาย พร้อม 100% HP & MP เต็ม โดยไม่ถูกส่งกลับเมืองและไม่สูญเสียความคืบหน้าดันเจี้ยน"
+  },
+  "bag_expander_sm": {
+    "id": "bag_expander_sm",
+    "name": "Small Backpack Expander",
+    "type": "consumable",
+    "icon": "🎒",
+    "iconKey": "pouch",
+    "rarity": "rare",
+    "slotsAdded": 6,
+    "rowsAdded": 1,
+    "buyPrice": 1200,
+    "sellPrice": 400,
+    "desc": "A sturdy stitched adventurer pouch. Permanently expands your backpack capacity by 1 row (+6 slots)."
+  },
+  "bag_expander_md": {
+    "id": "bag_expander_md",
+    "name": "Medium Backpack Expander",
+    "type": "consumable",
+    "icon": "🎒",
+    "iconKey": "chest",
+    "rarity": "epic",
+    "slotsAdded": 12,
+    "rowsAdded": 2,
+    "buyPrice": 3500,
+    "sellPrice": 1200,
+    "desc": "An enchanted dimensional satchel. Permanently expands your backpack capacity by 2 rows (+12 slots)."
+  },
+  "bag_expander_lg": {
+    "id": "bag_expander_lg",
+    "name": "Large Backpack Expander",
+    "type": "consumable",
+    "icon": "🎒",
+    "iconKey": "chalice",
+    "rarity": "legendary",
+    "slotsAdded": 30,
+    "rowsAdded": 5,
+    "buyPrice": 12000,
+    "sellPrice": 4000,
+    "desc": "A legendary spatial rucksack forged by titan artisans. Permanently expands your backpack capacity by 5 rows (+30 slots)."
   }
 }

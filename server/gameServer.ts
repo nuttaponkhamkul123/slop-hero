@@ -863,7 +863,8 @@ class GameServer {
     if (!price) return fail('This card can only be found on the deepest bosses.');
     if (this.fragmentCount(player) < price.fragments) return fail(`Need ${price.fragments} Spirit Fragments!`);
     if (player.gold < price.gold) return fail(`Need ${price.gold.toLocaleString()} Gold!`);
-    if (player.inventory.items.length >= 30) return fail('Inventory is full!');
+    const maxCap = player.inventory.maxSlots || 30;
+    if (player.inventory.items.length >= maxCap) return fail('Inventory is full!');
     player.gold -= price.gold;
     this.spendFragments(player, price.fragments);
     player.inventory.items.push({ ...SP.makeCardItem(card.id), custom: true, count: 1 });
@@ -1545,6 +1546,9 @@ class GameServer {
     const spawnX = 20 + (Math.random() - 0.5) * 2;
     const spawnY = 23 + (Math.random() - 0.5) * 1.5; // Spawn in open south plaza, away from fountain
 
+    if (savedChar && savedChar.inventory && !savedChar.inventory.maxSlots) {
+      savedChar.inventory.maxSlots = 30;
+    }
     const player = {
       id: socket.id,
       accountUsername: accountUsername || null,
@@ -1603,6 +1607,7 @@ class GameServer {
         healthPotions: 3,
         manaPotions: 2,
         kills: 0,
+        maxSlots: 30,
         items: [
           { ...ITEMS.ancient_ruby, count: 1 },
           { ...ITEMS.revival_stone, count: 1 }
@@ -4917,8 +4922,9 @@ class GameServer {
     if (!player.equipment || !player.equipment[slot]) return;
     const item = player.equipment[slot];
 
-    // Check bag capacity (limit to 30 items)
-    if (player.inventory.items.length >= 30) {
+    // Check bag capacity
+    const maxUnequipCap = player.inventory.maxSlots || 30;
+    if (player.inventory.items.length >= maxUnequipCap) {
       const socket = this.io.sockets.sockets.get(socketId);
       if (socket) {
         socket.emit('floating_text', {
@@ -5285,7 +5291,8 @@ class GameServer {
     if (!runeDef) return;
 
     // Check inventory capacity
-    if (player.inventory.items.length >= 30 && !player.inventory.items.some((i: any) => i.id === runeDef.id)) {
+    const maxUnsocketCap = player.inventory.maxSlots || 30;
+    if (player.inventory.items.length >= maxUnsocketCap && !player.inventory.items.some((i: any) => i.id === runeDef.id)) {
       socket.emit('socket_result', { ok: false, message: 'Inventory is full!' });
       return;
     }
@@ -5428,6 +5435,48 @@ class GameServer {
     if (success && targetItem.maxSockets >= 3) {
       this.broadcastSystemMessage(`🔮 [${player.name}] expanded [${targetItem.name}] to ${targetItem.maxSockets} Sockets!`);
     }
+  }
+
+  handleUseBagExpander(socketId: string, data: any) {
+    const player = this.players.get(socketId);
+    const socket = this.io.sockets.sockets.get(socketId);
+    if (!player || !socket || player.isDead || !data) return;
+
+    const itemIndex = Number(data.itemIndex);
+    const item = player.inventory.items[itemIndex];
+    if (!item || !['bag_expander_sm', 'bag_expander_md', 'bag_expander_lg'].includes(item.id)) {
+      socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: 'Invalid backpack expander!', color: '#ef4444' });
+      return;
+    }
+
+    const curSlots = player.inventory.maxSlots || 30;
+    const MAX_BAG_CAPACITY = 120;
+    if (curSlots >= MAX_BAG_CAPACITY) {
+      socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: 'Backpack is already at maximum capacity (120 slots)!', color: '#ef4444' });
+      return;
+    }
+
+    const slotsAdded = item.id === 'bag_expander_sm' ? 6 : item.id === 'bag_expander_md' ? 12 : 30;
+    const rowsAdded = item.id === 'bag_expander_sm' ? 1 : item.id === 'bag_expander_md' ? 2 : 5;
+
+    // Deduct 1 expander item
+    if (item.count && item.count > 1) {
+      item.count--;
+    } else {
+      player.inventory.items.splice(itemIndex, 1);
+    }
+
+    player.inventory.maxSlots = Math.min(MAX_BAG_CAPACITY, curSlots + slotsAdded);
+    this.savePlayerAccount(socketId);
+
+    socket.emit('player_updated', player);
+    socket.emit('floating_text', {
+      x: player.x,
+      y: player.y - 0.8,
+      text: `🎒 Backpack Expanded! (+${rowsAdded} ${rowsAdded === 1 ? 'Row' : 'Rows'}, ${player.inventory.maxSlots} Slots)`,
+      color: '#facc15',
+      size: 19
+    });
   }
 
   applyItemUpgradeStats(item) {
@@ -5657,6 +5706,11 @@ class GameServer {
         if (existing && def.type !== 'equipment') {
           existing.count = (existing.count || 1) + n;
         } else {
+          const maxLootCap = player.inventory.maxSlots || 30;
+          if (player.inventory.items.length >= maxLootCap) {
+            text('⚠️ Inventory full!', '#ef4444');
+            return;
+          }
           player.inventory.items.push({ ...def, count: def.type === 'equipment' ? 1 : n });
         }
         text(`+${def.name}`, def.rarity === 'legendary' ? '#f59e0b' : def.rarity === 'epic' ? '#a855f7' : def.rarity === 'rare' ? '#38bdf8' : '#4ade80');

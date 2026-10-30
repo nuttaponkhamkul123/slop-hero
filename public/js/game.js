@@ -3872,7 +3872,8 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
-    const slots = Math.max(BAG_CAPACITY, Math.ceil(items.length / 6) * 6);
+    const curCap = getBagCapacity();
+    const slots = Math.max(curCap, Math.ceil(items.length / 6) * 6);
     for (let i = 0; i < slots; i++) {
       const cell = document.createElement('div');
       cell.className = 'inv-slot-compact';
@@ -3916,6 +3917,10 @@ document.addEventListener('DOMContentLoaded', () => {
   let invFilter = 'all';
   let invSorted = false;
   const BAG_CAPACITY = 30;
+  function getBagCapacity(p) {
+    const player = p || localPlayer;
+    return (player && player.inventory && player.inventory.maxSlots) || BAG_CAPACITY;
+  }
   const RARITY_RANK = { mythic: 5, legendary: 4, epic: 3, rare: 2, common: 1 };
   const TYPE_RANK = { sp_card: 0, equipment: 1, consumable: 2, material: 3, treasure: 4 };
   const EQUIP_SLOTS = [
@@ -3952,6 +3957,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (blocker) return `Can't equip: ${blocker}`;
     if (item.type === 'rune') return 'Click to open Socket Forge';
     if (item.id === 'socket_expander') return 'Click to open Socket Forge';
+    if (item.id === 'bag_expander_sm') return 'Click to expand: +1 Row (+6 slots)';
+    if (item.id === 'bag_expander_md') return 'Click to expand: +2 Rows (+12 slots)';
+    if (item.id === 'bag_expander_lg') return 'Click to expand: +5 Rows (+30 slots)';
     if (item.type === 'equipment') return 'Click to equip';
     if (item.type === 'sp_card') {
       const card = spCardDef(item.cardId);
@@ -4036,10 +4044,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const invGrid = document.getElementById('invItemsGrid');
     if (!invGrid || !localPlayer.inventory) return;
     const items = localPlayer.inventory.items || [];
+    const curBagCap = getBagCapacity();
     const capacityText = document.getElementById('invCapacityText');
     if (capacityText) {
-      capacityText.textContent = `${items.length} / ${BAG_CAPACITY}`;
-      capacityText.classList.toggle('is-full', items.length >= BAG_CAPACITY);
+      capacityText.textContent = `${items.length} / ${curBagCap}`;
+      capacityText.classList.toggle('is-full', items.length >= curBagCap);
     }
     let list = items.map((item, index) => ({ item, index })).filter(e => itemMatchesFilter(e.item));
     if (invSorted) {
@@ -4048,7 +4057,7 @@ document.addEventListener('DOMContentLoaded', () => {
         || String(a.item.name).localeCompare(String(b.item.name)));
     }
     invGrid.innerHTML = '';
-    const cells = Math.max(BAG_CAPACITY, Math.ceil(list.length / 6) * 6);
+    const cells = Math.max(curBagCap, Math.ceil(list.length / 6) * 6);
     for (let i = 0; i < cells; i++) {
       const cell = document.createElement('div');
       cell.className = 'inv-slot-compact';
@@ -4075,6 +4084,9 @@ document.addEventListener('DOMContentLoaded', () => {
           enchSelected = 'eq:weapon';
           if (enchanterModal) enchanterModal.style.display = 'flex';
           renderEnchanter();
+        } else if (item.id && item.id.startsWith('bag_expander_')) {
+          socket.emit('use_bag_expander', { itemIndex: index });
+          window.soundEngine.playLevelUp();
         } else if (item.id === 'health_potion') {
           drinkPotion('health');
         } else if (item.id === 'mana_potion') {
@@ -5058,19 +5070,34 @@ document.addEventListener('DOMContentLoaded', () => {
     slotsConfig.forEach(sConf => {
       const isSelected = selectedLoadoutSlot === sConf.key;
       const skillId = getSlotSkillId(sConf.key);
-      const runeId = getSlotRuneId(sConf.key);
       const skill = findSkillDef(skillId);
-      const rune = (skillRunesCatalog && skillRunesCatalog[runeId]) || { name: 'Standard', icon: '⚪', color: '#94a3b8' };
 
       const card = document.createElement('div');
       card.className = `hotbar-slot-card ${isSelected ? 'selected active-slot' : ''}`;
       card.setAttribute('data-slot-key', sConf.key);
-      card.setAttribute('title', `${sConf.keybind}: ${skill ? skill.name : 'Empty Slot'} - ${sConf.label} | Rune: ${rune.name}`);
-card.innerHTML = `
+      card.innerHTML = `
         <div class="slot-card-badge">${sConf.keybind}</div>
         <div class="slot-card-icon">${SkillIcons.svg(skill ? skill.id : 'empty')}</div>
-        <div class="slot-drop-callout">⬇️ Drop Skill Here</div>
       `;
+
+      if (window.GameTooltip && skill) {
+        GameTooltip.html(card, () => `
+          <div class="tip-head">
+            <div class="tip-icon-wrap">${SkillIcons.svg(skill.id)}</div>
+            <div>
+              <div class="tip-name" style="color: #facc15;">[${sConf.keybind}] ${escapeHtml(skill.name)}</div>
+              <div class="tip-type">${sConf.label}</div>
+            </div>
+          </div>
+          <div class="tip-line"><span>Cooldown</span><b>${skill.cooldown}s</b></div>
+          <div class="tip-line"><span>Mana Cost</span><b>${manaCost(skill.mpCost)} MP</b></div>
+          ${skill.damageMultiplier ? `<div class="tip-line"><span>Damage</span><b>${Math.round(skill.damageMultiplier * 100)}%</b></div>` : ''}
+          <div class="tip-flavour">${escapeHtml(skill.desc || '')}</div>
+          <div class="tip-line" style="color: #38bdf8; font-size: 11px;"><span>Hotbar Slot</span><i>Click to select slot for skill assignment</i></div>
+        `);
+      } else if (window.GameTooltip) {
+        GameTooltip.html(card, `<div class="tip-text"><b>[${sConf.keybind}] ${sConf.label}</b><br>Empty slot - click any skill below or drag here to assign.</div>`);
+      }
 
       // Click to select slot
       card.addEventListener('click', () => {
@@ -5169,21 +5196,15 @@ card.innerHTML = `
       });
     }
 
-    // 3. Render Skills Catalog with Drag-and-Drop Cards
+    // 3. Render Skills Catalog as Clean Slots (like inventory slot)
     skillsCatalogGrid.innerHTML = '';
 
-    // Add Drag & Drop Instruction Ribbon
-    const guideRibbon = document.createElement('div');
-    guideRibbon.className = 'loadout-drag-guide-ribbon';
-    guideRibbon.style.gridColumn = '1 / -1';
-    guideRibbon.innerHTML = `
-      <span style="font-size: 16px;">🖐️</span>
-      <span><strong>Drag & Drop:</strong> Drag any unlocked skill card below directly into <strong>[Q], [E], [R], or [Shift]</strong> slots above to equip!</span>
-    `;
-    if (spCard) {
-      guideRibbon.innerHTML = `<span><strong>${escapeHtml(spCard.name)} skills:</strong> drag a card skill into <strong>[Q], [E], [R]</strong>; movement skills (MOVE) go in <strong>[Shift]</strong>. Revert to edit your class skills.</span>`;
+    const guideRibbonEl = document.getElementById('loadoutGuideRibbon');
+    if (guideRibbonEl) {
+      guideRibbonEl.innerHTML = spCard
+        ? `<span><strong>${escapeHtml(spCard.name)}:</strong> click or drag skill into <strong>[Q], [E], [R]</strong>; dash into <strong>[Shift]</strong></span>`
+        : '<span>🖐️ <strong>Drag & Drop:</strong> Drag any unlocked skill slot into <strong>[Q], [E], [R], [Shift]</strong> or click to equip!</span>';
     }
-    skillsCatalogGrid.appendChild(guideRibbon);
 
     const sortedSkills = [...classSkills].sort((a, b) => (a.reqLevel || 1) - (b.reqLevel || 1));
 
@@ -5197,19 +5218,53 @@ card.innerHTML = `
       }
 
       const isEquippedHere = equippedInSlot === selectedLoadoutSlot;
-      const isEquippedElsewhere = equippedInSlot && !isEquippedHere;
-      const slotBindName = equippedInSlot === 'slot1' ? '[Q]' : equippedInSlot === 'slot2' ? '[E]' : equippedInSlot === 'slot3' ? '[R]' : equippedInSlot === 'dash' ? '[Shift]' : '';
+      const slotBindName = equippedInSlot === 'slot1' ? 'Q' : equippedInSlot === 'slot2' ? 'E' : equippedInSlot === 'slot3' ? 'R' : equippedInSlot === 'dash' ? 'Shift' : '';
       const reqLvl = s.reqLevel || 1;
       const isLocked = (localPlayer.level || 1) < reqLvl;
 
       const card = document.createElement('div');
-      card.className = `catalog-skill-card ${isEquippedHere ? 'is-equipped' : ''} ${isLocked ? 'is-locked' : 'draggable-skill'}`;
+      card.className = `catalog-skill-card ${isEquippedHere ? 'is-equipped-here' : ''} ${equippedInSlot ? 'is-equipped' : ''} ${isLocked ? 'is-locked' : 'draggable-skill'}`;
+
+      card.innerHTML = `
+        <div class="catalog-icon-only">${SkillIcons.svg(s.id)}</div>
+        ${equippedInSlot ? `<div class="skill-slot-badge">${slotBindName}</div>` : ''}
+        ${isLocked ? '<div class="skill-lock-badge">🔒</div>' : ''}
+      `;
+
+      if (window.GameTooltip) {
+        GameTooltip.html(card, () => `
+          <div class="tip-head">
+            <div class="tip-icon-wrap">${SkillIcons.svg(s.id)}</div>
+            <div>
+              <div class="tip-name" style="color: #facc15;">${escapeHtml(s.name)}</div>
+              <div class="tip-type">${s.category || 'Class Skill'} • ${isLocked ? `<span style="color:#ef4444;">Requires Lv. ${reqLvl}</span>` : `<span style="color:#4ade80;">Unlocked (Lv. ${reqLvl})</span>`}</div>
+            </div>
+          </div>
+          <div class="tip-line"><span>Cooldown</span><b>${s.cooldown}s</b></div>
+          <div class="tip-line"><span>Mana Cost</span><b>${manaCost(s.mpCost)} MP</b></div>
+          ${s.damageMultiplier ? `<div class="tip-line"><span>Damage</span><b>${Math.round(s.damageMultiplier * 100)}%</b></div>` : ''}
+          <div class="tip-flavour">${escapeHtml(s.desc || '')}</div>
+          <div class="tip-line" style="color: ${isLocked ? '#ef4444' : '#38bdf8'}; font-size: 11px;">
+            <span>${isLocked ? 'Locked' : 'Assign'}</span><i>${isLocked ? `Reach Level ${reqLvl} to unlock` : `Click to assign to [${SLOT_KEYS[selectedLoadoutSlot] || selectedLoadoutSlot.toUpperCase()}] or drag to hotbar`}</i>
+          </div>
+        `);
+      }
 
       if (!isLocked) {
         card.draggable = true;
-        card.setAttribute('title', `Drag into [Q], [E], [R], [Shift] slots above, or click to equip into [${selectedLoadoutSlot.toUpperCase()}]`);
 
-        // Drag Events
+        card.addEventListener('click', () => {
+          if (!localPlayer.equippedSkills) localPlayer.equippedSkills = {};
+          localPlayer.equippedSkills[selectedLoadoutSlot] = s.id;
+          socket.emit('customize_skill_slot', {
+            slot: selectedLoadoutSlot,
+            skillId: s.id
+          });
+          window.soundEngine.playBladeCharge();
+          renderCustomSkillLoadout();
+          setupClassSkillHUD(localPlayer.characterClass);
+        });
+
         card.addEventListener('dragstart', (e) => {
           e.dataTransfer.setData('text/plain', s.id);
           e.dataTransfer.effectAllowed = 'move';
@@ -5225,31 +5280,6 @@ card.innerHTML = `
             sc.classList.remove('drop-target-active');
             sc.classList.remove('drag-over');
           });
-        });
-      }
-
-      card.setAttribute('title', spCard
-        ? `${s.name} - ${s.cooldown}s CD, ${manaCost(s.mpCost)} MP | ${s.desc}`
-        : `${s.name} - Lv.${reqLvl} - ${s.cooldown}s CD, ${manaCost(s.mpCost)} MP, ${(s.damageMultiplier*100).toFixed(0)}% DMG | ${s.desc}`);
-card.innerHTML = `
-        <div class="catalog-icon-only">${SkillIcons.svg(s.id)}</div>
-        <div class="catalog-mini-name">${s.name}</div>
-        <div class="catalog-mini-level ${isLocked ? 'locked' : 'unlocked'}">${spCard ? (s.isDash ? 'MOVE' : 'SP') : `Lv.${reqLvl}`}</div>
-      `;
-
-      const btnEquip = card.querySelector('.btn-equip-skill:not(.locked)');
-      if (btnEquip) {
-        btnEquip.addEventListener('click', (e) => {
-          e.stopPropagation();
-          if (!localPlayer.equippedSkills) localPlayer.equippedSkills = {};
-          localPlayer.equippedSkills[selectedLoadoutSlot] = s.id;
-          socket.emit('customize_skill_slot', {
-            slot: selectedLoadoutSlot,
-            skillId: s.id
-          });
-          window.soundEngine.playBladeCharge();
-          renderCustomSkillLoadout();
-          setupClassSkillHUD(localPlayer.characterClass);
         });
       }
 
