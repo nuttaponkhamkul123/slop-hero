@@ -233,6 +233,9 @@ const ANIMATED_TILE_DETAILS = new Set(['water', 'murk', 'lava', 'pool', 'sparkle
 // stays in the ground cache and only the twinkle is drawn each frame
 const OVERLAY_TILE_DETAILS = new Set(['sparkle', 'glow', 'stars']);
 
+// Eternal Rift props drawn by drawRiftProp (structures come from rift.js)
+const RIFT_PROPS = new Set(['gatekeeper', 'holy_fountain', 'rift_gate', 'rift_turret', 'rift_frost', 'rift_barrier', 'rift_totem']);
+
 // Obstacle types rendered by townProps3D.js
 const TOWN_PROPS_3D = new Set(['merchant', 'blacksmith', 'enchanter', 'house', 'gate_tower', 'corner_keep',
   'market_stall', 'lamp_post', 'crates', 'flower_bed', 'bench', 'well', 'personal_chest']);
@@ -984,7 +987,8 @@ class IsometricRenderer {
         facing: data.facing || 'SE',
         life,
         maxLife: life,
-        radius: (data.hasSweep ? 2.6 : 2.2) * (finisher ? 1.3 : 1),
+        // (Gatekeeper's Greatsword: sweepReach tiles longer)
+        radius: ((data.hasSweep ? 2.6 : 2.2) + (data.sweepReach || 0)) * (finisher ? 1.3 : 1),
         class: 'warrior',
         cardId,
         side: combo.side,
@@ -1453,6 +1457,16 @@ class IsometricRenderer {
 
   addSkillEffect(fx) {
     if (!fx || !fx.type) return;
+    // Eternal Rift Frost Spire pulse: a quiet ring of ice, no shake
+    if (fx.type === 'rift_frost') {
+      const r = fx.radius || 4;
+      for (let k = 0; k < 18; k++) {
+        const a = (k / 18) * Math.PI * 2;
+        this.addParticles(fx.x + Math.cos(a) * r * 0.85, fx.y + Math.sin(a) * r * 0.85, 'ice', 1, { speed: 0.8, sizeScale: 0.8 });
+      }
+      this.addParticles(fx.x, fx.y, 'ice', 8, { speed: 2.2, sizeScale: 0.7 });
+      return;
+    }
     // Casting a non-movement skill plays the hero's cast pose
     const isSpMove = fx.type === 'sp_skill' && (fx.shape === 'dash' || fx.shape === 'blink' || fx.shape === 'rewind');
     if (fx.playerId && !PIXEL_HERO_DASH_SKILLS.has(fx.type) && !isSpMove) {
@@ -8764,6 +8778,8 @@ class IsometricRenderer {
 
     // DRAW OVERLAYS & EFFECTS (Click Beacon, Particles, Floating Text)
     this.drawEffects(ctx, dt);
+    // Eternal Rift build placement ghost (rift.js)
+    if (window.RiftUI) window.RiftUI.drawOverlay(ctx, this);
 
     // DRAW FULLSCREEN STATUS VIGNETTES (Poison, Chill, Burn)
     if (gameState.players) {
@@ -9026,6 +9042,204 @@ class IsometricRenderer {
     ctx.fillStyle = accent;
     ctx.fillText(label, x, cy - RY - 12 * z);
     ctx.restore();
+  }
+
+  // Eternal Rift props. The fountain and structures carry hp / maxHp (rift.js
+  // copies them in from the server); obs.ghost draws a placement preview.
+  drawRiftProp(ctx, obs, screen, z) {
+    const t = this.animations.time;
+    const x = Math.round(screen.x), y = Math.round(screen.y);
+    const tag = (text, color, ty) => {
+      ctx.save();
+      ctx.font = '15px "DotGothic16", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#000';
+      ctx.fillText(text, x + 1, ty + 1);
+      ctx.fillStyle = color;
+      ctx.fillText(text, x, ty);
+      ctx.restore();
+    };
+    const groundGlow = (r, rgb, a) => {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.translate(x, y);
+      ctx.scale(1, 0.5);
+      const g = ctx.createRadialGradient(0, 0, 0, 0, 0, r);
+      g.addColorStop(0, `rgba(${rgb},${a})`);
+      g.addColorStop(1, `rgba(${rgb},0)`);
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(0, 0, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    };
+    // isometric box standing on (x, baseY): half width w, height h (screen px)
+    const box = (baseY, w, h, top, left, right) => {
+      const d = w / 2;
+      ctx.fillStyle = left;
+      ctx.beginPath();
+      ctx.moveTo(x - w, baseY - h); ctx.lineTo(x, baseY - h + d); ctx.lineTo(x, baseY + d); ctx.lineTo(x - w, baseY);
+      ctx.fill();
+      ctx.fillStyle = right;
+      ctx.beginPath();
+      ctx.moveTo(x, baseY - h + d); ctx.lineTo(x + w, baseY - h); ctx.lineTo(x + w, baseY); ctx.lineTo(x, baseY + d);
+      ctx.fill();
+      ctx.fillStyle = top;
+      ctx.beginPath();
+      ctx.moveTo(x, baseY - h - d); ctx.lineTo(x + w, baseY - h); ctx.lineTo(x, baseY - h + d); ctx.lineTo(x - w, baseY - h);
+      ctx.fill();
+    };
+    const shadow = (w) => {
+      ctx.beginPath();
+      ctx.ellipse(x, y + 1 * z, w, w * 0.5, 0, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+      ctx.fill();
+    };
+
+    if (obs.type === 'gatekeeper') {
+      // James stands before a slowly turning rift sigil
+      groundGlow(34 * z, '192,132,252', 0.35 + 0.1 * Math.sin(t * 1.6));
+      ctx.save();
+      ctx.translate(x, y - 34 * z);
+      ctx.rotate(t * 0.4);
+      ctx.strokeStyle = `rgba(216, 180, 254, ${0.45 + 0.15 * Math.sin(t * 2)})`;
+      ctx.lineWidth = 1.5 * z;
+      for (let i = 0; i < 2; i++) {
+        ctx.beginPath();
+        for (let k = 0; k <= 3; k++) {
+          const a = (k / 3) * Math.PI * 2 + i * Math.PI / 3;
+          const px = Math.cos(a) * 20 * z, py = Math.sin(a) * 20 * z;
+          if (k === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }
+        ctx.stroke();
+      }
+      ctx.beginPath();
+      ctx.arc(0, 0, 22 * z, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+      let top = y - 60 * z;
+      shadow(13 * z);
+      if (window.PixelMobs && window.PixelMobs.hasNpc('gatekeeper')) {
+        const img = window.PixelMobs.npcFrame('gatekeeper', t, 0);
+        const s = PIXEL_HERO_SCALE * z;
+        ctx.save();
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(img, Math.round(x - img.anchorX * s), Math.round(y - img.anchorY * s), img.width * s, img.height * s);
+        ctx.restore();
+        top = y - (img.anchorY - img.top) * s;
+      }
+      tag('James the Gatekeeper [Rift Forge]', '#d8b4fe', top - 8 * z);
+      return;
+    }
+
+    if (obs.type === 'rift_gate') {
+      this.drawPortalGate(ctx, screen, z, '#a855f7', '#f0abfc', '', obs.x * 7 + obs.y);
+      return;
+    }
+
+    if (obs.type === 'holy_fountain') {
+      groundGlow(64 * z, '253,230,138', 0.32 + 0.08 * Math.sin(t * 2));
+      this.drawObstacle(ctx, Object.assign({}, obs, { type: 'fountain' }));
+      if (!this.lowEffects && Math.random() < 0.3) {
+        this.addParticles(obs.x + (Math.random() - 0.5) * 1.6, obs.y + (Math.random() - 0.5) * 1.6, 'gold', 1, { speed: 0.5, z: 0.4, sizeScale: 0.7 });
+      }
+      if (obs.maxHp) this.drawRiftHpBar(ctx, x, y - 66 * z, 84 * z, obs.hp, obs.maxHp, '#fde68a', z);
+      return;
+    }
+
+    // ---- structures built with Rift Points
+    let top;
+    if (obs.type === 'rift_turret') {
+      shadow(13 * z);
+      box(y, 11 * z, 12 * z, '#6b7280', '#374151', '#4b5563');
+      box(y - 12 * z, 5 * z, 12 * z, '#9ca3af', '#4b5563', '#6b7280');
+      const oy = y - 34 * z + Math.sin(t * 3 + obs.x) * 2 * z;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const g = ctx.createRadialGradient(x, oy, 0, x, oy, 14 * z);
+      g.addColorStop(0, 'rgba(253, 230, 138, 0.9)');
+      g.addColorStop(1, 'rgba(253, 230, 138, 0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(x, oy, 14 * z, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      ctx.fillStyle = '#fef3c7';
+      ctx.beginPath();
+      ctx.arc(x, oy, 4.5 * z, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(250, 204, 21, 0.8)';
+      ctx.lineWidth = 1.2 * z;
+      ctx.beginPath();
+      ctx.ellipse(x, oy, 9 * z, 3.5 * z, t * 1.5, 0, Math.PI * 2);
+      ctx.stroke();
+      top = oy - 12 * z;
+    } else if (obs.type === 'rift_frost') {
+      shadow(12 * z);
+      box(y, 10 * z, 7 * z, '#475569', '#1e293b', '#334155');
+      const tipY = y - 46 * z;
+      ctx.fillStyle = '#0e7490';
+      ctx.beginPath();
+      ctx.moveTo(x, tipY); ctx.lineTo(x - 7 * z, y - 10 * z); ctx.lineTo(x, y - 4 * z);
+      ctx.fill();
+      ctx.fillStyle = '#67e8f9';
+      ctx.beginPath();
+      ctx.moveTo(x, tipY); ctx.lineTo(x + 7 * z, y - 10 * z); ctx.lineTo(x, y - 4 * z);
+      ctx.fill();
+      ctx.fillStyle = '#cffafe';
+      ctx.beginPath();
+      ctx.moveTo(x - 9 * z, y - 9 * z); ctx.lineTo(x - 13 * z, y - 24 * z); ctx.lineTo(x - 5 * z, y - 12 * z);
+      ctx.moveTo(x + 9 * z, y - 9 * z); ctx.lineTo(x + 12 * z, y - 21 * z); ctx.lineTo(x + 5 * z, y - 12 * z);
+      ctx.fill();
+      groundGlow(30 * z, '103,232,249', 0.18 + 0.08 * Math.sin(t * 2.4 + obs.y));
+      top = tipY - 6 * z;
+    } else if (obs.type === 'rift_barrier') {
+      shadow(18 * z);
+      box(y, 15 * z, 20 * z, '#a8a29e', '#57534e', '#78716c');
+      // golden rune band and a shimmering ward
+      ctx.fillStyle = 'rgba(250, 204, 21, 0.85)';
+      ctx.fillRect(x - 15 * z, y - 12 * z, 15 * z, 2 * z);
+      ctx.fillRect(x, y - 12 * z + 7.5 * z, 15 * z, 2 * z);
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = `rgba(253, 230, 138, ${0.35 + 0.2 * Math.sin(t * 3 + obs.x * 2)})`;
+      ctx.lineWidth = 1.5 * z;
+      ctx.beginPath();
+      ctx.ellipse(x, y - 10 * z, 22 * z, 26 * z, 0, Math.PI, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+      top = y - 38 * z;
+    } else {
+      // rift_totem
+      groundGlow(36 * z, '74,222,128', 0.14 + 0.07 * Math.sin(t * 2 + obs.x));
+      shadow(9 * z);
+      box(y, 5 * z, 30 * z, '#a16207', '#5c3a1c', '#7c4f27');
+      ctx.fillStyle = '#1c0d02';
+      ctx.fillRect(x - 4 * z, y - 22 * z, 2 * z, 2 * z);
+      ctx.fillRect(x + 1 * z, y - 21 * z, 2 * z, 2 * z);
+      ctx.fillRect(x - 3 * z, y - 16 * z, 5 * z, 1.5 * z);
+      const hy = y - 38 * z + Math.sin(t * 2.5) * 1.5 * z;
+      ctx.fillStyle = '#4ade80';
+      ctx.beginPath();
+      ctx.moveTo(x, hy + 5 * z);
+      ctx.bezierCurveTo(x - 9 * z, hy - 1 * z, x - 4 * z, hy - 8 * z, x, hy - 3 * z);
+      ctx.bezierCurveTo(x + 4 * z, hy - 8 * z, x + 9 * z, hy - 1 * z, x, hy + 5 * z);
+      ctx.fill();
+      top = hy - 10 * z;
+    }
+    if (!obs.ghost && obs.maxHp && obs.hp < obs.maxHp) this.drawRiftHpBar(ctx, x, top - 4 * z, 34 * z, obs.hp, obs.maxHp, '#4ade80', z);
+  }
+
+  drawRiftHpBar(ctx, cx, topY, w, hp, maxHp, color, z) {
+    const pct = Math.max(0, Math.min(1, (hp || 0) / (maxHp || 1)));
+    const h = Math.max(4, Math.round(5 * z));
+    const x0 = Math.round(cx - w / 2), y0 = Math.round(topY);
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    ctx.fillRect(x0 - 1, y0 - 1, Math.round(w) + 2, h + 2);
+    ctx.fillStyle = '#3f1d38';
+    ctx.fillRect(x0, y0, Math.round(w), h);
+    ctx.fillStyle = pct > 0.5 ? color : pct > 0.25 ? '#fb923c' : '#ef4444';
+    ctx.fillRect(x0, y0, Math.round(w * pct), h);
   }
 
   // "x,y" of every tile in a still-sealed dungeon doorway (doors carry their tiles)
@@ -9715,6 +9929,12 @@ class IsometricRenderer {
 
     if (obs.type === 'town_wall') {
       this.drawTownWall(ctx, obs, screen, z);
+      return;
+    }
+
+    // Eternal Rift: the gatekeeper, the Holy Fountain, the gates and what heroes build
+    if (RIFT_PROPS.has(obs.type)) {
+      this.drawRiftProp(ctx, obs, screen, z);
       return;
     }
 

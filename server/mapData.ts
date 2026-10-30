@@ -109,6 +109,9 @@ export function generateMap(): MapData {
 
   // ---- portals: dungeon on the plaza, the outside world through the north gate ----
   add({ id: 'portal_dungeon', x: 23.5, y: 16.5, type: 'portal', name: 'Abyssal Dungeon Portal', collidable: false, radius: 1.2 });
+  // ---- the Eternal Rift gate at the end of the east boulevard, kept by James ----
+  add({ id: 'portal_rift', x: 28.6, y: 20.5, type: 'portal', name: 'Eternal Rift', label: '🌌 Eternal Rift', color: '#c084fc', collidable: false, radius: 1.2 });
+  add({ id: 'npc_james', x: 31.2, y: 20.5, type: 'gatekeeper', name: 'James the Gatekeeper', collidable: true, radius: 0.7 });
   add({
     id: 'portal_outskirts', x: CITY.NORTH_GATE.x, y: CITY.NORTH_GATE.y, type: 'field_portal',
     target: 'meadow', arrive: 'south', label: 'City Gate → Greenmeadow Outskirts [Lv. 1+]', color: '#86efac',

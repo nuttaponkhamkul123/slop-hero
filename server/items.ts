@@ -38,10 +38,11 @@ const ITEMS: Record<string, any> = {
 // Weapons are class-locked: only the listed class can equip them.
 const WEAPON_CLASS = {
   warrior: ['iron_blade', 'sweeping_claymore', 'inferno_blade', 'storm_breaker', 'excalibur',
-    'woodsman_axe', 'iron_morningstar', 'thunder_maul', 'dragonbone_glaive'],
-  mage: ['archmage_staff', 'glacial_spire', 'voidcaller_wand', 'dawn_scepter'],
-  rogue: ['shadow_daggers', 'wind_rapier', 'hunter_spear', 'frostbite_katana', 'venom_kris', 'ember_scythe']
+    'woodsman_axe', 'iron_morningstar', 'thunder_maul', 'dragonbone_glaive', 'gatekeeper_greatsword'],
+  mage: ['archmage_staff', 'glacial_spire', 'voidcaller_wand', 'dawn_scepter', 'sunfire_conduit'],
+  rogue: ['shadow_daggers', 'wind_rapier', 'hunter_spear', 'frostbite_katana', 'venom_kris', 'ember_scythe', 'nightfall_twinblades']
 };
+// (riftwalker_edge is left out on purpose: every class can wield it)
 for (const [cls, ids] of Object.entries(WEAPON_CLASS)) {
   for (const id of ids) ITEMS[id].cls = cls;
 }
@@ -70,8 +71,23 @@ const WEAPON_ABILITIES: Record<string, any> = {
   hunter_spear: { name: 'Spear Throw', shape: 'line', len: 8, width: 0.9, dmg: 2.6, mp: 10, cd: 6 },
   frostbite_katana: { name: 'Iaijutsu', shape: 'dash', len: 6, width: 1.4, dmg: 2.8, chill: 2, mp: 12, cd: 8 },
   venom_kris: { name: 'Venom Strike', shape: 'strike', range: 3.5, dmg: 2.0, poison: 6, mp: 8, cd: 6 },
-  ember_scythe: { name: 'Reaper Spin', shape: 'nova', r: 3.2, dmg: 2.6, burn: 3, leech: 0.05, mp: 14, cd: 8 }
+  ember_scythe: { name: 'Reaper Spin', shape: 'nova', r: 3.2, dmg: 2.6, burn: 3, leech: 0.05, mp: 14, cd: 8 },
+  nightfall_twinblades: { name: 'Eternal Alpha', shape: 'alpha', n: 5, range: 7, jump: 7, every: 0.12, dmg: 1.7, invuln: 0.9, mp: 20, cd: 12 },
+  // Any class (James the Gatekeeper)
+  riftwalker_edge: { name: 'Rift Step', shape: 'blink', len: 3, r: 3, dmg: 2.2, mp: 14, cd: 0.25, cdExact: true }
 };
+// Weapons whose power is passive instead of (or as well as) a right-click
+// ability; recalculatePlayerStats and handlePlayerAttack read these.
+//   dmgMult    - multiplies all of the wielder's damage
+//   sweepReach - extra tiles the melee cleave reaches; sweepArc - its arc in degrees; minSwipe - cleave damage floor (%)
+//   fireChannel - mage basic attack becomes one fireball into each of this many nearest enemies (no splash)
+const WEAPON_POWERS: Record<string, any> = {
+  gatekeeper_greatsword: { dmgMult: 0.7, sweepReach: 2.5, sweepArc: 220, minSwipe: 80 },
+  sunfire_conduit: { dmgMult: 1.1, fireChannel: 5 }
+};
+function weaponPower(item) {
+  return (item && WEAPON_POWERS[item.id]) || null;
+}
 // Cooldowns above are scaled by this (rounded to 0.5s) so right-click stays snappy
 const WEAPON_ABILITY_CD_MULT = 0.4;
 const ELEMENT_COLORS = { neutral: '#e2e8f0', fire: '#f97316', ice: '#67e8f9', lightning: '#facc15', earth: '#4ade80', holy: '#fde68a', dark: '#a855f7' };
@@ -80,7 +96,8 @@ const ELEMENT_COLORS = { neutral: '#e2e8f0', fire: '#f97316', ice: '#67e8f9', li
   for (const [weaponId, a] of Object.entries(WEAPON_ABILITIES)) {
     const weapon = ITEMS[weaponId];
     const element = (weapon && weapon.element) || 'neutral';
-    a.cd = Math.max(1, Math.round(a.cd * WEAPON_ABILITY_CD_MULT * 2) / 2);
+    // cdExact: the cooldown is used as written (no scaling, no 1s floor)
+    if (!a.cdExact) a.cd = Math.max(1, Math.round(a.cd * WEAPON_ABILITY_CD_MULT * 2) / 2);
     normalizeSpSkill('wpn_' + weaponId, Object.assign(a, { element, color: ELEMENT_COLORS[element] || ELEMENT_COLORS.neutral }));
     if (weapon) weapon.abilityId = a.id;
   }
@@ -553,6 +570,8 @@ export {
   requiredClass,
   WEAPON_ABILITIES,
   weaponAbility,
+  WEAPON_POWERS,
+  weaponPower,
   GEAR_POOLS,
   pickGear,
   pickGearForLevel,
@@ -601,6 +620,8 @@ module.exports = {
   requiredClass,
   WEAPON_ABILITIES,
   weaponAbility,
+  WEAPON_POWERS,
+  weaponPower,
   GEAR_POOLS,
   pickGear,
   pickGearForLevel,

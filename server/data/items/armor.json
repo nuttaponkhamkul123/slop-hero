@@ -128,5 +128,23 @@
       "holy": 0.15
     },
     "desc": "+9 Defense, +70 Max Health, +110 Max Mana, Holy RES +15%. Robes of the high archons."
+  },
+  "rift_warden_plate": {
+    "id": "rift_warden_plate",
+    "name": "Rift Warden Plate",
+    "type": "equipment",
+    "slot": "armor",
+    "iconKey": "armor",
+    "rarity": "legendary",
+    "sellPrice": 0,
+    "bonusDef": 42,
+    "bonusHp": 420,
+    "bonusSpeed": 0.2,
+    "elementResist": {
+      "dark": 0.2,
+      "holy": 0.15
+    },
+    "rift": true,
+    "desc": "+42 Defense, +420 Max Health, +0.2 Speed, 💀 Dark RES +20%, ✨ Holy RES +15%. Armour of the ones who held the gate."
   }
 }

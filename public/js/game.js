@@ -21,6 +21,14 @@ document.addEventListener('DOMContentLoaded', () => {
     chests: []
   };
 
+  // Eternal Rift HUD, build bar and James's forge (rift.js)
+  window.RiftUI.init({
+    socket, renderer, canvas,
+    getPlayer: () => localPlayer,
+    getPlayerId: () => localPlayerId,
+    getState: () => gameState
+  });
+
   let selectedTargetId = null;
   let selectedTargetType = null;
   let lastFrameTime = performance.now();
@@ -1090,6 +1098,7 @@ document.addEventListener('DOMContentLoaded', () => {
     skillRunesCatalog = data.skillRunes || {};
     weaponAbilities = data.weaponAbilities || {};
     window.WeaponAbilities = weaponAbilities; // read by tooltip.js
+    window.RiftUI.setCatalog(data.riftCatalog);
 
     localPlayer = data.player;
     updatePlayerHUD(localPlayer);
@@ -1109,6 +1118,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   socket.on('zone_change', (data) => {
+    window.RiftUI.onZoneChange(data);
     gameState.map = data.map;
     gameState.players = data.players || [];
     gameState.mobs = data.mobs || [];
@@ -1127,7 +1137,11 @@ document.addEventListener('DOMContentLoaded', () => {
     window.soundEngine.updateZoneBgm(data.zone || (localPlayer && localPlayer.zone) || 'town');
 
     if (zoneIcon && zoneText) {
-      if (data.zone === 'dungeon') {
+      if (data.rift) {
+        zoneIcon.dataset.pxi = 'whirl';
+        zoneText.textContent = 'The Eternal Rift';
+        window.soundEngine.playSkillWhoosh();
+      } else if (data.zone === 'dungeon') {
         const floorName = (data.map && data.map.name) ? data.map.name : `Dungeon Floor ${data.floorLevel || 1}`;
         const floorIcon = (data.map && data.map.icon) ? data.map.icon : 'whirl';
         zoneIcon.dataset.pxi = floorIcon;
@@ -1880,6 +1894,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Ask (with an in-game dialog) before leaving a dungeon run that has not been cleared yet
   function confirmLeaveDungeon(onLeave) {
+    if (window.RiftUI.active()) return window.RiftUI.confirmLeave();
     if (!dungeonRunState.active || dungeonRunState.cleared) return onLeave();
     if (document.querySelector('.leave-confirm-overlay')) return;
     const overlay = document.createElement('div');
@@ -1935,6 +1950,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const mouseY = e.clientY - rect.top;
     const worldPos = Isometric.screenToWorld(mouseX, mouseY, renderer.camera, renderer.viewW, renderer.viewH);
 
+    // Placing an Eternal Rift structure: this click builds (or right click cancels)
+    if (!isDragging && window.RiftUI.handleClick(worldPos, e.button)) return;
+
     // If dragging / holding mouse down, continuously stream destination
     if (isDragging) {
       const now = performance.now();
@@ -1966,6 +1984,19 @@ document.addEventListener('DOMContentLoaded', () => {
         if (Math.hypot(valka.x - worldPos.x, valka.y - worldPos.y) < 1.3) {
           if (Math.hypot(valka.x - localPlayer.x, valka.y - localPlayer.y) <= 3.5) openEnchanter();
           else socket.emit('player_input', { type: 'click_move', x: valka.x - 1.8, y: valka.y });
+          return;
+        }
+        // James the Gatekeeper (Rift Forge) and the Eternal Rift gate beside him
+        const james = townObstacles.find(o => o.id === 'npc_james');
+        if (james && Math.hypot(james.x - worldPos.x, james.y - worldPos.y) < 1.3) {
+          if (Math.hypot(james.x - localPlayer.x, james.y - localPlayer.y) <= 3.5) window.RiftUI.openForge();
+          else socket.emit('player_input', { type: 'click_move', x: james.x - 1.4, y: james.y + 0.6 });
+          return;
+        }
+        const riftGate = townObstacles.find(o => o.id === 'portal_rift');
+        if (riftGate && Math.hypot(riftGate.x - worldPos.x, riftGate.y - worldPos.y) < 1.1) {
+          if (Math.hypot(riftGate.x - localPlayer.x, riftGate.y - localPlayer.y) <= PORTAL_USE_RANGE) socket.emit('use_portal');
+          else socket.emit('player_input', { type: 'click_move', x: riftGate.x, y: riftGate.y + 1 });
           return;
         }
         const personalChest = townObstacles.find(o => o.id === 'town_personal_chest' || o.type === 'personal_chest') || { x: 17.8, y: 19.6 };
@@ -5983,7 +6014,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!localPlayer || localPlayer.isDead || !gameState.map) return null;
     let best = null, bestD = PORTAL_USE_RANGE;
     for (const o of gameState.map.obstacles || []) {
-      if (o.type !== 'field_portal' && o.id !== 'portal_dungeon') continue;
+      if (o.type !== 'field_portal' && o.id !== 'portal_dungeon' && o.id !== 'portal_rift') continue;
       const d = Math.hypot(o.x - localPlayer.x, o.y - localPlayer.y);
       if (d < bestD) { bestD = d; best = o; }
     }
@@ -5991,6 +6022,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   function portalLabel(o) {
     if (o.id === 'portal_dungeon') return 'Enter the Abyssal Dungeon';
+    if (o.id === 'portal_rift') return 'Enter the Eternal Rift';
     const text = (o.label || o.name || 'Portal').replace(/^.*?→\s*/, '').replace(/^Back to\s*/i, '');
     return `Travel to ${text}`;
   }
@@ -6029,7 +6061,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const personalChest = townObstacles.find(o => o.id === 'town_personal_chest' || o.type === 'personal_chest') || { x: 17.8, y: 19.6 };
       const distChest = Math.hypot(personalChest.x - localPlayer.x, personalChest.y - localPlayer.y);
-      if (distChest <= 2.8) {
+      const james = townObstacles.find(o => o.id === 'npc_james');
+      const distJames = james ? Math.hypot(james.x - localPlayer.x, james.y - localPlayer.y) : Infinity;
+      if (distJames <= 3.5) {
+        targetInteract = {
+          icon: 'essence',
+          label: 'FORGE',
+          action: () => window.RiftUI.openForge()
+        };
+      } else if (distChest <= 2.8) {
         targetInteract = {
           icon: 'chest',
           label: 'STORAGE',

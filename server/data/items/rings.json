@@ -101,5 +101,20 @@
       "holy": 0.1
     },
     "desc": "+90 Max Health, +12 Attack Power, Fire RES +15%, Holy RES +10%. Reborn from its own ashes."
+  },
+  "band_of_eternity": {
+    "id": "band_of_eternity",
+    "name": "Band of Eternity",
+    "type": "equipment",
+    "slot": "ring",
+    "iconKey": "ring",
+    "rarity": "legendary",
+    "sellPrice": 0,
+    "bonusDmg": 24,
+    "bonusHp": 140,
+    "bonusMp": 90,
+    "bonusAttackSpeed": 0.08,
+    "rift": true,
+    "desc": "+24 DMG, +140 HP, +90 MP, +8% Attack Speed. A ring that remembers every wave it has seen."
   }
 }
