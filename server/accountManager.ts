@@ -302,7 +302,6 @@ export class AccountManager {
       equippedSkills: (characterData.spTransformed && characterData.baseEquippedSkills) || characterData.equippedSkills || null,
       jobLevel: characterData.jobLevel || 1,
       spLoadouts: characterData.spLoadouts || {},
-      skillLinks: characterData.skillLinks || {},
       jobExp: characterData.jobExp || 0,
       equipment: characterData.equipment || {},
       gold: characterData.gold || 0,

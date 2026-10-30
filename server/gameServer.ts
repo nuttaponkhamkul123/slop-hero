@@ -337,7 +337,7 @@ const DEFAULT_EQUIPPED_SKILLS = {
   }
 };
 
-// Slots a client may cast from (Skill Link casts use internal 'link_<skill>' slots)
+// Slots a client may cast from
 const CLIENT_SKILL_SLOTS = new Set(['slot1', 'slot2', 'slot3', 'dash', 'weapon', 'skill1', 'skill2']);
 
 const DEFAULT_SKILL_FOR_SLOT = (player, slot) => {
@@ -1562,8 +1562,6 @@ class GameServer {
       skillPoints: savedChar ? (savedChar.skillPoints !== undefined ? savedChar.skillPoints : 1) : 1,
       jobLevel: savedChar ? (savedChar.jobLevel || 1) : 1,
       spLoadouts: (savedChar && savedChar.spLoadouts) || {},
-      // (links saved by the older slot-to-slot version are dropped)
-      skillLinks: Object.fromEntries(Object.entries((savedChar && savedChar.skillLinks) || {}).filter(([, id]) => ALL_CLASS_SKILLS[id as string])),
       jobExp: savedChar ? (savedChar.jobExp || 0) : 0,
       jobExpNext: SP.jobExpToNext(savedChar ? (savedChar.jobLevel || 1) : 1),
       spTransformed: false,
@@ -2368,7 +2366,6 @@ class GameServer {
   handleCustomizeSkill(socketId, data) {
     const player = this.players.get(socketId);
     if (!player || player.isDead) return;
-    if (data && data.link !== undefined) return this.setSkillLink(player, data.slot, data.link);
     if (player.spTransformed) return this.customizeSpSkill(player, data);
 
     if (!data || !data.slot) return;
@@ -2431,30 +2428,6 @@ class GameServer {
     }
 
     this.broadcastSystemMessage(`⚡ [${player.name}] customized their active ability loadout.`);
-  }
-
-  // Skill Link: a hotbar slot also casts one extra class skill, which doesn't
-  // need a hotbar slot of its own. skillId 'none' unlinks.
-  setSkillLink(player, slot, skillId) {
-    const slots = ['slot1', 'slot2', 'slot3', 'dash'];
-    if (!slots.includes(slot)) return;
-    const socket = this.io.sockets.sockets.get(player.id);
-    const say = (text, color = '#ef4444') => socket && socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text, color });
-    const links = player.skillLinks = player.skillLinks || {};
-    const key = { slot1: 'Q', slot2: 'E', slot3: 'R', dash: 'Shift' }[slot];
-    if (skillId === 'none') {
-      delete links[slot];
-      say(`Unlinked [${key}]`, '#facc15');
-    } else {
-      const def = ALL_CLASS_SKILLS[skillId];
-      const own = (player.baseEquippedSkills || player.equippedSkills || {})[slot];
-      if (!def || def.class !== player.characterClass) return;
-      if (def.reqLevel && player.level < def.reqLevel) return say(`Requires Level ${def.reqLevel}!`);
-      if (skillId === own) return say('That skill is already in this slot');
-      links[slot] = skillId;
-      say(`[${key}] now also casts ${def.name}`, '#facc15');
-    }
-    if (socket) socket.emit('player_updated', player);
   }
 
   // The skill definition used for a slot; a transformed hero uses the card's
@@ -3923,14 +3896,13 @@ class GameServer {
     return miss;
   }
 
-  // linkedSkillId is only set by the server itself (Skill Link casts)
-  handlePlayerSkill(socketId: any, skillData: any = {}, linkedSkillId: any = null) {
+  handlePlayerSkill(socketId: any, skillData: any = {}) {
     const player = this.players.get(socketId);
     if (!player || player.isDead) return;
 
     const rawSlot = skillData.skillSlot || 'slot1';
     const slot = (rawSlot === 'skill1') ? 'slot1' : (rawSlot === 'skill2') ? 'slot2' : rawSlot;
-    if (!linkedSkillId && !CLIENT_SKILL_SLOTS.has(slot)) return;
+    if (!CLIENT_SKILL_SLOTS.has(slot)) return;
 
     if (!player.equippedSkills) {
       player.equippedSkills = JSON.parse(JSON.stringify(DEFAULT_EQUIPPED_SKILLS[player.characterClass] || DEFAULT_EQUIPPED_SKILLS.warrior));
@@ -3946,7 +3918,7 @@ class GameServer {
     if (!recall && (player.skillCooldowns[slot] > 0 || (player.skillCooldowns[rawSlot] > 0))) return;
 
     const socket0 = this.io.sockets.sockets.get(socketId);
-    const skillId = linkedSkillId ? linkedSkillId : slot === 'weapon' ? 'weapon'
+    const skillId = slot === 'weapon' ? 'weapon'
       : player.equippedSkills[slot] || (DEFAULT_EQUIPPED_SKILLS[player.characterClass] && DEFAULT_EQUIPPED_SKILLS[player.characterClass][slot]) || 'whirlwind';
     const skill = this.resolvePlayerSkill(player, slot, skillId);
     if (!skill) {
@@ -4744,14 +4716,6 @@ class GameServer {
       this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.45, text: `+${bHeal} HP (Lifesteal)`, color: '#ef4444' });
     }
 
-    // Skill Link: the linked skill fires too, with its own MP and cooldown (if
-    // it is not ready it simply doesn't cast). A linked skill that also sits in
-    // a hotbar slot shares that slot's cooldown, so it can't be used twice.
-    const linkedId = !linkedSkillId && player.skillLinks && player.skillLinks[slot];
-    if (linkedId && ALL_CLASS_SKILLS[linkedId] && !player.isDead) {
-      const shared = ['slot1', 'slot2', 'slot3', 'dash'].find(s => player.equippedSkills[s] === linkedId);
-      this.handlePlayerSkill(socketId, { ...skillData, skillSlot: shared || 'link_' + linkedId }, linkedId);
-    }
   }
 
   recalculatePlayerStats(player) {
@@ -6850,8 +6814,7 @@ class GameServer {
       };
       const heavy = {
         inventory: p.inventory, equipment: p.equipment, baseStats: p.baseStats,
-        skills: p.skills || {}, equippedSkills: p.equippedSkills, elementResist: p.elementResist || {},
-        skillLinks: p.skillLinks || {}
+        skills: p.skills || {}, equippedSkills: p.equippedSkills, elementResist: p.elementResist || {}
       };
       const sig = JSON.stringify(heavy);
       if (fullRefresh || sig !== this._heavySigs.get(p)) {

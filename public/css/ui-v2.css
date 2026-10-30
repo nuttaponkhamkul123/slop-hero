@@ -522,12 +522,6 @@
   .difficulty-select-grid { grid-template-columns: 1fr; }
 }
 
-/* Skill Link: tag on linked hotbar slots */
-.action-slot.skill-linked, .hotbar-slot-card.skill-linked { position: relative; box-shadow: 0 0 0 2px #facc15; }
-.action-slot.skill-linked::after, .hotbar-slot-card.skill-linked::after {
-  content: attr(data-link); position: absolute; right: 2px; bottom: 2px; padding: 0 3px;
-  font-size: 9px; line-height: 12px; color: #1a1300; background: #facc15; pointer-events: none;
-}
 /* Buff / debuff tray, right of the player frame */
 .player-frame-row { display: flex; align-items: flex-start; gap: 6px; }
 .buff-tray { display: flex; flex-wrap: wrap; gap: 4px; max-width: 230px; pointer-events: auto; }
@@ -549,9 +543,6 @@
   animation: aura-toggled 1.2s ease-in-out infinite;
 }
 @keyframes aura-toggled { 50% { box-shadow: 0 0 0 2px #f87171, 0 0 20px rgba(239, 68, 68, 0.95); } }
-.skill-link-pill { display: inline-flex; align-items: center; gap: 6px; }
-.skill-link-pill .skill-link-icon { display: inline-flex; width: 20px; height: 20px; }
-.skill-link-pill .skill-link-icon > * { width: 20px; height: 20px; }
 
 /* ---------- Visual Dungeon Loot Preview Grids (Inventory Slot Style) ---------- */
 .run-bag-header {
