@@ -144,7 +144,6 @@
           <!-- Mobile Collapsible Menu Drawer -->
           <div class="mobile-menu-drawer hud-panel interactive" id="mobileMenuDrawer" style="display: none;">
             <button class="menu-btn mobile-menu-item" id="mBtnOpenSkillTree"><span data-pxi="tree"></span> Skills</button>
-            <button class="menu-btn mobile-menu-item" id="mBtnOpenShop"><span data-pxi="coin"></span> Shop</button>
             <button class="menu-btn mobile-menu-item" id="mBtnOpenStats"><span data-pxi="stats"></span> Stats</button>
             <button class="menu-btn mobile-menu-item" id="mBtnOpenInventory"><span data-pxi="bag"></span> Bag</button>
             <button class="menu-btn mobile-menu-item" id="mBtnOpenParty"><span data-pxi="shield"></span> Party</button>
@@ -245,14 +244,18 @@
       </div>
 
       <!-- Quick Menu (Bottom-Right) -->
-      <div class="quick-menu-group interactive">
-        <button class="menu-btn" id="btnOpenSkillTree"><span data-pxi="tree"></span> Skills [K]</button>
-        <button class="menu-btn" id="btnOpenShop"><span data-pxi="coin"></span> Shop [P]</button>
-        <button class="menu-btn" id="btnOpenStats"><span data-pxi="stats"></span> Stats [C]</button>
-        <button class="menu-btn" id="btnOpenInventory"><span data-pxi="bag"></span> Bag [I]</button>
-        <button class="menu-btn" id="btnOpenParty"><span data-pxi="shield"></span> Party [O]</button>
-        <button class="menu-btn" id="btnOpenHelp"><span data-pxi="help"></span> Help [H]</button>
-        <button class="menu-btn" id="btnOpenAdmin" style="display: none;"><span data-pxi="crown"></span> Admin [F2]</button>
+      <div class="quick-menu-container interactive" id="quickMenuContainer">
+        <button class="menu-btn quick-menu-bundle-btn" id="btnQuickMenuBundle" title="Toggle Menu">
+          <span data-pxi="menu"></span> Menu
+        </button>
+        <div class="quick-menu-group" id="quickMenuGroup">
+          <button class="menu-btn" id="btnOpenSkillTree"><span data-pxi="tree"></span> Skills [K]</button>
+          <button class="menu-btn" id="btnOpenStats"><span data-pxi="stats"></span> Stats [C]</button>
+          <button class="menu-btn" id="btnOpenInventory"><span data-pxi="bag"></span> Bag [I]</button>
+          <button class="menu-btn" id="btnOpenParty"><span data-pxi="shield"></span> Party [O]</button>
+          <button class="menu-btn" id="btnOpenHelp"><span data-pxi="help"></span> Help [H]</button>
+          <button class="menu-btn" id="btnOpenAdmin" style="display: none;"><span data-pxi="crown"></span> Admin [F2]</button>
+        </div>
       </div>
     </div>
 
@@ -1145,7 +1148,7 @@
         <div class="key-row"><span>Health / Mana Potion</span><span class="key-tag">1 / 2 Keys</span></div>
         <div class="key-row"><span>Pick Up Ground Loot</span><span class="key-tag">Left Click on Item</span></div>
         <div class="key-row"><span>Reforge & Upgrade Gear</span><span class="key-tag">F Key OR Talk to Brom</span></div>
-        <div class="key-row"><span>Open Trader Shop</span><span class="key-tag">P Key</span></div>
+        <div class="key-row"><span>Trader Shop (Olaf)</span><span class="key-tag">Talk in Town [E]</span></div>
         <div class="key-row"><span>Character Stats / Bag</span><span class="key-tag">C / I Keys</span></div>
         <div class="key-row"><span>Chat with Players</span><span class="key-tag">Enter Key</span></div>
         <div class="key-row"><span>Zoom Camera In/Out</span><span class="key-tag">Mouse Scroll Wheel</span></div>
