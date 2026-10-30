@@ -873,6 +873,32 @@
           far: [11, -32 + Math.sin(w + 1.2) * 2, -5]
         });
       }
+    },
+    // James the Gatekeeper: grey-bearded veteran in steel and a violet tabard,
+    // leaning on a glaive tipped with a rift crystal
+    gatekeeper: {
+      W: 64, H: 92, AX: 32, AY: 84, view: 'front', period: 4, frames: 16,
+      draw(S, t) {
+        const w = t * Math.PI * 2;
+        human(S, {
+          broad: 1.12, robe: M.robeDark, hairBack: true,
+          skin: M.skinBrom, hair: M.silver, brow: M.silver.d, beard: M.silver, moustache: M.silver,
+          torso: M.armor, sleeve: M.steel, apron: M.robe, belt: M.gemGold, buckle: M.gemGold.h,
+          hat: (S2, head) => {
+            S2.ball(V3(head, [-0.2, -2.8, 0], 1), 6.7, M.steel, { sy: 0.78, spec: true, bias: 0.5 });
+            S2.limb(V3(head, [-1, -7.5, 0], 1), V3(head, [-7, -14, 0], 1), 1.7, 0.6, M.hatPurple, { bias: 0.6 });
+          },
+          tool: (S2, hand) => {
+            S2.limb(V3(hand, [0.5, -28, 0], 1), V3(hand, [1, 17, 0], 1), 1.1, 1.1, M.wood, { bias: 0.3 });
+            S2.limb(V3(hand, [0.5, -28, 0], 1), V3(hand, [4, -34, 0], 1), 2, 0.4, M.steel, { spec: true, bias: 0.35 });
+            S2.ball(V3(hand, [0.4, -30 + Math.sin(w * 2) * 0.6, 0], 1), 2.4, M.hatPurple, { spec: true, bias: 0.45 });
+          }
+        }, {
+          bob: Math.sin(w) * 0.4, glow: true,
+          near: [8, -24, 7],
+          far: [6, -19, -7]
+        });
+      }
     }
   };
 

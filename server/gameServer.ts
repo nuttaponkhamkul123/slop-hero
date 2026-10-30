@@ -21,6 +21,7 @@ import {
   requiredClass,
   WEAPON_ABILITIES,
   weaponAbility,
+  weaponPower,
   RUNE_DROP_CHANCE,
   SOCKET_EXPANDER_DROP_CHANCE,
   RUNES_DEF,
@@ -31,6 +32,7 @@ import { FIELD_ZONES, FIELD_ZONE_BY_ID, generateFieldMap, buildFieldMobs } from 
 import { expToNext, mobExp, levelGapMult, lootGapMult, masteryMult, MOB_DEF_K } from './progression';
 import * as SP from './spCards';
 import * as adminCommands from './adminCommands';
+import * as RIFT from './eternalRift';
 const SP_TRANSFORM_COOLDOWN = 8;
 
 // Global tuning knob for every skill's damage against monsters
@@ -370,6 +372,8 @@ const CLASS_SKILLS = {
 const SKILL_TREES = require('./talents');
 // How close a hero must stand to a portal to use it (client shows the button in range)
 const PORTAL_USE_RANGE = 2.5;
+// Where heroes come back out of the Eternal Rift (beside its town gate)
+const RIFT_TOWN_ARRIVAL = { x: 27.0, y: 21.4 };
 const RAID = require('./raidBosses');
 // Party EXP sharing: members within this many tiles (1 tile = 1 metre) of the
 // killer, on the same map, split the kill's EXP; each extra member adds this bonus
@@ -1196,7 +1200,7 @@ class GameServer {
 
     const inst = this.getPlayerDungeonInstance(player);
     const field = this.fields.get(player.zone);
-    const where = inst ? `Dungeon B${inst.floor}` : field ? field.zone.name : 'Town';
+    const where = inst ? (inst.rift ? 'the Eternal Rift' : `Dungeon B${inst.floor}`) : field ? field.zone.name : 'Town';
     const expiresAt = Date.now() + PARTY_SUMMON_TTL_MS;
     let sent = 0;
     for (const memberId of party.memberIds) {
@@ -1248,7 +1252,9 @@ class GameServer {
       if (prevInstId) this.cleanupDungeonInstanceIfEmpty(prevInstId);
     }
 
-    if (inst) {
+    if (inst && inst.rift) {
+      if (!this.joinRift(player, socket, inst, at)) return fail('⚠️ That Eternal Rift run has already ended.');
+    } else if (inst) {
       player.dungeonRun = this.newDungeonRun(inst, !!(summoner.dungeonRun && summoner.dungeonRun.cleared));
       this.teleportPlayerToDungeon(player, socket, inst, at);
       this.emitDungeonRunUpdate(player, socket);
@@ -1708,7 +1714,14 @@ class GameServer {
       skillRunes: SKILL_RUNES,
       spCatalog: SP.clientCatalog(),
       weaponAbilities: Object.fromEntries(Object.values(WEAPON_ABILITIES).map(a => [a.id, { id: a.id, name: a.name, desc: a.desc, mpCost: a.mpCost, cooldown: a.cooldown, isDash: a.isDash, shape: a.shape, element: a.element, color: a.color }])),
-      enhanceRules: { max: ENHANCE_MAX, safeLevel: ENHANCE_SAFE_LEVEL, base: ENHANCE_BASE_COST, growth: ENHANCE_COST_GROWTH, chance: ENHANCE_CHANCE }
+      enhanceRules: { max: ENHANCE_MAX, safeLevel: ENHANCE_SAFE_LEVEL, base: ENHANCE_BASE_COST, growth: ENHANCE_COST_GROWTH, chance: ENHANCE_CHANCE },
+      riftCatalog: {
+        structures: RIFT.RIFT_STRUCTURES,
+        recipes: RIFT.JAMES_RECIPES.map(r => ({ ...r, item: ITEMS[r.itemId] })),
+        maxWaves: RIFT.RIFT_MAX_WAVES,
+        checkpointEvery: RIFT.RIFT_CHECKPOINT_EVERY,
+        buildReach: RIFT.RIFT_STRUCT_REACH
+      }
     });
 
     socket.broadcast.emit('player_joined', player);
@@ -1754,8 +1767,9 @@ class GameServer {
       return;
     }
 
-    // Check dungeon run revival quota (limit 10 per run)
-    if (player.zone === 'dungeon') {
+    // Check dungeon run revival quota (limit 10 per run; the Eternal Rift has none)
+    const inRift = !!this.getRiftInstance(player);
+    if (player.zone === 'dungeon' && !inRift) {
       if (!player.dungeonRun) {
         player.dungeonRun = { revivalsUsed: 0, maxRevivals: 10 };
       }
@@ -1795,6 +1809,7 @@ class GameServer {
     const share = (ITEMS[stoneId] && ITEMS[stoneId].reviveShare) || 0.3;
     player.isDead = false;
     player.respawnTimer = 0;
+    player.riftRespawnSet = false;
     player.hp = Math.max(1, Math.round(player.maxHp * share));
     player.mp = Math.round(player.maxMp * share);
 
@@ -1802,7 +1817,7 @@ class GameServer {
     if (socket) {
       socket.emit('player_respawned', { playerId: player.id, x: player.x, y: player.y, onSpot: true });
       socket.emit('player_updated', player);
-      const revMsg = player.zone === 'dungeon'
+      const revMsg = player.zone === 'dungeon' && !inRift && player.dungeonRun
         ? `✨ ชุบชีวิตสำเร็จ! (หินชุบในดัน: ${player.dungeonRun.revivalsUsed}/${player.dungeonRun.maxRevivals || 10})`
         : `✨ ชุบชีวิตสำเร็จ! (${superStone ? 'Super Revival Stone' : 'Revival Stone'} - ${Math.round(share * 100)}% HP)`;
       socket.emit('floating_text', {
@@ -1878,6 +1893,12 @@ class GameServer {
           socket.emit('open_dungeon_portal_modal');
           return;
         }
+        // Eternal Rift gate at the end of the east boulevard
+        if (obs.id === 'portal_rift') {
+          player.portalCooldown = 2.0;
+          socket.emit('open_rift_portal_modal', this.riftPortalInfo(player));
+          return;
+        }
         // North city gate out to the first field zone
         if (obs.type === 'field_portal') {
           this.teleportPlayerToField(player, socket, obs.target, obs.arrive);
@@ -1940,6 +1961,10 @@ class GameServer {
     if (!socket) return;
 
     const inst = this.getPlayerDungeonInstance(player);
+    if (inst && inst.rift) {
+      this.leaveRift(player, socket);
+      return;
+    }
     const dung = inst ? inst.dungeon : this.dungeon;
     const mobsMap = inst ? inst.mobs : this.dungeonMobs;
 
@@ -2297,7 +2322,20 @@ class GameServer {
 
     let hasSweepTriggered = false;
 
-    if (player.characterClass === 'mage') {
+    const power = player.weaponPower;
+    if (player.characterClass === 'mage' && power && power.fireChannel) {
+      // Sunfire Conduit: one fireball into each of the nearest enemies (the clicked one first), no splash
+      const reach = player.attackRange + 1.0;
+      const near = (Array.from(mobsMap.values()) as any[])
+        .filter(m => m.state !== 'dead' && m !== targetMob && !(m.spawnUntil && Date.now() < m.spawnUntil) && Math.hypot(m.x - player.x, m.y - player.y) <= reach)
+        .sort((a, b) => Math.hypot(a.x - player.x, a.y - player.y) - Math.hypot(b.x - player.x, b.y - player.y));
+      const targets = (targetMob && Math.hypot(targetMob.x - player.x, targetMob.y - player.y) <= reach ? [targetMob] : []).concat(near).slice(0, power.fireChannel);
+      if (targets.length) {
+        targets.forEach(m => this.spawnProjectile(player, m.x, m.y, m.id, 'mob', attackDmg, { crit: isCrit }));
+      } else if (targetInfo && targetInfo.worldX !== undefined && targetInfo.worldY !== undefined) {
+        this.spawnProjectile(player, targetInfo.worldX, targetInfo.worldY, null, 'point', attackDmg, { crit: isCrit });
+      }
+    } else if (player.characterClass === 'mage') {
       // Mage Ranged Projectiles
       if (targetMob) {
         const dist = Math.hypot(targetMob.x - player.x, targetMob.y - player.y);
@@ -2336,7 +2374,8 @@ class GameServer {
       }
 
       // 2. Sweeping Edge (Swipe) Cleave to surrounding enemies in front arc
-      const swipePct = (player.swipe !== undefined ? player.swipe : 35);
+      // (Gatekeeper's Greatsword: a far longer, wider cleave with a damage floor)
+      const swipePct = Math.max(player.swipe !== undefined ? player.swipe : 35, (power && power.minSwipe) || 0);
       if (swipePct > 0) {
         hasSweepTriggered = true;
         const facingVectors = {
@@ -2350,7 +2389,8 @@ class GameServer {
           NE: { x: 0.0, y: -1.0 }
         };
         const fv = facingVectors[player.facing] || { x: 1.0, y: 0.0 };
-        const sweepRange = (player.attackRange || 1.6) + 1.15;
+        const sweepRange = (player.attackRange || 1.6) + 1.15 + ((power && power.sweepReach) || 0);
+        const minDot = power && power.sweepArc ? Math.cos((power.sweepArc * Math.PI) / 360) : 0.35;
         const swipeDmg = Math.max(1, Math.round(attackDmg * (swipePct / 100)));
 
         for (const mob of mobsMap.values()) {
@@ -2360,9 +2400,9 @@ class GameServer {
           const dist = Math.hypot(dx, dy);
           if (dist > sweepRange) continue;
 
-          // Check angle in cone (±68 degrees, cos >= 0.38)
+          // Check angle in cone (±68 degrees, cos >= 0.35; wider for a sweepArc weapon)
           const dot = dist > 0.001 ? (dx * fv.x + dy * fv.y) / dist : 1.0;
-          if (dot >= 0.35) {
+          if (dot >= minDot) {
             hitMobs.add(mob.id);
             strike(mob, swipeDmg, false);
           }
@@ -2384,7 +2424,8 @@ class GameServer {
       targetY: targetMob ? targetMob.y : undefined,
       hasSweep: hasSweepTriggered,
       attackSpeed: player.attackSpeed || 1.0,
-      swipe: player.swipe || 0
+      swipe: player.swipe || 0,
+      sweepReach: (power && power.sweepReach) || 0
     });
   }
 
@@ -3788,6 +3829,37 @@ class GameServer {
         }
         break;
       }
+      case 'alpha': {
+        // Eternal Alpha (Nightfall Twinblades): blink from enemy to enemy,
+        // striking each, landing beside the last one; drawn as a chain of blinks
+        const struck = new Set();
+        let from = { x: px, y: py };
+        const hop = (i: number) => {
+          const target = nearest(from.x, from.y, i === 0 ? skill.range : skill.jump, struck);
+          if (!target) return false;
+          struck.add(target);
+          const d = Math.hypot(target.x - from.x, target.y - from.y) || 1;
+          let lx = target.x - ((target.x - from.x) / d) * 0.9, ly = target.y - ((target.y - from.y) / d) * 0.9;
+          if (this.isColliding(lx, ly, zone)) { lx = target.x; ly = target.y; }
+          if (!isShadow) {
+            player.x = lx; player.y = ly;
+            player.targetX = null; player.targetY = null;
+            player.facing = this.calculateFacing(lx, ly, target.x, target.y);
+          }
+          emit({ shape: 'blink', startX: from.x, startY: from.y, x: lx, y: ly, radius: 1.1, landing: true, facing: player.facing }, i === 0);
+          hit(target, 1, lx, ly);
+          from = { x: lx, y: ly };
+          return true;
+        };
+        if (!hop(0)) {
+          // nobody in reach: a short blink forward instead
+          const end = travel(3);
+          emit({ shape: 'blink', startX: px, startY: py, x: end.x, y: end.y, radius: 0, facing: player.facing }, true);
+          break;
+        }
+        for (let i = 1; i < skill.n; i++) later(i * skill.every, () => hop(i));
+        break;
+      }
     }
 
     // Lingering ground: burning crater / fire trail / gravity well, ticking on its own
@@ -3995,7 +4067,8 @@ class GameServer {
     const runeCounts = this.getWeaponRuneCounts(player);
     let cooldown = skill.cooldown;
     if (runeCounts.tempest > 0) {
-      cooldown = Math.max(1.0, Number((cooldown * Math.pow(0.8, runeCounts.tempest)).toFixed(1)));
+      // (the 1s floor never lengthens a cooldown that is already shorter, e.g. Rift Step's 0.25s)
+      cooldown = Math.max(Math.min(1.0, cooldown), Number((cooldown * Math.pow(0.8, runeCounts.tempest)).toFixed(2)));
     }
     if (slot === 'dash') {
       if (playerTalents.sundering_dash) cooldown = Math.max(1.2, cooldown - playerTalents.sundering_dash * 0.5);
@@ -4848,7 +4921,10 @@ class GameServer {
 
     // Combat Mastery multiplies every source of damage at high level
     player.mastery = Number(masteryMult(player.level).toFixed(2));
-    player.dmg = Math.round((player.baseStats.dmg + totalBonusDmg) * player.mastery);
+    // James the Gatekeeper's weapons: passive powers (Gatekeeper's Greatsword -30%, Sunfire Conduit +10%)
+    const power = weaponPower(player.equipment && player.equipment.weapon);
+    player.weaponPower = power;
+    player.dmg = Math.round((player.baseStats.dmg + totalBonusDmg) * player.mastery * ((power && power.dmgMult) || 1));
     player.def = player.baseStats.def + totalBonusDef;
     player.maxHp = player.baseStats.maxHp + totalBonusHp;
     player.maxMp = player.baseStats.maxMp + totalBonusMp;
@@ -6287,7 +6363,8 @@ class GameServer {
     // Level Gap Mitigation & Deflection
     let isGlancing = false;
     let isDeflected = false;
-    if (player && mob.level && player.level) {
+    // (Eternal Rift monsters outlevel the party on purpose: their stats carry the challenge)
+    if (player && mob.level && player.level && !mob.noLevelGap) {
       const levelGap = mob.level - player.level;
       if (levelGap >= 20) {
         // Enormous level gap: attacks deflect completely!
@@ -6544,7 +6621,9 @@ class GameServer {
         }
       }
 
-      if (mob.isBoss) {
+      if (mob.riftMob) {
+        // Rift kills pay Rift Points only; the wave logic handles the rest
+      } else if (mob.isBoss) {
         this.broadcastSystemMessage(`👑 Legendary Conquest! [${killerPlayer.name}] vanquished [${mob.name}]!`);
         const bossInst = this.getPlayerDungeonInstance(killerPlayer);
         if (bossInst) this.rollBossSpLoot(bossInst, mob.level);
@@ -6568,6 +6647,14 @@ class GameServer {
           this.broadcastSystemMessage(`💎 Miniboss Bounty! [${mob.name}] dropped [${gear.name}]!`);
         }
       }
+    }
+
+    // Eternal Rift monsters drop nothing: they pay Rift Points to whoever slew them
+    if (mob.riftMob) {
+      const riftInst = this.dungeonInstances.get(mob.riftInstanceId);
+      if (riftInst && riftInst.rift) this.onRiftMobDeath(riftInst, mob, killerPlayer);
+      this.emitZone('dungeon', 'mob_died', { mobId: mob.id, killerId: killerPlayer ? killerPlayer.id : null }, mob.riftInstanceId);
+      return;
     }
 
     // Spirit fragments from elite (commander) monsters and, rarely, any dungeon monster
@@ -6839,7 +6926,17 @@ class GameServer {
           player.bloodlust = null;
           this.recalculatePlayerStats(player);
         }
+        // Eternal Rift: fallen heroes rise again at the Holy Fountain
+        const deadRift = this.getRiftInstance(player);
+        if (deadRift && !player.riftRespawnSet) {
+          player.riftRespawnSet = true;
+          player.respawnTimer = RIFT.RIFT_RESPAWN_S;
+        }
         player.respawnTimer -= dt;
+        if (player.respawnTimer <= 0 && deadRift) {
+          this.respawnInRift(player, socket);
+          continue;
+        }
         if (player.respawnTimer <= 0) {
           if (player.zone === 'dungeon') {
             this.endDungeonRun(player, socket);
@@ -7105,7 +7202,8 @@ class GameServer {
       }
       this.ctxInstanceId = inst.id;
       this.updateMobsList(inst.mobs, 'dungeon', dt, inst.id);
-      this.updateDungeonRooms(inst);
+      if (inst.rift) this.updateRift(inst, dt);
+      else this.updateDungeonRooms(inst);
       this.ctxInstanceId = null;
     }
 
@@ -7216,6 +7314,13 @@ class GameServer {
         continue;
       }
 
+      // Eternal Rift monsters march on the Holy Fountain instead of idling
+      if (mob.riftMob) {
+        const riftInst = instanceId && this.dungeonInstances.get(instanceId);
+        if (riftInst && riftInst.rift) this.updateRiftMob(mob, riftInst, dt);
+        continue;
+      }
+
       if (mob.state === 'idle') {
         let closestPlayer = null;
         let closestDist = 5.0;
@@ -7290,111 +7395,7 @@ class GameServer {
             mob.attackCooldown = 1.2 + Math.random() * 0.5; // jitter desyncs packs
             targetPlayer.nextMobHitAt = now + (mob.isBoss ? 150 : 350);
 
-            if (targetPlayer.godMode) {
-              this.emitZone(zone, 'floating_text', { x: targetPlayer.x, y: targetPlayer.y - 0.7, text: '🛡️ IMMUNE (God Mode)', color: '#facc15' });
-              continue;
-            }
-
-            if (targetPlayer.smokeScreenTimer > 0) {
-              this.emitZone(zone, 'floating_text', { x: targetPlayer.x, y: targetPlayer.y - 0.7, text: '💨 MISS! (Stealth)', color: '#94a3b8' });
-              continue;
-            }
-            // Dragoon in the air: nothing on the ground can reach him
-            if (targetPlayer.airborneUntil > now) continue;
-            // Sentinel Riposte Stance: the blow is blocked and returned
-            if (targetPlayer.parry && targetPlayer.parry.until > now) {
-              const back = Math.max(1, Math.round(targetPlayer.dmg * targetPlayer.parry.riposte * SKILL_DAMAGE_SCALE));
-              this.applyDamageToMob(targetPlayer, mob, back, false);
-              mob.attackCooldown = Math.max(mob.attackCooldown, 1.6);
-              this.emitZone(zone, 'skill_fx', { type: 'sp_skill', shape: 'riposte', startX: targetPlayer.x, startY: targetPlayer.y, x: mob.x, y: mob.y, element: 'holy', color: '#fde68a', cardId: 'sp_sentinel', skillId: 'sp_sentinel_riposte' });
-              this.emitZone(zone, 'floating_text', { x: targetPlayer.x, y: targetPlayer.y - 0.7, text: '🛡️ RIPOSTE!', color: '#fde68a', size: 16 });
-              continue;
-            }
-            if (Math.random() < this.smokeMissChance(targetPlayer)) {
-              this.emitZone(zone, 'floating_text', { x: targetPlayer.x, y: targetPlayer.y - 0.7, text: '💨 MISS! (Smoke)', color: '#94a3b8' });
-              continue;
-            }
-
-            // Dodge chance from talents
-            if (targetPlayer.dodgeChance && Math.random() < targetPlayer.dodgeChance) {
-              this.emitZone(zone, 'floating_text', { x: targetPlayer.x, y: targetPlayer.y - 0.7, text: '💨 DODGE!', color: '#38bdf8' });
-              continue;
-            }
-
-            const effectiveDmg = mob.hasCommanderBuff ? Math.round(mob.dmg * 1.35) : mob.dmg;
-            let damageDealt = Math.max(1, Math.round(effectiveDmg - (targetPlayer.def * 0.5)));
-
-            // Monster element vs the player's elemental resistance from gear
-            const elemResistMult = calculateElementalMultiplier(mob.element || 'neutral', 'neutral', targetPlayer.elementResist || {});
-            damageDealt = Math.max(1, Math.round(damageDealt * elemResistMult));
-
-            // Crushing Blow from high level monsters against underleveled players!
-            let isCrushing = false;
-            if (mob.level && targetPlayer.level && (mob.level - targetPlayer.level >= 5)) {
-              const gap = mob.level - targetPlayer.level;
-              const crushingMult = 1.0 + Math.min(4.0, (gap - 3) * 0.08);
-              damageDealt = Math.round(damageDealt * crushingMult);
-              isCrushing = true;
-            }
-
-            // Thorns reflection (Iron Fortress + passive Unyielding Spikes/Colossus Avatar)
-            const thornsDmg = (targetPlayer.ironFortressTimer > 0 ? 25 : 0) + (targetPlayer.thorns || 0);
-            if (thornsDmg > 0) {
-              this.applyDamageToMob(targetPlayer, mob, thornsDmg, false);
-              this.emitZone(zone, 'floating_text', { x: mob.x, y: mob.y - 0.7, text: `🌵 ${thornsDmg} Thorns!`, color: '#e2e8f0' });
-            }
-
-            // Iron Fortress: -60% damage
-            if (targetPlayer.ironFortressTimer > 0) {
-              damageDealt = Math.max(1, Math.round(damageDealt * 0.40));
-            }
-
-            // Shield Barrier absorption
-            if (targetPlayer.shieldHp > 0) {
-              const absorbed = Math.min(targetPlayer.shieldHp, damageDealt);
-              targetPlayer.shieldHp -= absorbed;
-              damageDealt -= absorbed;
-              this.emitZone(zone, 'floating_text', { x: targetPlayer.x, y: targetPlayer.y - 0.5, text: `🛡️ Absorbed -${absorbed}`, color: '#38bdf8' });
-            }
-
-            targetPlayer.hp -= damageDealt;
-            if (targetPlayer.undyingTimer > 0 && targetPlayer.hp < 1) {
-              targetPlayer.hp = 1;
-              this.emitZone(zone, 'floating_text', { x: targetPlayer.x, y: targetPlayer.y - 1.0, text: '💀 UNDYING RAGE!', color: '#c084fc', size: 18 });
-            }
-            if (targetPlayer.hp <= 0) this.phoenixRebirth(targetPlayer);
-
-            // Apply Mob Buffs/Affixes to targetPlayer
-            if (mob.buffs && mob.buffs.length > 0) {
-              if (mob.buffs.includes('venomous')) {
-                this.applyStatusEffect(targetPlayer, 'poison', 4.5, 9);
-              }
-              if (mob.buffs.includes('frostbite')) {
-                this.applyStatusEffect(targetPlayer, 'chill', 2.5, 0.45);
-              }
-              if (mob.buffs.includes('ignited')) {
-                this.applyStatusEffect(targetPlayer, 'burn', 3.0, 14);
-              }
-            }
-
-            if (isCrushing) {
-              this.emitZone(zone, 'floating_text', { x: targetPlayer.x, y: targetPlayer.y - 0.7, text: `-${damageDealt}`, color: '#dc2626', size: 18 });
-            } else if (elemResistMult < 1) {
-              this.emitZone(zone, 'floating_text', { x: targetPlayer.x, y: targetPlayer.y - 0.7, text: `-${damageDealt}`, color: '#fca5a5' });
-            } else {
-              this.emitZone(zone, 'floating_text', { x: targetPlayer.x, y: targetPlayer.y - 0.7, text: `-${damageDealt}`, color: '#ef4444' });
-            }
-            this.emitZone(zone, 'entity_attack_fx', { attackerId: mob.id, attackerType: 'mob', targetId: targetPlayer.id, x: mob.x, y: mob.y });
-
-            if (targetPlayer.hp <= 0) {
-              targetPlayer.hp = 0;
-              targetPlayer.isDead = true;
-              if (targetPlayer.dungeonRun) targetPlayer.dungeonRun.deaths = (targetPlayer.dungeonRun.deaths || 0) + 1;
-              targetPlayer.respawnTimer = 5.0;
-              this.emitZone(zone, 'player_died', { playerId: targetPlayer.id, killerName: mob.name });
-              this.broadcastSystemMessage(`☠️ [${targetPlayer.name}] was slain by [${mob.name}]!`);
-              mob.state = 'return';
-            }
+            this.mobStrikePlayer(mob, targetPlayer, zone);
           }
         } else {
           let effectiveSpeed = mob.hasCommanderBuff ? mob.speed * 1.25 : mob.speed;
@@ -7427,6 +7428,721 @@ class GameServer {
           mob.hp = mob.maxHp;
         }
       }
+    }
+  }
+
+  // ==========================================
+  // ETERNAL RIFT (wave defence; tuning in eternalRift.ts)
+  // A rift run is a dungeon instance with a `rift` state: the zone stays
+  // 'dungeon', so rooms, snapshots, combat and parties all work unchanged.
+  // ==========================================
+  getRiftInstance(player) {
+    const inst = this.getPlayerDungeonInstance(player);
+    return inst && inst.rift ? inst : null;
+  }
+
+  riftHeroes(inst) {
+    return (Array.from(this.players.values()) as any[]).filter(p => p.zone === 'dungeon' && p.dungeonInstanceId === inst.id);
+  }
+
+  riftOver(R) {
+    return R.phase === 'victory' || R.phase === 'defeat';
+  }
+
+  // What the town gate shows before entering: is the party already in there?
+  riftPortalInfo(player) {
+    const inst = player.partyId ? this.dungeonInstances.get(`rift_party_${player.partyId}`) : null;
+    const live = inst && inst.rift && !this.riftOver(inst.rift) ? inst.rift : null;
+    return { partyRun: live ? { wave: live.wave, phase: live.phase } : null, inParty: !!player.partyId };
+  }
+
+  handleEnterRift(socketId, options: any = {}) {
+    const player = this.players.get(socketId);
+    if (!player || player.zone !== 'town' || player.isDead) return;
+    const socket = this.io.sockets.sockets.get(socketId);
+    if (!socket) return;
+    const id = player.partyId ? `rift_party_${player.partyId}` : `rift_solo_${player.id}`;
+    let inst = this.dungeonInstances.get(id);
+    if (inst && this.riftOver(inst.rift)) {
+      if (this.riftHeroes(inst).length) {
+        socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: '⏳ Your party\'s last rift run is still closing...', color: '#facc15' });
+        return;
+      }
+      this.dungeonInstances.delete(id);
+      inst = null;
+    }
+    if (inst) socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: `🌌 Joining your party at wave ${Math.max(1, inst.rift.wave)}!`, color: '#c084fc' });
+    else inst = this.createRiftInstance(id, player);
+    this.joinRift(player, socket, inst);
+    if (options && options.inviteParty) this.handlePartySummon(socketId);
+  }
+
+  createRiftInstance(id, leader) {
+    // the run's level follows the party members online when it opens
+    const party = leader.partyId && this.parties.get(leader.partyId);
+    const members = party ? [...party.memberIds].map(m => this.players.get(m)).filter(Boolean) : [leader];
+    const avgLevel = members.reduce((t, p) => t + (p.level || 1), 0) / members.length;
+    const baseLevel = Math.max(1, Math.round(avgLevel) - 2);
+    const fountainHp = RIFT.fountainMaxHp(baseLevel, members.length);
+    const inst: any = {
+      id,
+      partyId: leader.partyId || null,
+      floor: 0,
+      difficulty: 'rift',
+      dungeon: RIFT.generateRiftArena(),
+      mobs: new Map<any, any>(),
+      pendingMobs: new Map<any, any>(),
+      groundItems: new Map<any, any>(),
+      chests: [],
+      cleared: false,
+      startedAt: Date.now(),
+      rift: {
+        phase: 'prep', wave: 0, timer: RIFT.RIFT_PREP_S, baseLevel,
+        fountain: { hp: fountainHp, maxHp: fountainHp },
+        queue: [], spawnEvery: 0.5, spawnClock: 0, gateTurn: 0,
+        structures: [], structSeq: 0,
+        points: new Map<string, number>(),   // heroId -> Rift Points (gone when they leave)
+        banked: new Map<string, any>(),      // heroId -> { gold, essence } paid out at a checkpoint
+        choices: new Map<string, string>(),  // heroId -> 'continue' during a checkpoint prompt
+        stateClock: 0
+      }
+    };
+    this.dungeonInstances.set(id, inst);
+    return inst;
+  }
+
+  // Put a hero in the arena (from the town gate or a party summon).
+  // Returns false if that run has already ended.
+  joinRift(player, socket, inst, at = null) {
+    const R = inst.rift;
+    if (this.riftOver(R)) return false;
+    player.dungeonRun = null;
+    player.dungeonInstanceId = inst.id;
+    player.portalCooldown = 4.0;
+    player.zone = 'dungeon';
+    player.x = at ? at.x : RIFT.RIFT_SPAWN.x + (Math.random() - 0.5) * 1.2;
+    player.y = at ? at.y : RIFT.RIFT_SPAWN.y + (Math.random() - 0.5) * 0.6;
+    player.targetX = null;
+    player.targetY = null;
+    if (!R.points.has(player.id)) R.points.set(player.id, 0);
+    if (!R.banked.has(player.id)) R.banked.set(player.id, { gold: 0, essence: 0 });
+
+    if (socket) {
+      if (player._room) socket.leave(player._room);
+      player._room = `dungeon:${inst.id}`;
+      socket.join(player._room);
+      socket.emit('zone_change', {
+        zone: 'dungeon',
+        rift: true,
+        map: inst.dungeon,
+        floorLevel: 0,
+        difficulty: 'rift',
+        player,
+        players: this.riftHeroes(inst),
+        mobs: (Array.from(inst.mobs.values()) as any[]).filter(m => m.state !== 'dead'),
+        groundItems: [],
+        chests: []
+      });
+      socket.emit('rift_state', this.riftStatePayload(inst));
+    }
+    this.broadcastSystemMessage(`🌌 [${player.name}] stepped into the Eternal Rift to defend the Holy Fountain!`);
+    return true;
+  }
+
+  riftStatePayload(inst) {
+    const R = inst.rift;
+    let alive = 0;
+    for (const m of inst.mobs.values()) if (m.state !== 'dead') alive++;
+    const upcoming = Math.min(RIFT.RIFT_MAX_WAVES, R.phase === 'wave' || this.riftOver(R) ? Math.max(1, R.wave) : R.wave + 1);
+    return {
+      phase: R.phase,
+      wave: R.wave,
+      upcoming,
+      maxWaves: RIFT.RIFT_MAX_WAVES,
+      checkpointEvery: RIFT.RIFT_CHECKPOINT_EVERY,
+      timer: Math.max(0, Math.ceil(R.timer)),
+      level: RIFT.waveLevel(R.baseLevel, upcoming),
+      fountain: { hp: Math.round(R.fountain.hp), maxHp: R.fountain.maxHp },
+      structures: R.structures.map(s => ({ id: s.id, kind: s.kind, x: s.x, y: s.y, hp: Math.round(s.hp), maxHp: s.maxHp, owner: s.ownerName })),
+      points: Object.fromEntries(R.points),
+      banked: Object.fromEntries(R.banked),
+      choices: Object.fromEntries(R.choices),
+      remaining: alive + R.queue.length
+    };
+  }
+
+  emitRiftState(inst) {
+    inst.rift.stateClock = 0.25;
+    this.emitZone('dungeon', 'rift_state', this.riftStatePayload(inst), inst.id);
+  }
+
+  // Every tick, per rift instance (ctxInstanceId is this instance)
+  updateRift(inst, dt) {
+    const R = inst.rift;
+    const heroes = this.riftHeroes(inst);
+    // the slain linger a moment for their death animation, then go
+    const now = Date.now();
+    for (const [id, m] of inst.mobs) {
+      if (m.state !== 'dead') continue;
+      if (!m.diedAt) m.diedAt = now;
+      else if (now - m.diedAt > 3000) inst.mobs.delete(id);
+    }
+
+    if (this.riftOver(R)) {
+      R.timer -= dt;
+      if (R.timer <= 0) {
+        for (const p of heroes) this.leaveRift(p, this.io.sockets.sockets.get(p.id));
+      }
+    } else if (heroes.length) {
+      this.updateRiftStructures(inst, dt, heroes);
+      R.timer -= dt;
+      if (R.phase === 'prep' || R.phase === 'break') {
+        if (R.timer <= 0) this.startRiftWave(inst, R.wave + 1, heroes.length);
+      } else if (R.phase === 'choice') {
+        // no answer when the timer runs out counts as "continue"
+        const undecided = heroes.some(p => R.choices.get(p.id) !== 'continue');
+        if (R.timer <= 0 || !undecided) {
+          R.choices.clear();
+          R.phase = 'break';
+          R.timer = 4;
+          this.emitRiftState(inst);
+        }
+      } else if (R.phase === 'wave') {
+        let alive = 0;
+        for (const m of inst.mobs.values()) if (m.state !== 'dead') alive++;
+        R.spawnClock -= dt;
+        while (R.queue.length && R.spawnClock <= 0 && alive < RIFT.RIFT_MAX_MOBS_ALIVE) {
+          this.spawnRiftMob(inst, R.queue.shift());
+          alive++;
+          R.spawnClock += R.spawnEvery;
+        }
+        if (R.spawnClock < 0) R.spawnClock = 0; // held back by the cap: resume at once
+        if (!R.queue.length && alive === 0) this.riftWaveCleared(inst, heroes);
+      }
+    }
+
+    R.stateClock -= dt;
+    if (R.stateClock <= 0 && heroes.length) this.emitRiftState(inst);
+  }
+
+  startRiftWave(inst, wave, heroCount) {
+    const R = inst.rift;
+    R.wave = wave;
+    R.phase = 'wave';
+    R.timer = 0;
+    R.queue = RIFT.buildRiftWave(wave, R.baseLevel, heroCount);
+    R.spawnEvery = RIFT.spawnInterval(wave, R.queue.length);
+    R.spawnClock = 0;
+    const boss = wave === RIFT.RIFT_MAX_WAVES;
+    this.emitZone('dungeon', 'rift_wave', {
+      wave, maxWaves: RIFT.RIFT_MAX_WAVES, level: RIFT.waveLevel(R.baseLevel, wave), count: R.queue.length,
+      boss, elite: !boss && wave % RIFT.RIFT_CHECKPOINT_EVERY === 0
+    }, inst.id);
+    this.emitRiftState(inst);
+  }
+
+  // A monster steps out of one of the four gates (in turn)
+  spawnRiftMob(inst, def) {
+    const R = inst.rift;
+    const gate = RIFT.RIFT_GATES[R.gateTurn++ % RIFT.RIFT_GATES.length];
+    const x = gate.x + (Math.random() - 0.5) * 1.6;
+    const y = gate.y + (Math.random() - 0.5) * 1.6;
+    const id = `rift_mob_${this.nextEntityId++}`;
+    const mob = {
+      ...def, id, x, y, spawnX: x, spawnY: y, hp: def.maxHp, state: 'chase', facing: 'S',
+      attackCooldown: 0.8 + Math.random() * 0.6, targetPlayerId: null, structTargetId: null,
+      isCommander: false, auraRadius: 0, hasCommanderBuff: false,
+      riftMob: true, riftInstanceId: inst.id, noLevelGap: true, zone: 'dungeon',
+      spawnUntil: Date.now() + 700
+    };
+    inst.mobs.set(id, mob);
+    this.emitZone('dungeon', 'dungeon_mobs_spawned', { mobs: [{ id, x, y, isBoss: !!mob.isBoss, element: mob.element || 'neutral' }] }, inst.id);
+  }
+
+  riftWaveCleared(inst, heroes) {
+    const R = inst.rift;
+    const wave = R.wave;
+    // a clear bonus for everyone holding the line, so supports can build too
+    const bonus = 10 * wave;
+    for (const p of heroes) R.points.set(p.id, (R.points.get(p.id) || 0) + bonus);
+    const checkpoint = wave % RIFT.RIFT_CHECKPOINT_EVERY === 0 || wave >= RIFT.RIFT_MAX_WAVES;
+    let reward = null;
+    if (checkpoint) {
+      reward = RIFT.checkpointReward(wave, R.baseLevel);
+      for (const p of heroes) {
+        const b = R.banked.get(p.id) || { gold: 0, essence: 0 };
+        b.gold += reward.gold;
+        b.essence += reward.essence;
+        R.banked.set(p.id, b);
+      }
+    }
+    this.emitZone('dungeon', 'rift_wave_cleared', { wave, bonus, reward }, inst.id);
+    if (wave >= RIFT.RIFT_MAX_WAVES) {
+      this.finishRift(inst, true);
+      return;
+    }
+    if (checkpoint) {
+      R.phase = 'choice';
+      R.timer = RIFT.RIFT_CHOICE_S;
+      R.choices.clear();
+      this.emitZone('dungeon', 'rift_checkpoint', {
+        wave, seconds: RIFT.RIFT_CHOICE_S, nextLevel: RIFT.waveLevel(R.baseLevel, wave + 1)
+      }, inst.id);
+    } else {
+      R.phase = 'break';
+      R.timer = RIFT.RIFT_BREAK_S;
+    }
+    this.emitRiftState(inst);
+  }
+
+  // The fountain fell (defeat) or the last wave was cleared (victory).
+  // Victory pays every hero's bank now; defeat forfeits it.
+  finishRift(inst, victory) {
+    const R = inst.rift;
+    R.phase = victory ? 'victory' : 'defeat';
+    R.timer = victory ? 8 : 5;
+    R.queue = [];
+    for (const p of this.riftHeroes(inst)) {
+      const bank = R.banked.get(p.id) || { gold: 0, essence: 0 };
+      const socket = this.io.sockets.sockets.get(p.id);
+      if (victory) this.payRiftReward(p, bank);
+      if (socket) {
+        socket.emit('rift_result', { success: victory, victory, wave: R.wave, gold: bank.gold, essence: bank.essence });
+        if (victory) socket.emit('player_updated', p);
+      }
+      R.banked.set(p.id, { gold: 0, essence: 0 });
+    }
+    this.broadcastSystemMessage(victory
+      ? `🏆 The Holy Fountain stands! A party cleared all ${RIFT.RIFT_MAX_WAVES} waves of the Eternal Rift!`
+      : `💔 The Holy Fountain fell at wave ${R.wave} of the Eternal Rift.`);
+    this.emitRiftState(inst);
+  }
+
+  payRiftReward(player, bank) {
+    if (bank.gold > 0) player.gold += bank.gold;
+    if (bank.essence > 0) {
+      const stack = player.inventory.items.find(i => i && i.id === RIFT.RIFT_ESSENCE_ID);
+      if (stack) stack.count = (stack.count || 1) + bank.essence;
+      else if (player.inventory.items.length < (player.inventory.maxSlots || 30)) player.inventory.items.push({ ...ITEMS[RIFT.RIFT_ESSENCE_ID], count: bank.essence });
+      else {
+        // a full bag never eats essence: it goes to the personal chest instead
+        if (!player.storage) player.storage = { maxSlots: 50, items: [] };
+        const stored = player.storage.items.find(i => i && i.id === RIFT.RIFT_ESSENCE_ID);
+        if (stored) stored.count = (stored.count || 1) + bank.essence;
+        else player.storage.items.push({ ...ITEMS[RIFT.RIFT_ESSENCE_ID], count: bank.essence });
+        const socket = this.io.sockets.sockets.get(player.id);
+        if (socket) socket.emit('chat_message', { sender: 'System', text: `📦 Your bag was full: ${bank.essence} Rift Essence went to your Personal Storage Chest.`, color: '#c084fc' });
+      }
+    }
+    this.savePlayerAccount(player.id);
+  }
+
+  // Walking out (the Leave button, a checkpoint "leave", or the run ending).
+  // Only a checkpoint prompt pays the bank; leaving mid-wave forfeits it.
+  leaveRift(player, socket) {
+    const inst = this.getRiftInstance(player);
+    if (!inst) return;
+    const R = inst.rift;
+    if (!this.riftOver(R)) {
+      const bank = R.banked.get(player.id) || { gold: 0, essence: 0 };
+      const cashOut = R.phase === 'choice';
+      if (cashOut) this.payRiftReward(player, bank);
+      if (socket) socket.emit('rift_result', { success: cashOut, victory: false, left: true, wave: R.wave, gold: bank.gold, essence: bank.essence });
+      if (cashOut) this.broadcastSystemMessage(`🌌 [${player.name}] left the Eternal Rift after wave ${R.wave} with ${bank.essence} Rift Essence.`);
+    }
+    R.points.delete(player.id);
+    R.banked.delete(player.id);
+    R.choices.delete(player.id);
+    if (player.isDead) {
+      player.isDead = false;
+      player.hp = Math.max(1, Math.round(player.maxHp * 0.5));
+    }
+    player.riftRespawnSet = false;
+    if (socket) this.teleportPlayerToTown(player, socket, RIFT_TOWN_ARRIVAL);
+    else {
+      player.dungeonInstanceId = null;
+      player.zone = 'town';
+      this.cleanupDungeonInstanceIfEmpty(inst.id);
+    }
+  }
+
+  handleRiftChoice(socketId, data) {
+    const player = this.players.get(socketId);
+    const inst = player && this.getRiftInstance(player);
+    if (!inst || inst.rift.phase !== 'choice') return;
+    if (data && data.choice === 'leave') {
+      this.leaveRift(player, this.io.sockets.sockets.get(socketId));
+      return;
+    }
+    inst.rift.choices.set(player.id, 'continue');
+    this.emitRiftState(inst);
+  }
+
+  // Buy a structure with Rift Points and place it at (x, y), or a blessing
+  handleRiftBuild(socketId, data) {
+    const player = this.players.get(socketId);
+    const socket = this.io.sockets.sockets.get(socketId);
+    const inst = player && this.getRiftInstance(player);
+    if (!inst || !socket || player.isDead || !data) return;
+    const R = inst.rift;
+    const def = RIFT.RIFT_STRUCTURES[data.kind];
+    if (!def || this.riftOver(R)) return;
+    const say = (text, color = '#ef4444') => socket.emit('floating_text', { x: player.x, y: player.y - 0.8, text, color });
+    const points = R.points.get(player.id) || 0;
+    if (points < def.cost) return say(`Need ${def.cost} Rift Points (you have ${points})`);
+    const F = R.fountain;
+
+    if (def.instant) {
+      if (F.hp >= F.maxHp) return say('The fountain is already whole');
+      const heal = Math.round(F.maxHp * def.restore);
+      F.hp = Math.min(F.maxHp, F.hp + heal);
+      R.points.set(player.id, points - def.cost);
+      this.emitZone('dungeon', 'skill_fx', { type: 'holy_resurrection', x: RIFT.RIFT_FOUNTAIN.x, y: RIFT.RIFT_FOUNTAIN.y, radius: 3 }, inst.id);
+      this.emitZone('dungeon', 'floating_text', { x: RIFT.RIFT_FOUNTAIN.x, y: RIFT.RIFT_FOUNTAIN.y - 1.6, text: `✨ +${heal} Fountain HP`, color: '#fde68a', size: 18 }, inst.id);
+      this.emitRiftState(inst);
+      return;
+    }
+
+    const x = Number(data.x), y = Number(data.y);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+    if (Math.hypot(x - player.x, y - player.y) > RIFT.RIFT_STRUCT_REACH) return say('Too far away - build closer to you');
+    if (R.structures.filter(s => s.kind === data.kind).length >= def.max) return say(`At most ${def.max} ${def.name}s per run`);
+    const FT = RIFT.RIFT_FOUNTAIN;
+    if (Math.hypot(x - FT.x, y - FT.y) < FT.radius + def.radius + 0.8) return say('Too close to the fountain');
+    if (RIFT.RIFT_GATES.some(g => Math.hypot(x - g.x, y - g.y) < 2.5)) return say('Too close to a rift gate');
+    if (R.structures.some(s => Math.hypot(s.x - x, s.y - y) < s.radius + def.radius + 0.1)) return say('Something is already built there');
+    if (this.isColliding(x, y, 'dungeon', def.radius)) return say("Can't build there");
+
+    const maxHp = Math.round(def.hp + def.hpPerLevel * R.baseLevel);
+    R.structures.push({
+      id: `rs_${++R.structSeq}`, kind: data.kind, x, y, hp: maxHp, maxHp, radius: def.radius,
+      ownerId: player.id, ownerName: player.name, clock: 0.5
+    });
+    R.points.set(player.id, points - def.cost);
+    this.emitZone('dungeon', 'floating_text', { x, y: y - 0.6, text: `🏗️ ${def.name}`, color: '#facc15', size: 15 }, inst.id);
+    this.emitRiftState(inst);
+  }
+
+  // Turrets fire, frost spires pulse, totems heal; the builder's attack powers them
+  updateRiftStructures(inst, dt, heroes) {
+    const R = inst.rift;
+    if (!R.structures.length) return;
+    const now = Date.now();
+    const foes = (Array.from(inst.mobs.values()) as any[]).filter(m => m.state !== 'dead' && !(m.spawnUntil && now < m.spawnUntil));
+    for (const s of R.structures) {
+      const def = RIFT.RIFT_STRUCTURES[s.kind];
+      if (!def.every) continue;
+      s.clock -= dt;
+      if (s.clock > 0) continue;
+      s.clock = def.every;
+      // a structure keeps working for the party after its builder leaves
+      const owner = heroes.find(p => p.id === s.ownerId) || heroes[0];
+      if (s.kind === 'turret') {
+        let target = null, best = def.range;
+        for (const m of foes) {
+          const d = Math.hypot(m.x - s.x, m.y - s.y);
+          if (d <= best) { best = d; target = m; }
+        }
+        if (!target) { s.clock = 0.2; continue; }
+        this.spawnRiftBolt(inst, s, owner, target, Math.max(1, Math.round(owner.dmg * def.dmgShare)));
+      } else if (s.kind === 'frost') {
+        const caught = foes.filter(m => Math.hypot(m.x - s.x, m.y - s.y) <= def.range);
+        if (!caught.length) { s.clock = 0.3; continue; }
+        this.emitZone('dungeon', 'skill_fx', { type: 'rift_frost', x: s.x, y: s.y, radius: def.range }, inst.id);
+        for (const m of caught) {
+          m.chillTimer = Math.max(m.chillTimer || 0, def.chill);
+          this.applyDamageToMob(owner, m, Math.max(1, Math.round(owner.dmg * def.dmgShare)), false);
+        }
+      } else if (s.kind === 'totem') {
+        for (const p of heroes) {
+          if (p.isDead || Math.hypot(p.x - s.x, p.y - s.y) > def.range || p.hp >= p.maxHp) continue;
+          p.hp = Math.min(p.maxHp, p.hp + Math.round(p.maxHp * def.heal));
+        }
+        const F = R.fountain;
+        if (Math.hypot(RIFT.RIFT_FOUNTAIN.x - s.x, RIFT.RIFT_FOUNTAIN.y - s.y) <= def.range + RIFT.RIFT_FOUNTAIN.radius) {
+          F.hp = Math.min(F.maxHp, F.hp + F.maxHp * def.fountainHeal);
+        }
+      }
+    }
+  }
+
+  // A turret bolt: an ordinary projectile that starts at the turret
+  spawnRiftBolt(inst, s, owner, target, damage) {
+    const id = `proj_${this.nextEntityId++}`;
+    const angle = Math.atan2(target.y - s.y, target.x - s.x);
+    const speed = 11;
+    const vx = Math.cos(angle) * speed, vy = Math.sin(angle) * speed;
+    this.projectiles.set(id, {
+      cardId: null, instanceId: inst.id, id, zone: 'dungeon', casterId: owner.id,
+      x: s.x, y: s.y, targetX: target.x, targetY: target.y, targetId: target.id, targetType: 'mob',
+      vx, vy, damage, splash: 0, crit: false, element: 'holy', life: 1.0, color: '#fde68a'
+    });
+    this.emitZone('dungeon', 'projectile_spawned', {
+      id, zone: 'dungeon', x: s.x, y: s.y, vx, vy, casterId: null, element: 'holy', cardId: null, splash: 0, color: '#fde68a'
+    }, inst.id);
+  }
+
+  // Rift monster AI: march on the fountain; turn on a hero who comes close;
+  // a structure in the way gets torn down first
+  updateRiftMob(mob, inst, dt) {
+    const R = inst.rift;
+    if (this.riftOver(R)) return;
+    const F = RIFT.RIFT_FOUNTAIN;
+    mob.state = 'chase';
+
+    let hero = mob.targetPlayerId ? this.players.get(mob.targetPlayerId) : null;
+    if (hero && (hero.isDead || hero.zone !== 'dungeon' || hero.dungeonInstanceId !== inst.id
+      || Math.hypot(hero.x - mob.x, hero.y - mob.y) > RIFT.RIFT_PLAYER_LEASH)) hero = null;
+    if (!hero) {
+      let best = RIFT.RIFT_PLAYER_AGGRO * (mob.isBoss ? 1.3 : 1);
+      for (const p of this.players.values()) {
+        if (p.isDead || p.zone !== 'dungeon' || p.dungeonInstanceId !== inst.id) continue;
+        const d = Math.hypot(p.x - mob.x, p.y - mob.y);
+        if (d < best) { best = d; hero = p; }
+      }
+    }
+    mob.targetPlayerId = hero ? hero.id : null;
+    const struct = !hero && mob.structTargetId ? R.structures.find(s => s.id === mob.structTargetId) : null;
+    if (!struct) mob.structTargetId = null;
+
+    const goal = hero ? { x: hero.x, y: hero.y, reach: 1.2 }
+      : struct ? { x: struct.x, y: struct.y, reach: struct.radius + 0.8 }
+        : { x: F.x, y: F.y, reach: F.radius + 0.9 + (mob.isBoss ? 0.8 : 0) };
+    const dist = Math.hypot(goal.x - mob.x, goal.y - mob.y);
+
+    if (dist <= goal.reach) {
+      mob.facing = this.calculateFacing(mob.x, mob.y, goal.x, goal.y);
+      if (mob.attackCooldown > 0) return;
+      if (hero) {
+        const now = Date.now();
+        if (now < (hero.nextMobHitAt || 0)) { mob.attackCooldown = 0.15 + Math.random() * 0.2; return; }
+        mob.attackCooldown = 1.2 + Math.random() * 0.5;
+        hero.nextMobHitAt = now + (mob.isBoss ? 150 : 350);
+        this.mobStrikePlayer(mob, hero, 'dungeon');
+        return;
+      }
+      mob.attackCooldown = (mob.isBoss ? 1.6 : 1.3) + Math.random() * 0.5;
+      this.emitZone('dungeon', 'entity_attack_fx', { attackerId: mob.id, attackerType: 'mob', targetId: null, x: mob.x, y: mob.y }, inst.id);
+      if (struct) {
+        struct.hp -= mob.dmg;
+        if (struct.hp <= 0) this.destroyRiftStructure(inst, struct);
+      } else {
+        this.damageRiftFountain(inst, mob.dmg);
+      }
+      return;
+    }
+
+    let speed = mob.speed || 3;
+    if (mob.chillTimer > 0) speed *= 0.5;
+    const step = Math.min(dist, speed * dt);
+    const nx = (goal.x - mob.x) / dist, ny = (goal.y - mob.y) / dist;
+    // returns what stopped the step (a structure, or true for a wall), or null if it moved
+    const tryMove = (dx, dy) => {
+      const tx = mob.x + dx, ty = mob.y + dy;
+      const blocker = R.structures.find(s => Math.hypot(s.x - tx, s.y - ty) < s.radius + 0.35);
+      if (blocker) return blocker;
+      if (this.isColliding(tx, ty, 'dungeon')) return true;
+      mob.x = tx;
+      mob.y = ty;
+      return null;
+    };
+    const first = tryMove(nx * step, ny * step);
+    if (first) {
+      // slide along whatever is in the way; if every way is shut, break the structure
+      const side = (Math.abs(nx) > 1e-4 ? tryMove(Math.sign(nx) * step, 0) : true)
+        && (Math.abs(ny) > 1e-4 ? tryMove(0, Math.sign(ny) * step) : true);
+      if (side && !hero && typeof first === 'object') mob.structTargetId = first.id;
+    }
+    mob.facing = this.calculateFacing(mob.x, mob.y, goal.x, goal.y);
+  }
+
+  damageRiftFountain(inst, dmg) {
+    const R = inst.rift;
+    const F = R.fountain;
+    if (this.riftOver(R)) return;
+    F.hp = Math.max(0, F.hp - dmg);
+    this.emitZone('dungeon', 'floating_text', { x: RIFT.RIFT_FOUNTAIN.x + (Math.random() - 0.5), y: RIFT.RIFT_FOUNTAIN.y - 1.4, text: `-${Math.round(dmg)}`, color: '#f0abfc', size: 14 }, inst.id);
+    if (F.hp <= 0) this.finishRift(inst, false);
+  }
+
+  destroyRiftStructure(inst, s) {
+    const R = inst.rift;
+    R.structures = R.structures.filter(o => o !== s);
+    const def = RIFT.RIFT_STRUCTURES[s.kind];
+    this.emitZone('dungeon', 'floating_text', { x: s.x, y: s.y - 0.8, text: `💥 ${def.name} destroyed`, color: '#f87171', size: 15 }, inst.id);
+    this.emitRiftState(inst);
+  }
+
+  onRiftMobDeath(inst, mob, killer) {
+    const R = inst.rift;
+    mob.diedAt = Date.now();
+    if (killer && killer.zone === 'dungeon' && killer.dungeonInstanceId === inst.id) {
+      R.points.set(killer.id, (R.points.get(killer.id) || 0) + (mob.riftPoints || 0));
+      this.emitZone('dungeon', 'floating_text', { x: mob.x, y: mob.y - 1.1, text: `+${mob.riftPoints} RP`, color: '#d8b4fe', size: 13 }, inst.id);
+    }
+    if (mob.isBoss || mob.isMiniboss) {
+      this.emitZone('dungeon', 'floating_text', { x: mob.x, y: mob.y - 1.6, text: `☠️ ${mob.name.replace(/\s*\[.*\]$/, '')} SLAIN`, color: '#fde68a', size: 22 }, inst.id);
+    }
+  }
+
+  // Fallen heroes stand up again beside the fountain
+  respawnInRift(player, socket) {
+    player.isDead = false;
+    player.riftRespawnSet = false;
+    player.respawnTimer = 0;
+    player.hp = Math.max(1, Math.round(player.maxHp * 0.6));
+    player.mp = Math.round(player.maxMp * 0.6);
+    player.x = RIFT.RIFT_SPAWN.x + (Math.random() - 0.5) * 1.2;
+    player.y = RIFT.RIFT_SPAWN.y + (Math.random() - 0.5) * 0.6;
+    player.targetX = null;
+    player.targetY = null;
+    this.emitZone('dungeon', 'player_respawned', { playerId: player.id, x: player.x, y: player.y, onSpot: true }, player.dungeonInstanceId);
+    this.emitZone('dungeon', 'skill_fx', { type: 'holy_resurrection', x: player.x, y: player.y, radius: 2.5, playerId: player.id }, player.dungeonInstanceId);
+    if (socket) socket.emit('player_updated', player);
+  }
+
+  // James the Gatekeeper forges unique gear from Rift Essence
+  handleJamesForge(socketId, data) {
+    const player = this.players.get(socketId);
+    const socket = this.io.sockets.sockets.get(socketId);
+    if (!player || !socket || player.isDead || player.zone !== 'town') return;
+    const say = (text, color = '#ef4444') => socket.emit('floating_text', { x: player.x, y: player.y - 0.8, text, color });
+    const james = this.townMap.obstacles.find(o => o.id === 'npc_james');
+    if (!james || Math.hypot(james.x - player.x, james.y - player.y) > 4.5) return say('Walk up to James first');
+    const recipe = RIFT.JAMES_RECIPES.find(r => r.itemId === (data && data.itemId));
+    const def = recipe && ITEMS[recipe.itemId];
+    if (!def) return;
+    const items = player.inventory.items;
+    const essenceStack = items.find(i => i && i.id === RIFT.RIFT_ESSENCE_ID);
+    const essence = essenceStack ? (essenceStack.count || 1) : 0;
+    if (essence < recipe.essence) return say(`Need ${recipe.essence} Rift Essence (you have ${essence})`);
+    if ((player.gold || 0) < recipe.gold) return say(`Need ${recipe.gold.toLocaleString()} gold`);
+    if (recipe.fragments && this.fragmentCount(player) < recipe.fragments) return say(`Need ${recipe.fragments} Spirit Fragments`);
+    // a slot for the new piece (spending the whole essence stack frees one)
+    if (items.length >= (player.inventory.maxSlots || 30) && essence > recipe.essence) return say('⚠️ Inventory full!');
+
+    essenceStack.count = essence - recipe.essence;
+    if (essenceStack.count <= 0) items.splice(items.indexOf(essenceStack), 1);
+    player.gold -= recipe.gold;
+    if (recipe.fragments) this.spendFragments(player, recipe.fragments);
+    const item = { ...def, count: 1, uniqueId: `${def.id}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}` };
+    items.push(item);
+
+    socket.emit('player_updated', player);
+    socket.emit('james_forge_result', { success: true, item });
+    say(`⚒️ James forged ${def.name}!`, '#c084fc');
+    this.broadcastSystemMessage(`🌌 [${player.name}] had James the Gatekeeper forge the legendary [${def.name}]!`);
+    this.savePlayerAccount(socketId);
+  }
+
+  // One monster blow landing on a hero: immunities, dodges, shields, thorns,
+  // elemental resistance and on-hit affixes. The caller handles reach and cooldown.
+  mobStrikePlayer(mob, targetPlayer, zone) {
+    const now = Date.now();
+    if (targetPlayer.godMode) {
+      this.emitZone(zone, 'floating_text', { x: targetPlayer.x, y: targetPlayer.y - 0.7, text: '🛡️ IMMUNE (God Mode)', color: '#facc15' });
+      return;
+    }
+
+    if (targetPlayer.smokeScreenTimer > 0) {
+      this.emitZone(zone, 'floating_text', { x: targetPlayer.x, y: targetPlayer.y - 0.7, text: '💨 MISS! (Stealth)', color: '#94a3b8' });
+      return;
+    }
+    // Dragoon in the air: nothing on the ground can reach him
+    if (targetPlayer.airborneUntil > now) return;
+    // Sentinel Riposte Stance: the blow is blocked and returned
+    if (targetPlayer.parry && targetPlayer.parry.until > now) {
+      const back = Math.max(1, Math.round(targetPlayer.dmg * targetPlayer.parry.riposte * SKILL_DAMAGE_SCALE));
+      this.applyDamageToMob(targetPlayer, mob, back, false);
+      mob.attackCooldown = Math.max(mob.attackCooldown, 1.6);
+      this.emitZone(zone, 'skill_fx', { type: 'sp_skill', shape: 'riposte', startX: targetPlayer.x, startY: targetPlayer.y, x: mob.x, y: mob.y, element: 'holy', color: '#fde68a', cardId: 'sp_sentinel', skillId: 'sp_sentinel_riposte' });
+      this.emitZone(zone, 'floating_text', { x: targetPlayer.x, y: targetPlayer.y - 0.7, text: '🛡️ RIPOSTE!', color: '#fde68a', size: 16 });
+      return;
+    }
+    if (Math.random() < this.smokeMissChance(targetPlayer)) {
+      this.emitZone(zone, 'floating_text', { x: targetPlayer.x, y: targetPlayer.y - 0.7, text: '💨 MISS! (Smoke)', color: '#94a3b8' });
+      return;
+    }
+
+    // Dodge chance from talents
+    if (targetPlayer.dodgeChance && Math.random() < targetPlayer.dodgeChance) {
+      this.emitZone(zone, 'floating_text', { x: targetPlayer.x, y: targetPlayer.y - 0.7, text: '💨 DODGE!', color: '#38bdf8' });
+      return;
+    }
+
+    const effectiveDmg = mob.hasCommanderBuff ? Math.round(mob.dmg * 1.35) : mob.dmg;
+    let damageDealt = Math.max(1, Math.round(effectiveDmg - (targetPlayer.def * 0.5)));
+
+    // Monster element vs the player's elemental resistance from gear
+    const elemResistMult = calculateElementalMultiplier(mob.element || 'neutral', 'neutral', targetPlayer.elementResist || {});
+    damageDealt = Math.max(1, Math.round(damageDealt * elemResistMult));
+
+    // Crushing Blow from high level monsters against underleveled players!
+    let isCrushing = false;
+    if (!mob.noLevelGap && mob.level && targetPlayer.level && (mob.level - targetPlayer.level >= 5)) {
+      const gap = mob.level - targetPlayer.level;
+      const crushingMult = 1.0 + Math.min(4.0, (gap - 3) * 0.08);
+      damageDealt = Math.round(damageDealt * crushingMult);
+      isCrushing = true;
+    }
+
+    // Thorns reflection (Iron Fortress + passive Unyielding Spikes/Colossus Avatar)
+    const thornsDmg = (targetPlayer.ironFortressTimer > 0 ? 25 : 0) + (targetPlayer.thorns || 0);
+    if (thornsDmg > 0) {
+      this.applyDamageToMob(targetPlayer, mob, thornsDmg, false);
+      this.emitZone(zone, 'floating_text', { x: mob.x, y: mob.y - 0.7, text: `🌵 ${thornsDmg} Thorns!`, color: '#e2e8f0' });
+    }
+
+    // Iron Fortress: -60% damage
+    if (targetPlayer.ironFortressTimer > 0) {
+      damageDealt = Math.max(1, Math.round(damageDealt * 0.40));
+    }
+
+    // Shield Barrier absorption
+    if (targetPlayer.shieldHp > 0) {
+      const absorbed = Math.min(targetPlayer.shieldHp, damageDealt);
+      targetPlayer.shieldHp -= absorbed;
+      damageDealt -= absorbed;
+      this.emitZone(zone, 'floating_text', { x: targetPlayer.x, y: targetPlayer.y - 0.5, text: `🛡️ Absorbed -${absorbed}`, color: '#38bdf8' });
+    }
+
+    targetPlayer.hp -= damageDealt;
+    if (targetPlayer.undyingTimer > 0 && targetPlayer.hp < 1) {
+      targetPlayer.hp = 1;
+      this.emitZone(zone, 'floating_text', { x: targetPlayer.x, y: targetPlayer.y - 1.0, text: '💀 UNDYING RAGE!', color: '#c084fc', size: 18 });
+    }
+    if (targetPlayer.hp <= 0) this.phoenixRebirth(targetPlayer);
+
+    // Apply Mob Buffs/Affixes to targetPlayer
+    if (mob.buffs && mob.buffs.length > 0) {
+      if (mob.buffs.includes('venomous')) {
+        this.applyStatusEffect(targetPlayer, 'poison', 4.5, 9);
+      }
+      if (mob.buffs.includes('frostbite')) {
+        this.applyStatusEffect(targetPlayer, 'chill', 2.5, 0.45);
+      }
+      if (mob.buffs.includes('ignited')) {
+        this.applyStatusEffect(targetPlayer, 'burn', 3.0, 14);
+      }
+    }
+
+    if (isCrushing) {
+      this.emitZone(zone, 'floating_text', { x: targetPlayer.x, y: targetPlayer.y - 0.7, text: `-${damageDealt}`, color: '#dc2626', size: 18 });
+    } else if (elemResistMult < 1) {
+      this.emitZone(zone, 'floating_text', { x: targetPlayer.x, y: targetPlayer.y - 0.7, text: `-${damageDealt}`, color: '#fca5a5' });
+    } else {
+      this.emitZone(zone, 'floating_text', { x: targetPlayer.x, y: targetPlayer.y - 0.7, text: `-${damageDealt}`, color: '#ef4444' });
+    }
+    this.emitZone(zone, 'entity_attack_fx', { attackerId: mob.id, attackerType: 'mob', targetId: targetPlayer.id, x: mob.x, y: mob.y });
+
+    if (targetPlayer.hp <= 0) {
+      targetPlayer.hp = 0;
+      targetPlayer.isDead = true;
+      if (targetPlayer.dungeonRun) targetPlayer.dungeonRun.deaths = (targetPlayer.dungeonRun.deaths || 0) + 1;
+      targetPlayer.respawnTimer = 5.0;
+      this.emitZone(zone, 'player_died', { playerId: targetPlayer.id, killerName: mob.name });
+      this.broadcastSystemMessage(`☠️ [${targetPlayer.name}] was slain by [${mob.name}]!`);
+      mob.state = 'return';
     }
   }
 

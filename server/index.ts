@@ -256,6 +256,23 @@ io.on('connection', (socket: Socket) => {
     gameServer.handleLeaveDungeon(socket.id);
   });
 
+  // Eternal Rift (wave defence) and James the Gatekeeper
+  socket.on('enter_rift', (options: any) => {
+    gameServer.handleEnterRift(socket.id, options || {});
+  });
+
+  socket.on('rift_build', (data: any) => {
+    gameServer.handleRiftBuild(socket.id, data);
+  });
+
+  socket.on('rift_choice', (data: any) => {
+    gameServer.handleRiftChoice(socket.id, data);
+  });
+
+  socket.on('james_forge', (data: any) => {
+    gameServer.handleJamesForge(socket.id, data);
+  });
+
   socket.on('allocate_skill_point', (data: any) => {
     gameServer.handleAllocateSkillPoint(socket.id, data ? data.skillId : null);
   });
