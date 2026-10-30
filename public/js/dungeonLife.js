@@ -393,6 +393,9 @@
           // the pool lands on the floor in front of the wall face
           lights.push({ x: o.side === 'right' ? o.x + 0.85 : o.x, y: o.side === 'right' ? o.y : o.y + 0.85, r: 4.6, s: 1, seed: o.x * 3.7 + o.y });
         } else if (o.type === 'brazier') lights.push({ x: o.x, y: o.y, r: 4.2, s: 1, seed: o.x + o.y * 2.3 });
+        // Eternal Rift: the Holy Fountain floods the middle with warm light, the gates glow violet
+        else if (o.type === 'holy_fountain') lights.push({ x: o.x, y: o.y, r: 7.5, s: 1, col: [255, 236, 170], seed: 1.7 });
+        else if (o.type === 'rift_gate') lights.push({ x: o.x, y: o.y, r: 3.8, s: 0.95, col: [205, 125, 255], seed: o.x + o.y });
       }
       // glowing hazard tiles are merged into one light per 3x3 block
       const clusters = new Map();

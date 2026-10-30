@@ -1,0 +1,66 @@
+{
+  "rune_flame": {
+    "id": "rune_flame",
+    "name": "Infernal Flame Rune",
+    "type": "rune",
+    "runeType": "flame",
+    "icon": "🔴",
+    "iconKey": "ruby",
+    "rarity": "epic",
+    "color": "#ef4444",
+    "buyPrice": 1200,
+    "sellPrice": 500,
+    "desc": "An ancient elemental rune glowing with fire. Socket into a weapon to grant +25% Damage and ignite enemies with persistent Burn DoT."
+  },
+  "rune_frost": {
+    "id": "rune_frost",
+    "name": "Glacial Frost Rune",
+    "type": "rune",
+    "runeType": "frost",
+    "icon": "🔵",
+    "iconKey": "gem",
+    "rarity": "epic",
+    "color": "#38bdf8",
+    "buyPrice": 1200,
+    "sellPrice": 500,
+    "desc": "An icy elemental rune frozen for millennia. Socket into a weapon to inflict 40% Chill Slow for 3.5s and 25% chance to Freeze enemies solid."
+  },
+  "rune_tempest": {
+    "id": "rune_tempest",
+    "name": "Tempest Surge Rune",
+    "type": "rune",
+    "runeType": "tempest",
+    "icon": "⚡",
+    "iconKey": "essence",
+    "rarity": "epic",
+    "color": "#eab308",
+    "buyPrice": 1200,
+    "sellPrice": 500,
+    "desc": "A crackling elemental rune brimming with lightning. Socket into a weapon to grant -20% Skill Cooldown reduction and +10% Electric Shock Damage."
+  },
+  "rune_vampiric": {
+    "id": "rune_vampiric",
+    "name": "Vampiric Drain Rune",
+    "type": "rune",
+    "runeType": "vampiric",
+    "icon": "🟣",
+    "iconKey": "chalice",
+    "rarity": "epic",
+    "color": "#a855f7",
+    "buyPrice": 1200,
+    "sellPrice": 500,
+    "desc": "A dark mystical rune pulsing with shadow thirst. Socket into a weapon to restore 25% of all damage dealt as immediate HP life leech."
+  },
+  "socket_expander": {
+    "id": "socket_expander",
+    "name": "Ancient Socket Expander",
+    "type": "consumable",
+    "icon": "🔮",
+    "iconKey": "idol",
+    "rarity": "legendary",
+    "color": "#f59e0b",
+    "buyPrice": 5000,
+    "sellPrice": 2500,
+    "desc": "Rare prehistoric drill crafted by titan smiths. Attempt to drill +1 socket into a weapon (up to 4 max). Warning: has a chance to break the socket slot on failure!"
+  }
+}

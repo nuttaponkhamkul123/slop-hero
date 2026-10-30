@@ -7,5 +7,14 @@
     "rarity": "epic",
     "sellPrice": 150,
     "desc": "A shard of a hero's spirit. Valka the Enchanter trades SP cards and card enhancements for these."
+  },
+  "rift_essence": {
+    "id": "rift_essence",
+    "name": "Rift Essence",
+    "type": "material",
+    "iconKey": "essence",
+    "rarity": "legendary",
+    "sellPrice": 0,
+    "desc": "Crystallised light from the Eternal Rift. Earned by defending the Holy Fountain; James the Gatekeeper forges it into unique gear."
   }
 }

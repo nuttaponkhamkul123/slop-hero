@@ -515,6 +515,7 @@ const SP_SHAPE_TEXT = {
   pulse: s => `${s.n} pulses ${s.at === 'target' ? 'on the target' : 'around you'} (radius ${s.r})`,
   dash: s => `Dash ${s.len} tiles through enemies`,
   blink: s => `Teleport ${s.len} tiles${s.dmg ? (s.originOnly ? ', bursting where you left' : s.origin ? ', bursting at both ends' : ', bursting on landing') : ''}`,
+  alpha: s => `Blink between the ${s.n} nearest enemies, striking each (untouchable while it lasts)`,
   buff: s => (s.dmg ? `Burst around you (radius ${s.r})` : 'Empower yourself'),
   shuriken: s => `Throw ${s.n} shuriken at the cursor; cast again within ${s.hold}s to call them back, cutting through enemies on the way (${s.back}x)`,
   smoke: s => `Drop a smoke bomb (radius ${s.r}) for ${s.dur}s: enemies attacking anyone inside miss ${Math.round(s.miss * 100)}% of the time`,

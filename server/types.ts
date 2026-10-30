@@ -61,6 +61,9 @@ export interface InventoryItem {
   reforgeBonus?: Record<string, number>;
   equipped?: boolean;
   slot?: string;
+  maxSockets?: number;
+  sockets?: (string | null)[];
+  brokenSockets?: number;
   [key: string]: any;
 }
 
@@ -77,6 +80,7 @@ export interface CharacterData {
   stats?: Stats;
   gold: number;
   inventory: (InventoryItem | null)[];
+  storage?: { maxSlots: number; items: (InventoryItem | any)[] };
   equipment: Record<string, InventoryItem | null>;
   skills?: Record<string, any>;
   skillPoints?: number;

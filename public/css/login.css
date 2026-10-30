@@ -1,0 +1,207 @@
+/* Login screen: a pixel night scene behind the account card, and nothing of
+   the game (canvas, HUD, panels) until the server confirms the join
+   (game.js drops body.pre-login on init_game). */
+
+body.pre-login #gameCanvas { visibility: hidden; }
+body.pre-login #ui-container,
+body.pre-login #death-screen,
+body.pre-login .party-invite-banner,
+body.pre-login .dungeon-run-bag,
+body.pre-login .rift-hud,
+body.pre-login .rift-build,
+body.pre-login .rift-banner { display: none !important; }
+body:not(.pre-login) #loginBackdrop { display: none; }
+
+/* ---------------------------------------------------------------- backdrop */
+#loginBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: #0b0d1a;
+}
+.lb-sky {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, #0b0d1a 0%, #1a1c3a 38%, #3a2550 66%, #5d275d 82%, #7a3a4a 100%);
+}
+/* star fields: tiled pin-points, two layers twinkling out of step */
+.lb-stars {
+  position: absolute;
+  inset: 0 0 35% 0;
+  background-repeat: repeat;
+  image-rendering: pixelated;
+}
+.lb-stars-a {
+  background-image:
+    radial-gradient(1.5px 1.5px at 20px 30px, #f4f4f4 99%, transparent),
+    radial-gradient(1.5px 1.5px at 140px 80px, #ffcd75 99%, transparent),
+    radial-gradient(1px 1px at 90px 150px, #f4f4f4 99%, transparent),
+    radial-gradient(2px 2px at 190px 20px, #73eff7 99%, transparent),
+    radial-gradient(1px 1px at 60px 210px, #f4f4f4 99%, transparent);
+  background-size: 230px 240px;
+  animation: lbTwinkle 3.2s steps(2) infinite;
+}
+.lb-stars-b {
+  background-image:
+    radial-gradient(1px 1px at 50px 70px, #f4f4f4 99%, transparent),
+    radial-gradient(1.5px 1.5px at 170px 130px, #f4f4f4 99%, transparent),
+    radial-gradient(1px 1px at 110px 30px, #ffcd75 99%, transparent),
+    radial-gradient(1.5px 1.5px at 15px 180px, #f4f4f4 99%, transparent);
+  background-size: 200px 210px;
+  animation: lbTwinkle 2.3s steps(2) 1.1s infinite;
+}
+@keyframes lbTwinkle { 50% { opacity: 0.35; } }
+
+.lb-moon {
+  position: absolute;
+  top: 9%;
+  right: 13%;
+  width: clamp(60px, 9vw, 120px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 38%, #fff3c4 0 30%, #ffcd75 62%, #ef7d57 100%);
+  box-shadow: 0 0 40px 10px rgba(255, 205, 117, 0.35), 0 0 120px 40px rgba(255, 205, 117, 0.12);
+}
+.lb-moon::after {
+  /* craters */
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 62% 30%, rgba(239, 125, 87, 0.45) 0 9%, transparent 10%),
+    radial-gradient(circle at 35% 64%, rgba(239, 125, 87, 0.35) 0 12%, transparent 13%),
+    radial-gradient(circle at 70% 70%, rgba(239, 125, 87, 0.3) 0 6%, transparent 7%);
+}
+
+.lb-castle {
+  position: absolute;
+  left: 50%;
+  bottom: 17%;
+  width: min(78vw, 820px);
+  height: auto;
+  transform: translateX(-50%);
+  overflow: visible;
+  filter: drop-shadow(0 0 24px rgba(93, 39, 93, 0.6));
+}
+.lb-windows { animation: lbFlicker 2.8s steps(3) infinite; }
+@keyframes lbFlicker { 0%, 100% { opacity: 1; } 40% { opacity: 0.75; } 70% { opacity: 0.95; } }
+
+.lb-hills {
+  position: absolute;
+  left: -10%;
+  right: -10%;
+  border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+}
+.lb-hills-back { bottom: 0; height: 24%; background: #1d1830; }
+.lb-hills-front { bottom: -4%; height: 16%; left: -30%; right: 25%; background: #0e0f1d; }
+
+/* embers drifting up from below the hills */
+.lb-embers span {
+  position: absolute;
+  bottom: -10px;
+  width: 4px;
+  height: 4px;
+  background: #ffcd75;
+  box-shadow: 0 0 8px 2px rgba(239, 125, 87, 0.8);
+  opacity: 0;
+  animation: lbEmber 9s linear infinite;
+}
+.lb-embers span:nth-child(1) { left: 6%; animation-delay: 0s; }
+.lb-embers span:nth-child(2) { left: 14%; animation-delay: 3.5s; animation-duration: 11s; }
+.lb-embers span:nth-child(3) { left: 23%; animation-delay: 6s; }
+.lb-embers span:nth-child(4) { left: 31%; animation-delay: 1.5s; animation-duration: 12s; }
+.lb-embers span:nth-child(5) { left: 42%; animation-delay: 5s; }
+.lb-embers span:nth-child(6) { left: 51%; animation-delay: 8s; animation-duration: 10s; }
+.lb-embers span:nth-child(7) { left: 60%; animation-delay: 2.5s; }
+.lb-embers span:nth-child(8) { left: 68%; animation-delay: 7s; animation-duration: 13s; }
+.lb-embers span:nth-child(9) { left: 76%; animation-delay: 0.8s; }
+.lb-embers span:nth-child(10) { left: 84%; animation-delay: 4.2s; animation-duration: 11s; }
+.lb-embers span:nth-child(11) { left: 91%; animation-delay: 6.6s; }
+.lb-embers span:nth-child(12) { left: 97%; animation-delay: 9s; animation-duration: 12s; }
+@keyframes lbEmber {
+  0% { transform: translate(0, 0); opacity: 0; }
+  10% { opacity: 1; }
+  50% { transform: translate(24px, -45vh); }
+  85% { opacity: 0.8; }
+  100% { transform: translate(-12px, -90vh); opacity: 0; }
+}
+
+.lb-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 45%, transparent 45%, rgba(5, 5, 12, 0.7) 100%);
+}
+
+/* ---------------------------------------------------------------- the card */
+#joinModal {
+  /* beats the pixel theme's checkered overlay (pixel-ui.css) so the scene shows */
+  background: transparent !important;
+  background-image: none !important;
+  backdrop-filter: none !important;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 14px;
+  overflow-y: auto;
+  padding: max(24px, 6vh) 16px 24px;
+}
+#joinModal > * { flex-shrink: 0; }
+#joinModal .auth-character-modal {
+  margin: 0 auto;
+  box-shadow:
+    0 calc(-1 * var(--px)) 0 0 var(--ink),
+    0 var(--px) 0 0 var(--ink),
+    calc(-1 * var(--px)) 0 0 0 var(--ink),
+    var(--px) 0 0 0 var(--ink),
+    inset var(--px) var(--px) 0 0 var(--slate),
+    inset calc(-1 * var(--px)) calc(-1 * var(--px)) 0 0 var(--ink),
+    0 0 0 calc(2 * var(--px)) rgba(255, 205, 117, 0.35),
+    0 18px 60px rgba(0, 0, 0, 0.6) !important;
+}
+.login-card-header { text-align: center; margin-bottom: 12px; }
+
+.login-logo { text-align: center; pointer-events: none; user-select: none; margin-top: auto; }
+.login-logo-title {
+  font-family: var(--font-title-px);
+  font-size: clamp(64px, 12vw, 132px);
+  line-height: 0.85;
+  letter-spacing: 4px;
+  color: var(--gold);
+  text-shadow:
+    0 4px 0 var(--orange),
+    0 8px 0 var(--red),
+    0 12px 0 var(--plum),
+    0 16px 0 var(--ink),
+    0 0 40px rgba(255, 205, 117, 0.35);
+  animation: lbLogo 4s ease-in-out infinite;
+}
+.login-logo-tag {
+  margin-top: 14px;
+  font-family: var(--font-px);
+  font-size: clamp(12px, 1.6vw, 16px);
+  letter-spacing: 3px;
+  color: var(--steel);
+  text-shadow: 0 2px 0 var(--ink);
+}
+@keyframes lbLogo { 50% { transform: translateY(-4px); } }
+
+.login-footer {
+  margin-bottom: auto;
+  text-align: center;
+  font-family: var(--font-px);
+  font-size: 12px;
+  color: var(--slate);
+  text-shadow: 0 1px 0 var(--ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lb-stars, .lb-windows, .lb-embers span, .login-logo-title { animation: none; }
+  .lb-embers { display: none; }
+}
+@media (max-width: 720px) {
+  .lb-moon { top: 4%; right: 6%; }
+  .lb-castle { width: 120vw; bottom: 14%; }
+  .login-logo-tag { letter-spacing: 1px; }
+}
