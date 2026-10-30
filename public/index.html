@@ -11,9 +11,44 @@
   <link rel="stylesheet" href="css/pixel-ui.css">
   <link rel="stylesheet" href="css/ui-v2.css">
   <link rel="stylesheet" href="css/rift.css">
+  <link rel="stylesheet" href="css/login.css">
   <link rel="icon" href="data:,">
 </head>
-<body>
+<body class="pre-login">
+  <!-- Login backdrop: a night scene behind the login card. The pre-login body
+       class hides the game canvas and HUD until the server confirms the join. -->
+  <div id="loginBackdrop" aria-hidden="true">
+    <div class="lb-sky"></div>
+    <div class="lb-stars lb-stars-a"></div>
+    <div class="lb-stars lb-stars-b"></div>
+    <div class="lb-moon"></div>
+    <svg class="lb-castle" viewBox="0 0 160 64" preserveAspectRatio="xMidYMax meet" shape-rendering="crispEdges">
+      <g fill="#141629">
+        <rect x="30" y="34" width="100" height="30"/>
+        <rect x="30" y="30" width="4" height="4"/><rect x="40" y="30" width="4" height="4"/><rect x="50" y="30" width="4" height="4"/>
+        <rect x="106" y="30" width="4" height="4"/><rect x="116" y="30" width="4" height="4"/><rect x="126" y="30" width="4" height="4"/>
+        <rect x="20" y="18" width="18" height="46"/><rect x="20" y="14" width="4" height="4"/><rect x="27" y="14" width="4" height="4"/><rect x="34" y="14" width="4" height="4"/>
+        <rect x="122" y="18" width="18" height="46"/><rect x="122" y="14" width="4" height="4"/><rect x="129" y="14" width="4" height="4"/><rect x="136" y="14" width="4" height="4"/>
+        <rect x="62" y="12" width="36" height="52"/><rect x="62" y="8" width="4" height="4"/><rect x="70" y="8" width="4" height="4"/><rect x="86" y="8" width="4" height="4"/><rect x="94" y="8" width="4" height="4"/>
+        <rect x="76" y="2" width="8" height="10"/><rect x="79" y="-6" width="2" height="8"/>
+      </g>
+      <rect x="81" y="-6" width="7" height="4" fill="#b13e53"/>
+      <g fill="#ffcd75" class="lb-windows">
+        <rect x="27" y="24" width="4" height="5"/><rect x="129" y="24" width="4" height="5"/>
+        <rect x="69" y="20" width="4" height="6"/><rect x="87" y="20" width="4" height="6"/>
+        <rect x="78" y="30" width="4" height="5"/><rect x="44" y="42" width="3" height="4"/><rect x="113" y="42" width="3" height="4"/>
+      </g>
+      <rect x="74" y="48" width="12" height="16" fill="#07080f"/>
+    </svg>
+    <div class="lb-hills lb-hills-back"></div>
+    <div class="lb-hills lb-hills-front"></div>
+    <div class="lb-embers">
+      <span></span><span></span><span></span><span></span><span></span><span></span>
+      <span></span><span></span><span></span><span></span><span></span><span></span>
+    </div>
+    <div class="lb-vignette"></div>
+  </div>
+
   <!-- Fullscreen Game Canvas (2D Isometric Terrain, Heroes & VFX) -->
   <canvas id="gameCanvas"></canvas>
 
@@ -344,10 +379,13 @@
 
   <!-- Account Authentication & Character Modal -->
   <div class="modal-overlay" id="joinModal">
+    <div class="login-logo">
+      <div class="login-logo-title">SLOP HERO</div>
+      <div class="login-logo-tag">&#9876; A PERSISTENT ISOMETRIC REALM &#9876;</div>
+    </div>
     <div class="hud-panel modal-card auth-character-modal">
-      <div class="modal-header" style="text-align: center; margin-bottom: 12px;">
-        <h1 class="modal-title" style="letter-spacing: 2px;">SLOP HERO MMORPG</h1>
-        <p class="modal-subtitle">Persistent Isometric Realm &middot; Cloud Account Save</p>
+      <div class="modal-header login-card-header">
+        <p class="modal-subtitle">Sign in to continue your adventure &middot; Cloud Account Save</p>
       </div>
 
       <!-- Auth Mode Tabs: Login vs Register -->
@@ -485,6 +523,7 @@
         </div>
       </div>
     </div>
+    <div class="login-footer">Warrior &middot; Mage &middot; Rogue &nbsp;|&nbsp; Dungeons, field raids &amp; the Eternal Rift await</div>
   </div>
 
   <!-- Game Settings Modal -->
