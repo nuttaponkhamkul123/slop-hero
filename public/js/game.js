@@ -3941,13 +3941,11 @@ document.addEventListener('DOMContentLoaded', () => {
         cell.classList.add('selected');
       }
 
-      cell.innerHTML = `
-        <div class="inv-icon">${PixelIcons.itemHtml(item)}</div>
-        <span class="inv-price-badge">${formatShopPrice(item.buyPrice)}</span>
-      `;
+      cell.innerHTML = `<div class="inv-icon">${PixelIcons.itemHtml(item)}</div>`;
 
       GameTooltip.item(cell, item, {
-        hint: `Price: ${item.buyPrice.toLocaleString()}g • Click to choose amount & buy`
+        buyPrice: item.buyPrice,
+        hint: 'Click to choose amount & buy'
       });
 
       cell.addEventListener('click', () => {

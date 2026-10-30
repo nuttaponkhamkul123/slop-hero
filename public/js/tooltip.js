@@ -159,9 +159,14 @@
       body += `<div class="tip-flavour">${esc(item.desc)}</div>`;
     }
 
+    if (opts.buyPrice !== undefined || (opts.isShop && item.buyPrice)) {
+      const priceVal = opts.buyPrice !== undefined ? opts.buyPrice : item.buyPrice;
+      body += `<div class="tip-line" style="color: #facc15; font-size: 13px; margin-top: 6px; padding-top: 4px; border-top: 1px dashed rgba(255,255,255,0.18); display: flex; justify-content: space-between; align-items: center;"><span style="color: #cbd5e1;">Buy Price:</span><b style="color: #facc15;">${priceVal.toLocaleString()} Gold</b></div>`;
+    }
+
     const footer = [];
     if (item.count > 1) footer.push(`x${item.count}`);
-    if (item.sellPrice) footer.push(`Sell ${item.sellPrice.toLocaleString()}g`);
+    if (item.sellPrice && !opts.buyPrice) footer.push(`Sell ${item.sellPrice.toLocaleString()}g`);
     if (opts.hint) footer.push(esc(opts.hint));
 
     return `
