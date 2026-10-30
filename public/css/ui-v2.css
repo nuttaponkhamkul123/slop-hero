@@ -158,6 +158,34 @@
 .sell-detail { position: sticky; bottom: 0; z-index: 2; display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 6px 8px; background: var(--night, #0f172a); border-top: 2px solid #334155; }
 .sell-detail .shop-item-details { flex: 1; min-width: 0; }
 .sell-detail-empty { flex: 1; text-align: center; font-size: 0.8em; opacity: 0.6; }
+/* ---------- Shop Buy Goods Inventory Grid & Detail Panel ---------- */
+#shopBuyList { max-height: 460px; display: flex; flex-direction: column; overflow: visible; padding: 0; }
+.buy-grid { display: grid !important; grid-template-columns: repeat(6, 1fr); gap: 7px !important; padding: 6px !important; align-content: start; max-height: 320px !important; overflow-y: auto; flex: none; background: rgba(0, 0, 0, 0.35); border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.08); }
+.buy-grid .inv-slot-compact { position: relative; aspect-ratio: 1; width: auto !important; height: auto !important; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.1s ease, border-color 0.15s ease; }
+.buy-grid .inv-slot-compact.empty { cursor: default; opacity: 0.55; }
+.buy-grid .inv-slot-compact .inv-icon img.pxi { width: 36px; height: 36px; }
+.buy-grid .inv-slot-compact:hover:not(.empty) { --hi: var(--gold) !important; }
+.buy-grid .inv-slot-compact.selected { --line: var(--gold, #facc15) !important; outline: 2px solid var(--gold, #facc15); outline-offset: -2px; box-shadow: 0 0 8px rgba(250, 204, 21, 0.4); }
+.buy-grid .inv-price-badge { position: absolute; right: 3px; bottom: 2px; font-family: var(--font-display, monospace); font-size: 11px; color: #fde68a; text-shadow: 0 1px 2px #000; background: rgba(0, 0, 0, 0.65); padding: 0 4px; border-radius: 3px; line-height: 1.2; pointer-events: none; }
+.buy-detail { position: sticky; bottom: 0; z-index: 2; display: flex; align-items: center; gap: 10px; min-height: 54px; padding: 7px 10px; background: var(--night, #0f172a); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 6px; margin-top: 8px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4); }
+.buy-detail .shop-item-icon { width: 38px; height: 38px; min-width: 38px; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.4); border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.15); }
+.buy-detail .shop-item-icon img.pxi { width: 32px; height: 32px; }
+.buy-detail .shop-item-details { flex: 1; min-width: 0; }
+.buy-detail .shop-item-name { font-size: 13px; font-weight: bold; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.buy-detail .shop-item-desc { font-size: 11px; color: #94a3b8; }
+.buy-qty-controls { display: flex; align-items: center; background: rgba(0, 0, 0, 0.5); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 4px; padding: 2px 4px; gap: 3px; }
+.buy-qty-btn { width: 22px; height: 22px; background: rgba(255, 255, 255, 0.1); border: none; color: #fff; cursor: pointer; border-radius: 3px; font-weight: bold; line-height: 1; font-size: 13px; display: flex; align-items: center; justify-content: center; }
+.buy-qty-btn:hover { background: rgba(245, 158, 11, 0.3); color: #fde68a; }
+.buy-qty-input { width: 44px; height: 22px; background: transparent; border: none; color: #fde68a; font-weight: bold; font-family: monospace; text-align: center; font-size: 13px; }
+.buy-qty-input:focus { outline: none; }
+.buy-qty-max { padding: 0 6px; height: 22px; background: rgba(245, 158, 11, 0.25); border: 1px solid rgba(245, 158, 11, 0.5); color: #fde68a; cursor: pointer; border-radius: 3px; font-size: 11px; font-weight: bold; }
+.buy-qty-max:hover { background: rgba(245, 158, 11, 0.45); }
+.buy-action-group { display: flex; align-items: center; gap: 6px; }
+.buy-action-btn { height: 30px; padding: 0 12px; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); border: 1px solid #facc15; border-radius: 4px; color: #1e1b4b; font-weight: bold; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 5px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3); transition: all 0.15s ease; white-space: nowrap; }
+.buy-action-btn:hover:not(:disabled) { filter: brightness(1.15); }
+.buy-action-btn:disabled, .buy-action-btn.disabled { background: #334155; border-color: #475569; color: #94a3b8; cursor: not-allowed; box-shadow: none; filter: none; }
+.buy-cancel-btn { width: 24px; height: 30px; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); color: #94a3b8; border-radius: 4px; cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center; }
+.buy-cancel-btn:hover { background: rgba(239, 68, 68, 0.25); border-color: #ef4444; color: #fca5a5; }
 .inv-v2 .inv-slot-compact.unusable { --line: #64748b !important; opacity: 0.6; }
 .inv-v2 .inv-slot-compact.unusable .inv-icon { filter: grayscale(1); }
 .inv-v2 .inv-slot-compact .inv-icon img.pxi { width: 36px; height: 36px; }
