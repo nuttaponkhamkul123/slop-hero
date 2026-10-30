@@ -2837,8 +2837,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // Graphics quality (persisted in localStorage): the world is drawn into a
   // smaller canvas buffer and stretched, which is what slow laptops need most.
   // Auto starts sharp and steps down while the frame rate stays low.
-  const GRAPHICS_SCALES = { high: 1, medium: 0.75, low: 0.55 };
-  const AUTO_SCALE_STEPS = [1, 0.75, 0.55];
+  const GRAPHICS_SCALES = { high: 1, medium: 0.75, low: 0.55, potato: 0.42 };
+  const AUTO_SCALE_STEPS = [1, 0.75, 0.55, 0.42];
   const AUTO_LOW_FPS = 42;          // average fps over one window that counts as lagging
   const AUTO_WINDOW_MS = 2000;
   let graphicsQuality = 'auto';
@@ -2851,13 +2851,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function applyGraphicsQuality(quality) {
     graphicsQuality = quality;
-    const scale = quality === 'auto' ? AUTO_SCALE_STEPS[autoScaleStep] : GRAPHICS_SCALES[quality];
+    const scale = quality === 'auto' ? AUTO_SCALE_STEPS[autoScaleStep] : (GRAPHICS_SCALES[quality] || 1);
     renderer.setRenderScale(scale);
-    renderer.lowEffects = quality === 'low' || (quality === 'auto' && autoScaleStep === AUTO_SCALE_STEPS.length - 1);
+    const effQuality = quality === 'auto'
+      ? (autoScaleStep >= 3 ? 'potato' : (autoScaleStep >= 2 ? 'low' : (autoScaleStep >= 1 ? 'medium' : 'high')))
+      : quality;
+    if (renderer.setQuality) {
+      renderer.setQuality(effQuality);
+    } else {
+      renderer.lowEffects = quality === 'low' || quality === 'potato' || (quality === 'auto' && autoScaleStep >= 2);
+    }
     fpsWindow.start = 0;
     graphicsPresets.forEach(b => b.classList.toggle('active', b.dataset.quality === quality));
     if (lblGraphicsVal) {
-      const label = quality.charAt(0).toUpperCase() + quality.slice(1);
+      const label = quality === 'potato' ? 'Potato' : (quality.charAt(0).toUpperCase() + quality.slice(1));
       lblGraphicsVal.textContent = `${label} · ${Math.round(scale * 100)}%`;
     }
     try {
@@ -2893,6 +2900,108 @@ document.addEventListener('DOMContentLoaded', () => {
       // picking Auto again gives it a fresh start at full sharpness
       if (btn.dataset.quality === 'auto') autoScaleStep = 0;
       applyGraphicsQuality(btn.dataset.quality);
+    });
+  });
+
+  // Target FPS limiter (30 FPS eco, 60 FPS, Uncapped)
+  const targetFpsPresets = document.querySelectorAll('.gui-scale-preset[data-fps]');
+  const lblFpsLimitVal = document.getElementById('lblFpsLimitVal');
+  let targetFps = 0; // 0 = uncapped
+  let frameInterval = 0; // ms
+  let lastRenderTime = 0;
+
+  try {
+    const savedFps = localStorage.getItem('slop_target_fps');
+    if (savedFps !== null) {
+      const parsed = parseInt(savedFps, 10);
+      if (!isNaN(parsed) && (parsed === 0 || parsed === 30 || parsed === 60)) {
+        targetFps = parsed;
+      }
+    }
+  } catch (_) {}
+
+  function applyTargetFps(fps) {
+    targetFps = parseInt(fps, 10) || 0;
+    frameInterval = targetFps > 0 ? (1000 / targetFps) : 0;
+    targetFpsPresets.forEach(b => b.classList.toggle('active', parseInt(b.dataset.fps, 10) === targetFps));
+    if (lblFpsLimitVal) {
+      lblFpsLimitVal.textContent = targetFps === 0 ? 'Uncapped' : `${targetFps} FPS`;
+    }
+    try {
+      localStorage.setItem('slop_target_fps', targetFps.toString());
+    } catch (_) {}
+  }
+  applyTargetFps(targetFps);
+
+  targetFpsPresets.forEach(btn => {
+    btn.addEventListener('click', () => {
+      applyTargetFps(btn.dataset.fps);
+    });
+  });
+
+  // 3D Town Props mode (Auto, On, Off/2D Fast)
+  const townPropsPresets = document.querySelectorAll('.gui-scale-preset[data-props]');
+  const lblTownPropsVal = document.getElementById('lblTownPropsVal');
+  let townPropsMode = 'auto';
+
+  try {
+    const savedProps = localStorage.getItem('slop_town_props');
+    if (savedProps === 'auto' || savedProps === 'on' || savedProps === 'off') {
+      townPropsMode = savedProps;
+    }
+  } catch (_) {}
+
+  function applyTownPropsMode(mode) {
+    townPropsMode = mode;
+    if (renderer && renderer.setTownPropsMode) {
+      renderer.setTownPropsMode(mode);
+    }
+    townPropsPresets.forEach(b => b.classList.toggle('active', b.dataset.props === mode));
+    if (lblTownPropsVal) {
+      lblTownPropsVal.textContent = mode === 'auto' ? 'Auto' : (mode === 'on' ? '3D On' : '2D Fast');
+    }
+    try {
+      localStorage.setItem('slop_town_props', mode);
+    } catch (_) {}
+  }
+  applyTownPropsMode(townPropsMode);
+
+  townPropsPresets.forEach(btn => {
+    btn.addEventListener('click', () => {
+      applyTownPropsMode(btn.dataset.props);
+    });
+  });
+
+  // VFX & Particles quality (Auto, Full, Reduced, Minimal)
+  const vfxPresets = document.querySelectorAll('.gui-scale-preset[data-vfx]');
+  const lblVfxVal = document.getElementById('lblVfxVal');
+  let vfxLevel = 'auto';
+
+  try {
+    const savedVfx = localStorage.getItem('slop_vfx_level');
+    if (savedVfx === 'auto' || savedVfx === 'full' || savedVfx === 'reduced' || savedVfx === 'minimal') {
+      vfxLevel = savedVfx;
+    }
+  } catch (_) {}
+
+  function applyVfxLevel(level) {
+    vfxLevel = level;
+    if (renderer && renderer.setVfxLevel) {
+      renderer.setVfxLevel(level);
+    }
+    vfxPresets.forEach(b => b.classList.toggle('active', b.dataset.vfx === level));
+    if (lblVfxVal) {
+      lblVfxVal.textContent = level.charAt(0).toUpperCase() + level.slice(1);
+    }
+    try {
+      localStorage.setItem('slop_vfx_level', level);
+    } catch (_) {}
+  }
+  applyVfxLevel(vfxLevel);
+
+  vfxPresets.forEach(btn => {
+    btn.addEventListener('click', () => {
+      applyVfxLevel(btn.dataset.vfx);
     });
   });
 
@@ -5780,8 +5889,29 @@ card.innerHTML = `
     }
   }
 
-  // Main Render Loop (60 FPS)
+  // Prevent DOM layout thrashing by caching height percentage
+  function setElementHeightPct(el, pct) {
+    if (!el) return;
+    const rounded = Math.round(pct * 10) / 10;
+    if (el._lastPct !== rounded) {
+      el._lastPct = rounded;
+      el.style.height = `${rounded}%`;
+    }
+  }
+
+  // Main Render Loop (with Target FPS throttling for low-end hardware)
   function gameLoop(currentTime) {
+    if (frameInterval > 0) {
+      const elapsed = currentTime - lastRenderTime;
+      if (elapsed < frameInterval - 1) {
+        requestAnimationFrame(gameLoop);
+        return;
+      }
+      lastRenderTime = currentTime - (elapsed % frameInterval);
+    } else {
+      lastRenderTime = currentTime;
+    }
+
     const dt = Math.min(0.1, (currentTime - lastFrameTime) / 1000);
     lastFrameTime = currentTime;
     trackFrameRate(currentTime);
@@ -5789,50 +5919,50 @@ card.innerHTML = `
     if (skill1CooldownTimer > 0) {
       skill1CooldownTimer = Math.max(0, skill1CooldownTimer - dt);
       const cdPct = (skill1CooldownTimer / skill1CooldownMax) * 100;
-      if (cdOverlaySkill1) cdOverlaySkill1.style.height = `${cdPct}%`;
-      if (cdOverlaySkill) cdOverlaySkill.style.height = `${cdPct}%`;
-      if (mobileCdSkill1) mobileCdSkill1.style.height = `${cdPct}%`;
+      setElementHeightPct(cdOverlaySkill1, cdPct);
+      setElementHeightPct(cdOverlaySkill, cdPct);
+      setElementHeightPct(mobileCdSkill1, cdPct);
     } else {
-      if (cdOverlaySkill1) cdOverlaySkill1.style.height = '0%';
-      if (cdOverlaySkill) cdOverlaySkill.style.height = '0%';
-      if (mobileCdSkill1) mobileCdSkill1.style.height = '0%';
+      setElementHeightPct(cdOverlaySkill1, 0);
+      setElementHeightPct(cdOverlaySkill, 0);
+      setElementHeightPct(mobileCdSkill1, 0);
     }
 
     if (skill2CooldownTimer > 0) {
       skill2CooldownTimer = Math.max(0, skill2CooldownTimer - dt);
       const cdPct = (skill2CooldownTimer / skill2CooldownMax) * 100;
-      if (cdOverlaySkill2) cdOverlaySkill2.style.height = `${cdPct}%`;
-      if (mobileCdSkill2) mobileCdSkill2.style.height = `${cdPct}%`;
+      setElementHeightPct(cdOverlaySkill2, cdPct);
+      setElementHeightPct(mobileCdSkill2, cdPct);
     } else {
-      if (cdOverlaySkill2) cdOverlaySkill2.style.height = '0%';
-      if (mobileCdSkill2) mobileCdSkill2.style.height = '0%';
+      setElementHeightPct(cdOverlaySkill2, 0);
+      setElementHeightPct(mobileCdSkill2, 0);
     }
 
     if (skill3CooldownTimer > 0) {
       skill3CooldownTimer = Math.max(0, skill3CooldownTimer - dt);
       const cdPct = (skill3CooldownTimer / skill3CooldownMax) * 100;
-      if (cdOverlaySkill3) cdOverlaySkill3.style.height = `${cdPct}%`;
-      if (mobileCdSkill3) mobileCdSkill3.style.height = `${cdPct}%`;
+      setElementHeightPct(cdOverlaySkill3, cdPct);
+      setElementHeightPct(mobileCdSkill3, cdPct);
     } else {
-      if (cdOverlaySkill3) cdOverlaySkill3.style.height = '0%';
-      if (mobileCdSkill3) mobileCdSkill3.style.height = '0%';
+      setElementHeightPct(cdOverlaySkill3, 0);
+      setElementHeightPct(mobileCdSkill3, 0);
     }
 
     if (dashCooldownTimer > 0) {
       dashCooldownTimer = Math.max(0, dashCooldownTimer - dt);
       const cdPct = (dashCooldownTimer / dashCooldownMax) * 100;
-      if (cdOverlayDash) cdOverlayDash.style.height = `${cdPct}%`;
-      if (mobileCdDash) mobileCdDash.style.height = `${cdPct}%`;
+      setElementHeightPct(cdOverlayDash, cdPct);
+      setElementHeightPct(mobileCdDash, cdPct);
     } else {
-      if (cdOverlayDash) cdOverlayDash.style.height = '0%';
-      if (mobileCdDash) mobileCdDash.style.height = '0%';
+      setElementHeightPct(cdOverlayDash, 0);
+      setElementHeightPct(mobileCdDash, 0);
     }
 
     if (weaponCooldownTimer > 0) {
       weaponCooldownTimer = Math.max(0, weaponCooldownTimer - dt);
-      if (cdOverlayWeapon) cdOverlayWeapon.style.height = `${(weaponCooldownTimer / weaponCooldownMax) * 100}%`;
-    } else if (cdOverlayWeapon) {
-      cdOverlayWeapon.style.height = '0%';
+      setElementHeightPct(cdOverlayWeapon, (weaponCooldownTimer / weaponCooldownMax) * 100);
+    } else {
+      setElementHeightPct(cdOverlayWeapon, 0);
     }
 
     // Toggled blood auras light up their hotbar slots
@@ -5854,9 +5984,9 @@ card.innerHTML = `
       const elapsedAtk = currentTime - lastBasicAttackTime;
       if (elapsedAtk < atkCooldownMs) {
         const atkPct = ((atkCooldownMs - elapsedAtk) / atkCooldownMs) * 100;
-        if (mobileCdAttack) mobileCdAttack.style.height = `${atkPct}%`;
+        setElementHeightPct(mobileCdAttack, atkPct);
       } else {
-        if (mobileCdAttack) mobileCdAttack.style.height = '0%';
+        setElementHeightPct(mobileCdAttack, 0);
       }
     }
 
