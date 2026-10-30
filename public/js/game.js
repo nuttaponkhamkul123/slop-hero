@@ -207,6 +207,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const reforgeModal = document.getElementById('reforgeModal');
   const deathScreen = document.getElementById('deathScreen') || document.getElementById('death-screen');
 
+  // Personal Chest Elements
+  const personalChestModal = document.getElementById('personalChestModal');
+  const btnCloseChest = document.getElementById('btnCloseChest');
+  const chestVaultGrid = document.getElementById('chestVaultGrid');
+  const chestBagGrid = document.getElementById('chestBagGrid');
+  const chestCapacityText = document.getElementById('chestCapacityText');
+  const chestBagCapacityText = document.getElementById('chestBagCapacityText');
+  const btnChestDepositAll = document.getElementById('btnChestDepositAll');
+
   // Shop Elements
   const btnOpenShop = document.getElementById('btnOpenShop');
   const btnCloseShop = document.getElementById('btnCloseShop');
@@ -1958,6 +1967,12 @@ document.addEventListener('DOMContentLoaded', () => {
           else socket.emit('player_input', { type: 'click_move', x: valka.x - 1.8, y: valka.y });
           return;
         }
+        const personalChest = townObstacles.find(o => o.id === 'town_personal_chest' || o.type === 'personal_chest') || { x: 17.8, y: 19.6 };
+        if (Math.hypot(personalChest.x - worldPos.x, personalChest.y - worldPos.y) < 1.3) {
+          if (Math.hypot(personalChest.x - localPlayer.x, personalChest.y - localPlayer.y) <= 3.5) openPersonalChestModal();
+          else socket.emit('player_input', { type: 'click_move', x: personalChest.x, y: personalChest.y + 0.8 });
+          return;
+        }
         const clickDistToMerchant = Math.hypot(merchant.x - worldPos.x, merchant.y - worldPos.y);
         const clickDistToBrom = Math.hypot(brom.x - worldPos.x, brom.y - worldPos.y);
         const clickDistToPortal = Math.hypot(23.5 - worldPos.x, 16.5 - worldPos.y);
@@ -3635,6 +3650,115 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>`;
   }
 
+  // ================= PERSONAL STORAGE CHEST UI =================
+  function openPersonalChestModal() {
+    if (!personalChestModal) return;
+    socket.emit('open_personal_chest');
+    personalChestModal.style.display = 'flex';
+    renderPersonalChest();
+  }
+
+  function renderPersonalChest(storage, inventory) {
+    if (!personalChestModal) return;
+    const store = storage || (localPlayer && localPlayer.storage) || { maxSlots: 50, items: [] };
+    const inv = inventory || (localPlayer && localPlayer.inventory) || { maxSlots: 30, items: [] };
+
+    const maxChestSlots = store.maxSlots || 50;
+    const storeItems = Array.isArray(store.items) ? store.items : [];
+    if (chestCapacityText) {
+      chestCapacityText.textContent = `${storeItems.length} / ${maxChestSlots}`;
+      chestCapacityText.classList.toggle('is-full', storeItems.length >= maxChestSlots);
+    }
+
+    const maxBagSlots = inv.maxSlots || 30;
+    const bagItems = Array.isArray(inv.items) ? inv.items : [];
+    if (chestBagCapacityText) {
+      chestBagCapacityText.textContent = `${bagItems.length} / ${maxBagSlots}`;
+      chestBagCapacityText.classList.toggle('is-full', bagItems.length >= maxBagSlots);
+    }
+
+    // Render Chest Vault Grid (Left pane)
+    if (chestVaultGrid) {
+      chestVaultGrid.innerHTML = '';
+      const totalChestCells = Math.max(maxChestSlots, Math.ceil(storeItems.length / 6) * 6);
+      for (let i = 0; i < totalChestCells; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'inv-slot-compact';
+        const item = storeItems[i];
+        if (!item) {
+          cell.classList.add('empty');
+          chestVaultGrid.appendChild(cell);
+          continue;
+        }
+
+        cell.classList.add(`rarity-${item.rarity || 'common'}`);
+        cell.innerHTML = `
+          <div class="inv-icon">${PixelIcons.itemHtml(item)}</div>
+          ${item.upgradeLevel ? `<span class="upgrade-badge">+${item.upgradeLevel}</span>` : ''}
+          ${item.count > 1 ? `<div class="inv-badge">x${item.count}</div>` : ''}`;
+
+        GameTooltip.item(cell, item, { hint: 'Click to withdraw to backpack' });
+        const slotIdx = i;
+        cell.addEventListener('click', () => {
+          socket.emit('withdraw_from_chest', { itemIndex: slotIdx });
+          window.soundEngine.playSlash();
+        });
+        chestVaultGrid.appendChild(cell);
+      }
+    }
+
+    // Render Bag Grid (Right pane)
+    if (chestBagGrid) {
+      chestBagGrid.innerHTML = '';
+      const totalBagCells = Math.max(maxBagSlots, Math.ceil(bagItems.length / 6) * 6);
+      for (let i = 0; i < totalBagCells; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'inv-slot-compact';
+        const item = bagItems[i];
+        if (!item) {
+          cell.classList.add('empty');
+          chestBagGrid.appendChild(cell);
+          continue;
+        }
+
+        cell.classList.add(`rarity-${item.rarity || 'common'}`);
+        cell.innerHTML = `
+          <div class="inv-icon">${PixelIcons.itemHtml(item)}</div>
+          ${item.upgradeLevel ? `<span class="upgrade-badge">+${item.upgradeLevel}</span>` : ''}
+          ${item.count > 1 ? `<div class="inv-badge">x${item.count}</div>` : ''}`;
+
+        GameTooltip.item(cell, item, { hint: 'Click to deposit into chest' });
+        const itemIdx = i;
+        cell.addEventListener('click', () => {
+          socket.emit('deposit_to_chest', { itemIndex: itemIdx });
+          window.soundEngine.playSlash();
+        });
+        chestBagGrid.appendChild(cell);
+      }
+    }
+  }
+
+  socket.on('personal_chest_data', (data) => {
+    if (localPlayer) {
+      if (data.storage) localPlayer.storage = data.storage;
+      if (data.inventory) localPlayer.inventory = data.inventory;
+      renderInventoryGrid();
+    }
+    renderPersonalChest(data.storage, data.inventory);
+  });
+
+  if (btnCloseChest) {
+    btnCloseChest.addEventListener('click', () => {
+      if (personalChestModal) personalChestModal.style.display = 'none';
+    });
+  }
+  if (btnChestDepositAll) {
+    btnChestDepositAll.addEventListener('click', () => {
+      socket.emit('deposit_to_chest', { all: true });
+      window.soundEngine.playSlash();
+    });
+  }
+
   // ================= SHOP & INVENTORY UI =================
 
   function openShopModal() {
@@ -3960,6 +4084,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (item.id === 'bag_expander_sm') return 'Click to expand: +1 Row (+6 slots)';
     if (item.id === 'bag_expander_md') return 'Click to expand: +2 Rows (+12 slots)';
     if (item.id === 'bag_expander_lg') return 'Click to expand: +5 Rows (+30 slots)';
+    if (item.id === 'chest_expander_sm') return 'Click to expand Chest: +10 slots';
+    if (item.id === 'chest_expander_md') return 'Click to expand Chest: +20 slots';
+    if (item.id === 'chest_expander_lg') return 'Click to expand Chest: +50 slots';
     if (item.type === 'equipment') return 'Click to equip';
     if (item.type === 'sp_card') {
       const card = spCardDef(item.cardId);
@@ -4086,6 +4213,9 @@ document.addEventListener('DOMContentLoaded', () => {
           renderEnchanter();
         } else if (item.id && item.id.startsWith('bag_expander_')) {
           socket.emit('use_bag_expander', { itemIndex: index });
+          window.soundEngine.playLevelUp();
+        } else if (item.id && item.id.startsWith('chest_expander_')) {
+          socket.emit('use_chest_expander', { itemIndex: index });
           window.soundEngine.playLevelUp();
         } else if (item.id === 'health_potion') {
           drinkPotion('health');
@@ -5693,7 +5823,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btnOpenHelp').addEventListener('click', () => toggleModal(helpModal));
   document.getElementById('btnCloseHelp').addEventListener('click', () => helpModal.style.display = 'none');
 
-  [statsModal, inventoryModal, helpModal, shopModal, reforgeModal, skillTreeModal].forEach(modal => {
+  [statsModal, inventoryModal, helpModal, shopModal, reforgeModal, skillTreeModal, personalChestModal].forEach(modal => {
     if (!modal) return;
     modal.addEventListener('click', (e) => {
       if (e.target === modal) modal.style.display = 'none';
@@ -5755,7 +5885,15 @@ document.addEventListener('DOMContentLoaded', () => {
       const distDungeon = Math.hypot(23.5 - localPlayer.x, 16.5 - localPlayer.y);
       const distFrost = Math.hypot(16.5 - localPlayer.x, 16.5 - localPlayer.y);
 
-      if (distOlaf <= 3.5) {
+      const personalChest = townObstacles.find(o => o.id === 'town_personal_chest' || o.type === 'personal_chest') || { x: 17.8, y: 19.6 };
+      const distChest = Math.hypot(personalChest.x - localPlayer.x, personalChest.y - localPlayer.y);
+      if (distChest <= 2.8) {
+        targetInteract = {
+          icon: 'chest',
+          label: 'STORAGE',
+          action: () => openPersonalChestModal()
+        };
+      } else if (distOlaf <= 3.5) {
         targetInteract = {
           icon: 'coin',
           label: 'SHOP',

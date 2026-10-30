@@ -701,6 +701,47 @@
     </div>
   </div>
 
+  <!-- Personal Storage Chest Modal (Bank next to Olaf) -->
+  <div class="modal-overlay" id="personalChestModal" style="display: none;">
+    <div class="hud-panel modal-card personal-chest-card">
+      <button class="modal-close" id="btnCloseChest">✕</button>
+      <div class="modal-header">
+        <h2 class="modal-title" style="color: #facc15;">📦 PERSONAL STORAGE CHEST</h2>
+        <p class="modal-subtitle">Secure town storage next to Olaf the Trader • 50 Initial Slots</p>
+      </div>
+
+      <div class="chest-dual-panes">
+        <!-- Left: Chest Vault -->
+        <div class="chest-pane">
+          <div class="chest-pane-header">
+            <span><span data-pxi="chest"></span> <b>STORAGE CHEST</b></span>
+            <span class="chest-capacity" id="chestCapacityText">0 / 50</span>
+          </div>
+          <div class="chest-grid-wrapper">
+            <div class="chest-slots-grid" id="chestVaultGrid"></div>
+          </div>
+          <div class="chest-pane-footer">
+            <button class="chest-action-btn" id="btnChestDepositAll">📦 Deposit All Loot</button>
+          </div>
+        </div>
+
+        <!-- Right: Backpack -->
+        <div class="chest-pane">
+          <div class="chest-pane-header">
+            <span><span data-pxi="pouch"></span> <b>HERO'S BAG</b></span>
+            <span class="chest-capacity" id="chestBagCapacityText">0 / 30</span>
+          </div>
+          <div class="chest-grid-wrapper">
+            <div class="chest-slots-grid" id="chestBagGrid"></div>
+          </div>
+          <div class="chest-pane-footer">
+            <span class="chest-help-hint">Click bag item to deposit • Click chest item to withdraw</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Inventory & Equipment Modal -->
   <div class="modal-overlay" id="inventoryModal" style="display: none;">
     <div class="hud-panel modal-card inventory-modal-card inv-v2">
