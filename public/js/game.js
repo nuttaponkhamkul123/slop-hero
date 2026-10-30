@@ -880,7 +880,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function setupClassSkillHUD(cls) {
     if (!cls) return;
-    applySkillLinkBadges();
     setupWeaponAbilityHUD();
     if (playerAvatarIcon) playerAvatarIcon.innerHTML = heroPortraitHtml(cls);
     const basicAttackIcons = { warrior: 'basic_attack', mage: 'basic_attack_mage', rogue: 'basic_attack_rogue' };
@@ -1258,13 +1257,12 @@ document.addEventListener('DOMContentLoaded', () => {
         existing.skillPoints = p.skillPoints !== undefined ? p.skillPoints : (existing.skillPoints || 0);
         existing.skills = p.skills || existing.skills || {};
         existing.equippedSkills = p.equippedSkills || existing.equippedSkills;
-        if (p.skillLinks) existing.skillLinks = p.skillLinks;
       } else {
         p.targetX = p.x;
         p.targetY = p.y;
         // a tick without the heavy fields: keep what we already know about ourselves
         if (p.id === localPlayerId && localPlayer) {
-          for (const k of ['inventory', 'equipment', 'baseStats', 'skills', 'equippedSkills', 'elementResist', 'skillLinks']) {
+          for (const k of ['inventory', 'equipment', 'baseStats', 'skills', 'equippedSkills', 'elementResist']) {
             if (p[k] === undefined) p[k] = localPlayer[k];
           }
         }
@@ -1543,8 +1541,6 @@ document.addEventListener('DOMContentLoaded', () => {
       } else if (slot === 'weapon') {
         weaponCooldownMax = fx.cooldown || weaponCooldownMax;
         weaponCooldownTimer = weaponCooldownMax;
-      } else if (slot && slot.startsWith('link_')) {
-        // a Skill Link cast of a skill that isn't on the hotbar
       } else {
         skill1CooldownMax = fx.cooldown || skill1CooldownMax;
         skill1CooldownTimer = skill1CooldownMax;
@@ -4782,67 +4778,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const SLOT_KEYS = { slot1: 'Q', slot2: 'E', slot3: 'R', dash: 'Shift' };
 
-  // Skill Link: the selected slot also casts one extra class skill - any
-  // unlocked skill, it doesn't have to be on the hotbar
-  function renderSkillLinkRow() {
-    if (!runesSelectorRow) return;
-    let section = document.getElementById('skillLinkSection');
-    if (!section) {
-      section = document.createElement('div');
-      section.id = 'skillLinkSection';
-      section.className = 'loadout-runes-section skill-link-section';
-      section.innerHTML = `<div class="loadout-section-title" id="skillLinkTitle"></div>
-        <div class="runes-selector-row" id="skillLinkRow"></div>`;
-      runesSelectorRow.closest('.loadout-runes-section').after(section);
-    }
-    const key = SLOT_KEYS[selectedLoadoutSlot];
-    section.querySelector('#skillLinkTitle').textContent =
-      `SKILL LINK: pick a skill that also casts when you press [${key}] (it doesn't need a hotbar slot)`;
-    const row = section.querySelector('#skillLinkRow');
-    const links = (localPlayer && localPlayer.skillLinks) || {};
-    const current = links[selectedLoadoutSlot] || 'none';
-    const cls = (localPlayer && localPlayer.characterClass) || 'warrior';
-    const own = ((localPlayer && (localPlayer.baseEquippedSkills || localPlayer.equippedSkills)) || {})[selectedLoadoutSlot];
-    const options = ['none', ...((allSkillsCatalog && allSkillsCatalog[cls]) || [])
-      .filter(s => s.id !== own && (localPlayer.level || 1) >= (s.reqLevel || 1))];
-    row.innerHTML = '';
-    for (const opt of options) {
-      const id = opt === 'none' ? 'none' : opt.id;
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = `rune-pill-btn skill-link-pill ${current === id ? 'active' : ''}`;
-      btn.innerHTML = id === 'none' ? 'No Link'
-        : `<span class="skill-link-icon">${SkillIcons.svg(id)}</span><span>${escapeHtml(opt.name)}</span>`;
-      btn.title = id === 'none' ? `[${key}] casts only its own skill`
-        : `[${key}] also casts ${opt.name} (${manaCost(opt.mpCost)} MP, ${opt.cooldown}s cooldown of its own)`;
-      btn.addEventListener('click', () => {
-        socket.emit('customize_skill_slot', { slot: selectedLoadoutSlot, link: id });
-        window.soundEngine.playUpgradeSuccess();
-      });
-      row.appendChild(btn);
-    }
-  }
-
-  // Chain tag on the HUD and spellbook slots that are linked
-  function applySkillLinkBadges() {
-    const links = (localPlayer && localPlayer.skillLinks) || {};
-    const hud = { slot1: 'slotSkill1', slot2: 'slotSkill2', slot3: 'slotSkill3', dash: 'slotDash' };
-    for (const [slot, id] of Object.entries(hud)) {
-      const el = document.getElementById(id);
-      if (!el) continue;
-      el.classList.toggle('skill-linked', !!links[slot]);
-      if (links[slot]) el.dataset.link = 'LINK';
-      else delete el.dataset.link;
-    }
-    document.querySelectorAll('.hotbar-slot-card[data-slot-key]').forEach(card => {
-      const slot = card.getAttribute('data-slot-key');
-      const def = links[slot] && findSkillDef(links[slot]);
-      card.classList.toggle('skill-linked', !!links[slot]);
-      if (links[slot]) card.dataset.link = '+ ' + (def ? def.name : links[slot]);
-      else delete card.dataset.link;
-    });
-  }
-
   function renderCustomSkillLoadout() {
     if (!localPlayer || !loadoutSlotsRow || !skillsCatalogGrid) return;
 
@@ -4996,10 +4931,6 @@ card.innerHTML = `
         runesSelectorRow.appendChild(btn);
       });
     }
-
-    // 2b. Skill Link picker for the selected slot
-    renderSkillLinkRow();
-    applySkillLinkBadges();
 
     // 3. Render Skills Catalog with Drag-and-Drop Cards
     skillsCatalogGrid.innerHTML = '';
