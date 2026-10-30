@@ -665,6 +665,7 @@
       // set by the renderer: false while the camera zoom is still changing, when
       // cached images are scaled instead of re-rendered through WebGL
       this.zoomSettled = true;
+      this.enabled = true;
     }
 
     ensureBuffer(w, h) {
@@ -737,6 +738,7 @@
     // 3D prop, otherwise { top, events } where top is the screen y of the
     // prop's highest point (for name tags).
     draw(ctx, obs, screenX, screenY, zoom, time, layer) {
+      if (!this.enabled) return null;
       const inst = this.getInstance(obs.type, propVariant(obs), layer);
       if (!inst) return null;
       // a layer with nothing in it (e.g. the back of a stall whose counter faces us)

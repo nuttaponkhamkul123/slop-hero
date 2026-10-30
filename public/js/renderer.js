@@ -537,6 +537,12 @@ class IsometricRenderer {
 
     this.renderScale = 1;      // canvas buffer px per screen px (game.js graphics setting)
     this.lowEffects = false;   // skip purely cosmetic ambience (fog, motes, smoke, birds)
+    this.potatoMode = false;   // ultra-low spec preset (cuts down particles, townsfolk, shadow passes)
+    this.maxParticles = 200;   // upper bound on concurrent particles
+    this.particleScale = 1.0;  // multiplier on spawned particle count
+    this.disable3DProps = false; // force 2D sprite fallback for town structures
+    this.townPropsSetting = 'auto'; // 'auto' | 'on' | 'off'
+    this.vfxSetting = 'auto';       // 'auto' | 'full' | 'reduced' | 'minimal'
     this.initCanvasSize();
     window.addEventListener('resize', () => this.initCanvasSize());
   }
@@ -689,6 +695,89 @@ class IsometricRenderer {
     if (scale === this.renderScale) return;
     this.renderScale = scale;
     this.initCanvasSize();
+  }
+
+  setQuality(quality) {
+    if (quality === 'potato') {
+      this.potatoMode = true;
+      this.lowEffects = true;
+      this.setRenderScale(0.42);
+      this._applyQualityVfx('minimal', 35, 0.35);
+      this._applyQualityProps(true);
+    } else if (quality === 'low') {
+      this.potatoMode = false;
+      this.lowEffects = true;
+      this.setRenderScale(0.55);
+      this._applyQualityVfx('reduced', 70, 0.6);
+      this._applyQualityProps(false);
+    } else if (quality === 'medium') {
+      this.potatoMode = false;
+      this.lowEffects = false;
+      this.setRenderScale(0.75);
+      this._applyQualityVfx('full', 140, 0.85);
+      this._applyQualityProps(false);
+    } else { // high
+      this.potatoMode = false;
+      this.lowEffects = false;
+      this.setRenderScale(1.0);
+      this._applyQualityVfx('full', 250, 1.0);
+      this._applyQualityProps(false);
+    }
+  }
+
+  _applyQualityVfx(preset, defaultMax, defaultScale) {
+    if (this.vfxSetting === 'auto') {
+      this.maxParticles = defaultMax;
+      this.particleScale = defaultScale;
+    }
+  }
+
+  _applyQualityProps(disableInQuality) {
+    if (this.townPropsSetting === 'auto') {
+      this.disable3DProps = disableInQuality;
+      if (window.townProps3D) window.townProps3D.enabled = !disableInQuality;
+    }
+  }
+
+  setTownPropsMode(mode) {
+    this.townPropsSetting = mode;
+    if (mode === 'off') {
+      this.disable3DProps = true;
+      if (window.townProps3D) window.townProps3D.enabled = false;
+    } else if (mode === 'on') {
+      this.disable3DProps = false;
+      if (window.townProps3D) window.townProps3D.enabled = true;
+    } else {
+      // auto
+      this.disable3DProps = this.potatoMode;
+      if (window.townProps3D) window.townProps3D.enabled = !this.potatoMode;
+    }
+  }
+
+  setVfxLevel(level) {
+    this.vfxSetting = level;
+    if (level === 'minimal') {
+      this.maxParticles = 35;
+      this.particleScale = 0.35;
+    } else if (level === 'reduced') {
+      this.maxParticles = 70;
+      this.particleScale = 0.6;
+    } else if (level === 'full') {
+      this.maxParticles = 250;
+      this.particleScale = 1.0;
+    } else {
+      // auto: re-apply based on current quality
+      if (this.potatoMode) {
+        this.maxParticles = 35;
+        this.particleScale = 0.35;
+      } else if (this.lowEffects) {
+        this.maxParticles = 70;
+        this.particleScale = 0.6;
+      } else {
+        this.maxParticles = 200;
+        this.particleScale = 1.0;
+      }
+    }
   }
 
   setCameraTarget(worldX, worldY) {
@@ -8117,7 +8206,18 @@ class IsometricRenderer {
 
   // High-Performance Multi-Elemental Particle Spawner with Physical Dynamics
   addParticles(worldX, worldY, type = 'slash', count = 16, customOpts = {}) {
-    for (let i = 0; i < count; i++) {
+    if (this.potatoMode && (type === 'dust' || type === 'wind')) return;
+    const maxP = this.maxParticles || 150;
+    if (this.animations.particles.length >= maxP) return;
+
+    let scaledCount = Math.round(count * (this.particleScale || 1.0));
+    if (scaledCount <= 0 && count > 0) scaledCount = 1;
+    if (this.animations.particles.length + scaledCount > maxP) {
+      scaledCount = Math.max(0, maxP - this.animations.particles.length);
+    }
+    if (scaledCount <= 0) return;
+
+    for (let i = 0; i < scaledCount; i++) {
       const angle = customOpts.angle !== undefined
         ? (customOpts.angle + (Math.random() - 0.5) * (customOpts.spread || Math.PI * 0.6))
         : (Math.random() * Math.PI * 2);
@@ -8456,7 +8556,7 @@ class IsometricRenderer {
     if (this.currentTheme === 'town' && window.TownLife) {
       if (!this.townLife || this.townLife.map !== map) this.townLife = new window.TownLife.Ambience(map);
       townLife = this.townLife;
-      townLife.drawGround(ctx, this);
+      if (!this.lowEffects) townLife.drawGround(ctx, this);
     }
 
     // Dungeon atmosphere (cosmetic): the floor sinks into darkness except for
@@ -8568,12 +8668,12 @@ class IsometricRenderer {
     }
 
     // 6. Townsfolk strolling the city (cosmetic, town only)
-    if (this.currentTheme === 'town') {
+    if (this.currentTheme === 'town' && !this.potatoMode) {
       this.updateTownsfolk(dt || 0.016);
       for (const c of this.townsfolk.folk) {
         renderList.push({ type: 'townsfolk', data: c, depth: Isometric.getDepth(c.x, c.y, 0, 55) });
       }
-      if (townLife) {
+      if (townLife && !this.lowEffects) {
         // pigeons scatter from anyone walking by
         const walkers = this.townsfolk.folk.concat(gameState.players || []);
         townLife.update(dt || 0.016, this, walkers);
@@ -9608,7 +9708,7 @@ class IsometricRenderer {
 
     // 3D-modelled town props (booths with NPCs, houses, towers). Falls back
     // to the 2D drawings below when WebGL is unavailable.
-    if (window.townProps3D && TOWN_PROPS_3D.has(obs.type)) {
+    if (!this.disable3DProps && window.townProps3D && window.townProps3D.enabled !== false && TOWN_PROPS_3D.has(obs.type)) {
       // Stalls with a shopkeeper: back of the stall, the pixel-art keeper,
       // then the counter / anvil / altar in front of them
       const keeper = SHOPKEEPERS[obs.type] && window.PixelMobs ? SHOPKEEPERS[obs.type] : null;
@@ -18249,6 +18349,7 @@ class IsometricRenderer {
 
     // 2. Dynamic High-Performance AAA Particle Engine
     const prevComposite = ctx.globalCompositeOperation;
+    const prevAlpha = ctx.globalAlpha;
     for (let i = this.animations.particles.length - 1; i >= 0; i--) {
       const p = this.animations.particles[i];
 
@@ -18317,9 +18418,14 @@ class IsometricRenderer {
       this.drawParticleItem(ctx, p, screen, z, alpha, prog);
     }
     ctx.globalCompositeOperation = prevComposite;
+    ctx.globalAlpha = prevAlpha;
 
     // 3. Floating Combat Damage Numbers (Ultra-High FPS Hardware-Accelerated Vector Text)
     if (this.animations.floatingTexts.length > 0) {
+      const maxFt = this.potatoMode ? 15 : (this.lowEffects ? 25 : 40);
+      if (this.animations.floatingTexts.length > maxFt) {
+        this.animations.floatingTexts.splice(0, this.animations.floatingTexts.length - maxFt);
+      }
       ctx.save();
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
@@ -18462,8 +18568,10 @@ class IsometricRenderer {
 
   // Render individual stylized pixel-art particle snapped to an integer pixel grid
   drawParticleItem(ctx, p, screen, z, alpha, prog) {
-    ctx.save();
-    ctx.globalCompositeOperation = p.blend || 'lighter';
+    const blend = p.blend || 'lighter';
+    if (ctx.globalCompositeOperation !== blend) {
+      ctx.globalCompositeOperation = blend;
+    }
     ctx.globalAlpha = Math.min(1.0, alpha);
 
     // Base pixel unit scaled with camera zoom (minimum 2px for crisp retro blocks)
@@ -18701,8 +18809,6 @@ class IsometricRenderer {
       b(0, -1, 1, 3, p.color);
       b(0, 0, 1, 1, p.coreColor || '#ffffff');
     }
-
-    ctx.restore();
   }
 
   // Radar Minimap

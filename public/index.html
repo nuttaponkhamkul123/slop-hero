@@ -538,6 +538,53 @@
             <button type="button" class="gui-scale-preset" data-quality="high">High</button>
             <button type="button" class="gui-scale-preset" data-quality="medium">Medium</button>
             <button type="button" class="gui-scale-preset" data-quality="low">Low</button>
+            <button type="button" class="gui-scale-preset" data-quality="potato">🥔 Potato</button>
+          </div>
+
+          <div class="settings-control-row" style="margin-top: 14px;">
+            <div class="settings-label-col">
+              <span class="settings-label-main">Frame Rate Limit</span>
+              <span class="settings-label-sub">Cap FPS to save CPU, reduce heat & battery usage</span>
+            </div>
+            <div class="settings-value-col">
+              <span class="settings-badge" id="lblFpsLimitVal">Uncapped</span>
+            </div>
+          </div>
+          <div class="gui-scale-presets">
+            <button type="button" class="gui-scale-preset" data-fps="30">30 FPS (Eco)</button>
+            <button type="button" class="gui-scale-preset" data-fps="60">60 FPS</button>
+            <button type="button" class="gui-scale-preset active" data-fps="0">Uncapped</button>
+          </div>
+
+          <div class="settings-control-row" style="margin-top: 14px;">
+            <div class="settings-label-col">
+              <span class="settings-label-main">3D Town Props</span>
+              <span class="settings-label-sub">Disable WebGL 3D props to use lightweight 2D sprites</span>
+            </div>
+            <div class="settings-value-col">
+              <span class="settings-badge" id="lblTownPropsVal">Auto</span>
+            </div>
+          </div>
+          <div class="gui-scale-presets">
+            <button type="button" class="gui-scale-preset active" data-props="auto">Auto</button>
+            <button type="button" class="gui-scale-preset" data-props="on">3D On</button>
+            <button type="button" class="gui-scale-preset" data-props="off">2D Only (Fast)</button>
+          </div>
+
+          <div class="settings-control-row" style="margin-top: 14px;">
+            <div class="settings-label-col">
+              <span class="settings-label-main">VFX & Particles</span>
+              <span class="settings-label-sub">Adjust particle density and skill spell effects</span>
+            </div>
+            <div class="settings-value-col">
+              <span class="settings-badge" id="lblVfxVal">Auto</span>
+            </div>
+          </div>
+          <div class="gui-scale-presets">
+            <button type="button" class="gui-scale-preset active" data-vfx="auto">Auto</button>
+            <button type="button" class="gui-scale-preset" data-vfx="full">Full</button>
+            <button type="button" class="gui-scale-preset" data-vfx="reduced">Reduced</button>
+            <button type="button" class="gui-scale-preset" data-vfx="minimal">Minimal</button>
           </div>
         </div>
 
