@@ -224,6 +224,10 @@ io.on('connection', (socket: Socket) => {
     gameServer.handleExpandSocket(socket.id, data);
   });
 
+  socket.on('use_bag_expander', (data: any) => {
+    gameServer.handleUseBagExpander(socket.id, data);
+  });
+
   socket.on('open_chest', (data: any) => {
     gameServer.handleOpenChest(socket.id, data.chestId);
   });

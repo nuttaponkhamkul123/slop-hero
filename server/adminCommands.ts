@@ -172,8 +172,9 @@ const COMMANDS: Record<string, AdminCommandDef> = {
         if (!targetPlayer.inventory || !targetPlayer.inventory.items) {
           targetPlayer.inventory = { items: [], healthPotions: 3, manaPotions: 3 };
         }
-        if (targetPlayer.inventory.items.length >= 30) {
-          return sendFeedback(gameServer, player, `❌ กระเป๋าของ ${targetPlayer.name} เต็มแล้ว (30/30 ช่อง)`);
+        const maxSlots = targetPlayer.inventory.maxSlots || 30;
+        if (targetPlayer.inventory.items.length >= maxSlots) {
+          return sendFeedback(gameServer, player, `❌ กระเป๋าของ ${targetPlayer.name} เต็มแล้ว (${maxSlots}/${maxSlots} ช่อง)`);
         }
         const cardItem = { ...SP.makeCardItem(spDef.id), custom: true, count: 1 };
         targetPlayer.inventory.items.push(cardItem);
@@ -203,7 +204,8 @@ const COMMANDS: Record<string, AdminCommandDef> = {
       if (itemDef.type === 'equipment') {
         // Generate randomized gear
         for (let i = 0; i < Math.min(count, 10); i++) {
-          if (targetPlayer.inventory.items.length >= 30) {
+          const maxSlots = targetPlayer.inventory.maxSlots || 30;
+          if (targetPlayer.inventory.items.length >= maxSlots) {
             sendFeedback(gameServer, player, `⚠️ กระเป๋าเต็ม เสกได้ ${i} ชิ้น`);
             break;
           }
@@ -245,8 +247,9 @@ const COMMANDS: Record<string, AdminCommandDef> = {
         else return sendFeedback(gameServer, player, `❌ ไม่พบผู้เล่น ${args[2]}`);
       }
 
-      if (targetPlayer.inventory.items.length >= 30) {
-        return sendFeedback(gameServer, player, `❌ กระเป๋าของ ${targetPlayer.name} เต็มแล้ว`);
+      const maxSlots = targetPlayer.inventory.maxSlots || 30;
+      if (targetPlayer.inventory.items.length >= maxSlots) {
+        return sendFeedback(gameServer, player, `❌ กระเป๋าของ ${targetPlayer.name} เต็มแล้ว (${maxSlots}/${maxSlots} ช่อง)`);
       }
 
       const cardItem = { ...SP.makeCardItem(spDef.id, upgrade), custom: true, count: 1 };

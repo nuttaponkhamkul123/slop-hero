@@ -143,6 +143,12 @@
       body += `<div class="tip-line" style="color: #f59e0b;"><span>Titan Relic</span><b>Drill +1 Socket (Max 4)</b></div>`;
       body += `<div class="tip-flavour">${esc(item.desc)}</div>`;
       body += `<div class="tip-line" style="color: #ef4444; font-size: 11px;"><span>Risk</span><i>Chance to break socket slot on failure!</i></div>`;
+    } else if (item.id && item.id.startsWith('bag_expander_')) {
+      const rows = item.id === 'bag_expander_sm' ? 1 : item.id === 'bag_expander_md' ? 2 : 5;
+      const slots = rows * 6;
+      body += `<div class="tip-line" style="color: #facc15;"><span>Backpack Expansion</span><b>+${rows} ${rows === 1 ? 'Row' : 'Rows'} (+${slots} Slots)</b></div>`;
+      body += `<div class="tip-flavour">${esc(item.desc)}</div>`;
+      body += `<div class="tip-line" style="color: #4ade80; font-size: 11px;"><span>Usage</span><i>Click in bag to permanently expand capacity</i></div>`;
     } else if (item.desc) {
       body += `<div class="tip-flavour">${esc(item.desc)}</div>`;
     }
