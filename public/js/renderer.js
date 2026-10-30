@@ -50,6 +50,10 @@ const FACING_SCREEN = {
 // Sweep slash shape: half-arc (radians) of a normal swing and of a finisher
 const SWEEP_HALF_ARC = Math.PI * 0.36;
 const SWEEP_HALF_ARC_FINISHER = Math.PI * 0.62;
+// The server's default melee cleave (gameServer.ts meleeSweep): class attack
+// range + 1.15 tiles, 139 degrees. Used when an attack arrives without its reach.
+const SWEEP_DEFAULT_REACH = { warrior: 1.6 + 1.15, rogue: 1.8 + 1.15 };
+const SWEEP_DEFAULT_ARC_DEG = 139;
 // Minimap shows at most this many tiles across; larger maps scroll with the hero
 const MINIMAP_VIEW_TILES = 72;
 const PIXEL_HERO_DASH_SKILLS = new Set(['blade_charge', 'arcane_blink', 'shadow_dash', 'shadowstep']);
@@ -113,6 +117,7 @@ const SP_SKILL_LIFE = {
   wpn_excalibur: 0.8, wpn_woodsman_axe: 0.9, wpn_thunder_maul: 0.6, wpn_dragonbone_glaive: 0.8, wpn_archmage_staff: 0.9,
   wpn_glacial_spire: 1.0, wpn_voidcaller_wand: 0.8, wpn_dawn_scepter: 1.1, wpn_shadow_daggers: 0.7, wpn_wind_rapier: 0.5,
   wpn_hunter_spear: 0.9, wpn_frostbite_katana: 0.75, wpn_venom_kris: 0.7, wpn_ember_scythe: 0.8,
+  wpn_riftwalker_edge: 0.85,
   // Eclipse Reaper
   sp_total_eclipse: 0.8, sp_blood_tether: 0.8, sp_crimson_bloom: 1.0, sp_reaper_step: 0.6,
   sp_reaper_scythe: 0.6, sp_black_sun: 0.95, sp_harvest: 1.05, sp_crimson_blink: 0.7,
@@ -146,6 +151,10 @@ const SP_FX_PALETTES = {
   sp_dread_lord: { deep: '8, 2, 16', deep2: '36, 8, 64', main: '107, 33, 168', accent: '168, 85, 247', light: '233, 213, 255', core: '255, 245, 255' }
 };
 const PIXEL_HERO_SCALE = 0.92;     // sprite pixels -> screen pixels at zoom 1
+// 4x4 ordered-dither thresholds for the pixel-art SP effect layer
+const FX_BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+// SP shapes that cover an area and get a turning pixel rune circle underneath
+const FX_RUNE_CIRCLE_SHAPES = new Set(['nova', 'pulse', 'blast', 'buff', 'aura', 'rain', 'rune', 'pull', 'fault', 'detonate', 'rally', 'banner', 'sacrifice', 'invoke', 'smoke', 'orbs', 'orbit', 'rewind', 'field', 'wall']);
 const PIXEL_HERO_DEATH_MS = 1100;
 const PIXEL_HERO_HURT_MS = 280;
 // Element colours / particle types for projectiles and SP auras
@@ -969,6 +978,9 @@ class IsometricRenderer {
         life,
         maxLife: life,
         radius: finisher ? 2.3 : 1.8,
+        // the cleave's true reach (tiles) and arc, so the slash grows with range
+        reachTiles: data.sweepRange || SWEEP_DEFAULT_REACH.rogue,
+        halfArc: ((data.sweepArc || SWEEP_DEFAULT_ARC_DEG) * Math.PI) / 360,
         class: 'rogue',
         cardId,
         side: combo.side,
@@ -987,8 +999,10 @@ class IsometricRenderer {
         facing: data.facing || 'SE',
         life,
         maxLife: life,
-        // (Gatekeeper's Greatsword: sweepReach tiles longer)
-        radius: ((data.hasSweep ? 2.6 : 2.2) + (data.sweepReach || 0)) * (finisher ? 1.3 : 1),
+        radius: (data.hasSweep ? 2.6 : 2.2) * (finisher ? 1.3 : 1),
+        // drawn at the cleave's true reach (tiles) and arc, so it covers what it hits and grows with range
+        reachTiles: data.sweepRange || SWEEP_DEFAULT_REACH.warrior,
+        halfArc: ((data.sweepArc || SWEEP_DEFAULT_ARC_DEG) * Math.PI) / 360,
         class: 'warrior',
         cardId,
         side: combo.side,
@@ -1568,6 +1582,7 @@ class IsometricRenderer {
 
     if (fx.type === 'sp_skill') {
       this.spSkillBurst(fx, isSpMove);
+      if (fx.skillId === 'wpn_riftwalker_edge') this.riftStepBurst(fx);
     } else if (fx.type === 'whirlwind') {
       const wr = fx.radius || 3.2;
       for (let k = 0; k < 18; k++) {
@@ -1866,6 +1881,20 @@ class IsometricRenderer {
     ctx.filter = filter;
     ctx.drawImage(sc, 0, 0, w, h, left, top, w, h);
     ctx.restore();
+  }
+
+  // Riftwalker's Edge (Rift Step) landing: a heavier burst on top of the blink's
+  // own. It can fire four times a second, so the shake stays short.
+  riftStepBurst(fx) {
+    const r = fx.radius || 3;
+    for (let k = 0; k < 20; k++) {
+      const a = (k / 20) * Math.PI * 2;
+      this.addParticles(fx.x + Math.cos(a) * r * 0.35, fx.y + Math.sin(a) * r * 0.35, k % 2 ? 'shadow' : 'arcane', 1,
+        { speed: 4.5, angle: a, spread: 0.2, sizeScale: 1.2 });
+    }
+    this.addParticles(fx.x, fx.y, 'spark', 26, { speed: 3.2 });
+    this.addParticles(fx.x, fx.y, 'dust', 14, { speed: 1.6, sizeScale: 1.3 });
+    this.triggerScreenShake(11, 0.2);
   }
 
   // ---------------------------------------------------------------- SP card skills
@@ -4559,6 +4588,63 @@ class IsometricRenderer {
     };
 
     switch (fx.skillId) {
+      // RIFTWALKER'S EDGE - Rift Step: the hero tears through space, the air
+      // rushes into the landing point, then it detonates (radius = the real blast)
+      case 'wpn_riftwalker_edge': {
+        const R = (fx.radius || 3) * U;
+        const o = toScreen(sx, sy, 0), oh = toScreen(sx, sy, 0.6);
+        const g = toScreen(tx, ty, 0), h = toScreen(tx, ty, 0.6);
+        // the tear left behind: a violet seam closing up
+        const seam = 1 - seg(0, 0.35);
+        if (seam > 0) {
+          const ang = Math.atan2(h.y - oh.y, h.x - oh.x);
+          const mid = { x: (oh.x + h.x) / 2, y: (oh.y + h.y) / 2 };
+          const L = Math.max(4 * z, Math.hypot(h.x - oh.x, h.y - oh.y) / 2);
+          lens(mid, ang, L, 9 * z * seam, pal.main, 0.75 * seam);
+          lens(mid, ang, L * 0.95, 3 * z * seam, pal.core, seam);
+          puff(o, 26 * z * (0.6 + seg(0, 0.35)), 0.8 * seam);
+          glow(oh, 22 * z * seam, seam, pal.main);
+        }
+        // implosion
+        const pull = seg(0, 0.14);
+        if (pull < 1) {
+          ring(g, R * (1 - out3(pull)) + 4 * z, pal.accent, 0.9, 3);
+          glow(h, 18 * z * (0.5 + pull), pull, pal.accent);
+        }
+        // detonation
+        const boom = seg(0.12, 1);
+        if (boom > 0) {
+          const b = out3(boom), hot = 1 - seg(0.12, 0.4);
+          pool(g, R * 0.85, 0.75 * fade);
+          cracks(g, 9, R * 0.9 * out3(Math.min(1, boom * 2.5)), fade, 11);
+          glow(h, R * 0.9 * (0.6 + 0.4 * b), hot);
+          if (hot > 0) {
+            // a pillar of rift light
+            const top = toScreen(tx, ty, 3.2);
+            const w = 18 * z * hot;
+            const grad = ctx.createLinearGradient(0, top.y, 0, g.y);
+            grad.addColorStop(0, c(pal.accent, 0));
+            grad.addColorStop(0.55, c(pal.light, 0.75 * hot));
+            grad.addColorStop(1, c(pal.core, hot));
+            ctx.fillStyle = grad;
+            ctx.fillRect(g.x - w / 2, top.y, w, g.y - top.y);
+          }
+          ring(g, R * out3(seg(0.12, 0.5)), pal.light, 1 - seg(0.12, 0.5), 5);
+          ring(g, R * 1.15 * b, pal.main, (1 - boom) * 0.8, 3);
+          ring(g, R * 0.6 * b, pal.core, 1 - seg(0.12, 0.35), 2);
+          // void shards flung out along the ground
+          const fly = seg(0.12, 0.6);
+          for (let i = 0; i < 14; i++) {
+            const a = (i * TAU) / 14 + rnd(i) * 0.4;
+            const d = R * (0.25 + 0.85 * out3(fly)) * (0.7 + 0.3 * rnd(i + 20));
+            const p = { x: g.x + Math.cos(a) * d, y: g.y + Math.sin(a) * d * 0.5 - 7 * z * Math.sin(fly * Math.PI) };
+            lens(p, Math.atan2(Math.sin(a) * 0.5, Math.cos(a)), 10 * z, 2.2 * z, i % 2 ? pal.accent : pal.light, 1 - seg(0.12, 0.7));
+          }
+          sparks(h, 16, 8 * z, R * 0.7 * b, hot, 7);
+        }
+        return true;
+      }
+
       // IRON BLADE - Shield Breaker: an overhead smash that cracks the ground and shoves the foe back
       case 'wpn_iron_blade':
       // MORNINGSTAR - Skull Crack: the same smash, plus stars circling the dazed head
@@ -6486,6 +6572,201 @@ class IsometricRenderer {
     return false;
   }
 
+  // ---------------------------------------------------------------- pixel-art FX layer
+  // SP card effects are drawn at their usual screen coordinates onto a small
+  // offscreen canvas holding one texel per hero sprite pixel. The layer is then
+  // turned into pixel art (dithered alpha, dithered colour bands, a dark rim
+  // around solid shapes) and scaled back up without smoothing, so the effects
+  // sit on the same pixel grid as the heroes. rect (screen px) limits the layer
+  // to one area; omitted, it covers the whole view.
+  beginFxPixels(ctx, rect) {
+    const bs = this.canvas.width / this.viewW;
+    const px = Math.max(2, Math.round(PIXEL_HERO_SCALE * this.camera.zoom * bs));
+    let ox = 0, oy = 0, dw = this.canvas.width, dh = this.canvas.height;
+    if (rect) {
+      // snapped to the full-screen grid so every layer shares one pixel lattice
+      ox = Math.max(0, Math.floor(rect.x * bs / px) * px);
+      oy = Math.max(0, Math.floor(rect.y * bs / px) * px);
+      dw = Math.min(this.canvas.width, Math.ceil((rect.x + rect.w) * bs)) - ox;
+      dh = Math.min(this.canvas.height, Math.ceil((rect.y + rect.h) * bs)) - oy;
+      if (dw <= 0 || dh <= 0) return null;
+    }
+    const cw = Math.ceil(dw / px), ch = Math.ceil(dh / px);
+    if (!this._fxLayer) {
+      const c = document.createElement('canvas');
+      this._fxLayer = { c, g: c.getContext('2d', { willReadFrequently: true }) };
+    }
+    const L = this._fxLayer;
+    if (L.c.width < cw || L.c.height < ch) {
+      L.c.width = Math.max(L.c.width, cw);
+      L.c.height = Math.max(L.c.height, ch);
+    }
+    const g = L.g;
+    if (g.reset) g.reset();
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.globalAlpha = 1;
+    g.globalCompositeOperation = 'source-over';
+    g.filter = 'none';
+    g.setLineDash([]);
+    g.clearRect(0, 0, cw, ch);
+    const m = ctx.getTransform();
+    g.setTransform(m.a / px, m.b / px, m.c / px, m.d / px, (m.e - ox) / px, (m.f - oy) / px);
+    Object.assign(L, { px, ox, oy, cw, ch, open: true });
+    return g;
+  }
+
+  endFxPixels(ctx) {
+    const L = this._fxLayer;
+    if (!L || !L.open) return;
+    L.open = false;
+    const { c, g, px, ox, oy, cw, ch } = L;
+    const img = g.getImageData(0, 0, cw, ch);
+    this.pixelateFx(img);
+    g.putImageData(img, 0, 0);
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(c, 0, 0, cw, ch, ox, oy, cw * px, ch * px);
+    ctx.restore();
+  }
+
+  pixelateFx(img) {
+    const d = img.data, w = img.width, h = img.height;
+    const q = new Uint8Array(w * h);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const i = y * w + x, o = i * 4, a = d[o + 3];
+        if (!a) continue;
+        const b = (FX_BAYER[(y & 3) * 4 + (x & 3)] + 0.5) / 16;
+        // faint washes become ordered-dither coverage, the faintest haze is
+        // dropped; strokes stay whole (translucent, or solid when strong)
+        const v = a / 255;
+        if (v < 0.08 || (v < 0.32 && v * 1.6 < b)) { d[o + 3] = 0; continue; }
+        // dark washes: a faint one would dither into black noise, a stronger
+        // one (a shadow) becomes the classic 50% checker
+        if (d[o] + d[o + 1] + d[o + 2] < 150) {
+          if (v < 0.32 || (v < 0.75 && ((x + y) & 1))) { d[o + 3] = 0; continue; }
+        }
+        const solid = v >= 0.6;
+        d[o + 3] = solid ? 255 : 200;
+        q[i] = solid ? 2 : 1;
+        // dithered posterise: six bands per channel
+        const k = (b - 0.5) * 0.9;
+        d[o] = Math.max(0, Math.min(255, Math.round(d[o] / 51 + k) * 51));
+        d[o + 1] = Math.max(0, Math.min(255, Math.round(d[o + 1] / 51 + k) * 51));
+        d[o + 2] = Math.max(0, Math.min(255, Math.round(d[o + 2] / 51 + k) * 51));
+      }
+    }
+    // a dark rim, in the shape's own hue, around the solid shapes
+    for (let y = 1; y < h - 1; y++) {
+      for (let x = 1; x < w - 1; x++) {
+        const i = y * w + x;
+        if (q[i] || d[i * 4 + 3]) continue;
+        const n = q[i - 1] === 2 ? i - 1 : q[i + 1] === 2 ? i + 1 : q[i - w] === 2 ? i - w : q[i + w] === 2 ? i + w : -1;
+        if (n < 0) continue;
+        const o = i * 4, s = n * 4;
+        d[o] = d[s] * 0.28; d[o + 1] = d[s + 1] * 0.28; d[o + 2] = d[s + 2] * 0.32 + 12;
+        d[o + 3] = 220;
+      }
+    }
+  }
+
+  // Extra pixel dressing on every SP effect: a square-pixel shock ring as it
+  // lands, embers drifting up out of it and twinkling four-point stars, all in
+  // the card's colours. Drawn into the pixel layer, so it shares its grid.
+  drawFxPixelExtras(g, fx, progress, alpha) {
+    if (alpha <= 0.04) return;
+    const z = this.camera.zoom;
+    const W = this.viewW, H = this.viewH;
+    const toScreen = (x, y, hh = 0) => Isometric.worldToScreen(x, y, hh, this.camera, W, H);
+    const cx = fx.x !== undefined ? fx.x : fx.startX, cy = fx.y !== undefined ? fx.y : fx.startY;
+    if (cx === undefined || cy === undefined || isNaN(cx) || isNaN(cy)) return;
+    const n = parseInt((fx.color || '#e2e8f0').slice(1), 16);
+    const col = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+    const tint = (k, a) => `rgba(${Math.round(col[0] + (255 - col[0]) * k)}, ${Math.round(col[1] + (255 - col[1]) * k)}, ${Math.round(col[2] + (255 - col[2]) * k)}, ${a})`;
+    const tex = (this._fxLayer.px / (this.canvas.width / W)); // one layer texel in screen px
+    const sq = (p, s, style) => { g.fillStyle = style; g.fillRect(Math.round(p.x / tex) * tex - s * tex / 2, Math.round(p.y / tex) * tex - s * tex / 2, s * tex, s * tex); };
+    const R = Math.max(0.8, Math.min(fx.radius || 1.6, 6));
+    // stable per-effect randomness
+    let seed = fx._pxSeed || (fx._pxSeed = 1 + Math.floor(Math.random() * 1e6));
+    const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    // a line effect (dash, beam) scatters along its path instead of around a point
+    const sx = fx.startX !== undefined ? fx.startX : cx, sy = fx.startY !== undefined ? fx.startY : cy;
+    g.save();
+    g.globalCompositeOperation = 'lighter';
+    // shock ring of square pixels on impact
+    if (progress < 0.4) {
+      const k = progress / 0.4, rr = R * (0.35 + 0.85 * (1 - Math.pow(1 - k, 3)));
+      const count = Math.round(18 + R * 10);
+      for (let i = 0; i < count; i++) {
+        if ((i + Math.floor(progress * 40)) % 5 === 0) continue; // broken ring, it crackles
+        const a = (i / count) * Math.PI * 2;
+        sq(toScreen(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr, 0.05), i % 3 ? 1 : 2, tint(0.35, (1 - k) * 0.95));
+      }
+    }
+    // area spells: a pixel rune circle turning on the ground under the effect
+    if (fx.radius && FX_RUNE_CIRCLE_SHAPES.has(fx.shape)) {
+      const env = Math.min(1, progress * 6) * Math.sqrt(Math.max(0, 1 - progress));
+      const spin = progress * 1.6 + (fx._pxSeed % 100) * 0.06;
+      const ellipse = (rr, a0, a1, width, style) => {
+        g.beginPath();
+        for (let k = 0; k <= 48; k++) {
+          const a = a0 + (a1 - a0) * (k / 48);
+          const p = toScreen(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr, 0.02);
+          if (k === 0) g.moveTo(p.x, p.y); else g.lineTo(p.x, p.y);
+        }
+        g.strokeStyle = style;
+        g.lineWidth = width * tex;
+        g.stroke();
+      };
+      const rr = R * Math.min(1, 0.6 + progress * 3);
+      ellipse(rr, 0, Math.PI * 2, 2, tint(0.25, env * 0.9));
+      // inner ring broken into turning arcs
+      for (let k = 0; k < 6; k++) {
+        const a0 = spin + k * Math.PI / 3;
+        ellipse(rr * 0.76, a0, a0 + Math.PI / 4.5, 1, tint(0.55, env * 0.85));
+      }
+      // glyphs riding between the rings, turning the other way
+      const glyphs = 8 + Math.round(R * 2);
+      for (let k = 0; k < glyphs; k++) {
+        const a = -spin * 0.7 + (k / glyphs) * Math.PI * 2;
+        const p = toScreen(cx + Math.cos(a) * rr * 0.88, cy + Math.sin(a) * rr * 0.88, 0.03);
+        const f = tint(0.8, env);
+        sq(p, 1, f);
+        if (k % 2) { sq({ x: p.x + tex, y: p.y }, 1, f); sq({ x: p.x - tex, y: p.y }, 1, f); }
+        else { sq({ x: p.x, y: p.y - tex }, 1, f); sq({ x: p.x, y: p.y + tex }, 1, f); }
+      }
+    }
+    // embers rising and stars twinkling
+    const embers = Math.round(14 + R * 7);
+    for (let i = 0; i < embers; i++) {
+      const life = 0.35 + rnd() * 0.5, start = rnd() * (1 - life * 0.6);
+      const ang = rnd() * Math.PI * 2, dist = Math.sqrt(rnd()) * R, along = rnd();
+      const drift = (rnd() - 0.5) * 0.6, star = rnd() < 0.22, hue = rnd();
+      const t = (progress - start) / life;
+      if (t < 0 || t > 1) continue;
+      const bx = sx + (cx - sx) * along + Math.cos(ang) * dist * (sx === cx && sy === cy ? 1 : 0.35);
+      const by = sy + (cy - sy) * along + Math.sin(ang) * dist * (sx === cx && sy === cy ? 1 : 0.35);
+      const p = toScreen(bx + drift * t, by - drift * t * 0.5, 0.15 + t * (1.2 + R * 0.25));
+      const fade = Math.min(1, (1 - t) * 2.2) * Math.min(1, alpha * 1.6);
+      if (star) {
+        const s = (t < 0.5 ? t : 1 - t) * 2;
+        sq(p, 1, tint(0.9, fade));
+        const arm = Math.max(1, Math.round(s * 2.4 * Math.min(1.4, z / 2)));
+        for (let k = 1; k <= arm; k++) {
+          const f = tint(0.55, fade * (1 - k / (arm + 1)));
+          sq({ x: p.x + k * tex, y: p.y }, 1, f); sq({ x: p.x - k * tex, y: p.y }, 1, f);
+          sq({ x: p.x, y: p.y + k * tex }, 1, f); sq({ x: p.x, y: p.y - k * tex }, 1, f);
+        }
+      } else {
+        sq(p, t < 0.3 ? 2 : 1, tint(hue < 0.5 ? 0.15 : 0.6, fade));
+      }
+    }
+    g.restore();
+  }
+
   drawSpSkill(ctx, fx, progress, alpha) {
     const z = this.camera.zoom;
     const W = this.viewW, H = this.viewH;
@@ -7435,8 +7716,15 @@ class IsometricRenderer {
     }
   }
 
-  drawSpToggles(ctx, player, z, t) {
+  drawSpToggles(mainCtx, player, z, t) {
     if (!player.spToggles || !player.spToggles.length || player.isDead) return;
+    // drawn as pixel art on a small layer around the hero
+    const reach = Math.max(...player.spToggles.map(a => a.spin ? (a.r || 2.5) : (a.r || 0.9))) + 0.4;
+    const pts = [[reach, reach], [-reach, -reach], [reach, -reach], [-reach, reach]]
+      .map(([dx, dy]) => Isometric.worldToScreen(player.x + dx, player.y + dy, 0.4, this.camera, this.viewW, this.viewH));
+    const xs = pts.map(p => p.x), ys = pts.map(p => p.y), pad = 10 * z;
+    const ctx = this.beginFxPixels(mainCtx, { x: Math.min(...xs) - pad, y: Math.min(...ys) - pad, w: Math.max(...xs) - Math.min(...xs) + pad * 2, h: Math.max(...ys) - Math.min(...ys) + pad * 2 });
+    if (!ctx) return;
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     ctx.lineCap = 'round';
@@ -7471,6 +7759,7 @@ class IsometricRenderer {
       ctx.stroke();
     });
     ctx.restore();
+    this.endFxPixels(mainCtx);
     if (Math.random() < 0.15) {
       const [mote] = SP_CARD_PARTICLES[player.spCardId] || ['fire'];
       this.addParticles(player.x + (Math.random() - 0.5) * 1.6, player.y + (Math.random() - 0.5) * 1.6, mote, 1, { sizeScale: 0.4, speed: 0.3, vz: 0.8 });
@@ -7898,7 +8187,7 @@ class IsometricRenderer {
   // Where the sweep's leading edge is: local angle (radians, in the slash's
   // frame) and how far through the motion it is
   sweepHead(fx, progress) {
-    const half = fx.finisher ? SWEEP_HALF_ARC_FINISHER : SWEEP_HALF_ARC;
+    const half = fx.halfArc || (fx.finisher ? SWEEP_HALF_ARC_FINISHER : SWEEP_HALF_ARC);
     const u = Math.min(1, progress / 0.55);
     const eased = 1 - Math.pow(1 - u, 3);
     return { half, angle: (fx.side || 1) * (-half + 2 * half * eased), eased };
@@ -7915,8 +8204,9 @@ class IsometricRenderer {
     const side = fx.side || 1;
     const { half, angle: head, eased } = this.sweepHead(fx, progress);
     const fade = progress < 0.55 ? 1 : Math.max(0, 1 - (progress - 0.55) / 0.45);
-    const outerR = (fx.radius || 2.2) * 22 * z * (0.88 + 0.12 * eased);
-    const thick = outerR * (fx.finisher ? 0.52 : 0.42);
+    // a world circle of r tiles is r * 32√2 px wide on screen (the frame below squashes y)
+    const outerR = (fx.reachTiles ? fx.reachTiles * 32 * Math.SQRT2 : (fx.radius || 2.2) * 22) * z * (0.88 + 0.12 * eased);
+    const thick = outerR * (fx.reachTiles ? (fx.finisher ? 0.36 : 0.3) : (fx.finisher ? 0.52 : 0.42));
 
     const SWEEP_THEMES = {
       // Warrior SP Cards
@@ -8045,7 +8335,7 @@ class IsometricRenderer {
     if (fx.type === 'sweeping_edge') {
       const { angle, eased } = this.sweepHead(fx, progress);
       if (eased >= 1) return;
-      const p = this.sweepPointWorld(fx, angle, (fx.radius || 2.2) * 22);
+      const p = this.sweepPointWorld(fx, angle, fx.reachTiles ? fx.reachTiles * 32 * Math.SQRT2 : (fx.radius || 2.2) * 22);
       const cardId = fx.cardId;
       let pType = fx.class === 'rogue' ? 'slash' : 'spark';
       if (cardId === 'sp_berserker') pType = 'fire';
@@ -12327,7 +12617,7 @@ class IsometricRenderer {
     if (player.isDead) { action = 'death'; idx = progIdx('death', player._deathAt, PIXEL_HERO_DEATH_MS); }
     else if (isDashing) { action = 'dash'; idx = progIdx('dash', dash.time, dash.duration); }
     else if (spinning) {
-      action = 'attack'; idx = 4;
+      action = 'attack'; idx = Math.floor(PH.meta(cls, 'attack').frames / 2);
       spinFacing = SPIN_FACINGS[((Math.round((t * 14) / (Math.PI / 4)) % 8) + 8) % 8];
     }
     else if (isAttacking) {
@@ -12339,8 +12629,8 @@ class IsometricRenderer {
     }
     else if (isCasting) { action = 'cast'; idx = progIdx('cast', cast.time, cast.duration); }
     else if (hurtAge < PIXEL_HERO_HURT_MS) { action = 'hurt'; idx = progIdx('hurt', player._hurtAt, PIXEL_HERO_HURT_MS); }
-    else if (player.isMoving) { action = 'run'; idx = Math.floor(t * 14) % PH.meta(cls, 'run').frames; }
-    else { action = 'idle'; idx = Math.floor(t * 6) % PH.meta(cls, 'idle').frames; }
+    else if (player.isMoving) { action = 'run'; idx = PH.loopIndex(cls, 'run', t); }
+    else { action = 'idle'; idx = PH.loopIndex(cls, 'idle', t); }
 
     const facing = spinFacing ? spinFacing : (isAttacking && attack.facing) ? attack.facing
       : ((isDashing && dash.facing) ? dash.facing : (player.facing || 'S'));
@@ -12348,7 +12638,7 @@ class IsometricRenderer {
     const flip = facing === 'W' || facing === 'SW' || facing === 'NW';
     const view = PIXEL_HERO_VIEW[facing] || 'S';
     // attacking while walking: the legs keep running under the swing instead of sliding
-    const runIdx = Math.floor(t * 14) % PH.meta(cls, 'run').frames;
+    const runIdx = PH.loopIndex(cls, 'run', t);
     const runSwing = player.isMoving && !player.isDead && (action === 'attack' || action === 'attack2') && !spinning && PH.runAttackFrame;
     const frame = runSwing ? this.heroRunAttackFrame(player, view, action, idx, runIdx) : this.heroFrameFor(player, view, action, idx);
     const s = PIXEL_HERO_SCALE * z;
@@ -12375,8 +12665,9 @@ class IsometricRenderer {
       this.drawPixelHeroFrame(ctx, g.frame, Math.round(gs.x), Math.round(gs.y), s, g.flip, (1 - age) * 0.45, ghostTint, 0.65);
     }
 
-    // Dust kicked up as each foot strikes the ground (run frames 0 and 4)
-    const footfall = (action === 'run' && idx % 4 === 0) ? idx : (runSwing && runIdx % 4 === 0 ? runIdx : -1);
+    // Dust kicked up as each foot strikes the ground (the run cycle's first and middle frames)
+    const stepEvery = PH.meta(cls, 'run').frames / 2;
+    const footfall = (action === 'run' && idx % stepEvery === 0) ? idx : (runSwing && runIdx % stepEvery === 0 ? runIdx : -1);
     if (footfall >= 0 && player._lastFootfall !== footfall) {
       this.addParticles(player.x, player.y, 'dust', 2, RUN_DUST_OPTS);
     }
@@ -16939,6 +17230,8 @@ class IsometricRenderer {
 
     // 1.5. Visual Skill Effects (Whirlwind, Firestorm, Shadow Strike)
     if (this.animations.skillEffects) {
+      // a frame that threw mid-loop may have left the pixel layer open: start fresh
+      if (this._fxLayer) this._fxLayer.open = false;
       for (let i = this.animations.skillEffects.length - 1; i >= 0; i--) {
         const fx = this.animations.skillEffects[i];
         fx.life -= dt;
@@ -16958,13 +17251,16 @@ class IsometricRenderer {
         }
 
         if (fx.type === 'sp_skill') {
-          const base = ctx.getTransform();
+          // SP card effects all go onto the pixel-art layer (composited after the loop)
+          const g = (this._fxLayer && this._fxLayer.open) ? this._fxLayer.g : this.beginFxPixels(ctx);
+          const base = g.getTransform();
           try {
-            this.drawSpSkill(ctx, fx, progress, alpha);
+            this.drawSpSkill(g, fx, progress, alpha);
+            this.drawFxPixelExtras(g, fx, progress, alpha);
           } catch (err) {
             // drop the broken effect so it cannot fail again every frame
             this.reportDrawError('sp_skill:' + (fx.skillId || fx.shape), err);
-            this.recoverContext(ctx, base);
+            this.recoverContext(g, base);
             this.animations.skillEffects.splice(i, 1);
           }
           continue;
@@ -16979,7 +17275,9 @@ class IsometricRenderer {
           if (fx.x === undefined || fx.y === undefined || isNaN(fx.x) || isNaN(fx.y)) {
             continue;
           }
-          this.drawSweepSlash(ctx, fx, progress);
+          // an SP card's basic swing joins the pixel-art layer too
+          const sg = !fx.cardId ? ctx : (this._fxLayer && this._fxLayer.open) ? this._fxLayer.g : this.beginFxPixels(ctx);
+          this.drawSweepSlash(sg, fx, progress);
         } else if (fx.type === 'mage_basic_blast') {
           // Mage Incandescent Solar Arcane Burst
           if (fx.x === undefined || fx.y === undefined || isNaN(fx.x) || isNaN(fx.y)) {
@@ -18604,6 +18902,8 @@ class IsometricRenderer {
           ctx.restore();
         }
       }
+      // composite this frame's pixel-art SP effects
+      this.endFxPixels(ctx);
     }
 
     // 2. Dynamic High-Performance AAA Particle Engine

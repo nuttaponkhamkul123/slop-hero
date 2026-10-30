@@ -19,27 +19,27 @@
     return { o: hexRgb(o), d: hexRgb(d), m: hexRgb(m), l: hexRgb(l), h: hexRgb(h || l) };
   }
   const M = {
-    steel: mat('#10131d', '#4b566b', '#8593ad', '#c3ccdc', '#f5f7fa'),
-    darkSteel: mat('#0e121b', '#313a4d', '#586280', '#808cae'),
+    steel: mat('#121324', '#434a6b', '#7c87a6', '#bac4d6', '#fff8e6'),
+    darkSteel: mat('#0c0d1a', '#292c47', '#4b5375', '#7783a4', '#c9cfdc'),
     platemail: mat('#141824', '#5a6485', '#8a97b9', '#c5cee6', '#f7f9ff'),
     goldTrim: mat('#2a2005', '#b8941f', '#e6b63d', '#f5d16e', '#fff3c4'),
-    tabard: mat('#190f08', '#7a2f16', '#b63f1f', '#e85d2a'),
-    cape: mat('#160606', '#7a1414', '#b71c1c', '#e53935'),
-    leather: mat('#1a110a', '#5a371d', '#7f4d27', '#a87c4a'),
+    tabard: mat('#1c0a12', '#6b1d2c', '#a8301f', '#dc5626', '#f2864a'),
+    cape: mat('#1a0612', '#5a0f2e', '#a01b27', '#d83a2c', '#f2704a'),
+    leather: mat('#1a0e0c', '#4f2b1f', '#7a4a2a', '#a8743f', '#cf9f5e'),
     skin: mat('#3a1d12', '#b86f4c', '#e5a47a', '#f6c9a2'),
     gold: mat('#382403', '#9f6a10', '#dca528', '#fde58a', '#fffbe0'),
     navy: mat('#0b111f', '#1d2741', '#303f61', '#4a5d88'),
-    robe: mat('#170a2a', '#3c1b69', '#57299b', '#7a4ccc'),
+    robe: mat('#140828', '#33186a', '#5a2a9e', '#8550d0', '#b388ee'),
     robeTrim: mat('#2e1d03', '#9a6b12', '#d9a62a', '#fbe08a'),
     beard: mat('#2a2a2e', '#86868f', '#c2c2ca', '#ececf2'),
-    mageArmor: mat('#0b0d16', '#272c3f', '#3d4560', '#5f6a8a', '#aab4d4'),
-    mageHair: mat('#120c08', '#3a2416', '#5c3a22', '#835634'),
+    mageArmor: mat('#0b0c18', '#252a40', '#3d4561', '#626e92', '#b8c2e0'),
+    mageHair: mat('#140a0a', '#3a2018', '#613b24', '#8c5a34', '#b58450'),
     wood: mat('#1d1107', '#472a12', '#6b421f', '#936238'),
     orb: mat('#04394a', '#0aa0c4', '#43e0f4', '#c9fbff', '#ffffff'),
-    rogue: mat('#0a0c12', '#2b303c', '#414959', '#646e83'),
-    hood: mat('#07080c', '#1f232c', '#30353f', '#4a5161'),
-    strap: mat('#1a0f08', '#4a2c15', '#6b4322', '#93653a'),
-    scarf: mat('#03140d', '#0c3a29', '#15583e', '#1f7c58'),
+    rogue: mat('#0b0c16', '#2a2f45', '#434c66', '#68758f', '#93a0b8'),
+    hood: mat('#08080f', '#1e2131', '#323848', '#525b70', '#77819a'),
+    strap: mat('#1a0e0c', '#46271a', '#6b4322', '#9a6a3c', '#c49559'),
+    scarf: mat('#04120f', '#0b3530', '#15583e', '#2a8250', '#5ab06a'),
     venom: mat('#05290f', '#15a046', '#49dd7e', '#d6ffe3', '#ffffff'),
     smear: mat('#ffffff', '#cfe8ff', '#e8f4ff', '#ffffff')
   };
@@ -125,21 +125,35 @@
     };
   }
 
+  // 4x4 ordered (Bayer) thresholds, for dithered band edges on cloth
+  const BAYER4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+  const bayer = (x, y) => (BAYER4[(y & 3) * 4 + (x & 3)] + 0.5) / 16;
+  const mixRgb = (a, b, t) => [0, 1, 2].map(i => Math.round(a[i] + (b[i] - a[i]) * t));
+
   // Fill a shape with a material ramp; rim draws a 1px outline around it first,
   // which also gives internal lines where parts overlap.
+  // o.metal: polished plate - dark core, bright band, warm glint, bounce light on the far rim
+  // o.dither: cloth - band edges blended through a Bayer pattern
+  // o.mail: chainmail rings over the shading
+  // o.selout: selective outline, softened on the edges facing the light
   function paint(f, s, m, o) {
     o = o || {};
     const [x0, y0, x1, y1] = s.bbox;
     const alpha = o.alpha;
     const inside = (x, y) => s.test(x + 0.5, y + 0.5);
     if (o.rim !== false) {
+      const soft = o.selout ? mixRgb(m.o, m.d, 0.55) : null;
       for (let y = y0 - 1; y <= y1 + 1; y++) {
         for (let x = x0 - 1; x <= x1 + 1; x++) {
           if (inside(x, y)) continue;
-          if (inside(x + 1, y) || inside(x - 1, y) || inside(x, y + 1) || inside(x, y - 1)) put(f, x, y, m.o, alpha);
+          const r = inside(x + 1, y), l = inside(x - 1, y), dn = inside(x, y + 1), u = inside(x, y - 1);
+          if (!(r || l || dn || u)) continue;
+          const ox = (l ? 1 : 0) - (r ? 1 : 0), oy = (u ? 1 : 0) - (dn ? 1 : 0);
+          put(f, x, y, soft && ox * LIGHT[0] + oy * LIGHT[1] > 0.5 ? soft : m.o, alpha);
         }
       }
     }
+    const ramp = [m.d, m.m, m.l, m.h];
     for (let y = y0; y <= y1; y++) {
       for (let x = x0; x <= x1; x++) {
         const n = inside(x, y);
@@ -148,7 +162,17 @@
         if (o.tone) c = m[o.tone];
         else {
           const s2 = n[0] * LIGHT[0] + n[1] * LIGHT[1];
-          c = (o.spec && s2 > 0.8) ? m.h : s2 > 0.38 ? m.l : s2 < -0.36 ? m.d : m.m;
+          let i;
+          if (o.metal) i = s2 > 0.84 ? 3 : s2 > 0.4 ? 2 : s2 > -0.2 ? 1 : s2 > -0.8 ? 0 : 1;
+          else {
+            i = (o.spec && s2 > 0.8) ? 3 : s2 > 0.38 ? 2 : s2 < -0.36 ? 0 : 1;
+            if (o.dither) {
+              if (Math.abs(s2 - 0.38) < 0.15) i = (s2 - 0.23) / 0.3 > bayer(x, y) ? 2 : 1;
+              else if (Math.abs(s2 + 0.36) < 0.15) i = (s2 + 0.51) / 0.3 > bayer(x, y) ? 1 : 0;
+            }
+          }
+          if (o.mail && !(y & 1) && ((x + (y >> 1)) & 1)) i = Math.max(0, i - 1);
+          c = ramp[i];
         }
         put(f, x, y, c, alpha);
       }
@@ -324,23 +348,45 @@
     const knee = which === 'F' ? sk.kneeF : sk.kneeB;
     const ankle = which === 'F' ? sk.ankleF : sk.ankleB;
     const grounded = which === 'F' ? sk.groundF : sk.groundB;
-    paint(f, capsule(hip, knee, r[0], r[1]), mats.thigh);
-    paint(f, capsule(knee, ankle, r[1], r[2]), mats.shin);
+    const fx = mats.fx;
+    paint(f, capsule(hip, knee, r[0], r[1]), mats.thigh, fx);
+    paint(f, capsule(knee, ankle, r[1], r[2]), mats.shin, fx);
     const sd = [ankle[0] - knee[0], ankle[1] - knee[1]];
     const sl = Math.hypot(sd[0], sd[1]) || 1;
     let fwd = [sd[1] / sl, -sd[0] / sl];
     if (grounded) fwd = sk.fwd || [1, 0];
     const down = [-fwd[1], fwd[0]];
-    paint(f, capsule(add(add(ankle, fwd, -0.6), down, 0.8), add(add(ankle, fwd, 3.2), down, 1.1), 1.55, 1.25), mats.boot);
+    paint(f, capsule(add(add(ankle, fwd, -0.6), down, 0.8), add(add(ankle, fwd, 3.2), down, 1.1), 1.55, 1.25), mats.boot, fx);
+    // cloth wraps binding the shin
+    if (mats.wraps) wraps(f, knee, ankle, r[1] + 0.2, mats.wraps);
+    // plate harness: a knee cop over the joint
+    if (mats.cop) paint(f, disc(add(knee, [sd[0] / sl, sd[1] / sl], 0.3), r[1] + 0.35), mats.cop, fx);
+  }
+
+  // Three bands across a limb segment, a shade darker than the cloth they bind
+  function wraps(f, a, b, w, m) {
+    const d = norm([b[0] - a[0], b[1] - a[1]]), n = perpOf(d);
+    for (const t of [0.3, 0.55, 0.8]) {
+      const c = [lerp(a[0], b[0], t), lerp(a[1], b[1], t)];
+      paint(f, capsule(add(add(c, n, w), d, 0.5), add(add(c, n, -w), d, -0.5), 0.36), m, { tone: 'd', rim: false });
+    }
   }
 
   function arm(f, sk, which, mats, r) {
     const sh = which === 'F' ? sk.shF : sk.shB;
     const el = which === 'F' ? sk.elbowF : sk.elbowB;
     const hand = which === 'F' ? sk.handF : sk.handB;
-    paint(f, capsule(sh, el, r[0], r[1]), mats.upper);
-    paint(f, capsule(el, hand, r[1], r[2]), mats.fore);
-    paint(f, disc(hand, 1.7), mats.hand);
+    const fx = mats.fx;
+    paint(f, capsule(sh, el, r[0], r[1]), mats.upper, fx);
+    paint(f, capsule(el, hand, r[1], r[2]), mats.fore, fx);
+    if (mats.wraps) wraps(f, el, hand, r[1] + 0.2, mats.wraps);
+    // plate harness: elbow cop and a flared gauntlet cuff
+    if (mats.cop) paint(f, disc(el, r[1] + 0.2), mats.cop, fx);
+    if (mats.cuff) {
+      const ed = [hand[0] - el[0], hand[1] - el[1]];
+      paint(f, capsule(add(el, ed, 0.58), add(el, ed, 0.8), r[2] + 0.35, r[2] + 0.75), mats.cuff, fx);
+    }
+    paint(f, disc(hand, 1.7), mats.hand, fx);
   }
 
   // ---------------------------------------------------------------- weapons
@@ -352,8 +398,10 @@
     paint(f, poly([
       add(add(hand, d, 2.4), n, 1.35), add(add(hand, d, 2.4), n, -1.35),
       add(add(hand, d, len - 2.2), n, -1.1), add(hand, d, len), add(add(hand, d, len - 2.2), n, 1.1)
-    ]), M.steel, { spec: true });
-    paint(f, capsule(add(hand, d, 3.2), add(hand, d, len - 3), 0.38), M.steel, { tone: 'h', rim: false });
+    ]), M.steel, { metal: true });
+    // fuller: a dark groove down the blade with a bright bevel beside it
+    paint(f, capsule(add(hand, d, 3.0), add(hand, d, len * 0.62), 0.4), M.steel, { tone: 'd', rim: false });
+    paint(f, capsule(add(add(hand, d, 3.2), n, 0.75), add(add(hand, d, len - 3), n, 0.6), 0.36), M.steel, { tone: 'h', rim: false });
     return add(hand, d, len);
   }
 
@@ -399,9 +447,13 @@
   };
   function drawWarrior(f, p, sk, view, ph) {
     const C = COSTUME || {};
-    const legMats = { thigh: M.plate || M.steel, shin: M.steel, boot: M.leather };
-    const armMatsF = C.armMatsF ? C.armMatsF() : { upper: M.plate || M.steel, fore: M.steel, hand: M.leather };
-    const armMatsB = C.armMatsB ? C.armMatsB() : { upper: M.darkPlate || M.darkSteel, fore: M.steel, hand: M.leather };
+    // Full plate harness: polished metal shading, cops over knees and elbows,
+    // sabatons and gauntlets; cloth is dithered, everything sel-outlined
+    const MET = { metal: true, selout: true };
+    const CLOTH = { dither: true, selout: true };
+    const legMats = { thigh: M.plate || M.steel, shin: M.steel, boot: M.darkSteel, cop: M.steel, fx: MET };
+    const armMatsF = C.armMatsF ? C.armMatsF() : { upper: M.plate || M.steel, fore: M.steel, hand: M.darkSteel, cop: M.steel, cuff: M.steel, fx: MET };
+    const armMatsB = C.armMatsB ? C.armMatsB() : { upper: M.darkPlate || M.darkSteel, fore: M.darkSteel, hand: M.darkSteel, cop: M.darkSteel, cuff: M.darkSteel, fx: MET };
     const tr = p.cape || 0;
     const fl = Math.sin(ph * Math.PI * 2) * (0.7 + tr * 1.5);
     const fl2 = Math.sin(ph * Math.PI * 2 + 1.9) * (0.7 + tr * 1.7);
@@ -422,7 +474,19 @@
     const X = { f, p, sk, view, ph, tr, fl, fl2, capePts };
     const capePoly = C.cape === null ? null : poly(C.cape ? C.cape(X) : capePts);
     const drawCape = () => {
-      if (capePoly) paint(f, capePoly, C.capeMat ? C.capeMat() : M.cape);
+      if (capePoly) {
+        const cm = C.capeMat ? C.capeMat() : M.cape;
+        paint(f, capePoly, cm, CLOTH);
+        // heavy wool hangs in folds: dark troughs running from the shoulders to the hem
+        if (!C.cape) {
+          const cp = capePts, pl = (a, b, t) => [lerp(a[0], b[0], t), lerp(a[1], b[1], t)];
+          for (const t of [0.3, 0.7]) {
+            const top = pl(pl(cp[0], cp[1], t), t < 0.5 ? pl(cp[4], cp[3], t * 2) : pl(cp[3], cp[2], t * 2 - 1), 0.2);
+            const hem = t < 0.5 ? pl(cp[4], cp[3], t * 2) : pl(cp[3], cp[2], t * 2 - 1);
+            paint(f, capsule(top, pl(top, hem, 0.94), 0.3, 0.6), cm, { tone: 'd', rim: false });
+          }
+        }
+      }
       if (C.onBack) C.onBack(X);
     };
     const weapon = C.weapon || ((ff, hand, d) => sword(ff, hand, d, 18));
@@ -437,24 +501,32 @@
       arm(f, sk, 'B', armMatsB, r);
     };
     const torso = () => {
-      paint(f, poly([L(sk, sk.hip, -4.6, 1.8), L(sk, sk.hip, 4.8, 1.8), L(sk, sk.hip, 5.2, -3.6), L(sk, sk.hip, -4.8, -3.6)]), M.plate || M.darkSteel);
-      paint(f, poly([L(sk, sk.shC, -4.5, 1.1), L(sk, sk.shC, 4.9, 1.1), L(sk, sk.hip, 4.3, 1.4), L(sk, sk.hip, -4.1, 1.4)]), M.steel, { spec: true });
+      // hauberk skirt of riveted mail under the plate
+      paint(f, poly([L(sk, sk.hip, -4.6, 1.8), L(sk, sk.hip, 4.8, 1.8), L(sk, sk.hip, 5.2, -3.6), L(sk, sk.hip, -4.8, -3.6)]), M.plate || M.darkSteel, { mail: true, selout: true });
+      paint(f, poly([L(sk, sk.shC, -4.5, 1.1), L(sk, sk.shC, 4.9, 1.1), L(sk, sk.hip, 4.3, 1.4), L(sk, sk.hip, -4.1, 1.4)]), M.steel, MET);
+      // fauld lames: the belly plates overlap in bands above the belt
+      for (const b of [3.2, 5.0]) paint(f, capsule(L(sk, sk.hip, -3.8, b), L(sk, sk.hip, 4.2, b), 0.32), M.steel, { tone: 'd', rim: false });
       paint(f, capsule(L(sk, sk.shC, -4.2, 1.0), L(sk, sk.shC, 4.6, 1.0), 0.5), M.gold || M.robeTrim, { rim: false, spec: true });
       if (view === 'front') {
         const t0 = frontal ? -1.2 : (-1.2 + 1.6 * turn);
-        paint(f, poly([L(sk, sk.shC, t0, -1.4), L(sk, sk.shC, t0 + 2.6, -1.4), L(sk, sk.hip, t0 + 2.6, -4.8), L(sk, sk.hip, t0, -4.8)]), M.tabard);
+        paint(f, poly([L(sk, sk.shC, t0, -1.4), L(sk, sk.shC, t0 + 2.6, -1.4), L(sk, sk.hip, t0 + 2.6, -4.8), L(sk, sk.hip, t0, -4.8)]), M.tabard, CLOTH);
         paint(f, capsule(L(sk, sk.shC, t0 + 1.3, -1.2), L(sk, sk.hip, t0 + 1.3, -4.6), 0.4), M.gold || M.robeTrim, { rim: false, spec: true });
       }
       paint(f, capsule(L(sk, sk.hip, -4.2, 1.5), L(sk, sk.hip, 4.6, 1.5), 1.0), M.leather, { rim: false });
       paint(f, capsule(L(sk, sk.hip, -4.2, 1.4), L(sk, sk.hip, 4.6, 1.4), 0.55), M.gold || M.robeTrim, { rim: false, spec: true });
+      // belt pouch on the off hip
+      if (!frontal) {
+        paint(f, poly([L(sk, sk.hip, -4.4, 1.0), L(sk, sk.hip, -2.0, 1.0), L(sk, sk.hip, -2.2, -2.2), L(sk, sk.hip, -4.2, -2.2)]), M.leather, CLOTH);
+        paint(f, capsule(L(sk, sk.hip, -4.1, 0.6), L(sk, sk.hip, -2.3, 0.6), 0.35), M.leather, { tone: 'l', rim: false });
+      }
       if (view === 'front') paint(f, disc(L(sk, sk.hip, frontal ? 0.2 : 1.6 * turn, 1.5), 1.1), M.gold || M.robeTrim, { rim: false, spec: true });
       if (C.torso) C.torso(X);
     };
     // Facing the camera / away: helmet seen straight on
     const frontalHead = () => {
-      paint(f, poly([Hf(sk, -1.4, -5.4), Hf(sk, 1.4, -5.4), Hf(sk, 1.0 + fl * 0.35, -9.2), Hf(sk, -1.0 + fl * 0.35, -9.4)]), M.cape);
+      paint(f, poly([Hf(sk, -1.4, -5.4), Hf(sk, 1.4, -5.4), Hf(sk, 1.0 + fl * 0.35, -9.2), Hf(sk, -1.0 + fl * 0.35, -9.4)]), M.cape, CLOTH);
       paint(f, poly([Hf(sk, -2.8, -1.2), Hf(sk, 2.8, -1.2), Hf(sk, 2.4, -4.8), Hf(sk, -2.4, -4.8)]), M.plate || M.steel);
-      paint(f, disc(Hf(sk, 0, -0.3), 5.6), M.plate || M.steel, { spec: true });
+      paint(f, disc(Hf(sk, 0, -0.3), 5.6), M.plate || M.steel, MET);
       paint(f, capsule(Hf(sk, -2.8, -1.0), Hf(sk, 2.8, -1.0), 0.8), M.gold || M.robeTrim, { rim: false, spec: true });
       if (view === 'front') {
         paint(f, poly([Hf(sk, -2.8, -0.8), Hf(sk, 2.8, -0.8), Hf(sk, 2.4, 3.8), Hf(sk, -2.4, 3.8)]), M.skin);
@@ -474,9 +546,9 @@
       }
     };
     const head = C.head ? () => C.head(X) : frontal ? frontalHead : () => {
-      paint(f, disc(Hd(sk, -0.4, -0.3), 5.6), M.plate || M.steel, { spec: true });
+      paint(f, disc(Hd(sk, -0.4, -0.3), 5.6), M.plate || M.steel, MET);
       const pl = (tr * 3) + fl * 0.6;
-      paint(f, poly([Hd(sk, 0, -5.5), Hd(sk, -2, -6.6), Hd(sk, -6.5 - pl, -4.6 + fl * 0.5), Hd(sk, -6 - pl * 0.7, -2.8), Hd(sk, -1.5, -4.4)]), M.cape);
+      paint(f, poly([Hd(sk, 0, -5.5), Hd(sk, -2, -6.6), Hd(sk, -6.5 - pl, -4.6 + fl * 0.5), Hd(sk, -6 - pl * 0.7, -2.8), Hd(sk, -1.5, -4.4)]), M.cape, CLOTH);
       paint(f, capsule(Hd(sk, -0.4, -5.6), Hd(sk, -1.8, -6.8), 0.5), M.gold || M.robeTrim, { rim: false, spec: true });
       if (view === 'front') {
         paint(f, poly([Hd(sk, 0.8, -0.9), Hd(sk, 5.4, -0.9), Hd(sk, 5.0, 3.8), Hd(sk, 1.2, 4.4)]), M.skin);
@@ -494,7 +566,7 @@
       }
     };
     const pauldron = C.pauldron ? (pt, m) => C.pauldron(X, pt, m)
-      : (pt, m) => { paint(f, disc(add(pt, sk.up, 0.5), 3.4, 2.8), m, { spec: true }); paint(f, capsule(add(add(pt, sk.up, 0.5), sk.side, -1.8), add(add(pt, sk.up, 0.5), sk.side, 1.8), 0.4), M.gold || M.robeTrim, { rim: false, spec: true }); };
+      : (pt, m) => { paint(f, disc(add(pt, sk.up, -1.6), 3.0, 2.2), m, MET); paint(f, disc(add(pt, sk.up, 0.5), 3.4, 2.8), m, MET); paint(f, capsule(add(add(pt, sk.up, 0.5), sk.side, -1.8), add(add(pt, sk.up, 0.5), sk.side, 1.8), 0.4), M.gold || M.robeTrim, { rim: false, spec: true }); };
 
     if (C.behind) C.behind(X);
     if (frontal && view === 'front') {
@@ -567,8 +639,10 @@
     const sway = Math.sin(ph * Math.PI * 2) * (0.5 + tr * 1.2);
     const X = { f, p, sk, view, ph, tr, sway };
     const staffFn = C.staff || staff;
-    const legMats = { thigh: M.robe, shin: M.mageArmor, boot: M.mageArmor };
-    const sleeve = { upper: M.robe, fore: M.mageArmor, hand: M.leather };
+    const MET = { metal: true, selout: true };
+    const CLOTH = { dither: true, selout: true };
+    const legMats = { thigh: M.robe, shin: M.mageArmor, boot: M.mageArmor, cop: M.mageArmor, fx: { selout: true } };
+    const sleeve = { upper: M.robe, fore: M.mageArmor, hand: M.leather, cuff: M.robeTrim, fx: { selout: true } };
     const glow = p.glow || 0;
     const frontal = isFrontal(sk);
     const trail = frontal ? 0 : 1; // the hem only streams sideways when seen side-on
@@ -586,18 +660,25 @@
         ]);
     const pauldron = (pt, big) => {
       const c = add(pt, sk.up, 0.9);
-      paint(f, disc(c, big ? 3.5 : 3, big ? 2.6 : 2.2), M.mageArmor, { spec: true });
+      paint(f, disc(c, big ? 3.5 : 3, big ? 2.6 : 2.2), M.mageArmor, MET);
       paint(f, capsule(add(c, sk.side, -3), add(c, sk.side, 3), 0.55), M.robeTrim, { rim: false, spec: true });
       spike(f, add(c, sk.up, 1.6), norm(add(sk.up, sk.side, -0.35)), big ? 3.6 : 3, 1, M.robeTrim, { spec: true });
     };
     const robeBody = () => {
-      paint(f, coat, M.robe);
+      paint(f, coat, M.robe, CLOTH);
+      // folds running down the coat tails
+      if (!sk.rotated) {
+        for (const k of frontal ? [-2.2, 2.2] : [-2.4, 0.6]) {
+          const top = L(sk, sk.hip, k, -1.5);
+          paint(f, capsule(top, [lerp(top[0], k < 0 ? bx : fx, 0.35), hemY - 1.2], 0.3, 0.55), M.robe, { tone: 'd', rim: false });
+        }
+      }
       if (!sk.rotated) paint(f, capsule([bx - tr * 4 * trail + 0.6, hemY - tr * 2.4 + sway - 0.5], [(fx + bx) / 2, hemY - 0.4], 0.6), M.robeTrim, { rim: false });
       leg(f, sk, 'B', legMats, [2.1, 1.8, 1.6]);
       leg(f, sk, 'F', legMats, [2.2, 1.9, 1.7]);
       // coat body with an armoured breastplate and a gem at the heart
-      paint(f, poly([L(sk, sk.shC, -4.4, 1.2), L(sk, sk.shC, 4.8, 1.2), L(sk, sk.hip, 4.6, 1.6), L(sk, sk.hip, -4.4, 1.6)]), M.robe);
-      paint(f, poly([L(sk, sk.shC, -2.6, 0.4), L(sk, sk.shC, 4.4, 0.4), L(sk, sk.hip, 3.8, 3.6), L(sk, sk.hip, -1.6, 3)]), M.mageArmor, { spec: true });
+      paint(f, poly([L(sk, sk.shC, -4.4, 1.2), L(sk, sk.shC, 4.8, 1.2), L(sk, sk.hip, 4.6, 1.6), L(sk, sk.hip, -4.4, 1.6)]), M.robe, CLOTH);
+      paint(f, poly([L(sk, sk.shC, -2.6, 0.4), L(sk, sk.shC, 4.4, 0.4), L(sk, sk.hip, 3.8, 3.6), L(sk, sk.hip, -1.6, 3)]), M.mageArmor, MET);
       paint(f, capsule(L(sk, sk.shC, 4.2, 0.2), L(sk, sk.hip, 3.6, 3.4), 0.45), M.robeTrim, { rim: false, tone: 'l' });
       paint(f, disc(L(sk, sk.shC, frontal ? 0.4 : 1.6, -3), 1.25), M.orb, { spec: true });
       // belt, buckle and a short front flap
@@ -614,7 +695,7 @@
     };
     // Facing the camera / away: young face straight on
     const frontalHead = () => {
-      paint(f, disc(Hf(sk, 0, -0.4), 4.7), M.mageHair);
+      paint(f, disc(Hf(sk, 0, -0.4), 4.7), M.mageHair, CLOTH);
       if (view === 'front') {
         paint(f, disc(Hf(sk, 0, 0.6), 3.9), M.skin);
         paint(f, poly([Hf(sk, -4, -1.2), Hf(sk, -1, -3.6), Hf(sk, 3.8, -2.4), Hf(sk, 1.6, -1.4), Hf(sk, -1.8, -0.6)]), M.mageHair, { rim: false });
@@ -630,8 +711,10 @@
     };
     const head = C.head ? () => C.head(X) : frontal ? frontalHead : () => {
       // swept-back hair streaming behind
-      paint(f, poly([Hd(sk, -3.6, -2.4), Hd(sk, -9 - tr * 2, -2.8 + sway * 0.3), Hd(sk, -6.6, 0), Hd(sk, -9.4 - tr * 2, 2 + sway * 0.4), Hd(sk, -3.8, 3)]), M.mageHair);
-      paint(f, disc(Hd(sk, -0.4, -0.2), 4.7), M.mageHair);
+      paint(f, poly([Hd(sk, -3.6, -2.4), Hd(sk, -9 - tr * 2, -2.8 + sway * 0.3), Hd(sk, -6.6, 0), Hd(sk, -9.4 - tr * 2, 2 + sway * 0.4), Hd(sk, -3.8, 3)]), M.mageHair, CLOTH);
+      paint(f, disc(Hd(sk, -0.4, -0.2), 4.7), M.mageHair, CLOTH);
+      // a lock of hair catching the light
+      paint(f, capsule(Hd(sk, -3.2, -3), Hd(sk, -7 - tr * 1.5, -2.2 + sway * 0.3), 0.35), M.mageHair, { tone: 'h', rim: false });
       if (view === 'front') {
         paint(f, disc(Hd(sk, 1.3, 0.7), 3.8), M.skin);
         paint(f, poly([Hd(sk, -0.4, -3.8), Hd(sk, 5, -2.8), Hd(sk, 3.6, -1), Hd(sk, 0.6, -1.4)]), M.mageHair, { rim: false });
@@ -696,8 +779,9 @@
   function drawRogue(f, p, sk, view, ph) {
     const tr = p.cape || 0;
     const fl = Math.sin(ph * Math.PI * 2) * (0.7 + tr * 1.6);
-    const legMats = { thigh: M.rogue, shin: M.rogue, boot: M.hood };
-    const armMats = { upper: M.rogue, fore: M.strap, hand: M.hood };
+    const CLOTH = { dither: true, selout: true };
+    const legMats = { thigh: M.rogue, shin: M.rogue, boot: M.hood, wraps: M.hood, fx: CLOTH };
+    const armMats = { upper: M.rogue, fore: M.strap, hand: M.hood, wraps: M.strap, fx: CLOTH };
     const frontal = isFrontal(sk);
     // Facing the camera / away the scarf tails hang straight down the back
     const scarf = frontal ? poly([
@@ -714,7 +798,7 @@
     const blade = C.dagger || dagger;
     const drawDaggerF = () => { if (!p.drop) f.meta.tipF = blade(f, sk.handF, sk.wdir, 'F'); };
     const drawDaggerB = () => { if (!p.drop) f.meta.tipB = blade(f, sk.handB, sk.wdirB, 'B'); };
-    const drawScarf = () => { if (C.scarf) C.scarf(X); else paint(f, scarf, M.scarf); };
+    const drawScarf = () => { if (C.scarf) C.scarf(X); else paint(f, scarf, M.scarf, CLOTH); };
     const legRadii = { F: [2.3, 2, 1.7], B: [2.2, 1.9, 1.6] };
     const drawLegs = (a, b) => {
       if (C.legs) return C.legs(X);
@@ -722,17 +806,22 @@
       leg(f, sk, b, legMats, legRadii[b]);
     };
     const torso = () => {
-      paint(f, poly([L(sk, sk.shC, -4, 0.8), L(sk, sk.shC, 4.3, 0.8), L(sk, sk.hip, 3.9, 1.2), L(sk, sk.hip, -3.7, 1.2)]), M.rogue);
+      paint(f, poly([L(sk, sk.shC, -4, 0.8), L(sk, sk.shC, 4.3, 0.8), L(sk, sk.hip, 3.9, 1.2), L(sk, sk.hip, -3.7, 1.2)]), M.rogue, CLOTH);
       if (view === 'front') paint(f, capsule(L(sk, sk.shC, 3.6, -0.6), L(sk, sk.hip, -3, 2.2), 0.7), M.strap, { tone: 'm', rim: false });
       paint(f, capsule(L(sk, sk.hip, -3.8, 1.2), L(sk, sk.hip, 4.1, 1.2), 0.85), M.strap, { rim: false });
       if (view === 'front') paint(f, disc(L(sk, sk.hip, frontal ? 0.2 : 1.5, 1.2), 0.9), M.venom, { rim: false, tone: 'm' });
-      paint(f, poly([L(sk, sk.hip, -4.1, 1.6), L(sk, sk.hip, 4.3, 1.6), L(sk, sk.hip, 3.6, -3.8), L(sk, sk.hip, -4.4, -3.4)]), M.hood);
+      paint(f, poly([L(sk, sk.hip, -4.1, 1.6), L(sk, sk.hip, 4.3, 1.6), L(sk, sk.hip, 3.6, -3.8), L(sk, sk.hip, -4.4, -3.4)]), M.hood, CLOTH);
+      // a spare blade sheathed and a pouch on the off hip
+      if (!frontal) {
+        paint(f, capsule(L(sk, sk.hip, -3.2, 2), L(sk, sk.hip, -6.4, -3.8), 0.75), M.strap, { selout: true });
+        paint(f, poly([L(sk, sk.hip, -3.8, 1.2), L(sk, sk.hip, -1.4, 1.2), L(sk, sk.hip, -1.6, -1.8), L(sk, sk.hip, -3.6, -1.8)]), M.strap, CLOTH);
+      }
       if (C.torso) C.torso(X);
     };
     // Facing the camera / away: hood seen straight on, masked face in the middle
     const frontalHead = () => {
-      paint(f, disc(Hf(sk, 0, -0.3), 5.6), M.hood);
-      paint(f, poly([Hf(sk, -1.6, -5.4), Hf(sk, 1.6, -5.4), Hf(sk, 0.4, -7.4)]), M.hood);
+      paint(f, disc(Hf(sk, 0, -0.3), 5.6), M.hood, CLOTH);
+      paint(f, poly([Hf(sk, -1.6, -5.4), Hf(sk, 1.6, -5.4), Hf(sk, 0.4, -7.4)]), M.hood, CLOTH);
       if (view === 'front') {
         paint(f, poly([Hf(sk, -2.6, -1.8), Hf(sk, 2.6, -1.8), Hf(sk, 2.6, 0.3), Hf(sk, -2.6, 0.3)]), M.skin, { rim: false });
         paint(f, poly([Hf(sk, -2.8, 0.3), Hf(sk, 2.8, 0.3), Hf(sk, 2.2, 3.4), Hf(sk, -2.2, 3.4)]), M.rogue, { rim: false });
@@ -741,11 +830,13 @@
       }
     };
     const head = C.head ? () => C.head(X) : frontal ? frontalHead : () => {
-      paint(f, disc(Hd(sk, -0.6, -0.3), 5.6), M.hood);
-      paint(f, poly([Hd(sk, -1, -5.7), Hd(sk, 4.6, -4.6), Hd(sk, 6.4, -2), Hd(sk, 3, -3.8)]), M.hood);
+      paint(f, disc(Hd(sk, -0.6, -0.3), 5.6), M.hood, CLOTH);
+      paint(f, poly([Hd(sk, -1, -5.7), Hd(sk, 4.6, -4.6), Hd(sk, 6.4, -2), Hd(sk, 3, -3.8)]), M.hood, CLOTH);
       if (view === 'front') {
         paint(f, poly([Hd(sk, 1.6, -1.8), Hd(sk, 5.3, -1.8), Hd(sk, 5.3, 0.3), Hd(sk, 1.6, 0.3)]), M.skin, { rim: false });
         paint(f, poly([Hd(sk, 1.5, 0.3), Hd(sk, 5.5, 0.3), Hd(sk, 5, 3.2), Hd(sk, 1.7, 3.4)]), M.rogue, { rim: false });
+        // the hood's opening falls into shadow around the face
+        paint(f, capsule(Hd(sk, 1.3, -2.2), Hd(sk, 1.3, 3.4), 0.5), M.hood, { tone: 'o', rim: false });
         dot(f, Hd(sk, 3, -0.8), ROGUE_EYE);
         dot(f, Hd(sk, 4.6, -0.8), ROGUE_EYE);
       }
@@ -1794,32 +1885,49 @@
     return { footF: foot(ph), footB: foot((ph + 0.5) % 1) };
   }
 
-  const ease = {
-    linear: t => t,
-    in: t => t * t,
-    out: t => 1 - (1 - t) * (1 - t),
-    inout: t => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2)
-  };
-
-  function mix(a, b, t) {
-    const out = {};
-    for (const k of new Set([...Object.keys(a), ...Object.keys(b)])) {
-      const va = a[k] !== undefined ? a[k] : b[k];
-      const vb = b[k] !== undefined ? b[k] : a[k];
-      if (Array.isArray(va)) out[k] = [lerp(va[0], vb[0], t), lerp(va[1], vb[1], t)];
-      else if (typeof va === 'number') out[k] = lerp(va, vb, t);
-      else out[k] = t < 0.5 ? va : vb;
+  // Keys the motion comes to rest on: the ends, a key a segment eases 'out'
+  // into, and a key the next segment eases 'in' from. Everywhere else the
+  // motion flows straight through the key instead of stopping on it.
+  function heldKeys(keys) {
+    if (!keys.held) {
+      keys.held = keys.map((k, i) => {
+        const next = keys[i + 1];
+        return i === 0 || !next || k.ease === 'out' || k.ease === 'inout' || next.ease === 'in' || next.ease === 'inout';
+      });
     }
-    return out;
+    return keys.held;
   }
 
+  // Keyed poses are joined by a cubic Hermite spline (Catmull-Rom tangents,
+  // zero on held keys), so limbs carry their momentum through each key
   function sampleKeys(keys, t) {
     for (let i = 1; i < keys.length; i++) {
-      if (t <= keys[i].t) {
-        const k0 = keys[i - 1], k1 = keys[i];
-        const u = (t - k0.t) / (k1.t - k0.t || 1);
-        return mix(k0.pose, k1.pose, ease[k1.ease || 'inout'](u));
+      if (t > keys[i].t) continue;
+      const k0 = keys[i - 1], k1 = keys[i];
+      const h = k1.t - k0.t || 1;
+      const u = Math.max(0, Math.min(1, (t - k0.t) / h));
+      const held = heldKeys(keys);
+      const u2 = u * u, u3 = u2 * u;
+      const h00 = 2 * u3 - 3 * u2 + 1, h10 = u3 - 2 * u2 + u, h01 = -2 * u3 + 3 * u2, h11 = u3 - u2;
+      // slope at key j for one value (comp: array index or -1), scaled to this segment
+      const slope = (j, key, comp, fallback) => {
+        if (held[j]) return 0;
+        const pick = k => { const v = keys[k].pose[key]; return v === undefined ? fallback : comp < 0 ? v : v[comp]; };
+        return (pick(j + 1) - pick(j - 1)) / (keys[j + 1].t - keys[j - 1].t) * h;
+      };
+      const herm = (key, comp, a, b) => a * h00 + slope(i - 1, key, comp, a) * h10 + b * h01 + slope(i, key, comp, b) * h11;
+      const out = {};
+      for (const k of new Set([...Object.keys(k0.pose), ...Object.keys(k1.pose)])) {
+        const va = k0.pose[k] !== undefined ? k0.pose[k] : k1.pose[k];
+        const vb = k1.pose[k] !== undefined ? k1.pose[k] : k0.pose[k];
+        if (Array.isArray(va)) out[k] = [herm(k, 0, va[0], vb[0]), herm(k, 1, va[1], vb[1])];
+        else if (typeof va === 'number') out[k] = herm(k, -1, va, vb);
+        else out[k] = u < 0.5 ? va : vb;
       }
+      // the spline may swing a planted foot a hair below the ground
+      if (out.footF && out.footF[1] > 0) out.footF[1] = 0;
+      if (out.footB && out.footB[1] > 0) out.footB[1] = 0;
+      return out;
     }
     return keys[keys.length - 1].pose;
   }
@@ -1830,10 +1938,10 @@
       const base = { hip: [0, -19], lean: 0.08, head: 0, footF: [5, 0], footB: [-4, 0], handF: [6, -22.5], twoHand: true, wpn: 2.55, cape: 0.15 };
       const P = o => Object.assign({}, base, o);
       return {
-        idle: { frames: 8, loop: true, pose: ph => { const b = Math.sin(ph * Math.PI * 2); return P({ hip: [0, -19 + 0.55 * b], lean: 0.08 + 0.02 * b, handF: [6, -22.5 + 0.5 * b], wpn: 2.55 + 0.03 * b, cape: 0.12 + 0.05 * Math.sin(ph * Math.PI * 2 + 1) }); } },
+        idle: { frames: 12, loop: true, pose: ph => { const b = Math.sin(ph * Math.PI * 2); return P({ hip: [0, -19 + 0.55 * b], lean: 0.08 + 0.02 * b, head: 0.04 * Math.sin(ph * Math.PI * 2 - 1.2), handF: [6, -22.5 + 0.5 * b], wpn: 2.55 + 0.03 * b, cape: 0.12 + 0.05 * Math.sin(ph * Math.PI * 2 + 1) }); } },
         // hip drops on each footfall and rises in flight; the free arm pumps hard
-        run: { frames: 8, loop: true, pose: ph => { const s = Math.sin(ph * Math.PI * 2); return P(Object.assign(runFeet(ph, 8.5, 8), { hip: [1, -17.6 + 1.3 * Math.cos(ph * Math.PI * 4)], lean: 0.42, head: -0.12, twoHand: false, handF: [2 + s * 3.5, -19.5 - s], wpn: 0.75 + s * 0.2, handB: [4 - s * 7.5, -23.5 + Math.abs(s) * 2 - Math.max(0, -s) * 2], cape: 1 })); } },
-        attack: { frames: 8, smear: [0.3, 0.7], keys: [
+        run: { frames: 12, loop: true, pose: ph => { const s = Math.sin(ph * Math.PI * 2); return P(Object.assign(runFeet(ph, 8.5, 8), { hip: [1, -17.6 + 1.3 * Math.cos(ph * Math.PI * 4)], lean: 0.42 + 0.04 * Math.cos(ph * Math.PI * 4), head: -0.12 - 0.05 * Math.cos(ph * Math.PI * 4 - 0.8), twoHand: false, handF: [2 + s * 3.5, -19.5 - s], wpn: 0.75 + s * 0.2, handB: [4 - s * 7.5, -23.5 + Math.abs(s) * 2 - Math.max(0, -s) * 2], cape: 1 })); } },
+        attack: { frames: 12, smear: [0.3, 0.7], keys: [
           { t: 0, pose: P({}) },
           { t: 0.24, ease: 'out', pose: P({ hip: [-1.5, -19.2], lean: -0.22, head: -0.1, footF: [6, 0], footB: [-6, 0], handF: [-4.5, -40], wpn: 3.75, wBack: true, cape: 0.3 }) },
           { t: 0.44, ease: 'in', pose: P({ hip: [3, -16.8], lean: 0.5, head: 0.15, footF: [11, 0], footB: [-6, 0], handF: [12, -21], wpn: 1.75, cape: 0.65 }) },
@@ -1842,26 +1950,26 @@
         ] },
         // Return swing for combos: blade drops low behind, then rips upward
         // (wpn past 2*PI so the frames sweep forward instead of spinning back)
-        attack2: { frames: 8, smear: [0.3, 0.7], keys: [
+        attack2: { frames: 12, smear: [0.3, 0.7], keys: [
           { t: 0, pose: P({}) },
           { t: 0.24, ease: 'out', pose: P({ hip: [-1, -18], lean: 0.15, head: 0.05, footF: [7, 0], footB: [-5, 0], handF: [-5, -15], wpn: 5.6, wBack: true, cape: 0.3 }) },
           { t: 0.46, ease: 'in', pose: P({ hip: [3, -18.5], lean: -0.05, head: -0.1, footF: [11, 0], footB: [-6, 0], handF: [12, -26], wpn: 8.3, cape: 0.65 }) },
           { t: 0.64, ease: 'out', pose: P({ hip: [3, -19], lean: -0.15, head: -0.15, footF: [11, 0], footB: [-6, 0], handF: [8, -35], wpn: 9.0, cape: 0.5 }) },
           { t: 1, pose: P({ wpn: 2.55 + Math.PI * 2 }) }
         ] },
-        dash: { frames: 6, keys: [
+        dash: { frames: 9, keys: [
           { t: 0, pose: P({ hip: [-1, -15.5], lean: 0.45, footF: [5, 0], footB: [-6, 0], twoHand: false, handF: [1, -17], wpn: -1.2, handB: [-4, -20], cape: 0.3 }) },
           { t: 0.3, ease: 'out', pose: P({ hip: [5, -18], lean: 0.8, footF: [12, -2], footB: [-9, -2.5], twoHand: false, handF: [15, -23], wpn: 1.62, handB: [-6, -24], cape: 1 }) },
           { t: 0.7, pose: P({ hip: [6, -18.5], lean: 0.75, footF: [11, -1], footB: [-10, -3], twoHand: false, handF: [16, -24], wpn: 1.6, handB: [-7, -25], cape: 1 }) },
           { t: 1, ease: 'out', pose: P({ hip: [0, -17], lean: -0.05, footF: [8, 0], footB: [-5, 0], handF: [7, -22], wpn: 2.4, cape: 0.5 }) }
         ] },
-        cast: { frames: 8, smear: [0.4, 0.62], keys: [
+        cast: { frames: 12, smear: [0.4, 0.62], keys: [
           { t: 0, pose: P({}) },
           { t: 0.32, ease: 'out', pose: P({ hip: [0, -19.6], lean: -0.12, head: -0.15, footF: [5, 0], footB: [-5, 0], handF: [1, -38], wpn: 3.14, wBack: true, cape: 0.4, glow: 1 }) },
           { t: 0.55, ease: 'in', pose: P({ hip: [2, -15], lean: 0.55, head: 0.1, footF: [10, 0], footB: [-6, 0], handF: [11, -12], wpn: 1.1, cape: 0.7, glow: 1 }) },
           { t: 1, pose: P({}) }
         ] },
-        hurt: { frames: 4, keys: [
+        hurt: { frames: 6, keys: [
           { t: 0, pose: P({}) },
           { t: 0.3, ease: 'out', pose: P({ hip: [-2, -18.5], lean: -0.38, head: -0.25, footF: [5, 0], footB: [-6, 0], handF: [3, -21], wpn: 2.2, cape: 0.4 }) },
           { t: 1, pose: P({}) }
@@ -1874,28 +1982,28 @@
       const base = { hip: [0, -19], lean: 0.05, head: 0, footF: [3, 0], footB: [-3, 0], handF: [6, -23], wpn: 3.02, handB: [-1, -21.5], cape: 0.1, glow: 0.3 };
       const P = o => Object.assign({}, base, o);
       return {
-        idle: { frames: 8, loop: true, pose: ph => { const b = Math.sin(ph * Math.PI * 2); return P({ hip: [0, -19 + 0.5 * b], lean: 0.05 + 0.015 * b, handF: [6, -23 + 0.4 * b], handB: [-1, -21.5 + 0.4 * b], glow: 0.35 + 0.3 * (0.5 + 0.5 * Math.sin(ph * Math.PI * 4)), cape: 0.1 }); } },
-        run: { frames: 8, loop: true, pose: ph => { const s = Math.sin(ph * Math.PI * 2); return P(Object.assign(runFeet(ph, 7.5, 6.5), { hip: [1, -18 + 1.2 * Math.cos(ph * Math.PI * 4)], lean: 0.34, head: -0.1, handF: [6 + s * 2.2, -24 - Math.abs(s) * 0.8], wpn: 2.2 + s * 0.1, handB: [-2 - s * 6.5, -23 + Math.abs(s) * 1.2], cape: 1, glow: 0.5 })); } },
-        attack: { frames: 8, smear: [0.3, 0.6], keys: [
+        idle: { frames: 12, loop: true, pose: ph => { const b = Math.sin(ph * Math.PI * 2); return P({ hip: [0, -19 + 0.5 * b], lean: 0.05 + 0.015 * b, head: 0.04 * Math.sin(ph * Math.PI * 2 - 1.2), handF: [6, -23 + 0.4 * b], handB: [-1, -21.5 + 0.4 * b], glow: 0.35 + 0.3 * (0.5 + 0.5 * Math.sin(ph * Math.PI * 4)), cape: 0.1 }); } },
+        run: { frames: 12, loop: true, pose: ph => { const s = Math.sin(ph * Math.PI * 2); return P(Object.assign(runFeet(ph, 7.5, 6.5), { hip: [1, -18 + 1.2 * Math.cos(ph * Math.PI * 4)], lean: 0.34 + 0.04 * Math.cos(ph * Math.PI * 4), head: -0.1 - 0.05 * Math.cos(ph * Math.PI * 4 - 0.8), handF: [6 + s * 2.2, -24 - Math.abs(s) * 0.8], wpn: 2.2 + s * 0.1, handB: [-2 - s * 6.5, -23 + Math.abs(s) * 1.2], cape: 1, glow: 0.5 })); } },
+        attack: { frames: 12, smear: [0.3, 0.6], keys: [
           { t: 0, pose: P({}) },
           { t: 0.26, ease: 'out', pose: P({ hip: [-1, -19], lean: -0.15, head: -0.1, footF: [4, 0], footB: [-4, 0], handF: [-3, -28], wpn: 3.6, wBack: true, handB: [3, -26], cape: 0.3, glow: 0.7 }) },
           { t: 0.46, ease: 'in', pose: P({ hip: [2, -18], lean: 0.4, head: 0.05, footF: [8, 0], footB: [-5, 0], handF: [13, -27], wpn: 1.85, handB: [-6, -23], cape: 0.6, glow: 1 }) },
           { t: 0.66, pose: P({ hip: [2, -18], lean: 0.36, footF: [8, 0], footB: [-5, 0], handF: [12, -26], wpn: 1.95, handB: [-5, -23], cape: 0.5, glow: 0.8 }) },
           { t: 1, pose: P({}) }
         ] },
-        dash: { frames: 6, keys: [
+        dash: { frames: 9, keys: [
           { t: 0, pose: P({ hip: [-1, -17], lean: 0.3, footF: [4, 0], footB: [-4, 0], handF: [4, -21], wpn: 2.4, cape: 0.3, glow: 0.6 }) },
           { t: 0.3, ease: 'out', pose: P({ hip: [5, -19], lean: 0.7, footF: [10, -2], footB: [-8, -3], handF: [14, -25], wpn: 1.7, handB: [-6, -24], cape: 1, glow: 1 }) },
           { t: 0.7, pose: P({ hip: [6, -19], lean: 0.68, footF: [10, -1.5], footB: [-9, -3], handF: [15, -25], wpn: 1.7, handB: [-7, -24], cape: 1, glow: 1 }) },
           { t: 1, ease: 'out', pose: P({ hip: [0, -18], lean: 0, footF: [5, 0], footB: [-3, 0], cape: 0.4 }) }
         ] },
-        cast: { frames: 8, keys: [
+        cast: { frames: 12, keys: [
           { t: 0, pose: P({}) },
           { t: 0.3, ease: 'out', pose: P({ hip: [0, -19.5], lean: -0.12, head: -0.2, handF: [3, -38], wpn: 3.14, handB: [-4, -35], cape: 0.5, glow: 1 }) },
           { t: 0.62, pose: P({ hip: [0, -21.5], lean: -0.1, head: -0.2, footF: [3, -2], footB: [-3, -2], handF: [3, -40], wpn: 3.14, handB: [-5, -37], cape: 0.7, glow: 1 }) },
           { t: 1, pose: P({}) }
         ] },
-        hurt: { frames: 4, keys: [
+        hurt: { frames: 6, keys: [
           { t: 0, pose: P({}) },
           { t: 0.3, ease: 'out', pose: P({ hip: [-2, -18.5], lean: -0.36, head: -0.25, handF: [4, -21], wpn: 2.7, handB: [-5, -26], cape: 0.4, glow: 0.1 }) },
           { t: 1, pose: P({}) }
@@ -1908,10 +2016,10 @@
       const base = { hip: [0, -17], lean: 0.22, head: -0.05, footF: [6, 0], footB: [-6, 0], handF: [7, -21], wpn: -0.5, handB: [0, -22], wpnB: -0.75, cape: 0.2 };
       const P = o => Object.assign({}, base, o);
       return {
-        idle: { frames: 8, loop: true, pose: ph => { const b = Math.sin(ph * Math.PI * 2); return P({ hip: [0, -17 + 0.6 * b], lean: 0.22 + 0.02 * b, handF: [7, -21 + 0.5 * b], handB: [0, -22 + 0.5 * b], cape: 0.2 + 0.1 * Math.sin(ph * Math.PI * 2 + 1.3) }); } },
+        idle: { frames: 12, loop: true, pose: ph => { const b = Math.sin(ph * Math.PI * 2); return P({ hip: [0, -17 + 0.6 * b], lean: 0.22 + 0.02 * b, head: -0.05 + 0.04 * Math.sin(ph * Math.PI * 2 - 1.2), handF: [7, -21 + 0.5 * b], handB: [0, -22 + 0.5 * b], cape: 0.2 + 0.1 * Math.sin(ph * Math.PI * 2 + 1.3) }); } },
         // low ninja sprint: deep crouch, long stride, blades trailing behind
-        run: { frames: 8, loop: true, pose: ph => { const s = Math.sin(ph * Math.PI * 2); return P(Object.assign(runFeet(ph, 9, 8), { hip: [1.5, -16 + 1.2 * Math.cos(ph * Math.PI * 4)], lean: 0.7, head: -0.32, handF: [-7 + s * 2.5, -18.5 + s * 0.8], wpn: -1.45, handB: [-5 - s * 2.5, -20 - s * 0.8], wpnB: -1.35, cape: 1 })); } },
-        attack: { frames: 8, smear: [0.26, 0.7], keys: [
+        run: { frames: 12, loop: true, pose: ph => { const s = Math.sin(ph * Math.PI * 2); return P(Object.assign(runFeet(ph, 9, 8), { hip: [1.5, -16 + 1.2 * Math.cos(ph * Math.PI * 4)], lean: 0.7 + 0.04 * Math.cos(ph * Math.PI * 4), head: -0.32 - 0.05 * Math.cos(ph * Math.PI * 4 - 0.8), handF: [-7 + s * 2.5, -18.5 + s * 0.8], wpn: -1.45, handB: [-5 - s * 2.5, -20 - s * 0.8], wpnB: -1.35, cape: 1 })); } },
+        attack: { frames: 12, smear: [0.26, 0.7], keys: [
           { t: 0, pose: P({}) },
           { t: 0.22, ease: 'out', pose: P({ hip: [-1, -17], lean: 0.05, head: -0.05, handF: [1, -27], wpn: 3.6, handB: [3, -26.5], wpnB: 3.4, cape: 0.3 }) },
           { t: 0.42, ease: 'in', pose: P({ hip: [4, -15.5], lean: 0.55, head: 0.05, footF: [11, 0], footB: [-6, 0], handF: [13, -17], wpn: 1.3, handB: [11, -29], wpnB: 2.2, cape: 0.8 }) },
@@ -1919,26 +2027,26 @@
           { t: 1, pose: P({}) }
         ] },
         // Return swing for combos: both blades pulled low, then swept up and across
-        attack2: { frames: 8, smear: [0.26, 0.7], keys: [
+        attack2: { frames: 12, smear: [0.26, 0.7], keys: [
           { t: 0, pose: P({}) },
           { t: 0.22, ease: 'out', pose: P({ hip: [-1, -16.5], lean: 0.35, handF: [-3, -19], wpn: -1.6, handB: [-6, -21], wpnB: -1.9, cape: 0.3 }) },
           { t: 0.42, ease: 'in', pose: P({ hip: [4, -15.5], lean: 0.6, footF: [11, 0], footB: [-6, 0], handF: [14, -22], wpn: 1.4, handB: [12, -18], wpnB: 0.9, cape: 0.8 }) },
           { t: 0.62, ease: 'out', pose: P({ hip: [4, -15.3], lean: 0.55, footF: [11, 0], footB: [-6, 0], handF: [11, -27], wpn: 2.2, handB: [13, -14], wpnB: 0.3, cape: 0.6 }) },
           { t: 1, pose: P({}) }
         ] },
-        dash: { frames: 6, keys: [
+        dash: { frames: 9, keys: [
           { t: 0, pose: P({ hip: [-1, -14], lean: 0.6, footF: [6, 0], footB: [-6, 0], handF: [-3, -16], wpn: -1.4, handB: [-5, -18], wpnB: -1.4, cape: 0.4 }) },
           { t: 0.3, ease: 'out', pose: P({ hip: [6, -14], lean: 1.05, head: -0.4, footF: [12, -2], footB: [-9, -3], handF: [17, -17], wpn: 1.6, handB: [-8, -18], wpnB: -1.6, cape: 1 }) },
           { t: 0.7, pose: P({ hip: [7, -14.5], lean: 1, head: -0.4, footF: [12, -1], footB: [-10, -3], handF: [18, -18], wpn: 1.6, handB: [-9, -18], wpnB: -1.6, cape: 1 }) },
           { t: 1, ease: 'out', pose: P({ hip: [0, -15], lean: 0.25, footF: [8, 0], footB: [-6, 0], cape: 0.5 }) }
         ] },
-        cast: { frames: 8, smear: [0.4, 0.62], keys: [
+        cast: { frames: 12, smear: [0.4, 0.62], keys: [
           { t: 0, pose: P({}) },
           { t: 0.35, ease: 'out', pose: P({ hip: [0, -14], lean: 0.3, head: 0.05, footF: [6, 0], footB: [-6, 0], handF: [2, -22], wpn: 3.5, handB: [4, -21], wpnB: 3.3, cape: 0.3 }) },
           { t: 0.58, ease: 'in', pose: P({ hip: [0, -20.5], lean: -0.1, head: -0.15, footF: [4, -1.5], footB: [-4, -1.5], handF: [12, -30], wpn: 2.3, handB: [-10, -29], wpnB: -2.3, cape: 0.9, glow: 1 }) },
           { t: 1, pose: P({}) }
         ] },
-        hurt: { frames: 4, keys: [
+        hurt: { frames: 6, keys: [
           { t: 0, pose: P({}) },
           { t: 0.3, ease: 'out', pose: P({ hip: [-2, -17], lean: -0.3, head: -0.3, handF: [4, -23], wpn: 0.3, handB: [-4, -25], wpnB: -0.3, cape: 0.5 }) },
           { t: 1, pose: P({}) }
@@ -1953,7 +2061,7 @@
 
   // Shared death: recoil, knees buckle, fall onto the back and stay down
   function deathKeys(P, arms) {
-    return { frames: 8, hold: true, keys: [
+    return { frames: 12, hold: true, keys: [
       { t: 0, pose: P({}) },
       { t: 0.18, ease: 'out', pose: P({ hip: [-2, -18.5], lean: -0.5, head: -0.35, footF: [5, 0], footB: [-6, 0], cape: 0.5 }) },
       { t: 0.45, ease: 'in', pose: P(Object.assign({ hip: [-1, -11.5], lean: -0.15, head: 0.35, footF: [6, 0], footB: [-4, 0], cape: 0.3, twoHand: false, drop: true, handB: [-3, -10] }, arms)) },
@@ -1974,15 +2082,23 @@
     N: { phi: -Math.PI / 2, order: 'back' }
   };
   const VIEWS = Object.keys(VIEW_DEF);
+  const LOOP_HZ = { idle: 0.75, run: 1.75 };
   const ACTIONS = ['idle', 'run', 'attack', 'attack2', 'dash', 'cast', 'hurt', 'death'];
 
   function poseAt(def, i) {
     const n = def.frames;
-    const t = def.loop ? i / n : (def.hold ? i / (n - 1) : i / n);
+    return poseAtT(def, def.loop ? i / n : (def.hold ? i / (n - 1) : i / n));
+  }
+
+  function poseAtT(def, t) {
     const pose = def.pose ? def.pose(t) : sampleKeys(def.keys, t);
     // a costume may re-grip the class poses (e.g. dual wield)
     return { pose: COSTUME && COSTUME.pose ? COSTUME.pose(pose) : pose, t };
   }
+
+  // The smear trails the blade over a fixed slice of the action, however many
+  // frames the action is cut into
+  const SMEAR_SPAN = 0.125;
 
   // Attacking on the move: the swing's upper body over the run cycle's legs
   // (run phase ri), the hip riding the run's bob plus half the swing's crouch
@@ -2006,7 +2122,7 @@
     // Motion smear when the weapon swept a wide arc since the previous frame
     if (def.smear && t >= def.smear[0] && t <= def.smear[1] && i > 0 && !pose.drop) {
       const C = COSTUME || {};
-      const prev = poseAt(def, i - 1).pose;
+      const prev = poseAtT(def, Math.max(0, t - SMEAR_SPAN)).pose;
       const pairs = [[prev.wpn, pose.wpn, sk.handF, WEAPON_TILT]];
       if ((cls === 'rogue' || C.weaponB) && !C.noSmearB) pairs.push([prev.wpnB === undefined ? prev.wpn : prev.wpnB, pose.wpnB, sk.handB, -WEAPON_TILT]);
       const sm = C.smear ? C.smear() : cls === 'rogue' ? M.venom : cls === 'mage' ? M.orb : M.smear;
@@ -2086,6 +2202,13 @@
     meta: (cls, action) => {
       const d = CLASS_ANIMS[cls][action];
       return { frames: d.frames, loop: !!d.loop, hold: !!d.hold };
+    },
+    // Looping actions play at a fixed rate (cycles per second) whatever their
+    // frame count: loopIndex picks the frame for a clock in seconds
+    LOOP_HZ,
+    loopIndex: (cls, action, seconds) => {
+      const n = (CLASS_ANIMS[cls] || CLASS_ANIMS.warrior)[action].frames;
+      return ((Math.floor(seconds * LOOP_HZ[action] * n) % n) + n) % n;
     },
     buildAll, buildFrame, buildVariant, buildRunAttack, topRow
   };
