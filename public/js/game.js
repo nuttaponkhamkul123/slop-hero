@@ -2302,10 +2302,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (el.id !== 'authModal' && el.id !== 'joinModal') el.style.display = 'none';
       }
       if (window.GameTooltip) window.GameTooltip.hide();
+      const qmc = document.getElementById('quickMenuContainer');
+      if (qmc) qmc.classList.remove('is-open');
       chatInput.blur();
       return;
     }
-    if (code === 'KeyP' || key === 'p') openShopModal();
     if (code === 'KeyC' || key === 'c') toggleModal(statsModal);
     if (code === 'KeyI' || key === 'i') {
       renderInventoryGrid();
@@ -4814,7 +4815,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderShopSellList();
   });
 
-  btnOpenShop.addEventListener('click', openShopModal);
+  if (btnOpenShop) btnOpenShop.addEventListener('click', openShopModal);
   btnCloseShop.addEventListener('click', () => shopModal.style.display = 'none');
 
   // ================= HYPIXEL SKYBLOCK REFORGE ANVIL UI =================
@@ -5939,6 +5940,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('btnOpenHelp').addEventListener('click', () => toggleModal(helpModal));
   document.getElementById('btnCloseHelp').addEventListener('click', () => helpModal.style.display = 'none');
+
+  // Quick Menu Bundle Toggle (Bottom-Right on smaller screens)
+  const btnQuickMenuBundle = document.getElementById('btnQuickMenuBundle');
+  const quickMenuContainer = document.getElementById('quickMenuContainer');
+  if (btnQuickMenuBundle && quickMenuContainer) {
+    btnQuickMenuBundle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      quickMenuContainer.classList.toggle('is-open');
+    });
+
+    // Automatically close bundled popover when any menu button inside is clicked
+    quickMenuContainer.querySelectorAll('.quick-menu-group .menu-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        quickMenuContainer.classList.remove('is-open');
+      });
+    });
+
+    // Close popover when clicking anywhere outside
+    document.addEventListener('click', (e) => {
+      if (!quickMenuContainer.contains(e.target)) {
+        quickMenuContainer.classList.remove('is-open');
+      }
+    });
+  }
 
   [statsModal, inventoryModal, helpModal, shopModal, reforgeModal, skillTreeModal, personalChestModal].forEach(modal => {
     if (!modal) return;

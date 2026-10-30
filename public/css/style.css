@@ -3532,7 +3532,7 @@ body, html {
     display: none !important;
   }
 
-  .quick-menu-group {
+  .quick-menu-group:not(.quick-menu-container.is-open .quick-menu-group) {
     display: none !important;
   }
 
