@@ -1404,6 +1404,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupClassSkillHUD(localPlayer.characterClass);
     renderInventoryGrid();
     renderShopSellList();
+    if (shopModal && shopModal.style.display === 'flex' && tabShopBuy && tabShopBuy.classList.contains('active')) renderShopBuyList();
     if (enchanterModal && enchanterModal.style.display === 'flex') renderEnchanter();
     if (shopPlayerGold) shopPlayerGold.textContent = localPlayer.gold;
     if (skillTreeModal && skillTreeModal.style.display === 'flex') {
@@ -3762,74 +3763,123 @@ document.addEventListener('DOMContentLoaded', () => {
   // ================= SHOP & INVENTORY UI =================
 
   function openShopModal() {
+    buySelectedId = null;
+    buySelectedQty = 1;
     renderShopBuyList();
     renderShopSellList();
     if (shopPlayerGold && localPlayer) shopPlayerGold.textContent = localPlayer.gold;
     shopModal.style.display = 'flex';
   }
 
+  let buySelectedId = null;
+  let buySelectedQty = 1;
+
+  function formatShopPrice(val) {
+    if (!val) return '0g';
+    if (val >= 1000000) {
+      const m = val / 1000000;
+      return (m % 1 === 0 ? m : m.toFixed(1)) + 'M';
+    }
+    if (val >= 1000) {
+      const k = val / 1000;
+      return (k % 1 === 0 ? k : k.toFixed(1)) + 'k';
+    }
+    return val + 'g';
+  }
+
   function renderShopBuyList() {
     if (!shopBuyList || !shopItemsCatalog.length) return;
     shopBuyList.innerHTML = '';
 
-    shopItemsCatalog.forEach(item => {
-      const card = document.createElement('div');
-      card.className = `shop-item-card rarity-${item.rarity || 'common'}`;
-      let qty = 1;
-      const unitPrice = item.buyPrice || 0;
+    const grid = document.createElement('div');
+    grid.className = 'inventory-grid-compact buy-grid';
+    shopBuyList.appendChild(grid);
 
-      card.innerHTML = `
-        <div class="shop-item-left">
-          <div class="shop-item-icon">${PixelIcons.itemHtml(item)}</div>
-          <div class="shop-item-details">
-            <div class="shop-item-name">${item.name}</div>
-            <div class="shop-item-desc">${item.desc || ''}</div>
-          </div>
+    const detail = document.createElement('div');
+    detail.className = 'buy-detail';
+    shopBuyList.appendChild(detail);
+
+    const cells = [];
+    const totalSlots = Math.max(18, Math.ceil(shopItemsCatalog.length / 6) * 6);
+
+    const renderDetail = () => {
+      if (!buySelectedId) {
+        detail.style.display = 'none';
+        detail.innerHTML = '';
+        return;
+      }
+
+      const item = shopItemsCatalog.find(i => i.id === buySelectedId);
+      if (!item) {
+        detail.style.display = 'none';
+        detail.innerHTML = '';
+        return;
+      }
+
+      detail.style.display = 'flex';
+      const unitPrice = item.buyPrice || 0;
+      const playerGold = (localPlayer && localPlayer.gold) || 0;
+      const totalCost = buySelectedQty * unitPrice;
+      const canAfford = playerGold >= totalCost;
+
+      detail.innerHTML = `
+        <div class="shop-item-icon rarity-${item.rarity || 'common'}">
+          ${PixelIcons.itemHtml(item)}
         </div>
-        <div class="shop-buy-action-group" style="display: flex; align-items: center; gap: 8px;">
-          <div class="shop-qty-controls" style="display: flex; align-items: center; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; padding: 2px 4px; gap: 3px;">
-            <button type="button" class="btn-qty-sub" style="width: 22px; height: 22px; background: rgba(255,255,255,0.1); border: none; color: #fff; cursor: pointer; border-radius: 3px; font-weight: bold; line-height: 1;">-</button>
-            <input type="number" class="shop-qty-val" min="1" max="999" value="1" style="width: 44px; height: 22px; background: transparent; border: none; color: #fde68a; font-weight: bold; font-family: monospace; text-align: center; font-size: 13px;">
-            <button type="button" class="btn-qty-add" style="width: 22px; height: 22px; background: rgba(255,255,255,0.1); border: none; color: #fff; cursor: pointer; border-radius: 3px; font-weight: bold; line-height: 1;">+</button>
-            <button type="button" class="btn-qty-max" style="padding: 0 6px; height: 22px; background: rgba(245,158,11,0.25); border: 1px solid rgba(245,158,11,0.5); color: #fde68a; cursor: pointer; border-radius: 3px; font-size: 11px; font-weight: bold;">Max</button>
-          </div>
-          <button class="btn-shop-action" data-buy-id="${item.id}">
-            Buy 1x (${unitPrice}g)
+        <div class="shop-item-details">
+          <div class="shop-item-name">${item.name}</div>
+          <div class="shop-item-desc"><span style="color: #fde68a; font-weight: bold;">${unitPrice.toLocaleString()}g</span> each</div>
+        </div>
+        <div class="buy-qty-controls">
+          <button type="button" class="buy-qty-btn btn-qty-sub" title="Decrease amount">-</button>
+          <input type="number" class="buy-qty-input" min="1" max="999" value="${buySelectedQty}" title="Amount to buy">
+          <button type="button" class="buy-qty-btn btn-qty-add" title="Increase amount">+</button>
+          <button type="button" class="buy-qty-max" title="Max affordable">MAX</button>
+        </div>
+        <div class="buy-action-group">
+          <button type="button" class="buy-action-btn ${canAfford ? '' : 'disabled'}" ${canAfford ? '' : 'disabled'}>
+            <span data-pxi="coin"></span>
+            <span class="buy-btn-text">${canAfford ? `BUY (${totalCost.toLocaleString()}g)` : `NEED ${totalCost.toLocaleString()}g`}</span>
           </button>
+          <button type="button" class="buy-cancel-btn" title="Cancel selection">✕</button>
         </div>
       `;
 
-      GameTooltip.item(card.querySelector('.shop-item-icon'), item);
-
-      const btnSub = card.querySelector('.btn-qty-sub');
-      const btnAdd = card.querySelector('.btn-qty-add');
-      const btnMax = card.querySelector('.btn-qty-max');
-      const inputVal = card.querySelector('.shop-qty-val');
-      const btnBuy = card.querySelector('.btn-shop-action');
+      const btnSub = detail.querySelector('.btn-qty-sub');
+      const btnAdd = detail.querySelector('.btn-qty-add');
+      const btnMax = detail.querySelector('.buy-qty-max');
+      const inputVal = detail.querySelector('.buy-qty-input');
+      const btnBuy = detail.querySelector('.buy-action-btn');
+      const btnCancel = detail.querySelector('.buy-cancel-btn');
 
       const updateUI = () => {
-        const total = qty * unitPrice;
-        btnBuy.textContent = `Buy ${qty}x (${total}g)`;
-        inputVal.value = qty;
+        const currentTotal = buySelectedQty * unitPrice;
+        const afford = playerGold >= currentTotal;
+        inputVal.value = buySelectedQty;
+        btnBuy.disabled = !afford;
+        btnBuy.classList.toggle('disabled', !afford);
+        const textSpan = btnBuy.querySelector('.buy-btn-text');
+        if (textSpan) {
+          textSpan.textContent = afford ? `BUY (${currentTotal.toLocaleString()}g)` : `NEED ${currentTotal.toLocaleString()}g`;
+        }
       };
 
       btnSub.addEventListener('click', (e) => {
         e.stopPropagation();
-        qty = Math.max(1, qty - 1);
+        buySelectedQty = Math.max(1, buySelectedQty - 1);
         updateUI();
       });
 
       btnAdd.addEventListener('click', (e) => {
         e.stopPropagation();
-        qty = Math.min(999, qty + 1);
+        buySelectedQty = Math.min(999, buySelectedQty + 1);
         updateUI();
       });
 
       btnMax.addEventListener('click', (e) => {
         e.stopPropagation();
-        const playerGold = (localPlayer && localPlayer.gold) || 0;
         const maxAffordable = unitPrice > 0 ? Math.floor(playerGold / unitPrice) : 999;
-        qty = Math.max(1, Math.min(999, maxAffordable));
+        buySelectedQty = Math.max(1, Math.min(999, maxAffordable));
         updateUI();
       });
 
@@ -3837,19 +3887,88 @@ document.addEventListener('DOMContentLoaded', () => {
         let v = parseInt(inputVal.value, 10);
         if (isNaN(v) || v < 1) v = 1;
         if (v > 999) v = 999;
-        qty = v;
+        buySelectedQty = v;
         updateUI();
       });
-
+      inputVal.addEventListener('input', () => {
+        let v = parseInt(inputVal.value, 10);
+        if (!isNaN(v) && v >= 1 && v <= 999) {
+          buySelectedQty = v;
+          updateUI();
+        }
+      });
       inputVal.addEventListener('click', (e) => e.stopPropagation());
+      inputVal.addEventListener('keydown', (e) => e.stopPropagation());
 
-      btnBuy.addEventListener('click', () => {
-        socket.emit('buy_item', { itemId: item.id, count: qty });
+      btnBuy.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const currentTotal = buySelectedQty * unitPrice;
+        if (playerGold < currentTotal) return;
+
+        socket.emit('buy_item', { itemId: item.id, count: buySelectedQty });
         window.soundEngine.playCoin();
+
+        // Done process: reset selection and close amount panel
+        buySelectedId = null;
+        buySelectedQty = 1;
+        cells.forEach(c => c.classList.remove('selected'));
+        renderDetail();
       });
 
-      shopBuyList.appendChild(card);
-    });
+      btnCancel.addEventListener('click', (e) => {
+        e.stopPropagation();
+        buySelectedId = null;
+        buySelectedQty = 1;
+        cells.forEach(c => c.classList.remove('selected'));
+        renderDetail();
+      });
+    };
+
+    // Build the inventory layout grid
+    for (let i = 0; i < totalSlots; i++) {
+      const cell = document.createElement('div');
+      cell.className = 'inv-slot-compact';
+      const item = shopItemsCatalog[i];
+
+      if (!item) {
+        cell.classList.add('empty');
+        grid.appendChild(cell);
+        continue;
+      }
+
+      cell.classList.add(`rarity-${item.rarity || 'common'}`);
+      if (item.id === buySelectedId) {
+        cell.classList.add('selected');
+      }
+
+      cell.innerHTML = `
+        <div class="inv-icon">${PixelIcons.itemHtml(item)}</div>
+        <span class="inv-price-badge">${formatShopPrice(item.buyPrice)}</span>
+      `;
+
+      GameTooltip.item(cell, item, {
+        hint: `Price: ${item.buyPrice.toLocaleString()}g • Click to choose amount & buy`
+      });
+
+      cell.addEventListener('click', () => {
+        if (buySelectedId === item.id) {
+          buySelectedId = null;
+          buySelectedQty = 1;
+        } else {
+          buySelectedId = item.id;
+          buySelectedQty = 1;
+        }
+        cells.forEach((c, idx) => {
+          c.classList.toggle('selected', shopItemsCatalog[idx] && shopItemsCatalog[idx].id === buySelectedId);
+        });
+        renderDetail();
+      });
+
+      cells.push(cell);
+      grid.appendChild(cell);
+    }
+
+    renderDetail();
   }
 
   // Sell tab state: selected bag slots (index -> item id, so a changed bag drops
