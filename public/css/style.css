@@ -2411,54 +2411,60 @@ body, html {
 }
 
 .loadout-slots-row {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
-  margin-bottom: 14px;
-}
-
-@media (max-width: 600px) {
-  .loadout-slots-row {
-    grid-template-columns: repeat(2, 1fr);
-  }
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin: 6px 0 14px 0;
+  flex-wrap: wrap;
 }
 
 .hotbar-slot-card {
-  background: rgba(15, 23, 42, 0.85);
-  border: 2px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
-  padding: 10px;
+  width: 58px;
+  height: 58px;
+  min-width: 58px;
+  min-height: 58px;
+  aspect-ratio: 1;
+  padding: 2px;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  text-align: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  position: relative;
-  min-width: 74px;
-  min-height: 74px;
   justify-content: center;
+  position: relative;
+  cursor: pointer;
+  background: radial-gradient(circle, #1a2233 0%, #0c111c 100%);
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  border-radius: 6px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+  transition: all 0.15s ease;
 }
 
 /* Icon-only hotbar slot: keybind badge + glyph, details on hover tooltip */
 .slot-card-badge {
   position: absolute;
-  top: 5px;
-  left: 5px;
-  font-size: 9px;
-  font-weight: 900;
+  top: 3px;
+  left: 3px;
+  font-size: 10px;
+  font-weight: 800;
   letter-spacing: 0.5px;
-  background: rgba(0, 0, 0, 0.75);
+  background: rgba(0, 0, 0, 0.85);
   color: #38bdf8;
   border: 1px solid rgba(56, 189, 248, 0.4);
-  padding: 1px 5px;
-  border-radius: 4px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  line-height: 1;
+  z-index: 2;
 }
 
 .slot-card-icon {
-  font-size: 34px;
-  line-height: 1;
-  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.6));
+  width: 46px;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.slot-card-icon svg {
+  width: 100%;
+  height: 100%;
 }
 
 .hotbar-slot-card:hover .slot-card-icon {
@@ -2575,71 +2581,115 @@ body, html {
 
 /* Skills Arsenal Catalog Grid */
 .skills-catalog-grid {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 10px;
-}
-
-@media (max-width: 650px) {
-  .skills-catalog-grid {
-    grid-template-columns: 1fr;
-  }
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  align-items: center;
+  padding: 12px;
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  min-height: 110px;
 }
 
 .catalog-skill-card {
-  background: rgba(15, 23, 42, 0.85);
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  border-radius: 8px;
-  padding: 8px 6px;
+  width: 50px;
+  height: 50px;
+  min-width: 50px;
+  min-height: 50px;
+  aspect-ratio: 1;
+  padding: 3px;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
-  transition: all 0.2s ease;
-  gap: 4px;
+  justify-content: center;
+  position: relative;
   cursor: grab;
+  background: radial-gradient(circle, #1a2233 0%, #0c111c 100%);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+  transition: all 0.15s ease;
+  user-select: none;
 }
 
-.catalog-icon-only {
-  font-size: 30px;
-  line-height: 1.1;
-  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.7));
+.catalog-skill-card:hover:not(.is-locked) {
+  border-color: #facc15;
+  background: radial-gradient(circle, #25334c 0%, #121a2b 100%);
+  transform: scale(1.08);
+  z-index: 5;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.6);
 }
 
-.catalog-mini-name {
-  font-size: 10px;
-  font-weight: 600;
-  color: #e2e8f0;
-  text-align: center;
-  line-height: 1.2;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+.catalog-skill-card .catalog-icon-only {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.catalog-mini-level {
-  font-size: 9px;
-  letter-spacing: 1px;
-  color: #94a3b8;
-  text-transform: uppercase;
+.catalog-skill-card .catalog-icon-only svg {
+  width: 100%;
+  height: 100%;
 }
 
-.catalog-mini-level.locked {
-  color: #f87171;
-}
-
-.catalog-skill-card:hover {
-  border-color: rgba(56, 189, 248, 0.5);
-  transform: translateY(-1px);
-  background: rgba(20, 28, 48, 0.95);
+.catalog-skill-card.is-locked {
+  opacity: 0.45;
+  filter: grayscale(0.85);
+  cursor: not-allowed;
+  background: rgba(15, 23, 42, 0.8);
+  border-color: rgba(255, 255, 255, 0.05);
 }
 
 .catalog-skill-card.is-equipped-here {
-  border-color: #4ade80;
-  background: rgba(20, 36, 32, 0.9);
-  box-shadow: inset 0 0 10px rgba(74, 222, 128, 0.1);
+  border-color: #facc15 !important;
+  box-shadow: 0 0 10px rgba(250, 204, 21, 0.5), inset 0 0 4px rgba(250, 204, 21, 0.2);
+}
+
+.catalog-skill-card.is-equipped:not(.is-equipped-here) {
+  border-color: #4ade80 !important;
+  box-shadow: 0 0 6px rgba(74, 222, 128, 0.35);
+}
+
+.catalog-skill-card .skill-slot-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  font-size: 9px;
+  font-weight: 800;
+  color: #4ade80;
+  background: rgba(0, 0, 0, 0.85);
+  padding: 1px 3px;
+  border-radius: 3px;
+  line-height: 1;
+  z-index: 2;
+}
+
+.catalog-skill-card .skill-lock-badge {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  font-size: 11px;
+  line-height: 1;
+  z-index: 2;
+}
+
+.loadout-drag-guide-ribbon {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  border-radius: 6px;
+  font-size: 12px;
+  color: #94a3b8;
+  margin-bottom: 8px;
+}
+
+.loadout-drag-guide-ribbon strong {
+  color: #facc15;
 }
 
 .cat-skill-top {
@@ -3482,7 +3532,7 @@ body, html {
     display: none !important;
   }
 
-  .quick-menu-group {
+  .quick-menu-group:not(.quick-menu-container.is-open .quick-menu-group) {
     display: none !important;
   }
 

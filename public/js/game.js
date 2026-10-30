@@ -21,6 +21,14 @@ document.addEventListener('DOMContentLoaded', () => {
     chests: []
   };
 
+  // Eternal Rift HUD, build bar and James's forge (rift.js)
+  window.RiftUI.init({
+    socket, renderer, canvas,
+    getPlayer: () => localPlayer,
+    getPlayerId: () => localPlayerId,
+    getState: () => gameState
+  });
+
   let selectedTargetId = null;
   let selectedTargetType = null;
   let lastFrameTime = performance.now();
@@ -206,6 +214,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const shopModal = document.getElementById('shopModal');
   const reforgeModal = document.getElementById('reforgeModal');
   const deathScreen = document.getElementById('deathScreen') || document.getElementById('death-screen');
+
+  // Personal Chest Elements
+  const personalChestModal = document.getElementById('personalChestModal');
+  const btnCloseChest = document.getElementById('btnCloseChest');
+  const chestVaultGrid = document.getElementById('chestVaultGrid');
+  const chestBagGrid = document.getElementById('chestBagGrid');
+  const chestCapacityText = document.getElementById('chestCapacityText');
+  const chestBagCapacityText = document.getElementById('chestBagCapacityText');
+  const btnChestDepositAll = document.getElementById('btnChestDepositAll');
 
   // Shop Elements
   const btnOpenShop = document.getElementById('btnOpenShop');
@@ -880,7 +897,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function setupClassSkillHUD(cls) {
     if (!cls) return;
-    applySkillLinkBadges();
     setupWeaponAbilityHUD();
     if (playerAvatarIcon) playerAvatarIcon.innerHTML = heroPortraitHtml(cls);
     const basicAttackIcons = { warrior: 'basic_attack', mage: 'basic_attack_mage', rogue: 'basic_attack_rogue' };
@@ -1053,6 +1069,8 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   socket.on('init_game', (data) => {
+    // in the world now: show the canvas and HUD, drop the login scene (login.css)
+    document.body.classList.remove('pre-login');
     localPlayerId = data.playerId;
     spCatalog = data.spCatalog || null;
     window.SP_CATALOG = spCatalog;
@@ -1082,6 +1100,7 @@ document.addEventListener('DOMContentLoaded', () => {
     skillRunesCatalog = data.skillRunes || {};
     weaponAbilities = data.weaponAbilities || {};
     window.WeaponAbilities = weaponAbilities; // read by tooltip.js
+    window.RiftUI.setCatalog(data.riftCatalog);
 
     localPlayer = data.player;
     updatePlayerHUD(localPlayer);
@@ -1101,6 +1120,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   socket.on('zone_change', (data) => {
+    window.RiftUI.onZoneChange(data);
     gameState.map = data.map;
     gameState.players = data.players || [];
     gameState.mobs = data.mobs || [];
@@ -1119,7 +1139,11 @@ document.addEventListener('DOMContentLoaded', () => {
     window.soundEngine.updateZoneBgm(data.zone || (localPlayer && localPlayer.zone) || 'town');
 
     if (zoneIcon && zoneText) {
-      if (data.zone === 'dungeon') {
+      if (data.rift) {
+        zoneIcon.dataset.pxi = 'whirl';
+        zoneText.textContent = 'The Eternal Rift';
+        window.soundEngine.playSkillWhoosh();
+      } else if (data.zone === 'dungeon') {
         const floorName = (data.map && data.map.name) ? data.map.name : `Dungeon Floor ${data.floorLevel || 1}`;
         const floorIcon = (data.map && data.map.icon) ? data.map.icon : 'whirl';
         zoneIcon.dataset.pxi = floorIcon;
@@ -1258,13 +1282,12 @@ document.addEventListener('DOMContentLoaded', () => {
         existing.skillPoints = p.skillPoints !== undefined ? p.skillPoints : (existing.skillPoints || 0);
         existing.skills = p.skills || existing.skills || {};
         existing.equippedSkills = p.equippedSkills || existing.equippedSkills;
-        if (p.skillLinks) existing.skillLinks = p.skillLinks;
       } else {
         p.targetX = p.x;
         p.targetY = p.y;
         // a tick without the heavy fields: keep what we already know about ourselves
         if (p.id === localPlayerId && localPlayer) {
-          for (const k of ['inventory', 'equipment', 'baseStats', 'skills', 'equippedSkills', 'elementResist', 'skillLinks']) {
+          for (const k of ['inventory', 'equipment', 'baseStats', 'skills', 'equippedSkills', 'elementResist']) {
             if (p[k] === undefined) p[k] = localPlayer[k];
           }
         }
@@ -1397,6 +1420,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupClassSkillHUD(localPlayer.characterClass);
     renderInventoryGrid();
     renderShopSellList();
+    if (shopModal && shopModal.style.display === 'flex' && tabShopBuy && tabShopBuy.classList.contains('active')) renderShopBuyList();
     if (enchanterModal && enchanterModal.style.display === 'flex') renderEnchanter();
     if (shopPlayerGold) shopPlayerGold.textContent = localPlayer.gold;
     if (skillTreeModal && skillTreeModal.style.display === 'flex') {
@@ -1487,6 +1511,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     if (VARIANT[fx.shape] && se[VARIANT[fx.shape]]) return se[VARIANT[fx.shape]]();
     if (fx.shape === 'aura') return fx.off ? se.playSkillWhoosh() : se.playBerserk();
+    if (fx.skillId === 'wpn_riftwalker_edge') { se.playBlink(); return se.playExplosion(); }
     if (fx.shape === 'blink') return se.playBlink();
     if (fx.shape === 'dash') return se.playBladeCharge();
     if (fx.shape === 'pull') return se.playSingularity();
@@ -1543,8 +1568,6 @@ document.addEventListener('DOMContentLoaded', () => {
       } else if (slot === 'weapon') {
         weaponCooldownMax = fx.cooldown || weaponCooldownMax;
         weaponCooldownTimer = weaponCooldownMax;
-      } else if (slot && slot.startsWith('link_')) {
-        // a Skill Link cast of a skill that isn't on the hotbar
       } else {
         skill1CooldownMax = fx.cooldown || skill1CooldownMax;
         skill1CooldownTimer = skill1CooldownMax;
@@ -1874,6 +1897,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Ask (with an in-game dialog) before leaving a dungeon run that has not been cleared yet
   function confirmLeaveDungeon(onLeave) {
+    if (window.RiftUI.active()) return window.RiftUI.confirmLeave();
     if (!dungeonRunState.active || dungeonRunState.cleared) return onLeave();
     if (document.querySelector('.leave-confirm-overlay')) return;
     const overlay = document.createElement('div');
@@ -1929,6 +1953,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const mouseY = e.clientY - rect.top;
     const worldPos = Isometric.screenToWorld(mouseX, mouseY, renderer.camera, renderer.viewW, renderer.viewH);
 
+    // Placing an Eternal Rift structure: this click builds (or right click cancels)
+    if (!isDragging && window.RiftUI.handleClick(worldPos, e.button)) return;
+
     // If dragging / holding mouse down, continuously stream destination
     if (isDragging) {
       const now = performance.now();
@@ -1960,6 +1987,25 @@ document.addEventListener('DOMContentLoaded', () => {
         if (Math.hypot(valka.x - worldPos.x, valka.y - worldPos.y) < 1.3) {
           if (Math.hypot(valka.x - localPlayer.x, valka.y - localPlayer.y) <= 3.5) openEnchanter();
           else socket.emit('player_input', { type: 'click_move', x: valka.x - 1.8, y: valka.y });
+          return;
+        }
+        // James the Gatekeeper (Rift Forge) and the Eternal Rift gate beside him
+        const james = townObstacles.find(o => o.id === 'npc_james');
+        if (james && Math.hypot(james.x - worldPos.x, james.y - worldPos.y) < 1.3) {
+          if (Math.hypot(james.x - localPlayer.x, james.y - localPlayer.y) <= 3.5) window.RiftUI.openForge();
+          else socket.emit('player_input', { type: 'click_move', x: james.x - 1.4, y: james.y + 0.6 });
+          return;
+        }
+        const riftGate = townObstacles.find(o => o.id === 'portal_rift');
+        if (riftGate && Math.hypot(riftGate.x - worldPos.x, riftGate.y - worldPos.y) < 1.1) {
+          if (Math.hypot(riftGate.x - localPlayer.x, riftGate.y - localPlayer.y) <= PORTAL_USE_RANGE) socket.emit('use_portal');
+          else socket.emit('player_input', { type: 'click_move', x: riftGate.x, y: riftGate.y + 1 });
+          return;
+        }
+        const personalChest = townObstacles.find(o => o.id === 'town_personal_chest' || o.type === 'personal_chest') || { x: 17.8, y: 19.6 };
+        if (Math.hypot(personalChest.x - worldPos.x, personalChest.y - worldPos.y) < 1.3) {
+          if (Math.hypot(personalChest.x - localPlayer.x, personalChest.y - localPlayer.y) <= 3.5) openPersonalChestModal();
+          else socket.emit('player_input', { type: 'click_move', x: personalChest.x, y: personalChest.y + 0.8 });
           return;
         }
         const clickDistToMerchant = Math.hypot(merchant.x - worldPos.x, merchant.y - worldPos.y);
@@ -2071,7 +2117,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 y: localPlayer.y,
                 facing: localPlayer.facing,
                 attackSpeed: atkSpeed,
-                hasSweep: true
+                hasSweep: true,
+                sweepRange: localPlayer.sweepReach || 0,
+                sweepArc: localPlayer.sweepArc || 0
               });
             }
           }
@@ -2290,10 +2338,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (el.id !== 'authModal' && el.id !== 'joinModal') el.style.display = 'none';
       }
       if (window.GameTooltip) window.GameTooltip.hide();
+      const qmc = document.getElementById('quickMenuContainer');
+      if (qmc) qmc.classList.remove('is-open');
       chatInput.blur();
       return;
     }
-    if (code === 'KeyP' || key === 'p') openShopModal();
     if (code === 'KeyC' || key === 'c') toggleModal(statsModal);
     if (code === 'KeyI' || key === 'i') {
       renderInventoryGrid();
@@ -2503,7 +2552,10 @@ document.addEventListener('DOMContentLoaded', () => {
         targetX: targetMob ? targetMob.x : undefined,
         targetY: targetMob ? targetMob.y : undefined,
         attackSpeed: atkSpeed,
-        hasSweep: true
+        hasSweep: true,
+        // the cleave's true reach and arc (from the server snapshot), so the slash grows with range
+        sweepRange: localPlayer.sweepReach || 0,
+        sweepArc: localPlayer.sweepArc || 0
       });
     }
   }
@@ -2837,8 +2889,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // Graphics quality (persisted in localStorage): the world is drawn into a
   // smaller canvas buffer and stretched, which is what slow laptops need most.
   // Auto starts sharp and steps down while the frame rate stays low.
-  const GRAPHICS_SCALES = { high: 1, medium: 0.75, low: 0.55 };
-  const AUTO_SCALE_STEPS = [1, 0.75, 0.55];
+  const GRAPHICS_SCALES = { high: 1, medium: 0.75, low: 0.55, potato: 0.42 };
+  const AUTO_SCALE_STEPS = [1, 0.75, 0.55, 0.42];
   const AUTO_LOW_FPS = 42;          // average fps over one window that counts as lagging
   const AUTO_WINDOW_MS = 2000;
   let graphicsQuality = 'auto';
@@ -2851,13 +2903,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function applyGraphicsQuality(quality) {
     graphicsQuality = quality;
-    const scale = quality === 'auto' ? AUTO_SCALE_STEPS[autoScaleStep] : GRAPHICS_SCALES[quality];
+    const scale = quality === 'auto' ? AUTO_SCALE_STEPS[autoScaleStep] : (GRAPHICS_SCALES[quality] || 1);
     renderer.setRenderScale(scale);
-    renderer.lowEffects = quality === 'low' || (quality === 'auto' && autoScaleStep === AUTO_SCALE_STEPS.length - 1);
+    const effQuality = quality === 'auto'
+      ? (autoScaleStep >= 3 ? 'potato' : (autoScaleStep >= 2 ? 'low' : (autoScaleStep >= 1 ? 'medium' : 'high')))
+      : quality;
+    if (renderer.setQuality) {
+      renderer.setQuality(effQuality);
+    } else {
+      renderer.lowEffects = quality === 'low' || quality === 'potato' || (quality === 'auto' && autoScaleStep >= 2);
+    }
     fpsWindow.start = 0;
     graphicsPresets.forEach(b => b.classList.toggle('active', b.dataset.quality === quality));
     if (lblGraphicsVal) {
-      const label = quality.charAt(0).toUpperCase() + quality.slice(1);
+      const label = quality === 'potato' ? 'Potato' : (quality.charAt(0).toUpperCase() + quality.slice(1));
       lblGraphicsVal.textContent = `${label} · ${Math.round(scale * 100)}%`;
     }
     try {
@@ -2893,6 +2952,108 @@ document.addEventListener('DOMContentLoaded', () => {
       // picking Auto again gives it a fresh start at full sharpness
       if (btn.dataset.quality === 'auto') autoScaleStep = 0;
       applyGraphicsQuality(btn.dataset.quality);
+    });
+  });
+
+  // Target FPS limiter (30 FPS eco, 60 FPS, Uncapped)
+  const targetFpsPresets = document.querySelectorAll('.gui-scale-preset[data-fps]');
+  const lblFpsLimitVal = document.getElementById('lblFpsLimitVal');
+  let targetFps = 0; // 0 = uncapped
+  let frameInterval = 0; // ms
+  let lastRenderTime = 0;
+
+  try {
+    const savedFps = localStorage.getItem('slop_target_fps');
+    if (savedFps !== null) {
+      const parsed = parseInt(savedFps, 10);
+      if (!isNaN(parsed) && (parsed === 0 || parsed === 30 || parsed === 60)) {
+        targetFps = parsed;
+      }
+    }
+  } catch (_) {}
+
+  function applyTargetFps(fps) {
+    targetFps = parseInt(fps, 10) || 0;
+    frameInterval = targetFps > 0 ? (1000 / targetFps) : 0;
+    targetFpsPresets.forEach(b => b.classList.toggle('active', parseInt(b.dataset.fps, 10) === targetFps));
+    if (lblFpsLimitVal) {
+      lblFpsLimitVal.textContent = targetFps === 0 ? 'Uncapped' : `${targetFps} FPS`;
+    }
+    try {
+      localStorage.setItem('slop_target_fps', targetFps.toString());
+    } catch (_) {}
+  }
+  applyTargetFps(targetFps);
+
+  targetFpsPresets.forEach(btn => {
+    btn.addEventListener('click', () => {
+      applyTargetFps(btn.dataset.fps);
+    });
+  });
+
+  // 3D Town Props mode (Auto, On, Off/2D Fast)
+  const townPropsPresets = document.querySelectorAll('.gui-scale-preset[data-props]');
+  const lblTownPropsVal = document.getElementById('lblTownPropsVal');
+  let townPropsMode = 'auto';
+
+  try {
+    const savedProps = localStorage.getItem('slop_town_props');
+    if (savedProps === 'auto' || savedProps === 'on' || savedProps === 'off') {
+      townPropsMode = savedProps;
+    }
+  } catch (_) {}
+
+  function applyTownPropsMode(mode) {
+    townPropsMode = mode;
+    if (renderer && renderer.setTownPropsMode) {
+      renderer.setTownPropsMode(mode);
+    }
+    townPropsPresets.forEach(b => b.classList.toggle('active', b.dataset.props === mode));
+    if (lblTownPropsVal) {
+      lblTownPropsVal.textContent = mode === 'auto' ? 'Auto' : (mode === 'on' ? '3D On' : '2D Fast');
+    }
+    try {
+      localStorage.setItem('slop_town_props', mode);
+    } catch (_) {}
+  }
+  applyTownPropsMode(townPropsMode);
+
+  townPropsPresets.forEach(btn => {
+    btn.addEventListener('click', () => {
+      applyTownPropsMode(btn.dataset.props);
+    });
+  });
+
+  // VFX & Particles quality (Auto, Full, Reduced, Minimal)
+  const vfxPresets = document.querySelectorAll('.gui-scale-preset[data-vfx]');
+  const lblVfxVal = document.getElementById('lblVfxVal');
+  let vfxLevel = 'auto';
+
+  try {
+    const savedVfx = localStorage.getItem('slop_vfx_level');
+    if (savedVfx === 'auto' || savedVfx === 'full' || savedVfx === 'reduced' || savedVfx === 'minimal') {
+      vfxLevel = savedVfx;
+    }
+  } catch (_) {}
+
+  function applyVfxLevel(level) {
+    vfxLevel = level;
+    if (renderer && renderer.setVfxLevel) {
+      renderer.setVfxLevel(level);
+    }
+    vfxPresets.forEach(b => b.classList.toggle('active', b.dataset.vfx === level));
+    if (lblVfxVal) {
+      lblVfxVal.textContent = level.charAt(0).toUpperCase() + level.slice(1);
+    }
+    try {
+      localStorage.setItem('slop_vfx_level', level);
+    } catch (_) {}
+  }
+  applyVfxLevel(vfxLevel);
+
+  vfxPresets.forEach(btn => {
+    btn.addEventListener('click', () => {
+      applyVfxLevel(btn.dataset.vfx);
     });
   });
 
@@ -3530,77 +3691,235 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>`;
   }
 
+  // ================= PERSONAL STORAGE CHEST UI =================
+  function openPersonalChestModal() {
+    if (!personalChestModal) return;
+    socket.emit('open_personal_chest');
+    personalChestModal.style.display = 'flex';
+    renderPersonalChest();
+  }
+
+  function renderPersonalChest(storage, inventory) {
+    if (!personalChestModal) return;
+    const store = storage || (localPlayer && localPlayer.storage) || { maxSlots: 50, items: [] };
+    const inv = inventory || (localPlayer && localPlayer.inventory) || { maxSlots: 30, items: [] };
+
+    const maxChestSlots = store.maxSlots || 50;
+    const storeItems = Array.isArray(store.items) ? store.items : [];
+    if (chestCapacityText) {
+      chestCapacityText.textContent = `${storeItems.length} / ${maxChestSlots}`;
+      chestCapacityText.classList.toggle('is-full', storeItems.length >= maxChestSlots);
+    }
+
+    const maxBagSlots = inv.maxSlots || 30;
+    const bagItems = Array.isArray(inv.items) ? inv.items : [];
+    if (chestBagCapacityText) {
+      chestBagCapacityText.textContent = `${bagItems.length} / ${maxBagSlots}`;
+      chestBagCapacityText.classList.toggle('is-full', bagItems.length >= maxBagSlots);
+    }
+
+    // Render Chest Vault Grid (Left pane)
+    if (chestVaultGrid) {
+      chestVaultGrid.innerHTML = '';
+      const totalChestCells = Math.max(maxChestSlots, Math.ceil(storeItems.length / 6) * 6);
+      for (let i = 0; i < totalChestCells; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'inv-slot-compact';
+        const item = storeItems[i];
+        if (!item) {
+          cell.classList.add('empty');
+          chestVaultGrid.appendChild(cell);
+          continue;
+        }
+
+        cell.classList.add(`rarity-${item.rarity || 'common'}`);
+        cell.innerHTML = `
+          <div class="inv-icon">${PixelIcons.itemHtml(item)}</div>
+          ${item.upgradeLevel ? `<span class="upgrade-badge">+${item.upgradeLevel}</span>` : ''}
+          ${item.count > 1 ? `<div class="inv-badge">x${item.count}</div>` : ''}`;
+
+        GameTooltip.item(cell, item, { hint: 'Click to withdraw to backpack' });
+        const slotIdx = i;
+        cell.addEventListener('click', () => {
+          socket.emit('withdraw_from_chest', { itemIndex: slotIdx });
+          window.soundEngine.playSlash();
+        });
+        chestVaultGrid.appendChild(cell);
+      }
+    }
+
+    // Render Bag Grid (Right pane)
+    if (chestBagGrid) {
+      chestBagGrid.innerHTML = '';
+      const totalBagCells = Math.max(maxBagSlots, Math.ceil(bagItems.length / 6) * 6);
+      for (let i = 0; i < totalBagCells; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'inv-slot-compact';
+        const item = bagItems[i];
+        if (!item) {
+          cell.classList.add('empty');
+          chestBagGrid.appendChild(cell);
+          continue;
+        }
+
+        cell.classList.add(`rarity-${item.rarity || 'common'}`);
+        cell.innerHTML = `
+          <div class="inv-icon">${PixelIcons.itemHtml(item)}</div>
+          ${item.upgradeLevel ? `<span class="upgrade-badge">+${item.upgradeLevel}</span>` : ''}
+          ${item.count > 1 ? `<div class="inv-badge">x${item.count}</div>` : ''}`;
+
+        GameTooltip.item(cell, item, { hint: 'Click to deposit into chest' });
+        const itemIdx = i;
+        cell.addEventListener('click', () => {
+          socket.emit('deposit_to_chest', { itemIndex: itemIdx });
+          window.soundEngine.playSlash();
+        });
+        chestBagGrid.appendChild(cell);
+      }
+    }
+  }
+
+  socket.on('personal_chest_data', (data) => {
+    if (localPlayer) {
+      if (data.storage) localPlayer.storage = data.storage;
+      if (data.inventory) localPlayer.inventory = data.inventory;
+      renderInventoryGrid();
+    }
+    renderPersonalChest(data.storage, data.inventory);
+  });
+
+  if (btnCloseChest) {
+    btnCloseChest.addEventListener('click', () => {
+      if (personalChestModal) personalChestModal.style.display = 'none';
+    });
+  }
+  if (btnChestDepositAll) {
+    btnChestDepositAll.addEventListener('click', () => {
+      socket.emit('deposit_to_chest', { all: true });
+      window.soundEngine.playSlash();
+    });
+  }
+
   // ================= SHOP & INVENTORY UI =================
 
   function openShopModal() {
+    buySelectedId = null;
+    buySelectedQty = 1;
     renderShopBuyList();
     renderShopSellList();
     if (shopPlayerGold && localPlayer) shopPlayerGold.textContent = localPlayer.gold;
     shopModal.style.display = 'flex';
   }
 
+  let buySelectedId = null;
+  let buySelectedQty = 1;
+
+  function formatShopPrice(val) {
+    if (!val) return '0g';
+    if (val >= 1000000) {
+      const m = val / 1000000;
+      return (m % 1 === 0 ? m : m.toFixed(1)) + 'M';
+    }
+    if (val >= 1000) {
+      const k = val / 1000;
+      return (k % 1 === 0 ? k : k.toFixed(1)) + 'k';
+    }
+    return val + 'g';
+  }
+
   function renderShopBuyList() {
     if (!shopBuyList || !shopItemsCatalog.length) return;
     shopBuyList.innerHTML = '';
 
-    shopItemsCatalog.forEach(item => {
-      const card = document.createElement('div');
-      card.className = `shop-item-card rarity-${item.rarity || 'common'}`;
-      let qty = 1;
-      const unitPrice = item.buyPrice || 0;
+    const grid = document.createElement('div');
+    grid.className = 'inventory-grid-compact buy-grid';
+    shopBuyList.appendChild(grid);
 
-      card.innerHTML = `
-        <div class="shop-item-left">
-          <div class="shop-item-icon">${PixelIcons.itemHtml(item)}</div>
-          <div class="shop-item-details">
-            <div class="shop-item-name">${item.name}</div>
-            <div class="shop-item-desc">${item.desc || ''}</div>
-          </div>
+    const detail = document.createElement('div');
+    detail.className = 'buy-detail';
+    shopBuyList.appendChild(detail);
+
+    const cells = [];
+    const totalSlots = Math.max(18, Math.ceil(shopItemsCatalog.length / 6) * 6);
+
+    const renderDetail = () => {
+      if (!buySelectedId) {
+        detail.style.display = 'none';
+        detail.innerHTML = '';
+        return;
+      }
+
+      const item = shopItemsCatalog.find(i => i.id === buySelectedId);
+      if (!item) {
+        detail.style.display = 'none';
+        detail.innerHTML = '';
+        return;
+      }
+
+      detail.style.display = 'flex';
+      const unitPrice = item.buyPrice || 0;
+      const playerGold = (localPlayer && localPlayer.gold) || 0;
+      const totalCost = buySelectedQty * unitPrice;
+      const canAfford = playerGold >= totalCost;
+
+      detail.innerHTML = `
+        <div class="shop-item-icon rarity-${item.rarity || 'common'}">
+          ${PixelIcons.itemHtml(item)}
         </div>
-        <div class="shop-buy-action-group" style="display: flex; align-items: center; gap: 8px;">
-          <div class="shop-qty-controls" style="display: flex; align-items: center; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; padding: 2px 4px; gap: 3px;">
-            <button type="button" class="btn-qty-sub" style="width: 22px; height: 22px; background: rgba(255,255,255,0.1); border: none; color: #fff; cursor: pointer; border-radius: 3px; font-weight: bold; line-height: 1;">-</button>
-            <input type="number" class="shop-qty-val" min="1" max="999" value="1" style="width: 44px; height: 22px; background: transparent; border: none; color: #fde68a; font-weight: bold; font-family: monospace; text-align: center; font-size: 13px;">
-            <button type="button" class="btn-qty-add" style="width: 22px; height: 22px; background: rgba(255,255,255,0.1); border: none; color: #fff; cursor: pointer; border-radius: 3px; font-weight: bold; line-height: 1;">+</button>
-            <button type="button" class="btn-qty-max" style="padding: 0 6px; height: 22px; background: rgba(245,158,11,0.25); border: 1px solid rgba(245,158,11,0.5); color: #fde68a; cursor: pointer; border-radius: 3px; font-size: 11px; font-weight: bold;">Max</button>
-          </div>
-          <button class="btn-shop-action" data-buy-id="${item.id}">
-            Buy 1x (${unitPrice}g)
+        <div class="shop-item-details">
+          <div class="shop-item-name">${item.name}</div>
+          <div class="shop-item-desc"><span style="color: #fde68a; font-weight: bold;">${unitPrice.toLocaleString()}g</span> each</div>
+        </div>
+        <div class="buy-qty-controls">
+          <button type="button" class="buy-qty-btn btn-qty-sub" title="Decrease amount">-</button>
+          <input type="number" class="buy-qty-input" min="1" max="999" value="${buySelectedQty}" title="Amount to buy">
+          <button type="button" class="buy-qty-btn btn-qty-add" title="Increase amount">+</button>
+          <button type="button" class="buy-qty-max" title="Max affordable">MAX</button>
+        </div>
+        <div class="buy-action-group">
+          <button type="button" class="buy-action-btn ${canAfford ? '' : 'disabled'}" ${canAfford ? '' : 'disabled'}>
+            <span data-pxi="coin"></span>
+            <span class="buy-btn-text">${canAfford ? `BUY (${totalCost.toLocaleString()}g)` : `NEED ${totalCost.toLocaleString()}g`}</span>
           </button>
+          <button type="button" class="buy-cancel-btn" title="Cancel selection">✕</button>
         </div>
       `;
 
-      GameTooltip.item(card.querySelector('.shop-item-icon'), item);
-
-      const btnSub = card.querySelector('.btn-qty-sub');
-      const btnAdd = card.querySelector('.btn-qty-add');
-      const btnMax = card.querySelector('.btn-qty-max');
-      const inputVal = card.querySelector('.shop-qty-val');
-      const btnBuy = card.querySelector('.btn-shop-action');
+      const btnSub = detail.querySelector('.btn-qty-sub');
+      const btnAdd = detail.querySelector('.btn-qty-add');
+      const btnMax = detail.querySelector('.buy-qty-max');
+      const inputVal = detail.querySelector('.buy-qty-input');
+      const btnBuy = detail.querySelector('.buy-action-btn');
+      const btnCancel = detail.querySelector('.buy-cancel-btn');
 
       const updateUI = () => {
-        const total = qty * unitPrice;
-        btnBuy.textContent = `Buy ${qty}x (${total}g)`;
-        inputVal.value = qty;
+        const currentTotal = buySelectedQty * unitPrice;
+        const afford = playerGold >= currentTotal;
+        inputVal.value = buySelectedQty;
+        btnBuy.disabled = !afford;
+        btnBuy.classList.toggle('disabled', !afford);
+        const textSpan = btnBuy.querySelector('.buy-btn-text');
+        if (textSpan) {
+          textSpan.textContent = afford ? `BUY (${currentTotal.toLocaleString()}g)` : `NEED ${currentTotal.toLocaleString()}g`;
+        }
       };
 
       btnSub.addEventListener('click', (e) => {
         e.stopPropagation();
-        qty = Math.max(1, qty - 1);
+        buySelectedQty = Math.max(1, buySelectedQty - 1);
         updateUI();
       });
 
       btnAdd.addEventListener('click', (e) => {
         e.stopPropagation();
-        qty = Math.min(999, qty + 1);
+        buySelectedQty = Math.min(999, buySelectedQty + 1);
         updateUI();
       });
 
       btnMax.addEventListener('click', (e) => {
         e.stopPropagation();
-        const playerGold = (localPlayer && localPlayer.gold) || 0;
         const maxAffordable = unitPrice > 0 ? Math.floor(playerGold / unitPrice) : 999;
-        qty = Math.max(1, Math.min(999, maxAffordable));
+        buySelectedQty = Math.max(1, Math.min(999, maxAffordable));
         updateUI();
       });
 
@@ -3608,19 +3927,86 @@ document.addEventListener('DOMContentLoaded', () => {
         let v = parseInt(inputVal.value, 10);
         if (isNaN(v) || v < 1) v = 1;
         if (v > 999) v = 999;
-        qty = v;
+        buySelectedQty = v;
         updateUI();
       });
-
+      inputVal.addEventListener('input', () => {
+        let v = parseInt(inputVal.value, 10);
+        if (!isNaN(v) && v >= 1 && v <= 999) {
+          buySelectedQty = v;
+          updateUI();
+        }
+      });
       inputVal.addEventListener('click', (e) => e.stopPropagation());
+      inputVal.addEventListener('keydown', (e) => e.stopPropagation());
 
-      btnBuy.addEventListener('click', () => {
-        socket.emit('buy_item', { itemId: item.id, count: qty });
+      btnBuy.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const currentTotal = buySelectedQty * unitPrice;
+        if (playerGold < currentTotal) return;
+
+        socket.emit('buy_item', { itemId: item.id, count: buySelectedQty });
         window.soundEngine.playCoin();
+
+        // Done process: reset selection and close amount panel
+        buySelectedId = null;
+        buySelectedQty = 1;
+        cells.forEach(c => c.classList.remove('selected'));
+        renderDetail();
       });
 
-      shopBuyList.appendChild(card);
-    });
+      btnCancel.addEventListener('click', (e) => {
+        e.stopPropagation();
+        buySelectedId = null;
+        buySelectedQty = 1;
+        cells.forEach(c => c.classList.remove('selected'));
+        renderDetail();
+      });
+    };
+
+    // Build the inventory layout grid
+    for (let i = 0; i < totalSlots; i++) {
+      const cell = document.createElement('div');
+      cell.className = 'inv-slot-compact';
+      const item = shopItemsCatalog[i];
+
+      if (!item) {
+        cell.classList.add('empty');
+        grid.appendChild(cell);
+        continue;
+      }
+
+      cell.classList.add(`rarity-${item.rarity || 'common'}`);
+      if (item.id === buySelectedId) {
+        cell.classList.add('selected');
+      }
+
+      cell.innerHTML = `<div class="inv-icon">${PixelIcons.itemHtml(item)}</div>`;
+
+      GameTooltip.item(cell, item, {
+        buyPrice: item.buyPrice,
+        hint: 'Click to choose amount & buy'
+      });
+
+      cell.addEventListener('click', () => {
+        if (buySelectedId === item.id) {
+          buySelectedId = null;
+          buySelectedQty = 1;
+        } else {
+          buySelectedId = item.id;
+          buySelectedQty = 1;
+        }
+        cells.forEach((c, idx) => {
+          c.classList.toggle('selected', shopItemsCatalog[idx] && shopItemsCatalog[idx].id === buySelectedId);
+        });
+        renderDetail();
+      });
+
+      cells.push(cell);
+      grid.appendChild(cell);
+    }
+
+    renderDetail();
   }
 
   // Sell tab state: selected bag slots (index -> item id, so a changed bag drops
@@ -3767,7 +4153,8 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
-    const slots = Math.max(BAG_CAPACITY, Math.ceil(items.length / 6) * 6);
+    const curCap = getBagCapacity();
+    const slots = Math.max(curCap, Math.ceil(items.length / 6) * 6);
     for (let i = 0; i < slots; i++) {
       const cell = document.createElement('div');
       cell.className = 'inv-slot-compact';
@@ -3811,6 +4198,10 @@ document.addEventListener('DOMContentLoaded', () => {
   let invFilter = 'all';
   let invSorted = false;
   const BAG_CAPACITY = 30;
+  function getBagCapacity(p) {
+    const player = p || localPlayer;
+    return (player && player.inventory && player.inventory.maxSlots) || BAG_CAPACITY;
+  }
   const RARITY_RANK = { mythic: 5, legendary: 4, epic: 3, rare: 2, common: 1 };
   const TYPE_RANK = { sp_card: 0, equipment: 1, consumable: 2, material: 3, treasure: 4 };
   const EQUIP_SLOTS = [
@@ -3845,6 +4236,14 @@ document.addEventListener('DOMContentLoaded', () => {
   function bagHint(item) {
     const blocker = equipBlocker(item);
     if (blocker) return `Can't equip: ${blocker}`;
+    if (item.type === 'rune') return 'Click to open Socket Forge';
+    if (item.id === 'socket_expander') return 'Click to open Socket Forge';
+    if (item.id === 'bag_expander_sm') return 'Click to expand: +1 Row (+6 slots)';
+    if (item.id === 'bag_expander_md') return 'Click to expand: +2 Rows (+12 slots)';
+    if (item.id === 'bag_expander_lg') return 'Click to expand: +5 Rows (+30 slots)';
+    if (item.id === 'chest_expander_sm') return 'Click to expand Chest: +10 slots';
+    if (item.id === 'chest_expander_md') return 'Click to expand Chest: +20 slots';
+    if (item.id === 'chest_expander_lg') return 'Click to expand Chest: +50 slots';
     if (item.type === 'equipment') return 'Click to equip';
     if (item.type === 'sp_card') {
       const card = spCardDef(item.cardId);
@@ -3865,7 +4264,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (inventoryModal.style.display !== 'flex' || !localPlayer) { invPreviewRaf = 0; return; }
       g.clearRect(0, 0, cv.width, cv.height);
       g.imageSmoothingEnabled = false;
-      g.drawImage(renderer.heroFrameFor(localPlayer, 'S', 'idle', Math.floor(ts / 1000 * 6) % 8), 0, 0);
+      g.drawImage(renderer.heroFrameFor(localPlayer, 'S', 'idle', PixelHeroes.loopIndex(localPlayer.characterClass, 'idle', ts / 1000)), 0, 0);
       invPreviewRaf = requestAnimationFrame(step);
     };
     invPreviewRaf = requestAnimationFrame(step);
@@ -3929,10 +4328,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const invGrid = document.getElementById('invItemsGrid');
     if (!invGrid || !localPlayer.inventory) return;
     const items = localPlayer.inventory.items || [];
+    const curBagCap = getBagCapacity();
     const capacityText = document.getElementById('invCapacityText');
     if (capacityText) {
-      capacityText.textContent = `${items.length} / ${BAG_CAPACITY}`;
-      capacityText.classList.toggle('is-full', items.length >= BAG_CAPACITY);
+      capacityText.textContent = `${items.length} / ${curBagCap}`;
+      capacityText.classList.toggle('is-full', items.length >= curBagCap);
     }
     let list = items.map((item, index) => ({ item, index })).filter(e => itemMatchesFilter(e.item));
     if (invSorted) {
@@ -3941,7 +4341,7 @@ document.addEventListener('DOMContentLoaded', () => {
         || String(a.item.name).localeCompare(String(b.item.name)));
     }
     invGrid.innerHTML = '';
-    const cells = Math.max(BAG_CAPACITY, Math.ceil(list.length / 6) * 6);
+    const cells = Math.max(curBagCap, Math.ceil(list.length / 6) * 6);
     for (let i = 0; i < cells; i++) {
       const cell = document.createElement('div');
       cell.className = 'inv-slot-compact';
@@ -3962,6 +4362,17 @@ document.addEventListener('DOMContentLoaded', () => {
       cell.addEventListener('click', () => {
         if (item.type === 'equipment' || item.type === 'sp_card') {
           socket.emit('equip_item', { itemIndex: index });
+          window.soundEngine.playLevelUp();
+        } else if (item.type === 'rune' || item.id === 'socket_expander') {
+          enchTab = 'socket';
+          enchSelected = 'eq:weapon';
+          if (enchanterModal) enchanterModal.style.display = 'flex';
+          renderEnchanter();
+        } else if (item.id && item.id.startsWith('bag_expander_')) {
+          socket.emit('use_bag_expander', { itemIndex: index });
+          window.soundEngine.playLevelUp();
+        } else if (item.id && item.id.startsWith('chest_expander_')) {
+          socket.emit('use_chest_expander', { itemIndex: index });
           window.soundEngine.playLevelUp();
         } else if (item.id === 'health_potion') {
           drinkPotion('health');
@@ -4012,6 +4423,17 @@ document.addEventListener('DOMContentLoaded', () => {
   function enchEntries() {
     const eq = localPlayer.equipment || {};
     const out = [];
+    if (enchTab === 'socket') {
+      if (eq.weapon && eq.weapon.type === 'equipment' && eq.weapon.slot === 'weapon') {
+        out.push({ key: 'eq:weapon', item: eq.weapon, target: 'equipped', slot: 'weapon', equipped: true });
+      }
+      (localPlayer.inventory.items || []).forEach((it, i) => {
+        if (it && it.type === 'equipment' && it.slot === 'weapon') {
+          out.push({ key: `inv:${i}`, item: it, target: 'inventory', itemIndex: i });
+        }
+      });
+      return out;
+    }
     const want = enchTab === 'gear' ? 'equipment' : 'sp_card';
     for (const [slot, it] of Object.entries(eq)) if (it && it.type === want) out.push({ key: `eq:${slot}`, item: it, target: 'equipped', slot, equipped: true });
     localPlayer.inventory.items.forEach((it, i) => { if (it.type === want) out.push({ key: `inv:${i}`, item: it, target: 'inventory', itemIndex: i }); });
@@ -4078,6 +4500,200 @@ document.addEventListener('DOMContentLoaded', () => {
     const listEl = document.getElementById('enchList');
     const detailEl = document.getElementById('enchDetail');
     listEl.innerHTML = '';
+
+    if (enchTab === 'socket') {
+      const entries = enchEntries();
+      if (!entries.some(e => e.key === enchSelected)) enchSelected = entries[0] ? entries[0].key : null;
+      if (!entries.length) {
+        listEl.innerHTML = '<div class="ench-empty">No weapons found in your equipment or bag.</div>';
+        detailEl.innerHTML = '';
+        return;
+      }
+      entries.forEach(e => {
+        const row = document.createElement('div');
+        row.className = `ench-row rarity-${e.item.rarity || 'common'} ${e.key === enchSelected ? 'selected' : ''}`;
+        const maxSockets = e.item.maxSockets !== undefined ? e.item.maxSockets : 0;
+        const brokenSockets = e.item.brokenSockets || 0;
+        const usableSockets = Math.max(0, maxSockets - brokenSockets);
+        const socketsArr = Array.isArray(e.item.sockets) ? e.item.sockets : [];
+        const socketedCount = socketsArr.filter(Boolean).length;
+        row.innerHTML = `${PixelIcons.itemHtml(e.item)}<span class="ench-row-name">${escapeHtml(e.item.name)}<small>${e.equipped ? 'Equipped' : 'In bag'}</small></span><span class="ench-row-lvl" style="font-size:13px; color:#38bdf8;">⬡ ${socketedCount}/${usableSockets}</span>`;
+        GameTooltip.item(row, e.item);
+        row.addEventListener('click', () => { enchSelected = e.key; enchResult = null; renderEnchanter(); });
+        listEl.appendChild(row);
+      });
+
+      const sel = entries.find(e => e.key === enchSelected);
+      if (!sel) return;
+      const item = sel.item;
+      const maxSockets = item.maxSockets !== undefined ? item.maxSockets : 0;
+      const brokenSockets = item.brokenSockets || 0;
+      const usableSockets = Math.max(0, maxSockets - brokenSockets);
+      const sockets = Array.isArray(item.sockets) ? item.sockets : [];
+
+      const runesInBag = [];
+      (localPlayer.inventory.items || []).forEach((it, idx) => {
+        if (it && it.type === 'rune') runesInBag.push({ item: it, index: idx });
+      });
+
+      const expanderItem = (localPlayer.inventory.items || []).find(it => it && it.id === 'socket_expander');
+      const expanderCount = expanderItem ? (expanderItem.count || 1) : 0;
+
+      const RUNE_INFO = {
+        rune_flame: { name: 'Infernal Flame Rune', icon: '🔴', desc: '+25% Damage & Persistent Burn DoT', color: '#ef4444' },
+        flame: { name: 'Infernal Flame Rune', icon: '🔴', desc: '+25% Damage & Persistent Burn DoT', color: '#ef4444' },
+        rune_frost: { name: 'Glacial Frost Rune', icon: '🔵', desc: '40% Chill Slow for 3.5s & 25% Freeze Chance', color: '#38bdf8' },
+        frost: { name: 'Glacial Frost Rune', icon: '🔵', desc: '40% Chill Slow for 3.5s & 25% Freeze Chance', color: '#38bdf8' },
+        rune_tempest: { name: 'Tempest Surge Rune', icon: '⚡', desc: '-20% Cooldown & +10% Electric Shock DMG', color: '#eab308' },
+        tempest: { name: 'Tempest Surge Rune', icon: '⚡', desc: '-20% Cooldown & +10% Electric Shock DMG', color: '#eab308' },
+        rune_vampiric: { name: 'Vampiric Drain Rune', icon: '🟣', desc: '25% Damage Dealt as HP Life Leech', color: '#a855f7' },
+        vampiric: { name: 'Vampiric Drain Rune', icon: '🟣', desc: '25% Damage Dealt as HP Life Leech', color: '#a855f7' }
+      };
+
+      let socketsHtml = '';
+      if (maxSockets === 0) {
+        socketsHtml = '<div class="ench-warn" style="font-size:12px; padding: 10px; background: #1e293b; border-radius: 4px;">This weapon has 0 sockets. Use an Ancient Socket Expander below to drill sockets into it!</div>';
+      } else {
+        for (let i = 0; i < usableSockets; i++) {
+          const rId = sockets[i];
+          if (rId && RUNE_INFO[rId]) {
+            const r = RUNE_INFO[rId];
+            socketsHtml += `
+              <div class="socket-card filled">
+                <div class="socket-card-left">
+                  <div class="socket-icon">${r.icon}</div>
+                  <div>
+                    <div class="socket-name" style="color: ${r.color};">Socket ${i + 1}: ${escapeHtml(r.name)}</div>
+                    <div class="socket-desc">${escapeHtml(r.desc)}</div>
+                  </div>
+                </div>
+                <div class="socket-actions">
+                  <button class="socket-btn-unsocket" data-slot="${i}">Extract Rune</button>
+                </div>
+              </div>`;
+          } else {
+            const runeOptions = runesInBag.map(r => `<option value="${r.index}">${escapeHtml(r.item.name)} (x${r.item.count || 1})</option>`).join('');
+            socketsHtml += `
+              <div class="socket-card empty">
+                <div class="socket-card-left">
+                  <div class="socket-icon" style="color: #64748b;">⬡</div>
+                  <div>
+                    <div class="socket-name" style="color: #94a3b8;">Socket ${i + 1}: Empty Socket</div>
+                    <div class="socket-desc" style="color: #64748b;">Ready to be socketed with an Elemental Rune</div>
+                  </div>
+                </div>
+                <div class="socket-actions">
+                  ${runesInBag.length > 0 ? `
+                    <select class="socket-rune-select" id="socketSelect_${i}">
+                      ${runeOptions}
+                    </select>
+                    <button class="socket-btn-insert" data-slot="${i}">Socket</button>
+                  ` : '<span style="font-size:11px; color:#64748b;">No runes in bag</span>'}
+                </div>
+              </div>`;
+          }
+        }
+        for (let i = 0; i < brokenSockets; i++) {
+          socketsHtml += `
+            <div class="socket-card broken">
+              <div class="socket-card-left">
+                <div class="socket-icon" style="color: #ef4444;">✕</div>
+                <div>
+                  <div class="socket-name" style="color: #ef4444;">Broken Socket Slot</div>
+                  <div class="socket-desc" style="color: #fca5a5;">Damaged during titanium socket expansion. Cannot be socketed.</div>
+                </div>
+              </div>
+            </div>`;
+        }
+      }
+
+      const canExpand = maxSockets < 4 && expanderCount > 0;
+      const expandRates = [
+        { success: 70, fail: 30, breakRate: 0 },
+        { success: 50, fail: 30, breakRate: 20 },
+        { success: 35, fail: 35, breakRate: 30 },
+        { success: 20, fail: 35, breakRate: 45 }
+      ];
+      const curRate = expandRates[Math.min(3, maxSockets)] || expandRates[0];
+
+      detailEl.innerHTML = `
+        <div class="ench-detail-head">
+          ${PixelIcons.itemHtml(item)}
+          <div>
+            <div class="ench-detail-name" style="color:${({ rare: '#38bdf8', epic: '#c084fc', legendary: '#f59e0b' })[item.rarity] || '#e2e8f0'}">
+              ${escapeHtml(item.name)}
+            </div>
+            <div class="tip-type">${(item.rarity || 'common').toUpperCase()} WEAPON - Sockets: ${usableSockets} Active (${brokenSockets} Broken, Max 4)</div>
+          </div>
+        </div>
+
+        <div class="socket-view">
+          <div class="socket-slots-container">
+            ${socketsHtml}
+          </div>
+
+          <div class="socket-expander-box">
+            <div class="socket-expander-title">
+              🔮 Ancient Socket Expander <span style="font-size: 13px; color: ${expanderCount > 0 ? '#4ade80' : '#ef4444'};">(In Bag: x${expanderCount})</span>
+            </div>
+            <div class="socket-expander-stats">
+              <span>Drill Expansion: <b>${maxSockets} / 4 Sockets</b></span>
+              <span>Success: <b style="color: #4ade80;">${curRate.success}%</b> | Harmless Fail: <b style="color: #facc15;">${curRate.fail}%</b> | Break Risk: <b style="color: #ef4444;">${curRate.breakRate}%</b></span>
+            </div>
+            <div class="socket-expander-warn">
+              ⚠️ Warning: Expanding sockets past base slots carries a real risk to permanently break the slot!
+            </div>
+            <button class="socket-expander-btn" id="btnExpandSocket" ${canExpand ? '' : 'disabled'}>
+              ${maxSockets >= 4 ? 'MAXIMUM SOCKETS REACHED (4)' : expanderCount <= 0 ? 'ANCIENT EXPANDER NEEDED' : `DRILL +1 SOCKET (${curRate.success}% Success)`}
+            </button>
+          </div>
+        </div>
+        <div class="ench-result ${enchResult ? (enchResult.ok ? 'ok' : 'bad') : ''}">${enchResult ? escapeHtml(enchResult.text) : ''}</div>`;
+
+      detailEl.querySelectorAll('.socket-btn-insert').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const slotIdx = Number(btn.dataset.slot);
+          const selBox = document.getElementById(`socketSelect_${slotIdx}`);
+          if (!selBox) return;
+          const runeIndex = Number(selBox.value);
+          socket.emit('socket_rune', {
+            target: sel.target,
+            slot: sel.slot,
+            itemIndex: sel.itemIndex,
+            socketSlotIndex: slotIdx,
+            runeIndex
+          });
+        });
+      });
+
+      detailEl.querySelectorAll('.socket-btn-unsocket').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const slotIdx = Number(btn.dataset.slot);
+          socket.emit('unsocket_rune', {
+            target: sel.target,
+            slot: sel.slot,
+            itemIndex: sel.itemIndex,
+            socketSlotIndex: slotIdx
+          });
+        });
+      });
+
+      const expandBtn = document.getElementById('btnExpandSocket');
+      if (expandBtn) {
+        expandBtn.addEventListener('click', () => {
+          if (!confirm(`Are you sure you want to attempt drilling +1 socket into ${item.name}?\nSuccess rate: ${curRate.success}%\nBreak risk: ${curRate.breakRate}%`)) {
+            return;
+          }
+          socket.emit('expand_socket', {
+            target: sel.target,
+            slot: sel.slot,
+            itemIndex: sel.itemIndex,
+            expanderIndex: expanderItem ? (localPlayer.inventory.items || []).indexOf(expanderItem) : -1
+          });
+        });
+      }
+      return;
+    }
 
     if (enchTab === 'exchange') {
       const cards = (spCatalog && spCatalog.cards[localPlayer.characterClass]) || [];
@@ -4181,6 +4797,31 @@ document.addEventListener('DOMContentLoaded', () => {
     if (data.ok) window.soundEngine.playLevelUp();
     renderEnchanter();
   });
+  socket.on('socket_result', (data) => {
+    enchResult = data.ok
+      ? { ok: true, text: data.action === 'socket' ? 'Rune successfully socketed into weapon!' : 'Rune extracted back to bag!' }
+      : { ok: false, text: data.message || 'Socket operation failed!' };
+    if (data.ok) window.soundEngine.playLevelUp();
+    else window.soundEngine.playUpgradeFail();
+    renderEnchanter();
+    renderInventoryGrid();
+  });
+  socket.on('socket_expand_result', (data) => {
+    enchResult = data.ok
+      ? {
+          ok: data.success,
+          text: data.success
+            ? `Expansion Successful! Total sockets: ${data.maxSockets}`
+            : data.broken
+              ? `Expansion Failed! Socket broke! (${data.brokenSockets} broken)`
+              : 'Expansion Failed! The drill shattered harmlessly.'
+        }
+      : { ok: false, text: data.message || 'Expansion failed!' };
+    if (data.success) window.soundEngine.playLevelUp();
+    else window.soundEngine.playUpgradeFail();
+    renderEnchanter();
+    renderInventoryGrid();
+  });
 
   // Hook Quick Potions inside inventory modal
   const modalHp = document.getElementById('invHpSlot');
@@ -4213,7 +4854,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderShopSellList();
   });
 
-  btnOpenShop.addEventListener('click', openShopModal);
+  if (btnOpenShop) btnOpenShop.addEventListener('click', openShopModal);
   btnCloseShop.addEventListener('click', () => shopModal.style.display = 'none');
 
   // ================= HYPIXEL SKYBLOCK REFORGE ANVIL UI =================
@@ -4673,67 +5314,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const SLOT_KEYS = { slot1: 'Q', slot2: 'E', slot3: 'R', dash: 'Shift' };
 
-  // Skill Link: the selected slot also casts one extra class skill - any
-  // unlocked skill, it doesn't have to be on the hotbar
-  function renderSkillLinkRow() {
-    if (!runesSelectorRow) return;
-    let section = document.getElementById('skillLinkSection');
-    if (!section) {
-      section = document.createElement('div');
-      section.id = 'skillLinkSection';
-      section.className = 'loadout-runes-section skill-link-section';
-      section.innerHTML = `<div class="loadout-section-title" id="skillLinkTitle"></div>
-        <div class="runes-selector-row" id="skillLinkRow"></div>`;
-      runesSelectorRow.closest('.loadout-runes-section').after(section);
-    }
-    const key = SLOT_KEYS[selectedLoadoutSlot];
-    section.querySelector('#skillLinkTitle').textContent =
-      `SKILL LINK: pick a skill that also casts when you press [${key}] (it doesn't need a hotbar slot)`;
-    const row = section.querySelector('#skillLinkRow');
-    const links = (localPlayer && localPlayer.skillLinks) || {};
-    const current = links[selectedLoadoutSlot] || 'none';
-    const cls = (localPlayer && localPlayer.characterClass) || 'warrior';
-    const own = ((localPlayer && (localPlayer.baseEquippedSkills || localPlayer.equippedSkills)) || {})[selectedLoadoutSlot];
-    const options = ['none', ...((allSkillsCatalog && allSkillsCatalog[cls]) || [])
-      .filter(s => s.id !== own && (localPlayer.level || 1) >= (s.reqLevel || 1))];
-    row.innerHTML = '';
-    for (const opt of options) {
-      const id = opt === 'none' ? 'none' : opt.id;
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = `rune-pill-btn skill-link-pill ${current === id ? 'active' : ''}`;
-      btn.innerHTML = id === 'none' ? 'No Link'
-        : `<span class="skill-link-icon">${SkillIcons.svg(id)}</span><span>${escapeHtml(opt.name)}</span>`;
-      btn.title = id === 'none' ? `[${key}] casts only its own skill`
-        : `[${key}] also casts ${opt.name} (${manaCost(opt.mpCost)} MP, ${opt.cooldown}s cooldown of its own)`;
-      btn.addEventListener('click', () => {
-        socket.emit('customize_skill_slot', { slot: selectedLoadoutSlot, link: id });
-        window.soundEngine.playUpgradeSuccess();
-      });
-      row.appendChild(btn);
-    }
-  }
-
-  // Chain tag on the HUD and spellbook slots that are linked
-  function applySkillLinkBadges() {
-    const links = (localPlayer && localPlayer.skillLinks) || {};
-    const hud = { slot1: 'slotSkill1', slot2: 'slotSkill2', slot3: 'slotSkill3', dash: 'slotDash' };
-    for (const [slot, id] of Object.entries(hud)) {
-      const el = document.getElementById(id);
-      if (!el) continue;
-      el.classList.toggle('skill-linked', !!links[slot]);
-      if (links[slot]) el.dataset.link = 'LINK';
-      else delete el.dataset.link;
-    }
-    document.querySelectorAll('.hotbar-slot-card[data-slot-key]').forEach(card => {
-      const slot = card.getAttribute('data-slot-key');
-      const def = links[slot] && findSkillDef(links[slot]);
-      card.classList.toggle('skill-linked', !!links[slot]);
-      if (links[slot]) card.dataset.link = '+ ' + (def ? def.name : links[slot]);
-      else delete card.dataset.link;
-    });
-  }
-
   function renderCustomSkillLoadout() {
     if (!localPlayer || !loadoutSlotsRow || !skillsCatalogGrid) return;
 
@@ -4777,19 +5357,34 @@ document.addEventListener('DOMContentLoaded', () => {
     slotsConfig.forEach(sConf => {
       const isSelected = selectedLoadoutSlot === sConf.key;
       const skillId = getSlotSkillId(sConf.key);
-      const runeId = getSlotRuneId(sConf.key);
       const skill = findSkillDef(skillId);
-      const rune = (skillRunesCatalog && skillRunesCatalog[runeId]) || { name: 'Standard', icon: '⚪', color: '#94a3b8' };
 
       const card = document.createElement('div');
       card.className = `hotbar-slot-card ${isSelected ? 'selected active-slot' : ''}`;
       card.setAttribute('data-slot-key', sConf.key);
-      card.setAttribute('title', `${sConf.keybind}: ${skill ? skill.name : 'Empty Slot'} - ${sConf.label} | Rune: ${rune.name}`);
-card.innerHTML = `
+      card.innerHTML = `
         <div class="slot-card-badge">${sConf.keybind}</div>
         <div class="slot-card-icon">${SkillIcons.svg(skill ? skill.id : 'empty')}</div>
-        <div class="slot-drop-callout">⬇️ Drop Skill Here</div>
       `;
+
+      if (window.GameTooltip && skill) {
+        GameTooltip.html(card, () => `
+          <div class="tip-head">
+            <div class="tip-icon-wrap">${SkillIcons.svg(skill.id)}</div>
+            <div>
+              <div class="tip-name" style="color: #facc15;">[${sConf.keybind}] ${escapeHtml(skill.name)}</div>
+              <div class="tip-type">${sConf.label}</div>
+            </div>
+          </div>
+          <div class="tip-line"><span>Cooldown</span><b>${skill.cooldown}s</b></div>
+          <div class="tip-line"><span>Mana Cost</span><b>${manaCost(skill.mpCost)} MP</b></div>
+          ${skill.damageMultiplier ? `<div class="tip-line"><span>Damage</span><b>${Math.round(skill.damageMultiplier * 100)}%</b></div>` : ''}
+          <div class="tip-flavour">${escapeHtml(skill.desc || '')}</div>
+          <div class="tip-line" style="color: #38bdf8; font-size: 11px;"><span>Hotbar Slot</span><i>Click to select slot for skill assignment</i></div>
+        `);
+      } else if (window.GameTooltip) {
+        GameTooltip.html(card, `<div class="tip-text"><b>[${sConf.keybind}] ${sConf.label}</b><br>Empty slot - click any skill below or drag here to assign.</div>`);
+      }
 
       // Click to select slot
       card.addEventListener('click', () => {
@@ -4888,25 +5483,15 @@ card.innerHTML = `
       });
     }
 
-    // 2b. Skill Link picker for the selected slot
-    renderSkillLinkRow();
-    applySkillLinkBadges();
-
-    // 3. Render Skills Catalog with Drag-and-Drop Cards
+    // 3. Render Skills Catalog as Clean Slots (like inventory slot)
     skillsCatalogGrid.innerHTML = '';
 
-    // Add Drag & Drop Instruction Ribbon
-    const guideRibbon = document.createElement('div');
-    guideRibbon.className = 'loadout-drag-guide-ribbon';
-    guideRibbon.style.gridColumn = '1 / -1';
-    guideRibbon.innerHTML = `
-      <span style="font-size: 16px;">🖐️</span>
-      <span><strong>Drag & Drop:</strong> Drag any unlocked skill card below directly into <strong>[Q], [E], [R], or [Shift]</strong> slots above to equip!</span>
-    `;
-    if (spCard) {
-      guideRibbon.innerHTML = `<span><strong>${escapeHtml(spCard.name)} skills:</strong> drag a card skill into <strong>[Q], [E], [R]</strong>; movement skills (MOVE) go in <strong>[Shift]</strong>. Revert to edit your class skills.</span>`;
+    const guideRibbonEl = document.getElementById('loadoutGuideRibbon');
+    if (guideRibbonEl) {
+      guideRibbonEl.innerHTML = spCard
+        ? `<span><strong>${escapeHtml(spCard.name)}:</strong> click or drag skill into <strong>[Q], [E], [R]</strong>; dash into <strong>[Shift]</strong></span>`
+        : '<span>🖐️ <strong>Drag & Drop:</strong> Drag any unlocked skill slot into <strong>[Q], [E], [R], [Shift]</strong> or click to equip!</span>';
     }
-    skillsCatalogGrid.appendChild(guideRibbon);
 
     const sortedSkills = [...classSkills].sort((a, b) => (a.reqLevel || 1) - (b.reqLevel || 1));
 
@@ -4920,19 +5505,53 @@ card.innerHTML = `
       }
 
       const isEquippedHere = equippedInSlot === selectedLoadoutSlot;
-      const isEquippedElsewhere = equippedInSlot && !isEquippedHere;
-      const slotBindName = equippedInSlot === 'slot1' ? '[Q]' : equippedInSlot === 'slot2' ? '[E]' : equippedInSlot === 'slot3' ? '[R]' : equippedInSlot === 'dash' ? '[Shift]' : '';
+      const slotBindName = equippedInSlot === 'slot1' ? 'Q' : equippedInSlot === 'slot2' ? 'E' : equippedInSlot === 'slot3' ? 'R' : equippedInSlot === 'dash' ? 'Shift' : '';
       const reqLvl = s.reqLevel || 1;
       const isLocked = (localPlayer.level || 1) < reqLvl;
 
       const card = document.createElement('div');
-      card.className = `catalog-skill-card ${isEquippedHere ? 'is-equipped' : ''} ${isLocked ? 'is-locked' : 'draggable-skill'}`;
+      card.className = `catalog-skill-card ${isEquippedHere ? 'is-equipped-here' : ''} ${equippedInSlot ? 'is-equipped' : ''} ${isLocked ? 'is-locked' : 'draggable-skill'}`;
+
+      card.innerHTML = `
+        <div class="catalog-icon-only">${SkillIcons.svg(s.id)}</div>
+        ${equippedInSlot ? `<div class="skill-slot-badge">${slotBindName}</div>` : ''}
+        ${isLocked ? '<div class="skill-lock-badge">🔒</div>' : ''}
+      `;
+
+      if (window.GameTooltip) {
+        GameTooltip.html(card, () => `
+          <div class="tip-head">
+            <div class="tip-icon-wrap">${SkillIcons.svg(s.id)}</div>
+            <div>
+              <div class="tip-name" style="color: #facc15;">${escapeHtml(s.name)}</div>
+              <div class="tip-type">${s.category || 'Class Skill'} • ${isLocked ? `<span style="color:#ef4444;">Requires Lv. ${reqLvl}</span>` : `<span style="color:#4ade80;">Unlocked (Lv. ${reqLvl})</span>`}</div>
+            </div>
+          </div>
+          <div class="tip-line"><span>Cooldown</span><b>${s.cooldown}s</b></div>
+          <div class="tip-line"><span>Mana Cost</span><b>${manaCost(s.mpCost)} MP</b></div>
+          ${s.damageMultiplier ? `<div class="tip-line"><span>Damage</span><b>${Math.round(s.damageMultiplier * 100)}%</b></div>` : ''}
+          <div class="tip-flavour">${escapeHtml(s.desc || '')}</div>
+          <div class="tip-line" style="color: ${isLocked ? '#ef4444' : '#38bdf8'}; font-size: 11px;">
+            <span>${isLocked ? 'Locked' : 'Assign'}</span><i>${isLocked ? `Reach Level ${reqLvl} to unlock` : `Click to assign to [${SLOT_KEYS[selectedLoadoutSlot] || selectedLoadoutSlot.toUpperCase()}] or drag to hotbar`}</i>
+          </div>
+        `);
+      }
 
       if (!isLocked) {
         card.draggable = true;
-        card.setAttribute('title', `Drag into [Q], [E], [R], [Shift] slots above, or click to equip into [${selectedLoadoutSlot.toUpperCase()}]`);
 
-        // Drag Events
+        card.addEventListener('click', () => {
+          if (!localPlayer.equippedSkills) localPlayer.equippedSkills = {};
+          localPlayer.equippedSkills[selectedLoadoutSlot] = s.id;
+          socket.emit('customize_skill_slot', {
+            slot: selectedLoadoutSlot,
+            skillId: s.id
+          });
+          window.soundEngine.playBladeCharge();
+          renderCustomSkillLoadout();
+          setupClassSkillHUD(localPlayer.characterClass);
+        });
+
         card.addEventListener('dragstart', (e) => {
           e.dataTransfer.setData('text/plain', s.id);
           e.dataTransfer.effectAllowed = 'move';
@@ -4948,31 +5567,6 @@ card.innerHTML = `
             sc.classList.remove('drop-target-active');
             sc.classList.remove('drag-over');
           });
-        });
-      }
-
-      card.setAttribute('title', spCard
-        ? `${s.name} - ${s.cooldown}s CD, ${manaCost(s.mpCost)} MP | ${s.desc}`
-        : `${s.name} - Lv.${reqLvl} - ${s.cooldown}s CD, ${manaCost(s.mpCost)} MP, ${(s.damageMultiplier*100).toFixed(0)}% DMG | ${s.desc}`);
-card.innerHTML = `
-        <div class="catalog-icon-only">${SkillIcons.svg(s.id)}</div>
-        <div class="catalog-mini-name">${s.name}</div>
-        <div class="catalog-mini-level ${isLocked ? 'locked' : 'unlocked'}">${spCard ? (s.isDash ? 'MOVE' : 'SP') : `Lv.${reqLvl}`}</div>
-      `;
-
-      const btnEquip = card.querySelector('.btn-equip-skill:not(.locked)');
-      if (btnEquip) {
-        btnEquip.addEventListener('click', (e) => {
-          e.stopPropagation();
-          if (!localPlayer.equippedSkills) localPlayer.equippedSkills = {};
-          localPlayer.equippedSkills[selectedLoadoutSlot] = s.id;
-          socket.emit('customize_skill_slot', {
-            slot: selectedLoadoutSlot,
-            skillId: s.id
-          });
-          window.soundEngine.playBladeCharge();
-          renderCustomSkillLoadout();
-          setupClassSkillHUD(localPlayer.characterClass);
         });
       }
 
@@ -5386,7 +5980,31 @@ card.innerHTML = `
   document.getElementById('btnOpenHelp').addEventListener('click', () => toggleModal(helpModal));
   document.getElementById('btnCloseHelp').addEventListener('click', () => helpModal.style.display = 'none');
 
-  [statsModal, inventoryModal, helpModal, shopModal, reforgeModal, skillTreeModal].forEach(modal => {
+  // Quick Menu Bundle Toggle (Bottom-Right on smaller screens)
+  const btnQuickMenuBundle = document.getElementById('btnQuickMenuBundle');
+  const quickMenuContainer = document.getElementById('quickMenuContainer');
+  if (btnQuickMenuBundle && quickMenuContainer) {
+    btnQuickMenuBundle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      quickMenuContainer.classList.toggle('is-open');
+    });
+
+    // Automatically close bundled popover when any menu button inside is clicked
+    quickMenuContainer.querySelectorAll('.quick-menu-group .menu-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        quickMenuContainer.classList.remove('is-open');
+      });
+    });
+
+    // Close popover when clicking anywhere outside
+    document.addEventListener('click', (e) => {
+      if (!quickMenuContainer.contains(e.target)) {
+        quickMenuContainer.classList.remove('is-open');
+      }
+    });
+  }
+
+  [statsModal, inventoryModal, helpModal, shopModal, reforgeModal, skillTreeModal, personalChestModal].forEach(modal => {
     if (!modal) return;
     modal.addEventListener('click', (e) => {
       if (e.target === modal) modal.style.display = 'none';
@@ -5404,7 +6022,7 @@ card.innerHTML = `
     if (!localPlayer || localPlayer.isDead || !gameState.map) return null;
     let best = null, bestD = PORTAL_USE_RANGE;
     for (const o of gameState.map.obstacles || []) {
-      if (o.type !== 'field_portal' && o.id !== 'portal_dungeon') continue;
+      if (o.type !== 'field_portal' && o.id !== 'portal_dungeon' && o.id !== 'portal_rift') continue;
       const d = Math.hypot(o.x - localPlayer.x, o.y - localPlayer.y);
       if (d < bestD) { bestD = d; best = o; }
     }
@@ -5412,6 +6030,7 @@ card.innerHTML = `
   }
   function portalLabel(o) {
     if (o.id === 'portal_dungeon') return 'Enter the Abyssal Dungeon';
+    if (o.id === 'portal_rift') return 'Enter the Eternal Rift';
     const text = (o.label || o.name || 'Portal').replace(/^.*?→\s*/, '').replace(/^Back to\s*/i, '');
     return `Travel to ${text}`;
   }
@@ -5448,7 +6067,23 @@ card.innerHTML = `
       const distDungeon = Math.hypot(23.5 - localPlayer.x, 16.5 - localPlayer.y);
       const distFrost = Math.hypot(16.5 - localPlayer.x, 16.5 - localPlayer.y);
 
-      if (distOlaf <= 3.5) {
+      const personalChest = townObstacles.find(o => o.id === 'town_personal_chest' || o.type === 'personal_chest') || { x: 17.8, y: 19.6 };
+      const distChest = Math.hypot(personalChest.x - localPlayer.x, personalChest.y - localPlayer.y);
+      const james = townObstacles.find(o => o.id === 'npc_james');
+      const distJames = james ? Math.hypot(james.x - localPlayer.x, james.y - localPlayer.y) : Infinity;
+      if (distJames <= 3.5) {
+        targetInteract = {
+          icon: 'essence',
+          label: 'FORGE',
+          action: () => window.RiftUI.openForge()
+        };
+      } else if (distChest <= 2.8) {
+        targetInteract = {
+          icon: 'chest',
+          label: 'STORAGE',
+          action: () => openPersonalChestModal()
+        };
+      } else if (distOlaf <= 3.5) {
         targetInteract = {
           icon: 'coin',
           label: 'SHOP',
@@ -5780,8 +6415,29 @@ card.innerHTML = `
     }
   }
 
-  // Main Render Loop (60 FPS)
+  // Prevent DOM layout thrashing by caching height percentage
+  function setElementHeightPct(el, pct) {
+    if (!el) return;
+    const rounded = Math.round(pct * 10) / 10;
+    if (el._lastPct !== rounded) {
+      el._lastPct = rounded;
+      el.style.height = `${rounded}%`;
+    }
+  }
+
+  // Main Render Loop (with Target FPS throttling for low-end hardware)
   function gameLoop(currentTime) {
+    if (frameInterval > 0) {
+      const elapsed = currentTime - lastRenderTime;
+      if (elapsed < frameInterval - 1) {
+        requestAnimationFrame(gameLoop);
+        return;
+      }
+      lastRenderTime = currentTime - (elapsed % frameInterval);
+    } else {
+      lastRenderTime = currentTime;
+    }
+
     const dt = Math.min(0.1, (currentTime - lastFrameTime) / 1000);
     lastFrameTime = currentTime;
     trackFrameRate(currentTime);
@@ -5789,50 +6445,50 @@ card.innerHTML = `
     if (skill1CooldownTimer > 0) {
       skill1CooldownTimer = Math.max(0, skill1CooldownTimer - dt);
       const cdPct = (skill1CooldownTimer / skill1CooldownMax) * 100;
-      if (cdOverlaySkill1) cdOverlaySkill1.style.height = `${cdPct}%`;
-      if (cdOverlaySkill) cdOverlaySkill.style.height = `${cdPct}%`;
-      if (mobileCdSkill1) mobileCdSkill1.style.height = `${cdPct}%`;
+      setElementHeightPct(cdOverlaySkill1, cdPct);
+      setElementHeightPct(cdOverlaySkill, cdPct);
+      setElementHeightPct(mobileCdSkill1, cdPct);
     } else {
-      if (cdOverlaySkill1) cdOverlaySkill1.style.height = '0%';
-      if (cdOverlaySkill) cdOverlaySkill.style.height = '0%';
-      if (mobileCdSkill1) mobileCdSkill1.style.height = '0%';
+      setElementHeightPct(cdOverlaySkill1, 0);
+      setElementHeightPct(cdOverlaySkill, 0);
+      setElementHeightPct(mobileCdSkill1, 0);
     }
 
     if (skill2CooldownTimer > 0) {
       skill2CooldownTimer = Math.max(0, skill2CooldownTimer - dt);
       const cdPct = (skill2CooldownTimer / skill2CooldownMax) * 100;
-      if (cdOverlaySkill2) cdOverlaySkill2.style.height = `${cdPct}%`;
-      if (mobileCdSkill2) mobileCdSkill2.style.height = `${cdPct}%`;
+      setElementHeightPct(cdOverlaySkill2, cdPct);
+      setElementHeightPct(mobileCdSkill2, cdPct);
     } else {
-      if (cdOverlaySkill2) cdOverlaySkill2.style.height = '0%';
-      if (mobileCdSkill2) mobileCdSkill2.style.height = '0%';
+      setElementHeightPct(cdOverlaySkill2, 0);
+      setElementHeightPct(mobileCdSkill2, 0);
     }
 
     if (skill3CooldownTimer > 0) {
       skill3CooldownTimer = Math.max(0, skill3CooldownTimer - dt);
       const cdPct = (skill3CooldownTimer / skill3CooldownMax) * 100;
-      if (cdOverlaySkill3) cdOverlaySkill3.style.height = `${cdPct}%`;
-      if (mobileCdSkill3) mobileCdSkill3.style.height = `${cdPct}%`;
+      setElementHeightPct(cdOverlaySkill3, cdPct);
+      setElementHeightPct(mobileCdSkill3, cdPct);
     } else {
-      if (cdOverlaySkill3) cdOverlaySkill3.style.height = '0%';
-      if (mobileCdSkill3) mobileCdSkill3.style.height = '0%';
+      setElementHeightPct(cdOverlaySkill3, 0);
+      setElementHeightPct(mobileCdSkill3, 0);
     }
 
     if (dashCooldownTimer > 0) {
       dashCooldownTimer = Math.max(0, dashCooldownTimer - dt);
       const cdPct = (dashCooldownTimer / dashCooldownMax) * 100;
-      if (cdOverlayDash) cdOverlayDash.style.height = `${cdPct}%`;
-      if (mobileCdDash) mobileCdDash.style.height = `${cdPct}%`;
+      setElementHeightPct(cdOverlayDash, cdPct);
+      setElementHeightPct(mobileCdDash, cdPct);
     } else {
-      if (cdOverlayDash) cdOverlayDash.style.height = '0%';
-      if (mobileCdDash) mobileCdDash.style.height = '0%';
+      setElementHeightPct(cdOverlayDash, 0);
+      setElementHeightPct(mobileCdDash, 0);
     }
 
     if (weaponCooldownTimer > 0) {
       weaponCooldownTimer = Math.max(0, weaponCooldownTimer - dt);
-      if (cdOverlayWeapon) cdOverlayWeapon.style.height = `${(weaponCooldownTimer / weaponCooldownMax) * 100}%`;
-    } else if (cdOverlayWeapon) {
-      cdOverlayWeapon.style.height = '0%';
+      setElementHeightPct(cdOverlayWeapon, (weaponCooldownTimer / weaponCooldownMax) * 100);
+    } else {
+      setElementHeightPct(cdOverlayWeapon, 0);
     }
 
     // Toggled blood auras light up their hotbar slots
@@ -5854,9 +6510,9 @@ card.innerHTML = `
       const elapsedAtk = currentTime - lastBasicAttackTime;
       if (elapsedAtk < atkCooldownMs) {
         const atkPct = ((atkCooldownMs - elapsedAtk) / atkCooldownMs) * 100;
-        if (mobileCdAttack) mobileCdAttack.style.height = `${atkPct}%`;
+        setElementHeightPct(mobileCdAttack, atkPct);
       } else {
-        if (mobileCdAttack) mobileCdAttack.style.height = '0%';
+        setElementHeightPct(mobileCdAttack, 0);
       }
     }
 

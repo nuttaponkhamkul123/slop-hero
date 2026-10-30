@@ -212,6 +212,37 @@ io.on('connection', (socket: Socket) => {
   socket.on('reforge_item', (data: any) => {
     gameServer.handleReforgeItem(socket.id, data);
   });
+  socket.on('socket_rune', (data: any) => {
+    gameServer.handleSocketRune(socket.id, data);
+  });
+
+  socket.on('unsocket_rune', (data: any) => {
+    gameServer.handleUnsocketRune(socket.id, data);
+  });
+
+  socket.on('expand_socket', (data: any) => {
+    gameServer.handleExpandSocket(socket.id, data);
+  });
+
+  socket.on('use_bag_expander', (data: any) => {
+    gameServer.handleUseBagExpander(socket.id, data);
+  });
+
+  socket.on('open_personal_chest', () => {
+    gameServer.handleOpenPersonalChest(socket.id);
+  });
+
+  socket.on('deposit_to_chest', (data: any) => {
+    gameServer.handleDepositToChest(socket.id, data);
+  });
+
+  socket.on('withdraw_from_chest', (data: any) => {
+    gameServer.handleWithdrawFromChest(socket.id, data);
+  });
+
+  socket.on('use_chest_expander', (data: any) => {
+    gameServer.handleUseChestExpander(socket.id, data);
+  });
 
   socket.on('open_chest', (data: any) => {
     gameServer.handleOpenChest(socket.id, data.chestId);
@@ -223,6 +254,23 @@ io.on('connection', (socket: Socket) => {
 
   socket.on('leave_dungeon', () => {
     gameServer.handleLeaveDungeon(socket.id);
+  });
+
+  // Eternal Rift (wave defence) and James the Gatekeeper
+  socket.on('enter_rift', (options: any) => {
+    gameServer.handleEnterRift(socket.id, options || {});
+  });
+
+  socket.on('rift_build', (data: any) => {
+    gameServer.handleRiftBuild(socket.id, data);
+  });
+
+  socket.on('rift_choice', (data: any) => {
+    gameServer.handleRiftChoice(socket.id, data);
+  });
+
+  socket.on('james_forge', (data: any) => {
+    gameServer.handleJamesForge(socket.id, data);
   });
 
   socket.on('allocate_skill_point', (data: any) => {

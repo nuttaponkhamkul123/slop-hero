@@ -368,8 +368,12 @@ button, input, select, textarea { font-family: var(--font-px); }
 .talent-req-tag.unmet { color: var(--orange) !important; }
 .hotbar-slot-card { transition: none !important; }
 .hotbar-slot-card.selected, .hotbar-slot-card.active-slot { --line: var(--gold) !important; animation: none !important; }
-.catalog-skill-card { --bg: #262b44; transition: none !important; }
+.catalog-skill-card { --bg: #262b44; transition: none !important; width: 50px !important; height: 50px !important; min-width: 50px !important; min-height: 50px !important; aspect-ratio: 1; padding: 2px !important; display: flex !important; align-items: center !important; justify-content: center !important; }
 .catalog-skill-card:hover { --hi: var(--gold); transform: none !important; }
+.catalog-skill-card.is-equipped-here { --line: var(--gold) !important; --bg: #3d4565 !important; }
+.catalog-skill-card.is-equipped:not(.is-equipped-here) { --line: var(--lime) !important; }
+.catalog-skill-card.is-locked { opacity: 0.45 !important; filter: grayscale(0.85) !important; cursor: not-allowed !important; }
+.hotbar-slot-card { width: 58px !important; height: 58px !important; min-width: 58px !important; min-height: 58px !important; aspect-ratio: 1; padding: 2px !important; }
 
 /* ---------- class select & portal ---------- */
 .class-card { --bg: var(--night); transition: none !important; }

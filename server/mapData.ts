@@ -101,13 +101,17 @@ export function generateMap(): MapData {
   [[16.6, 16.6], [24.4, 16.6], [16.6, 24.4], [24.4, 24.4]].forEach(([x, y], i) => add({ id: `torch_${i + 1}`, x, y, type: 'torch', collidable: false }));
   [[18.3, 18.3], [22.2, 18.3], [18.3, 22.2], [22.2, 22.2]].forEach(([x, y], i) => add({ id: `plaza_flowers_${i}`, x, y, type: 'flower_bed', variant: i % 3, collidable: true, radius: 0.45 }));
 
-  // ---- the three town NPCs ----
+  // ---- the three town NPCs & personal storage chest ----
   add({ id: 'npc_merchant', x: 16.2, y: 19.6, type: 'merchant', name: 'Olaf the Trader', collidable: true, radius: 1.0 });
+  add({ id: 'town_personal_chest', x: 17.8, y: 19.6, type: 'personal_chest', name: 'Personal Storage Chest', collidable: true, radius: 0.8 });
   add({ id: 'npc_enchanter', x: 23.8, y: 23.4, type: 'enchanter', name: 'Valka the Enchanter', collidable: true, radius: 1.0 });
   add({ id: 'npc_blacksmith', x: 16.2, y: 23.4, type: 'blacksmith', name: 'Brom the Master Smith', collidable: true, radius: 1.0 });
 
   // ---- portals: dungeon on the plaza, the outside world through the north gate ----
   add({ id: 'portal_dungeon', x: 23.5, y: 16.5, type: 'portal', name: 'Abyssal Dungeon Portal', collidable: false, radius: 1.2 });
+  // ---- the Eternal Rift gate at the end of the east boulevard, kept by James ----
+  add({ id: 'portal_rift', x: 28.6, y: 20.5, type: 'portal', name: 'Eternal Rift', label: '🌌 Eternal Rift', color: '#c084fc', collidable: false, radius: 1.2 });
+  add({ id: 'npc_james', x: 31.2, y: 20.5, type: 'gatekeeper', name: 'James the Gatekeeper', collidable: true, radius: 0.7 });
   add({
     id: 'portal_outskirts', x: CITY.NORTH_GATE.x, y: CITY.NORTH_GATE.y, type: 'field_portal',
     target: 'meadow', arrive: 'south', label: 'City Gate → Greenmeadow Outskirts [Lv. 1+]', color: '#86efac',

@@ -148,16 +148,43 @@
 .sell-bulk-hint { flex: 1; font-size: 0.75em; opacity: 0.7; }
 .sell-bulk-btn:disabled { opacity: 0.45; cursor: default; }
 #shopSellList { max-height: 460px; }
-.sell-grid { display: grid !important; grid-template-columns: repeat(6, 1fr); gap: 7px !important; padding: 6px !important; align-content: start; max-height: none !important; overflow: visible; flex: none; }
-.sell-grid .inv-slot-compact { position: relative; aspect-ratio: 1; width: auto !important; height: auto !important; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.sell-grid { display: grid !important; grid-template-columns: repeat(6, 48px) !important; justify-content: center; gap: 7px !important; padding: 8px !important; align-content: start; max-height: 280px !important; overflow-y: auto; margin: 0 auto; width: fit-content; background: rgba(0, 0, 0, 0.35); border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.08); }
+.sell-grid .inv-slot-compact { position: relative; width: 48px !important; height: 48px !important; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; }
 .sell-grid .inv-slot-compact.empty { cursor: default; opacity: 0.55; }
-.sell-grid .inv-slot-compact .inv-icon img.pxi { width: 36px; height: 36px; }
+.sell-grid .inv-slot-compact .inv-icon img.pxi { width: 32px; height: 32px; }
 .sell-grid .inv-slot-compact:hover:not(.empty) { --hi: var(--gold) !important; }
 .sell-grid .inv-slot-compact.selected { --line: var(--gold, #facc15) !important; outline: 2px solid var(--gold, #facc15); outline-offset: -2px; }
 .sell-grid .inv-badge { position: absolute; right: 4px; bottom: 2px; font-family: var(--font-display); font-size: 14px; color: var(--white); text-shadow: 0 2px 0 var(--ink); background: none; }
-.sell-detail { position: sticky; bottom: 0; z-index: 2; display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 6px 8px; background: var(--night, #0f172a); border-top: 2px solid #334155; }
+.sell-detail { position: sticky; bottom: 0; z-index: 2; display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 6px 12px; background: var(--night, #0f172a); border-top: 2px solid #334155; margin: 8px auto 0 auto; max-width: 440px; width: 100%; box-sizing: border-box; }
 .sell-detail .shop-item-details { flex: 1; min-width: 0; }
 .sell-detail-empty { flex: 1; text-align: center; font-size: 0.8em; opacity: 0.6; }
+/* ---------- Shop Buy Goods Inventory Grid & Detail Panel ---------- */
+#shopBuyList { max-height: 460px; display: flex; flex-direction: column; overflow: visible; padding: 0; }
+.buy-grid { display: grid !important; grid-template-columns: repeat(6, 48px) !important; justify-content: center; gap: 7px !important; padding: 8px !important; align-content: start; max-height: 280px !important; overflow-y: auto; margin: 0 auto; width: fit-content; background: rgba(0, 0, 0, 0.35); border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.08); }
+.buy-grid .inv-slot-compact { position: relative; width: 48px !important; height: 48px !important; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.1s ease, border-color 0.15s ease; }
+.buy-grid .inv-slot-compact.empty { cursor: default; opacity: 0.55; }
+.buy-grid .inv-slot-compact .inv-icon img.pxi { width: 32px; height: 32px; }
+.buy-grid .inv-slot-compact:hover:not(.empty) { --hi: var(--gold) !important; }
+.buy-grid .inv-slot-compact.selected { --line: var(--gold, #facc15) !important; outline: 2px solid var(--gold, #facc15); outline-offset: -2px; box-shadow: 0 0 8px rgba(250, 204, 21, 0.4); }
+.buy-detail { position: sticky; bottom: 0; z-index: 2; display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 6px 12px; background: var(--night, #0f172a); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 6px; margin: 8px auto 0 auto; max-width: 440px; width: 100%; box-sizing: border-box; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4); }
+.buy-detail .shop-item-icon { width: 38px; height: 38px; min-width: 38px; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.4); border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.15); }
+.buy-detail .shop-item-icon img.pxi { width: 32px; height: 32px; }
+.buy-detail .shop-item-details { flex: 1; min-width: 0; }
+.buy-detail .shop-item-name { font-size: 13px; font-weight: bold; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.buy-detail .shop-item-desc { font-size: 11px; color: #94a3b8; }
+.buy-qty-controls { display: flex; align-items: center; background: rgba(0, 0, 0, 0.5); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 4px; padding: 2px 4px; gap: 3px; }
+.buy-qty-btn { width: 22px; height: 22px; background: rgba(255, 255, 255, 0.1); border: none; color: #fff; cursor: pointer; border-radius: 3px; font-weight: bold; line-height: 1; font-size: 13px; display: flex; align-items: center; justify-content: center; }
+.buy-qty-btn:hover { background: rgba(245, 158, 11, 0.3); color: #fde68a; }
+.buy-qty-input { width: 44px; height: 22px; background: transparent; border: none; color: #fde68a; font-weight: bold; font-family: monospace; text-align: center; font-size: 13px; }
+.buy-qty-input:focus { outline: none; }
+.buy-qty-max { padding: 0 6px; height: 22px; background: rgba(245, 158, 11, 0.25); border: 1px solid rgba(245, 158, 11, 0.5); color: #fde68a; cursor: pointer; border-radius: 3px; font-size: 11px; font-weight: bold; }
+.buy-qty-max:hover { background: rgba(245, 158, 11, 0.45); }
+.buy-action-group { display: flex; align-items: center; gap: 6px; }
+.buy-action-btn { height: 30px; padding: 0 12px; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); border: 1px solid #facc15; border-radius: 4px; color: #1e1b4b; font-weight: bold; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 5px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3); transition: all 0.15s ease; white-space: nowrap; }
+.buy-action-btn:hover:not(:disabled) { filter: brightness(1.15); }
+.buy-action-btn:disabled, .buy-action-btn.disabled { background: #334155; border-color: #475569; color: #94a3b8; cursor: not-allowed; box-shadow: none; filter: none; }
+.buy-cancel-btn { width: 24px; height: 30px; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); color: #94a3b8; border-radius: 4px; cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center; }
+.buy-cancel-btn:hover { background: rgba(239, 68, 68, 0.25); border-color: #ef4444; color: #fca5a5; }
 .inv-v2 .inv-slot-compact.unusable { --line: #64748b !important; opacity: 0.6; }
 .inv-v2 .inv-slot-compact.unusable .inv-icon { filter: grayscale(1); }
 .inv-v2 .inv-slot-compact .inv-icon img.pxi { width: 36px; height: 36px; }
@@ -522,12 +549,6 @@
   .difficulty-select-grid { grid-template-columns: 1fr; }
 }
 
-/* Skill Link: tag on linked hotbar slots */
-.action-slot.skill-linked, .hotbar-slot-card.skill-linked { position: relative; box-shadow: 0 0 0 2px #facc15; }
-.action-slot.skill-linked::after, .hotbar-slot-card.skill-linked::after {
-  content: attr(data-link); position: absolute; right: 2px; bottom: 2px; padding: 0 3px;
-  font-size: 9px; line-height: 12px; color: #1a1300; background: #facc15; pointer-events: none;
-}
 /* Buff / debuff tray, right of the player frame */
 .player-frame-row { display: flex; align-items: flex-start; gap: 6px; }
 .buff-tray { display: flex; flex-wrap: wrap; gap: 4px; max-width: 230px; pointer-events: auto; }
@@ -549,9 +570,6 @@
   animation: aura-toggled 1.2s ease-in-out infinite;
 }
 @keyframes aura-toggled { 50% { box-shadow: 0 0 0 2px #f87171, 0 0 20px rgba(239, 68, 68, 0.95); } }
-.skill-link-pill { display: inline-flex; align-items: center; gap: 6px; }
-.skill-link-pill .skill-link-icon { display: inline-flex; width: 20px; height: 20px; }
-.skill-link-pill .skill-link-icon > * { width: 20px; height: 20px; }
 
 /* ---------- Visual Dungeon Loot Preview Grids (Inventory Slot Style) ---------- */
 .run-bag-header {
@@ -815,9 +833,65 @@
   transform-origin: bottom center;
 }
 
-.quick-menu-group {
+/* ---------- Quick Menu (Bottom-Right: Always Single Menu Button) ---------- */
+.quick-menu-container {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
   transform: scale(var(--gui-scale, 1));
   transform-origin: bottom right;
+}
+
+.quick-menu-bundle-btn {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px !important;
+  font-size: 13px !important;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  z-index: 20;
+}
+
+.quick-menu-container.is-open .quick-menu-bundle-btn {
+  --bg: var(--blue);
+  --hi: var(--sky);
+  color: var(--white) !important;
+}
+
+.quick-menu-group {
+  display: none !important;
+}
+
+.quick-menu-container.is-open .quick-menu-group {
+  display: flex !important;
+  flex-direction: column !important;
+  position: absolute !important;
+  bottom: calc(100% + 8px) !important;
+  right: 0 !important;
+  background: var(--night, #0f172a) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  border-radius: 8px !important;
+  padding: 8px !important;
+  gap: 6px !important;
+  min-width: 150px !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.75) !important;
+  z-index: 100 !important;
+  animation: fadeIn 0.15s ease-out;
+}
+
+.quick-menu-container.is-open .quick-menu-group .menu-btn {
+  width: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  justify-content: flex-start !important;
+  text-align: left !important;
+  padding: 7px 12px !important;
+  font-size: 13px !important;
+  white-space: nowrap !important;
+  box-sizing: border-box !important;
 }
 
 .mobile-controls-overlay {
@@ -1117,3 +1191,136 @@
 .potion-slot .slot-swap-btn { width: 18px; height: 18px; padding: 0; }
 .slot-swap-btn img.pxi, .potion-switch-btn img.pxi { width: 12px; height: 12px; display: block; image-rendering: pixelated; }
 .potion-switch-btn { display: inline-flex; align-items: center; justify-content: center; padding: 3px 5px; }
+
+
+/* ---------- Weapon Sockets in Valka's Rune Forge ---------- */
+.socket-view { display: flex; flex-direction: column; gap: 12px; }
+.socket-slots-container { display: flex; flex-direction: column; gap: 8px; }
+.socket-card { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: #262b44; border: 1px solid var(--ink); border-radius: 4px; box-shadow: inset 0 0 0 1px #3d4565; }
+.socket-card.filled { border-color: #6366f1; background: #1e1b4b; }
+.socket-card.broken { border-color: #ef4444; background: #450a0a; opacity: 0.8; }
+.socket-card.empty { border-style: dashed; border-color: #475569; }
+.socket-card-left { display: flex; align-items: center; gap: 12px; }
+.socket-icon { font-size: 24px; line-height: 1; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; }
+.socket-name { font-family: var(--font-display); font-size: 18px; color: var(--white); }
+.socket-desc { font-size: 12px; color: var(--steel); margin-top: 2px; }
+.socket-actions { display: flex; gap: 8px; align-items: center; }
+.socket-btn-unsocket { font-family: var(--font-display); font-size: 14px; padding: 4px 10px; background: #334155; color: #f1f5f9; border: 1px solid #475569; cursor: pointer; border-radius: 3px; }
+.socket-btn-unsocket:hover { background: #475569; color: #fff; }
+.socket-rune-select { font-family: var(--font-main); font-size: 12px; padding: 4px 8px; background: #0f172a; color: #f8fafc; border: 1px solid #334155; border-radius: 3px; outline: none; }
+.socket-btn-insert { font-family: var(--font-display); font-size: 14px; padding: 4px 12px; background: #10b981; color: #fff; border: 1px solid #059669; cursor: pointer; border-radius: 3px; }
+.socket-btn-insert:hover { background: #059669; }
+.socket-expander-box { margin-top: 10px; padding: 12px 14px; background: #1e293b; border: 1px solid #f59e0b; border-radius: 4px; display: flex; flex-direction: column; gap: 8px; }
+.socket-expander-title { font-family: var(--font-display); font-size: 18px; color: #facc15; display: flex; align-items: center; gap: 6px; }
+.socket-expander-stats { display: flex; justify-content: space-between; font-size: 12px; color: var(--steel); }
+.socket-expander-warn { font-size: 11px; color: #f87171; font-weight: bold; }
+.socket-expander-btn { font-family: var(--font-display); font-size: 18px; padding: 6px 16px; background: #f59e0b; color: #000; border: 1px solid #d97706; cursor: pointer; border-radius: 3px; align-self: flex-start; }
+.socket-expander-btn:hover { background: #d97706; }
+.socket-expander-btn:disabled { background: #475569; color: #94a3b8; border-color: #334155; cursor: not-allowed; }
+
+/* ---------- Personal Storage Chest Modal ---------- */
+.personal-chest-card {
+  width: min(880px, 96vw) !important;
+  max-width: 96vw !important;
+}
+.chest-dual-panes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 10px;
+}
+@media (max-width: 720px) {
+  .chest-dual-panes {
+    grid-template-columns: 1fr;
+  }
+}
+.chest-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  padding: 10px;
+}
+.chest-pane-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: var(--font-display);
+  font-size: 16px;
+  color: var(--white);
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.chest-pane-header b {
+  color: #facc15;
+}
+.chest-capacity {
+  font-size: 13px;
+  color: #38bdf8;
+}
+.chest-capacity.is-full {
+  color: #f87171;
+}
+.chest-grid-wrapper {
+  max-height: 380px;
+  min-height: 280px;
+  overflow-y: auto;
+  padding: 4px;
+}
+.chest-slots-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+}
+.chest-slots-grid .inv-slot-compact {
+  aspect-ratio: 1;
+  width: auto !important;
+  height: auto !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  cursor: pointer;
+  background: radial-gradient(circle, #1a2233 0%, #0c111c 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  transition: all 0.15s ease;
+}
+.chest-slots-grid .inv-slot-compact:hover:not(.empty) {
+  border-color: #facc15;
+  transform: scale(1.05);
+  z-index: 5;
+}
+.chest-slots-grid .inv-slot-compact.empty {
+  cursor: default;
+  opacity: 0.45;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px dashed rgba(255, 255, 255, 0.08);
+}
+.chest-pane-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  min-height: 32px;
+}
+.chest-action-btn {
+  font-family: var(--font-display);
+  font-size: 14px;
+  padding: 4px 12px;
+  background: #f59e0b;
+  color: #000;
+  border: 1px solid #d97706;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.chest-action-btn:hover {
+  background: #fbbf24;
+}
+.chest-help-hint {
+  font-size: 11px;
+  color: var(--steel);
+}

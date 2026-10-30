@@ -46,9 +46,10 @@
     const lvl = item.upgradeLevel || 0;
     const typeLine = item.type === 'equipment'
       ? `${rarity.toUpperCase()} ${SLOT_LABEL[item.slot] || 'Gear'}`
-      : item.type === 'consumable' ? `${rarity.toUpperCase()} Consumable`
-        : item.type === 'treasure' ? `${rarity.toUpperCase()} Treasure`
-          : item.type === 'sp_card' ? `${rarity.toUpperCase()} Specialist Card` : rarity.toUpperCase();
+      : item.type === 'rune' ? `${rarity.toUpperCase()} Elemental Rune`
+        : item.type === 'consumable' ? `${rarity.toUpperCase()} Consumable`
+          : item.type === 'treasure' ? `${rarity.toUpperCase()} Treasure`
+            : item.type === 'sp_card' ? `${rarity.toUpperCase()} Specialist Card` : rarity.toUpperCase();
 
     let body = '';
     if (item.type === 'equipment') {
@@ -90,15 +91,82 @@
         body += `<div class="tip-line"><span>${window.manaCost ? window.manaCost(ability.mpCost) : ability.mpCost} MP</span><b>${ability.cooldown}s cooldown</b></div>`;
         body += `<div class="tip-flavour">${esc(ability.desc)}</div>`;
       }
+      if (item.slot === 'weapon') {
+        const maxSockets = item.maxSockets || 0;
+        const brokenSockets = item.brokenSockets || 0;
+        const sockets = Array.isArray(item.sockets) ? item.sockets : [];
+        const usableSockets = Math.max(0, maxSockets - brokenSockets);
+        body += `<div class="tip-sub">Weapon Sockets (${sockets.filter(s => !!s).length}/${usableSockets})</div>`;
+        if (maxSockets === 0) {
+          body += `<div class="tip-line" style="color: #94a3b8;"><span>No sockets</span><i>(Expand via Socket Expander)</i></div>`;
+        } else {
+          const RUNE_INFO = {
+            rune_flame: { name: 'Infernal Flame Rune', icon: '🔴', effect: '+25% DMG & Burn DoT', color: '#ef4444' },
+            flame: { name: 'Infernal Flame Rune', icon: '🔴', effect: '+25% DMG & Burn DoT', color: '#ef4444' },
+            rune_frost: { name: 'Glacial Frost Rune', icon: '🔵', effect: '40% Chill Slow & Freeze', color: '#38bdf8' },
+            frost: { name: 'Glacial Frost Rune', icon: '🔵', effect: '40% Chill Slow & Freeze', color: '#38bdf8' },
+            rune_tempest: { name: 'Tempest Surge Rune', icon: '⚡', effect: '-20% CD & +10% Shock', color: '#eab308' },
+            tempest: { name: 'Tempest Surge Rune', icon: '⚡', effect: '-20% CD & +10% Shock', color: '#eab308' },
+            rune_vampiric: { name: 'Vampiric Drain Rune', icon: '🟣', effect: '25% Life Leech', color: '#a855f7' },
+            vampiric: { name: 'Vampiric Drain Rune', icon: '🟣', effect: '25% Life Leech', color: '#a855f7' }
+          };
+          for (let i = 0; i < usableSockets; i++) {
+            const rId = sockets[i];
+            if (rId && RUNE_INFO[rId]) {
+              const r = RUNE_INFO[rId];
+              body += `<div class="tip-line"><span style="color:${r.color};">${r.icon} ${esc(r.name)}</span><b style="color:${r.color}; font-size:11px;">${r.effect}</b></div>`;
+            } else {
+              body += `<div class="tip-line" style="color: #64748b;"><span>⬡ Empty Socket</span><i>(Insert Rune)</i></div>`;
+            }
+          }
+          for (let i = 0; i < brokenSockets; i++) {
+            body += `<div class="tip-line" style="color: #ef4444;"><span>✕ Broken Socket</span><i>(Damaged)</i></div>`;
+          }
+        }
+      }
       const flavour = (item.desc || '').split('. ').slice(1).join('. ');
       if (!item.custom && flavour) body += `<div class="tip-flavour">${esc(flavour)}</div>`;
+    } else if (item.type === 'rune') {
+      const RUNE_BONUS = {
+        flame: '+25% Damage & Persistent Burn DoT',
+        frost: '40% Chill Slow for 3.5s & 25% Freeze Chance',
+        tempest: '-20% Cooldown Reduction & +10% Electric Shock DMG',
+        vampiric: '25% Damage Dealt as HP Life Leech'
+      };
+      const bonus = RUNE_BONUS[item.runeType] || '';
+      if (bonus) {
+        body += `<div class="tip-line" style="margin-top: 4px;"><span style="color:${item.color || '#f59e0b'};">Weapon Bonus:</span><b style="color:${item.color || '#f59e0b'};">${bonus}</b></div>`;
+      }
+      body += `<div class="tip-flavour">${esc(item.desc)}</div>`;
+      body += `<div class="tip-line" style="color: #94a3b8; font-size: 11px;"><span>Usage</span><i>Socket into weapons at Valka's Rune Forge</i></div>`;
+    } else if (item.id === 'socket_expander') {
+      body += `<div class="tip-line" style="color: #f59e0b;"><span>Titan Relic</span><b>Drill +1 Socket (Max 4)</b></div>`;
+      body += `<div class="tip-flavour">${esc(item.desc)}</div>`;
+      body += `<div class="tip-line" style="color: #ef4444; font-size: 11px;"><span>Risk</span><i>Chance to break socket slot on failure!</i></div>`;
+    } else if (item.id && item.id.startsWith('bag_expander_')) {
+      const rows = item.id === 'bag_expander_sm' ? 1 : item.id === 'bag_expander_md' ? 2 : 5;
+      const slots = rows * 6;
+      body += `<div class="tip-line" style="color: #facc15;"><span>Backpack Expansion</span><b>+${rows} ${rows === 1 ? 'Row' : 'Rows'} (+${slots} Slots)</b></div>`;
+      body += `<div class="tip-flavour">${esc(item.desc)}</div>`;
+      body += `<div class="tip-line" style="color: #4ade80; font-size: 11px;"><span>Usage</span><i>Click in bag to permanently expand capacity</i></div>`;
+    } else if (item.id && item.id.startsWith('chest_expander_')) {
+      const rows = item.id === 'chest_expander_sm' ? 1 : item.id === 'chest_expander_md' ? 2 : 5;
+      const slots = rows * 10;
+      body += `<div class="tip-line" style="color: #facc15;"><span>Personal Vault Expansion</span><b>+${slots} Storage Slots (+${rows} ${rows === 1 ? 'Row' : 'Rows'})</b></div>`;
+      body += `<div class="tip-flavour">${esc(item.desc)}</div>`;
+      body += `<div class="tip-line" style="color: #4ade80; font-size: 11px;"><span>Usage</span><i>Click in bag to permanently expand personal chest</i></div>`;
     } else if (item.desc) {
       body += `<div class="tip-flavour">${esc(item.desc)}</div>`;
     }
 
+    if (opts.buyPrice !== undefined || (opts.isShop && item.buyPrice)) {
+      const priceVal = opts.buyPrice !== undefined ? opts.buyPrice : item.buyPrice;
+      body += `<div class="tip-line" style="color: #facc15; font-size: 13px; margin-top: 6px; padding-top: 4px; border-top: 1px dashed rgba(255,255,255,0.18); display: flex; justify-content: space-between; align-items: center;"><span style="color: #cbd5e1;">Buy Price:</span><b style="color: #facc15;">${priceVal.toLocaleString()} Gold</b></div>`;
+    }
+
     const footer = [];
     if (item.count > 1) footer.push(`x${item.count}`);
-    if (item.sellPrice) footer.push(`Sell ${item.sellPrice.toLocaleString()}g`);
+    if (item.sellPrice && !opts.buyPrice) footer.push(`Sell ${item.sellPrice.toLocaleString()}g`);
     if (opts.hint) footer.push(esc(opts.hint));
 
     return `
