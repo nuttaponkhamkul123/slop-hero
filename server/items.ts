@@ -8,6 +8,7 @@ import armor from './data/items/armor.json';
 import helmets from './data/items/helmets.json';
 import boots from './data/items/boots.json';
 import rings from './data/items/rings.json';
+import runes from './data/items/runes.json';
 
 const ITEM_CATEGORIES = {
   consumables,
@@ -17,7 +18,8 @@ const ITEM_CATEGORIES = {
   armor,
   helmets,
   boots,
-  rings
+  rings,
+  runes
 };
 
 const ITEMS: Record<string, any> = {
@@ -28,7 +30,8 @@ const ITEMS: Record<string, any> = {
   ...armor,
   ...helmets,
   ...boots,
-  ...rings
+  ...rings,
+  ...runes
 };
 
 
@@ -245,6 +248,11 @@ function generateRandomizedGear(baseId, itemLevel = 1, isBoss = false) {
   if (base.slot === 'weapon') {
     const elemPool = ['neutral', 'neutral', 'fire', 'ice', 'lightning', 'earth', 'holy', 'dark'];
     item.element = base.element || elemPool[Math.floor(Math.random() * elemPool.length)];
+    // Randomize sockets from 0 to 2 (maximum 2 base sockets)
+    const baseSockets = Math.floor(Math.random() * 3);
+    item.maxSockets = baseSockets;
+    item.sockets = new Array(baseSockets).fill(null);
+    item.brokenSockets = 0;
   }
 
   const floorBonus = lvlSteps * 3;
@@ -562,6 +570,30 @@ export {
   rollSkyblockReforge,
   applySkyblockReforge
 };
+export const RUNE_DROP_CHANCE = 0.00005; // 0.005% drop chance from any monster
+export const SOCKET_EXPANDER_DROP_CHANCE = 0.0000005; // 0.00005% drop chance from boss monsters
+
+export const RUNES_DEF: Record<string, any> = {
+  flame: { id: 'rune_flame', runeType: 'flame', name: 'Infernal Flame', icon: '🔴', color: '#ef4444', desc: '+25% Damage & Persistent Burn DoT' },
+  frost: { id: 'rune_frost', runeType: 'frost', name: 'Glacial Frost', icon: '🔵', color: '#38bdf8', desc: '40% Chill Slow & 25% Freeze Chance' },
+  tempest: { id: 'rune_tempest', runeType: 'tempest', name: 'Tempest Surge', icon: '⚡', color: '#eab308', desc: '-20% Cooldown & +10% Shock DMG' },
+  vampiric: { id: 'rune_vampiric', runeType: 'vampiric', name: 'Vampiric Drain', icon: '🟣', color: '#a855f7', desc: '25% Damage Dealt as HP Life Leech' }
+};
+
+export function ensureWeaponSockets(item: any) {
+  if (!item || item.slot !== 'weapon') return item;
+  if (item.maxSockets === undefined) {
+    item.maxSockets = Math.floor(Math.random() * 3);
+  }
+  if (!Array.isArray(item.sockets)) {
+    item.sockets = new Array(item.maxSockets).fill(null);
+  }
+  if (item.brokenSockets === undefined) {
+    item.brokenSockets = 0;
+  }
+  return item;
+}
+
 export default ITEMS;
 module.exports = {
   ITEMS,
@@ -584,7 +616,11 @@ module.exports = {
   REFORGE_COSTS,
   getReforgeCategory,
   rollSkyblockReforge,
-  applySkyblockReforge
+  applySkyblockReforge,
+  RUNE_DROP_CHANCE,
+  SOCKET_EXPANDER_DROP_CHANCE,
+  RUNES_DEF,
+  ensureWeaponSockets
 };
 
 
