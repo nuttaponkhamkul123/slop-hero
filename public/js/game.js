@@ -1069,6 +1069,8 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   socket.on('init_game', (data) => {
+    // in the world now: show the canvas and HUD, drop the login scene (login.css)
+    document.body.classList.remove('pre-login');
     localPlayerId = data.playerId;
     spCatalog = data.spCatalog || null;
     window.SP_CATALOG = spCatalog;
@@ -1509,6 +1511,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     if (VARIANT[fx.shape] && se[VARIANT[fx.shape]]) return se[VARIANT[fx.shape]]();
     if (fx.shape === 'aura') return fx.off ? se.playSkillWhoosh() : se.playBerserk();
+    if (fx.skillId === 'wpn_riftwalker_edge') { se.playBlink(); return se.playExplosion(); }
     if (fx.shape === 'blink') return se.playBlink();
     if (fx.shape === 'dash') return se.playBladeCharge();
     if (fx.shape === 'pull') return se.playSingularity();
@@ -2114,7 +2117,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 y: localPlayer.y,
                 facing: localPlayer.facing,
                 attackSpeed: atkSpeed,
-                hasSweep: true
+                hasSweep: true,
+                sweepRange: localPlayer.sweepReach || 0,
+                sweepArc: localPlayer.sweepArc || 0
               });
             }
           }
@@ -2547,7 +2552,10 @@ document.addEventListener('DOMContentLoaded', () => {
         targetX: targetMob ? targetMob.x : undefined,
         targetY: targetMob ? targetMob.y : undefined,
         attackSpeed: atkSpeed,
-        hasSweep: true
+        hasSweep: true,
+        // the cleave's true reach and arc (from the server snapshot), so the slash grows with range
+        sweepRange: localPlayer.sweepReach || 0,
+        sweepArc: localPlayer.sweepArc || 0
       });
     }
   }
@@ -4256,7 +4264,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (inventoryModal.style.display !== 'flex' || !localPlayer) { invPreviewRaf = 0; return; }
       g.clearRect(0, 0, cv.width, cv.height);
       g.imageSmoothingEnabled = false;
-      g.drawImage(renderer.heroFrameFor(localPlayer, 'S', 'idle', Math.floor(ts / 1000 * 6) % 8), 0, 0);
+      g.drawImage(renderer.heroFrameFor(localPlayer, 'S', 'idle', PixelHeroes.loopIndex(localPlayer.characterClass, 'idle', ts / 1000)), 0, 0);
       invPreviewRaf = requestAnimationFrame(step);
     };
     invPreviewRaf = requestAnimationFrame(step);

@@ -49,6 +49,10 @@ const MANA_COST_SCALE = 1.2;
 const MANA_COST_PER_LEVEL = 0.05;
 const MANA_REGEN_PCT = 0.03;
 const MANA_REGEN_FLAT = 1;
+// Melee basic-attack cleave: reach past the attack range (tiles) and the default
+// arc (degrees, cos 0.35 either side of the facing); sweep weapons add to both
+const SWEEP_EXTRA_REACH = 1.15;
+const SWEEP_ARC_DEG = Math.round((Math.acos(0.35) * 360) / Math.PI);
 // Mage card mechanics (see spCards.js): caps and timers
 const SCORCH_MAX = 5, SCORCH_SECONDS = 6;
 const FROST_TO_FREEZE = 3, FROST_SECONDS = 5, FREEZE_SECONDS = 2, BOSS_FREEZE_SECONDS = 0.8;
@@ -2321,6 +2325,7 @@ class GameServer {
     };
 
     let hasSweepTriggered = false;
+    let sweepRangeHit = 0; // how far this swing's cleave reached (tiles), for the client's arc
 
     const power = player.weaponPower;
     if (player.characterClass === 'mage' && power && power.fireChannel) {
@@ -2389,8 +2394,9 @@ class GameServer {
           NE: { x: 0.0, y: -1.0 }
         };
         const fv = facingVectors[player.facing] || { x: 1.0, y: 0.0 };
-        const sweepRange = (player.attackRange || 1.6) + 1.15 + ((power && power.sweepReach) || 0);
-        const minDot = power && power.sweepArc ? Math.cos((power.sweepArc * Math.PI) / 360) : 0.35;
+        const { reach: sweepRange, arc } = this.meleeSweep(player);
+        sweepRangeHit = sweepRange;
+        const minDot = Math.cos((arc * Math.PI) / 360);
         const swipeDmg = Math.max(1, Math.round(attackDmg * (swipePct / 100)));
 
         for (const mob of mobsMap.values()) {
@@ -2425,8 +2431,19 @@ class GameServer {
       hasSweep: hasSweepTriggered,
       attackSpeed: player.attackSpeed || 1.0,
       swipe: player.swipe || 0,
-      sweepReach: (power && power.sweepReach) || 0
+      // the cleave's true reach (tiles) and arc (degrees), so the slash covers what it hits
+      sweepRange: sweepRangeHit,
+      sweepArc: hasSweepTriggered ? this.meleeSweep(player).arc : 0
     });
+  }
+
+  // How far (tiles) and how wide (degrees) a melee hero's basic-attack cleave reaches
+  meleeSweep(player) {
+    const power = player.weaponPower;
+    return {
+      reach: (player.attackRange || 1.6) + SWEEP_EXTRA_REACH + ((power && power.sweepReach) || 0),
+      arc: (power && power.sweepArc) || SWEEP_ARC_DEG
+    };
   }
 
   handleCustomizeSkill(socketId, data) {
@@ -8183,6 +8200,9 @@ class GameServer {
       skillCooldowns: p.skillCooldowns,
       attackSpeed: p.attackSpeed || 1.0,
       swipe: p.swipe || 0,
+      // melee cleave reach / arc, so the client draws the local swing at its true size
+      sweepReach: p.characterClass === 'mage' ? 0 : round2(this.meleeSweep(p).reach),
+      sweepArc: p.characterClass === 'mage' ? 0 : this.meleeSweep(p).arc,
       jobLevel: p.jobLevel || 1,
       spTransformed: !!p.spTransformed,
       spCardId: p.spTransformed && p.equipment && p.equipment.sp ? p.equipment.sp.cardId : null,
