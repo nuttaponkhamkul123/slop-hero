@@ -8500,6 +8500,18 @@ class IsometricRenderer {
 
     if (!map) return;
 
+    // Hold the town behind a loading screen until its pixel ground is painted,
+    // so the plain tile blocks never flash first; with nothing else drawn the
+    // painter gets a bigger slice per frame
+    if (this.currentTheme === 'town' && window.TownLife && !window.TownLife.groundTexture(map, 30)) {
+      ctx.fillStyle = '#d8c79a';
+      ctx.font = '15px "DotGothic16", monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('Loading town' + '.'.repeat(1 + Math.floor(this.animations.time * 3) % 3), w / 2, h / 2);
+      return;
+    }
+
     // PASS 1: VISIBLE GROUND TILES PASS (Base Terrain Layer)
     // Rendered first so flat ground diamond tiles NEVER clip or cover players or mobs walking over them
     const wallTiles = [];
