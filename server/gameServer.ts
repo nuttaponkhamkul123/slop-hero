@@ -565,10 +565,15 @@ class GameServer {
         healthPotions: 3,
         manaPotions: 2,
         kills: 0,
+        maxSlots: 30,
         items: [
           { ...ITEMS.ancient_ruby, count: 1 },
           { ...ITEMS.revival_stone, count: 1 }
         ]
+      },
+      storage: {
+        maxSlots: 50,
+        items: []
       },
       zone: 'town',
       x: 20,
@@ -1603,7 +1608,11 @@ class GameServer {
       speed: classStats.speed,
       attackRange: classStats.attackRange,
       gold: savedChar && savedChar.gold !== undefined ? savedChar.gold : 50,
-      inventory: savedChar && savedChar.inventory ? savedChar.inventory : {
+      inventory: savedChar && savedChar.inventory ? {
+        ...savedChar.inventory,
+        maxSlots: savedChar.inventory.maxSlots || 30,
+        items: Array.isArray(savedChar.inventory.items) ? savedChar.inventory.items : []
+      } : {
         healthPotions: 3,
         manaPotions: 2,
         kills: 0,
@@ -1612,6 +1621,13 @@ class GameServer {
           { ...ITEMS.ancient_ruby, count: 1 },
           { ...ITEMS.revival_stone, count: 1 }
         ]
+      },
+      storage: (savedChar && savedChar.storage) ? {
+        maxSlots: savedChar.storage.maxSlots || 50,
+        items: Array.isArray(savedChar.storage.items) ? savedChar.storage.items : []
+      } : {
+        maxSlots: 50,
+        items: []
       },
       attackCooldown: 0,
       skillCooldown: 0,
@@ -5474,6 +5490,263 @@ class GameServer {
       x: player.x,
       y: player.y - 0.8,
       text: `🎒 Backpack Expanded! (+${rowsAdded} ${rowsAdded === 1 ? 'Row' : 'Rows'}, ${player.inventory.maxSlots} Slots)`,
+      color: '#facc15',
+      size: 19
+    });
+  }
+
+  handleOpenPersonalChest(socketId: string) {
+    const player = this.players.get(socketId);
+    const socket = this.io.sockets.sockets.get(socketId);
+    if (!player || !socket || player.isDead) return;
+
+    if (player.zone !== 'town') {
+      socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: 'The Personal Chest is located in Town!', color: '#ef4444' });
+      return;
+    }
+
+    const dist = Math.hypot(player.x - 17.8, player.y - 19.6);
+    if (dist > 5.0) {
+      socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: 'You are too far from the Personal Chest!', color: '#ef4444' });
+      return;
+    }
+
+    player.storage = player.storage || { maxSlots: 50, items: [] };
+    if (!Array.isArray(player.storage.items)) player.storage.items = [];
+    if (!player.storage.maxSlots) player.storage.maxSlots = 50;
+
+    socket.emit('personal_chest_data', {
+      storage: player.storage,
+      inventory: player.inventory
+    });
+  }
+
+  handleDepositToChest(socketId: string, data: any) {
+    const player = this.players.get(socketId);
+    const socket = this.io.sockets.sockets.get(socketId);
+    if (!player || !socket || player.isDead || !data) return;
+
+    if (player.zone !== 'town') {
+      socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: 'The Personal Chest is in Town!', color: '#ef4444' });
+      return;
+    }
+    const dist = Math.hypot(player.x - 17.8, player.y - 19.6);
+    if (dist > 5.0) {
+      socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: 'Too far from Personal Chest!', color: '#ef4444' });
+      return;
+    }
+
+    player.storage = player.storage || { maxSlots: 50, items: [] };
+    if (!Array.isArray(player.storage.items)) player.storage.items = [];
+    const maxStorage = player.storage.maxSlots || 50;
+
+    const canStack = (a: any, b: any) => {
+      return a && b && a.id === b.id &&
+        a.type !== 'equipment' && b.type !== 'equipment' &&
+        !a.upgradeLevel && !b.upgradeLevel &&
+        !a.sockets && !b.sockets &&
+        !a.maxSockets && !b.maxSockets &&
+        !a.brokenSockets && !b.brokenSockets &&
+        !a.reforgeBonus && !b.reforgeBonus &&
+        !a.custom && !b.custom;
+    };
+
+    if (data.all) {
+      let movedCount = 0;
+      for (let i = player.inventory.items.length - 1; i >= 0; i--) {
+        const item = player.inventory.items[i];
+        if (!item) continue;
+        let deposited = false;
+        if (canStack(item, item)) {
+          const target = player.storage.items.find((s: any) => canStack(s, item));
+          if (target) {
+            target.count = (target.count || 1) + (item.count || 1);
+            player.inventory.items.splice(i, 1);
+            movedCount++;
+            deposited = true;
+          }
+        }
+        if (!deposited && player.storage.items.length < maxStorage) {
+          player.storage.items.push(item);
+          player.inventory.items.splice(i, 1);
+          movedCount++;
+        }
+      }
+
+      if (movedCount > 0) {
+        this.savePlayerAccount(socketId);
+        socket.emit('player_updated', player);
+        socket.emit('personal_chest_data', {
+          storage: player.storage,
+          inventory: player.inventory
+        });
+        socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: `Deposited ${movedCount} items!`, color: '#6ee7b7' });
+      } else {
+        socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: 'Personal Chest is full or no items to deposit!', color: '#ef4444' });
+      }
+      return;
+    }
+
+    const itemIndex = Number(data.itemIndex);
+    if (!Number.isInteger(itemIndex) || itemIndex < 0 || itemIndex >= player.inventory.items.length) {
+      return;
+    }
+
+    const invItem = player.inventory.items[itemIndex];
+    if (!invItem) return;
+
+    const depositQty = Math.max(1, Math.min(invItem.count || 1, parseInt(String(data.count), 10) || (invItem.count || 1)));
+
+    let stacked = false;
+    if (canStack(invItem, invItem)) {
+      const match = player.storage.items.find((s: any) => canStack(s, invItem));
+      if (match) {
+        match.count = (match.count || 1) + depositQty;
+        stacked = true;
+      }
+    }
+
+    if (!stacked) {
+      if (player.storage.items.length >= maxStorage) {
+        socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: 'Personal Chest is full!', color: '#ef4444' });
+        return;
+      }
+      player.storage.items.push({
+        ...invItem,
+        count: depositQty
+      });
+    }
+
+    if ((invItem.count || 1) > depositQty) {
+      invItem.count = (invItem.count || 1) - depositQty;
+    } else {
+      player.inventory.items.splice(itemIndex, 1);
+    }
+
+    this.savePlayerAccount(socketId);
+    socket.emit('player_updated', player);
+    socket.emit('personal_chest_data', {
+      storage: player.storage,
+      inventory: player.inventory
+    });
+  }
+
+  handleWithdrawFromChest(socketId: string, data: any) {
+    const player = this.players.get(socketId);
+    const socket = this.io.sockets.sockets.get(socketId);
+    if (!player || !socket || player.isDead || !data) return;
+
+    if (player.zone !== 'town') {
+      socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: 'The Personal Chest is in Town!', color: '#ef4444' });
+      return;
+    }
+    const dist = Math.hypot(player.x - 17.8, player.y - 19.6);
+    if (dist > 5.0) {
+      socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: 'Too far from Personal Chest!', color: '#ef4444' });
+      return;
+    }
+
+    player.storage = player.storage || { maxSlots: 50, items: [] };
+    if (!Array.isArray(player.storage.items)) player.storage.items = [];
+    const maxBag = player.inventory.maxSlots || 30;
+
+    const itemIndex = Number(data.itemIndex);
+    if (!Number.isInteger(itemIndex) || itemIndex < 0 || itemIndex >= player.storage.items.length) {
+      return;
+    }
+
+    const storageItem = player.storage.items[itemIndex];
+    if (!storageItem) return;
+
+    const withdrawQty = Math.max(1, Math.min(storageItem.count || 1, parseInt(String(data.count), 10) || (storageItem.count || 1)));
+
+    const canStack = (a: any, b: any) => {
+      return a && b && a.id === b.id &&
+        a.type !== 'equipment' && b.type !== 'equipment' &&
+        !a.upgradeLevel && !b.upgradeLevel &&
+        !a.sockets && !b.sockets &&
+        !a.maxSockets && !b.maxSockets &&
+        !a.brokenSockets && !b.brokenSockets &&
+        !a.reforgeBonus && !b.reforgeBonus &&
+        !a.custom && !b.custom;
+    };
+
+    let stacked = false;
+    if (canStack(storageItem, storageItem)) {
+      const match = player.inventory.items.find((i: any) => canStack(i, storageItem));
+      if (match) {
+        match.count = (match.count || 1) + withdrawQty;
+        stacked = true;
+      }
+    }
+
+    if (!stacked) {
+      if (player.inventory.items.length >= maxBag) {
+        socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: 'Backpack is full!', color: '#ef4444' });
+        return;
+      }
+      player.inventory.items.push({
+        ...storageItem,
+        count: withdrawQty
+      });
+    }
+
+    if ((storageItem.count || 1) > withdrawQty) {
+      storageItem.count = (storageItem.count || 1) - withdrawQty;
+    } else {
+      player.storage.items.splice(itemIndex, 1);
+    }
+
+    this.savePlayerAccount(socketId);
+    socket.emit('player_updated', player);
+    socket.emit('personal_chest_data', {
+      storage: player.storage,
+      inventory: player.inventory
+    });
+  }
+
+  handleUseChestExpander(socketId: string, data: any) {
+    const player = this.players.get(socketId);
+    const socket = this.io.sockets.sockets.get(socketId);
+    if (!player || !socket || player.isDead || !data) return;
+
+    const itemIndex = Number(data.itemIndex);
+    const item = player.inventory.items[itemIndex];
+    if (!item || !['chest_expander_sm', 'chest_expander_md', 'chest_expander_lg'].includes(item.id)) {
+      socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: 'Invalid chest expander!', color: '#ef4444' });
+      return;
+    }
+
+    player.storage = player.storage || { maxSlots: 50, items: [] };
+    const curSlots = player.storage.maxSlots || 50;
+    const MAX_CHEST_CAPACITY = 300;
+    if (curSlots >= MAX_CHEST_CAPACITY) {
+      socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: `Chest is already at maximum capacity (${MAX_CHEST_CAPACITY} slots)!`, color: '#ef4444' });
+      return;
+    }
+
+    const slotsAdded = item.id === 'chest_expander_sm' ? 10 : item.id === 'chest_expander_md' ? 20 : 50;
+    const newSlots = Math.min(MAX_CHEST_CAPACITY, curSlots + slotsAdded);
+    const actualAdded = newSlots - curSlots;
+
+    if (item.count && item.count > 1) {
+      item.count--;
+    } else {
+      player.inventory.items.splice(itemIndex, 1);
+    }
+
+    player.storage.maxSlots = newSlots;
+    this.savePlayerAccount(socketId);
+
+    socket.emit('player_updated', player);
+    socket.emit('personal_chest_data', {
+      storage: player.storage,
+      inventory: player.inventory
+    });
+    socket.emit('floating_text', {
+      x: player.x,
+      y: player.y - 0.8,
+      text: `📦 Personal Chest Expanded! (+${actualAdded} Slots, Total ${player.storage.maxSlots})`,
       color: '#facc15',
       size: 19
     });

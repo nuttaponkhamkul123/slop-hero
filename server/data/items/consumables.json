@@ -106,8 +106,8 @@
     "rarity": "rare",
     "slotsAdded": 6,
     "rowsAdded": 1,
-    "buyPrice": 1200,
-    "sellPrice": 400,
+    "buyPrice": 1000000,
+    "sellPrice": 250000,
     "desc": "A sturdy stitched adventurer pouch. Permanently expands your backpack capacity by 1 row (+6 slots)."
   },
   "bag_expander_md": {
@@ -119,8 +119,8 @@
     "rarity": "epic",
     "slotsAdded": 12,
     "rowsAdded": 2,
-    "buyPrice": 3500,
-    "sellPrice": 1200,
+    "buyPrice": 5000000,
+    "sellPrice": 1250000,
     "desc": "An enchanted dimensional satchel. Permanently expands your backpack capacity by 2 rows (+12 slots)."
   },
   "bag_expander_lg": {
@@ -132,8 +132,47 @@
     "rarity": "legendary",
     "slotsAdded": 30,
     "rowsAdded": 5,
-    "buyPrice": 12000,
-    "sellPrice": 4000,
+    "buyPrice": 10000000,
+    "sellPrice": 2500000,
     "desc": "A legendary spatial rucksack forged by titan artisans. Permanently expands your backpack capacity by 5 rows (+30 slots)."
+  },
+  "chest_expander_sm": {
+    "id": "chest_expander_sm",
+    "name": "Small Chest Expander",
+    "type": "consumable",
+    "icon": "📦",
+    "iconKey": "pouch",
+    "rarity": "rare",
+    "slotsAdded": 10,
+    "rowsAdded": 1,
+    "buyPrice": 2000000,
+    "sellPrice": 500000,
+    "desc": "Sturdy brass hinges and reinforced brackets. Permanently expands personal storage chest by +10 slots."
+  },
+  "chest_expander_md": {
+    "id": "chest_expander_md",
+    "name": "Medium Chest Expander",
+    "type": "consumable",
+    "icon": "📦",
+    "iconKey": "chest",
+    "rarity": "epic",
+    "slotsAdded": 20,
+    "rowsAdded": 2,
+    "buyPrice": 8000000,
+    "sellPrice": 2000000,
+    "desc": "Enchanted titanium vault braces. Permanently expands personal storage chest by +20 slots."
+  },
+  "chest_expander_lg": {
+    "id": "chest_expander_lg",
+    "name": "Large Chest Expander",
+    "type": "consumable",
+    "icon": "📦",
+    "iconKey": "chalice",
+    "rarity": "legendary",
+    "slotsAdded": 50,
+    "rowsAdded": 5,
+    "buyPrice": 20000000,
+    "sellPrice": 5000000,
+    "desc": "Mythical spatial anchor matrix. Permanently expands personal storage chest by +50 slots."
   }
 }

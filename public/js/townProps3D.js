@@ -630,6 +630,17 @@
     return { root };
   };
 
+  BUILDERS.personal_chest = () => {
+    const root = new THREE.Group();
+    box(root, 22, 14, 16, '#78350f', 0, 0, 0);
+    box(root, 23, 5, 17, '#92400e', 0, 14, 0);
+    box(root, 2.2, 19.5, 17.2, '#facc15', -7, 0, 0);
+    box(root, 2.2, 19.5, 17.2, '#facc15', 7, 0, 0);
+    box(root, 4, 5, 1.2, '#facc15', 0, 11, 8.4);
+    box(root, 1.6, 2, 0.4, '#1e293b', 0, 11, 9.1);
+    return { root };
+  };
+
   // Market stalls south of the east-west boulevard (y 18-22) turn to face it
   const BOULEVARD_MID_Y = 20.5;
   const propVariant = obs => (obs.type === 'market_stall' && obs.y > BOULEVARD_MID_Y ? (obs.variant || 0) + 4 : obs.variant);

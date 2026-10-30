@@ -149,6 +149,12 @@
       body += `<div class="tip-line" style="color: #facc15;"><span>Backpack Expansion</span><b>+${rows} ${rows === 1 ? 'Row' : 'Rows'} (+${slots} Slots)</b></div>`;
       body += `<div class="tip-flavour">${esc(item.desc)}</div>`;
       body += `<div class="tip-line" style="color: #4ade80; font-size: 11px;"><span>Usage</span><i>Click in bag to permanently expand capacity</i></div>`;
+    } else if (item.id && item.id.startsWith('chest_expander_')) {
+      const rows = item.id === 'chest_expander_sm' ? 1 : item.id === 'chest_expander_md' ? 2 : 5;
+      const slots = rows * 10;
+      body += `<div class="tip-line" style="color: #facc15;"><span>Personal Vault Expansion</span><b>+${slots} Storage Slots (+${rows} ${rows === 1 ? 'Row' : 'Rows'})</b></div>`;
+      body += `<div class="tip-flavour">${esc(item.desc)}</div>`;
+      body += `<div class="tip-line" style="color: #4ade80; font-size: 11px;"><span>Usage</span><i>Click in bag to permanently expand personal chest</i></div>`;
     } else if (item.desc) {
       body += `<div class="tip-flavour">${esc(item.desc)}</div>`;
     }

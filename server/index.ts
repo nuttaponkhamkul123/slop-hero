@@ -228,6 +228,22 @@ io.on('connection', (socket: Socket) => {
     gameServer.handleUseBagExpander(socket.id, data);
   });
 
+  socket.on('open_personal_chest', () => {
+    gameServer.handleOpenPersonalChest(socket.id);
+  });
+
+  socket.on('deposit_to_chest', (data: any) => {
+    gameServer.handleDepositToChest(socket.id, data);
+  });
+
+  socket.on('withdraw_from_chest', (data: any) => {
+    gameServer.handleWithdrawFromChest(socket.id, data);
+  });
+
+  socket.on('use_chest_expander', (data: any) => {
+    gameServer.handleUseChestExpander(socket.id, data);
+  });
+
   socket.on('open_chest', (data: any) => {
     gameServer.handleOpenChest(socket.id, data.chestId);
   });

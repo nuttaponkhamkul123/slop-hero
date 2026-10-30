@@ -235,7 +235,7 @@ const OVERLAY_TILE_DETAILS = new Set(['sparkle', 'glow', 'stars']);
 
 // Obstacle types rendered by townProps3D.js
 const TOWN_PROPS_3D = new Set(['merchant', 'blacksmith', 'enchanter', 'house', 'gate_tower', 'corner_keep',
-  'market_stall', 'lamp_post', 'crates', 'flower_bed', 'bench', 'well']);
+  'market_stall', 'lamp_post', 'crates', 'flower_bed', 'bench', 'well', 'personal_chest']);
 
 // Unique visual themes for all 10 Dungeon Floors
 const DUNGEON_THEME_WALLS = {
@@ -9725,7 +9725,8 @@ class IsometricRenderer {
         }
         const tag = obs.type === 'merchant' ? ['Olaf the Trader [Shop]', '#fde68a']
           : obs.type === 'blacksmith' ? ['Brom the Master Smith [Reforge]', '#fdba74']
-            : obs.type === 'enchanter' ? ['Valka the Enchanter [Rune Forge]', '#d8b4fe'] : null;
+          : obs.type === 'enchanter' ? ['Valka the Enchanter [Rune Forge]', '#d8b4fe']
+          : obs.type === 'personal_chest' ? ['📦 Personal Chest [Storage]', '#fde047'] : null;
         if (tag) {
           ctx.save();
           ctx.font = '15px "DotGothic16", monospace';
@@ -10065,6 +10066,32 @@ class IsometricRenderer {
       ctx.fillText('🏪 Olaf the Trader [Shop]', screen.x + 1, screen.y - 44 * z + 1);
       ctx.fillStyle = '#fde68a';
       ctx.fillText('🏪 Olaf the Trader [Shop]', screen.x, screen.y - 44 * z);
+      ctx.restore();
+    } else if (obs.type === 'personal_chest') {
+      ctx.beginPath();
+      ctx.ellipse(screen.x, screen.y + 2 * z, 14 * z, 8 * z, 0, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+      ctx.fill();
+      if (window.PixelMobs && window.PixelMobs.chestFrame) {
+        const frame = window.PixelMobs.chestFrame(true, false);
+        if (frame) {
+          ctx.drawImage(frame, screen.x - frame.width * 0.5 * z, screen.y - frame.height * z, frame.width * z, frame.height * z);
+        }
+      } else {
+        ctx.fillStyle = '#854d0e';
+        ctx.fillRect(screen.x - 12 * z, screen.y - 16 * z, 24 * z, 16 * z);
+        ctx.fillStyle = '#ca8a04';
+        ctx.fillRect(screen.x - 13 * z, screen.y - 18 * z, 26 * z, 5 * z);
+        ctx.fillStyle = '#fde047';
+        ctx.fillRect(screen.x - 2 * z, screen.y - 12 * z, 4 * z, 6 * z);
+      }
+      ctx.save();
+      ctx.font = '15px "DotGothic16", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#000';
+      ctx.fillText('📦 Personal Chest [Storage]', screen.x + 1, screen.y - 24 * z + 1);
+      ctx.fillStyle = '#fde047';
+      ctx.fillText('📦 Personal Chest [Storage]', screen.x, screen.y - 24 * z);
       ctx.restore();
     } else if (obs.type === 'portal') {
       // Abyssal dungeon portal on the plaza
