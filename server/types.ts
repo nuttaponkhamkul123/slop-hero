@@ -61,6 +61,9 @@ export interface InventoryItem {
   reforgeBonus?: Record<string, number>;
   equipped?: boolean;
   slot?: string;
+  maxSockets?: number;
+  sockets?: (string | null)[];
+  brokenSockets?: number;
   [key: string]: any;
 }
 

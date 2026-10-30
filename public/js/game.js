@@ -3950,6 +3950,8 @@ document.addEventListener('DOMContentLoaded', () => {
   function bagHint(item) {
     const blocker = equipBlocker(item);
     if (blocker) return `Can't equip: ${blocker}`;
+    if (item.type === 'rune') return 'Click to open Socket Forge';
+    if (item.id === 'socket_expander') return 'Click to open Socket Forge';
     if (item.type === 'equipment') return 'Click to equip';
     if (item.type === 'sp_card') {
       const card = spCardDef(item.cardId);
@@ -4068,6 +4070,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (item.type === 'equipment' || item.type === 'sp_card') {
           socket.emit('equip_item', { itemIndex: index });
           window.soundEngine.playLevelUp();
+        } else if (item.type === 'rune' || item.id === 'socket_expander') {
+          enchTab = 'socket';
+          enchSelected = 'eq:weapon';
+          if (enchanterModal) enchanterModal.style.display = 'flex';
+          renderEnchanter();
         } else if (item.id === 'health_potion') {
           drinkPotion('health');
         } else if (item.id === 'mana_potion') {
@@ -4117,6 +4124,17 @@ document.addEventListener('DOMContentLoaded', () => {
   function enchEntries() {
     const eq = localPlayer.equipment || {};
     const out = [];
+    if (enchTab === 'socket') {
+      if (eq.weapon && eq.weapon.type === 'equipment' && eq.weapon.slot === 'weapon') {
+        out.push({ key: 'eq:weapon', item: eq.weapon, target: 'equipped', slot: 'weapon', equipped: true });
+      }
+      (localPlayer.inventory.items || []).forEach((it, i) => {
+        if (it && it.type === 'equipment' && it.slot === 'weapon') {
+          out.push({ key: `inv:${i}`, item: it, target: 'inventory', itemIndex: i });
+        }
+      });
+      return out;
+    }
     const want = enchTab === 'gear' ? 'equipment' : 'sp_card';
     for (const [slot, it] of Object.entries(eq)) if (it && it.type === want) out.push({ key: `eq:${slot}`, item: it, target: 'equipped', slot, equipped: true });
     localPlayer.inventory.items.forEach((it, i) => { if (it.type === want) out.push({ key: `inv:${i}`, item: it, target: 'inventory', itemIndex: i }); });
@@ -4183,6 +4201,200 @@ document.addEventListener('DOMContentLoaded', () => {
     const listEl = document.getElementById('enchList');
     const detailEl = document.getElementById('enchDetail');
     listEl.innerHTML = '';
+
+    if (enchTab === 'socket') {
+      const entries = enchEntries();
+      if (!entries.some(e => e.key === enchSelected)) enchSelected = entries[0] ? entries[0].key : null;
+      if (!entries.length) {
+        listEl.innerHTML = '<div class="ench-empty">No weapons found in your equipment or bag.</div>';
+        detailEl.innerHTML = '';
+        return;
+      }
+      entries.forEach(e => {
+        const row = document.createElement('div');
+        row.className = `ench-row rarity-${e.item.rarity || 'common'} ${e.key === enchSelected ? 'selected' : ''}`;
+        const maxSockets = e.item.maxSockets !== undefined ? e.item.maxSockets : 0;
+        const brokenSockets = e.item.brokenSockets || 0;
+        const usableSockets = Math.max(0, maxSockets - brokenSockets);
+        const socketsArr = Array.isArray(e.item.sockets) ? e.item.sockets : [];
+        const socketedCount = socketsArr.filter(Boolean).length;
+        row.innerHTML = `${PixelIcons.itemHtml(e.item)}<span class="ench-row-name">${escapeHtml(e.item.name)}<small>${e.equipped ? 'Equipped' : 'In bag'}</small></span><span class="ench-row-lvl" style="font-size:13px; color:#38bdf8;">⬡ ${socketedCount}/${usableSockets}</span>`;
+        GameTooltip.item(row, e.item);
+        row.addEventListener('click', () => { enchSelected = e.key; enchResult = null; renderEnchanter(); });
+        listEl.appendChild(row);
+      });
+
+      const sel = entries.find(e => e.key === enchSelected);
+      if (!sel) return;
+      const item = sel.item;
+      const maxSockets = item.maxSockets !== undefined ? item.maxSockets : 0;
+      const brokenSockets = item.brokenSockets || 0;
+      const usableSockets = Math.max(0, maxSockets - brokenSockets);
+      const sockets = Array.isArray(item.sockets) ? item.sockets : [];
+
+      const runesInBag = [];
+      (localPlayer.inventory.items || []).forEach((it, idx) => {
+        if (it && it.type === 'rune') runesInBag.push({ item: it, index: idx });
+      });
+
+      const expanderItem = (localPlayer.inventory.items || []).find(it => it && it.id === 'socket_expander');
+      const expanderCount = expanderItem ? (expanderItem.count || 1) : 0;
+
+      const RUNE_INFO = {
+        rune_flame: { name: 'Infernal Flame Rune', icon: '🔴', desc: '+25% Damage & Persistent Burn DoT', color: '#ef4444' },
+        flame: { name: 'Infernal Flame Rune', icon: '🔴', desc: '+25% Damage & Persistent Burn DoT', color: '#ef4444' },
+        rune_frost: { name: 'Glacial Frost Rune', icon: '🔵', desc: '40% Chill Slow for 3.5s & 25% Freeze Chance', color: '#38bdf8' },
+        frost: { name: 'Glacial Frost Rune', icon: '🔵', desc: '40% Chill Slow for 3.5s & 25% Freeze Chance', color: '#38bdf8' },
+        rune_tempest: { name: 'Tempest Surge Rune', icon: '⚡', desc: '-20% Cooldown & +10% Electric Shock DMG', color: '#eab308' },
+        tempest: { name: 'Tempest Surge Rune', icon: '⚡', desc: '-20% Cooldown & +10% Electric Shock DMG', color: '#eab308' },
+        rune_vampiric: { name: 'Vampiric Drain Rune', icon: '🟣', desc: '25% Damage Dealt as HP Life Leech', color: '#a855f7' },
+        vampiric: { name: 'Vampiric Drain Rune', icon: '🟣', desc: '25% Damage Dealt as HP Life Leech', color: '#a855f7' }
+      };
+
+      let socketsHtml = '';
+      if (maxSockets === 0) {
+        socketsHtml = '<div class="ench-warn" style="font-size:12px; padding: 10px; background: #1e293b; border-radius: 4px;">This weapon has 0 sockets. Use an Ancient Socket Expander below to drill sockets into it!</div>';
+      } else {
+        for (let i = 0; i < usableSockets; i++) {
+          const rId = sockets[i];
+          if (rId && RUNE_INFO[rId]) {
+            const r = RUNE_INFO[rId];
+            socketsHtml += `
+              <div class="socket-card filled">
+                <div class="socket-card-left">
+                  <div class="socket-icon">${r.icon}</div>
+                  <div>
+                    <div class="socket-name" style="color: ${r.color};">Socket ${i + 1}: ${escapeHtml(r.name)}</div>
+                    <div class="socket-desc">${escapeHtml(r.desc)}</div>
+                  </div>
+                </div>
+                <div class="socket-actions">
+                  <button class="socket-btn-unsocket" data-slot="${i}">Extract Rune</button>
+                </div>
+              </div>`;
+          } else {
+            const runeOptions = runesInBag.map(r => `<option value="${r.index}">${escapeHtml(r.item.name)} (x${r.item.count || 1})</option>`).join('');
+            socketsHtml += `
+              <div class="socket-card empty">
+                <div class="socket-card-left">
+                  <div class="socket-icon" style="color: #64748b;">⬡</div>
+                  <div>
+                    <div class="socket-name" style="color: #94a3b8;">Socket ${i + 1}: Empty Socket</div>
+                    <div class="socket-desc" style="color: #64748b;">Ready to be socketed with an Elemental Rune</div>
+                  </div>
+                </div>
+                <div class="socket-actions">
+                  ${runesInBag.length > 0 ? `
+                    <select class="socket-rune-select" id="socketSelect_${i}">
+                      ${runeOptions}
+                    </select>
+                    <button class="socket-btn-insert" data-slot="${i}">Socket</button>
+                  ` : '<span style="font-size:11px; color:#64748b;">No runes in bag</span>'}
+                </div>
+              </div>`;
+          }
+        }
+        for (let i = 0; i < brokenSockets; i++) {
+          socketsHtml += `
+            <div class="socket-card broken">
+              <div class="socket-card-left">
+                <div class="socket-icon" style="color: #ef4444;">✕</div>
+                <div>
+                  <div class="socket-name" style="color: #ef4444;">Broken Socket Slot</div>
+                  <div class="socket-desc" style="color: #fca5a5;">Damaged during titanium socket expansion. Cannot be socketed.</div>
+                </div>
+              </div>
+            </div>`;
+        }
+      }
+
+      const canExpand = maxSockets < 4 && expanderCount > 0;
+      const expandRates = [
+        { success: 70, fail: 30, breakRate: 0 },
+        { success: 50, fail: 30, breakRate: 20 },
+        { success: 35, fail: 35, breakRate: 30 },
+        { success: 20, fail: 35, breakRate: 45 }
+      ];
+      const curRate = expandRates[Math.min(3, maxSockets)] || expandRates[0];
+
+      detailEl.innerHTML = `
+        <div class="ench-detail-head">
+          ${PixelIcons.itemHtml(item)}
+          <div>
+            <div class="ench-detail-name" style="color:${({ rare: '#38bdf8', epic: '#c084fc', legendary: '#f59e0b' })[item.rarity] || '#e2e8f0'}">
+              ${escapeHtml(item.name)}
+            </div>
+            <div class="tip-type">${(item.rarity || 'common').toUpperCase()} WEAPON - Sockets: ${usableSockets} Active (${brokenSockets} Broken, Max 4)</div>
+          </div>
+        </div>
+
+        <div class="socket-view">
+          <div class="socket-slots-container">
+            ${socketsHtml}
+          </div>
+
+          <div class="socket-expander-box">
+            <div class="socket-expander-title">
+              🔮 Ancient Socket Expander <span style="font-size: 13px; color: ${expanderCount > 0 ? '#4ade80' : '#ef4444'};">(In Bag: x${expanderCount})</span>
+            </div>
+            <div class="socket-expander-stats">
+              <span>Drill Expansion: <b>${maxSockets} / 4 Sockets</b></span>
+              <span>Success: <b style="color: #4ade80;">${curRate.success}%</b> | Harmless Fail: <b style="color: #facc15;">${curRate.fail}%</b> | Break Risk: <b style="color: #ef4444;">${curRate.breakRate}%</b></span>
+            </div>
+            <div class="socket-expander-warn">
+              ⚠️ Warning: Expanding sockets past base slots carries a real risk to permanently break the slot!
+            </div>
+            <button class="socket-expander-btn" id="btnExpandSocket" ${canExpand ? '' : 'disabled'}>
+              ${maxSockets >= 4 ? 'MAXIMUM SOCKETS REACHED (4)' : expanderCount <= 0 ? 'ANCIENT EXPANDER NEEDED' : `DRILL +1 SOCKET (${curRate.success}% Success)`}
+            </button>
+          </div>
+        </div>
+        <div class="ench-result ${enchResult ? (enchResult.ok ? 'ok' : 'bad') : ''}">${enchResult ? escapeHtml(enchResult.text) : ''}</div>`;
+
+      detailEl.querySelectorAll('.socket-btn-insert').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const slotIdx = Number(btn.dataset.slot);
+          const selBox = document.getElementById(`socketSelect_${slotIdx}`);
+          if (!selBox) return;
+          const runeIndex = Number(selBox.value);
+          socket.emit('socket_rune', {
+            target: sel.target,
+            slot: sel.slot,
+            itemIndex: sel.itemIndex,
+            socketSlotIndex: slotIdx,
+            runeIndex
+          });
+        });
+      });
+
+      detailEl.querySelectorAll('.socket-btn-unsocket').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const slotIdx = Number(btn.dataset.slot);
+          socket.emit('unsocket_rune', {
+            target: sel.target,
+            slot: sel.slot,
+            itemIndex: sel.itemIndex,
+            socketSlotIndex: slotIdx
+          });
+        });
+      });
+
+      const expandBtn = document.getElementById('btnExpandSocket');
+      if (expandBtn) {
+        expandBtn.addEventListener('click', () => {
+          if (!confirm(`Are you sure you want to attempt drilling +1 socket into ${item.name}?\nSuccess rate: ${curRate.success}%\nBreak risk: ${curRate.breakRate}%`)) {
+            return;
+          }
+          socket.emit('expand_socket', {
+            target: sel.target,
+            slot: sel.slot,
+            itemIndex: sel.itemIndex,
+            expanderIndex: expanderItem ? (localPlayer.inventory.items || []).indexOf(expanderItem) : -1
+          });
+        });
+      }
+      return;
+    }
 
     if (enchTab === 'exchange') {
       const cards = (spCatalog && spCatalog.cards[localPlayer.characterClass]) || [];
@@ -4285,6 +4497,31 @@ document.addEventListener('DOMContentLoaded', () => {
     enchResult = data.ok ? { ok: true, text: 'Card obtained! Check your bag.' } : { ok: false, text: data.message };
     if (data.ok) window.soundEngine.playLevelUp();
     renderEnchanter();
+  });
+  socket.on('socket_result', (data) => {
+    enchResult = data.ok
+      ? { ok: true, text: data.action === 'socket' ? 'Rune successfully socketed into weapon!' : 'Rune extracted back to bag!' }
+      : { ok: false, text: data.message || 'Socket operation failed!' };
+    if (data.ok) window.soundEngine.playLevelUp();
+    else window.soundEngine.playUpgradeFail();
+    renderEnchanter();
+    renderInventoryGrid();
+  });
+  socket.on('socket_expand_result', (data) => {
+    enchResult = data.ok
+      ? {
+          ok: data.success,
+          text: data.success
+            ? `Expansion Successful! Total sockets: ${data.maxSockets}`
+            : data.broken
+              ? `Expansion Failed! Socket broke! (${data.brokenSockets} broken)`
+              : 'Expansion Failed! The drill shattered harmlessly.'
+        }
+      : { ok: false, text: data.message || 'Expansion failed!' };
+    if (data.success) window.soundEngine.playLevelUp();
+    else window.soundEngine.playUpgradeFail();
+    renderEnchanter();
+    renderInventoryGrid();
   });
 
   // Hook Quick Potions inside inventory modal

@@ -212,6 +212,17 @@ io.on('connection', (socket: Socket) => {
   socket.on('reforge_item', (data: any) => {
     gameServer.handleReforgeItem(socket.id, data);
   });
+  socket.on('socket_rune', (data: any) => {
+    gameServer.handleSocketRune(socket.id, data);
+  });
+
+  socket.on('unsocket_rune', (data: any) => {
+    gameServer.handleUnsocketRune(socket.id, data);
+  });
+
+  socket.on('expand_socket', (data: any) => {
+    gameServer.handleExpandSocket(socket.id, data);
+  });
 
   socket.on('open_chest', (data: any) => {
     gameServer.handleOpenChest(socket.id, data.chestId);

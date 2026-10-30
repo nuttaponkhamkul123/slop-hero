@@ -20,7 +20,11 @@ import {
   enhanceChance,
   requiredClass,
   WEAPON_ABILITIES,
-  weaponAbility
+  weaponAbility,
+  RUNE_DROP_CHANCE,
+  SOCKET_EXPANDER_DROP_CHANCE,
+  RUNES_DEF,
+  ensureWeaponSockets
 } from './items';
 import accountManager from './accountManager';
 import { FIELD_ZONES, FIELD_ZONE_BY_ID, generateFieldMap, buildFieldMobs } from './fieldZones';
@@ -3967,9 +3971,10 @@ class GameServer {
       return;
     }
 
+    const runeCounts = this.getWeaponRuneCounts(player);
     let cooldown = skill.cooldown;
-    if (runeId === 'tempest') {
-      cooldown = Math.max(1.0, Number((cooldown * 0.8).toFixed(1)));
+    if (runeCounts.tempest > 0) {
+      cooldown = Math.max(1.0, Number((cooldown * Math.pow(0.8, runeCounts.tempest)).toFixed(1)));
     }
     if (slot === 'dash') {
       if (playerTalents.sundering_dash) cooldown = Math.max(1.2, cooldown - playerTalents.sundering_dash * 0.5);
@@ -4736,6 +4741,9 @@ class GameServer {
     const totalElementResist: Record<string, number> = {};
 
     if (player.equipment) {
+      if (player.equipment.weapon) {
+        ensureWeaponSockets(player.equipment.weapon);
+      }
       for (const eq of (Object.values(player.equipment) as any[])) {
         if (!eq) continue;
         if (eq.elementResist) {
@@ -4764,6 +4772,11 @@ class GameServer {
           if (eq.reforgeStats.critDmg) totalCritDmgBonus += eq.reforgeStats.critDmg / 100;
         }
       }
+    }
+
+    const weaponRunes = this.getWeaponRuneCounts(player);
+    if (weaponRunes.vampiric > 0) {
+      totalLifeSteal += 0.25 * weaponRunes.vampiric;
     }
 
     // Talent tree passive bonuses
@@ -5142,6 +5155,278 @@ class GameServer {
 
     if (targetItem.rarity === 'legendary' || targetItem.rarity === 'epic') {
       this.broadcastSystemMessage(`🌟 [${player.name}] reforged [${targetItem.name}] with [${rolledReforge}] at Brom's Anvil!`);
+    }
+  }
+
+  getWeaponRuneCounts(player: any): Record<string, number> {
+    const counts: Record<string, number> = { flame: 0, frost: 0, tempest: 0, vampiric: 0 };
+    const weapon = player?.equipment?.weapon;
+    if (!weapon || !Array.isArray(weapon.sockets)) return counts;
+    for (const s of weapon.sockets) {
+      if (!s) continue;
+      const key = String(s).replace(/^rune_/, '');
+      if (counts[key] !== undefined) {
+        counts[key]++;
+      }
+    }
+    return counts;
+  }
+
+  handleSocketRune(socketId: string, data: any) {
+    const player = this.players.get(socketId);
+    const socket = this.io.sockets.sockets.get(socketId);
+    if (!player || !socket || player.isDead || !data) return;
+
+    let targetItem: any = null;
+    let isEquipped = false;
+    if (data.target === 'equipped' && player.equipment && player.equipment[data.slot || 'weapon']) {
+      targetItem = player.equipment[data.slot || 'weapon'];
+      isEquipped = true;
+    } else if (data.target === 'inventory' && Number.isInteger(data.itemIndex)) {
+      targetItem = player.inventory.items[data.itemIndex];
+    }
+    if (!targetItem || targetItem.slot !== 'weapon') {
+      socket.emit('socket_result', { ok: false, message: 'Only weapons have sockets!' });
+      return;
+    }
+
+    ensureWeaponSockets(targetItem);
+
+    const runeIndex = Number(data.runeIndex);
+    const runeItem = player.inventory.items[runeIndex];
+    if (!runeItem || runeItem.type !== 'rune') {
+      socket.emit('socket_result', { ok: false, message: 'Select a valid rune item!' });
+      return;
+    }
+
+    const maxSockets = targetItem.maxSockets || 0;
+    const brokenSockets = targetItem.brokenSockets || 0;
+    const usableSockets = Math.max(0, maxSockets - brokenSockets);
+    let slotIdx = Number(data.socketSlotIndex !== undefined ? data.socketSlotIndex : targetItem.sockets.findIndex((s: any) => s === null));
+
+    if (slotIdx < 0 || slotIdx >= usableSockets) {
+      socket.emit('socket_result', { ok: false, message: 'No available weapon socket slot!' });
+      return;
+    }
+
+    // If slot has an existing rune, return it to inventory if possible
+    const existingRune = targetItem.sockets[slotIdx];
+    if (existingRune) {
+      const existingDef = ITEMS[existingRune] || ITEMS[`rune_${existingRune}`];
+      if (existingDef) {
+        const stack = player.inventory.items.find((i: any) => i.id === existingDef.id);
+        if (stack) {
+          stack.count = (stack.count || 1) + 1;
+        } else {
+          player.inventory.items.push({ ...existingDef, count: 1 });
+        }
+      }
+    }
+
+    // Deduct 1 rune item from inventory
+    if (runeItem.count && runeItem.count > 1) {
+      runeItem.count--;
+    } else {
+      player.inventory.items.splice(runeIndex, 1);
+    }
+
+    targetItem.sockets[slotIdx] = runeItem.id;
+
+    if (isEquipped) {
+      this.recalculatePlayerStats(player);
+    }
+    this.savePlayerAccount(socketId);
+
+    socket.emit('player_updated', player);
+    socket.emit('socket_result', {
+      ok: true,
+      action: 'socket',
+      slotIdx,
+      runeId: runeItem.id,
+      item: targetItem,
+      target: data.target,
+      slot: data.slot,
+      itemIndex: data.itemIndex
+    });
+    this.emitZone(player.zone, 'floating_text', {
+      x: player.x,
+      y: player.y - 0.7,
+      text: `✨ SOCKETED: ${runeItem.name}!`,
+      color: runeItem.color || '#f59e0b',
+      size: 18
+    });
+  }
+
+  handleUnsocketRune(socketId: string, data: any) {
+    const player = this.players.get(socketId);
+    const socket = this.io.sockets.sockets.get(socketId);
+    if (!player || !socket || player.isDead || !data) return;
+
+    let targetItem: any = null;
+    let isEquipped = false;
+    if (data.target === 'equipped' && player.equipment && player.equipment[data.slot || 'weapon']) {
+      targetItem = player.equipment[data.slot || 'weapon'];
+      isEquipped = true;
+    } else if (data.target === 'inventory' && Number.isInteger(data.itemIndex)) {
+      targetItem = player.inventory.items[data.itemIndex];
+    }
+    if (!targetItem || targetItem.slot !== 'weapon') return;
+
+    ensureWeaponSockets(targetItem);
+
+    const slotIdx = Number(data.socketSlotIndex);
+    if (slotIdx < 0 || slotIdx >= targetItem.sockets.length || !targetItem.sockets[slotIdx]) {
+      socket.emit('socket_result', { ok: false, message: 'No rune socketed in this slot!' });
+      return;
+    }
+
+    const runeId = targetItem.sockets[slotIdx];
+    const runeDef = ITEMS[runeId] || ITEMS[`rune_${runeId}`];
+    if (!runeDef) return;
+
+    // Check inventory capacity
+    if (player.inventory.items.length >= 30 && !player.inventory.items.some((i: any) => i.id === runeDef.id)) {
+      socket.emit('socket_result', { ok: false, message: 'Inventory is full!' });
+      return;
+    }
+
+    targetItem.sockets[slotIdx] = null;
+
+    const stack = player.inventory.items.find((i: any) => i.id === runeDef.id);
+    if (stack) {
+      stack.count = (stack.count || 1) + 1;
+    } else {
+      player.inventory.items.push({ ...runeDef, count: 1 });
+    }
+
+    if (isEquipped) {
+      this.recalculatePlayerStats(player);
+    }
+    this.savePlayerAccount(socketId);
+
+    socket.emit('player_updated', player);
+    socket.emit('socket_result', {
+      ok: true,
+      action: 'unsocket',
+      slotIdx,
+      runeId,
+      item: targetItem,
+      target: data.target,
+      slot: data.slot,
+      itemIndex: data.itemIndex
+    });
+    this.emitZone(player.zone, 'floating_text', {
+      x: player.x,
+      y: player.y - 0.7,
+      text: `🔄 EXTRACTED: ${runeDef.name}`,
+      color: '#94a3b8',
+      size: 16
+    });
+  }
+
+  handleExpandSocket(socketId: string, data: any) {
+    const player = this.players.get(socketId);
+    const socket = this.io.sockets.sockets.get(socketId);
+    if (!player || !socket || player.isDead || !data) return;
+
+    let targetItem: any = null;
+    let isEquipped = false;
+    if (data.target === 'equipped' && player.equipment && player.equipment[data.slot || 'weapon']) {
+      targetItem = player.equipment[data.slot || 'weapon'];
+      isEquipped = true;
+    } else if (data.target === 'inventory' && Number.isInteger(data.itemIndex)) {
+      targetItem = player.inventory.items[data.itemIndex];
+    }
+    if (!targetItem || targetItem.slot !== 'weapon') {
+      socket.emit('socket_result', { ok: false, message: 'Can only expand sockets on weapons!' });
+      return;
+    }
+
+    ensureWeaponSockets(targetItem);
+
+    if (targetItem.maxSockets >= 4) {
+      socket.emit('socket_result', { ok: false, message: 'This weapon already has maximum sockets (4)!' });
+      return;
+    }
+
+    let expanderIndex = Number(data.expanderIndex);
+    let expanderItem = player.inventory.items[expanderIndex];
+    if (!expanderItem || expanderItem.id !== 'socket_expander') {
+      expanderIndex = player.inventory.items.findIndex((i: any) => i && i.id === 'socket_expander');
+      expanderItem = player.inventory.items[expanderIndex];
+    }
+    if (!expanderItem) {
+      socket.emit('socket_result', { ok: false, message: 'You need an Ancient Socket Expander!' });
+      return;
+    }
+
+    // Consume 1 socket expander
+    if (expanderItem.count && expanderItem.count > 1) {
+      expanderItem.count--;
+    } else {
+      player.inventory.items.splice(expanderIndex, 1);
+    }
+
+    const currentSockets = targetItem.maxSockets || 0;
+    const roll = Math.random();
+    let success = false;
+    let broken = false;
+
+    if (currentSockets === 0) {
+      success = roll < 0.70;
+    } else if (currentSockets === 1) {
+      if (roll < 0.50) success = true;
+      else if (roll < 0.70) broken = true;
+    } else if (currentSockets === 2) {
+      if (roll < 0.35) success = true;
+      else if (roll < 0.65) broken = true;
+    } else {
+      if (roll < 0.20) success = true;
+      else if (roll < 0.65) broken = true;
+    }
+
+    if (success) {
+      targetItem.maxSockets++;
+      targetItem.sockets.push(null);
+    } else if (broken) {
+      targetItem.brokenSockets = (targetItem.brokenSockets || 0) + 1;
+    }
+
+    if (isEquipped) {
+      this.recalculatePlayerStats(player);
+    }
+    this.savePlayerAccount(socketId);
+
+    socket.emit('player_updated', player);
+    socket.emit('socket_expand_result', {
+      ok: true,
+      success,
+      broken,
+      maxSockets: targetItem.maxSockets,
+      brokenSockets: targetItem.brokenSockets,
+      item: targetItem,
+      target: data.target,
+      slot: data.slot,
+      itemIndex: data.itemIndex
+    });
+
+    const msg = success
+      ? `💎 SOCKET EXPANDED! (+1 Slot, total ${targetItem.maxSockets})`
+      : broken
+        ? `💥 DRILL FAILED! A socket broke! (${targetItem.brokenSockets} broken)`
+        : `⚠️ EXPANSION FAILED! (Drill shattered harmlessly)`;
+    const color = success ? '#22c55e' : broken ? '#ef4444' : '#eab308';
+
+    this.emitZone(player.zone, 'floating_text', {
+      x: player.x,
+      y: player.y - 0.8,
+      text: msg,
+      color,
+      size: 19
+    });
+
+    if (success && targetItem.maxSockets >= 3) {
+      this.broadcastSystemMessage(`🔮 [${player.name}] expanded [${targetItem.name}] to ${targetItem.maxSockets} Sockets!`);
     }
   }
 
@@ -5651,6 +5936,17 @@ class GameServer {
     const elemMult = calculateElementalMultiplier(atkElement, mobElement, mobResists);
     rawDamage = Math.max(1, Math.round(rawDamage * elemMult));
 
+    // Elemental Rune Weapon Empowerment
+    const runeCounts = this.getWeaponRuneCounts(player);
+    if (runeCounts.flame > 0) {
+      rawDamage = Math.round(rawDamage * (1 + 0.25 * runeCounts.flame));
+      mob.burnTimer = Math.max(mob.burnTimer || 0, 4.0);
+      mob.burnDmg = Math.max(mob.burnDmg || 0, Math.round(rawDamage * 0.15));
+    }
+    if (runeCounts.tempest > 0) {
+      rawDamage = Math.round(rawDamage * (1 + 0.10 * runeCounts.tempest));
+    }
+
     // Bannerman: fighting inside your own War Standard
     const banner = player && this.ownBanner(player);
     if (banner && Math.hypot(player.x - banner.x, player.y - banner.y) <= banner.r) rawDamage = Math.round(rawDamage * (1 + banner.bonus));
@@ -5701,6 +5997,36 @@ class GameServer {
     mob.state = 'chase';
     mob.targetPlayerId = player ? player.id : null;
     if (player) mob.lastHitBy = player.id; // burn / poison kills are credited to them
+
+    if (runeCounts.frost > 0) {
+      mob.chillTimer = Math.max(mob.chillTimer || 0, 3.5);
+      mob.chillSlow = 0.40;
+      if (Math.random() < Math.min(0.75, 0.25 * runeCounts.frost)) {
+        mob.freezeTimer = Math.max(mob.freezeTimer || 0, mob.isBoss ? BOSS_FREEZE_SECONDS : FREEZE_SECONDS);
+        this.emitZone((player && player.zone) || mob.fieldZone, 'floating_text', {
+          x: mob.x,
+          y: mob.y - 0.7,
+          text: '❄️ FROZEN!',
+          color: '#38bdf8',
+          size: 16
+        });
+      }
+    }
+    if (runeCounts.vampiric > 0 && damage > 0 && !isDeflected) {
+      const vLeech = Math.round(damage * 0.25 * runeCounts.vampiric);
+      player.hp = Math.min(player.maxHp, player.hp + vLeech);
+      const now = Date.now();
+      if (!player._lastRuneLeechText || now - player._lastRuneLeechText > 250) {
+        player._lastRuneLeechText = now;
+        this.emitZone((player && player.zone) || mob.fieldZone, 'floating_text', {
+          x: player.x,
+          y: player.y - 0.5,
+          text: `+${vLeech} HP (Vampiric Rune)`,
+          color: '#a855f7',
+          size: 14
+        });
+      }
+    }
 
     // Field raid boss: feed the live leaderboard (actual damage dealt)
     if (mob.isRaidBoss && player) {
@@ -5987,6 +6313,20 @@ class GameServer {
         const r = relics[Math.floor(Math.random() * relics.length)];
         this.spawnGroundItem(zone, 'item', r, mob.x + (Math.random() - 0.5) * 0.8, mob.y + (Math.random() - 0.5) * 0.8, 1, null, instId);
       }
+    }
+
+    // Elemental Rune drop: 0.005% chance (0.00005) from any monster kill
+    if (Math.random() < RUNE_DROP_CHANCE) {
+      const runeKeys = ['rune_flame', 'rune_frost', 'rune_tempest', 'rune_vampiric'];
+      const chosenRune = runeKeys[Math.floor(Math.random() * runeKeys.length)];
+      this.spawnGroundItem(zone, 'item', chosenRune, mob.x + (Math.random() - 0.5) * 0.8, mob.y + (Math.random() - 0.5) * 0.8, 1, null, instId);
+      this.broadcastSystemMessage(`✨ MYTHICAL DROP! [${killerPlayer ? killerPlayer.name : 'A hero'}] uncovered a rare [${ITEMS[chosenRune]?.name || chosenRune}]!`);
+    }
+
+    // Ancient Socket Expander drop: 0.00005% chance (0.0000005) from boss monsters
+    if (isBoss && Math.random() < SOCKET_EXPANDER_DROP_CHANCE) {
+      this.spawnGroundItem(zone, 'item', 'socket_expander', mob.x + (Math.random() - 0.5) * 0.8, mob.y + (Math.random() - 0.5) * 0.8, 1, null, instId);
+      this.broadcastSystemMessage(`🌟 TITAN RELIC! [${killerPlayer ? killerPlayer.name : 'A hero'}] found an [Ancient Socket Expander] from [${mob.name}]!`);
     }
 
     this.emitZone(zone, 'mob_died', { mobId: mob.id, killerId: killerPlayer ? killerPlayer.id : null }, instId);
