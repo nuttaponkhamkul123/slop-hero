@@ -2,8 +2,10 @@ import express, { Request, Response } from 'express';
 import http from 'http';
 import path from 'path';
 import fs from 'fs';
+import crypto from 'crypto';
 import { Server, Socket } from 'socket.io';
 import GameServer from './gameServer';
+import accountManager from './accountManager';
 import * as adminCommands from './adminCommands';
 
 const app = express();
@@ -32,6 +34,23 @@ const publicDir = path.resolve(rootDir, 'public');
 
 // Serve static frontend files
 app.use(express.static(publicDir));
+
+// Fingerprint of the client files at startup: after a restart, a client that
+// reconnects to a different version reloads to pick up the new files
+function clientVersion(dir: string): string {
+  const hash = crypto.createHash('sha1');
+  const walk = (d: string) => {
+    for (const name of fs.readdirSync(d).sort()) {
+      const p = path.join(d, name);
+      const st = fs.statSync(p);
+      if (st.isDirectory()) walk(p);
+      else hash.update(`${path.relative(dir, p)}:${st.size}:${st.mtimeMs}\n`);
+    }
+  };
+  try { walk(dir); } catch (_) {}
+  return hash.digest('hex').slice(0, 12);
+}
+const CLIENT_VERSION = clientVersion(publicDir);
 
 // Explicit route to serve city.wav music file
 app.get('/city.wav', (_req: Request, res: Response) => {
@@ -109,6 +128,7 @@ const gameServer = new GameServer(io);
 // Handle WebSockets
 io.on('connection', (socket: Socket) => {
   console.log(`[Socket Connected] ID: ${socket.id}`);
+  socket.emit('server_version', CLIENT_VERSION);
 
   // Every handler runs in the context of the sender's dungeon instance, so
   // zone-wide emits and lookups from inside a dungeon stay in that instance.
@@ -144,6 +164,10 @@ io.on('connection', (socket: Socket) => {
     gameServer.handlePlayerInput(socket.id, input);
   });
 
+  socket.on('set_effects', (data: any) => {
+    gameServer.handleSetEffects(socket.id, data);
+  });
+
   socket.on('player_attack', (targetInfo: any) => {
     gameServer.handlePlayerAttack(socket.id, targetInfo);
   });
@@ -158,6 +182,10 @@ io.on('connection', (socket: Socket) => {
 
   socket.on('use_portal', () => {
     gameServer.handleUsePortal(socket.id);
+  });
+
+  socket.on('spawn_boss_portal', () => {
+    gameServer.handleSpawnBossPortal(socket.id);
   });
 
   socket.on('pickup_item', (itemId: any) => {
@@ -244,6 +272,10 @@ io.on('connection', (socket: Socket) => {
     gameServer.handleUseChestExpander(socket.id, data);
   });
 
+  socket.on('use_town_scroll', (data: any) => {
+    gameServer.handleUseTownScroll(socket.id, data);
+  });
+
   socket.on('open_chest', (data: any) => {
     gameServer.handleOpenChest(socket.id, data.chestId);
   });
@@ -327,6 +359,27 @@ io.on('connection', (socket: Socket) => {
     gameServer.removePlayer(socket.id);
   });
 });
+
+// Graceful restart (Ctrl+C, pm2 restart, docker stop): warn the clients, save
+// every online hero, then exit. Clients show "Updating..." and rejoin by themselves.
+let shuttingDown = false;
+function shutdown(signal: string) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`[Shutdown] ${signal}: saving ${gameServer.players.size} online players...`);
+  io.emit('server_restarting');
+  try {
+    gameServer.saveAllOnlinePlayers();
+    accountManager.saveAccounts();
+    accountManager.saveSessions();
+  } catch (err) {
+    console.error('[Shutdown] Save failed:', err);
+  }
+  // give the warning a moment to reach the clients
+  setTimeout(() => process.exit(0), 300);
+}
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));
 
 server.listen(PORT, () => {
   console.log(`===============================================`);

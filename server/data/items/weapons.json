@@ -286,7 +286,7 @@
     "bonusMp": 40,
     "element": "dark",
     "rift": true,
-    "desc": "+46 Attack Power, +12% Attack Speed, +40 Max Mana [💀 Dark Element]. Any class can wield it. [Right Click] Rift Step: teleport 3 tiles ahead and explode, hitting every enemy within 3 tiles. 0.25s cooldown, drains a little MP."
+    "desc": "+46 Attack Power, +12% Attack Speed, +40 Max Mana [💀 Dark Element]. Any class can wield it. [Right Click] Rift Step: teleport 5.5 tiles ahead and explode, hitting every enemy within 3.5 tiles for 3.4x damage. 0.75s cooldown, costs 26 MP."
   },
   "nightfall_twinblades": {
     "id": "nightfall_twinblades",

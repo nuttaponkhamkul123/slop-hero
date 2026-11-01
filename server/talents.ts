@@ -950,6 +950,31 @@ for (const [classKey, tree] of Object.entries(SKILL_TREES)) {
   }
 }
 
+// ==========================================
+// TALENT WEB: free pathing, no specialization lock
+// ==========================================
+// The 9 lanes (3 per branch) form a ring around the origin. Every first-tier talent is a
+// starting point; every talent is linked to the one before and after it in its lane, and the
+// lanes are bridged to their neighbours (across branches too) at BRIDGE_TIERS. A talent can be
+// learned when it is a starting point or touches a talent you already own, so each player chooses
+// where the path goes and can mix traits from any specialization.
+const BRIDGE_TIERS = [3, 6, 9, 12];
+for (const tree of Object.values(SKILL_TREES) as any[][]) {
+  const byId = new Map<string, any>(tree.map(t => [t.id, t]));
+  const prefixes = [...new Set(tree.map(t => t.id.replace(/_t\d+_[abc]$/, '')))] as string[];
+  const ring: { p: string; l: string }[] = [];
+  for (const p of prefixes) for (const l of ['a', 'b', 'c']) ring.push({ p, l });
+  const nodeAt = (lane: { p: string; l: string }, tier: number) => byId.get(`${lane.p}_t${tier}_${lane.l}`);
+  const link = (x: any, y: any) => {
+    if (!x || !y || x === y) return;
+    if (!x.links.includes(y.id)) x.links.push(y.id);
+    if (!y.links.includes(x.id)) y.links.push(x.id);
+  };
+  for (const t of tree) { t.links = []; t.start = t.tier === 1; }
+  for (const lane of ring) for (let tier = 1; tier < 15; tier++) link(nodeAt(lane, tier), nodeAt(lane, tier + 1));
+  for (const tier of BRIDGE_TIERS) ring.forEach((lane, i) => link(nodeAt(lane, tier), nodeAt(ring[(i + 1) % ring.length], tier)));
+}
+
 export { TALENT_PROCS, SKILL_TREES };
 export default SKILL_TREES;
 module.exports = SKILL_TREES;

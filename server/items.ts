@@ -74,7 +74,7 @@ const WEAPON_ABILITIES: Record<string, any> = {
   ember_scythe: { name: 'Reaper Spin', shape: 'nova', r: 3.2, dmg: 2.6, burn: 3, leech: 0.05, mp: 14, cd: 8 },
   nightfall_twinblades: { name: 'Eternal Alpha', shape: 'alpha', n: 5, range: 7, jump: 7, every: 0.12, dmg: 1.7, invuln: 0.9, mp: 20, cd: 12 },
   // Any class (James the Gatekeeper)
-  riftwalker_edge: { name: 'Rift Step', shape: 'blink', len: 3, r: 3, dmg: 2.2, mp: 14, cd: 0.25, cdExact: true }
+  riftwalker_edge: { name: 'Rift Step', shape: 'blink', len: 5.5, r: 3.5, dmg: 3.4, mp: 26, cd: 0.75, cdExact: true }
 };
 // Weapons whose power is passive instead of (or as well as) a right-click
 // ability; recalculatePlayerStats and handlePlayerAttack read these.

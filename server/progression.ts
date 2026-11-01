@@ -1,12 +1,14 @@
 // Central EXP rules for Slop Hero. Every monster's EXP comes from here so
 // levelling speed is tuned in one place.
 
-// EXP needed to go from `level` to `level + 1` (unchanged curve)
-export function expToNext(level: number): number {
+// Reference EXP curve. Monster EXP values and the job-level curve are built on
+// it; the hero's base-level bar (expToNext) is stretched on top of it.
+export function baseExpCurve(level: number): number {
   return Math.round(70 + level * 45 + Math.pow(level, 1.82) * 11);
 }
 
-// How many same-level normal monsters (field zones) one level should take.
+// How many same-level normal monsters (field zones) one reference level is
+// worth: it sets each monster's EXP value (and so the job-level pace).
 // Interpolated between these anchor points.
 export const KILLS_PER_LEVEL: [number, number][] = [
   [1, 12],
@@ -17,8 +19,7 @@ export const KILLS_PER_LEVEL: [number, number][] = [
   [150, 90]
 ];
 
-export function killsPerLevel(level: number): number {
-  const pts = KILLS_PER_LEVEL;
+function interpolate(pts: [number, number][], level: number): number {
   if (level <= pts[0][0]) return pts[0][1];
   for (let i = 1; i < pts.length; i++) {
     const [l1, k1] = pts[i];
@@ -26,6 +27,28 @@ export function killsPerLevel(level: number): number {
     if (level <= l1) return k0 + (k1 - k0) * ((level - l0) / (l1 - l0));
   }
   return pts[pts.length - 1][1];
+}
+
+export function killsPerLevel(level: number): number {
+  return interpolate(KILLS_PER_LEVEL, level);
+}
+
+// Hard-grind pace: how many same-level field kills one BASE level really
+// takes. At ~10 kills/min that is Lv 10 in ~0.5 h, Lv 30 ~5 h, Lv 50 ~19 h,
+// Lv 75 ~60 h, Lv 100 ~150 h and the Lv 150 cap ~500 h.
+export const LEVEL_KILLS: [number, number][] = [
+  [1, 15],
+  [10, 55],
+  [30, 210],
+  [50, 650],
+  [75, 1300],
+  [100, 3000],
+  [150, 5600]
+];
+
+// EXP needed to go from `level` to `level + 1`
+export function expToNext(level: number): number {
+  return Math.round(baseExpCurve(level) * interpolate(LEVEL_KILLS, level) / killsPerLevel(level));
 }
 
 // EXP multiplier by monster kind (bosses are a fixed share of a level instead)
@@ -40,8 +63,8 @@ export const DUNGEON_EXP_MULT: Record<string, number> = { normal: 1.3, hard: 1.6
 export const DUNGEON_TRASH_FACTOR = 0.25;
 
 export function mobExp(level: number, kind: string = 'normal'): number {
-  if (kind === 'boss') return Math.max(1, Math.round(expToNext(level) * BOSS_LEVEL_SHARE));
-  const base = expToNext(level) / killsPerLevel(level);
+  if (kind === 'boss') return Math.max(1, Math.round(baseExpCurve(level) * BOSS_LEVEL_SHARE));
+  const base = baseExpCurve(level) / killsPerLevel(level);
   return Math.max(1, Math.round(base * (KIND_MULT[kind] || 1)));
 }
 
@@ -91,6 +114,8 @@ export const MOB_DEF_K = 800;
 
 module.exports = {
   expToNext,
+  baseExpCurve,
+  LEVEL_KILLS,
   mobHpMult,
   masteryMult,
   MOB_DEF_K,
