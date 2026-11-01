@@ -1284,8 +1284,8 @@ class IsometricRenderer {
     this.mobHits.set(id, { at: now, dmg: dmg || 1, angle: Math.random() * Math.PI, sparks });
   }
 
-  // "Smashed" feedback drawn on top of a hurt mob: a white X-slash that forks
-  // off red slashes, a burst of sparks and a ground ring that expands & fades.
+  // A blade cut through a hurt mob's body: one fast diagonal streak that sweeps across the
+  // torso (head races ahead, tail fades), with a few sparks flying off the cut line.
   drawMobImpact(ctx, mob) {
     const hit = this.mobHits.get(mob.id);
     if (!hit) return;
@@ -1295,66 +1295,48 @@ class IsometricRenderer {
       this.mobHits.delete(mob.id);
       return;
     }
-    const k = 1 - t;                       // fade-out over the lifetime
     const z = this.camera.zoom;
     const p = Isometric.worldToScreen(mob.x, mob.y, 0, this.camera, this.viewW, this.viewH);
-    // big hits pop harder: strength 0..1 from damage vs a share of max HP
     const strong = Math.min(1, Math.pow((hit.dmg || 1) / Math.max(30, (mob.maxHp || 100) * 0.06), 0.4));
-    const R = (8 + strong * 15) * z * (0.7 + k);
-    const L = (10 + strong * 12) * z * (0.5 + k);
+    const L = (14 + strong * 12) * z;                       // half-length of the cut
+    const bodyY = p.y - (16 + strong * 4) * z;              // through the torso, not the feet
+    const dirSign = Math.sin(hit.angle * 7) > 0 ? 1 : -1;   // cuts alternate between hits
+    const slope = 0.55 * dirSign;
+    const head = Math.min(1, t / 0.45);                     // the edge crosses the body in the first ~45%
+    const tailK = Math.max(0, (t - 0.2) / 0.8);             // then the tail catches up and fades
+    const k = 1 - t;
+    const at = (u) => ({ x: p.x + (u * 2 - 1) * L, y: bodyY - (u * 2 - 1) * L * slope });
+    const a = at(tailK), b = at(head);
 
     ctx.save();
-    ctx.translate(p.x, p.y);
-
-    // expanding ground ring
-    ctx.globalAlpha = k * 0.85;
-    ctx.strokeStyle = 'rgba(255,255,255,0.95)';
-    ctx.lineWidth = 2.2 * z;
-    ctx.beginPath();
-    ctx.ellipse(0, 0, R, R * 0.5, 0, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.globalAlpha = k * 0.35;
-    ctx.lineWidth = 1.2 * z;
-    ctx.beginPath();
-    ctx.ellipse(0, 0, R * 0.6, R * 0.3, 0, 0, Math.PI * 2);
-    ctx.stroke();
-
-    // the slash: two crossed cuts over the body
+    ctx.globalCompositeOperation = 'lighter';
     ctx.lineCap = 'round';
-    ctx.rotate(hit.angle);
-    // glow slashes (wide, red)
-    ctx.strokeStyle = 'rgba(248, 113, 113, 0.8)';
-    ctx.globalAlpha = k * 0.85;
-    ctx.lineWidth = (4.5 + strong * 2.5) * z;
-    ctx.beginPath(); ctx.moveTo(-L, -L * 0.55); ctx.lineTo(L, L * 0.55); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(-L, L * 0.55); ctx.lineTo(L, -L * 0.55); ctx.stroke();
-    // white razor core, splayed a touch wider
-    ctx.strokeStyle = 'rgba(255,255,255,0.98)';
+    // wide soft glow, then the white razor core
+    ctx.strokeStyle = 'rgba(248, 113, 113, 0.85)';
     ctx.globalAlpha = k;
-    ctx.lineWidth = (2 + strong * 1.5) * z;
-    ctx.rotate(0.32);
-    ctx.beginPath(); ctx.moveTo(-L * 0.85, -L * 0.5); ctx.lineTo(L * 0.85, L * 0.5); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(-L * 0.85, L * 0.5); ctx.lineTo(L * 0.85, -L * 0.5); ctx.stroke();
-
-    // momentum sparks flying off the cut
-    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
-    ctx.globalAlpha = k * 0.9;
-    ctx.lineWidth = (1.6 + strong) * z;
-    const sp = hit.sparks || [];
-    for (let i = 0; i < sp.length; i++) {
-      const r = (7 + strong * 9) * z * k;
-      ctx.rotate(sp[i]);
-      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(r, 0); ctx.stroke();
-      ctx.rotate(-sp[i]);
-    }
-
-    // bright impact core flash at the contact point
-    ctx.globalAlpha = k * 0.55;
+    ctx.lineWidth = (5 + strong * 3) * z * (1 - t * 0.5);
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,0.98)';
+    ctx.globalAlpha = Math.min(1, k * 1.3);
+    ctx.lineWidth = (2 + strong * 1.2) * z * (1 - t * 0.5);
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    // flash where the edge is now
     ctx.fillStyle = '#ffffff';
-    ctx.beginPath();
-    ctx.arc(0, 0, (2.2 + strong * 2.5) * z * (1 + k * 0.7), 0, Math.PI * 2);
-    ctx.fill();
-
+    ctx.globalAlpha = k * 0.7;
+    ctx.beginPath(); ctx.arc(b.x, b.y, (2.5 + strong * 2) * z, 0, Math.PI * 2); ctx.fill();
+    // sparks thrown off along the cut
+    const sp = hit.sparks || [];
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+    ctx.lineWidth = (1.4 + strong) * z;
+    ctx.globalAlpha = k * 0.9;
+    for (let i = 0; i < sp.length; i++) {
+      const o = at(Math.min(head, 0.2 + (i / sp.length) * 0.8));
+      const ang = sp[i], r = (4 + strong * 8) * z * (0.4 + t);
+      ctx.beginPath();
+      ctx.moveTo(o.x + Math.cos(ang) * r * 0.4, o.y + Math.sin(ang) * r * 0.4);
+      ctx.lineTo(o.x + Math.cos(ang) * r, o.y + Math.sin(ang) * r);
+      ctx.stroke();
+    }
     ctx.restore();
   }
 
@@ -10800,6 +10782,90 @@ class IsometricRenderer {
     ctx.restore();
   }
 
+  // A slim ribbon hugging the weapon: it replays the blade's real angles from the last ~150ms,
+  // tapering from a faint tail to a bright, sharp leading edge at the tip, with a few sparks.
+  drawBladeTrail(ctx, fx, bl, o) {
+    const { now, z, fade, col, rgba } = o;
+    const h = bl.hist;
+    if (!h || h.length < 2 || h[h.length - 1].hx === undefined) return;
+    // newest samples that kept turning one way (a wind-up turning back is skipped)
+    const pts = [h[h.length - 1]];
+    let dir = 0;
+    for (let i = h.length - 2; i >= 0; i--) {
+      const d = pts[0].a - h[i].a;
+      if (Math.abs(d) < 1e-4) continue;
+      if (dir && Math.sign(d) !== dir) break;
+      dir = Math.sign(d);
+      if (now - h[i].t > 190 || h[i].hx === undefined) break;
+      pts.unshift(h[i]);
+    }
+    if (pts.length < 2) return;
+    // the blade's true swept surface. Sprite frames are sparse, so turn the blade through the gap
+    // (hand slides, angle and length ease) instead of cutting a straight chord between tips.
+    const ox = bl.x, oy = bl.y;                                // the hero's current spot (the trail rides along)
+    const lenOf = (p) => Math.hypot(p.tx - p.hx, p.ty - p.hy);
+    const ease = (u) => u * u * (3 - 2 * u);
+    let path = [];
+    for (let i = 0; i < pts.length - 1; i++) {
+      const A = pts[i], B = pts[i + 1];
+      const steps = Math.max(2, Math.ceil(Math.abs(B.a - A.a) / 0.1));
+      for (let s = 0; s < steps; s++) {
+        const u = s / steps, e = ease(u);
+        const hx = A.hx + (B.hx - A.hx) * u, hy = A.hy + (B.hy - A.hy) * u;
+        const ang = A.a + (B.a - A.a) * e, L = lenOf(A) + (lenOf(B) - lenOf(A)) * u;
+        path.push({ t: A.t + (B.t - A.t) * u, a: ang, hx, hy, tx: hx + Math.cos(ang) * L, ty: hy + Math.sin(ang) * L });
+      }
+    }
+    const last = pts[pts.length - 1];
+    path.push({ t: last.t, a: last.a, hx: last.hx, hy: last.hy, tx: last.tx, ty: last.ty });
+    // never wrap into a ring: keep only the newest ~100 degrees of the swing
+    const MAX_SPAN = 1.75;
+    const headA = path[path.length - 1].a;
+    let cut = 0;
+    while (cut < path.length - 2 && Math.abs(headA - path[cut].a) > MAX_SPAN) cut++;
+    path = path.slice(cut);
+    if (path.length < 2) return;
+    const spanA = Math.max(0.01, Math.abs(headA - path[0].a));
+    const px = Math.max(2, Math.round(z));
+    const n = path.length - 1;
+    const ageFade = (t) => Math.max(0, 1 - (now - t) / 190);
+    // point along hand -> tip (f = 0 hand, 1 tip, >1 past the tip)
+    const on = (p, f) => ({ x: ox + p.hx + (p.tx - p.hx) * f, y: oy + p.hy + (p.ty - p.hy) * f });
+    const BASE = 0.4, TIP = 1.08;
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    for (let i = 0; i < n; i++) {
+      const A = path[i], B = path[i + 1];
+      const k = 1 - Math.min(1, Math.abs(headA - B.a) / spanA); // 0 tail .. 1 head, by angle
+      const f = fade * ageFade(B.t) * Math.pow(k, 1.1);
+      if (f <= 0.01) continue;
+      const inner = BASE + (TIP - BASE) * (1 - k) * 0.6;       // the ribbon narrows toward its tail
+      const q = [on(A, TIP), on(B, TIP), on(B, inner), on(A, inner)];
+      ctx.beginPath();
+      ctx.moveTo(q[0].x, q[0].y); ctx.lineTo(q[1].x, q[1].y); ctx.lineTo(q[2].x, q[2].y); ctx.lineTo(q[3].x, q[3].y);
+      ctx.closePath();
+      ctx.fillStyle = rgba(col.body, f * 0.5);
+      ctx.fill();
+      // cutting edge along the tip's path
+      ctx.strokeStyle = rgba(col.edge, f);
+      ctx.lineWidth = Math.max(1, px * (0.5 + 1.3 * k));
+      ctx.beginPath(); ctx.moveTo(q[0].x, q[0].y); ctx.lineTo(q[1].x, q[1].y); ctx.stroke();
+    }
+    // a few sparks at the tip
+    const head = path[path.length - 1], hf = fade * ageFade(head.t);
+    const seed = Math.floor(now / 45);
+    for (let i = 0; i < 3; i++) {
+      const hz = Math.sin((seed + i * 17) * 12.9898) * 43758.5453, r = hz - Math.floor(hz);
+      const tp = on(head, TIP);
+      ctx.fillStyle = rgba(i % 2 ? col.edge : col.glow, hf * (0.9 - r * 0.5));
+      ctx.fillRect(Math.round(tp.x + (r - 0.5) * 14 * z), Math.round(tp.y + (((r * 7) % 1) - 0.5) * 14 * z), px, px);
+    }
+    ctx.restore();
+  }
+
   // A blade arc drawn flat on the ground plane (iso), sweeping from one side to
   // the other (fx.side picks which), with a tapering trail behind its edge
   drawSweepSlash(ctx, fx, progress) {
@@ -10872,12 +10938,15 @@ class IsometricRenderer {
     }
     const rgba = (c, a) => `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${Math.max(0, Math.min(1, a))})`;
 
-    // A plain class swing leaves a slash that comes out of the character; SP card swings keep their
+    // A plain class swing draws no arc at all (hits still burst); only SP card swings keep their
     // themed arc (drawSweepAccent decorates that arc)
+    // Warrior / rogue basic swings: a tight ribbon that follows the real blade, no big ground arc
     if (!fx.cardId) {
-      this.drawSlashWave(ctx, fx, progress, { screen, base, side, fade, outerR, col, rgba, z });
+      if (fx.class !== 'mage' && bl) this.drawBladeTrail(ctx, fx, bl, { now, z, fade, col, rgba });
       return;
     }
+    // SP card swings draw no arc either (hit bursts and card particles still play)
+    return;
 
     // trail runs from the start of the swing (or a fixed length behind) to the head
     const startA = -side * half;
@@ -15550,7 +15619,7 @@ class IsometricRenderer {
       while (a - last.a > Math.PI) a -= Math.PI * 2;
       while (a - last.a < -Math.PI) a += Math.PI * 2;
     }
-    blade.hist.push({ t: now, a });
+    blade.hist.push({ t: now, a, hx, hy, tx, ty });   // hand/tip relative to the hero, for the trail
     while (blade.hist.length > 2 && now - blade.hist[0].t > 600) blade.hist.shift();
     Object.assign(blade, { x, y, px: x + hx, py: y + hy, a, len: Math.hypot(tx - hx, ty - hy), at: now });
   }
@@ -15624,23 +15693,57 @@ class IsometricRenderer {
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     ctx.lineCap = 'round';
-    // crescent: the arc the edge just cut, sweeping the way this swing went
+    // crescent: the arc the edge just cut, sweeping the way this swing went (only if not connecting, or for enhanced weapon trail)
     if (imp.tierColor) {
       // enhanced weapon: a wider halo of the tier colour around the cut
       ctx.beginPath();
-      ctx.ellipse(ox, oy, R * 1.18, R * (sq + 0.12), 0, Math.min(a0, a1), Math.max(a0, a1));
+      const hDir = Math.sign(a1 - a0) || 1, hFrom = a1 - hDir * Math.min(Math.abs(a1 - a0), 1.6);
+      ctx.ellipse(ox, oy, R * 1.18, R * (sq + 0.12), 0, Math.min(hFrom, a1), Math.max(hFrom, a1));
       ctx.strokeStyle = hexAlpha(imp.tierColor, 0.55 * fade);
       ctx.lineWidth = (4 + (imp.tier - 4) * 0.8) * z * (1 - 0.4 * k);
       ctx.stroke();
     }
-    ctx.beginPath();
-    ctx.ellipse(ox, oy, R, R * sq, 0, Math.min(a0, a1), Math.max(a0, a1));
-    ctx.strokeStyle = hexAlpha(imp.color, 0.85 * fade);
-    ctx.lineWidth = (imp.finisher ? 9 : 6) * z * (1 - 0.5 * k);
-    ctx.stroke();
-    ctx.strokeStyle = `rgba(255, 255, 255, ${0.95 * fade})`;
-    ctx.lineWidth = 2 * z;
-    ctx.stroke();
+    if (!imp.connects) {
+      // A smooth, tapered crescent (pointed at both ends, fullest just behind the head) over at
+      // most ~90 degrees of the swing, fading from a clear tail to a bright head. As it fades,
+      // the tail retracts toward the head instead of the whole ring just dimming in place.
+      const dir = Math.sign(a1 - a0) || imp.side || 1;
+      const span = Math.min(Math.abs(a1 - a0), 1.6);
+      const from = a1 - dir * span;
+      const tail = 0.6 * k;
+      const N = 32;
+      const wMax = (imp.finisher ? 8 : 5.5) * z * (1 - 0.35 * k);
+      const pt = (a, r) => ({ x: ox + Math.cos(a) * r, y: oy + Math.sin(a) * r * sq });
+      const band = (wScale) => {
+        const outer = [], inner = [];
+        for (let i = 0; i <= N; i++) {
+          const u = tail + (1 - tail) * (i / N);              // 0 tail .. 1 head
+          const a = from + dir * span * u;
+          const w = wMax * wScale * Math.sin(Math.PI * Math.pow(u, 1.7));
+          outer.push(pt(a, R + w * 0.5));
+          inner.push(pt(a, R - w * 0.5));
+        }
+        ctx.beginPath();
+        ctx.moveTo(outer[0].x, outer[0].y);
+        for (let i = 1; i <= N; i++) ctx.lineTo(outer[i].x, outer[i].y);
+        for (let i = N; i >= 0; i--) ctx.lineTo(inner[i].x, inner[i].y);
+        ctx.closePath();
+      };
+      const t0 = pt(from + dir * span * tail, R), t1 = pt(a1, R);
+      const grad = (c, aMax) => {
+        const g = ctx.createLinearGradient(t0.x, t0.y, t1.x, t1.y);
+        g.addColorStop(0, c(0));
+        g.addColorStop(0.6, c(aMax * 0.7));
+        g.addColorStop(1, c(aMax));
+        return g;
+      };
+      band(1);
+      ctx.fillStyle = grad((a) => hexAlpha(imp.color, a), 0.85 * fade);
+      ctx.fill();
+      band(0.35);
+      ctx.fillStyle = grad((a) => `rgba(255, 255, 255, ${a})`, 0.95 * fade);
+      ctx.fill();
+    }
     if (imp.connects) {
       // --- Option 3: Authentic Ragnarok Online Pixel Starburst & Hit Flash ---
       const px = Math.max(2, Math.round(z));

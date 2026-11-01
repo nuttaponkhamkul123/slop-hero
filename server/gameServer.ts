@@ -590,6 +590,7 @@ class GameServer {
         armor: chosenClass === 'mage' ? { ...ITEMS.mystic_robe, count: 1 } : (chosenClass === 'rogue' ? { ...ITEMS.leather_tunic, count: 1 } : null),
         helmet: chosenClass === 'warrior' ? { ...ITEMS.iron_helm, count: 1 } : null,
         boots: null,
+        gloves: null,
         ring: null
       },
       gold: 50,
@@ -1729,6 +1730,7 @@ class GameServer {
         armor: null,
         helmet: null,
         boots: null,
+        gloves: null,
         ring: null
       },
       hp: classStats.maxHp,
@@ -1853,6 +1855,10 @@ class GameServer {
 
     socket.broadcast.emit('player_joined', player);
     this.broadcastSystemMessage(`⚔️ [${player.name} the ${player.characterClass.toUpperCase()}] entered the realm!`);
+    if ((player as any).talentRefunded) {
+      socket.emit('chat_broadcast', { senderId: 'system', senderName: 'SYSTEM', senderClass: 'system', timestamp: Date.now(), text: `🌳 The talent web was redesigned: all ${(player as any).talentRefunded} of your talent points were refunded for free. Open Talents to pick your new path!` });
+      (player as any).talentRefunded = 0;
+    }
   }
 
   removePlayer(socketId) {
@@ -2384,6 +2390,20 @@ class GameServer {
     }
 
     this.broadcastSystemMessage(`🌳 [${player.name}] upgraded talent [${talent.name}]!`);
+  }
+
+  // Talents saved against a talent id that no longer exists (the web was redesigned) are refunded
+  // in full, for free: the hero gets every spent point back and re-picks their path.
+  refundStaleTalents(player) {
+    if (!player || !player.skills) return;
+    const tree = SKILL_TREES[player.characterClass] || [];
+    const valid = new Set(tree.map(t => t.id));
+    const ids = Object.keys(player.skills);
+    if (!ids.some(id => !valid.has(id))) return;
+    const spent = ids.reduce((s, id) => s + Number(player.skills[id] || 0), 0);
+    player.skillPoints = (player.skillPoints || 0) + spent;
+    player.skills = {};
+    player.talentRefunded = spent;
   }
 
   handleResetSkillPoints(socketId) {
@@ -5154,7 +5174,10 @@ class GameServer {
     let totalThorns = 0;
     let totalDodgeChance = 0;
     let totalLifeSteal = 0;
+    // talent percentages of (base + gear): damage, HP, armor, MP, and thorns as a share of armor
+    const talentPct = { dmgPct: 0, hpPct: 0, defPct: 0, mpPct: 0, thornsPct: 0 };
     const totalElementResist: Record<string, number> = {};
+    this.refundStaleTalents(player);
 
     if (player.equipment) {
       if (player.equipment.weapon) {
@@ -5174,6 +5197,8 @@ class GameServer {
         if (eq.bonusSpeed) totalBonusSpeed += eq.bonusSpeed;
         if (eq.bonusAttackSpeed) totalBonusAttackSpeed += eq.bonusAttackSpeed;
         if (eq.bonusSwipe) totalBonusSwipe += eq.bonusSwipe;
+        if (eq.critChance) totalCritChanceBonus += eq.critChance / 100;
+        if (eq.critDmg) totalCritDmgBonus += eq.critDmg / 100;
 
         // Hypixel Skyblock Reforge Modifier Stats
         if (eq.reforgeStats) {
@@ -5217,6 +5242,7 @@ class GameServer {
           if (talent.effects.thorns) totalThorns += talent.effects.thorns * rank;
           if (talent.effects.dodgeChance) totalDodgeChance += talent.effects.dodgeChance * rank;
           if (talent.effects.lifeSteal) totalLifeSteal += talent.effects.lifeSteal * rank;
+          for (const k of Object.keys(talentPct)) if (talent.effects[k]) talentPct[k] += talent.effects[k] * rank;
         }
       }
     }
@@ -5246,10 +5272,12 @@ class GameServer {
     // James the Gatekeeper's weapons: passive powers (Gatekeeper's Greatsword -30%, Sunfire Conduit +10%)
     const power = weaponPower(player.equipment && player.equipment.weapon);
     player.weaponPower = power;
-    player.dmg = Math.round((player.baseStats.dmg + totalBonusDmg) * player.mastery * ((power && power.dmgMult) || 1));
-    player.def = player.baseStats.def + totalBonusDef;
-    player.maxHp = player.baseStats.maxHp + totalBonusHp;
-    player.maxMp = player.baseStats.maxMp + totalBonusMp;
+    const pctMult = (v) => Math.max(0.1, 1 + v);   // a keystone trade-off can lower a stat, never zero it
+    player.dmg = Math.round((player.baseStats.dmg + totalBonusDmg) * pctMult(talentPct.dmgPct) * player.mastery * ((power && power.dmgMult) || 1));
+    player.def = Math.round((player.baseStats.def + totalBonusDef) * pctMult(talentPct.defPct));
+    player.maxHp = Math.round((player.baseStats.maxHp + totalBonusHp) * pctMult(talentPct.hpPct));
+    player.maxMp = Math.round((player.baseStats.maxMp + totalBonusMp) * pctMult(talentPct.mpPct));
+    totalThorns += Math.max(0, player.def) * talentPct.thornsPct;
     player.manaCostMult = Number((MANA_COST_SCALE * (1 + MANA_COST_PER_LEVEL * ((player.level || 1) - 1))).toFixed(3));
     player.speed = Number((player.baseStats.speed + totalBonusSpeed).toFixed(2));
     player.attackSpeed = Number(((player.baseStats.attackSpeed || 1.0) + totalBonusAttackSpeed).toFixed(2));
@@ -6212,6 +6240,9 @@ class GameServer {
       addDef += lvl * 1;
       addSpeed = lvl * 0.08;
       addHp += lvl * 10;
+    } else if (item.slot === 'gloves') {
+      addDmg += lvl * 4;
+      addAtkSpd = lvl * 0.01;
     } else if (item.slot === 'ring') {
       addDmg += lvl * 3;
       addHp += lvl * 15;
@@ -6986,7 +7017,12 @@ class GameServer {
             if (t.effects.killHealPercent) {
               const heal = Math.round(killerPlayer.maxHp * t.effects.killHealPercent * rank);
               killerPlayer.hp = Math.min(killerPlayer.maxHp, killerPlayer.hp + heal);
-              this.emitZone(zone, 'floating_text', { x: killerPlayer.x, y: killerPlayer.y - 0.5, text: `+${heal} HP (Juggernaut)`, color: '#4ade80' });
+              this.emitZone(zone, 'floating_text', { x: killerPlayer.x, y: killerPlayer.y - 0.5, text: `+${heal} HP (${t.name})`, color: '#4ade80' });
+            }
+            if (t.effects.killManaPercent) {
+              const mana = Math.round(killerPlayer.maxMp * t.effects.killManaPercent * rank);
+              killerPlayer.mp = Math.min(killerPlayer.maxMp, killerPlayer.mp + mana);
+              this.emitZone(zone, 'floating_text', { x: killerPlayer.x, y: killerPlayer.y - 0.5, text: `+${mana} MP (${t.name})`, color: '#38bdf8' });
             }
             if (t.effects.killHealFlat) {
               const heal = t.effects.killHealFlat * rank;

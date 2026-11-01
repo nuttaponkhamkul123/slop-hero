@@ -1,0 +1,88 @@
+{
+  "leather_gloves": {
+    "id": "leather_gloves",
+    "name": "Leather Gloves",
+    "type": "equipment",
+    "slot": "gloves",
+    "iconKey": "gloves",
+    "rarity": "common",
+    "sellPrice": 30,
+    "bonusDmg": 4,
+    "bonusAttackSpeed": 0.04,
+    "desc": "+4 Attack Power, +4% Attack Speed. A sure grip on any hilt."
+  },
+  "iron_gauntlets": {
+    "id": "iron_gauntlets",
+    "name": "Iron Gauntlets",
+    "type": "equipment",
+    "slot": "gloves",
+    "iconKey": "gloves_iron",
+    "rarity": "common",
+    "sellPrice": 35,
+    "bonusDmg": 6,
+    "desc": "+6 Attack Power. Heavy fists hit heavy."
+  },
+  "brawler_wraps": {
+    "id": "brawler_wraps",
+    "name": "Brawler's Wraps",
+    "type": "equipment",
+    "slot": "gloves",
+    "iconKey": "gloves",
+    "rarity": "rare",
+    "sellPrice": 90,
+    "bonusDmg": 7,
+    "bonusAttackSpeed": 0.08,
+    "desc": "+7 Attack Power, +8% Attack Speed. Taped for a hundred back-alley fights."
+  },
+  "hunters_grips": {
+    "id": "hunters_grips",
+    "name": "Hunter's Grips",
+    "type": "equipment",
+    "slot": "gloves",
+    "iconKey": "gloves_hunter",
+    "rarity": "rare",
+    "sellPrice": 95,
+    "bonusDmg": 6,
+    "critChance": 4,
+    "desc": "+6 Attack Power, +4% Crit Chance. Steady hands find the weak spot."
+  },
+  "berserker_fists": {
+    "id": "berserker_fists",
+    "name": "Berserker Fists",
+    "type": "equipment",
+    "slot": "gloves",
+    "iconKey": "gloves_ember",
+    "rarity": "epic",
+    "sellPrice": 150,
+    "bonusDmg": 12,
+    "bonusAttackSpeed": 0.1,
+    "bonusSwipe": 10,
+    "desc": "+12 Attack Power, +10% Attack Speed, +10% Swipe. Spiked knuckles for wild swings."
+  },
+  "assassin_grips": {
+    "id": "assassin_grips",
+    "name": "Assassin's Grips",
+    "type": "equipment",
+    "slot": "gloves",
+    "iconKey": "gloves_shadow",
+    "rarity": "epic",
+    "sellPrice": 155,
+    "bonusDmg": 10,
+    "critChance": 6,
+    "critDmg": 15,
+    "desc": "+10 Attack Power, +6% Crit Chance, +15% Crit Damage. Silent, black and very sharp."
+  },
+  "titans_grasp": {
+    "id": "titans_grasp",
+    "name": "Titan's Grasp",
+    "type": "equipment",
+    "slot": "gloves",
+    "iconKey": "gloves_gold",
+    "rarity": "legendary",
+    "sellPrice": 220,
+    "bonusDmg": 18,
+    "bonusAttackSpeed": 0.08,
+    "critDmg": 25,
+    "desc": "+18 Attack Power, +8% Attack Speed, +25% Crit Damage. Forged for hands that move mountains."
+  }
+}
