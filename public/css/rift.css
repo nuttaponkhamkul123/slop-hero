@@ -14,6 +14,10 @@
   --bg: #241a3a !important;
   --hi: #5d3f8f !important;
 }
+/* draggable panels (rift.js makeDraggable) */
+.rift-hud.rift-draggable { cursor: grab; }
+.rift-build.rift-draggable .rift-build-head { cursor: grab; }
+.rift-draggable.is-dragging, .rift-draggable.is-dragging * { cursor: grabbing !important; user-select: none; }
 .rift-hud-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .rift-title { color: #d8b4fe; font-size: 16px; letter-spacing: 1px; }
 .rift-wave { font-family: var(--font-title-px); font-size: 26px; color: var(--gold); line-height: 1; }
@@ -36,7 +40,7 @@
 
 .rift-build {
   position: fixed;
-  right: 12px;
+  right: 196px; /* sits left of the menu column instead of covering its buttons */
   top: 50%;
   transform: translateY(-50%);
   z-index: 40;
@@ -51,6 +55,9 @@
   --hi: #5d3f8f !important;
 }
 .rift-build-head { display: flex; justify-content: space-between; align-items: center; font-size: 14px; color: #d8b4fe; }
+button.rift-build-head { width: 100%; padding: 0; border: 0; background: none; font-family: inherit; cursor: pointer; }
+button.rift-build-head:hover { color: #f3e8ff; }
+.rift-build.is-collapsed { width: 150px; padding: 6px 10px !important; }
 .rift-points { color: var(--gold); font-family: var(--font-title-px); font-size: 22px; }
 .rift-build-btn {
   display: grid;
@@ -132,6 +139,10 @@
 .rift-rules b { color: var(--white); }
 .rift-rules img.pxi { width: 20px; height: 20px; margin-right: 4px; }
 .rift-party-note { margin-bottom: 10px; color: var(--lime); font-size: 14px; }
+/* difficulty mode picker on the gate dialog */
+.rift-mode-pick { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin-bottom: 12px; }
+.rift-mode-pick .rift-mode { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px 10px; text-align: left; }
+.rift-mode-pick .rift-mode span { font-size: 12px; opacity: 0.8; }
 
 .james-modal-card { width: min(760px, calc(100vw - 32px)); }
 .james-wallet { margin: 6px 0 10px; font-size: 15px; color: var(--steel); }

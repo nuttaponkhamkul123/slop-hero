@@ -210,10 +210,10 @@
       <g stroke="${p.acc}" stroke-width="3" stroke-linecap="round"><line x1="6" y1="24" x2="22" y2="24"/><line x1="4" y1="34" x2="18" y2="34"/><line x1="8" y1="44" x2="22" y2="44"/></g>
       ${hood(p, 'translate(40 34) scale(0.62) translate(-32 -32)', 1)}
       ${hood(p, 'translate(28 34) scale(0.62) translate(-32 -32)', 0.35)}`],
-    poison_darts: ['poison', p => `
+    poison_darts: ['steel', p => `
       ${star(30, 28, 20, 6, 4, p.fg)}
-      <circle cx="30" cy="28" r="4" fill="${p.bot || '#04140a'}" stroke="${p.acc}" stroke-width="2"/>
-      <path d="M46 44 C46 44 40 52 40 55 A6 6 0 0 0 52 55 C52 52 46 44 46 44 Z" fill="${p.acc}"/>`],
+      <circle cx="30" cy="28" r="4" fill="${p.bot}" stroke="${p.acc}" stroke-width="2"/>
+      ${star(47, 47, 9, 3, 4, p.acc)}`],
     caltrops: ['steel', p => `
       ${star(18, 46, 10, 3, 4, p.fg)}${star(44, 48, 9, 3, 4, p.fg)}${star(32, 24, 11, 3.5, 4, p.fg)}
       <path d="M6 58 H58" stroke="${p.acc}" stroke-width="2" stroke-linecap="round"/>

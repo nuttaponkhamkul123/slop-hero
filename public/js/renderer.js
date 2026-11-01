@@ -16,8 +16,10 @@ const SHOPKEEPERS = {
   enchanter: { npc: 'enchanter', x: -2, z: 4, view: 'back', flip: true },
   // stall keepers face the boulevard: south-facing stalls north of the road,
   // north-facing ones (turned round, see townProps3D) south of it
-  market_stall: { npc: 'stallkeeper', x: 0, z: -11, scale: 0.82, flip: true,
-    forObs: obs => (obs.y > 20.5 ? { npc: 'stallkeeper', x: 0, z: 11, scale: 0.82, view: 'back' } : null) }
+  market_stall: {
+    npc: 'stallkeeper', x: 0, z: -11, scale: 0.82, flip: true,
+    forObs: obs => (obs.y > 20.5 ? { npc: 'stallkeeper', x: 0, z: 11, scale: 0.82, view: 'back' } : null)
+  }
 };
 const SMITH_BLOW_S = 1.3;   // Brom's hammer cycle; the blow lands at 68% of it
 // Furthest a mob body is drawn from its anchor, in unscaled pixels (drawMob)
@@ -52,7 +54,7 @@ const SWEEP_HALF_ARC = Math.PI * 0.36;
 const SWEEP_HALF_ARC_FINISHER = Math.PI * 0.62;
 // The server's default melee cleave (gameServer.ts meleeSweep): class attack
 // range + 1.15 tiles, 139 degrees. Used when an attack arrives without its reach.
-const SWEEP_DEFAULT_REACH = { warrior: 1.6 + 1.15, rogue: 1.8 + 1.15 };
+const SWEEP_DEFAULT_REACH = { warrior: 1.6 + 1.15, rogue: 1.8 + 1.15, mage: 2.2 + 1.15 };
 const SWEEP_DEFAULT_ARC_DEG = 139;
 // Minimap shows at most this many tiles across; larger maps scroll with the hero
 const MINIMAP_VIEW_TILES = 72;
@@ -72,7 +74,7 @@ const SP_CARD_PARTICLES = {
   sp_blade_dancer: ['lightning', 'spark'], // electric bolts and sparks
   sp_storm_herald: ['lightning', 'spark'], // storm bolts and crackle
   sp_frost_shade: ['ice', 'spark'], // glacial ice crystals and diamonds
-  sp_eclipse_reaper: ['shadow', 'fire'], // void matter and blood flame
+  sp_eclipse_reaper: ['shadow', 'arcane'], // void matter and starlight
   // 10 variant warrior cards: each casts with its own element signature
   sp_gravelord: ['dust', 'earth'],      // crumbling stone and dust
   sp_dragoon: ['lightning', 'slash'],   // storm lance and speed cuts
@@ -147,14 +149,46 @@ const SP_FX_PALETTES = {
   sp_tempest: { deep: '28, 22, 4', deep2: '70, 56, 8', main: '202, 138, 4', accent: '250, 204, 21', light: '254, 240, 138', core: '255, 255, 240' },
   sp_chronomancer: { deep: '30, 22, 6', deep2: '80, 60, 16', main: '217, 119, 6', accent: '253, 224, 71', light: '254, 240, 138', core: '255, 251, 235' },
   sp_void_archon: { deep: '10, 2, 20', deep2: '40, 12, 70', main: '126, 34, 206', accent: '192, 132, 252', light: '233, 213, 255', core: '250, 245, 255' },
-  sp_eclipse_reaper: { deep: '12, 2, 6', deep2: '45, 4, 16', main: '225, 29, 72', accent: '244, 63, 94', light: '253, 164, 175', core: '255, 241, 242' },
+  sp_eclipse_reaper: { deep: '6, 3, 18', deep2: '30, 16, 72', main: '109, 40, 217', accent: '167, 139, 250', light: '221, 214, 254', core: '247, 245, 255' },
   sp_dread_lord: { deep: '8, 2, 16', deep2: '36, 8, 64', main: '107, 33, 168', accent: '168, 85, 247', light: '233, 213, 255', core: '255, 245, 255' }
 };
-const PIXEL_HERO_SCALE = 0.92;     // sprite pixels -> screen pixels at zoom 1
+const PIXEL_HERO_SCALE = 0.92;
+// SP wings: the hero's turn per drawn view (pixelHeroes VIEW_DEF), how far the
+// wings sweep back from the shoulders, and the narrowest a foreshortened wing gets
+const SP_WING_PHI = { E: 0, SE: 0.75, S: Math.PI / 2, NE: -0.75, N: -Math.PI / 2 };
+const SP_WING_SWEEP = 0.6;
+const SP_WING_MIN_SPAN = 0.35;     // sprite pixels -> screen pixels at zoom 1
 // 4x4 ordered-dither thresholds for the pixel-art SP effect layer
 const FX_BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
 // SP shapes that cover an area and get a turning pixel rune circle underneath
-const FX_RUNE_CIRCLE_SHAPES = new Set(['nova', 'pulse', 'blast', 'buff', 'aura', 'rain', 'rune', 'pull', 'fault', 'detonate', 'rally', 'banner', 'sacrifice', 'invoke', 'smoke', 'orbs', 'orbit', 'rewind', 'field', 'wall']);
+// Dark-to-bright colour ramps for the simulated pixel particles, one per
+// element (a pixel cools down the ramp as it ages, like pixelfx effects)
+const FX_ELEMENT_RAMPS = {
+  fire: ['#2a0b10', '#6b1712', '#c2361a', '#f2701e', '#ffb53b', '#ffe98a', '#fffbe6'],
+  ice: ['#0c1a33', '#163f73', '#2a7fc0', '#4fc3ef', '#a5ecff', '#e6fbff', '#ffffff'],
+  lightning: ['#1b1440', '#3d2f9c', '#6f63e6', '#b8b0ff', '#ffe866', '#fffbc2', '#ffffff'],
+  holy: ['#2e1c06', '#7a4f10', '#c98a1d', '#f2c043', '#ffe485', '#fff7d1', '#ffffff'],
+  dark: ['#0b0612', '#24103a', '#4a1b72', '#7b33b8', '#b26cf0', '#e2bfff', '#fbf3ff'],
+  earth: ['#16100a', '#3d2914', '#6e4a24', '#a0703a', '#cfa060', '#efd7a6', '#fffaf0']
+};
+// Particle budget for the pixel simulation at full VFX (scaled by particleScale)
+const FX_PX_MAX = 900;
+// '#rgb' / '#rrggbb' / 'rgb(...)' / 'rgba(...)' -> one little-endian RGBA
+// pixel for a Uint32 view of ImageData
+function packCssColor(col) {
+  let r = 0, g = 0, b = 0, a = 255;
+  if (col[0] === '#') {
+    const h = col.length === 4 ? col.slice(1).split('').map(c => c + c).join('') : col.slice(1, 7);
+    r = parseInt(h.slice(0, 2), 16); g = parseInt(h.slice(2, 4), 16); b = parseInt(h.slice(4, 6), 16);
+  } else {
+    const m = col.match(/[\d.]+/g) || [];
+    r = +m[0] || 0; g = +m[1] || 0; b = +m[2] || 0;
+    if (m[3] !== undefined) a = Math.round(Math.max(0, Math.min(1, +m[3])) * 255);
+  }
+  return ((a << 24) | (b << 16) | (g << 8) | r) >>> 0;
+}
+// (every other shape draws its own element ground art from the motif kit)
+const FX_RUNE_CIRCLE_SHAPES = new Set(['detonate', 'orbit']);
 const PIXEL_HERO_DEATH_MS = 1100;
 const PIXEL_HERO_HURT_MS = 280;
 // Element colours / particle types for projectiles and SP auras
@@ -562,21 +596,21 @@ class IsometricRenderer {
   // Pixel-Perfect 8-Directional Swordman Turnaround Sprite Configuration (0 to 360 degrees)
   static get SWORDMAN_FRAMES() {
     return {
-      S:  { sx: 0,   sy: 0,   sw: 256, sh: 286, anchorX: 129, anchorY: 262, footLX: 94,  footRX: 163, splitY: 228, midX: 129 },
-      SE: { sx: 256, sy: 0,   sw: 256, sh: 286, anchorX: 113, anchorY: 261, footLX: 80,  footRX: 158, splitY: 228, midX: 119 },
-      E:  { sx: 512, sy: 0,   sw: 256, sh: 286, anchorX: 88,  anchorY: 264, footLX: 87,  footRX: 150, splitY: 228, midX: 118 },
-      NE: { sx: 768, sy: 0,   sw: 256, sh: 286, anchorX: 141, anchorY: 261, footLX: 97,  footRX: 170, splitY: 228, midX: 133 },
-      N:  { sx: 0,   sy: 286, sw: 256, sh: 286, anchorX: 126, anchorY: 267, footLX: 97,  footRX: 159, splitY: 232, midX: 128 },
-      NW: { sx: 256, sy: 286, sw: 256, sh: 286, anchorX: 102, anchorY: 267, footLX: 99,  footRX: 159, splitY: 232, midX: 129 },
-      W:  { sx: 512, sy: 286, sw: 256, sh: 286, anchorX: 153, anchorY: 267, footLX: 110, footRX: 156, splitY: 228, midX: 133 },
-      SW: { sx: 768, sy: 286, sw: 256, sh: 286, anchorX: 176, anchorY: 267, footLX: 93,  footRX: 177, splitY: 228, midX: 135 }
+      S: { sx: 0, sy: 0, sw: 256, sh: 286, anchorX: 129, anchorY: 262, footLX: 94, footRX: 163, splitY: 228, midX: 129 },
+      SE: { sx: 256, sy: 0, sw: 256, sh: 286, anchorX: 113, anchorY: 261, footLX: 80, footRX: 158, splitY: 228, midX: 119 },
+      E: { sx: 512, sy: 0, sw: 256, sh: 286, anchorX: 88, anchorY: 264, footLX: 87, footRX: 150, splitY: 228, midX: 118 },
+      NE: { sx: 768, sy: 0, sw: 256, sh: 286, anchorX: 141, anchorY: 261, footLX: 97, footRX: 170, splitY: 228, midX: 133 },
+      N: { sx: 0, sy: 286, sw: 256, sh: 286, anchorX: 126, anchorY: 267, footLX: 97, footRX: 159, splitY: 232, midX: 128 },
+      NW: { sx: 256, sy: 286, sw: 256, sh: 286, anchorX: 102, anchorY: 267, footLX: 99, footRX: 159, splitY: 232, midX: 129 },
+      W: { sx: 512, sy: 286, sw: 256, sh: 286, anchorX: 153, anchorY: 267, footLX: 110, footRX: 156, splitY: 228, midX: 133 },
+      SW: { sx: 768, sy: 286, sw: 256, sh: 286, anchorX: 176, anchorY: 267, footLX: 93, footRX: 177, splitY: 228, midX: 135 }
     };
   }
 
   // 4-Frame Dynamic Combat Run Dragging Sword (Front & Back Views)
   static get SWORDMAN_RUN_FRAMES() {
     return [
-      { sx: 0,   sy: 0, sw: 320, sh: 286, anchorX: 140, anchorY: 263 },
+      { sx: 0, sy: 0, sw: 320, sh: 286, anchorX: 140, anchorY: 263 },
       { sx: 320, sy: 0, sw: 320, sh: 286, anchorX: 140, anchorY: 263 },
       { sx: 640, sy: 0, sw: 320, sh: 286, anchorX: 140, anchorY: 263 },
       { sx: 960, sy: 0, sw: 320, sh: 286, anchorX: 140, anchorY: 263 }
@@ -586,7 +620,7 @@ class IsometricRenderer {
   // 4-Frame Dynamic Sword Slash Attack Frames
   static get SWORDMAN_ATTACK_FRAMES() {
     return [
-      { sx: 0,   sy: 0, sw: 320, sh: 286, anchorX: 130, anchorY: 263 },
+      { sx: 0, sy: 0, sw: 320, sh: 286, anchorX: 130, anchorY: 263 },
       { sx: 320, sy: 0, sw: 320, sh: 286, anchorX: 130, anchorY: 263 },
       { sx: 640, sy: 0, sw: 320, sh: 286, anchorX: 130, anchorY: 263 },
       { sx: 960, sy: 0, sw: 320, sh: 286, anchorX: 130, anchorY: 263 }
@@ -596,9 +630,9 @@ class IsometricRenderer {
   // 4-Frame Supersonic Dash / Blade Charge Frames
   static get SWORDMAN_DASH_FRAMES() {
     return [
-      { sx: 0,    sy: 0, sw: 360, sh: 286, anchorX: 140, anchorY: 263 },
-      { sx: 360,  sy: 0, sw: 360, sh: 286, anchorX: 140, anchorY: 263 },
-      { sx: 720,  sy: 0, sw: 360, sh: 286, anchorX: 140, anchorY: 263 },
+      { sx: 0, sy: 0, sw: 360, sh: 286, anchorX: 140, anchorY: 263 },
+      { sx: 360, sy: 0, sw: 360, sh: 286, anchorX: 140, anchorY: 263 },
+      { sx: 720, sy: 0, sw: 360, sh: 286, anchorX: 140, anchorY: 263 },
       { sx: 1080, sy: 0, sw: 360, sh: 286, anchorX: 140, anchorY: 263 }
     ];
   }
@@ -606,7 +640,7 @@ class IsometricRenderer {
   // 4-Frame Living Idle Animation Frames (Breathing, Sway, Blade Gleam)
   static get SWORDMAN_IDLE_FRAMES() {
     return [
-      { sx: 0,   sy: 0, sw: 256, sh: 286, anchorX: 128, anchorY: 263 },
+      { sx: 0, sy: 0, sw: 256, sh: 286, anchorX: 128, anchorY: 263 },
       { sx: 256, sy: 0, sw: 256, sh: 286, anchorX: 128, anchorY: 263 },
       { sx: 512, sy: 0, sw: 256, sh: 286, anchorX: 128, anchorY: 263 },
       { sx: 768, sy: 0, sw: 256, sh: 286, anchorX: 128, anchorY: 263 }
@@ -616,7 +650,7 @@ class IsometricRenderer {
   // 4-Frame Mage Dynamic Staff Dragging Combat Run Frames
   static get MAGE_RUN_FRAMES() {
     return [
-      { sx: 0,   sy: 0, sw: 320, sh: 286, anchorX: 140, anchorY: 263 },
+      { sx: 0, sy: 0, sw: 320, sh: 286, anchorX: 140, anchorY: 263 },
       { sx: 320, sy: 0, sw: 320, sh: 286, anchorX: 140, anchorY: 263 },
       { sx: 640, sy: 0, sw: 320, sh: 286, anchorX: 140, anchorY: 263 },
       { sx: 960, sy: 0, sw: 320, sh: 286, anchorX: 140, anchorY: 263 }
@@ -626,7 +660,7 @@ class IsometricRenderer {
   // 4-Frame Mage Arcane Spell Beam / Burst Attack Frames
   static get MAGE_ATTACK_FRAMES() {
     return [
-      { sx: 0,   sy: 0, sw: 320, sh: 286, anchorX: 140, anchorY: 263 },
+      { sx: 0, sy: 0, sw: 320, sh: 286, anchorX: 140, anchorY: 263 },
       { sx: 320, sy: 0, sw: 320, sh: 286, anchorX: 140, anchorY: 263 },
       { sx: 640, sy: 0, sw: 320, sh: 286, anchorX: 140, anchorY: 263 },
       { sx: 960, sy: 0, sw: 320, sh: 286, anchorX: 140, anchorY: 263 }
@@ -636,9 +670,9 @@ class IsometricRenderer {
   // 4-Frame Mage Arcane Blink / Warp Dash Frames
   static get MAGE_DASH_FRAMES() {
     return [
-      { sx: 0,    sy: 0, sw: 360, sh: 286, anchorX: 140, anchorY: 263 },
-      { sx: 360,  sy: 0, sw: 360, sh: 286, anchorX: 140, anchorY: 263 },
-      { sx: 720,  sy: 0, sw: 360, sh: 286, anchorX: 140, anchorY: 263 },
+      { sx: 0, sy: 0, sw: 360, sh: 286, anchorX: 140, anchorY: 263 },
+      { sx: 360, sy: 0, sw: 360, sh: 286, anchorX: 140, anchorY: 263 },
+      { sx: 720, sy: 0, sw: 360, sh: 286, anchorX: 140, anchorY: 263 },
       { sx: 1080, sy: 0, sw: 360, sh: 286, anchorX: 140, anchorY: 263 }
     ];
   }
@@ -646,7 +680,7 @@ class IsometricRenderer {
   // 4-Frame Mage Living Idle Levitation & Breathing Frames
   static get MAGE_IDLE_FRAMES() {
     return [
-      { sx: 0,   sy: 0, sw: 320, sh: 286, anchorX: 140, anchorY: 263 },
+      { sx: 0, sy: 0, sw: 320, sh: 286, anchorX: 140, anchorY: 263 },
       { sx: 320, sy: 0, sw: 320, sh: 286, anchorX: 140, anchorY: 263 },
       { sx: 640, sy: 0, sw: 320, sh: 286, anchorX: 140, anchorY: 263 },
       { sx: 960, sy: 0, sw: 320, sh: 286, anchorX: 140, anchorY: 263 }
@@ -656,7 +690,7 @@ class IsometricRenderer {
   // 4-Frame Rogue Reverse-Grip Dagger Dragging Ninja Sprint Frames
   static get ROGUE_RUN_FRAMES() {
     return [
-      { sx: 0,   sy: 0, sw: 320, sh: 286, anchorX: 140, anchorY: 263 },
+      { sx: 0, sy: 0, sw: 320, sh: 286, anchorX: 140, anchorY: 263 },
       { sx: 320, sy: 0, sw: 320, sh: 286, anchorX: 140, anchorY: 263 },
       { sx: 640, sy: 0, sw: 320, sh: 286, anchorX: 140, anchorY: 263 },
       { sx: 960, sy: 0, sw: 320, sh: 286, anchorX: 140, anchorY: 263 }
@@ -666,7 +700,7 @@ class IsometricRenderer {
   // 4-Frame Rogue Dual Dagger Cross Cleave Attack Frames
   static get ROGUE_ATTACK_FRAMES() {
     return [
-      { sx: 0,   sy: 0, sw: 320, sh: 286, anchorX: 140, anchorY: 263 },
+      { sx: 0, sy: 0, sw: 320, sh: 286, anchorX: 140, anchorY: 263 },
       { sx: 320, sy: 0, sw: 320, sh: 286, anchorX: 140, anchorY: 263 },
       { sx: 640, sy: 0, sw: 320, sh: 286, anchorX: 140, anchorY: 263 },
       { sx: 960, sy: 0, sw: 320, sh: 286, anchorX: 140, anchorY: 263 }
@@ -676,9 +710,9 @@ class IsometricRenderer {
   // 4-Frame Rogue Shadow Dive / Smoke Dash Frames
   static get ROGUE_DASH_FRAMES() {
     return [
-      { sx: 0,    sy: 0, sw: 360, sh: 286, anchorX: 140, anchorY: 263 },
-      { sx: 360,  sy: 0, sw: 360, sh: 286, anchorX: 140, anchorY: 263 },
-      { sx: 720,  sy: 0, sw: 360, sh: 286, anchorX: 140, anchorY: 263 },
+      { sx: 0, sy: 0, sw: 360, sh: 286, anchorX: 140, anchorY: 263 },
+      { sx: 360, sy: 0, sw: 360, sh: 286, anchorX: 140, anchorY: 263 },
+      { sx: 720, sy: 0, sw: 360, sh: 286, anchorX: 140, anchorY: 263 },
       { sx: 1080, sy: 0, sw: 360, sh: 286, anchorX: 140, anchorY: 263 }
     ];
   }
@@ -686,7 +720,7 @@ class IsometricRenderer {
   // 4-Frame Rogue Living Stealth Crouch & Dagger Flip Idle Frames
   static get ROGUE_IDLE_FRAMES() {
     return [
-      { sx: 0,   sy: 0, sw: 320, sh: 286, anchorX: 140, anchorY: 263 },
+      { sx: 0, sy: 0, sw: 320, sh: 286, anchorX: 140, anchorY: 263 },
       { sx: 320, sy: 0, sw: 320, sh: 286, anchorX: 140, anchorY: 263 },
       { sx: 640, sy: 0, sw: 320, sh: 286, anchorX: 140, anchorY: 263 },
       { sx: 960, sy: 0, sw: 320, sh: 286, anchorX: 140, anchorY: 263 }
@@ -872,11 +906,13 @@ class IsometricRenderer {
       roColor = '#34d399'; // RO heal is vivid emerald
     }
 
-    // Ragnarok Online bouncy hop physics:
-    // Vertical pop upwards, gravity brings it down softly
+    // Combat numbers take a quick hop: a hard pop upwards and strong gravity, so
+    // they land and clear out fast (scattering wider when hits pile up). Messages
+    // keep the slow float so they stay readable.
+    const fast = isMonsterDmg || isPlayerDmg || isHeal || isMiss;
     const side = slot === 0 ? 0 : (slot % 2 ? 1 : -1);
-    const vx = side * 10;
-    const vy = isCrit ? -56 : -44;
+    const vx = side * (fast ? 28 : 10);
+    const vy = fast ? (isCrit ? -150 : -130) : (isCrit ? -56 : -44);
 
     this.animations.floatingTexts.push({
       x: worldX,
@@ -888,16 +924,17 @@ class IsometricRenderer {
       vy,
       screenOffsetX: slot ? side * 14 : 0,
       screenOffsetY: -slot * 18,
-      gravity: 68,
-      drag: 0.92,
-      scale: isCrit ? 1.18 : 1.0,
+      gravity: fast ? 380 : 68,
+      drag: fast ? 0.9 : 0.92,
+      // punch-in: spawns oversized and snaps down to size (drawn in the text pass)
+      punch: !fast ? 1.15 : isCrit ? 2.4 : (isMonsterDmg || isPlayerDmg) ? 1.8 : 1.3,
       isCrit,
       isHeal,
       isMiss,
       isPlayerDmg,
       isMonsterDmg,
-      life: isCrit ? 1.05 : 0.85,
-      maxLife: isCrit ? 1.05 : 0.85
+      life: fast ? (isCrit ? 0.8 : 0.6) : (isCrit ? 1.05 : 0.85),
+      maxLife: fast ? (isCrit ? 0.8 : 0.6) : (isCrit ? 1.05 : 0.85)
     });
   }
 
@@ -942,6 +979,9 @@ class IsometricRenderer {
     const finisher = !isMage && combo.count % 3 === 0;
 
     const cardId = data.cardId || null;
+    // where the pixel hero's weapon really is, filled in as the sprite is drawn
+    // (trackBlade) so the swing arcs ride the blade
+    const blade = { hist: [] };
     this.attacks.set(data.attackerId, {
       time: performance.now(),
       duration: duration,
@@ -955,7 +995,8 @@ class IsometricRenderer {
       targetY: data.targetY,
       hasSweep: !!data.hasSweep,
       side: combo.side,
-      finisher
+      finisher,
+      blade
     });
 
     // Camera punchy impact shake!
@@ -968,30 +1009,11 @@ class IsometricRenderer {
       const p2 = cardId === 'sp_tempest' ? 'spark' : cardId === 'sp_chronomancer' ? 'spark' : 'spark';
       this.addParticles(posX, posY, p1, 5, { sizeScale: 0.6, speed: 1.3 });
       this.addParticles(posX, posY, p2, 4, { sizeScale: 0.5, speed: 1.2 });
+
+      // Mages cast, they don't swing: no sweep arc (the server sends sweepArc 0 for them too)
     } else if (isRogue) {
+      // Rogue Agile Twin-Blade Cuts
       const life = finisher ? 0.34 : 0.26;
-      this.animations.skillEffects.push({
-        type: 'sweeping_edge',
-        x: posX,
-        y: posY,
-        facing: data.facing || 'SE',
-        life,
-        maxLife: life,
-        radius: finisher ? 2.3 : 1.8,
-        // the cleave's true reach (tiles) and arc, so the slash grows with range
-        reachTiles: data.sweepRange || SWEEP_DEFAULT_REACH.rogue,
-        halfArc: ((data.sweepArc || SWEEP_DEFAULT_ARC_DEG) * Math.PI) / 360,
-        class: 'rogue',
-        cardId,
-        side: combo.side,
-        finisher
-      });
-      const pMain = cardId === 'sp_venom_lord' ? 'slash' : cardId === 'sp_frost_shade' ? 'ice' : cardId === 'sp_blade_dancer' ? 'spark' : 'shadow';
-      this.addParticles(posX, posY, pMain, finisher ? 10 : 5);
-      this.addParticles(posX, posY, 'slash', finisher ? 14 : 8);
-    } else {
-      // Warrior Heavy Cleave
-      const life = finisher ? 0.4 : 0.3;
       const sweep = {
         type: 'sweeping_edge',
         x: posX,
@@ -999,16 +1021,41 @@ class IsometricRenderer {
         facing: data.facing || 'SE',
         life,
         maxLife: life,
-        radius: (data.hasSweep ? 2.6 : 2.2) * (finisher ? 1.3 : 1),
-        // drawn at the cleave's true reach (tiles) and arc, so it covers what it hits and grows with range
+        radius: finisher ? 2.3 : 1.8,
+        reachTiles: data.sweepRange || SWEEP_DEFAULT_REACH.rogue,
+        attackerId: data.attackerId,
+        halfArc: ((data.sweepArc || (finisher ? 150 : 120)) * Math.PI) / 360,
+        class: 'rogue',
+        cardId,
+        side: combo.side,
+        finisher,
+        blade
+      };
+      if (this.usePixelHeroes()) this.attacks.get(data.attackerId).pendingSweep = sweep;
+      else this.animations.skillEffects.push(sweep);
+      const pMain = cardId === 'sp_venom_lord' ? 'poison' : cardId === 'sp_frost_shade' ? 'ice' : cardId === 'sp_blade_dancer' ? 'spark' : 'shadow';
+      this.addParticles(posX, posY, pMain, finisher ? 4 : 2);
+      this.addParticles(posX, posY, 'slash', finisher ? 5 : 3);
+    } else {
+      // Warrior Crushing Heavy Cleave
+      const life = finisher ? 0.42 : 0.32;
+      const sweep = {
+        type: 'sweeping_edge',
+        x: posX,
+        y: posY,
+        facing: data.facing || 'SE',
+        life,
+        maxLife: life,
+        radius: (data.hasSweep ? 2.6 : 2.2) * (finisher ? 1.35 : 1),
         reachTiles: data.sweepRange || SWEEP_DEFAULT_REACH.warrior,
-        halfArc: ((data.sweepArc || SWEEP_DEFAULT_ARC_DEG) * Math.PI) / 360,
+        attackerId: data.attackerId,
+        halfArc: ((data.sweepArc || (finisher ? 180 : SWEEP_DEFAULT_ARC_DEG)) * Math.PI) / 360,
         class: 'warrior',
         cardId,
         side: combo.side,
-        finisher
+        finisher,
+        blade
       };
-      // pixel heroes spawn it at the contact frame (warriorSwing); the old sprites right away
       if (this.usePixelHeroes()) this.attacks.get(data.attackerId).pendingSweep = sweep;
       else {
         this.animations.skillEffects.push(sweep);
@@ -1328,9 +1375,10 @@ class IsometricRenderer {
     return PH.runAttackFrame(cls, card ? card.id : null, card ? card.palette : null, view, action, idx, runIdx);
   }
 
-  // SP aura: grows with the card's +level. 'back' draws under the hero,
-  // 'front' spawns particles over it.
-  drawSpAura(ctx, player, x, y, z, t, layer) {
+  // SP wings: every +10 on the card grows a different pair (spWings.js), in the
+  // card's colour. 'back' draws under the hero, 'front' over it: the wings sit
+  // behind the hero, or over its back when it faces away. pose: { view, flip }
+  drawSpAura(ctx, player, x, y, z, t, layer, pose = {}) {
     const flashAt = this.spFlashes.get(player.id);
     const flashAge = flashAt ? (performance.now() - flashAt) / SP_FLASH_MS : 1;
     if (layer === 'back' && flashAge < 1) {
@@ -1343,61 +1391,81 @@ class IsometricRenderer {
       ctx.fillRect(x - 22 * z, y - 120 * z, 44 * z, 120 * z);
       ctx.restore();
     }
-    if (!player.spTransformed || player.isDead) return;
+    if (!player.spTransformed || player.isDead || !window.SpWings) return;
     const card = this.spCardDef(player.spCardId || (player.equipment && player.equipment.sp && player.equipment.sp.cardId));
     if (!card) return;
-    // cards go to +100; the aura is tuned on a 0-10 scale (10 card levels per step)
-    const lvl = (player.spLevel || 0) / 10;
+    const tier = Math.max(0, Math.min(SpWings.TIERS, Math.floor((player.spLevel || 0) / 10)));
+    if (!tier) return;
     const fx = ELEMENT_FX[card.element] || ELEMENT_FX.neutral;
     const color = card.color || fx.color;
+    const WG = window.SpWings;
+    const s = PIXEL_HERO_SCALE * z;
+    // The hero's turn (as in pixelHeroes: 0 side-on facing right, +PI/2 facing the
+    // camera, -PI/2 facing away); W / SW / NW mirror E / SE / NE
+    const phi = SP_WING_PHI[pose.view] !== undefined ? SP_WING_PHI[pose.view] : Math.PI / 2;
+    const mirror = pose.flip ? -1 : 1;
+    const c = Math.cos(phi), sn = Math.sin(phi);
+    // the wings join between the shoulder blades, a little behind the body when side-on
+    const rootX = x - mirror * c * 3 * s, rootY = y - 26 * s;
+    // Each wing spreads out sideways and sweeps back: its span on screen is the
+    // sideways part (sin phi) plus the backward sweep seen side-on (cos phi). Its
+    // depth (toward the camera) decides whether it goes behind the body or over it.
+    const wings = [-1, 1].map(side => {
+      const span = side * sn - c * SP_WING_SWEEP;
+      return {
+        sx: mirror * Math.sign(span || -1) * Math.max(SP_WING_MIN_SPAN, Math.min(1, Math.abs(span))),
+        front: -sn + side * c * 0.25 > 0.3
+      };
+    });
 
-    if (layer === 'back') {
+    // a soft glow of the card colour behind the bigger pairs
+    if (tier >= 5 && layer === 'back') {
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
-      const pulse = 0.85 + 0.15 * Math.sin(t * 3);
-      const r = (16 + Math.min(lvl, 10) * 1.4) * z * pulse;
-      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-      g.addColorStop(0, hexAlpha(color, 0.22 + lvl * 0.03));
+      const r = (18 + tier * 2.4) * s;
+      const g = ctx.createRadialGradient(rootX, rootY, 0, rootX, rootY, r);
+      g.addColorStop(0, hexAlpha(color, 0.06 + tier * 0.018 * (0.85 + 0.15 * Math.sin(t * 3))));
       g.addColorStop(1, hexAlpha(color, 0));
       ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.ellipse(x, y, r, r / 2, 0, 0, Math.PI * 2);
-      ctx.fill();
-      if (lvl >= 7) {
+      ctx.fillRect(rootX - r, rootY - r, r * 2, r * 2);
+      ctx.restore();
+    }
+    const drawn = wings.filter(w => w.front === (layer === 'front'));
+    if (drawn.length) {
+      // flap a little faster on the move
+      const frame = Math.floor(t * (player.isMoving ? 2.4 : 1.3) * WG.FRAMES) % WG.FRAMES;
+      const img = WG.wing(tier, color, frame);
+      // the more foreshortened wing is the farther one: draw it first
+      drawn.sort((p, q) => Math.abs(p.sx) - Math.abs(q.sx));
+      for (const w of drawn) {
         ctx.save();
-        ctx.translate(x, y);
-        ctx.scale(1, 0.5);
-        ctx.lineWidth = 2 * z;
-        ctx.strokeStyle = hexAlpha(color, 0.8);
-        ctx.setLineDash([6 * z, 4 * z]);
-        ctx.rotate(t * 0.9);
+        ctx.imageSmoothingEnabled = false;
+        ctx.translate(Math.round(rootX), Math.round(rootY));
+        ctx.scale(w.sx * s, s);
+        ctx.drawImage(img, -WG.RX, -WG.RY);
+        ctx.restore();
+      }
+    }
+
+    if (layer === 'front') {
+      // +100: a golden halo over the head
+      if (tier >= 10) {
+        const hy = y - 51 * s + Math.sin(t * 2) * 1.2 * s;
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.lineWidth = 2 * s;
+        ctx.strokeStyle = `rgba(253, 230, 138, ${0.75 + 0.2 * Math.sin(t * 4)})`;
         ctx.beginPath();
-        ctx.arc(0, 0, 22 * z, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.rotate(-t * 1.8);
-        ctx.setLineDash([2 * z, 5 * z]);
-        ctx.beginPath();
-        ctx.arc(0, 0, 15 * z, 0, Math.PI * 2);
+        ctx.ellipse(x, hy, 6 * s, 2 * s, 0, 0, Math.PI * 2);
         ctx.stroke();
         ctx.restore();
       }
-      if (lvl >= 10) {
-        const pg = ctx.createLinearGradient(0, y, 0, y - 110 * z);
-        pg.addColorStop(0, hexAlpha(color, 0.38 * pulse));
-        pg.addColorStop(1, hexAlpha(color, 0));
-        ctx.fillStyle = pg;
-        ctx.fillRect(x - 14 * z, y - 110 * z, 28 * z, 110 * z);
-      }
-      ctx.restore();
-    } else {
-      // Gentle trickle of element particles; denser (not bigger) with level
-      const rate = 0.02 + lvl * 0.012;
-      if (Math.random() < rate) {
-        this.addParticles(player.x + (Math.random() - 0.5) * 0.8, player.y + (Math.random() - 0.5) * 0.8, fx.particle, 1,
-          { sizeScale: 0.3 + lvl * 0.012, speed: 0.35, vz: 0.5 + Math.random() * 0.6 });
-      }
-      if (lvl >= 4 && Math.random() < 0.012 * (lvl - 3)) {
-        this.addParticles(player.x, player.y, 'spark', 1, { sizeScale: 0.3, speed: 0.6, vz: 1.0 });
+      // motes shed from the wingtips, more of them the higher the tier
+      if (Math.random() < 0.015 + tier * 0.007) {
+        const w = wings[Math.random() < 0.5 ? 0 : 1];
+        const wp = Isometric.screenToWorld(rootX + w.sx * (14 + tier * 2) * s, rootY - (2 + tier) * s, this.camera, this.viewW, this.viewH);
+        this.addParticles(wp.x, wp.y, tier >= 4 && Math.random() < 0.4 ? 'spark' : fx.particle, 1,
+          { sizeScale: 0.3 + tier * 0.02, speed: 0.3, z: 0.05, vz: 0.2 + Math.random() * 0.3 });
       }
     }
   }
@@ -1510,7 +1578,7 @@ class IsometricRenderer {
       mana_shield: 1.1,
       pyroblast: 0.75,
       smoke_screen: 1.2,
-      poison_darts: 0.5,
+      poison_darts: 0.95,
       caltrops: 1.2,
       dragon_roar: 1.2,
       meteor_dive: 0.9,
@@ -1718,9 +1786,9 @@ class IsometricRenderer {
       this.addParticles(fx.x, fx.y, 'poison', 28);
       this.triggerScreenShake(13, 0.28);
     } else if (fx.type === 'poison_darts') {
-      this.addParticles(fx.x, fx.y, 'poison', 40);
-      this.addParticles(fx.x, fx.y, 'slash', 24);
-      this.triggerScreenShake(6, 0.14);
+      this.addParticles(fx.x, fx.y, 'slash', 20);
+      this.addParticles(fx.x, fx.y, 'spark', 10);
+      this.triggerScreenShake(5, 0.12);
     } else if (fx.type === 'caltrops') {
       this.addParticles(fx.x, fx.y, 'earth', 30);
       this.addParticles(fx.x, fx.y, 'spark', 24);
@@ -1887,70 +1955,67 @@ class IsometricRenderer {
   // own. It can fire four times a second, so the shake stays short.
   riftStepBurst(fx) {
     const r = fx.radius || 3;
-    for (let k = 0; k < 20; k++) {
-      const a = (k / 20) * Math.PI * 2;
+    for (let k = 0; k < 8; k++) {
+      const a = (k / 8) * Math.PI * 2;
       this.addParticles(fx.x + Math.cos(a) * r * 0.35, fx.y + Math.sin(a) * r * 0.35, k % 2 ? 'shadow' : 'arcane', 1,
         { speed: 4.5, angle: a, spread: 0.2, sizeScale: 1.2 });
     }
-    this.addParticles(fx.x, fx.y, 'spark', 26, { speed: 3.2 });
-    this.addParticles(fx.x, fx.y, 'dust', 14, { speed: 1.6, sizeScale: 1.3 });
-    this.triggerScreenShake(11, 0.2);
+    this.addParticles(fx.x, fx.y, 'spark', 8, { speed: 3.2 });
+    this.addParticles(fx.x, fx.y, 'dust', 5, { speed: 1.6, sizeScale: 1.3 });
+    this.triggerScreenShake(8, 0.16);
   }
 
   // ---------------------------------------------------------------- SP card skills
   // One-off particle burst + screen shake when an SP skill fires
+  // SP card bursts spawn simulated pixel particles (pxBurst) in the card's
+  // element: embers, ice shards, forked sparks, holy motes, shadow wisps, rocks
   spSkillBurst(fx, isMove) {
-    const [main, accent] = SP_CARD_PARTICLES[fx.cardId] || SP_ELEMENT_PARTICLES[fx.element] || SP_ELEMENT_PARTICLES.neutral;
     const first = !!fx.playerId;
     if (fx.quiet) {
       // repeats on every swing (Arc Conduit): a few sparks per target, no shake
-      for (const pt of fx.points || []) this.addParticles(pt.x, pt.y, main, 3);
+      for (const pt of fx.points || []) this.pxBurst(fx, pt.x, pt.y, 0.25, false);
       return;
     }
     if (fx.shape === 'aura' && fx.bolts) {
-      for (const b of fx.bolts) this.addParticles(b.x, b.y, main, 6);
+      for (const b of fx.bolts) this.pxBurst(fx, b.x, b.y, 0.35, false);
       return;
     }
     if (fx.shape === 'aura') {
-      // aura ticks repeat every half second: a light ring of embers, no shake
-      const r = fx.radius || 1.4, n = fx.pulse ? 8 : 20;
+      // aura ticks repeat every half second: a light ring of particles, no shake
+      const r = fx.radius || 1.4, n = fx.pulse ? 4 : 8;
       for (let k = 0; k < n; k++) {
         const a = (k / n) * Math.PI * 2;
-        this.addParticles(fx.x + Math.cos(a) * r * 0.9, fx.y + Math.sin(a) * r * 0.9, fx.spin ? 'slash' : k % 2 ? main : 'shadow', 1, { speed: 0.6, vz: 0.6 });
+        this.pxTrickle(fx, fx.x + Math.cos(a) * r * 0.9, fx.y + Math.sin(a) * r * 0.9);
       }
       return;
     }
     if (isMove) {
       if (first) this.triggerDashAnimation({ playerId: fx.playerId, duration: fx.shape === 'blink' ? 300 : 340, facing: fx.facing });
-      this.addParticles(fx.startX, fx.startY, main, 30);
-      this.addParticles(fx.x, fx.y, main, 30);
-      this.addParticles(fx.x, fx.y, accent, 18);
+      if (fx.shape === 'blink') {
+        this.pxBurst(fx, fx.startX, fx.startY, 0.6);
+        this.pxBurst(fx, fx.x, fx.y, 1);
+      } else {
+        this.pxLine(fx, fx.startX, fx.startY, fx.x, fx.y, 1);
+      }
       this.triggerScreenShake(7, 0.16);
       return;
     }
     if (fx.stars) {
-      for (const s of fx.stars) this.addParticles(s.x, s.y, accent, 4);
+      for (const s of fx.stars) this.pxBurst(fx, s.x, s.y, 0.25, false);
       return;
     }
     if (fx.points) {
-      for (const pt of fx.points) {
-        this.addParticles(pt.x, pt.y, main, 14);
-        this.addParticles(pt.x, pt.y, accent, 8);
-      }
+      for (const pt of fx.points) this.pxBurst(fx, pt.x, pt.y, 0.6);
       this.triggerScreenShake(6, 0.15);
       return;
     }
     if (fx.shape === 'line') {
-      for (let k = 0; k <= 10; k++) {
-        const t = k / 10;
-        this.addParticles(fx.startX + (fx.x - fx.startX) * t, fx.startY + (fx.y - fx.startY) * t, main, 4);
-      }
+      this.pxLine(fx, fx.startX, fx.startY, fx.x, fx.y, 1.2);
       this.triggerScreenShake(9, 0.2);
       return;
     }
     const big = (fx.radius || 1) >= 3;
-    this.addParticles(fx.x, fx.y, main, big ? 50 : 24);
-    this.addParticles(fx.x, fx.y, accent, big ? 30 : 14);
+    this.pxBurst(fx, fx.x, fx.y, big ? 1.6 : 1);
     if (first || fx.shape === 'rain') this.triggerScreenShake(big ? 12 : 6, big ? 0.26 : 0.15);
   }
 
@@ -1994,6 +2059,85 @@ class IsometricRenderer {
       return s - Math.floor(s);
     };
 
+    // ---- pixel raster core: everything below lands on whole texels of the fx
+    // pixel layer, in opaque colours of the card ramp; `a` fades via globalAlpha
+    // (pixelateFx turns a mid alpha into ordered dither, a high one into solid)
+    const FL = this._fxLayer;
+    const tex = FL && FL.open ? FL.px / (this.canvas.width / this.viewW) : Math.max(1, z);
+    const RAMP = [pal.deep, pal.deep2, pal.main, pal.accent, pal.light, pal.core];
+    const RC = RAMP.map(s => `rgb(${s})`);
+    const col = (k) => RC[Math.max(0, Math.min(5, Math.round(k)))];
+    const lvl = (rgb) => { const i = RAMP.indexOf(rgb); return i < 0 ? 3 : i; };
+    // colour of rgb, dk ramp steps brighter (rgb outside the ramp is used as is)
+    const colOf = (rgb, dk = 0) => (RAMP.indexOf(rgb) < 0 ? `rgb(${rgb})` : col(lvl(rgb) + dk));
+    const cell = (v) => Math.floor(v / tex);
+    let fs = null;
+    const dot = (i, j, color) => {
+      if (fs !== color) { ctx.fillStyle = color; fs = color; }
+      ctx.fillRect(i * tex, j * tex, tex, tex);
+    };
+    const span = (j, i0, i1, color) => {
+      if (i1 < i0) return;
+      if (fs !== color) { ctx.fillStyle = color; fs = color; }
+      ctx.fillRect(i0 * tex, j * tex, (i1 - i0 + 1) * tex, tex);
+    };
+    // every primitive paints opaque pixels over what is under it (no additive
+    // blow-out to white), faded as a whole by a
+    const draw = (a, fn) => {
+      ctx.save();
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = clamp01(a);
+      fs = null;
+      fn();
+      ctx.restore();
+      fs = null;
+    };
+    // stepped line from screen a to b, w texels thick
+    const tline = (x0, y0, x1, y1, color, w = 1) => {
+      const i0 = x0 / tex, j0 = y0 / tex, i1 = x1 / tex, j1 = y1 / tex;
+      const n = Math.max(1, Math.ceil(Math.max(Math.abs(i1 - i0), Math.abs(j1 - j0))));
+      const o = Math.floor((w - 1) / 2);
+      let li = null, lj = null;
+      for (let k = 0; k <= n; k++) {
+        const i = Math.floor(i0 + ((i1 - i0) * k) / n), j = Math.floor(j0 + ((j1 - j0) * k) / n);
+        if (i === li && j === lj) continue;
+        li = i; lj = j;
+        if (w <= 1) dot(i, j, color);
+        else for (let v = 0; v < w; v++) span(j - o + v, i - o, i - o + w - 1, color);
+      }
+    };
+    // filled stepped disc (sq < 1 squashes it into a ground ellipse)
+    const disc = (cx, cy, rPx, color, sq = 1) => {
+      const r = rPx / tex, ci = cx / tex, cj = cy / tex;
+      if (r < 0.75) { dot(Math.floor(ci), Math.floor(cj), color); return; }
+      const ry = r * sq;
+      for (let j = Math.floor(cj - ry); j <= Math.ceil(cj + ry); j++) {
+        const dy = (j + 0.5 - cj) / sq;
+        if (Math.abs(dy) > r) continue;
+        const hw = Math.sqrt(r * r - dy * dy);
+        span(j, Math.round(ci - hw), Math.round(ci + hw) - 1, color);
+      }
+    };
+    // ellipse outline walked texel by texel (honours a dash set with setLineDash)
+    const loop = (cx, cy, rx, ry, color, w = 1, a0 = 0, a1 = TAU, gap = null) => {
+      const dash = ctx.getLineDash ? ctx.getLineDash() : [];
+      const per = dash.length ? dash.reduce((s, v) => s + v, 0) : 0;
+      const len = Math.abs(a1 - a0) * Math.sqrt((rx * rx + ry * ry) / 2);
+      const n = Math.max(8, Math.ceil((len / tex) * 1.4));
+      const o = Math.floor((w - 1) / 2);
+      let li = null, lj = null;
+      for (let k = 0; k <= n; k++) {
+        if (per && ((k / n) * len) % per > dash[0]) continue;
+        if (gap && gap(k, n)) continue;
+        const b = a0 + ((a1 - a0) * k) / n;
+        const i = cell(cx + Math.cos(b) * rx), j = cell(cy + Math.sin(b) * ry);
+        if (i === li && j === lj) continue;
+        li = i; lj = j;
+        if (w <= 1) dot(i, j, color);
+        else for (let v = 0; v < w; v++) span(j - o + v, i - o, i - o + w - 1, color);
+      }
+    };
+
     const shade = (fn) => {
       ctx.save();
       ctx.globalCompositeOperation = 'source-over';
@@ -2004,146 +2148,163 @@ class IsometricRenderer {
       ctx.beginPath();
       ctx.ellipse(p.x, p.y, Math.max(0.1, rPx), Math.max(0.1, rPx) * 0.5, 0, 0, TAU);
     };
+    // ground ring: a stepped pixel ellipse, w px thick, with a brighter inner
+    // line once it is two texels wide
     const ring = (p, rPx, rgb, a, w) => {
       if (a <= 0.01 || rPx <= 0.5) return;
-      oval(p, rPx);
-      ctx.strokeStyle = c(rgb, a);
-      ctx.lineWidth = w * z;
-      ctx.stroke();
+      const wt = Math.max(1, Math.min(3, Math.round((w * z) / tex * 0.6)));
+      draw(a, () => {
+        loop(p.x, p.y, rPx, rPx * 0.5, colOf(rgb), wt);
+        if (wt >= 2) loop(p.x, p.y, rPx, rPx * 0.5, colOf(rgb, 1), 1);
+      });
     };
-    // dark stain on the ground
+    // dark stain on the ground: a solid deep core inside a 50%-checker shadow
+    // band (the pixel pass checkers a half-alpha dark wash) and a broken rim
     const pool = (p, rPx, a) => {
       if (a <= 0.01 || rPx <= 0.5) return;
-      shade(() => {
-        ctx.translate(p.x, p.y);
-        ctx.scale(1, 0.5);
-        const g = ctx.createRadialGradient(0, 0, 0, 0, 0, rPx);
-        g.addColorStop(0, `rgba(${pal.deep}, ${a})`);
-        g.addColorStop(0.7, `rgba(${pal.deep2}, ${a * 0.7})`);
-        g.addColorStop(1, `rgba(${pal.deep2}, 0)`);
-        ctx.fillStyle = g;
-        ctx.beginPath();
-        ctx.arc(0, 0, rPx, 0, TAU);
-        ctx.fill();
+      draw(1, () => {
+        ctx.globalAlpha = clamp01(a * 0.55);
+        disc(p.x, p.y, rPx, col(1), 0.5);
+        ctx.globalAlpha = clamp01(a * 0.95);
+        disc(p.x, p.y, rPx * 0.55, col(0), 0.5);
+        ctx.globalAlpha = clamp01(a);
+        loop(p.x, p.y, rPx, rPx * 0.5, col(1), 1, 0, TAU, (k) => rnd(k * 3.1) < 0.35);
       });
     };
-    // soft dark cloud of smoke or gas
+    // chunky smoke blob: a lumpy disc of deep with a lit deep2 cap on its upper left
     const puff = (p, rPx, a) => {
       if (a <= 0.01 || rPx <= 0.5) return;
-      shade(() => {
-        ctx.translate(p.x, p.y);
-        ctx.scale(1, 0.75);
-        const g = ctx.createRadialGradient(0, 0, 0, 0, 0, rPx);
-        g.addColorStop(0, `rgba(${pal.deep2}, ${a * 0.8})`);
-        g.addColorStop(0.6, `rgba(${pal.deep}, ${a * 0.45})`);
-        g.addColorStop(1, `rgba(${pal.deep}, 0)`);
-        ctx.fillStyle = g;
-        ctx.beginPath();
-        ctx.arc(0, 0, rPx, 0, TAU);
-        ctx.fill();
+      draw(a > 0.3 ? Math.min(1, a * 1.5) : a * 1.5, () => {
+        const r = rPx * 0.62;
+        disc(p.x, p.y, r, col(0), 0.75);
+        disc(p.x + r * 0.45, p.y + r * 0.1, r * 0.6, col(0), 0.75);
+        disc(p.x - r * 0.25, p.y - r * 0.22, r * 0.62, col(1), 0.75);
+        disc(p.x - r * 0.38, p.y - r * 0.34, r * 0.25, col(2), 0.75);
       });
     };
+    // light source: concentric stepped discs (halo dither -> colour -> core);
+    // the bloom pass softens it on screen
     const glow = (p, rPx, a, rgb = pal.accent) => {
       if (a <= 0.01 || rPx <= 0.5) return;
-      const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, rPx);
-      g.addColorStop(0, c(pal.core, a));
-      g.addColorStop(0.35, c(rgb, a * 0.6));
-      g.addColorStop(1, c(rgb, 0));
-      ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, rPx, 0, TAU);
-      ctx.fill();
+      draw(1, () => {
+        ctx.globalAlpha = clamp01(a);
+        // halo: a broken one-texel ring instead of a dithered disc
+        loop(p.x, p.y, rPx * 0.58, rPx * 0.58, colOf(rgb, -1), 1, time * 2, time * 2 + TAU, (i) => (i >> 1) % 3 === 2);
+        disc(p.x, p.y, rPx * 0.36, colOf(rgb));
+        disc(p.x, p.y, rPx * 0.24, colOf(rgb, 1));
+        disc(p.x, p.y, Math.max(tex * 0.8, rPx * 0.12), col(5));
+      });
     };
+    // orb / droplet: accent ball, core heart and a one-texel highlight
     const bead = (p, rPx, a) => {
       if (a <= 0.01) return;
-      const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, rPx);
-      g.addColorStop(0, c(pal.core, a));
-      g.addColorStop(0.45, c(pal.accent, a * 0.9));
-      g.addColorStop(1, c(pal.main, 0));
-      ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, rPx, 0, TAU);
-      ctx.fill();
+      draw(a, () => {
+        const r = Math.max(tex * 0.8, rPx * 0.6);
+        disc(p.x, p.y, r, col(3));
+        if (r > tex * 1.5) disc(p.x, p.y, r * 0.55, col(4));
+        dot(cell(p.x - r * 0.3), cell(p.y - r * 0.3), col(5));
+      });
     };
     // pointed streak through p (slashes, daggers, shards)
+    // rasterise a pointed streak through p: pick(t, v) -> colour for a texel at
+    // t (-1..1 along it) and v (0 centre .. 1 edge across it), or null
+    const lensRaster = (p, ang, L, w, pick) => {
+      const dx = Math.cos(ang), dy = Math.sin(ang), hw = Math.max(tex * 0.55, w * 0.5);
+      const ex = Math.abs(dx) * L + Math.abs(dy) * hw + tex, ey = Math.abs(dy) * L + Math.abs(dx) * hw + tex;
+      for (let j = cell(p.y - ey); j <= cell(p.y + ey); j++) {
+        for (let i = cell(p.x - ex); i <= cell(p.x + ex); i++) {
+          const X = (i + 0.5) * tex - p.x, Y = (j + 0.5) * tex - p.y;
+          const t = (X * dx + Y * dy) / L;
+          if (t < -1 || t > 1) continue;
+          const hh = Math.max(tex * 0.55, hw * (1 - t * t));
+          const v = Math.abs(-X * dy + Y * dx);
+          if (v > hh) continue;
+          const color = pick(t, v / hh, v);
+          if (color) dot(i, j, color);
+        }
+      }
+    };
+    // pointed streak (slashes, daggers, shards): flat colour with a brighter heart
     const lens = (p, ang, L, w, rgb, a) => {
       if (a <= 0.01 || L <= 0.5) return;
-      const dx = Math.cos(ang), dy = Math.sin(ang);
-      ctx.beginPath();
-      ctx.moveTo(p.x - dx * L, p.y - dy * L);
-      ctx.quadraticCurveTo(p.x - dy * w, p.y + dx * w, p.x + dx * L, p.y + dy * L);
-      ctx.quadraticCurveTo(p.x + dy * w, p.y - dx * w, p.x - dx * L, p.y - dy * L);
-      ctx.fillStyle = c(rgb, a);
-      ctx.fill();
+      const base = colOf(rgb), hi = colOf(rgb, 1);
+      draw(a, () => lensRaster(p, ang, L, w, (t, vn) => (vn < 0.4 && Math.abs(t) < 0.8 ? hi : base)));
     };
+    // blade: main edge -> accent body -> light heart -> one-texel core spine
     const blade = (p, ang, L, w, a) => {
-      lens(p, ang, L, w, pal.accent, a * 0.9);
-      lens(p, ang, L * 0.9, w * 0.3, pal.core, a);
+      if (a <= 0.01 || L <= 0.5) return;
+      draw(a, () => lensRaster(p, ang, L, w, (t, vn, v) => {
+        const at = Math.abs(t);
+        if (v < tex * 0.6 && at < 0.82) return col(5);
+        if (at > 0.9) return col(2);
+        if (vn < 0.5) return col(4);
+        return vn > 0.85 && w > tex * 2.5 ? col(2) : col(3);
+      }));
     };
     const slashX = (p, L, a, tilt = 0.6) => {
       blade(p, tilt, L, 7 * z, a);
       blade(p, Math.PI - tilt, L, 7 * z, a);
     };
+    // stepped spark rays; as a fades they shrink outward to their tips
     const sparks = (p, n, r0, r1, a, seed = 0) => {
       if (a <= 0.01) return;
-      ctx.beginPath();
-      for (let k = 0; k < n; k++) {
-        const ang = (k * TAU) / n + rnd(seed + k) * 0.5;
-        const len = r1 * (0.6 + 0.4 * rnd(seed + k + 50));
-        ctx.moveTo(p.x + Math.cos(ang) * r0, p.y + Math.sin(ang) * r0 * 0.6);
-        ctx.lineTo(p.x + Math.cos(ang) * len, p.y + Math.sin(ang) * len * 0.6);
-      }
-      ctx.strokeStyle = c(pal.light, a);
-      ctx.lineWidth = 1.8 * z;
-      ctx.stroke();
+      draw(Math.min(1, a * 1.6), () => {
+        const keep = Math.min(1, a * 1.4);
+        for (let k = 0; k < n; k++) {
+          const ang = (k * TAU) / n + rnd(seed + k) * 0.5;
+          const len = r1 * (0.6 + 0.4 * rnd(seed + k + 50));
+          const from = r0 + (len - r0) * (1 - keep);
+          const cx = Math.cos(ang), cy = Math.sin(ang) * 0.6;
+          const x0 = p.x + cx * from, y0 = p.y + cy * from, x1 = p.x + cx * len, y1 = p.y + cy * len;
+          tline(x0, y0, x1, y1, a > 0.5 ? col(4) : col(3));
+          dot(cell(x1), cell(y1), a > 0.35 ? col(5) : col(4));
+        }
+      });
     };
-    // four-point twinkle (stardust, sparkles)
+    // four-point pixel twinkle (stardust, sparkles)
     const star = (p, r, a) => {
       if (a <= 0.01 || r <= 0.3) return;
-      ctx.fillStyle = c(pal.core, a);
-      ctx.beginPath();
-      ctx.moveTo(p.x, p.y - r * 2.2);
-      ctx.lineTo(p.x + r * 0.45, p.y - r * 0.45);
-      ctx.lineTo(p.x + r * 2.2, p.y);
-      ctx.lineTo(p.x + r * 0.45, p.y + r * 0.45);
-      ctx.lineTo(p.x, p.y + r * 2.2);
-      ctx.lineTo(p.x - r * 0.45, p.y + r * 0.45);
-      ctx.lineTo(p.x - r * 2.2, p.y);
-      ctx.lineTo(p.x - r * 0.45, p.y - r * 0.45);
-      ctx.closePath();
-      ctx.fill();
+      draw(a, () => {
+        const ci = cell(p.x), cj = cell(p.y), n = Math.max(1, Math.round((r * 2.2) / tex));
+        for (let k = 1; k <= n; k++) {
+          const color = k === n ? col(3) : k > n / 2 ? col(4) : col(5);
+          dot(ci + k, cj, color); dot(ci - k, cj, color); dot(ci, cj + k, color); dot(ci, cj - k, color);
+        }
+        if (n >= 3) { const d = col(4); dot(ci + 1, cj + 1, d); dot(ci - 1, cj + 1, d); dot(ci + 1, cj - 1, d); dot(ci - 1, cj - 1, d); }
+        dot(ci, cj, col(5));
+      });
     };
-    // Crescent blade: outer arc of radius R bulging toward local +x, thinned to points by an offset inner arc
+    // Crescent blade: outer arc of radius R bulging toward local +x, thinned to points by an offset inner arc.
+    // Rasterised: core rim on the cutting edge, light then accent inward, a main inner lip, and a
+    // dithered afterimage arc trailing outside it
     const crescent = (x, y, R, rot, span, bite, a, squash = 1) => {
       if (a <= 0.01 || R <= 1) return;
       const s = span / 2;
       const ex = R * Math.cos(s), ey = R * Math.sin(s);
-      const ir = Math.hypot(ex + bite, ey), ia = Math.atan2(ey, ex + bite);
-      ctx.save();
-      ctx.translate(x, y);
-      ctx.scale(1, squash);
-      ctx.rotate(rot);
-      ctx.beginPath();
-      ctx.arc(0, 0, R + 4 * z, -s * 0.85, s * 0.85);
-      ctx.strokeStyle = c(pal.main, a * 0.35);
-      ctx.lineWidth = 8 * z;
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.arc(0, 0, R, -s, s);
-      ctx.arc(-bite, 0, ir, ia, -ia, true);
-      ctx.closePath();
-      const g = ctx.createLinearGradient(-bite, 0, R, 0);
-      g.addColorStop(0, c(pal.main, a * 0.2));
-      g.addColorStop(0.7, c(pal.accent, a * 0.85));
-      g.addColorStop(1, c(pal.light, a));
-      ctx.fillStyle = g;
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(0, 0, R, -s * 0.9, s * 0.9);
-      ctx.strokeStyle = c(pal.core, a * 0.95);
-      ctx.lineWidth = 1.6 * z;
-      ctx.stroke();
-      ctx.restore();
+      const ir = Math.hypot(ex + bite, ey);
+      const cr = Math.cos(rot), sr = Math.sin(rot);
+      const halo0 = R + 2 * z, halo1 = R + 4.5 * z, ext = halo1 + tex;
+      draw(1, () => {
+        for (let j = cell(y - ext * squash); j <= cell(y + ext * squash); j++) {
+          for (let i = cell(x - ext); i <= cell(x + ext); i++) {
+            const X = (i + 0.5) * tex - x, Y = ((j + 0.5) * tex - y) / squash;
+            const lx = X * cr + Y * sr, ly = -X * sr + Y * cr;
+            const d0 = Math.hypot(lx, ly);
+            if (d0 > R) {
+              if (d0 <= halo1 && d0 >= halo0 && Math.abs(Math.atan2(ly, lx)) < s * 0.85 && ((i + j) & 1)) {
+                ctx.globalAlpha = clamp01(a * 0.7);
+                dot(i, j, col(2));
+              }
+              continue;
+            }
+            const d1 = Math.hypot(lx + bite, ly);
+            if (d1 < ir) continue;
+            const e = (R - d0) / tex, inner = (d1 - ir) / tex;
+            ctx.globalAlpha = clamp01(a);
+            dot(i, j, e < 1.1 ? col(5) : inner < 1.1 ? col(2) : e < 2.6 ? col(4) : col(3));
+          }
+        }
+      });
     };
     // Ground band between world radii r0..r1 over angles a0..a1 around (cx, cy)
     const groundBand = (cx, cy, r0, r1, a0, a1, h = 0) => {
@@ -2162,33 +2323,37 @@ class IsometricRenderer {
       ctx.closePath();
     };
     // Sweeping blade trail on the ground from angle a0 to the head at a1, thickest and brightest at the head
+    // Pixel smear: the tail is a dotted main-coloured thread that thickens into
+    // banded colour (main -> accent -> light) toward the head, with a core
+    // cutting edge along the outer radius and a solid bright leading face
     const ribbon = (cx, cy, r0, r1, a0, a1, h, a) => {
       if (a <= 0.01) return;
-      const N = 14;
-      const inner = (k) => r1 - (r1 - r0) * k;
-      for (let i = 0; i < N; i++) {
-        const k0 = i / N, k1 = (i + 1) / N;
-        const b0 = a0 + (a1 - a0) * k0, b1 = a0 + (a1 - a0) * k1;
-        const quad = [[r1, b0], [r1, b1], [inner(k1), b1], [inner(k0), b0]]
-          .map(([r, b]) => toScreen(cx + Math.cos(b) * r, cy + Math.sin(b) * r, h));
-        ctx.beginPath();
-        quad.forEach((p, j) => (j ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
-        ctx.closePath();
-        ctx.fillStyle = c(k1 > 0.8 ? pal.accent : pal.main, a * (0.06 + 0.7 * k1 * k1));
-        ctx.fill();
-      }
-      ctx.beginPath();
-      for (let k = 0; k <= 16; k++) {
-        const b = a0 + ((a1 - a0) * k) / 16;
-        const p = toScreen(cx + Math.cos(b) * r1, cy + Math.sin(b) * r1, h);
-        if (k === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
-      }
-      ctx.strokeStyle = c(pal.accent, a * 0.35);
-      ctx.lineWidth = 6 * z;
-      ctx.stroke();
-      ctx.strokeStyle = c(pal.core, a * 0.95);
-      ctx.lineWidth = 2 * z;
-      ctx.stroke();
+      const at = (b, r) => toScreen(cx + Math.cos(b) * r, cy + Math.sin(b) * r, h);
+      const n = Math.max(6, Math.ceil((Math.abs(a1 - a0) * r1 * U) / tex));
+      draw(a, () => {
+        for (let k = 0; k <= n; k++) {
+          const kk = k / n, b = a0 + (a1 - a0) * kk;
+          const po = at(b, r1);
+          if (kk < 0.22) {
+            if (k % 2 === 0) dot(cell(po.x), cell(po.y), col(2));
+            continue;
+          }
+          const pi = at(b, r1 - (r1 - r0) * kk);
+          const io = po.x / tex, jo = po.y / tex, ii = pi.x / tex, ji = pi.y / tex;
+          const m = Math.max(1, Math.ceil(Math.max(Math.abs(io - ii), Math.abs(jo - ji))));
+          const headFace = kk > 0.96;
+          for (let s = 0; s <= m; s++) {
+            const u = s / m; // 0 inner .. 1 outer
+            // the inner body is combed into radial speed lines (denser toward the head),
+            // so a wide smear never turns into a flat wedge
+            if (!headFace && u < 0.62 && k % (kk > 0.8 ? 2 : 3) !== 0) continue;
+            const color = headFace ? (u > 0.5 ? col(5) : col(4))
+              : s === m ? (kk > 0.45 ? col(5) : col(4))
+                : u > 0.72 ? col(4) : u > 0.36 ? col(3) : col(2);
+            dot(Math.floor(ii + (io - ii) * u), Math.floor(ji + (jo - ji) * u), color);
+          }
+        }
+      });
     };
     // Flat band along a world segment, tapering from wStart to wEnd (world half-widths)
     const strip = (x0, y0, x1, y1, wStart, wEnd, h = 0) => {
@@ -2207,152 +2372,185 @@ class IsometricRenderer {
       const dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy) || 1;
       const nx = -dy / len, ny = dx / len;
       const n = Math.max(3, Math.round(len / (14 * z)));
-      ctx.beginPath();
-      ctx.moveTo(a.x, a.y);
+      const pts = [a];
       for (let k = 1; k < n; k++) {
         const t = k / n;
         const o = (rnd(seed * 31 + k * 7 + step) - 0.5) * 16 * z * jag * Math.sin(t * Math.PI);
-        ctx.lineTo(a.x + dx * t + nx * o, a.y + dy * t + ny * o);
+        pts.push({ x: a.x + dx * t + nx * o, y: a.y + dy * t + ny * o });
       }
-      ctx.lineTo(b.x, b.y);
-      ctx.strokeStyle = c(pal.accent, al * 0.45);
-      ctx.lineWidth = w * 2.4 * z;
-      ctx.stroke();
-      ctx.strokeStyle = c(pal.light, al * 0.9);
-      ctx.lineWidth = w * z;
-      ctx.stroke();
-      ctx.strokeStyle = c(pal.core, al);
-      ctx.lineWidth = Math.max(1, w * 0.35 * z);
-      ctx.stroke();
+      pts.push(b);
+      // stepped zig-zag: accent sheath (strong bolts only), light body, core filament
+      const body = Math.max(1, Math.min(3, Math.round(((w * z) / tex) * 0.45)));
+      const poly = (color, wt) => { for (let k = 1; k < pts.length; k++) tline(pts[k - 1].x, pts[k - 1].y, pts[k].x, pts[k].y, color, wt); };
+      draw(al < 0.35 ? al * 2 : 1, () => {
+        if (al >= 0.35) {
+          if (w >= 3 && al > 0.6) poly(col(3), body + 2);
+          poly(col(4), body);
+        }
+        poly(col(5), 1);
+        // a short fork off one kink, re-rolled with the jitter
+        if (pts.length > 3 && al > 0.3) {
+          const m = pts[1 + Math.floor(rnd(seed + step * 3) * (pts.length - 2))];
+          const fa = Math.atan2(dy, dx) + (rnd(seed * 5 + step) > 0.5 ? 0.9 : -0.9);
+          const fl = Math.min(len * 0.3, 18 * z);
+          const f1 = { x: m.x + Math.cos(fa) * fl * 0.55, y: m.y + Math.sin(fa) * fl * 0.55 };
+          tline(m.x, m.y, f1.x, f1.y, col(4));
+          tline(f1.x, f1.y, f1.x + Math.cos(fa - 0.6) * fl * 0.45, f1.y + Math.sin(fa - 0.6) * fl * 0.45, col(3));
+        }
+      });
     };
     // Crystal jutting h px up from ground point p (negative h hangs it downward)
+    // Faceted crystal jutting h px up from ground point p (negative h hangs it downward):
+    // shadowed left facet, core ridge, lit right facet, main edges, core tip
     const spike = (p, h, w, a) => {
       if (a <= 0.01 || Math.abs(h) < 1) return;
-      ctx.beginPath();
-      ctx.moveTo(p.x - w, p.y);
-      ctx.lineTo(p.x - w * 0.45, p.y - h * 0.7);
-      ctx.lineTo(p.x, p.y - h);
-      ctx.lineTo(p.x + w * 0.55, p.y - h * 0.62);
-      ctx.lineTo(p.x + w, p.y);
-      ctx.closePath();
-      const g = ctx.createLinearGradient(p.x, p.y, p.x, p.y - h);
-      g.addColorStop(0, c(pal.main, a * 0.6));
-      g.addColorStop(0.6, c(pal.accent, a * 0.75));
-      g.addColorStop(1, c(pal.light, a));
-      ctx.fillStyle = g;
-      ctx.fill();
-      ctx.strokeStyle = c(pal.core, a * 0.9);
-      ctx.lineWidth = 1.2 * z;
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(p.x, p.y - h);
-      ctx.lineTo(p.x + w * 0.1, p.y);
-      ctx.strokeStyle = c(pal.core, a * 0.45);
-      ctx.lineWidth = 1 * z;
-      ctx.stroke();
+      const dir = h < 0 ? -1 : 1, H = Math.abs(h), rows = Math.max(2, Math.ceil(H / tex));
+      draw(a, () => {
+        for (let r = 0; r <= rows; r++) {
+          const t = r / rows;
+          const lw = t < 0.7 ? w * (1 - (0.55 * t) / 0.7) : w * 0.45 * (1 - (t - 0.7) / 0.3);
+          const rw = t < 0.62 ? w * (1 - (0.45 * t) / 0.62) : w * 0.55 * (1 - (t - 0.62) / 0.38);
+          const ax = p.x + w * 0.1 * (1 - t), j = cell(p.y - dir * r * tex);
+          const i0 = cell(p.x - lw), i1 = Math.max(i0, cell(p.x + rw)), ia = cell(ax);
+          span(j, i0, ia - 1, t < 0.3 ? col(2) : col(3));
+          span(j, ia + 1, i1, col(4));
+          dot(ia, j, col(5));
+          if (i1 - i0 >= 3) { dot(i0, j, col(2)); dot(i1, j, col(3)); }
+        }
+        dot(cell(p.x), cell(p.y - dir * H), col(5));
+      });
     };
-    // Hooded figure standing on p, s px tall: a glowing ghost, or an opaque shadow when dark
+    // Hooded figure standing on p, s px tall: a scanlined ghost (afterimage) in rgb,
+    // or a solid deep shadow with an rgb outline when dark
     const silhouette = (p, s, a, rgb = pal.accent, dark = false) => {
       if (a <= 0.01) return;
-      const path = () => {
-        ctx.beginPath();
-        ctx.moveTo(p.x - s * 0.1, p.y - s * 0.76);
-        ctx.quadraticCurveTo(p.x - s * 0.34, p.y - s * 0.3, p.x - s * 0.26, p.y);
-        ctx.lineTo(p.x + s * 0.26, p.y);
-        ctx.quadraticCurveTo(p.x + s * 0.34, p.y - s * 0.3, p.x + s * 0.1, p.y - s * 0.76);
-        ctx.closePath();
-        ctx.moveTo(p.x + s * 0.14, p.y - s * 0.86);
-        ctx.arc(p.x, p.y - s * 0.86, s * 0.14, 0, TAU);
-      };
-      if (dark) {
-        shade(() => {
-          path();
-          ctx.fillStyle = `rgba(${pal.deep}, ${clamp01(a * 0.85)})`;
-          ctx.fill();
-        });
-      } else {
-        path();
-        ctx.fillStyle = c(rgb, a * 0.4);
-        ctx.fill();
-      }
-      path();
-      ctx.strokeStyle = c(rgb, a);
-      ctx.lineWidth = 1.5 * z;
-      ctx.stroke();
+      const edge = colOf(rgb), fill = dark ? col(0) : colOf(rgb);
+      const top = p.y - s * 0.76, headY = p.y - s * 0.86, headR = s * 0.14;
+      draw(a, () => {
+        // body: a bell flaring from the shoulders to the hem
+        const j0 = cell(top), j1 = cell(p.y);
+        for (let j = j0; j <= j1; j++) {
+          const t = clamp01(((j + 0.5) * tex - top) / (p.y - top));
+          const hw = s * (0.1 + 0.2 * Math.sqrt(t) - 0.04 * t);
+          const i0 = cell(p.x - hw), i1 = cell(p.x + hw);
+          dot(i0, j, edge); dot(i1, j, edge);
+          if (j === j1 || j === j0) span(j, i0, i1, edge);
+          else if (dark || (j & 1) === 0) span(j, i0 + 1, i1 - 1, fill);
+        }
+        // hood
+        const hr = headR / tex, hc = headY / tex, hx = p.x / tex;
+        for (let j = Math.floor(hc - hr); j <= Math.ceil(hc + hr); j++) {
+          const dy = j + 0.5 - hc;
+          if (Math.abs(dy) > hr) continue;
+          const hw = Math.sqrt(hr * hr - dy * dy), i0 = Math.round(hx - hw), i1 = Math.round(hx + hw) - 1;
+          if (i1 < i0) continue;
+          dot(i0, j, edge); dot(i1, j, edge);
+          if (dark || (j & 1) === 0) span(j, i0 + 1, i1 - 1, fill);
+        }
+        // eyes glint on the dark shadow
+        if (dark) { dot(cell(p.x - headR * 0.4), cell(headY), col(4)); dot(cell(p.x + headR * 0.3), cell(headY), col(4)); }
+      });
     };
     // six-armed frost glyph laid on the ground
+    // six-armed frost glyph laid on the ground: stepped accent arms with core
+    // filaments, light barbs, a broken light rim and a core hub
     const snowflake = (p, R, rot, a) => {
       if (a <= 0.01 || R <= 1) return;
-      ctx.save();
-      ctx.translate(p.x, p.y);
-      ctx.scale(1, 0.5);
-      ctx.rotate(rot);
-      ctx.beginPath();
-      for (let i = 0; i < 6; i++) {
-        const ang = (i * TAU) / 6;
-        const ux = Math.cos(ang), uy = Math.sin(ang);
-        ctx.moveTo(0, 0);
-        ctx.lineTo(ux * R, uy * R);
-        for (const f of [0.45, 0.72]) {
-          const bx = ux * R * f, by = uy * R * f, bl = R * (0.3 - f * 0.15);
-          for (const s of [-1, 1]) {
-            ctx.moveTo(bx, by);
-            ctx.lineTo(bx + Math.cos(ang + s * 0.7) * bl, by + Math.sin(ang + s * 0.7) * bl);
+      const cr = Math.cos(rot), sr = Math.sin(rot);
+      const at = (lx, ly) => ({ x: p.x + lx * cr - ly * sr, y: p.y + (lx * sr + ly * cr) * 0.5 });
+      const thick = R > 14 * tex ? 2 : 1;
+      draw(a, () => {
+        for (let pass = 0; pass < 2; pass++) {
+          for (let i = 0; i < 6; i++) {
+            const ang = (i * TAU) / 6, ux = Math.cos(ang), uy = Math.sin(ang);
+            const o = at(0, 0), e = at(ux * R, uy * R);
+            if (pass === 0) tline(o.x, o.y, e.x, e.y, col(3), thick);
+            else tline(o.x, o.y, e.x, e.y, col(5), 1);
+            for (const f of [0.45, 0.72]) {
+              const bl = R * (0.3 - f * 0.15);
+              const b0 = at(ux * R * f, uy * R * f);
+              for (const s of [-1, 1]) {
+                const b1 = at(ux * R * f + Math.cos(ang + s * 0.7) * bl, uy * R * f + Math.sin(ang + s * 0.7) * bl);
+                tline(b0.x, b0.y, b1.x, b1.y, pass ? col(4) : col(3), 1);
+              }
+            }
+            if (pass) dot(cell(e.x), cell(e.y), col(5));
           }
         }
-      }
-      ctx.strokeStyle = c(pal.accent, a * 0.6);
-      ctx.lineWidth = 4 * z;
-      ctx.stroke();
-      ctx.strokeStyle = c(pal.core, a * 0.9);
-      ctx.lineWidth = 1.4 * z;
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.arc(0, 0, R * 1.05, 0, TAU);
-      ctx.strokeStyle = c(pal.light, a * 0.5);
-      ctx.lineWidth = 1.5 * z;
-      ctx.stroke();
-      ctx.restore();
+        loop(p.x, p.y, R * 1.05, R * 0.525, col(4), 1, 0, TAU, (k) => (k >> 2) % 3 === 2);
+        disc(p.x, p.y, Math.max(tex, R * 0.08), col(5), 0.5);
+      });
     };
-    // frozen ground: a pale frost sheen instead of a dark stain
+    // frozen ground: no wash - a jagged rime edge, hairline cracks running in
+    // from it and a few glinting ice crosses
     const frost = (p, rPx, a) => {
       if (a <= 0.01 || rPx <= 0.5) return;
-      ctx.save();
-      ctx.translate(p.x, p.y);
-      ctx.scale(1, 0.5);
-      const g = ctx.createRadialGradient(0, 0, 0, 0, 0, rPx);
-      g.addColorStop(0, c(pal.light, a * 0.35));
-      g.addColorStop(0.7, c(pal.accent, a * 0.18));
-      g.addColorStop(1, c(pal.main, 0));
-      ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.arc(0, 0, rPx, 0, TAU);
-      ctx.fill();
-      ctx.restore();
+      draw(a, () => {
+        const n = Math.max(10, Math.round(rPx / (tex * 2.2)));
+        let prev = null;
+        for (let k = 0; k <= n; k++) {
+          const b = ((k % n) / n) * TAU, rr = rPx * (0.88 + 0.12 * rnd(k % n + 7));
+          const q = { x: p.x + Math.cos(b) * rr, y: p.y + Math.sin(b) * rr * 0.5 };
+          if (prev) tline(prev.x, prev.y, q.x, q.y, k % 3 ? col(4) : col(3));
+          prev = q;
+        }
+        const cracks = Math.max(4, Math.round(n / 3));
+        for (let k = 0; k < cracks; k++) {
+          const b = (k / cracks) * TAU + rnd(k + 3) * 0.5, r0 = rPx * 0.9, r1 = rPx * (0.45 + 0.25 * rnd(k + 9));
+          const m = rPx * (0.68 + 0.1 * rnd(k)), bm = b + (rnd(k + 5) - 0.5) * 0.25;
+          const q0 = { x: p.x + Math.cos(b) * r0, y: p.y + Math.sin(b) * r0 * 0.5 };
+          const q1 = { x: p.x + Math.cos(bm) * m, y: p.y + Math.sin(bm) * m * 0.5 };
+          const q2 = { x: p.x + Math.cos(b) * r1, y: p.y + Math.sin(b) * r1 * 0.5 };
+          tline(q0.x, q0.y, q1.x, q1.y, col(3));
+          tline(q1.x, q1.y, q2.x, q2.y, col(2));
+        }
+        const glints = Math.max(3, Math.round(rPx / (tex * 8)));
+        for (let k = 0; k < glints; k++) {
+          const b = rnd(k * 13 + 1) * TAU, d = Math.sqrt(rnd(k * 7 + 2)) * rPx * 0.75;
+          const i = cell(p.x + Math.cos(b) * d), j = cell(p.y + Math.sin(b) * d * 0.5);
+          const tw = Math.sin(time * 5 + k * 2.3) > 0.2;
+          dot(i, j, col(5));
+          if (tw) { dot(i - 1, j, col(4)); dot(i + 1, j, col(4)); dot(i, j - 1, col(4)); dot(i, j + 1, col(4)); }
+        }
+      });
     };
-    // shards thrown out from p
+    // shards thrown out from p: little blades with a two-texel tumbling chip behind each
     const shatterBurst = (p, n, dist, a, seed = 0) => {
       if (a <= 0.01) return;
       for (let i = 0; i < n; i++) {
         const ang = (i * TAU) / n + rnd(seed + i) * 0.4;
         const d = dist * (0.7 + 0.3 * rnd(seed + i + 30));
-        blade({ x: p.x + Math.cos(ang) * d, y: p.y + Math.sin(ang) * d * 0.6 }, ang, 6 * z, 2.5 * z, a);
+        const q = { x: p.x + Math.cos(ang) * d, y: p.y + Math.sin(ang) * d * 0.6 };
+        blade(q, ang + Math.sin(time * 12 + i) * 0.3, 6 * z, 2.5 * z, a);
+        const d2 = d * 0.6;
+        draw(a, () => {
+          const i2 = cell(p.x + Math.cos(ang + 0.2) * d2), j2 = cell(p.y + Math.sin(ang + 0.2) * d2 * 0.6);
+          dot(i2, j2, col(4)); dot(i2 + ((Math.floor(time * 16) + i) & 1 ? 1 : 0), j2 + 1, col(3));
+        });
       }
     };
-    // Tongue of fire standing on p, h px tall and w px wide at the base, swaying
+    // Tongue of fire standing on p, h px tall and w px wide at the base, swaying:
+    // built row by row, hottest (core) low in the middle, main at the edges and tips
     const flame = (p, h, w, a, seed = 0) => {
       if (a <= 0.01 || h < 1) return;
-      const sway = Math.sin(time * 9 + seed * 1.7) * w * 0.6;
-      for (const [k, rgb, al] of [[1, pal.main, 0.75], [0.65, pal.accent, 0.85], [0.35, pal.core, 0.9]]) {
-        const ww = w * k, hh = h * (0.55 + 0.45 * k);
-        ctx.beginPath();
-        ctx.moveTo(p.x - ww, p.y);
-        ctx.quadraticCurveTo(p.x - ww * 0.9, p.y - hh * 0.55, p.x + sway * k, p.y - hh);
-        ctx.quadraticCurveTo(p.x + ww * 0.9, p.y - hh * 0.55, p.x + ww, p.y);
-        ctx.quadraticCurveTo(p.x, p.y + ww * 0.35, p.x - ww, p.y);
-        ctx.fillStyle = c(rgb, a * al);
-        ctx.fill();
-      }
+      const rows = Math.max(2, Math.ceil(h / tex)), wt = Math.max(1, w / tex);
+      draw(a, () => {
+        for (let r = 0; r < rows; r++) {
+          const t = r / rows;
+          const sway = Math.sin(time * 9 + seed * 1.7 + t * 3) * t * wt * 0.6;
+          const half = wt * Math.pow(1 - t, 0.75) * (0.8 + 0.2 * Math.sin(seed * 3 + r + Math.floor(time * 12)));
+          const j = cell(p.y) - r, ci = p.x / tex + sway;
+          const i0 = Math.round(ci - half), i1 = Math.max(i0, Math.round(ci + half) - 1);
+          for (let i = i0; i <= i1; i++) {
+            const edge = Math.abs(i + 0.5 - ci) / (half + 0.5);
+            const heat = (1 - t) * 0.6 + (1 - edge) * 0.6;
+            dot(i, j, col(heat > 0.95 ? 5 : heat > 0.75 ? 4 : heat > 0.5 ? 3 : 2));
+          }
+        }
+        // a detached ember licking off the tip
+        const f = (time * 3 + seed * 0.37) % 1;
+        dot(cell(p.x + Math.sin(seed + time * 7) * w * 0.5), cell(p.y - h * (1.05 + f * 0.4)), f < 0.5 ? col(4) : col(2));
+      });
     };
     // caster/target ends of a skill (moves and strikes carry startX/Y as well)
     const ends = (fx) => {
@@ -2363,87 +2561,232 @@ class IsometricRenderer {
 
     return {
       pal, time, TAU, U, clamp01, seg, out3, fade, c, rnd, shade, oval, ring, pool, puff, glow, bead, lens, blade,
-      slashX, sparks, star, crescent, groundBand, ribbon, strip, bolt, spike, silhouette, flame, snowflake, frost, shatterBurst, ends
+      slashX, sparks, star, crescent, groundBand, ribbon, strip, bolt, spike, silhouette, flame, snowflake, frost, shatterBurst, ends,
+      // raw pixel tools for drawers that want their own motifs
+      tex, col, cell, dot, span, tline, disc, loop, draw, lensRaster
     };
   }
 
   // ---------------------------------------------------------------- Nightblade (SP tier 1)
   // Violet shadow assassin: shuriken, smoke bombs and a tossed shadow
   drawNightbladeSkill(ctx, fx, progress, toScreen, z) {
-    const k = this.spFxKit(ctx, progress, toScreen, z, SP_FX_PALETTES.sp_nightblade);
-    const { pal, time, TAU, U, seg, out3, fade, c, rnd, shade, ring, pool, puff, glow, bead, blade, slashX, sparks, star, crescent, silhouette } = k;
-    const { sx, sy, tx, ty } = k.ends(fx);
+    // Pixel art, texel by texel on the dark ramp (R(0) void .. R(6) white):
+    // void tears, crescent cuts, rolling smoke, spinning throwing stars
+    const M = this.spMotifs(ctx, fx, progress);
+    const { tex, R, px, line, hash } = M;
+    const TAU = Math.PI * 2, time = this.animations.time, frame = M.frame;
+    const U = 32 * Math.SQRT2 * z; // screen px per world tile
+    const clamp01 = (v) => Math.max(0, Math.min(1, v));
+    const seg = (a, b) => clamp01((progress - a) / (b - a));
+    const out3 = (v) => 1 - Math.pow(1 - v, 3);
+    const fade = progress < 0.6 ? 1 : clamp01(1 - (progress - 0.6) / 0.4);
+    const sx = fx.startX !== undefined ? fx.startX : fx.x, sy = fx.startY !== undefined ? fx.startY : fx.y;
+    const tx = fx.x !== undefined ? fx.x : sx, ty = fx.y !== undefined ? fx.y : sy;
     const BY_SHAPE = {
       strike: 'sp_night_fang', backstep: 'sp_night_dash', volley: 'sp_moon_volley', blink: 'sp_shadow_hop',
       shuriken: 'sp_phantom_shuriken', smoke: 'sp_smoke_bomb', shadow: 'sp_shadow_toss', orbit: 'sp_shuriken_storm'
     };
     // seconds into an effect, and a 0..1 fade for the long ones (in over fadeIn, out over the last fadeOut)
     const T = fx.maxLife || 1, t = progress * T;
-    const hold = (fadeIn, fadeOut) => Math.max(0, Math.min(1, t / fadeIn, (T - t) / fadeOut));
-    // four-bladed throwing star, spinning by rot
-    const shuriken = (p, r, rot, a) => {
-      if (a <= 0.01) return;
-      ctx.save();
-      ctx.translate(p.x, p.y);
-      ctx.rotate(rot);
-      ctx.beginPath();
-      for (let i = 0; i < 4; i++) {
-        const b = (i * TAU) / 4;
-        ctx.lineTo(Math.cos(b) * r, Math.sin(b) * r);
-        ctx.lineTo(Math.cos(b + TAU / 8) * r * 0.3, Math.sin(b + TAU / 8) * r * 0.3);
+    const hold = (fadeIn, fadeOut) => clamp01(Math.min(t / fadeIn, (T - t) / fadeOut));
+    const sn = (v) => Math.round(v / tex) * tex;
+    const bay = (i, j) => (FX_BAYER[(j & 3) * 4 + (i & 3)] + 0.5) / 16;
+    const dot = (ox, oy, i, j, col) => { ctx.fillStyle = col; ctx.fillRect(ox + i * tex - tex / 2, oy + j * tex - tex / 2, tex, tex); };
+    ctx.globalCompositeOperation = 'source-over';
+
+    // texels of a screen ellipse (rx, ry in texels); col(u, v, d, i, j) -> colour or null
+    const fill = (cx, cy, rx, ry, col) => {
+      if (rx < 0.5 || ry < 0.5) return;
+      const ox = sn(cx), oy = sn(cy), nx = Math.ceil(rx), ny = Math.ceil(ry);
+      for (let j = -ny; j <= ny; j++) for (let i = -nx; i <= nx; i++) {
+        const u = i / rx, v = j / ry, d = u * u + v * v;
+        if (d > 1) continue;
+        const c = col(u, v, d, i, j);
+        if (c) dot(ox, oy, i, j, c);
       }
-      ctx.closePath();
-      ctx.fillStyle = c(pal.light, a);
-      ctx.fill();
-      ctx.strokeStyle = c(pal.main, a);
-      ctx.lineWidth = 1.2 * z;
-      ctx.stroke();
-      ctx.restore();
     };
-    const streak = (a, b, alpha) => {
-      if (alpha <= 0.01) return;
-      ctx.beginPath();
-      ctx.moveTo(a.x, a.y);
-      ctx.lineTo(b.x, b.y);
-      ctx.strokeStyle = c(pal.accent, alpha * 0.5);
-      ctx.lineWidth = 3 * z;
-      ctx.stroke();
-      ctx.strokeStyle = c(pal.core, alpha * 0.8);
-      ctx.lineWidth = 1 * z;
-      ctx.stroke();
+    // a puff of smoke: three round lobes, each lit from the top left, with a dark seam
+    // where a front lobe overlaps a back one (r in texels)
+    const puff = (p, r, env, salt = 0) => {
+      if (env <= 0.02 || r < 1) return;
+      const rr = r * (0.55 + 0.45 * env);
+      const w = Math.sin(time * 1.6 + salt) * 0.08;
+      const lobes = [[-0.42, -0.12 + w, 0.62], [0.4, -0.22 - w, 0.68], [0.02, 0.18, 0.78]];
+      fill(p.x, p.y, rr * 1.35, rr * 1.05, (u0, v0, d0, i, j) => {
+        let hit = -1, du = 0, dv = 0, dd = 0, under = false;
+        for (let k = 0; k < 3; k++) {
+          const [cx, cy, cr] = lobes[k], u = (i / rr - cx) / cr, v = (j / rr - cy) / cr, d = u * u + v * v;
+          if (d <= 1) { if (hit >= 0) under = true; hit = k; du = u; dv = v; dd = d; }
+        }
+        if (hit < 0) return null;
+        if (env < 1 && bay(i, j) > env * 1.5 - dd * 0.5) return null;
+        const lit = -dv * 0.75 - du * 0.45;
+        if (dd > 0.72 && under && lit < 0.25) return R(0);   // seam between lobes
+        if (dd > 0.62 && lit > 0.3) return R(3);              // rim light
+        if (lit > -0.05) return R(2);
+        return dd > 0.7 && dv > 0.3 ? R(0) : R(1);
+      });
     };
+    // a curl of smoke rising from (x, y), h texels tall
+    const wisp = (x, y, h, phase, env) => {
+      const n = Math.round(h * env);
+      for (let r = 0; r < n; r++) {
+        const k = r / Math.max(1, h);
+        px(x + Math.round(Math.sin(phase + r * 0.45 + time * 3) * (0.5 + k * 2.5)) * tex, y - r * tex, k < 0.4 ? R(3) : k < 0.8 ? R(2) : R(1));
+      }
+    };
+    // four-bladed throwing star, s texels to the tip, hooked blades, 16 spin frames
+    const star = (p, s, rot, env = 1) => {
+      if (env <= 0.02) return;
+      const q = Math.round(rot / (Math.PI / 8)) * (Math.PI / 8), Q = Math.PI / 2;
+      const n = Math.ceil(s), ox = sn(p.x), oy = sn(p.y);
+      for (let j = -n; j <= n; j++) for (let i = -n; i <= n; i++) {
+        const r = Math.hypot(i, j);
+        if (r > s + 0.3) continue;
+        if (env < 1 && bay(i, j) > env * 1.3) continue;
+        let a = Math.atan2(j, i) - q - r * 0.14;
+        a = ((a % Q) + Q) % Q;
+        const off = Math.min(a, Q - a) * r, half = 0.55 + s * 0.4 * (1 - r / (s + 0.3));
+        if (r > 1.6 && off > half) continue;
+        dot(ox, oy, i, j, r < 0.8 ? R(0) : r <= 1.6 ? R(5) : off > half - 0.9 ? R(3) : r > s - 1.6 ? R(6) : R(4));
+      }
+    };
+    // crescent: a disc (r texels) minus the same disc pushed toward ang; sq squashes it flat
+    const crescent = (p, r, ang, thick, env = 1, sq = 1) => {
+      if (env <= 0.02 || r < 1.5) return;
+      const n = Math.ceil(r), ox = sn(p.x), oy = sn(p.y);
+      const cx2 = Math.cos(ang) * r * thick, cy2 = Math.sin(ang) * r * thick;
+      for (let j = -n; j <= n; j++) for (let i = -n; i <= n; i++) {
+        const y = j / sq, d1 = Math.hypot(i, y);
+        if (d1 > r) continue;
+        const d2 = Math.hypot(i - cx2, y - cy2);
+        if (d2 < r) continue;
+        if (env < 1 && bay(i, j) > env * 1.3) continue;
+        const depth = Math.min(r - d1, d2 - r);
+        dot(ox, oy, i, j, depth < 1 ? R(4) : depth < 2.2 ? R(5) : R(6));
+      }
+    };
+    // a tapered slash streak centred on p, len px along ang, w texels thick
+    const cut = (p, len, ang, w, env = 1) => {
+      if (env <= 0.02 || len < tex * 2) return;
+      const n = Math.max(2, Math.round(len / tex)), ca = Math.cos(ang), sa = Math.sin(ang);
+      const wk = w * Math.min(1, env * 1.5);
+      const pass = (f, col) => {
+        for (let k = 0; k <= n; k++) {
+          const u = (k / n) * 2 - 1, h = Math.round(wk * f * (1 - u * u));
+          const x = p.x + (ca * u * len) / 2, y = p.y + (sa * u * len) / 2;
+          for (let m = -h; m <= h; m++) px(x - sa * m * tex, y + ca * m * tex, col);
+        }
+      };
+      pass(1, R(3)); pass(0.6, R(5)); pass(0, R(6));
+    };
+    // a vertical tear into the void: black core, violet lips, white-hot tips
+    const tear = (p, h, w, env, salt = 0) => {
+      if (env <= 0.02) return;
+      const n = Math.max(2, Math.round(h * Math.min(1, env * 1.4)));
+      for (let r = -n; r <= n; r++) {
+        const k = Math.abs(r) / n;
+        const hw = Math.max(0, Math.round(w * env * (1 - Math.pow(k, 1.3)) + (hash(r * 7 + salt + Math.floor(frame / 3)) - 0.5) * 1.2));
+        const x = p.x + Math.round(Math.sin(r * 0.5 + salt) * 1.2) * tex, y = p.y + r * tex;
+        for (let i = -hw - 1; i <= hw + 1; i++) {
+          const a = Math.abs(i);
+          px(x + i * tex, y, a === hw + 1 ? R(3) : a === hw ? R(5) : hash(i * 13 + r * 31 + frame) < 0.07 ? R(4) : R(0));
+        }
+        if (k > 0.8) px(x, y, R(6));
+      }
+    };
+    // a pool of shadow on the ground at screen point g, rPx = horizontal radius
+    const shadowPool = (g, rPx, env, salt = 0) => {
+      if (env <= 0.02 || rPx < tex * 2) return;
+      const rx = (rPx * Math.min(1, env * 1.3)) / tex;
+      fill(g.x, g.y, rx, rx / 2, (u, v, d, i, j) => {
+        const a = Math.atan2(v, u), lump = 0.88 + 0.07 * Math.sin(a * 3 + salt) + 0.05 * Math.sin(a * 7 - salt * 2), L = lump * lump;
+        if (d > L) return null;
+        if (d > L * 0.66) return (i + j) & 1 ? null : v < 0 ? R(3) : R(1);
+        if (env < 1 && bay(i, j) > env * 1.4) return null;
+        return hash(i * 17 + j * 5 + Math.floor(frame / 4)) < 0.03 ? R(4) : d < L * 0.3 ? R(0) : R(1);
+      });
+    };
+    // short radiating sparks
+    const sparks = (p, n, r0, r1, env, salt = 0) => {
+      if (env <= 0.02 || r1 <= r0) return;
+      for (let k = 0; k < n; k++) {
+        const a = (k / n) * TAU + salt + hash(k + salt * 10) * 0.4, ca = Math.cos(a), sa = Math.sin(a) * 0.6;
+        const tl = Math.max(r0, r1 - 5 * tex * env);
+        line({ x: p.x + ca * tl, y: p.y + sa * tl }, { x: p.x + ca * r1, y: p.y + sa * r1 }, R(4), 1);
+        px(p.x + ca * r1, p.y + sa * r1, R(6));
+      }
+    };
+    // a four-point twinkle
+    const twinkle = (p, s = 1) => {
+      for (let a = 1; a <= s; a++) {
+        const c = a === s ? R(3) : R(5);
+        px(p.x + a * tex, p.y, c); px(p.x - a * tex, p.y, c); px(p.x, p.y + a * tex, c); px(p.x, p.y - a * tex, c);
+      }
+      px(p.x, p.y, R(6));
+    };
+    // the shadow-double sprite, feet on g; glitch shears rows sideways now and then
+    const NINJA = [
+      '...####...', '..######..', '..#oo###==', '..######.=', '...####...', '.########.', '##.####.##',
+      '#..####..#', '...####...', '...####...', '...##.##..', '..##...##.', '..##...##.', '.###...###'
+    ];
+    const ninja = (g, env, glitch = 0) => {
+      if (env <= 0.02) return;
+      const s = 2, W = NINJA[0].length, H = NINJA.length;
+      const x0 = sn(g.x) - Math.floor(W / 2) * s * tex, y0 = sn(g.y) - H * s * tex;
+      const at = (c, r) => (r >= 0 && r < H && c >= 0 && c < W ? NINJA[r][c] : '.');
+      ctx.fillStyle = R(0);
+      for (let r = 0; r < H; r++) {
+        const shift = glitch && hash(r * 3 + Math.floor(frame / 2)) < glitch ? (hash(r + frame) < 0.5 ? -1 : 1) * s : 0;
+        for (let c = 0; c < W; c++) {
+          const ch = at(c, r);
+          if (ch === '.' || (env < 1 && bay(c, r) > env * 1.2)) continue;
+          ctx.fillStyle = ch === 'o' ? R(6) : ch === '=' ? R(3)
+            : at(c - 1, r) === '.' || at(c, r - 1) === '.' ? R(4) : at(c + 1, r) === '.' || at(c, r + 1) === '.' ? R(2) : R(1);
+          ctx.fillRect(x0 + (c * s + shift) * tex - tex / 2, y0 + r * s * tex - tex / 2, s * tex, s * tex);
+        }
+      }
+    };
+    // a full moon with craters, lit from the top left
+    const moonDisc = (p, r, env) => fill(p.x, p.y, r, r, (u, v, d, i, j) => {
+      if (env < 1 && bay(i, j) > env * 1.3) return null;
+      const lit = -u * 0.5 - v * 0.5;
+      if (d > 0.72) return lit > 0 ? R(5) : R(4);
+      if ([[-0.35, -0.2, 0.28], [0.3, 0.25, 0.22], [0.05, -0.5, 0.15]].some(([a, b, c]) => (u - a) ** 2 + (v - b) ** 2 < c * c)) return R(4);
+      return lit > 0.2 ? R(6) : R(5);
+    });
 
     switch (fx.skillId || BY_SHAPE[fx.shape]) {
-      // ASSASSINATE: the shadow lunges in, two cross cuts, a crescent moon flares behind the target
+      // ASSASSINATE: a tear opens over the target, the shadow lunges, two cross cuts under a crescent moon
       case 'sp_night_fang': {
         const g = toScreen(tx, ty, 0), p = toScreen(tx, ty, 0.6);
-        const lunge = 1 - seg(0, 0.35);
-        if (lunge > 0 && Math.hypot(tx - sx, ty - sy) > 0.3) {
-          const a = toScreen(sx, sy, 0.5);
-          ctx.beginPath();
-          ctx.moveTo(a.x, a.y);
-          ctx.lineTo(p.x, p.y);
-          ctx.strokeStyle = c(pal.main, lunge * 0.6);
-          ctx.lineWidth = 8 * z;
-          ctx.stroke();
-          ctx.strokeStyle = c(pal.core, lunge * 0.8);
-          ctx.lineWidth = 1.5 * z;
-          ctx.stroke();
+        shadowPool(g, 1.0 * U * out3(seg(0, 0.25)), fade, 3);
+        tear({ x: p.x, y: p.y - 4 * tex }, 12, 2.5, seg(0, 0.1) * (1 - seg(0.3, 0.5)), 5);
+        const lunge = seg(0, 0.3);
+        if (lunge < 1 && Math.hypot(tx - sx, ty - sy) > 0.3) {
+          const a = toScreen(sx, sy, 0.5), e = out3(lunge);
+          const tl = { x: a.x + (p.x - a.x) * e, y: a.y + (p.y - a.y) * e };
+          line(tl, p, R(3), 3); line(tl, p, R(0), 1);
+          for (let k = 0; k < 6; k++) {
+            const f = hash(k * 5);
+            px(tl.x + (p.x - tl.x) * f, tl.y + (p.y - tl.y) * f + Math.round((hash(k * 9) - 0.5) * 6) * tex, R(5));
+          }
         }
-        pool(g, 1.4 * U * out3(seg(0, 0.3)), 0.6 * fade);
         const moon = seg(0.1, 0.45);
-        crescent(p.x, p.y - 8 * z, 24 * z * (0.6 + 0.4 * out3(moon)), -0.6, 3.4, 12 * z, moon > 0 ? fade * 0.8 : 0);
+        if (moon > 0) crescent({ x: p.x + 5 * tex, y: p.y - 14 * tex }, 8 + 4 * out3(moon), -2.4, 0.5, fade * Math.min(1, moon * 3));
         const cutA = 1 - seg(0.5, 0.9);
         const c1 = seg(0.08, 0.28), c2 = seg(0.22, 0.42);
-        if (c1 > 0) blade(p, 0.55, 42 * z * out3(c1), 7 * z, cutA);
-        if (c2 > 0) blade(p, Math.PI - 0.55, 42 * z * out3(c2), 7 * z, cutA);
+        if (c1 > 0) cut(p, 46 * z * out3(c1), 0.55, 2.5, cutA);
+        if (c2 > 0) cut(p, 46 * z * out3(c2), Math.PI - 0.55, 2.5, cutA);
+        const flash = seg(0.26, 0.4);
+        if (flash > 0 && flash < 1) twinkle(p, Math.round(7 * (1 - flash)) + 1);
         const burst = seg(0.3, 0.8);
         if (burst > 0 && burst < 1) {
           for (let i = 0; i < 6; i++) {
             const a = (i * TAU) / 6 + 0.3, d = (10 + 38 * out3(burst)) * z;
-            blade({ x: p.x + Math.cos(a) * d, y: p.y + Math.sin(a) * d * 0.6 }, a, 8 * z, 2.5 * z, 1 - burst);
+            cut({ x: p.x + Math.cos(a) * d, y: p.y + Math.sin(a) * d * 0.6 }, 10 * z * (1 - burst * 0.5), Math.atan2(Math.sin(a) * 0.6, Math.cos(a)), 1, 1 - burst);
           }
-          ring(g, (0.4 + 1.3 * out3(burst)) * U, pal.accent, (1 - burst) * 0.8, 2.5);
+          M.ellipse(tx, ty, 0.4 + 1.3 * out3(burst), R(4), 1, 0.15 + 0.6 * burst);
         }
         return true;
       }
@@ -2452,16 +2795,20 @@ class IsometricRenderer {
       case 'sp_phantom_shuriken': {
         const stars = fx.stars || [];
         if (fx.recall) {
-          const fly = out3(seg(0, 0.85));
+          const fly = out3(seg(0, 0.85)), env = 1 - seg(0.85, 1);
           const home = toScreen(fx.x, fx.y, 0.6);
           stars.forEach((s, i) => {
             const from = toScreen(s.x, s.y, 0.6);
-            const p = { x: from.x + (home.x - from.x) * fly, y: from.y + (home.y - from.y) * fly };
-            const tail = Math.max(0, fly - 0.3);
-            streak({ x: from.x + (home.x - from.x) * tail, y: from.y + (home.y - from.y) * tail }, p, 1 - seg(0.8, 1));
-            shuriken(p, 9 * z, time * 22 + i, 1 - seg(0.85, 1));
+            const at = (f) => ({ x: from.x + (home.x - from.x) * f, y: from.y + (home.y - from.y) * f });
+            const p = at(fly);
+            if (env > 0.3) { line(at(Math.max(0, fly - 0.22)), p, R(3), 2); line(at(Math.max(0, fly - 0.1)), p, R(5), 1); }
+            star(p, 7, time * 22 + i, env);
           });
-          glow(home, 26 * z, seg(0.6, 0.9) * (1 - seg(0.9, 1)));
+          const arrive = seg(0.6, 0.95);
+          if (arrive > 0 && arrive < 1) {
+            M.ellipse(fx.x, fx.y, 0.1 + 0.9 * (1 - out3(arrive)), R(5), 1, 0.2);
+            sparks(home, 8, 4 * tex, (4 + 10 * out3(arrive)) * tex, 1 - arrive, 0.4);
+          }
           return true;
         }
         const fly = out3(Math.min(1, t / 0.28));
@@ -2469,65 +2816,81 @@ class IsometricRenderer {
         const o = toScreen(sx, sy, 0.6);
         stars.forEach((s, i) => {
           const end = toScreen(s.x, s.y, 0.6);
-          const bob = fly >= 1 ? Math.sin(time * 4 + i * 1.3) * 3 * z : 0;
+          const bob = fly >= 1 ? Math.round(Math.sin(time * 4 + i * 1.3) * 1.5) * tex : 0;
           const p = { x: o.x + (end.x - o.x) * fly, y: o.y + (end.y - o.y) * fly + bob };
-          if (fly < 1) streak(o, p, 1 - fly);
-          else {
-            ring(toScreen(s.x, s.y, 0), 0.35 * U, pal.accent, vis * 0.5, 1.5);
-            glow(p, 14 * z, vis * 0.45);
+          if (fly < 1) {
+            for (let k = 3; k >= 1; k--) {
+              const f = Math.max(0, fly - k * 0.08);
+              px(o.x + (end.x - o.x) * f, o.y + (end.y - o.y) * f, R(5 - k), k === 1 ? 3 : 2);
+            }
+          } else {
+            shadowPool(toScreen(s.x, s.y, 0), 0.28 * U, vis, i);
+            for (let k = 0; k < 3; k++) {
+              const a = time * 3 + (k * TAU) / 3 + i;
+              px(p.x + Math.cos(a) * 8 * tex, p.y + Math.sin(a) * 3 * tex, R(k ? 3 : 5));
+            }
           }
-          shuriken(p, 9 * z, time * (fly < 1 ? 26 : 12) + i, vis);
+          star(p, 7, time * (fly < 1 ? 26 : 12) + i, vis);
         });
         return true;
       }
 
-      // SMOKE BOMB: a thick cloud swirls on the ground for its whole duration
+      // SMOKE BOMB: a flash and a ring of rolling smoke that holds for its whole duration
       case 'sp_smoke_bomb': {
-        const Rw = fx.radius || 3, R = Rw * U;
-        const g = toScreen(tx, ty, 0);
+        const Rw = fx.radius || 3;
         const vis = hold(0.25, 0.7);
         const pop = seg(0, 0.4 / T);
         if (pop < 1) {
-          ring(g, R * (0.2 + 0.8 * out3(pop)), pal.light, (1 - pop) * 0.9, 3);
-          glow(toScreen(tx, ty, 0.3), 30 * z * (1 - pop), 1 - pop, pal.light);
+          const c = toScreen(tx, ty, 0.3);
+          if (pop < 0.35) px(c.x, c.y, R(6), Math.round(8 * (1 - pop / 0.35)) + 2);
+          sparks(c, 10, (2 + 6 * pop) * tex, (6 + 26 * out3(pop)) * tex, 1 - pop, 0.2);
+          M.ellipse(tx, ty, Rw * (0.2 + 0.8 * out3(pop)), R(5), 2, 0.1 + 0.5 * pop);
         }
-        pool(g, R * 0.95, 0.4 * vis);
-        for (let i = 0; i < 16; i++) {
+        if (vis > 0.1) M.ellipse(tx, ty, Rw, R(3), 1, 0.55);
+        const grow = out3(Math.min(1, t / 0.5));
+        const puffs = [];
+        for (let i = 0; i < 14; i++) {
           const dir = i % 2 ? 1 : -1;
-          const a = (i * TAU) / 16 + time * 0.35 * dir + rnd(i) * 0.6;
-          const d = Rw * (0.15 + 0.7 * rnd(i + 20)) * (0.5 + 0.5 * out3(Math.min(1, t / 0.5)));
-          const p = toScreen(tx + Math.cos(a) * d, ty + Math.sin(a) * d, 0.3 + 0.5 * rnd(i + 40) + Math.sin(time * 1.5 + i) * 0.1);
-          puff(p, (22 + 16 * rnd(i + 60)) * z, 0.55 * vis);
+          const a = (i * TAU) / 14 + time * 0.3 * dir + hash(i) * 0.5;
+          const d = Rw * (0.45 + 0.45 * hash(i + 20)) * (0.4 + 0.6 * grow);
+          puffs.push({ x: tx + Math.cos(a) * d, y: ty + Math.sin(a) * d, h: 0.3 + 0.4 * hash(i + 40) + Math.sin(time * 1.5 + i) * 0.1, r: 8 + 6 * hash(i + 60), i });
         }
-        ctx.setLineDash([6 * z, 8 * z]);
-        ring(g, R, pal.light, vis * 0.35, 1.2);
-        ctx.setLineDash([]);
+        puffs.sort((a, b) => a.x + a.y - (b.x + b.y)); // back to front
+        for (const q of puffs) puff(toScreen(q.x, q.y, q.h), q.r, vis, q.i);
+        for (let i = 0; i < 5; i++) {
+          const a = hash(i + 80) * TAU, d = Rw * 0.6 * hash(i + 90);
+          const b = toScreen(tx + Math.cos(a) * d, ty + Math.sin(a) * d, 0.6);
+          wisp(b.x, b.y, 9, i * 2, vis * ((time * 0.7 + hash(i)) % 1));
+        }
         return true;
       }
 
-      // SHADOW TOSS: a dark bolt arcs to the cursor and a shadow double stands there, flickering
+      // SHADOW TOSS: a ball of shadow arcs to the cursor, tears the air open and a shadow double stands there
       case 'sp_shadow_toss': {
         const toss = Math.min(1, t / 0.25);
         const g = toScreen(tx, ty, 0);
         const vis = hold(0.25, 0.4);
         if (toss < 1) {
+          const at = (e) => toScreen(sx + (tx - sx) * e, sy + (ty - sy) * e, 0.6 + Math.sin(e * Math.PI) * 1.4);
           const e = out3(toss);
-          const p = toScreen(sx + (tx - sx) * e, sy + (ty - sy) * e, 0.6 + Math.sin(e * Math.PI) * 1.4);
-          streak(toScreen(sx, sy, 0.6), p, 1 - toss);
-          bead(p, 10 * z, 1);
+          for (let k = 6; k >= 1; k--) { const q = at(Math.max(0, e - k * 0.04)); px(q.x, q.y, R(k > 3 ? 1 : 3), k > 4 ? 1 : 2); }
+          const p = at(e);
+          fill(p.x, p.y, 4, 4, (u, v, d) => (d > 0.6 ? R(4) : d > 0.25 ? R(1) : R(0)));
+          px(p.x - tex, p.y - 2 * tex, R(6));
           return true;
         }
         const land = seg(0.25 / T, 0.7 / T);
-        if (land < 1) ring(g, (fx.radius || 2) * U * out3(land), pal.accent, 1 - land, 2.5);
-        pool(g, 0.8 * U, 0.55 * vis);
-        for (let i = 0; i < 3; i++) {
-          puff({ x: g.x + (rnd(i) - 0.5) * 22 * z, y: g.y - (6 + 26 * ((time * 0.6 + rnd(i + 5)) % 1)) * z }, 10 * z, 0.35 * vis);
+        shadowPool(g, 0.85 * U, vis, 7);
+        for (let i = 0; i < 4; i++) wisp(g.x + Math.round((hash(i) - 0.5) * 22) * tex, g.y, 10, i * 1.7, vis * (0.3 + 0.7 * ((time * 0.6 + hash(i + 5)) % 1)));
+        if (land < 1) {
+          M.ellipse(tx, ty, (fx.radius || 2) * out3(land), R(4), 2, 0.15 + 0.6 * land);
+          tear(toScreen(tx, ty, 0.75), 16, 4, 1 - land, 9);
         }
-        silhouette(g, 48 * z, vis * (0.75 + 0.15 * Math.sin(time * 9)), pal.accent, true);
+        ninja(g, vis * (land < 1 ? out3(land) : 1) * (0.85 + 0.15 * Math.sin(time * 9)), 0.12);
         return true;
       }
 
-      // SHURIKEN STORM: stars circle the assassin for three seconds
+      // SHURIKEN STORM: stars circle the assassin for three seconds, whistling arcs behind them
       case 'sp_shuriken_storm': {
         let cx = tx, cy = ty;
         if (fx.followId && this.lastGameState && this.lastGameState.players) {
@@ -2536,114 +2899,95 @@ class IsometricRenderer {
         }
         const Rw = (fx.radius || 2.6) * 0.8;
         const vis = hold(0.2, 0.35);
-        ring(toScreen(cx, cy, 0), Rw * U, pal.accent, vis * 0.4, 1.5);
-        const n = fx.n || 6;
-        for (let i = 0; i < n; i++) {
-          const a = time * 6 + (i * TAU) / n;
-          for (let j = 2; j >= 0; j--) {
-            const aj = a - j * 0.18;
-            const p = toScreen(cx + Math.cos(aj) * Rw, cy + Math.sin(aj) * Rw, 0.6);
-            if (j) bead(p, 5 * z, vis * (0.35 / j));
-            else shuriken(p, 9 * z, time * 24 + i, vis);
+        M.ellipse(cx, cy, Rw, R(2), 1, 0.55);
+        const n = fx.n || 6, spin = time * 6;
+        const order = [];
+        for (let i = 0; i < n; i++) order.push({ a: spin + (i * TAU) / n, i });
+        order.sort((p, q) => Math.sin(p.a) - Math.sin(q.a)); // far side first
+        for (const { a, i } of order) {
+          const g = toScreen(cx + Math.cos(a) * Rw, cy + Math.sin(a) * Rw, 0);
+          px(g.x, g.y, R(0), 2);
+          for (let j = 8; j >= 1; j--) {
+            if (vis < 1 && bay(i * 3 + j, j) > vis * 1.2) continue;
+            const aj = a - j * 0.07;
+            const q = toScreen(cx + Math.cos(aj) * Rw, cy + Math.sin(aj) * Rw, 0.6);
+            px(q.x, q.y, j < 3 ? R(5) : j < 6 ? R(3) : R(2), j < 4 ? 2 : 1);
+          }
+          star(toScreen(cx + Math.cos(a) * Rw, cy + Math.sin(a) * Rw, 0.6), 7, time * 24 + i, vis);
+        }
+        return true;
+      }
+
+      // SHADOWSTEP: dissolve into smoke, step out of a void tear behind the target and cut
+      case 'sp_night_dash': {
+        const o = toScreen(sx, sy, 0), d = toScreen(tx, ty, 0), p = toScreen(tx, ty, 0.6);
+        const gone = seg(0, 0.6);
+        ninja(o, (1 - seg(0, 0.35)) * 0.95);
+        for (let i = 0; i < 5; i++) {
+          const a = (i * TAU) / 5 + hash(i) * 0.6;
+          puff({ x: o.x + Math.cos(a) * 7 * tex, y: o.y - (14 + 14 * gone) * tex + Math.sin(a) * 4 * tex }, 5 + 3 * gone, 1 - gone, i);
+        }
+        const thread = 1 - seg(0.2, 0.6);
+        if (thread > 0) {
+          const n = 16;
+          for (let k = 0; k <= n; k++) {
+            if ((k + Math.floor(frame / 2)) % 3 === 0 || hash(k) > thread + 0.2) continue;
+            const q = toScreen(sx + ((tx - sx) * k) / n, sy + ((ty - sy) * k) / n, 0.5 + Math.sin((k / n) * Math.PI) * 0.5);
+            px(q.x, q.y, R(k % 2 ? 4 : 2), 2);
           }
         }
-        return true;
-      }
-
-      // SHADOWSTEP: dissolve into smoke, re-form behind the target and cut
-      case 'sp_night_dash': {
-        const o = toScreen(sx, sy, 0), d = toScreen(tx, ty, 0);
-        const gone = seg(0, 0.6);
-        for (let i = 0; i < 5; i++) {
-          const a = (i * TAU) / 5 + rnd(i) * 0.6;
-          puff({ x: o.x + Math.cos(a) * 12 * z, y: o.y - 18 * z - gone * 20 * z + Math.sin(a) * 8 * z }, (12 + 8 * gone) * z, 0.65 * (1 - gone));
-        }
-        silhouette(o, 44 * z, (1 - seg(0, 0.35)) * 0.8, pal.main, true);
-        const thread = fade * 0.5 * (1 - seg(0.2, 0.6));
-        if (thread > 0) {
-          const a = toScreen(sx, sy, 0.5), b = toScreen(tx, ty, 0.5);
-          ctx.setLineDash([4 * z, 6 * z]);
-          ctx.beginPath();
-          ctx.moveTo(a.x, a.y);
-          ctx.lineTo(b.x, b.y);
-          ctx.strokeStyle = c(pal.accent, thread);
-          ctx.lineWidth = 2 * z;
-          ctx.stroke();
-          ctx.setLineDash([]);
-        }
+        tear({ x: p.x, y: p.y - 6 * tex }, 16, 4, seg(0.02, 0.18) * (1 - seg(0.35, 0.55)), 3);
         const form = seg(0.1, 0.45);
-        silhouette(d, 44 * z, form * fade * 0.8, pal.accent);
-        const cut = seg(0.25, 0.6);
-        if (cut > 0) {
-          slashX(toScreen(tx, ty, 0.6), 34 * z * out3(cut), 1 - seg(0.6, 0.95));
-          ring(d, (0.4 + 1.1 * out3(cut)) * U, pal.accent, (1 - cut) * 0.9, 3);
+        shadowPool(d, 0.7 * U, fade * out3(form), 2);
+        ninja(d, form * fade);
+        const cA = 1 - seg(0.6, 0.95), k1 = seg(0.25, 0.45), k2 = seg(0.33, 0.53);
+        if (k1 > 0) cut(p, 40 * z * out3(k1), 0.7, 2.5, cA);
+        if (k2 > 0) cut(p, 40 * z * out3(k2), Math.PI - 0.7, 2.5, cA);
+        const ring = seg(0.3, 0.65);
+        if (ring > 0 && ring < 1) {
+          M.ellipse(tx, ty, 0.4 + 1.1 * out3(ring), R(4), 2, 0.1 + 0.6 * ring);
+          sparks(p, 6, 6 * tex, (8 + 14 * out3(ring)) * tex, 1 - ring, 1.1);
         }
         return true;
       }
 
-      // MOON VOLLEY: spinning crescent blades arc out to each target
+      // MOON VOLLEY: a full moon rises over the shadow and splits into spinning crescent blades,
+      // which arc out on trails of moonlight and bite into their targets
       case 'sp_moon_volley': {
-        // a full moon rises over the shadow and splits into crescent blades,
-        // which arc out on trails of moonlight and bite into their targets
         const pts = fx.points || [];
         const rise = out3(seg(0, 0.22)), split = seg(0.18, 0.34);
         const moon = toScreen(sx, sy, 0.9 + 0.9 * rise);
-        const moonR = (9 + 5 * rise) * z * (1 - 0.6 * split);
-        const moonA = fade * (1 - split * 0.85);
+        const moonR = (7 + 4 * rise) * (1 - 0.45 * split);
+        const moonA = fade * (1 - split);
         if (moonA > 0.02) {
-          glow(moon, moonR * 3.2, 0.5 * moonA, pal.main);
-          bead(moon, moonR * 1.4, 0.9 * moonA);
-          ctx.fillStyle = c(pal.light, 0.9 * moonA);
-          ctx.beginPath();
-          ctx.arc(moon.x, moon.y, moonR, 0, TAU);
-          ctx.fill();
-          // craters
-          ctx.fillStyle = c(pal.accent, 0.55 * moonA);
-          for (const [ox, oy, r] of [[-0.35, -0.2, 0.28], [0.3, 0.25, 0.2], [0.1, -0.45, 0.14]]) {
-            ctx.beginPath();
-            ctx.arc(moon.x + ox * moonR, moon.y + oy * moonR, r * moonR, 0, TAU);
-            ctx.fill();
-          }
-          // stardust circling the moon
+          moonDisc(moon, moonR, Math.min(1, moonA * 1.6));
           for (let i = 0; i < 6; i++) {
             const an = time * 2.4 + (i * TAU) / 6;
-            star({ x: moon.x + Math.cos(an) * moonR * 2.1, y: moon.y + Math.sin(an) * moonR * 0.9 }, (2 + rnd(i)) * z, moonA * 0.8);
+            twinkle({ x: moon.x + Math.cos(an) * (moonR + 6) * tex, y: moon.y + Math.sin(an) * (moonR * 0.5 + 3) * tex }, i % 2);
           }
         }
-        ring(toScreen(sx, sy, 0), (0.4 + 0.7 * out3(seg(0, 0.3))) * U, pal.accent, (1 - seg(0, 0.3)) * 0.6 * fade, 1.5);
+        const lift0 = seg(0, 0.3);
+        if (lift0 < 1) M.ellipse(sx, sy, 0.4 + 0.7 * out3(lift0), R(4), 1, 0.2 + 0.7 * lift0);
 
         pts.forEach((pt, i) => {
           const tp = toScreen(pt.x, pt.y, 0.55);
-          // launch from the moon's rim, fanned out, then a high arc onto the target
           const side = pts.length > 1 ? i / (pts.length - 1) - 0.5 : 0;
-          const start = { x: moon.x + side * moonR * 3, y: moon.y - Math.abs(side) * 4 * z };
+          const start = { x: moon.x + side * moonR * 3 * tex, y: moon.y - Math.abs(side) * 4 * tex };
           const lift = (26 + 10 * Math.abs(side)) * z;
-          const at = (t) => ({
-            x: start.x + (tp.x - start.x) * t + side * 22 * z * Math.sin(t * Math.PI),
-            y: start.y + (tp.y - start.y) * t - Math.sin(t * Math.PI) * lift
+          const at = (f) => ({
+            x: start.x + (tp.x - start.x) * f + side * 22 * z * Math.sin(f * Math.PI),
+            y: start.y + (tp.y - start.y) * f - Math.sin(f * Math.PI) * lift
           });
           const t0 = 0.26 + i * 0.035, t1 = t0 + 0.3;
           const fly = seg(t0, t1);
           if (fly > 0 && fly < 1) {
-            const e = out3(fly) * 0.25 + fly * 0.75;   // quick release, steady flight
-            // tapered ribbon of moonlight behind the blade
-            const TRAIL = 9;
-            for (let j = TRAIL; j >= 1; j--) {
-              const ta = Math.max(0, e - j * 0.03), tb = Math.max(0, e - (j - 1) * 0.03);
-              const pa = at(ta), pb = at(tb), k2 = 1 - j / (TRAIL + 1);
-              ctx.strokeStyle = c(j < 3 ? pal.light : pal.accent, fade * k2 * 0.7);
-              ctx.lineWidth = (1 + 5 * k2) * z;
-              ctx.lineCap = 'round';
-              ctx.beginPath();
-              ctx.moveTo(pa.x, pa.y);
-              ctx.lineTo(pb.x, pb.y);
-              ctx.stroke();
-              if (j % 3 === 0) star({ x: pa.x + (rnd(i * 7 + j) - 0.5) * 10 * z, y: pa.y + (rnd(i * 5 + j) - 0.5) * 10 * z }, (1.5 + rnd(j)) * z, fade * k2);
+            const e = out3(fly) * 0.25 + fly * 0.75;
+            for (let j = 10; j >= 1; j--) {
+              const pa = at(Math.max(0, e - j * 0.028));
+              px(pa.x, pa.y, j < 3 ? R(5) : j < 6 ? R(4) : R(2), j < 4 ? 2 : 1);
+              if (j % 4 === 0) twinkle({ x: pa.x + Math.round((hash(i * 7 + j) - 0.5) * 8) * tex, y: pa.y + Math.round((hash(i * 5 + j) - 0.5) * 8) * tex }, 1);
             }
-            const p = at(e), q = at(Math.min(1, e + 0.02));
-            const ang = Math.atan2(q.y - p.y, q.x - p.x);
-            glow(p, 16 * z, 0.45 * fade);
-            crescent(p.x, p.y, 11 * z, ang + Math.sin(time * 18 + i) * 0.08, 3.3, 6 * z, fade, 0.85);
+            crescent(at(e), 8, time * 16 + i * 1.7, 0.5, fade);
           }
           const hit = seg(t1, t1 + 0.32);
           if (hit > 0 && hit < 1) {
@@ -2654,43 +2998,50 @@ class IsometricRenderer {
               this.addParticles(pt.x, pt.y, 'spark', 6, { speed: 2, z: 0.6, sizeScale: 0.5 });
             }
             const h = out3(hit), inv = 1 - hit;
-            bead(tp, (10 + 14 * h) * z, inv);
-            // the crescent sweeps across the target as it bites
-            crescent(tp.x, tp.y, (14 + 8 * h) * z, -2.2 + 2.6 * h, 3.8, 9 * z, inv, 0.7);
-            for (let k3 = 0; k3 < 7; k3++) {
-              const an = (k3 * TAU) / 7 + rnd(i * 11 + k3);
-              const d = (8 + 26 * h) * z;
-              star({ x: tp.x + Math.cos(an) * d, y: tp.y + Math.sin(an) * d * 0.6 }, (3.5 - 2 * h) * z, inv);
+            if (hit < 0.2) px(tp.x, tp.y, R(6), 5);
+            crescent(tp, 10 + 3 * h, -2.2 + 2.6 * h, 0.45, inv);
+            for (let k3 = 0; k3 < 6; k3++) {
+              const an = (k3 * TAU) / 6 + hash(i * 11 + k3), dd = (8 + 26 * h) * z;
+              if (inv > 0.25) twinkle({ x: tp.x + Math.cos(an) * dd, y: tp.y + Math.sin(an) * dd * 0.6 }, inv > 0.6 ? 2 : 1);
             }
-            ring(toScreen(pt.x, pt.y, 0), (0.25 + 0.7 * h) * U, pal.light, inv * 0.8, 1.6);
+            M.ellipse(pt.x, pt.y, 0.25 + 0.7 * h, R(5), 1, 0.2 + 0.6 * hit);
           }
         });
         return true;
       }
 
-      // SHADOW HOP: cut where you stood, slip through smoke, re-form at the landing
+      // SHADOW HOP: cut where you stood, hop on a trail of void diamonds, re-form in smoke at the landing
       case 'sp_shadow_hop': {
         const o = toScreen(sx, sy, 0), d = toScreen(tx, ty, 0);
-        const r = (fx.radius || 2) * U;
+        const r = fx.radius || 2;
         const burst = seg(0, 0.55);
-        pool(o, r * 0.8, 0.55 * (1 - burst));
+        shadowPool(o, r * 0.8 * U, 1 - burst, 1);
         if (fx.origin) {
-          ring(o, r * (0.3 + 0.7 * out3(burst)), pal.accent, (1 - burst) * 0.9, 3);
-          slashX(toScreen(sx, sy, 0.6), 30 * z * out3(Math.min(1, progress * 5)), 1 - seg(0.05, 0.5));
+          if (burst < 1) M.ellipse(sx, sy, r * (0.3 + 0.7 * out3(burst)), R(4), 2, 0.1 + 0.7 * burst);
+          const sw = out3(Math.min(1, progress * 5)), sA = 1 - seg(0.05, 0.5), c = toScreen(sx, sy, 0.6);
+          cut(c, 34 * z * sw, 0.75, 2, sA);
+          cut(c, 34 * z * sw, Math.PI - 0.75, 2, sA);
         }
-        for (let i = 0; i < 4; i++) {
-          puff({ x: o.x + (rnd(i) - 0.5) * 24 * z, y: o.y - (10 + 20 * burst) * z }, 13 * z, 0.6 * (1 - burst));
-          puff({ x: d.x + (rnd(i + 7) - 0.5) * 24 * z, y: d.y - (8 + 14 * burst) * z }, 11 * z, 0.5 * (1 - burst));
-        }
-        for (let i = 0; i <= 6; i++) {
-          const t = i / 6;
-          if (t > seg(0, 0.3)) break;
-          bead(toScreen(sx + (tx - sx) * t, sy + (ty - sy) * t, 0.5 + Math.sin(t * Math.PI) * 0.8), 3.5 * z, fade * 0.6);
+        const arc = seg(0, 0.3);
+        if (fade > 0.3) {
+          for (let i = 0; i <= 8; i++) {
+            const f = i / 8;
+            if (f > arc) break;
+            const q = toScreen(sx + (tx - sx) * f, sy + (ty - sy) * f, 0.5 + Math.sin(f * Math.PI) * 0.8);
+            px(q.x, q.y - tex, R(3)); px(q.x - tex, q.y, R(3)); px(q.x + tex, q.y, R(3)); px(q.x, q.y + tex, R(3));
+            px(q.x, q.y, i % 2 ? R(6) : R(0));
+          }
         }
         const land = seg(0.1, 0.5);
-        silhouette(d, 44 * z, land * fade * 0.8, pal.accent);
-        ring(d, r * 0.6 * (0.3 + 0.7 * out3(land)), pal.light, land > 0 ? (1 - land) * 0.9 : 0, 2.5);
-        sparks(toScreen(tx, ty, 0.4), 6, 6 * z, 22 * z * out3(land), land > 0 ? 1 - land : 0, 3);
+        ninja(d, land * fade);
+        for (let i = 0; i < 4; i++) {
+          puff({ x: o.x + Math.round((hash(i) - 0.5) * 16) * tex, y: o.y - (8 + 12 * burst) * tex }, 6, 1 - burst, i);
+          puff({ x: d.x + Math.round((hash(i + 7) - 0.5) * 16) * tex, y: d.y - (4 + 10 * burst) * tex }, 5, 1 - burst, i + 4);
+        }
+        if (land > 0 && land < 1) {
+          M.ellipse(tx, ty, r * 0.6 * (0.3 + 0.7 * out3(land)), R(5), 1, 0.2 + 0.6 * land);
+          sparks(toScreen(tx, ty, 0.4), 6, 3 * tex, 14 * tex * out3(land), 1 - land, 3);
+        }
         return true;
       }
     }
@@ -2700,27 +3051,138 @@ class IsometricRenderer {
   // ---------------------------------------------------------------- Venom Lord (SP tier 2)
   // Toxic alchemist: gas clouds, boiling bubbles, acid splashes, serpents
   drawVenomLordSkill(ctx, fx, progress, toScreen, z) {
-    const k = this.spFxKit(ctx, progress, toScreen, z, SP_FX_PALETTES.sp_venom_lord);
-    const { pal, time, TAU, U, clamp01, seg, out3, fade, c, rnd, shade, ring, pool, puff, glow, bead, lens, blade, sparks, groundBand, strip, silhouette } = k;
-    const { sx, sy, tx, ty } = k.ends(fx);
-    const bubble = (x, y, rPx, a) => {
-      if (a <= 0.01 || rPx <= 0.5) return;
-      ctx.beginPath();
-      ctx.arc(x, y, rPx, 0, TAU);
-      ctx.fillStyle = c(pal.main, a * 0.25);
-      ctx.fill();
-      ctx.strokeStyle = c(pal.light, a * 0.9);
-      ctx.lineWidth = 1.2 * z;
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.arc(x - rPx * 0.35, y - rPx * 0.35, rPx * 0.25, 0, TAU);
-      ctx.fillStyle = c(pal.core, a);
-      ctx.fill();
+    // Pixel art on the card's toxic-green ramp (G(0) bog .. G(5) acid white):
+    // acid puddles, boiling bubbles, gas clouds with leering skulls, thorny vines, a scaled serpent
+    const M = this.spMotifs(ctx, fx, progress);
+    const { tex, px, line, hash } = M;
+    const card = M.card, G = (k) => card[Math.max(0, Math.min(card.length - 1, Math.round(k)))];
+    const TAU = Math.PI * 2, time = this.animations.time, frame = M.frame;
+    const U = 32 * Math.SQRT2 * z; // screen px per world tile
+    const clamp01 = (v) => Math.max(0, Math.min(1, v));
+    const seg = (a, b) => clamp01((progress - a) / (b - a));
+    const out3 = (v) => 1 - Math.pow(1 - v, 3);
+    const fade = progress < 0.6 ? 1 : clamp01(1 - (progress - 0.6) / 0.4);
+    const sx = fx.startX !== undefined ? fx.startX : fx.x, sy = fx.startY !== undefined ? fx.startY : fx.y;
+    const tx = fx.x !== undefined ? fx.x : sx, ty = fx.y !== undefined ? fx.y : sy;
+    const sn = (v) => Math.round(v / tex) * tex;
+    const bay = (i, j) => (FX_BAYER[(j & 3) * 4 + (i & 3)] + 0.5) / 16;
+    const dot = (ox, oy, i, j, col) => { ctx.fillStyle = col; ctx.fillRect(ox + i * tex - tex / 2, oy + j * tex - tex / 2, tex, tex); };
+    // noise that is the same for every effect (puddles stay put across Miasma Trap waves)
+    const fixed = (n) => { const s = Math.sin(n * 91.7 + 13.1) * 43758.5453; return s - Math.floor(s); };
+    ctx.globalCompositeOperation = 'source-over';
+
+    // texels of a screen ellipse (rx, ry in texels); col(u, v, d, i, j) -> colour or null
+    const fill = (cx, cy, rx, ry, col) => {
+      if (rx < 0.5 || ry < 0.5) return;
+      const ox = sn(cx), oy = sn(cy), nx = Math.ceil(rx), ny = Math.ceil(ry);
+      for (let j = -ny; j <= ny; j++) for (let i = -nx; i <= nx; i++) {
+        const u = i / rx, v = j / ry, d = u * u + v * v;
+        if (d > 1) continue;
+        const c = col(u, v, d, i, j);
+        if (c) dot(ox, oy, i, j, c);
+      }
     };
-    // gas cloud: dark body with a sickly glow inside
-    const cloud = (p, rPx, a) => {
-      puff(p, rPx, a);
-      glow(p, rPx * 0.9, a * 0.7, pal.main);
+    // a pixel skull (5x5 cells of s texels)
+    const SKULL = ['.###.', '#####', '#.#.#', '#####', '.#.#.'];
+    const skull = (p, env, s = 1) => {
+      if (env <= 0.05) return;
+      const x0 = sn(p.x) - 2 * s * tex, y0 = sn(p.y) - 2 * s * tex;
+      for (let r = 0; r < 5; r++) for (let c = 0; c < 5; c++) {
+        if (env < 1 && bay(c, r) > env * 1.3) continue;
+        const ch = SKULL[r][c];
+        const col = ch === '#' ? (r === 0 || c === 0 ? G(5) : G(4)) : r === 2 ? G(0) : null;
+        if (!col) continue;
+        ctx.fillStyle = col;
+        ctx.fillRect(x0 + c * s * tex - tex / 2, y0 + r * s * tex - tex / 2, s * tex, s * tex);
+      }
+    };
+    // a lumpy cloud of toxic gas, lit from the top left, motes glowing inside (r in texels)
+    const gas = (p, r, env, salt = 0, withSkull = false) => {
+      if (env <= 0.02 || r < 1) return;
+      const rr = r * (0.55 + 0.45 * env);
+      fill(p.x, p.y, rr * 1.2, rr, (u, v, d, i, j) => {
+        const a = Math.atan2(v, u);
+        const lump = 0.8 + 0.2 * Math.sin(a * 3 + salt * 2.3 + time * 1.8) * Math.cos(a * 2 - salt), L = lump * lump;
+        if (d > L) return null;
+        if (env < 1 && bay(i, j) > env * 1.5 - d * 0.5) return null;
+        if (hash(i * 7 + j * 13 + salt * 31 + Math.floor(frame / 5)) < 0.025) return G(4);
+        const lit = -v * 0.7 - u * 0.4;
+        if (d > L * 0.6 && lit > 0.2) return G(3);
+        return lit > 0.05 && d < L * 0.6 ? G(2) : G(1);
+      });
+      if (withSkull) skull({ x: p.x, y: p.y - Math.round(rr * 0.15) * tex }, env, rr > 9 ? 2 : 1);
+    };
+    // a bubble r texels across (tiny ones are a 2x2 bead); pops into four droplets when env runs out
+    const bubble = (x, y, r, env) => {
+      if (env <= 0.02) return;
+      if (env < 0.18) {
+        const k = (r + 1 + (0.18 - env) * 20) * tex;
+        px(x - k, y, G(4)); px(x + k, y, G(4)); px(x, y - k, G(4)); px(x, y + k * 0.6, G(3));
+        return;
+      }
+      if (r < 1.8) { px(x, y, G(3), 2); px(x - tex / 2, y - tex / 2, G(5)); return; }
+      const ox = sn(x), oy = sn(y), n = Math.ceil(r);
+      for (let j = -n; j <= n; j++) for (let i = -n; i <= n; i++) {
+        const d = Math.hypot(i, j);
+        if (d > r + 0.2 || d < r - 1.05) continue;
+        dot(ox, oy, i, j, i + j > 0 ? G(2) : G(3));
+      }
+      dot(ox, oy, -Math.round(r * 0.45), -Math.round(r * 0.45), G(5));
+    };
+    // a falling acid drop
+    const drip = (x, y) => { px(x, y - tex, G(3)); px(x, y, G(4)); };
+    // an acid puddle on the ground at screen point g (rPx = horizontal radius) with a ripple and a bubble
+    const puddle = (g, rPx, env, salt = 0) => {
+      if (env <= 0.02 || rPx < tex * 2) return;
+      const rx = (rPx * Math.min(1, env * 1.3)) / tex;
+      const rip = (time * 0.7 + fixed(salt)) % 1;
+      fill(g.x, g.y, rx, rx / 2, (u, v, d, i, j) => {
+        const lump = 0.82 + 0.18 * Math.sin(Math.atan2(v, u) * 4 + salt * 1.7), L = lump * lump;
+        if (d > L) return null;
+        if (d > L * 0.72) return v < 0 ? G(3) : G(0);           // lit far lip, dark near lip
+        if (env < 1 && bay(i, j) > env * 1.5) return null;
+        if (Math.abs(d / L - rip * 0.7) < 0.05) return G(2);       // a ripple spreading out
+        return hash(i * 17 + j * 5 + salt) < 0.04 ? G(3) : G(1);
+      });
+      if (rx > 4 && env > 0.3) {
+        const b = (time * 1.4 + fixed(salt + 3)) % 1, bx = g.x + (fixed(salt + 5) - 0.5) * rx * tex, by = g.y + (fixed(salt + 7) - 0.5) * rx * 0.4 * tex;
+        bubble(bx, by - b * 3 * tex, 1 + b * 2.5, 1 - b);
+      }
+    };
+    // a thorny vine between two screen points
+    const vine = (a, b, salt = 0) => {
+      line(a, b, G(1), 3);
+      line(a, b, G(3), 1);
+      const L = Math.hypot(b.x - a.x, b.y - a.y), n = Math.floor(L / (tex * 5));
+      const ux = (b.x - a.x) / (L || 1), uy = (b.y - a.y) / (L || 1);
+      for (let k = 1; k <= n; k++) {
+        const f = k / (n + 1), s = k % 2 ? 1 : -1, x = a.x + (b.x - a.x) * f, y = a.y + (b.y - a.y) * f;
+        px(x - uy * s * 2 * tex, y + ux * s * 2 * tex, G(2));
+        px(x - uy * s * 3 * tex + ux * tex, y + ux * s * 3 * tex + uy * tex, G(4)); // thorn tip leans forward
+      }
+    };
+    // a barbed spearhead, tip at p pointing along ang, len texels long, w texels wide
+    const spear = (p, ang, len, w, env = 1) => {
+      if (env <= 0.02) return;
+      const ca = Math.cos(ang), sa = Math.sin(ang), n = Math.round(len);
+      for (let k = 0; k <= n; k++) {
+        const f = k / n, half = Math.round(w * (f < 0.65 ? f / 0.65 : 1 - (f - 0.65) / 0.35 * 0.7));
+        const x = p.x - ca * k * tex, y = p.y - sa * k * tex;
+        for (let m = -half; m <= half; m++) {
+          if (env < 1 && bay(k, m) > env * 1.3) continue;
+          px(x - sa * m * tex, y + ca * m * tex, Math.abs(m) === half && half > 0 ? G(2) : m === 0 ? G(5) : G(4));
+        }
+      }
+    };
+    // short radiating splash droplets
+    const splash = (p, n, r0, r1, env, salt = 0) => {
+      if (env <= 0.02 || r1 <= r0) return;
+      for (let k = 0; k < n; k++) {
+        const a = (k / n) * TAU + salt + hash(k + salt * 10) * 0.5, ca = Math.cos(a), sa = Math.sin(a) * 0.6;
+        const tl = Math.max(r0, r1 - 4 * tex * env);
+        line({ x: p.x + ca * tl, y: p.y + sa * tl }, { x: p.x + ca * r1, y: p.y + sa * r1 }, G(3), 1);
+        px(p.x + ca * r1, p.y + sa * r1, G(5));
+      }
     };
     const BY_SHAPE = {
       cone: 'sp_plague_breath', pulse: 'sp_venom_rain', detonate: 'sp_viper_nest', dash: 'sp_serpent_slip',
@@ -2728,104 +3190,125 @@ class IsometricRenderer {
     };
 
     switch (fx.skillId || BY_SHAPE[fx.shape]) {
-      // TOXIC INJECTION: needles shoot ahead while a plague cloud rolls across the cone
+      // TOXIC INJECTION: three venom needles shoot ahead while a skull-faced plague cloud rolls across the cone
       case 'sp_plague_breath': {
         const half = ((fx.arc || 80) * Math.PI) / 360;
         const base = Math.atan2(fx.dirY || 0, fx.dirX || 1);
         const range = fx.range || 5;
         const reach = out3(seg(0, 0.5));
-        groundBand(tx, ty, 0.3, Math.max(0.35, range * reach), base - half, base + half, 0);
-        ctx.fillStyle = c(pal.main, 0.12 * fade);
-        ctx.fill();
-        for (let i = 0; i < 18; i++) {
-          const a = base + (rnd(i) * 2 - 1) * half * 0.85;
-          const d = range * reach * (0.25 + 0.75 * rnd(i + 20));
-          const p = toScreen(tx + Math.cos(a) * d, ty + Math.sin(a) * d, 0.3 + rnd(i + 40) * 0.5);
-          cloud(p, (14 + 14 * rnd(i + 60)) * z * (0.6 + 0.8 * reach), 0.45 * fade);
-        }
-        const shot = seg(0, 0.3), shotA = 1 - seg(0.3, 0.6);
-        for (const j of [-0.5, 0, 0.5]) {
-          const a = base + j * half * 0.6;
-          const head = range * out3(shot), tail = Math.max(0, head - 1.4);
-          const p0 = toScreen(tx + Math.cos(a) * tail, ty + Math.sin(a) * tail, 0.5);
-          const p1 = toScreen(tx + Math.cos(a) * head, ty + Math.sin(a) * head, 0.5);
-          blade({ x: (p0.x + p1.x) / 2, y: (p0.y + p1.y) / 2 }, Math.atan2(p1.y - p0.y, p1.x - p0.x), Math.hypot(p1.x - p0.x, p1.y - p0.y) / 2, 2.5 * z, shotA);
-        }
-        for (let i = 0; i < 8; i++) {
-          const a = base + (rnd(i + 80) * 2 - 1) * half * 0.8;
-          const d = range * reach * (0.4 + 0.6 * rnd(i + 90));
-          const p = toScreen(tx + Math.cos(a) * d, ty + Math.sin(a) * d, 0.6);
-          const f = clamp01(progress * 1.5 - rnd(i + 99) * 0.4);
-          bead({ x: p.x, y: p.y + f * 14 * z }, 3 * z, fade * (1 - f));
-        }
-        return true;
-      }
-
-      // MIASMA TRAP: each wave boils up from a toxic pool
-      case 'sp_venom_rain': {
-        const R = (fx.radius || 3.5) * U;
-        const g = toScreen(tx, ty, 0);
-        const wave = fx.wave || 0;
-        const open = out3(seg(0, 0.4));
-        pool(g, R * (0.6 + 0.4 * open), 0.35 * fade);
-        if (wave === 0) {
-          ctx.setLineDash([8 * z, 6 * z]);
-          ring(g, R * open, pal.accent, fade * 0.9, 2.5);
-          ctx.setLineDash([]);
-        }
-        const pulse = seg(0, 0.7);
-        ring(g, R * (0.2 + 0.8 * out3(pulse)), pal.light, (1 - pulse) * 0.7, 2);
-        for (let i = 0; i < 8; i++) {
-          const s = i + wave * 10;
-          const a = rnd(s) * TAU, d = Math.sqrt(rnd(s + 1)) * R * 0.8;
-          const t = clamp01(progress * 1.4 - rnd(s + 2) * 0.4);
-          bubble(g.x + Math.cos(a) * d, g.y + Math.sin(a) * d * 0.5 - t * 16 * z, (3 + 4 * rnd(s + 3)) * z * (0.5 + t), (1 - t) * fade);
-        }
-        for (let i = 0; i < 3; i++) {
-          const s = i + wave * 10 + 50;
-          const a = rnd(s) * TAU, d = rnd(s + 1) * R * 0.6;
-          cloud({ x: g.x + Math.cos(a) * d, y: g.y + Math.sin(a) * d * 0.5 - progress * 20 * z }, 16 * z, 0.35 * fade);
-        }
-        return true;
-      }
-
-      // EPIDEMIC DETONATE: a toxic shockwave and acid geysers across the whole area
-      case 'sp_viper_nest': {
-        const Rw = fx.radius || 7, R = Rw * U;
-        const g = toScreen(tx, ty, 0);
-        glow(toScreen(tx, ty, 0.5), 60 * z, 1 - seg(0, 0.3), pal.accent);
-        const wv = seg(0, 0.6);
-        ring(g, R * out3(wv), pal.light, (1 - wv) * 0.9, 5);
-        ring(g, R * 0.85 * out3(wv), pal.main, (1 - wv) * 0.7, 2.5);
-        for (let i = 0; i < 10; i++) {
-          const a = rnd(i) * TAU, d = (0.25 + 0.7 * rnd(i + 5)) * Rw;
-          const wx = tx + Math.cos(a) * d, wy = ty + Math.sin(a) * d;
-          const t0 = 0.1 + rnd(i + 9) * 0.25;
-          const t = seg(t0, t0 + 0.55);
-          if (t <= 0 || t >= 1) continue;
-          const base = toScreen(wx, wy, 0), top = toScreen(wx, wy, Math.sin(t * Math.PI) * 1.6);
-          const col = ctx.createLinearGradient(base.x, base.y, top.x, top.y);
-          col.addColorStop(0, c(pal.accent, (1 - t) * 0.9));
-          col.addColorStop(1, c(pal.light, 0));
-          ctx.beginPath();
-          ctx.moveTo(base.x, base.y);
-          ctx.lineTo(top.x, top.y);
-          ctx.strokeStyle = col;
-          ctx.lineWidth = 8 * z;
-          ctx.stroke();
-          ring(base, (0.2 + 0.5 * t) * U, pal.light, 1 - t, 2);
-          for (let j = 0; j < 4; j++) {
-            const da = (j / 4) * TAU + rnd(i + j);
-            bead({ x: top.x + Math.cos(da) * 12 * z * t, y: top.y + Math.sin(da) * 6 * z * t + t * t * 18 * z }, 3 * z, 1 - t);
+        const W = (a, d, h) => toScreen(tx + Math.cos(a) * d, ty + Math.sin(a) * d, h);
+        const r1 = Math.max(0.35, range * reach);
+        // the cone's edges, dotted on the ground, and its front
+        for (const s of [-1, 1]) {
+          for (let k = 1; k <= 12; k++) {
+            if ((k + Math.floor(frame / 3)) % 3 === 0) continue;
+            const q = W(base + s * half, (r1 * k) / 12, 0);
+            px(q.x, q.y, G(k > 9 ? 3 : 2));
           }
         }
-        for (let i = 0; i < 5; i++) {
-          cloud({ x: g.x + (rnd(i + 30) - 0.5) * 50 * z, y: g.y - (10 + progress * 40 + rnd(i + 31) * 20) * z }, 22 * z, 0.4 * fade);
+        M.ellipse(tx, ty, r1, G(3), 1, 0.35 + 0.4 * (1 - fade), base - half + Math.PI / 4, base + half + Math.PI / 4);
+        const clouds = [];
+        for (let i = 0; i < 12; i++) {
+          const a = base + (hash(i) * 2 - 1) * half * 0.8;
+          const d = range * reach * (0.25 + 0.75 * hash(i + 20));
+          clouds.push({ a, d, h: 0.3 + hash(i + 40) * 0.5, r: (5 + 5 * hash(i + 60)) * (0.6 + 0.6 * reach), i });
+        }
+        const big = clouds.reduce((m, c) => (c.r * (c.d > range * 0.4 ? 1 : 0.5) > m.r * (m.d > range * 0.4 ? 1 : 0.5) ? c : m), clouds[0]);
+        clouds.sort((p, q) => W(p.a, p.d, 0).y - W(q.a, q.d, 0).y);
+        for (const c of clouds) gas(W(c.a, c.d, c.h), c.r, fade, c.i, c === big && reach > 0.5);
+        const shot = seg(0, 0.3), shotA = 1 - seg(0.3, 0.6);
+        if (shotA > 0.02) {
+          for (const j of [-0.5, 0, 0.5]) {
+            const a = base + j * half * 0.6;
+            const head = range * out3(shot), tail = Math.max(0, head - 1.4);
+            const p0 = W(a, tail, 0.5), p1 = W(a, head, 0.5);
+            line(p0, p1, G(2), 1);
+            spear(p1, Math.atan2(p1.y - p0.y, p1.x - p0.x), 6, 1.5, shotA);
+          }
+        }
+        for (let i = 0; i < 8; i++) {
+          const a = base + (hash(i + 80) * 2 - 1) * half * 0.8;
+          const d = range * reach * (0.4 + 0.6 * hash(i + 90));
+          const p = W(a, d, 0.6);
+          const f = clamp01(progress * 1.5 - hash(i + 99) * 0.4);
+          if (f < 1 && fade > 0.1) drip(p.x, p.y + Math.round(f * 7) * tex);
         }
         return true;
       }
 
-      // SERPENT SHED: slither through as a venom serpent, leaving the shed skin behind
+      // MIASMA TRAP: each wave pulses out over a field of boiling acid puddles
+      case 'sp_venom_rain': {
+        const Rw = fx.radius || 3.5;
+        const wave = fx.wave || 0;
+        const open = out3(seg(0, 0.4));
+        if (wave === 0) M.ellipse(tx, ty, Rw * open, G(3), 2, 0.3);
+        else M.ellipse(tx, ty, Rw, G(2), 1, 0.6);
+        const pulse = seg(0, 0.7);
+        if (pulse < 1) M.ellipse(tx, ty, Rw * (0.2 + 0.8 * out3(pulse)), G(4), 1, 0.15 + 0.6 * pulse);
+        // puddles sit on fixed spots, so every wave swells the same ones
+        for (let i = 0; i < 6; i++) {
+          const a = (i * TAU) / 6 + fixed(i) * 0.8, d = Rw * (i === 0 ? 0 : 0.3 + 0.4 * fixed(i + 3));
+          puddle(toScreen(tx + Math.cos(a) * d, ty + Math.sin(a) * d, 0), (0.3 + 0.25 * fixed(i + 9)) * U * (0.6 + 0.4 * open), fade, i);
+        }
+        for (let i = 0; i < 8; i++) {
+          const s = i + 10;
+          const a = hash(s) * TAU, d = Math.sqrt(hash(s + 1)) * Rw * 0.8;
+          const g = toScreen(tx + Math.cos(a) * d, ty + Math.sin(a) * d, 0);
+          const k = clamp01(progress * 1.4 - hash(s + 2) * 0.4);
+          bubble(g.x, g.y - Math.round(k * 9) * tex, 1 + 2.5 * hash(s + 3) * (0.5 + k), (1 - k) * fade);
+        }
+        for (let i = 0; i < 3; i++) {
+          const s = i + 50;
+          const a = hash(s) * TAU, d = hash(s + 1) * Rw * 0.6;
+          const g = toScreen(tx + Math.cos(a) * d, ty + Math.sin(a) * d, 0.3 + progress * 0.8);
+          gas(g, 5, fade * (1 - progress * 0.5), s, i === 0 && wave % 2 === 0);
+        }
+        return true;
+      }
+
+      // EPIDEMIC DETONATE: a toxic flash, a double shockwave and acid geysers across the whole area
+      case 'sp_viper_nest': {
+        const Rw = fx.radius || 7;
+        const c = toScreen(tx, ty, 0.5);
+        const fl = seg(0, 0.2);
+        if (fl < 1) {
+          const r = 9 * (1 - fl) + 2;
+          fill(c.x, c.y, r, r, (u, v, d) => (d < 0.3 ? G(5) : d < 0.7 ? G(4) : G(3)));
+          splash(c, 12, r * tex, (r + 6 + 30 * out3(fl)) * tex, 1 - fl, 0.3);
+        }
+        const wv = seg(0, 0.6);
+        if (wv < 1) {
+          M.ellipse(tx, ty, Rw * out3(wv), G(5), 2, 0.1 + 0.5 * wv);
+          M.ellipse(tx, ty, Rw * 0.85 * out3(wv), G(3), 1, 0.3 + 0.5 * wv);
+        }
+        for (let i = 0; i < 10; i++) {
+          const a = hash(i) * TAU, d = (0.25 + 0.7 * hash(i + 5)) * Rw;
+          const wx = tx + Math.cos(a) * d, wy = ty + Math.sin(a) * d;
+          const t0 = 0.1 + hash(i + 9) * 0.25;
+          const k = seg(t0, t0 + 0.55);
+          if (k <= 0 || k >= 1) continue;
+          const base = toScreen(wx, wy, 0), top = toScreen(wx, wy, Math.sin(k * Math.PI) * 1.6);
+          puddle(base, (0.25 + 0.3 * k) * U, 1 - k * 0.5, i);
+          // the jet of acid, wobbling as it boils up
+          const n = Math.round((base.y - top.y) / tex);
+          for (let r = 0; r < n; r++) {
+            const x = base.x + Math.round(Math.sin(r * 0.4 + time * 12 + i) * 0.8) * tex, y = base.y - r * tex;
+            const hw = r > n - 3 ? 1 : 2;
+            for (let m = -hw; m <= hw; m++) px(x + m * tex, y, Math.abs(m) === hw ? G(2) : m === 0 ? G(4) : G(3));
+          }
+          if (n > 1) fill(top.x, top.y, 3, 2, (u, v) => (v < 0 ? G(5) : G(4)));
+          for (let j = 0; j < 4; j++) {
+            const da = (j / 4) * TAU + hash(i + j);
+            drip(top.x + Math.cos(da) * 6 * tex * k, top.y + Math.sin(da) * 3 * tex * k + k * k * 9 * tex);
+          }
+        }
+        for (let i = 0; i < 4; i++) {
+          gas({ x: c.x + (hash(i + 30) - 0.5) * 50 * z, y: c.y - (10 + progress * 40 + hash(i + 31) * 20) * z }, 8, fade, i, i === 0 && progress > 0.15);
+        }
+        return true;
+      }
+
+      // SERPENT SHED: slither through as a venom serpent, leaving a coiled shed skin behind
       case 'sp_serpent_slip':
       // VENOM DASH: the same serpent, without the shed skin
       case 'sp_venom_dash': {
@@ -2833,88 +3316,98 @@ class IsometricRenderer {
         const dx = tx - sx, dy = ty - sy, len = Math.hypot(dx, dy) || 1;
         const nx = -dy / len, ny = dx / len;
         const reach = out3(seg(0, 0.35));
-        if (shed) silhouette(toScreen(sx, sy, 0), 42 * z, (1 - seg(0, 0.7)) * 0.7, pal.light);
-        const at = (t) => {
-          const wob = Math.sin(t * len * 2.2 - progress * 10) * 0.35 * (1 - t * 0.3);
-          return toScreen(sx + dx * t + nx * wob, sy + dy * t + ny * wob, 0.2);
-        };
-        const N = 30;
-        for (let s = 0; s < N; s++) {
-          const t0 = (s / N) * reach, t1 = ((s + 1) / N) * reach;
-          const p0 = at(t0), p1 = at(t1);
-          const w = 2 + 7 * (s / N);
-          ctx.beginPath();
-          ctx.moveTo(p0.x, p0.y);
-          ctx.lineTo(p1.x, p1.y);
-          ctx.strokeStyle = c(pal.main, fade * 0.8);
-          ctx.lineWidth = w * z;
-          ctx.stroke();
-          ctx.strokeStyle = c(pal.light, fade * 0.7);
-          ctx.lineWidth = w * 0.35 * z;
-          ctx.stroke();
-          if (s % 3 === 0) bead(p1, w * 0.6 * z, fade * 0.6);
+        if (shed) {
+          // the shed skin: a pale scaled coil, crumbling away
+          const env = 1 - seg(0.1, 0.8);
+          for (let k = 0; k < 40; k++) {
+            const f = k / 40, a = f * TAU * 2 + 0.5, r = 0.12 + 0.45 * f;
+            if (env < 1 && bay(k, k * 3) > env * 1.2) continue;
+            const q = toScreen(sx + Math.cos(a) * r, sy + Math.sin(a) * r, 0.05 + 0.25 * (1 - f));
+            px(q.x, q.y, k % 3 ? G(4) : G(2), f > 0.7 ? 1 : 2);
+          }
         }
-        const head = at(reach);
-        glow(head, 16 * z, fade, pal.accent);
+        const at = (f) => {
+          const wob = Math.sin(f * len * 2.2 - progress * 10) * 0.35 * (1 - f * 0.3);
+          return toScreen(sx + dx * f + nx * wob, sy + dy * f + ny * wob, 0.2);
+        };
+        // acid left along the trail
         for (let i = 1; i <= 3; i++) {
-          const t = i / 4;
-          if (reach < t) continue;
-          pool(toScreen(sx + dx * t, sy + dy * t, 0), 0.35 * U, 0.45 * fade);
-          bubble(toScreen(sx + dx * t, sy + dy * t, 0).x, toScreen(sx + dx * t, sy + dy * t, 0).y - progress * 10 * z, 3 * z, fade * 0.8);
+          const f = i / 4;
+          if (reach < f) continue;
+          puddle(toScreen(sx + dx * f, sy + dy * f, 0), 0.32 * U, fade, i + 20);
+        }
+        // the serpent: banded, scaled body tapering to the tail, the head at the front
+        const tail = Math.max(0, reach - 0.65) + 0.3 * seg(0.35, 1);
+        const N = 40, env = fade;
+        for (let s = 0; s <= N; s++) {
+          const f = tail + (reach - tail) * (s / N);
+          const p = at(f), w = 1 + 2.4 * Math.sin(Math.min(1, (s / N) * 1.2) * Math.PI * 0.5);
+          fill(p.x, p.y, w, w, (u, v, d, i, j) => {
+            if (env < 1 && bay(i + s, j) > env * 1.3) return null;
+            if (v > 0.45) return G(1);
+            if (v < -0.3) return s % 6 < 2 ? G(4) : G(3);
+            return s % 6 < 2 ? G(3) : G(2);
+          });
+        }
+        if (reach > 0.02) {
+          const h = at(reach), b = at(Math.max(0, reach - 0.03));
+          const ang = Math.atan2(h.y - b.y, h.x - b.x), ca = Math.cos(ang), sa = Math.sin(ang);
+          fill(h.x, h.y, 4, 3, (u, v, d, i, j) => (env < 1 && bay(i, j) > env * 1.3 ? null : v > 0.4 ? G(1) : v < -0.2 ? G(4) : G(3)));
+          px(h.x + ca * tex - sa * 2 * tex, h.y + sa * tex + ca * 2 * tex, G(5));
+          px(h.x + ca * tex + sa * 2 * tex, h.y + sa * tex - ca * 2 * tex, G(5));
+          if (frame % 8 < 5 && env > 0.3) {
+            const t0 = { x: h.x + ca * 4 * tex, y: h.y + sa * 4 * tex }, t1 = { x: h.x + ca * 7 * tex, y: h.y + sa * 7 * tex };
+            line(t0, t1, G(5), 1);
+            px(t1.x + (ca - sa) * tex, t1.y + (sa + ca) * tex, G(5));
+            px(t1.x + (ca + sa) * tex, t1.y + (sa - ca) * tex, G(5));
+          }
         }
         const end = seg(0.25, 0.8);
-        if (end > 0) {
-          ring(toScreen(tx, ty, 0), (0.3 + 1.0 * out3(end)) * U, pal.accent, (1 - end) * 0.9, 3);
-          sparks(toScreen(tx, ty, 0.2), 8, 4 * z, 24 * z * out3(end), 1 - end, 7);
+        if (end > 0 && end < 1) {
+          M.ellipse(tx, ty, 0.3 + 1.0 * out3(end), G(4), 2, 0.1 + 0.6 * end);
+          splash(toScreen(tx, ty, 0.2), 8, 4 * tex, (4 + 12 * out3(end)) * tex, 1 - end, 7);
         }
         return true;
       }
 
-      // TOXIC LANCE: an acid javelin that drips as it flies and splashes at the end
+      // TOXIC LANCE: a barbed spear on a thorny vine shaft, dripping as it flies, bursting in an acid crown
       case 'sp_toxic_lance': {
         const dx = tx - sx, dy = ty - sy;
         const head = out3(seg(0, 0.3));
         const hx = sx + dx * head, hy = sy + dy * head;
-        shade(() => {
-          strip(sx, sy, hx, hy, 0.15, (fx.width || 1.4) * 0.35, 0);
-          ctx.fillStyle = `rgba(${pal.deep2}, ${0.4 * fade})`;
-          ctx.fill();
-        });
         const a = toScreen(sx, sy, 0.5), b = toScreen(hx, hy, 0.5);
-        const grad = ctx.createLinearGradient(a.x, a.y, b.x, b.y);
-        grad.addColorStop(0, c(pal.main, 0));
-        grad.addColorStop(1, c(pal.accent, 0.85 * fade));
-        ctx.beginPath();
-        ctx.moveTo(a.x, a.y);
-        ctx.lineTo(b.x, b.y);
-        ctx.strokeStyle = grad;
-        ctx.lineWidth = 6 * z;
-        ctx.stroke();
         const ang = Math.atan2(b.y - a.y, b.x - a.x);
         const flying = 1 - seg(0.3, 0.5);
-        blade(b, ang, 18 * z, 5 * z, flying);
-        glow(b, 14 * z, flying * 0.8);
+        const shaft = fade * (1 - seg(0.45, 0.85));
+        if (shaft > 0.05) {
+          // the shaft wilts from the back
+          const w0 = seg(0.45, 0.85), s0 = { x: a.x + (b.x - a.x) * w0, y: a.y + (b.y - a.y) * w0 };
+          line(toScreen(sx + dx * w0, sy + dy * w0, 0), toScreen(hx, hy, 0), G(0), 1);
+          vine(s0, b, 3);
+        }
+        spear(b, ang, 12, 3, flying);
         for (let i = 0; i < 10; i++) {
-          const t = i / 10;
-          if (t > head) break;
-          const p = toScreen(sx + dx * t, sy + dy * t, 0.5);
-          const f = clamp01((progress - t * 0.3) * 3);
-          bead({ x: p.x, y: p.y + f * 14 * z }, 3 * z, (1 - f) * fade);
+          const f = i / 10;
+          if (f > head) break;
+          const p = toScreen(sx + dx * f, sy + dy * f, 0.5);
+          const k = clamp01((progress - f * 0.3) * 3);
+          if (k < 1 && fade > 0.1) drip(p.x, p.y + Math.round(k * 7) * tex);
         }
         const hit = seg(0.3, 0.8);
         if (hit > 0 && hit < 1) {
           const e = toScreen(tx, ty, 0);
-          pool(e, 0.9 * U, 0.5 * (1 - hit));
-          ring(e, (0.3 + 0.9 * out3(hit)) * U, pal.light, 1 - hit, 2.5);
-          for (let i = 0; i < 6; i++) {
-            const da = (i / 6) * TAU + 0.3, dd = 22 * z * out3(hit);
-            lens({ x: e.x + Math.cos(da) * dd, y: e.y + Math.sin(da) * dd * 0.5 - Math.sin(hit * Math.PI) * 12 * z }, da, 5 * z, 2 * z, pal.light, 1 - hit);
+          puddle(e, 0.9 * U * (0.5 + 0.5 * out3(hit)), 1 - hit * 0.6, 4);
+          M.ellipse(tx, ty, 0.3 + 0.9 * out3(hit), G(4), 1, 0.15 + 0.6 * hit);
+          for (let i = 0; i < 8; i++) {
+            const da = (i / 8) * TAU + 0.3, dd = 24 * z * out3(hit);
+            drip(e.x + Math.cos(da) * dd, e.y + Math.sin(da) * dd * 0.5 - Math.sin(hit * Math.PI) * 14 * z);
           }
+          if (hit < 0.2) px(e.x, e.y - 3 * tex, G(5), 4);
         }
         return true;
       }
 
-      // PLAGUE CHAIN: an arc of venom leaps from body to body, bursting into bubbles at each
+      // PLAGUE CHAIN: a dripping arc of venom leaps from body to body, bursting into bubbles and a skull at each
       case 'sp_plague_chain': {
         const nodes = [{ x: sx, y: sy }, ...(fx.points || [])];
         for (let i = 0; i < nodes.length - 1; i++) {
@@ -2922,55 +3415,70 @@ class IsometricRenderer {
           if (reach <= 0) break;
           const p0 = toScreen(nodes[i].x, nodes[i].y, 0.6), p1 = toScreen(nodes[i + 1].x, nodes[i + 1].y, 0.6);
           const cx = (p0.x + p1.x) / 2, cy = (p0.y + p1.y) / 2 - 24 * z;
-          const at = (t) => ({
-            x: (1 - t) * (1 - t) * p0.x + 2 * (1 - t) * t * cx + t * t * p1.x,
-            y: (1 - t) * (1 - t) * p0.y + 2 * (1 - t) * t * cy + t * t * p1.y
+          const at = (f) => ({
+            x: (1 - f) * (1 - f) * p0.x + 2 * (1 - f) * f * cx + f * f * p1.x,
+            y: (1 - f) * (1 - f) * p0.y + 2 * (1 - f) * f * cy + f * f * p1.y
           });
-          ctx.beginPath();
-          for (let s = 0; s <= 16; s++) {
-            const p = at((s / 16) * reach);
-            if (s === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+          const steps = 16, n = Math.round(steps * reach);
+          if (fade > 0.15) {
+            for (const [w, col] of [[3, G(1)], [2, G(3)], [1, G(4)]]) {
+              let prev = at(0);
+              for (let s = 1; s <= n; s++) { const p = at(s / steps); line(prev, p, col, w); prev = p; }
+            }
+            // globs of venom sliding along the stream
+            for (let k = 0; k < 4; k++) {
+              const f = ((time * 0.9 + k / 4 + i * 0.13) % 1) * reach, q = at(f);
+              px(q.x, q.y, G(1), 4); px(q.x, q.y, G(4), 2); px(q.x - tex, q.y - tex, G(5));
+            }
+            for (let k = 0; k < 3; k++) {
+              const f = (k + 1) / 4;
+              if (f > reach) continue;
+              const q = at(f), fall = (time * 1.2 + k * 0.33 + i * 0.2) % 1;
+              drip(q.x, q.y + Math.round(fall * 10) * tex);
+            }
           }
-          ctx.strokeStyle = c(pal.main, fade * 0.5);
-          ctx.lineWidth = 6 * z;
-          ctx.stroke();
-          ctx.strokeStyle = c(pal.accent, fade * 0.9);
-          ctx.lineWidth = 2.5 * z;
-          ctx.stroke();
-          ctx.strokeStyle = c(pal.core, fade * 0.8);
-          ctx.lineWidth = 1 * z;
-          ctx.stroke();
           if (reach < 1) {
-            glow(at(reach), 10 * z, fade);
+            const h = at(reach);
+            fill(h.x, h.y, 2.5, 2.5, (u, v) => (u + v < -0.3 ? G(5) : G(4)));
             continue;
           }
           const pop = seg(i * 0.08 + 0.15, i * 0.08 + 0.55);
+          if (pop >= 1) continue;
           const g = toScreen(nodes[i + 1].x, nodes[i + 1].y, 0);
-          ring(g, (0.3 + 0.6 * out3(pop)) * U, pal.light, (1 - pop) * 0.9, 2);
-          glow(p1, 14 * z, (1 - pop) * 0.8);
+          puddle(g, 0.35 * U, 1 - pop, i + 30);
+          M.ellipse(nodes[i + 1].x, nodes[i + 1].y, 0.3 + 0.6 * out3(pop), G(4), 1, 0.2 + 0.6 * pop);
+          if (pop < 0.15) px(p1.x, p1.y, G(5), 4);
+          skull({ x: p1.x, y: p1.y - (6 + 10 * out3(pop)) * tex }, (1 - pop) * 1.4);
           for (let j = 0; j < 4; j++) {
-            bubble(p1.x + (rnd(i * 4 + j) - 0.5) * 20 * z, p1.y - pop * (12 + 10 * rnd(i * 4 + j + 9)) * z, (2.5 + 2 * rnd(j + i)) * z, (1 - pop) * fade);
+            bubble(p1.x + (hash(i * 4 + j) - 0.5) * 20 * z, p1.y - pop * (12 + 10 * hash(i * 4 + j + 9)) * z, 1 + 2 * hash(j + i), (1 - pop) * fade);
           }
         }
         return true;
       }
 
-      // MIASMA: a poison cloud swirls around the venom lord
+      // MIASMA: a ring of poison gas swirls round the venom lord, bubbles boiling up through it
       case 'sp_miasma': {
-        const Rw = Math.max(1.8, fx.radius || 3.5), R = Rw * U;
-        const g = toScreen(tx, ty, 0);
+        const Rw = Math.max(1.8, fx.radius || 3.5);
         const open = out3(seg(0, 0.4));
-        pool(g, R * open, 0.4 * fade);
-        ring(g, R * open, pal.accent, fade * 0.8, 2.5);
-        for (let i = 0; i < 9; i++) {
-          const a = (i * TAU) / 9 + progress * 3 + rnd(i) * 0.4;
-          const d = Rw * (0.35 + 0.45 * open) * (0.8 + 0.2 * rnd(i + 3));
-          cloud(toScreen(tx + Math.cos(a) * d, ty + Math.sin(a) * d, 0.3 + 0.25 * Math.sin(time * 3 + i)), (16 + 8 * rnd(i + 5)) * z, 0.5 * fade);
+        M.ellipse(tx, ty, Rw * open, G(3), 2, 0.3);
+        M.ellipse(tx, ty, Rw * open * 0.8, G(2), 1, 0.6);
+        for (let i = 0; i < 4; i++) {
+          const a = (i * TAU) / 4 + 0.6;
+          puddle(toScreen(tx + Math.cos(a) * Rw * 0.55 * open, ty + Math.sin(a) * Rw * 0.55 * open, 0), 0.3 * U, fade * open, i + 40);
         }
+        const clouds = [];
+        for (let i = 0; i < 9; i++) {
+          const a = (i * TAU) / 9 + progress * 3 + hash(i) * 0.4;
+          const d = Rw * (0.35 + 0.45 * open) * (0.8 + 0.2 * hash(i + 3));
+          clouds.push({ x: tx + Math.cos(a) * d, y: ty + Math.sin(a) * d, h: 0.3 + 0.25 * Math.sin(time * 3 + i), r: 6 + 3 * hash(i + 5), i });
+        }
+        clouds.sort((p, q) => p.x + p.y - (q.x + q.y));
+        for (const c of clouds) gas(toScreen(c.x, c.y, c.h), c.r, fade, c.i, c.i === 0);
         for (let i = 0; i < 8; i++) {
-          const t = (progress * 1.6 + rnd(i)) % 1;
-          const a = rnd(i + 20) * TAU, d = rnd(i + 21) * R * 0.5;
-          bubble(g.x + Math.cos(a) * d, g.y + Math.sin(a) * d * 0.5 - t * 34 * z, (2.5 + 2.5 * rnd(i + 22)) * z, (1 - t) * fade);
+          const k = (progress * 1.6 + hash(i)) % 1;
+          const a = hash(i + 20) * TAU, d = hash(i + 21) * Rw * 0.5;
+          const g = toScreen(tx + Math.cos(a) * d, ty + Math.sin(a) * d, 0);
+          bubble(g.x, g.y - Math.round(k * 17) * tex, 1 + 2 * hash(i + 22), (1 - k) * fade);
         }
         return true;
       }
@@ -2982,159 +3490,308 @@ class IsometricRenderer {
   // Golden storm duelist: whirling blades, lightning, afterimages
   drawBladeDancerSkill(ctx, fx, progress, toScreen, z) {
     const k = this.spFxKit(ctx, progress, toScreen, z, SP_FX_PALETTES.sp_blade_dancer);
-    const { pal, TAU, U, seg, out3, fade, rnd, ring, glow, blade, sparks, ribbon, bolt, silhouette } = k;
+    const { pal, time, TAU, U, seg, out3, fade, rnd, ring, glow, blade, sparks, ribbon, bolt, silhouette, star } = k;
+    const { tex, col, cell, dot, tline, loop, draw } = k;
     const { sx, sy, tx, ty } = k.ends(fx);
     const BY_SHAPE = {
       nova: 'sp_storm_waltz', pull: 'sp_knife_storm', rain: 'sp_mirror_dance', dash: 'sp_flash_step',
       cone: 'sp_whirling_edge', strike: 'sp_lightning_lunge', blink: 'sp_spark_blink'
     };
+    // Gold steel, violet-white electricity: the blades use the card ramp, the
+    // crackling arcs use the lightning element ramp so the two read apart
+    const LR = FX_ELEMENT_RAMPS.lightning;
+    const step = Math.floor(time * 24);
+    const lerp = (p, q, t) => ({ x: p.x + (q.x - p.x) * t, y: p.y + (q.y - p.y) * t });
+    // pixel sabre from screen hilt to tip: gold blade, main crossguard, dark grip, light pommel
+    const sword = (hilt, tip, a, w = 4) => {
+      if (a <= 0.01) return;
+      const L = Math.hypot(tip.x - hilt.x, tip.y - hilt.y);
+      if (L < tex) return;
+      const ang = Math.atan2(tip.y - hilt.y, tip.x - hilt.x), ux = Math.cos(ang), uy = Math.sin(ang);
+      blade(lerp(hilt, tip, 0.5), ang, L * 0.5, w * z, a);
+      draw(a, () => {
+        const gq = 3.5 * z;
+        tline(hilt.x - uy * gq, hilt.y + ux * gq, hilt.x + uy * gq, hilt.y - ux * gq, col(2), 1);
+        dot(cell(hilt.x), cell(hilt.y), col(3));
+        const back = { x: hilt.x - ux * 3.5 * z, y: hilt.y - uy * 3.5 * z };
+        tline(hilt.x - ux * tex, hilt.y - uy * tex, back.x, back.y, col(1), 1);
+        dot(cell(back.x), cell(back.y), col(4));
+      });
+    };
+    // violet electric arc between two screen points, re-forked 24 times a second
+    const zap = (a, b, al, salt = 0, jag = 1) => {
+      if (al <= 0.01) return;
+      const dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy) || 1;
+      const nx = -dy / len, ny = dx / len, n = Math.max(3, Math.round(len / (9 * z)));
+      const pts = [a];
+      for (let i = 1; i < n; i++) {
+        const t = i / n, o = (rnd(salt * 17 + i * 5 + step) - 0.5) * 12 * z * jag * Math.sin(t * Math.PI);
+        pts.push({ x: a.x + dx * t + nx * o, y: a.y + dy * t + ny * o });
+      }
+      pts.push(b);
+      draw(al < 0.4 ? al * 2.5 : 1, () => {
+        if (al >= 0.4) for (let i = 1; i < pts.length; i++) tline(pts[i - 1].x, pts[i - 1].y, pts[i].x, pts[i].y, LR[3], 2);
+        for (let i = 1; i < pts.length; i++) tline(pts[i - 1].x, pts[i - 1].y, pts[i].x, pts[i].y, LR[6], 1);
+      });
+    };
+    // ground point at angle / radius around (cx, cy)
+    const gp = (cx, cy, ang, r, h = 0) => toScreen(cx + Math.cos(ang) * r, cy + Math.sin(ang) * r, h);
+    // dashed ground circle whose dashes turn with rot (world radius r)
+    const dashRing = (cx, cy, r, color, a, rot = 0, on = 3) => {
+      if (a <= 0.01 || r <= 0.05) return;
+      const c0 = toScreen(cx, cy, 0), rx = r * U;
+      draw(a, () => loop(c0.x, c0.y, rx, rx * 0.5, color, 1, rot, rot + TAU, (i) => (i >> on) & 1));
+    };
 
     switch (fx.skillId || BY_SHAPE[fx.shape]) {
-      // STORM FLOURISH: three blades whirl around the dancer, lightning snaps outward
+      // STORM FLOURISH: sparks are drawn in to the dancer, then three sabres whirl round her on
+      // smear trails, violet arcs snap out to a turning dance-floor ring and a shock ring rolls out
       case 'sp_storm_waltz': {
         const Rw = fx.radius || 3.2, R = Rw * U;
-        const g = toScreen(tx, ty, 0);
-        const spin = out3(seg(0, 0.6)), spinA = 1 - seg(0.55, 0.9);
-        for (let b = 0; b < 3; b++) {
-          const head = (b * TAU) / 3 + spin * TAU * 1.2;
-          ribbon(tx, ty, Rw * 0.5, Rw * 0.9, head - 1.3, head, 0.3, spinA);
-        }
-        const snap = seg(0.15, 0.6);
-        if (snap > 0 && snap < 1) {
-          for (let i = 0; i < 6; i++) {
-            const a = (i * TAU) / 6 + 0.5;
-            const p0 = toScreen(tx + Math.cos(a) * Rw * 0.3, ty + Math.sin(a) * Rw * 0.3, 0.4);
-            const p1 = toScreen(tx + Math.cos(a) * Rw * (0.6 + 0.4 * out3(snap)), ty + Math.sin(a) * Rw * (0.6 + 0.4 * out3(snap)), 0.4);
-            bolt(p0, p1, 2, 1 - snap, i);
+        const g = toScreen(tx, ty, 0), c0 = toScreen(tx, ty, 0.5);
+        const wind = seg(0, 0.14);
+        if (wind < 1) {
+          for (let i = 0; i < 8; i++) {
+            const p = gp(tx, ty, (i * TAU) / 8 + wind * 2, Rw * 0.7 * (1 - out3(wind)), 0.5);
+            star(p, 1.1 * z, 1 - wind * 0.6);
           }
         }
-        const wv = seg(0.2, 0.85);
-        ring(g, R * (0.5 + 0.6 * out3(wv)), pal.light, wv > 0 ? (1 - wv) * 0.9 : 0, 3);
-        glow(toScreen(tx, ty, 0.5), 20 * z, fade * 0.6);
+        const spin = out3(seg(0.08, 0.62)), spinA = seg(0.06, 0.14) * (1 - seg(0.55, 0.9));
+        dashRing(tx, ty, Rw * 0.94, col(2), fade * 0.8, spin * 3);
+        for (let b = 0; b < 3; b++) {
+          const head = (b * TAU) / 3 + spin * TAU * 1.2;
+          ribbon(tx, ty, Rw * 0.66, Rw * 0.9, head - 1.15, head, 0.3, spinA);
+          sword(gp(tx, ty, head - 0.08, Rw * 0.42, 0.45), gp(tx, ty, head, Rw * 0.9, 0.35), spinA);
+        }
+        const snap = seg(0.18, 0.6);
+        if (snap > 0 && snap < 1) {
+          for (let i = 0; i < 6; i++) {
+            const a = (i * TAU) / 6 + 0.5 + spin;
+            const p1 = gp(tx, ty, a, Rw * (0.45 + 0.5 * out3(snap)), 0.3);
+            zap(gp(tx, ty, a, Rw * 0.2, 0.45), p1, 1 - snap, i);
+            star(p1, 1.4 * z, 1 - snap);
+          }
+        }
+        const wv = seg(0.22, 0.85);
+        ring(g, R * (0.5 + 0.6 * out3(wv)), pal.light, wv > 0 ? (1 - wv) : 0, 3);
+        ring(g, R * (0.42 + 0.5 * out3(wv)), pal.main, wv > 0 ? (1 - wv) * 0.8 : 0, 1.5);
+        glow(c0, 18 * z, fade * 0.8);
+        star(c0, 2.2 * z * (0.7 + 0.3 * Math.sin(time * 14)), fade);
         return true;
       }
 
-      // TEMPEST VORTEX: a ring of knives spirals in on the target point and bursts
+      // TEMPEST VORTEX: a crackling boundary, a dozen knives spiral in point-first trailing
+      // sparks, then they converge and burst into an eight-ray star with a shock ring
       case 'sp_knife_storm': {
         const Rw = fx.radius || 4.5, R = Rw * U;
         const g = toScreen(tx, ty, 0);
-        const inward = out3(seg(0, 0.65)), snap = seg(0.6, 1);
-        ring(g, R, pal.accent, fade * 0.6, 2);
-        for (let i = 0; i < 6; i++) {
-          const a0 = (i * TAU) / 6 + progress * 2, a1 = a0 + TAU / 12;
-          bolt(toScreen(tx + Math.cos(a0) * Rw, ty + Math.sin(a0) * Rw, 0), toScreen(tx + Math.cos(a1) * Rw, ty + Math.sin(a1) * Rw, 0), 1.5, fade * 0.6, i + 10);
+        const inward = out3(seg(0, 0.65)), snapT = seg(0.6, 1);
+        dashRing(tx, ty, Rw, col(3), fade * 0.85, progress * 2.4, 2);
+        ring(g, R * 1.04, pal.main, fade * 0.5, 1);
+        for (let i = 0; i < 4; i++) {
+          if (rnd(i * 3 + Math.floor(step / 2)) > 0.7) continue;
+          const a0 = (i * TAU) / 4 + progress * 3;
+          zap(gp(tx, ty, a0, Rw), gp(tx, ty, a0 + 0.45, Rw), fade * 0.9, i + 10, 0.6);
         }
-        if (snap < 1) {
+        if (snapT < 1) {
           for (let i = 0; i < 12; i++) {
             const a = (i * TAU) / 12 + progress * 7 + (i % 2) * 0.3;
-            const rr = Rw * (0.95 - 0.8 * inward) * (0.8 + 0.2 * rnd(i));
-            const p = toScreen(tx + Math.cos(a) * rr, ty + Math.sin(a) * rr, 0.5);
-            const q = toScreen(tx + Math.cos(a + 0.05) * rr, ty + Math.sin(a + 0.05) * rr, 0.5);
-            blade(p, Math.atan2(q.y - p.y, q.x - p.x) + 0.5, 15 * z, 3.5 * z, (1 - snap) * fade);
+            const rr = Rw * (0.95 - 0.85 * inward) * (0.8 + 0.2 * rnd(i));
+            const p = gp(tx, ty, a, rr, 0.5);
+            const q = gp(tx, ty, a + 0.12, rr * 0.92, 0.5);
+            const dir = Math.atan2(q.y - p.y, q.x - p.x) + 0.35;
+            const L = 15 * z, ux = Math.cos(dir), uy = Math.sin(dir);
+            const al = (1 - snapT) * fade;
+            sword({ x: p.x - ux * L * 0.5, y: p.y - uy * L * 0.5 }, { x: p.x + ux * L * 0.5, y: p.y + uy * L * 0.5 }, al, 3);
+            draw(al, () => {
+              for (let s = 1; s <= 3; s++) dot(cell(p.x - ux * L * (0.5 + s * 0.35)), cell(p.y - uy * L * (0.5 + s * 0.35)), col(4 - s));
+            });
           }
         }
-        if (snap > 0 && snap < 1) {
+        if (snapT > 0 && snapT < 1) {
           const c0 = toScreen(tx, ty, 0.5);
-          glow(c0, 40 * z, 1 - snap);
-          for (let i = 0; i < 8; i++) blade(c0, (i * Math.PI) / 8, 36 * z * out3(snap), 3 * z, 1 - snap);
-          ring(g, R * 0.6 * out3(snap), pal.light, 1 - snap, 3);
+          glow(c0, 40 * z, 1 - snapT);
+          for (let i = 0; i < 8; i++) blade(c0, (i * Math.PI) / 8, 36 * z * out3(snapT) * (i % 2 ? 0.6 : 1), 3 * z, 1 - snapT);
+          star(c0, 5 * z * (1 - snapT), 1 - snapT);
+          ring(g, R * 0.6 * out3(snapT), pal.light, 1 - snapT, 3);
+          for (let i = 0; i < 3; i++) zap(c0, gp(tx, ty, rnd(i + step) * TAU, Rw * 0.5 * out3(snapT), 0.3), 1 - snapT, i + 30);
         }
         return true;
       }
 
-      // THOUSAND CUTS: an afterimage flickers in and cuts at a random angle
+      // THOUSAND CUTS: a dotted tell line flashes, a scanlined afterimage flickers in and
+      // cuts; the slash then splits into two edges that drift apart in a spray of sparks
       case 'sp_mirror_dance': {
         const g = toScreen(tx, ty, 0), p = toScreen(tx, ty, 0.6);
         const wave = fx.wave || 0;
-        if (fx.areaR) ring(toScreen(fx.areaX, fx.areaY, 0), fx.areaR * U, pal.accent, fade * 0.2, 1.5);
-        silhouette(g, 40 * z, (1 - seg(0, 0.5)) * 0.6, pal.accent);
-        const ang = rnd(wave * 7.3 + 1) * Math.PI;
-        const cut = seg(0, 0.25);
-        blade(p, ang, 36 * z * out3(cut), 6 * z, 1 - seg(0.3, 0.9));
+        if (fx.areaR) dashRing(fx.areaX, fx.areaY, fx.areaR, col(2), fade * 0.6, time * 0.6, 3);
+        const ghost = (1 - seg(0, 0.5)) * (Math.floor(time * 30) % 4 === 0 ? 0.3 : 0.85);
+        silhouette(g, 40 * z, ghost, pal.accent);
+        const ang = rnd(wave * 7.3 + 1) * Math.PI, ux = Math.cos(ang), uy = Math.sin(ang);
+        const tell = seg(0, 0.1);
+        if (tell < 1) {
+          draw(1 - tell, () => {
+            for (let s = -6; s <= 6; s++) if (s % 2 === 0) dot(cell(p.x + ux * s * 6 * z), cell(p.y + uy * s * 6 * z), col(3));
+          });
+        }
+        const cut = seg(0.04, 0.24), split = seg(0.24, 0.85);
+        if (split <= 0) blade(p, ang, 38 * z * out3(cut), 5 * z, 1);
+        else {
+          const d = (1 + 6 * out3(split)) * z, L = 38 * z * (1 - 0.3 * split);
+          for (const sgn of [-1, 1]) {
+            const q = { x: p.x - uy * d * sgn, y: p.y + ux * d * sgn };
+            draw(1 - split, () => {
+              tline(q.x - ux * L, q.y - uy * L, q.x + ux * L, q.y + uy * L, col(sgn > 0 ? 4 : 3), 1);
+              dot(cell(q.x + ux * L), cell(q.y + uy * L), col(5));
+            });
+          }
+        }
         const sp = seg(0.1, 0.7);
         ring(g, (0.3 + 0.8 * out3(sp)) * U, pal.light, (1 - sp) * 0.9, 2);
-        sparks(p, 6, 4 * z, 20 * z * out3(sp), 1 - sp, wave);
+        sparks(p, 7, 4 * z, 22 * z * out3(sp), 1 - sp, wave);
+        if (sp > 0 && sp < 0.6) zap(p, { x: p.x + ux * 20 * z + uy * 8 * z, y: p.y + uy * 20 * z - ux * 8 * z }, 1 - sp / 0.6, wave + 3, 0.7);
         return true;
       }
 
-      // BLADE TEMPEST: swords fall from the sky and bite into the ground
+      // BLADE TEMPEST: a sabre drops point-first out of the sky behind speed lines, bites into
+      // the ground at a tilt, cracks it, and violet sparks crawl up the steel
       case 'sp_blade_tempest': {
         const g = toScreen(tx, ty, 0);
-        if (fx.areaR) ring(toScreen(fx.areaX, fx.areaY, 0), fx.areaR * U, pal.accent, fade * 0.2, 1.5);
+        if (fx.areaR) dashRing(fx.areaX, fx.areaY, fx.areaR, col(2), fade * 0.6, time * 0.6, 3);
         const fall = seg(0, 0.3);
         if (fall < 1) {
           const h = 0.4 + 4 * (1 - fall * fall);
-          const p = toScreen(tx, ty, h), top = toScreen(tx, ty, h + 1.5);
-          ctx.beginPath();
-          ctx.moveTo(top.x, top.y);
-          ctx.lineTo(p.x, p.y);
-          ctx.strokeStyle = k.c(pal.accent, 0.5);
-          ctx.lineWidth = 3 * z;
-          ctx.stroke();
-          blade(p, Math.PI / 2, 22 * z, 4 * z, 1);
+          const tip = toScreen(tx, ty, h), hilt = toScreen(tx, ty, h + 1.1);
+          // landing marker tightens as it falls
+          draw(0.5 + 0.5 * fall, () => loop(g.x, g.y, U * (1.1 - 0.7 * fall), U * (0.55 - 0.35 * fall), col(3), 1, 0, TAU, (i) => (i >> 1) & 1));
+          draw(1, () => {
+            for (const o of [-3, 0, 3]) {
+              const len = (o ? 14 : 22) * z;
+              tline(hilt.x + o * z, hilt.y - 4 * z, hilt.x + o * z, hilt.y - 4 * z - len, o ? col(2) : col(3), 1);
+            }
+          });
+          sword(hilt, tip, 1, 4.5);
           return true;
         }
-        const hit = seg(0.3, 1);
-        blade(toScreen(tx, ty, 0.35), Math.PI / 2 - 0.25, 16 * z, 3.5 * z, 1 - hit);
-        glow(toScreen(tx, ty, 0.2), 26 * z, 1 - seg(0.3, 0.55));
+        const hit = seg(0.3, 1), stay = 1 - seg(0.55, 1);
+        const tip = toScreen(tx, ty, 0.05), hilt = { x: tip.x + 7 * z, y: tip.y - 24 * z };
+        sword(hilt, tip, stay, 4);
+        draw(stay, () => {
+          for (let i = 0; i < 5; i++) {
+            const a = (i * TAU) / 5 + rnd(i + 2) * 0.6, r1 = (8 + 10 * rnd(i)) * z * Math.min(1, hit * 4);
+            const m = { x: g.x + Math.cos(a + 0.3) * r1 * 0.55, y: g.y + Math.sin(a + 0.3) * r1 * 0.3 };
+            tline(g.x, g.y, m.x, m.y, col(1), 1);
+            tline(m.x, m.y, g.x + Math.cos(a) * r1, g.y + Math.sin(a) * r1 * 0.5, col(1), 1);
+          }
+        });
+        glow(toScreen(tx, ty, 0.2), 26 * z, 1 - seg(0.3, 0.5));
+        star(toScreen(tx, ty, 0.25), 3.2 * z * (1 - seg(0.3, 0.45)), 1 - seg(0.3, 0.45));
         sparks(toScreen(tx, ty, 0.2), 8, 4 * z, 26 * z * out3(hit), 1 - hit, (fx.wave || 0) * 3);
         ring(g, (fx.radius || 1.1) * U * (0.3 + 0.7 * out3(hit)), pal.light, (1 - hit) * 0.9, 2.5);
+        if (hit < 0.7 && rnd(step + (fx.wave || 0)) < 0.6) zap(lerp(tip, hilt, 0.2), lerp(tip, hilt, 0.85), (1 - hit) * 0.9, (fx.wave || 0) + 5, 0.5);
         return true;
       }
 
-      // FLASH CADENCE: a lightning streak with golden afterimages along the way
+      // FLASH CADENCE: a gold zig-zag bolt wrapped in a violet arc, three scanline
+      // afterimages flicker out along it, dust kicks off the start, a starburst at the end
       case 'sp_flash_step':
-      // SPARK BLINK: the same streak as a blink
+      // SPARK BLINK: the same streak as a blink, landing in a crown of small arcs
       case 'sp_spark_blink': {
         const a = toScreen(sx, sy, 0.5), b = toScreen(tx, ty, 0.5);
-        const zap = 1 - seg(0.3, 0.9);
-        bolt(a, b, 4, zap, 1);
-        bolt(a, b, 2, zap * 0.7, 2, 1.6);
+        const zp = 1 - seg(0.3, 0.9);
+        bolt(a, b, 4, zp, 1);
+        zap(a, b, zp * 0.9, 2, 1.4);
         for (let i = 1; i <= 3; i++) {
           const t = i / 4;
-          silhouette(toScreen(sx + (tx - sx) * t, sy + (ty - sy) * t, 0), 40 * z, 0.55 * (1 - seg(t * 0.4, t * 0.4 + 0.5)), pal.accent);
+          silhouette(toScreen(sx + (tx - sx) * t, sy + (ty - sy) * t, 0), 40 * z, 0.75 * (1 - seg(t * 0.4, t * 0.4 + 0.45)), i === 3 ? pal.light : pal.accent);
         }
         const st = seg(0, 0.5), land = seg(0.1, 0.7);
-        ring(toScreen(sx, sy, 0), (0.3 + 0.6 * out3(st)) * U, pal.accent, (1 - st) * 0.8, 2);
-        const lr = fx.shape === 'blink' ? (fx.radius || 2) : 1.2;
-        ring(toScreen(tx, ty, 0), lr * U * (0.3 + 0.7 * out3(land)), pal.light, land > 0 ? (1 - land) * 0.9 : 0, 3);
+        const s0 = toScreen(sx, sy, 0), d = Math.atan2(b.y - a.y, b.x - a.x);
+        ring(s0, (0.3 + 0.6 * out3(st)) * U, pal.accent, (1 - st) * 0.8, 2);
+        draw(1 - st, () => {
+          for (let i = 0; i < 6; i++) {
+            const ang = d + Math.PI + (i - 2.5) * 0.35, r = (6 + 22 * out3(st) * (0.6 + 0.4 * rnd(i))) * z;
+            dot(cell(s0.x + Math.cos(ang) * r), cell(s0.y + Math.sin(ang) * r * 0.5 - 4 * z * Math.sin(st * Math.PI)), col(i % 2 ? 2 : 1));
+          }
+        });
+        const blink = fx.shape === 'blink' || fx.skillId === 'sp_spark_blink';
+        const lr = blink ? (fx.radius || 2) : 1.2;
+        const gd = toScreen(tx, ty, 0);
+        ring(gd, lr * U * (0.3 + 0.7 * out3(land)), pal.light, land > 0 ? (1 - land) * 0.9 : 0, 3);
+        if (blink && land > 0 && land < 1) {
+          for (let i = 0; i < 6; i++) {
+            const ang = (i * TAU) / 6 + land;
+            zap(gp(tx, ty, ang, lr * (0.25 + 0.65 * out3(land)), 0.1), gp(tx, ty, ang + 0.5, lr * (0.25 + 0.65 * out3(land)), 0.1), 1 - land, i + 40, 0.5);
+          }
+        }
         sparks(b, 10, 6 * z, 30 * z * out3(land), land > 0 ? 1 - land : 0, 5);
         glow(b, 24 * z, 1 - seg(0.1, 0.5));
+        star(b, 3.5 * z * (1 - seg(0.05, 0.35)), 1 - seg(0.05, 0.35));
         return true;
       }
 
-      // WHIRLING EDGE: two blades sweep the arc in opposite directions and cross in the middle
+      // WHIRLING EDGE: two sabres sweep the arc in opposite directions on smear trails and
+      // cross in the middle with an X-flash; the cone's reach is ticked out on the ground
       case 'sp_whirling_edge': {
         const half = ((fx.arc || 160) * Math.PI) / 360;
         const base = Math.atan2(fx.dirY || 0, fx.dirX || 1);
         const range = fx.range || 3.5;
         const sw = out3(seg(0, 0.45)), swA = fade;
+        const c0 = toScreen(tx, ty, 0);
+        draw(fade * 0.8, () => loop(c0.x, c0.y, range * U, range * U * 0.5, col(2), 1, base - half, base + half, (i) => (i >> 2) & 1));
         const h1 = base - half + 2 * half * sw, h2 = base + half - 2 * half * sw;
-        ribbon(tx, ty, range * 0.45, range, Math.max(base - half, h1 - 1.4), h1, 0.3, swA);
-        ribbon(tx, ty, range * 0.4, range * 0.85, Math.min(base + half, h2 + 1.4), h2, 0.3, swA * 0.85);
+        ribbon(tx, ty, range * 0.5, range, Math.max(base - half, h1 - 1.4), h1, 0.3, swA);
+        ribbon(tx, ty, range * 0.45, range * 0.85, Math.min(base + half, h2 + 1.4), h2, 0.3, swA * 0.85);
+        const sA = 1 - seg(0.45, 0.75);
+        sword(gp(tx, ty, h1, range * 0.3, 0.4), gp(tx, ty, h1, range, 0.3), sA);
+        sword(gp(tx, ty, h2, range * 0.28, 0.4), gp(tx, ty, h2, range * 0.85, 0.3), sA * 0.9);
         const cross = seg(0.2, 0.6);
         if (cross > 0 && cross < 1) {
-          const p = toScreen(tx + Math.cos(base) * range * 0.8, ty + Math.sin(base) * range * 0.8, 0.3);
+          const p = gp(tx, ty, base, range * 0.8, 0.3);
           glow(p, 24 * z, 1 - cross);
+          blade(p, 0.7, 16 * z * (1 - cross * 0.5), 3 * z, 1 - cross);
+          blade(p, Math.PI - 0.7, 16 * z * (1 - cross * 0.5), 3 * z, 1 - cross);
           sparks(p, 8, 4 * z, 26 * z * out3(cross), 1 - cross, 2);
+          if (cross < 0.5) zap(p, gp(tx, ty, base + 0.3, range * 1.05, 0.2), 1 - cross * 2, 7, 0.6);
         }
         return true;
       }
 
-      // LIGHTNING LUNGE: a bolt rams through the target, a piercing thrust and a spark burst
+      // LIGHTNING LUNGE: sparks gather at the dancer (wind-up), a bolt rams through the target,
+      // a long rapier thrust pierces out the far side, a starburst and violet crackles linger
       case 'sp_lightning_lunge': {
         const a = toScreen(sx, sy, 0.6), p = toScreen(tx, ty, 0.6), g = toScreen(tx, ty, 0);
-        const zap = 1 - seg(0.35, 0.9);
-        bolt(a, p, 5, zap, 3);
-        bolt(a, p, 2, zap * 0.7, 4, 1.8);
-        const ang = Math.atan2(p.y - a.y, p.x - a.x);
-        const thrust = seg(0.05, 0.3);
-        blade({ x: p.x + Math.cos(ang) * 12 * z * out3(thrust), y: p.y + Math.sin(ang) * 12 * z * out3(thrust) }, ang, 30 * z * out3(thrust), 6 * z, 1 - seg(0.4, 0.85));
+        const gather = seg(0, 0.1);
+        if (gather < 1) {
+          for (let i = 0; i < 6; i++) {
+            const ang = (i * TAU) / 6 + gather * 3, r = (1 - gather) * 22 * z;
+            star({ x: a.x + Math.cos(ang) * r, y: a.y + Math.sin(ang) * r * 0.6 }, 1 * z, 1);
+          }
+        }
+        const zp = 1 - seg(0.35, 0.9);
+        if (gather > 0.4) {
+          bolt(a, p, 5, zp, 3);
+          zap(a, p, zp * 0.9, 4, 1.6);
+        }
+        const ang = Math.atan2(p.y - a.y, p.x - a.x), ux = Math.cos(ang), uy = Math.sin(ang);
+        const thrust = out3(seg(0.05, 0.3)), tA = 1 - seg(0.4, 0.85);
+        if (thrust > 0) {
+          const hilt = { x: p.x - ux * 22 * z, y: p.y - uy * 22 * z };
+          sword(hilt, { x: p.x + ux * (8 + 34 * thrust) * z, y: p.y + uy * (8 + 34 * thrust) * z }, tA, 3);
+        }
         const hit = seg(0.15, 0.75);
         glow(p, 30 * z, 1 - seg(0.15, 0.5));
+        star(p, 4.5 * z * (1 - seg(0.15, 0.4)), 1 - seg(0.15, 0.4));
         sparks(p, 8, 6 * z, 30 * z * out3(hit), hit > 0 ? 1 - hit : 0, 9);
         ring(g, (0.3 + 1.0 * out3(hit)) * U, pal.light, hit > 0 ? (1 - hit) * 0.9 : 0, 2.5);
         ring(toScreen(sx, sy, 0), 0.6 * U, pal.accent, (1 - seg(0, 0.4)) * 0.7, 2);
+        const crackle = seg(0.3, 0.95);
+        if (crackle > 0 && crackle < 1 && rnd(step * 7) < 0.7) {
+          for (let i = 0; i < 2; i++) {
+            const q = gp(tx, ty, rnd(step + i * 9) * TAU, 0.5 + 0.4 * rnd(step + i), 0.3);
+            zap(p, q, 1 - crackle, i + 20, 0.8);
+          }
+        }
         return true;
       }
     }
@@ -3143,10 +3800,146 @@ class IsometricRenderer {
 
   // ---------------------------------------------------------------- Frost Shade (SP tier 4)
   // Glacier ghost: frost mandalas, crystals, icicles, shards
+  // Filled screen ellipse on the texel grid, each texel coloured by
+  // fn(u, v, d, i, j) (null = skip). The texels are written straight into a
+  // pixel buffer and stamped with one drawImage: drawing them one fillRect at
+  // a time (tens of thousands for a big area like Crimson Bloom) dropped frames.
+  // With a key, the painted texels are kept and re-stamped while the key stays
+  // the same (callers put everything fn depends on into the key).
+  texelBlob(ctx, tex, cx, cy, rx, ry, fn, key = null) {
+    if (rx < tex * 0.5 || ry < tex * 0.5) return;
+    const nx = Math.ceil(rx / tex), ny = Math.ceil(ry / tex);
+    const W = nx * 2 + 1, H = ny * 2 + 1;
+    const stamp = (src) => {
+      const smooth = ctx.imageSmoothingEnabled;
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(src, 0, 0, W, H, Math.round(cx / tex) * tex - nx * tex - tex / 2, Math.round(cy / tex) * tex - ny * tex - tex / 2, W * tex, H * tex);
+      ctx.imageSmoothingEnabled = smooth;
+    };
+    const kept = this._blobKept || (this._blobKept = new Map());
+    const fullKey = key && key + '|' + nx + '|' + ny + '|' + tex.toFixed(3);
+    if (fullKey && kept.has(fullKey)) { stamp(kept.get(fullKey)); return; }
+    const S = fullKey ? { c: Object.assign(document.createElement('canvas'), { width: W, height: H }) }
+      : (this._blobScratch || (this._blobScratch = { c: document.createElement('canvas') }));
+    if (S.c.width < W || S.c.height < H) {
+      S.c.width = Math.max(S.c.width, W);
+      S.c.height = Math.max(S.c.height, H);
+      S.g = null;
+    }
+    const g = S.g || (S.g = S.c.getContext('2d'));
+    if (!S.img || S.img.width !== W || S.img.height !== H) S.img = g.createImageData(W, H);
+    const u32 = new Uint32Array(S.img.data.buffer);
+    u32.fill(0);
+    const cols = this._blobColors || (this._blobColors = new Map());
+    for (let j = -ny; j <= ny; j++) {
+      for (let i = -nx; i <= nx; i++) {
+        const u = (i * tex) / rx, v = (j * tex) / ry, d2 = u * u + v * v;
+        if (d2 > 1) continue;
+        const col = fn(u, v, Math.sqrt(d2), i, j);
+        if (!col) continue;
+        let p = cols.get(col);
+        if (p === undefined) { p = packCssColor(col); cols.set(col, p); }
+        u32[(j + ny) * W + i + nx] = p;
+      }
+    }
+    g.putImageData(S.img, 0, 0);
+    if (fullKey) {
+      if (kept.size > 24) kept.delete(kept.keys().next().value);
+      kept.set(fullKey, S.c);
+    }
+    stamp(S.c);
+  }
+
   drawFrostShadeSkill(ctx, fx, progress, toScreen, z) {
-    const k = this.spFxKit(ctx, progress, toScreen, z, SP_FX_PALETTES.sp_frost_shade);
-    const { pal, time, TAU, U, seg, out3, fade, c, rnd, ring, glow, bead, blade, sparks, strip, spike, silhouette, snowflake, frost, shatterBurst } = k;
-    const { sx, sy, tx, ty } = k.ends(fx);
+    const time = this.animations.time, TAU = Math.PI * 2, U = 32 * Math.SQRT2 * z; // U: screen px per world tile
+    const sx = fx.startX !== undefined ? fx.startX : fx.x, sy = fx.startY !== undefined ? fx.startY : fx.y;
+    const tx = fx.x !== undefined ? fx.x : sx, ty = fx.y !== undefined ? fx.y : sy;
+    const seg = (a, b) => Math.max(0, Math.min(1, (progress - a) / (b - a)));
+    const out3 = (t) => 1 - Math.pow(1 - t, 3);
+    const fade = progress < 0.6 ? 1 : Math.max(0, 1 - (progress - 0.6) / 0.4);
+    // ---- pixel toolkit: everything below lands on the texel grid in the ice ramp
+    const M = this.spMotifs(ctx, fx, progress);
+    ctx.globalCompositeOperation = 'source-over';
+    const tex = M.tex, hash = M.hash, line = M.line;
+    const clamp01 = (v) => Math.max(0, Math.min(1, v));
+    const snap = (v) => Math.round(v / tex) * tex;
+    const bay = (i, j) => (FX_BAYER[((j + 64) & 3) * 4 + ((i + 64) & 3)] + 0.5) / 16;
+    const RA = FX_ELEMENT_RAMPS.ice, TOP = RA.length - 1;
+    const C = (n) => RA[Math.max(0, Math.min(TOP, Math.round(n)))];
+    const dot = (x, y, col, s = 1) => { ctx.fillStyle = col; ctx.fillRect(snap(x) - (s * tex) / 2, snap(y) - (s * tex) / 2, s * tex, s * tex); };
+    const backOut = (t) => { const s = 2.2; t = clamp01(t) - 1; return 1 + t * t * ((s + 1) * t + s); };
+    // filled screen ellipse, each texel coloured by fn(u, v, d, i, j) (null = skip)
+    const blob = (cx, cy, rx, ry, fn) => this.texelBlob(ctx, tex, cx, cy, rx, ry, fn);
+    // four-point glint
+    const star = (x, y, s, lit = TOP) => {
+      line({ x: x - s * tex, y }, { x: x + s * tex, y }, C(lit - 2), 1);
+      line({ x, y: y - s * tex }, { x, y: y + s * tex }, C(lit - 2), 1);
+      line({ x: x - (s - 1) * 0.5 * tex, y }, { x: x + (s - 1) * 0.5 * tex, y }, C(lit), 1);
+      line({ x, y: y - (s - 1) * 0.5 * tex }, { x, y: y + (s - 1) * 0.5 * tex }, C(lit), 1);
+      dot(x, y, C(lit), 2);
+    };
+    // faceted ice shard / dagger: tip at p pointing along ang (screen), len and half-width in px
+    const shard = (p, ang, len, w, lit = TOP) => {
+      if (len < tex) return;
+      const dx = Math.cos(ang), dy = Math.sin(ang), nx = -dy, ny = dx;
+      const n = Math.ceil((len / tex) * 1.3);
+      for (let q = 0; q <= n; q++) {
+        const t = q / n, half = w * (t < 0.3 ? t / 0.3 : 1 - (t - 0.3) / 0.7);
+        const m = Math.max(0, Math.ceil((half / tex) * 1.3));
+        for (let s = -m; s <= m; s++) {
+          const o = m ? (s / m) * half : 0;
+          const col = Math.abs(s) === m && m > 0 ? C(lit - 4) : s < 0 ? C(lit - 1) : C(lit - 3);
+          dot(p.x - dx * t * len + nx * o, p.y - dy * t * len + ny * o, col);
+        }
+      }
+      for (let q = 0; q <= n * 0.7; q++) { const t = q / n; dot(p.x - dx * t * len, p.y - dy * t * len, C(lit)); }
+    };
+    // ice prism standing on (bx, by): h and half-width in px; crack 0..1 splits and crumbles it
+    const prism = (bx, by, h, w, lit = TOP, crack = 0, salt = 0) => {
+      const rows = Math.round(h / tex), wT = Math.max(1, Math.round(w / tex));
+      if (rows < 1) return;
+      const cr = Math.floor(rows * (0.35 + 0.3 * hash(salt + 3)));
+      for (let r = 0; r < rows; r++) {
+        const t = r / rows, half = Math.round(wT * (t < 0.62 ? 1 : (1 - t) / 0.38));
+        const lean = (r > cr ? crack * 2.5 : 0) * (hash(salt) > 0.5 ? 1 : -1);
+        for (let i = -half; i <= half; i++) {
+          if (crack > 0 && hash(salt * 7 + r * 13 + i * 3) < crack * crack * 0.9) continue;
+          const col = Math.abs(i) === half && half > 0 ? C(lit - 4) : i < 0 ? C(lit - 1) : i === 0 ? C(lit) : C(lit - 3);
+          dot(bx + (i + lean) * tex, by - r * tex - (r > cr ? crack * 3 * tex : 0), col);
+        }
+        if (crack > 0 && r === cr) for (let i = -half; i <= half; i++) dot(bx + i * tex, by - r * tex, C(lit), 1);
+      }
+      dot(bx, by - rows * tex, C(TOP));
+    };
+    // a six-armed frost glyph scratched flat onto the ground
+    const flake = (cx, cy, r, rot, lit, w = 1) => {
+      if (r < 0.1) return;
+      const c0 = toScreen(cx, cy, 0);
+      for (let i = 0; i < 6; i++) {
+        const a = rot + (i * TAU) / 6, ca = Math.cos(a), sa = Math.sin(a);
+        line(c0, toScreen(cx + ca * r, cy + sa * r, 0), C(lit), w);
+        for (const f of [0.42, 0.7]) {
+          const b = toScreen(cx + ca * r * f, cy + sa * r * f, 0);
+          for (const sd of [-1, 1]) {
+            const a2 = a + sd * 0.75, l = r * 0.3 * (1.15 - f);
+            line(b, toScreen(cx + ca * r * f + Math.cos(a2) * l, cy + sa * r * f + Math.sin(a2) * l, 0), C(lit - 1), 1);
+          }
+        }
+      }
+      dot(c0.x, c0.y, C(lit + 1), 2);
+    };
+    // shards thrown out of screen point p, arcing and falling (t 0..1)
+    const spray = (p, n, dist, t, salt, size = 1) => {
+      if (t <= 0 || t >= 1) return;
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * TAU + hash(salt + i) * 0.7;
+        const d = dist * (0.5 + 0.5 * hash(salt + i * 3)) * out3(t);
+        const x = p.x + Math.cos(a) * d, y = p.y + Math.sin(a) * d * 0.6 - Math.sin(t * Math.PI) * 14 * z * hash(i + salt) + t * t * 16 * z;
+        const lit = TOP - t * 3;
+        if (i % 2) shard({ x, y }, a + t * 4, (5 + 3 * size) * tex * (1 - t * 0.5), 1.5 * tex * size, lit);
+        else dot(x, y, C(lit), 2);
+      }
+    };
     const BY_SHAPE = {
       strike: 'sp_frozen_execution', nova: 'sp_shatter', line: 'sp_ice_spikes', blink: 'sp_cold_step',
       volley: 'sp_frost_daggers', blast: 'sp_cold_snap', buff: 'sp_frozen_veil', dash: 'sp_ice_slide'
@@ -3156,44 +3949,88 @@ class IsometricRenderer {
       // FROZEN EXECUTION: a frost glyph marks the target, a great icicle drops and it all shatters
       case 'sp_frozen_execution': {
         const g = toScreen(tx, ty, 0);
-        const mark = out3(seg(0, 0.35));
-        frost(g, 1.6 * U * mark, fade);
-        snowflake(g, 1.3 * U * mark, time * 0.5, fade * 0.8);
-        const drop = seg(0.1, 0.35);
+        const mark = out3(seg(0, 0.3));
+        // the shade lunges in: a cold streak from where it stood
+        const lunge = 1 - seg(0.02, 0.22);
+        if (lunge > 0 && Math.hypot(tx - sx, ty - sy) > 0.3) {
+          const a = toScreen(sx, sy, 0.5), b = toScreen(tx, ty, 0.5);
+          line(a, b, C(1 + lunge * 2), 3);
+          line({ x: a.x + (b.x - a.x) * (1 - lunge), y: a.y + (b.y - a.y) * (1 - lunge) }, b, C(4 + lunge * 2), 1);
+        }
+        // frost sigil marks the victim, reticle chevrons close in on it
+        M.ellipse(tx, ty, 1.25 * mark, C(1 + 3 * fade), 2, 0.12 + 0.5 * (1 - fade));
+        flake(tx, ty, 1.05 * mark, 0.3 + time * 0.4, 1 + 3 * fade);
+        if (progress < 0.4) {
+          for (let i = 0; i < 4; i++) {
+            const a = (i * TAU) / 4 + Math.PI / 4, d = 2 - 0.55 * mark;
+            const p = toScreen(tx + Math.cos(a) * d, ty + Math.sin(a) * d, 0);
+            const q1 = toScreen(tx + Math.cos(a + 0.3) * (d + 0.4), ty + Math.sin(a + 0.3) * (d + 0.4), 0);
+            const q2 = toScreen(tx + Math.cos(a - 0.3) * (d + 0.4), ty + Math.sin(a - 0.3) * (d + 0.4), 0);
+            line(q1, p, C(5), 2); line(p, q2, C(5), 2);
+          }
+        }
+        const drop = seg(0.08, 0.35);
         if (drop < 1) {
-          const h = 0.3 + 3 * (1 - drop * drop);
-          spike(toScreen(tx, ty, h), -40 * z, 8 * z, 1);
+          // a great icicle falls point-first, speed streaks above it
+          const tip = toScreen(tx, ty, 0.3 + 2.4 * (1 - drop * drop));
+          for (let i = -1; i <= 1; i++) {
+            const x = tip.x + i * 5 * tex, y0 = tip.y - (40 + Math.abs(i) * 6) * z;
+            line({ x, y: y0 }, { x, y: y0 - (8 + 26 * drop) * tex }, C(i ? 3 : 4), 1);
+          }
+          shard(tip, Math.PI / 2, 44 * z, 8 * z, TOP);
         } else {
-          const stay = 1 - seg(0.6, 1);
-          spike(g, 44 * z, 9 * z, stay);
-          spike({ x: g.x - 12 * z, y: g.y + 3 * z }, 24 * z, 6 * z, stay);
-          spike({ x: g.x + 13 * z, y: g.y + 2 * z }, 28 * z, 6 * z, stay);
-          const hit = seg(0.35, 0.85);
-          glow(toScreen(tx, ty, 0.4), 34 * z, 1 - seg(0.35, 0.55));
-          shatterBurst(toScreen(tx, ty, 0.5), 8, (10 + 40 * out3(hit)) * z, 1 - hit, 3);
-          ring(g, (0.4 + 1.3 * out3(hit)) * U, pal.light, (1 - hit) * 0.9, 3);
+          const hit = seg(0.35, 0.85), stay = 1 - seg(0.62, 1), crack = seg(0.6, 1);
+          // impact frame: a white-hot burst of rime
+          if (progress < 0.43) blob(g.x, g.y - 8 * z, 34 * z, 20 * z, (u, v, d, i, j) => (d < 0.45 ? C(6) : d < 0.75 ? C(5) : bay(i, j) < 0.5 ? C(4) : null));
+          M.ellipse(tx, ty, 0.4 + 1.5 * out3(hit), C(5 - hit * 3), 2, 0.1 + hit * 0.6);
+          if (stay > 0) {
+            const grow = backOut(seg(0.35, 0.45));
+            prism(g.x, g.y, 50 * z * grow, 6 * z, TOP, crack, 1);
+            prism(g.x - 13 * z, g.y + 3 * z, 28 * z * grow, 4 * z, TOP - 1, crack, 2);
+            prism(g.x + 14 * z, g.y + 2 * z, 32 * z * grow, 4 * z, TOP - 1, crack, 3);
+            prism(g.x + 5 * z, g.y + 8 * z, 16 * z * grow, 3 * z, TOP - 1, crack, 4);
+          }
+          spray(toScreen(tx, ty, 0.6), 12, 52 * z, hit, 3, 1.2);
+          if (crack > 0) spray(toScreen(tx, ty, 0.9), 8, 30 * z, crack, 17, 0.8);
         }
         return true;
       }
 
       // SHATTER: crystals erupt in a ring, hold, then burst apart
       case 'sp_shatter': {
-        const Rw = fx.radius || 3.4, R = Rw * U;
+        const Rw = fx.radius || 3.4;
         const g = toScreen(tx, ty, 0);
         const grow = out3(seg(0, 0.35)), brk = seg(0.45, 0.9);
-        frost(g, R * grow, fade);
-        snowflake(g, R * 0.6 * grow, -time * 0.4, fade * 0.5);
+        // frost races out: jagged rime cracks from the centre to a crackling rim
+        const lip = 1 + 4 * fade;
         for (let i = 0; i < 12; i++) {
-          const a = (i * TAU) / 12 + rnd(i) * 0.2;
-          const d = Rw * (0.6 + 0.35 * rnd(i + 3));
-          const base = toScreen(tx + Math.cos(a) * d, ty + Math.sin(a) * d, 0);
-          const h = (18 + 16 * rnd(i + 7)) * z * grow;
-          spike(base, h * (1 - brk * 0.6), 6 * z, 1 - brk);
-          if (brk > 0 && brk < 1) shatterBurst({ x: base.x, y: base.y - h * 0.5 }, 3, (6 + 30 * out3(brk)) * z, 1 - brk, i * 5);
+          const a = (i * TAU) / 12 + 0.26;
+          let prev = g;
+          for (let s = 1; s <= 5; s++) {
+            const t = (s / 5) * grow * 0.95;
+            const w = (hash(i * 11 + s) - 0.5) * 0.35;
+            const p = toScreen(tx + Math.cos(a + w) * Rw * t, ty + Math.sin(a + w) * Rw * t, 0);
+            line(prev, p, C(lip - (s > 3 ? 1 : 0)), 1);
+            prev = p;
+          }
         }
-        if (brk > 0) {
-          ring(g, R * (0.6 + 0.5 * out3(brk)), pal.light, (1 - brk) * 0.95, 4);
-          ring(g, R * (0.4 + 0.4 * out3(brk)), pal.accent, (1 - brk) * 0.6, 2);
+        M.ellipse(tx, ty, Rw * grow, C(lip), 2, 0.15);
+        M.ellipse(tx, ty, Rw * grow * 0.55, C(lip - 1), 1, 0.45);
+        flake(tx, ty, Rw * 0.3 * grow, -time * 0.4, lip);
+        // a crown of crystals erupts, holds, then bursts apart
+        for (let i = 0; i < 12; i++) {
+          const a = (i * TAU) / 12 + hash(i) * 0.2;
+          const d = Rw * (0.6 + 0.32 * hash(i + 3));
+          const base = toScreen(tx + Math.cos(a) * d, ty + Math.sin(a) * d, 0);
+          const up = backOut(seg(i * 0.012, 0.18 + i * 0.012));
+          const h = (20 + 16 * hash(i + 7)) * z * up;
+          if (brk < 0.35) prism(base.x, base.y, h, (3 + hash(i + 9) * 2) * z, TOP, brk * 2.4, i * 5);
+          if (brk > 0) spray({ x: base.x, y: base.y - h * 0.5 }, 4, (16 + 18 * hash(i)) * z, brk, i * 5, 0.9);
+        }
+        if (brk > 0 && brk < 1) {
+          if (brk < 0.12) blob(g.x, g.y, Rw * 0.4 * U, Rw * 0.2 * U, (u, v, d, i, j) => (d < 0.4 ? C(6) : bay(i, j) < 0.6 - d * 0.4 ? C(5) : null));
+          M.ellipse(tx, ty, Rw * (0.6 + 0.55 * out3(brk)), C(6 - brk * 3), 3, 0.08 + brk * 0.5);
+          M.ellipse(tx, ty, Rw * (0.4 + 0.45 * out3(brk)), C(4 - brk * 2), 1, 0.3 + brk * 0.5);
         }
         return true;
       }
@@ -3204,71 +4041,131 @@ class IsometricRenderer {
         const nx = -dy / len, ny = dx / len;
         const w = (fx.width || 1.6) * 0.5;
         const front = seg(0, 0.4);
-        strip(sx, sy, sx + dx * front, sy + dy * front, w * 0.6, w, 0);
-        ctx.fillStyle = c(pal.accent, 0.18 * fade);
-        ctx.fill();
         const crumble = seg(0.65, 1);
+        // a frozen seam tears along the ground ahead of the crystals
+        const lip = 1 + 4 * fade;
+        let prev = toScreen(sx, sy, 0);
+        const steps = Math.max(4, Math.round(len * 3));
+        for (let s = 1; s <= Math.round(steps * front); s++) {
+          const t = s / steps, o = (hash(s * 7) - 0.5) * w * 0.5;
+          const p = toScreen(sx + dx * t + nx * o, sy + dy * t + ny * o, 0);
+          line(prev, p, C(lip - 2), 3);
+          line(prev, p, C(lip), 1);
+          if (s % 3 === 0) {
+            const sd = hash(s) > 0.5 ? 1 : -1;
+            line(p, toScreen(sx + dx * t + nx * sd * w, sy + dy * t + ny * sd * w + 0.2, 0), C(lip - 1), 1);
+          }
+          prev = p;
+        }
+        if (front < 1) star(prev.x, prev.y - 3 * tex, 4);
         for (let s = 0; s <= 10; s++) {
           const t = s / 10;
-          const erupt = seg(t * 0.35, t * 0.35 + 0.15);
+          const erupt = seg(t * 0.35, t * 0.35 + 0.12);
           if (erupt <= 0) continue;
-          const off = (rnd(s) - 0.5) * w * 1.2;
+          const off = (hash(s + 40) - 0.5) * w * 1.2;
           const base = toScreen(sx + dx * t + nx * off, sy + dy * t + ny * off, 0);
-          const h = (22 + 18 * rnd(s + 4)) * z * out3(erupt) * (1 - crumble * 0.5);
-          spike(base, h, 7 * z, 1 - crumble);
-          spike({ x: base.x + (rnd(s + 9) > 0.5 ? 9 : -9) * z, y: base.y + 2 * z }, h * 0.5, 4 * z, 1 - crumble);
-          if (erupt < 1) ring(base, 0.5 * U * erupt, pal.light, 1 - erupt, 2);
+          const h = (24 + 18 * hash(s + 4)) * z * backOut(erupt);
+          const side = hash(s + 9) > 0.5 ? 1 : -1;
+          if (crumble < 0.6) {
+            prism(base.x, base.y, h, 5 * z, TOP, crumble * 1.6, s * 3);
+            prism(base.x + side * 10 * z, base.y + 2 * z, h * 0.5, 3 * z, TOP - 1, crumble * 1.6, s * 3 + 1);
+          }
+          // a puff of rime as each one punches up
+          if (erupt < 1) for (let q = 0; q < 5; q++) { const a = q * 1.26 + s; dot(base.x + Math.cos(a) * 12 * z * erupt, base.y + Math.sin(a) * 5 * z * erupt, C(5 - erupt * 2), 2); }
+          if (crumble > 0) spray({ x: base.x, y: base.y - h * 0.4 }, 3, 16 * z, crumble, s * 5, 0.7);
         }
-        if (crumble > 0) shatterBurst(toScreen(tx, ty, 0.5), 8, (8 + 30 * out3(crumble)) * z, 1 - crumble, 11);
+        if (crumble > 0) spray(toScreen(tx, ty, 0.5), 8, 40 * z, crumble, 11, 1.1);
         return true;
       }
 
       // COLD STEP: leave an ice statue that cracks apart, arrive in a burst of frost
       case 'sp_cold_step': {
-        const o = toScreen(sx, sy, 0), d = toScreen(tx, ty, 0);
-        const r = (fx.radius || 2) * U;
-        const crack = seg(0.25, 0.6);
-        silhouette(o, 46 * z, 0.85 * (1 - crack), pal.light);
-        if (crack > 0 && crack < 1) shatterBurst(toScreen(sx, sy, 0.6), 10, (8 + 34 * out3(crack)) * z, 1 - crack, 2);
-        frost(o, r * 0.6, 1 - seg(0.3, 1));
+        const o = toScreen(sx, sy, 0);
+        const rw = fx.radius || 2;
+        const crack = seg(0.25, 0.55);
+        // an ice statue of the shade stays behind, cracks, and bursts
+        if (crack < 0.7) {
+          const lit = TOP - 1 - crack;
+          const fig = (r, half, xo = 0) => {
+            for (let i = -half; i <= half; i++) {
+              if (crack > 0 && hash(r * 17 + i * 5 + 2) < crack * crack * 1.6) continue;
+              const col = Math.abs(i) === half ? C(lit - 4) : i < 0 ? C(lit - 1) : i === 0 ? C(lit) : C(lit - 3);
+              dot(o.x + (i + xo) * tex, o.y - r * tex, col);
+            }
+          };
+          const H = Math.round(26 * z / tex * 0.9);
+          for (let r = 0; r < H; r++) {
+            const t = r / H;
+            if (t < 0.42) { fig(r, 1, -2); fig(r, 1, 2); } // legs
+            else if (t < 0.8) fig(r, Math.round(2 + 2 * (t - 0.42) / 0.38)); // cloak widening to the shoulders
+            else if (t < 0.84) fig(r, 1);
+            else fig(r, Math.round(2.5 * Math.sin(((t - 0.84) / 0.16) * Math.PI) + 0.5)); // hood
+          }
+          if (crack > 0) {
+            // the crack lines race up the statue
+            let p = { x: o.x - tex, y: o.y };
+            for (let s = 0; s < 6 * crack * 2; s++) { const q = { x: o.x + (hash(s + 21) - 0.5) * 6 * tex, y: o.y - (s + 1) * H * tex / 8 }; line(p, q, C(TOP), 1); p = q; }
+          }
+        }
+        if (crack > 0) spray(toScreen(sx, sy, 0.7), 12, 40 * z, crack, 2, 1);
+        M.ellipse(sx, sy, rw * 0.5, C(1 + 3 * (1 - seg(0.3, 1))), 1, 0.3);
+        // glints mark the path through the cold
+        const lead = seg(0, 0.3);
         for (let i = 0; i <= 8; i++) {
           const t = i / 8;
-          if (t > seg(0, 0.3)) break;
-          bead(toScreen(sx + (tx - sx) * t, sy + (ty - sy) * t, 0.5 + rnd(i) * 0.4), 3 * z, fade * 0.7);
+          if (t > lead) break;
+          const p = toScreen(sx + (tx - sx) * t, sy + (ty - sy) * t, 0.5 + hash(i) * 0.5);
+          const life = 1 - seg(t * 0.3 + 0.15, t * 0.3 + 0.6);
+          if (life > 0) star(p.x, p.y, 2 + Math.round(life * 2), TOP - (1 - life) * 3);
         }
+        // arrival: a frost burst with crystals pinned round the landing
         const land = seg(0.1, 0.65);
-        frost(d, r * out3(land), fade);
-        snowflake(d, r * 0.8 * out3(land), time * 0.6, land > 0 ? fade * 0.9 : 0);
-        ring(d, r * (0.3 + 0.7 * out3(land)), pal.light, land > 0 ? (1 - land) * 0.9 : 0, 3);
+        if (land > 0) {
+          const lit = 1 + 4 * fade;
+          M.ellipse(tx, ty, rw * (0.3 + 0.7 * out3(land)), C(6 - land * 3), 2, 0.1 + land * 0.5);
+          flake(tx, ty, rw * 0.55 * out3(land), time * 0.6, lit);
+          for (let i = 0; i < 7; i++) {
+            const a = (i * TAU) / 7 + 0.4, p = toScreen(tx + Math.cos(a) * rw * 0.6, ty + Math.sin(a) * rw * 0.6, 0);
+            prism(p.x, p.y, (12 + 8 * hash(i)) * z * backOut(seg(0.12 + i * 0.01, 0.3)), 3 * z, TOP - 1, seg(0.6, 1), i * 9);
+          }
+          if (land < 0.15) blob(toScreen(tx, ty, 0.5).x, toScreen(tx, ty, 0.5).y, 22 * z, 22 * z, (u, v, d, i, j) => (d < 0.4 ? C(6) : bay(i, j) < 0.7 - d * 0.6 ? C(5) : null));
+        }
         return true;
       }
 
       // FROST DAGGERS: ice daggers fly out to each target and burst into frost
       case 'sp_frost_daggers': {
         const op = toScreen(sx, sy, 0.6);
-        const cast = seg(0, 0.4);
-        snowflake(toScreen(sx, sy, 0), 0.8 * U * out3(cast), 0, (1 - cast) * 0.8);
+        const cast = seg(0, 0.3);
+        // a fan of daggers condenses out of the cold at the shade's hand
+        if (cast < 1) {
+          flake(sx, sy, 0.7 * out3(cast), 0, 4 - cast * 3);
+          star(op.x, op.y, Math.round(3 + 4 * (1 - cast)), TOP);
+        }
         (fx.points || []).forEach((pt, i) => {
           const tp = toScreen(pt.x, pt.y, 0.6);
           const ang = Math.atan2(tp.y - op.y, tp.x - op.x);
           const fly = seg(i * 0.03, 0.35 + i * 0.03);
           if (fly > 0 && fly < 1) {
             const t = out3(fly);
-            const p = { x: op.x + (tp.x - op.x) * t, y: op.y + (tp.y - op.y) * t };
-            const tail = { x: op.x + (tp.x - op.x) * Math.max(0, t - 0.25), y: op.y + (tp.y - op.y) * Math.max(0, t - 0.25) };
-            ctx.beginPath();
-            ctx.moveTo(tail.x, tail.y);
-            ctx.lineTo(p.x, p.y);
-            ctx.strokeStyle = c(pal.accent, 0.5 * fade);
-            ctx.lineWidth = 3 * z;
-            ctx.stroke();
-            blade(p, ang, 12 * z, 3.5 * z, fade);
+            const at = (u) => ({ x: op.x + (tp.x - op.x) * u, y: op.y + (tp.y - op.y) * u });
+            // a stepped cold trail: dark at the back, bright near the blade
+            for (let q = 3; q >= 1; q--) line(at(Math.max(0, t - 0.08 * q)), at(Math.max(0, t - 0.08 * (q - 1))), C(1 + (3 - q)), q === 1 ? 2 : 1);
+            shard(at(t), ang, 19 * z, 4 * z, TOP);
           }
           const hit = seg(0.35 + i * 0.03, 0.8 + i * 0.03);
           if (hit > 0 && hit < 1) {
             const g = toScreen(pt.x, pt.y, 0);
-            snowflake(g, 0.6 * U * out3(hit), i, 1 - hit);
-            shatterBurst(tp, 5, (6 + 22 * out3(hit)) * z, 1 - hit, i * 7);
+            const s = Math.round(4 + 6 * out3(Math.min(1, hit * 3)) * (1 - hit));
+            if (hit < 0.7) star(tp.x, tp.y, s, TOP - hit * 2);
+            M.ellipse(pt.x, pt.y, 0.25 + 0.5 * out3(hit), C(5 - hit * 3), 1, 0.2 + hit * 0.5);
+            const up = backOut(Math.min(1, hit * 4));
+            if (hit < 0.75) {
+              prism(g.x, g.y, 20 * z * up, 4 * z, TOP, hit > 0.4 ? (hit - 0.4) * 2.5 : 0, i * 13);
+              prism(g.x - 8 * z, g.y + 2 * z, 11 * z * up, 2.5 * z, TOP - 1, hit > 0.4 ? (hit - 0.4) * 2.5 : 0, i * 13 + 1);
+              prism(g.x + 7 * z, g.y + 3 * z, 8 * z * up, 2 * z, TOP - 1, hit > 0.4 ? (hit - 0.4) * 2.5 : 0, i * 13 + 2);
+            }
+            spray(tp, 5, 24 * z, hit, i * 7, 0.7);
           }
         });
         return true;
@@ -3276,61 +4173,81 @@ class IsometricRenderer {
 
       // COLD SNAP: a frost glyph spins up at the target, then everything freezes solid at once
       case 'sp_cold_snap': {
-        const Rw = fx.radius || 2.4, R = Rw * U;
+        const Rw = fx.radius || 2.4;
         const g = toScreen(tx, ty, 0);
-        const charge = out3(seg(0, 0.3)), snap = seg(0.3, 1);
-        frost(g, R * charge, fade);
-        snowflake(g, R * 0.9 * charge, (1 - charge) * 2 + time * 0.3, fade);
-        if (snap > 0) {
-          glow(toScreen(tx, ty, 0.4), 40 * z, 1 - seg(0.3, 0.5));
+        const charge = out3(seg(0, 0.3)), snapT = seg(0.3, 1);
+        const lit = 1 + 4 * fade;
+        // the glyph winds up, spinning fast, while motes of cold spiral into its heart
+        M.ellipse(tx, ty, Rw * charge, C(lit), 2, 0.12);
+        flake(tx, ty, Rw * 0.85 * charge, (1 - charge) * 3 + time * 0.3, lit);
+        if (snapT <= 0) {
+          for (let i = 0; i < 10; i++) {
+            const t = (progress / 0.3 + hash(i)) % 1, a = (i * TAU) / 10 + t * 2.5, d = Rw * (1 - t);
+            const p = toScreen(tx + Math.cos(a) * d, ty + Math.sin(a) * d, 0.2 + 0.6 * t);
+            dot(p.x, p.y, C(3 + t * 3), 2);
+          }
+          star(g.x, g.y - 10 * z, Math.round(2 + 6 * charge), TOP);
+        } else {
+          // SNAP: everything freezes at once
+          const up = backOut(Math.min(1, snapT * 4)), crack = seg(0.62, 1);
+          if (snapT < 0.1) blob(g.x, g.y - 6 * z, Rw * 0.55 * U, Rw * 0.3 * U, (u, v, d, i, j) => (d < 0.35 ? C(6) : bay(i, j) < 0.8 - d * 0.7 ? C(5) : null));
           for (let i = 0; i < 8; i++) {
             const a = (i * TAU) / 8 + 0.2;
             const base = toScreen(tx + Math.cos(a) * Rw * 0.7, ty + Math.sin(a) * Rw * 0.7, 0);
-            spike(base, (16 + 10 * rnd(i)) * z * out3(Math.min(1, snap * 3)), 5 * z, 1 - seg(0.6, 1));
+            if (crack < 0.7) prism(base.x, base.y, (18 + 12 * hash(i)) * z * up, (3 + hash(i + 2) * 1.5) * z, TOP, crack * 1.4, i * 7);
           }
-          spike(g, 34 * z * out3(Math.min(1, snap * 3)), 9 * z, 1 - seg(0.6, 1));
-          ring(g, R * (0.3 + 0.8 * out3(snap)), pal.light, (1 - snap) * 0.95, 4);
-          sparks(toScreen(tx, ty, 0.3), 10, 6 * z, 34 * z * out3(snap), 1 - snap, 4);
+          if (crack < 0.7) {
+            prism(g.x, g.y, 40 * z * up, 7 * z, TOP, crack * 1.4, 99);
+            prism(g.x - 10 * z, g.y + 3 * z, 22 * z * up, 4 * z, TOP - 1, crack * 1.4, 98);
+          }
+          M.ellipse(tx, ty, Rw * (0.3 + 0.85 * out3(snapT)), C(6 - snapT * 3), 3, 0.08 + snapT * 0.5);
+          spray(toScreen(tx, ty, 0.4), 10, 46 * z, snapT, 4, 1);
+          if (crack > 0) spray(toScreen(tx, ty, 0.8), 10, 36 * z, crack, 31, 0.8);
         }
         return true;
       }
 
       // FROZEN VEIL: freezing mist wraps the shade inside a shimmering hex ward
       case 'sp_frozen_veil': {
-        const g = toScreen(tx, ty, 0), mid = toScreen(tx, ty, 0.8);
+        const mid = toScreen(tx, ty, 0.8);
         const open = out3(seg(0, 0.35));
-        frost(g, 1.6 * U * open, fade);
-        for (let i = 0; i < 7; i++) {
-          const a = (i * TAU) / 7 + progress * 4;
-          const p = toScreen(tx + Math.cos(a) * 1.1 * open, ty + Math.sin(a) * 1.1 * open, 0.3 + 0.5 * rnd(i));
-          glow(p, 18 * z, 0.35 * fade, pal.light);
-        }
-        const hexR = 30 * z * (0.5 + 0.5 * open);
-        ctx.beginPath();
-        for (let i = 0; i <= 6; i++) {
-          const a = (i * TAU) / 6 + time * 0.5;
-          const x = mid.x + Math.cos(a) * hexR, y = mid.y + Math.sin(a) * hexR * 1.15;
-          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-        }
-        ctx.fillStyle = c(pal.accent, 0.12 * fade);
-        ctx.fill();
-        ctx.strokeStyle = c(pal.light, fade * (0.6 + 0.3 * Math.sin(time * 8)));
-        ctx.lineWidth = 2 * z;
-        ctx.stroke();
+        const lit = 1 + 4 * fade;
+        // rime ring and a small glyph frozen under the shade's feet
+        M.ellipse(tx, ty, 1.4 * open, C(lit), 2, 0.15);
+        flake(tx, ty, 0.7 * open, time * 0.3, lit - 1);
+        // crystals orbit in the freezing mist; the ones behind are dimmer
+        const orbit = (front) => {
+          for (let i = 0; i < 6; i++) {
+            const a = (i * TAU) / 6 + time * 1.6;
+            if ((Math.sin(a) > 0) !== front) continue;
+            const p = toScreen(tx + Math.cos(a) * 1.1 * open, ty + Math.sin(a) * 1.1 * open, 0.35 + 0.5 * hash(i) + Math.sin(time * 3 + i) * 0.15);
+            shard({ x: p.x, y: p.y - 5 * tex }, Math.PI / 2, 10 * tex, 2.5 * tex, front ? lit + 1 : lit - 1);
+          }
+        };
+        orbit(false);
+        // a hexagonal ward, double-lined, with a bright band scanning down it
+        const hexR = 30 * z * (0.5 + 0.5 * open), hy = 1.15;
+        const vx = (i) => ({ x: mid.x + Math.cos(-Math.PI / 2 + (i * TAU) / 6) * hexR, y: mid.y + Math.sin(-Math.PI / 2 + (i * TAU) / 6) * hexR * hy });
+        const vi = (i) => ({ x: mid.x + Math.cos(-Math.PI / 2 + (i * TAU) / 6) * hexR * 0.62, y: mid.y + Math.sin(-Math.PI / 2 + (i * TAU) / 6) * hexR * 0.62 * hy });
+        const flick = Math.floor(time * 12) % 7 === 0 ? 1 : 0;
+        for (let i = 0; i < 6; i++) { line(vx(i), vx(i + 1), C(lit - 1), 2); }
+        for (let i = 0; i < 6; i++) { line(vx(i), vx(i + 1), C(lit + 1 + flick), 1); }
         for (let i = 0; i < 6; i++) {
-          const a = (i * TAU) / 6 + time * 0.5;
-          ctx.beginPath();
-          ctx.moveTo(mid.x, mid.y);
-          ctx.lineTo(mid.x + Math.cos(a) * hexR, mid.y + Math.sin(a) * hexR * 1.15);
-          ctx.strokeStyle = c(pal.core, fade * 0.25);
-          ctx.lineWidth = 1 * z;
-          ctx.stroke();
+          // dotted inner facets
+          const a = vi(i), b = vi(i + 1), n = Math.round(Math.hypot(b.x - a.x, b.y - a.y) / tex);
+          for (let q = 0; q <= n; q += 2) dot(a.x + (b.x - a.x) * q / n, a.y + (b.y - a.y) * q / n, C(lit));
+          line(vi(i), vx(i), C(lit - 1), 1);
         }
-        for (let i = 0; i < 8; i++) {
-          const t = (progress * 1.3 + rnd(i)) % 1;
-          bead({ x: mid.x + (rnd(i + 5) - 0.5) * 60 * z, y: mid.y - 30 * z + t * 50 * z }, 2.5 * z, (1 - t) * fade);
+        const H = hexR * hy, scanY = mid.y - H + ((time * 1.2) % 1) * 2 * H;
+        const dyn = Math.abs(scanY - mid.y), hw = dyn < H * 0.5 ? hexR * 0.866 : hexR * 0.866 * (H - dyn) / (H * 0.5);
+        if (hw > tex) line({ x: mid.x - hw + tex, y: scanY }, { x: mid.x + hw - tex, y: scanY }, C(lit + 1), 1);
+        star(vx(0).x, vx(0).y, 3, lit + 1);
+        orbit(true);
+        // snow drifting down through the ward
+        for (let i = 0; i < 10; i++) {
+          const t = (progress * 1.3 + hash(i)) % 1;
+          dot(mid.x + (hash(i + 5) - 0.5) * 64 * z + Math.sin(t * 6 + i) * 2 * tex, mid.y - 34 * z + t * 52 * z, C(3 + 3 * (1 - t) * fade), i % 3 ? 1 : 2);
         }
-        ring(g, 1.4 * U * open, pal.light, fade * 0.7, 2);
         return true;
       }
 
@@ -3341,44 +4258,42 @@ class IsometricRenderer {
         const w = (fx.width || 1.2) * 0.5;
         const reach = out3(seg(0, 0.3));
         const ex = sx + dx * reach, ey = sy + dy * reach;
-        const sa = toScreen(sx, sy, 0), sb = toScreen(ex, ey, 0);
-        const sheen = ctx.createLinearGradient(sa.x, sa.y, sb.x, sb.y);
-        sheen.addColorStop(0, c(pal.light, 0.05 * fade));
-        sheen.addColorStop(1, c(pal.light, 0.3 * fade));
-        strip(sx, sy, ex, ey, w * 0.3, w, 0);
-        ctx.fillStyle = sheen;
-        ctx.fill();
-        ctx.beginPath();
+        const lit = 2 + 4 * fade;
+        const W = (t, sd) => toScreen(sx + dx * t + nx * w * sd, sy + dy * t + ny * w * sd, 0);
+        // a polished ice lane: bevelled edges, glare streaks sliding along it, cracks branching off;
+        // as it melts the lane breaks up into loose chips instead of darkening
+        const n = Math.max(4, Math.round(len * reach * 4));
+        for (let q = 0; q < n; q++) {
+          if (hash(q * 5 + 1) > fade * 1.4) continue;
+          const t0 = (q / n) * reach, t1 = ((q + 1) / n) * reach;
+          line(W(t0, 1), W(t1, 1), C(Math.max(3, lit - 2)), 2);
+          line(W(t0, -1), W(t1, -1), C(Math.max(3, lit - 1)), 2);
+          if (hash(q * 3) < fade) line(W(t0, 0.8), W(t1, 0.8), C(Math.max(4, lit)), 1);
+        }
+        if (fade < 0.25) return true;
+        for (let i = 0; i < 7; i++) {
+          const t = ((i + 0.3) / 7 + progress * 0.6) % 1;
+          if (t > reach) continue;
+          const o = (hash(i) - 0.5) * 1.2;
+          line(W(t, o + 0.25), W(Math.min(reach, t + 0.05), o - 0.25), C(lit + 1), 1);
+        }
         for (let i = 0; i < 6; i++) {
           const t = (i + 0.5) / 6;
           if (t > reach) break;
-          let px = sx + dx * t, py = sy + dy * t;
-          let p = toScreen(px, py, 0);
-          ctx.moveTo(p.x, p.y);
-          for (let j = 1; j <= 3; j++) {
-            px += dx / len * 0.25 + nx * (rnd(i * 3 + j) - 0.5) * w;
-            py += dy / len * 0.25 + ny * (rnd(i * 3 + j) - 0.5) * w;
-            p = toScreen(px, py, 0);
-            ctx.lineTo(p.x, p.y);
-          }
+          let prev = W(t, 0), cx = 0;
+          for (let j = 1; j <= 3; j++) { cx += (hash(i * 3 + j) - 0.5) * 0.9; const p = W(t + j * 0.025, cx); line(prev, p, C(lit - 1), 1); prev = p; }
         }
-        ctx.strokeStyle = c(pal.core, 0.6 * fade);
-        ctx.lineWidth = 1 * z;
-        ctx.stroke();
-        const a = toScreen(sx, sy, 0.3), b = toScreen(ex, ey, 0.3);
-        ctx.beginPath();
-        ctx.moveTo(a.x, a.y);
-        ctx.lineTo(b.x, b.y);
-        ctx.strokeStyle = c(pal.core, 0.8 * fade);
-        ctx.lineWidth = 1.5 * z;
-        ctx.stroke();
+        // the shade's speed line, bright at the head
+        const a = toScreen(sx + dx * Math.max(0, reach - 0.35), sy + dy * Math.max(0, reach - 0.35), 0.35), b = toScreen(ex, ey, 0.35);
+        if (fade > 0.3) { line(a, b, C(lit - 1), 3); line(a, b, C(TOP), 1); }
         const end = seg(0.2, 0.75);
         if (end > 0 && end < 1) {
-          const e = toScreen(tx, ty, 0);
-          spike({ x: e.x - 8 * z, y: e.y }, 18 * z * out3(Math.min(1, end * 3)), 5 * z, 1 - end);
-          spike({ x: e.x + 8 * z, y: e.y + 2 * z }, 14 * z * out3(Math.min(1, end * 3)), 4 * z, 1 - end);
-          shatterBurst(toScreen(tx, ty, 0.4), 7, (6 + 26 * out3(end)) * z, 1 - end, 21);
-          ring(e, (0.3 + 0.8 * out3(end)) * U, pal.light, (1 - end) * 0.9, 2.5);
+          const e = toScreen(tx, ty, 0), up = backOut(Math.min(1, end * 4)), crk = end > 0.5 ? (end - 0.5) * 2 : 0;
+          prism(e.x - 9 * z, e.y, 20 * z * up, 4 * z, TOP, crk, 21);
+          prism(e.x + 8 * z, e.y + 2 * z, 15 * z * up, 3 * z, TOP - 1, crk, 22);
+          prism(e.x, e.y + 5 * z, 9 * z * up, 2 * z, TOP - 1, crk, 23);
+          spray(toScreen(tx, ty, 0.4), 8, 34 * z, end, 21, 0.9);
+          M.ellipse(tx, ty, 0.3 + 0.8 * out3(end), C(6 - end * 3), 2, 0.1 + end * 0.5);
         }
         return true;
       }
@@ -3386,28 +4301,382 @@ class IsometricRenderer {
     return false;
   }
 
+  // ---------------------------------------------------------------- Tempest Caller (SP tier 3, mage)
+  // Lightning is instant, thunder is not: Conductor pins stand on marked enemies, arcs
+  // fork between them, and a shrinking "thunder is coming" ring counts down to the clap.
+  drawTempestSkill(ctx, fx, progress, toScreen, z) {
+    if (fx.cardId !== 'sp_tempest') return false;
+    const TAU = Math.PI * 2;
+    const clamp01 = (v) => Math.max(0, Math.min(1, v));
+    const seg = (a, b) => clamp01((progress - a) / (b - a));
+    const out3 = (t) => 1 - Math.pow(1 - t, 3);
+    const fade = progress < 0.6 ? 1 : clamp01(1 - (progress - 0.6) / 0.4);
+    const time = this.animations.time;
+    const M = this.spMotifs(ctx, fx, progress);
+    const { R, top, tex, hash, frame } = M;
+    ctx.globalCompositeOperation = 'source-over';
+    const sh = fx.shape;
+    const sx = fx.startX !== undefined ? fx.startX : fx.x, sy = fx.startY !== undefined ? fx.startY : fx.y;
+    const tx = fx.x !== undefined ? fx.x : sx, ty = fx.y !== undefined ? fx.y : sy;
+    const lerp = (a, b, k) => ({ x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k });
+    const skyAt = (x, y, h = 200) => { const p = toScreen(x, y, 0); return { x: p.x, y: p.y - h * z }; };
+    // Conductor mark: a ring of little rods standing on the enemy, tips crackling
+    const mark = (x, y, env = 1, n = 3) => {
+      if (env <= 0.03) return;
+      M.ellipse(x, y, 0.62, R(top - 2), 1, 0.2);
+      for (let k = 0; k < n; k++) {
+        const a = time * 3.2 + (k * TAU) / n;
+        const p = toScreen(x + Math.cos(a) * 0.62, y + Math.sin(a) * 0.62, 0);
+        const h = Math.max(2, Math.round((4 + 2 * Math.sin(time * 9 + k)) * env));
+        M.line(p, { x: p.x, y: p.y - h * tex }, R(top - 1), 1);
+        M.px(p.x, p.y - (h + 1) * tex, hash(k + frame) > 0.4 ? R(top) : R(top - 2));
+      }
+    };
+    // impact star: a plus of hot texels
+    const star = (p, n) => {
+      for (let j = n; j >= 0; j--) {
+        const col = R(top - (j / Math.max(1, n)) * 3);
+        for (const [ax, ay] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) M.px(p.x + ax * j * tex, p.y + ay * j * tex * 0.75, col);
+      }
+      M.px(p.x, p.y, R(top), 2);
+    };
+
+    if (sh === 'chain') {
+      // the fork: lightning leaps from the struck Conductor into the marked enemies around it
+      const a = toScreen(tx, ty, 0.6);
+      (fx.points || []).forEach((p, i) => {
+        const b = toScreen(p.x, p.y, 0.6);
+        const k = out3(seg(0.0, 0.25));
+        M.bolt(a, lerp(a, b, k), 1.3, 7 + i * 19);
+        if (k > 0.9) { star(b, 3 * fade); mark(p.x, p.y, 1 - progress); }
+      });
+      return true;
+    }
+
+    if (sh === 'strike') {
+      // Arc Bolt: a bolt from the staff, answered by a second bolt from the sky; the target is left Conducting
+      const a = toScreen(sx, sy, 0.9), b = toScreen(tx, ty, 0.5);
+      if (progress < 0.45) {
+        const e = lerp(a, b, out3(seg(0, 0.18)));
+        M.bolt(a, e, 1.1, 3);
+        if (progress < 0.3) M.bolt(a, e, 0.5, 17);
+      }
+      if (progress > 0.1 && progress < 0.45) M.bolt(skyAt(tx, ty, 170), b, 0.9, 41);
+      if (progress > 0.15) star(b, Math.round(4 * (1 - seg(0.15, 0.6))));
+      M.ellipse(tx, ty, 0.4 + 1.0 * out3(seg(0.12, 0.55)), R(top - 1), 1, 0.3);
+      mark(tx, ty, seg(0.15, 0.4) * fade);
+      return true;
+    }
+
+    if (sh === 'volley') {
+      // Static Field: every target is pinned with a Conductor, then a current runs through them all
+      const pts = fx.points || [];
+      const a = toScreen(sx, sy, 0.9);
+      pts.forEach((p, i) => {
+        const d = i * 0.035;
+        const b = toScreen(p.x, p.y, 0.4);
+        if (progress > d && progress < 0.5) M.bolt(a, lerp(a, b, out3(seg(d, d + 0.16))), 0.9, i * 13);
+        mark(p.x, p.y, seg(d + 0.1, d + 0.3) * fade);
+        if (progress > d + 0.12) star(b, Math.round(3 * (1 - seg(d + 0.12, d + 0.5))));
+        if (i > 0 && progress > 0.25 && progress < 0.8 && hash(frame * 3 + i) > 0.35) {
+          M.bolt(toScreen(pts[i - 1].x, pts[i - 1].y, 0.3), toScreen(p.x, p.y, 0.3), 0.6, i * 7);
+        }
+      });
+      return true;
+    }
+
+    if (sh === 'line') {
+      // Storm Lance: a lance of light is thrown, sticks in the ground, and a ring starts closing on the spot
+      const a = toScreen(sx, sy, 0.9), b = toScreen(tx, ty, 0.9);
+      const head = lerp(a, b, out3(seg(0, 0.22)));
+      if (progress < 0.8) {
+        M.line(a, head, R(top - 2), 3);
+        M.line(a, head, R(top - 1), 2);
+        M.line(a, head, R(top), 1);
+        M.bolt(a, head, 0.5, 5);
+        // the head: a bright diamond
+        M.px(head.x, head.y, R(top), 3);
+        for (const [ax, ay] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) M.px(head.x + ax * 2 * tex, head.y + ay * 2 * tex, R(top - 1), 1);
+      }
+      // scorched trail along the ground under it
+      const gA = toScreen(sx, sy, 0), gB = toScreen(tx, ty, 0);
+      const n = 26;
+      for (let i = 0; i <= n; i++) {
+        if (hash(i * 7) > 0.6 * fade) continue;
+        if (i / n > out3(seg(0, 0.22))) break;
+        const p = lerp(gA, gB, i / n);
+        M.px(p.x + (hash(i) - 0.5) * 6 * tex, p.y + (hash(i + 9) - 0.5) * 3 * tex, R(i % 3 === 0 ? top - 1 : 2));
+      }
+      // thunder is coming: a ring shrinking onto the end of the lance
+      const rr = 2.4 * (1 - seg(0.15, 1) * 0.85);
+      M.ellipse(tx, ty, rr, R(top - 1), 1, 0.15);
+      M.ellipse(tx, ty, rr * 0.55, R(top - 3), 1, 0.4);
+      return true;
+    }
+
+    if (sh === 'blink' || sh === 'dash') {
+      // Static Blink / Storm Surge: the hero is a bolt; an afterimage of light stands where they were
+      const a = toScreen(sx, sy, 0.6), b = toScreen(tx, ty, 0.6);
+      const g0 = toScreen(sx, sy, 0), g1 = toScreen(tx, ty, 0);
+      if (progress < 0.5) {
+        M.bolt(a, b, 1.4, 5);
+        if (progress < 0.3) M.bolt(a, b, 0.7, 29);
+      }
+      M.pillar(g0.x, g0.y, 70 * z * (1 - seg(0, 0.7)), 2, 1 - seg(0, 0.7));
+      M.ellipse(sx, sy, 0.4 + 1.2 * out3(seg(0, 0.5)), R(top - 1), 1, 0.3);
+      if (progress > 0.12) {
+        const k = seg(0.12, 0.65);
+        M.pillar(g1.x, g1.y, 56 * z * (1 - k), 1, 1 - k);
+        M.ellipse(tx, ty, 0.3 + 1.4 * out3(k), R(top), 1, 0.25);
+      }
+      return true;
+    }
+
+    if (sh === 'pulse') {
+      // Ball Lightning: a hovering orb with arcs orbiting it, spitting at the ground
+      const bob = 0.75 + 0.1 * Math.sin(time * 6);
+      const c = toScreen(tx, ty, bob);
+      const rad = Math.round(3 + 1.2 * Math.sin(time * 14));
+      for (let j = -rad; j <= rad; j++) {
+        for (let i = -rad; i <= rad; i++) {
+          const d = Math.hypot(i, j) / (rad + 0.5);
+          if (d > 1) continue;
+          M.px(c.x + i * tex, c.y + j * tex, R(top - d * 3.2));
+        }
+      }
+      const rr = fx.radius || 2.4;
+      for (let k = 0; k < 3; k++) {
+        const ang = time * 4 + (k * TAU) / 3;
+        const e = toScreen(tx + Math.cos(ang) * rr * 0.6, ty + Math.sin(ang) * rr * 0.6, 0.2);
+        if (hash(frame + k * 5) > 0.3) M.bolt(c, e, 0.9, k * 31);
+      }
+      M.ellipse(tx, ty, rr * 0.6 * fade, R(top - 2), 1, 0.35);
+      return true;
+    }
+
+    if (sh === 'rain') {
+      // Spark Rain: a storm cell hangs over the area and drops bolts, each leaving a Conductor
+      if (fx.areaR) {
+        M.ellipse(fx.areaX, fx.areaY, fx.areaR, R(top - 3), 1, 0.65);
+        const cloud = skyAt(fx.areaX, fx.areaY, 190);
+        for (let k = 0; k < 14; k++) {
+          const a = (k / 14) * TAU + k;
+          M.px(cloud.x + Math.cos(a) * (6 + hash(k) * 10) * tex, cloud.y + Math.sin(a) * (2 + hash(k + 3) * 3) * tex, R(k % 3 ? 1 : 3));
+        }
+      }
+      const g = toScreen(tx, ty, 0);
+      if (progress < 0.4) M.bolt(skyAt(tx, ty, 220 + 30 * hash(fx.wave || 0)), g, 1.1, (fx.wave || 0) * 11);
+      star(g, Math.round(4 * (1 - seg(0.1, 0.55))));
+      M.ellipse(tx, ty, (fx.radius || 1) * (0.4 + out3(seg(0.1, 0.6))), R(top - 1), 1, 0.3);
+      mark(tx, ty, seg(0.2, 0.45) * fade);
+      return true;
+    }
+
+    if (sh === 'nova') {
+      const g = toScreen(tx, ty, 0);
+      const Rmax = fx.radius || 3;
+      if (fx.burst) {
+        // Thunderclap: the sky answers late. A bolt drops, a flash pillar, then a double shock ring
+        if (progress < 0.28) M.bolt(skyAt(tx, ty, 280), lerp(skyAt(tx, ty, 280), g, out3(seg(0, 0.14))), 1.3, 9);
+        if (progress > 0.1) {
+          const k = seg(0.1, 0.75), r = Rmax * out3(k);
+          M.pool(tx, ty, r * 0.9, R(top - 2), R(1), 0.45 * (1 - k));
+          M.ellipse(tx, ty, r, R(top), 2, 0.1);
+          M.ellipse(tx, ty, r * 0.72, R(top - 2), 1, 0.3);
+          M.pillar(g.x, g.y, 130 * z * (1 - k), 3, 1 - k);
+          if (k < 0.5) for (let i = 0; i < 8; i++) {
+            const a = (i / 8) * TAU + hash(i);
+            M.bolt(g, toScreen(tx + Math.cos(a) * r, ty + Math.sin(a) * r, 0.1), 0.8, i * 17);
+          }
+        }
+        return true;
+      }
+      // Thunder Nova: expanding floor rings with conductor rods standing along the rim
+      const k = seg(0, 0.55), r = Rmax * out3(k);
+      M.pool(tx, ty, r * 0.9, R(1), R(0), 0.28 * fade);
+      M.ellipse(tx, ty, r, R(top), 1, 0.15);
+      M.ellipse(tx, ty, r * 0.7, R(top - 2), 1, 0.3);
+      M.ellipse(tx, ty, r * 0.4, R(top - 3), 1, 0.45);
+      const arcs = 8;
+      for (let i = 0; i < arcs; i++) {
+        if (hash(i * 5 + Math.floor(frame / 2)) > 0.8 * fade + 0.15) continue;
+        const a = (i / arcs) * TAU + time * 0.6;
+        M.bolt(toScreen(tx, ty, 0.15), toScreen(tx + Math.cos(a) * r * 0.95, ty + Math.sin(a) * r * 0.95, 0.15), 1, i * 23);
+      }
+      const rods = 10;
+      for (let i = 0; i < rods; i++) {
+        const a = (i / rods) * TAU + k;
+        const p = toScreen(tx + Math.cos(a) * r, ty + Math.sin(a) * r, 0);
+        const h = Math.round(7 * fade * Math.min(1, k * 3));
+        if (h < 1) continue;
+        M.line(p, { x: p.x, y: p.y - h * tex }, R(top - 1), 1);
+        M.px(p.x, p.y - (h + 1) * tex, hash(i + frame) > 0.35 ? R(top) : R(top - 2));
+      }
+      if (progress < 0.3) M.pillar(g.x, g.y, 90 * z * (1 - seg(0, 0.3)), 2, 1 - seg(0, 0.3));
+      return true;
+    }
+    return false;
+  }
+
   // ---------------------------------------------------------------- Pyromancer (SP tier 1, mage)
   // Raw flame: walls of fire, fireballs, meteors, a phoenix
   drawPyromancerSkill(ctx, fx, progress, toScreen, z) {
-    const k = this.spFxKit(ctx, progress, toScreen, z, SP_FX_PALETTES.sp_pyromancer);
-    const { pal, time, TAU, U, clamp01, seg, out3, fade, c, rnd, shade, ring, pool, puff, glow, bead, lens, sparks, groundBand, strip, flame } = k;
-    const { sx, sy, tx, ty } = k.ends(fx);
-    // fireball at p heading along ang, with a tapering tail of embers
-    const fireball = (p, rPx, ang, a, tail = 5) => {
-      for (let i = tail; i >= 1; i--) {
-        const d = i * rPx * 0.9;
-        bead({ x: p.x - Math.cos(ang) * d, y: p.y - Math.sin(ang) * d }, rPx * (1 - i / (tail + 1)) * 0.9, a * (1 - i / (tail + 1)) * 0.8);
+    const time = this.animations.time, TAU = Math.PI * 2, U = 32 * Math.SQRT2 * z;
+    const clamp01 = (v) => Math.max(0, Math.min(1, v));
+    const seg = (a, b) => clamp01((progress - a) / (b - a)); // 0..1 across [a, b] of the effect's life
+    const out3 = (t) => 1 - Math.pow(1 - t, 3);
+    const fade = progress < 0.6 ? 1 : clamp01(1 - (progress - 0.6) / 0.4);
+    const rnd = (n) => { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
+    const sx = fx.startX !== undefined ? fx.startX : fx.x, sy = fx.startY !== undefined ? fx.startY : fx.y;
+    const tx = fx.x !== undefined ? fx.x : sx, ty = fx.y !== undefined ? fx.y : sy;
+    // ---- pixel-art kit: everything below lands on the texel grid in fire-ramp colours
+    const M = this.spMotifs(ctx, fx, progress);
+    const { R, top, tex, hash, frame } = M;
+    const P = M.px;
+    ctx.globalCompositeOperation = 'source-over';
+    const snap = (v) => Math.round(v / tex) * tex;
+    const T = (p) => Math.max(1, Math.round((p * z) / tex)); // zoom-1 screen px -> texels
+    const BAY = (i, j) => FX_BAYER[((j + 64) & 3) * 4 + ((i + 64) & 3)] / 16;
+    // heat-ramp ball: white-hot core sat toward the upper left, red rim; cool slides it down the ramp
+    const ball = (p, r, cool = 0) => {
+      if (r < 0.5) return;
+      const n = Math.max(1, Math.round(r)), cx = snap(p.x), cy = snap(p.y);
+      for (let j = -n; j <= n; j++) {
+        for (let i = -n; i <= n; i++) {
+          const d = Math.hypot(i, j) / (n + 0.5);
+          if (d > 1) continue;
+          const h = Math.hypot(i / (n + 0.5) + 0.25, j / (n + 0.5) + 0.25);
+          ctx.fillStyle = R(top + 0.4 - cool - h * (top - 0.5));
+          ctx.fillRect(cx + i * tex - tex / 2, cy + j * tex - tex / 2, tex, tex);
+        }
       }
-      glow(p, rPx * 2.4, a * 0.7, pal.main);
-      bead(p, rPx, a);
     };
-    // a burst of flame tongues ringing p (world radius rw)
-    const flameRing = (wx, wy, rw, n, h, a, seed = 0) => {
-      for (let i = 0; i < n; i++) {
-        const ang = (i * TAU) / n + rnd(seed + i) * 0.4;
-        const p = toScreen(wx + Math.cos(ang) * rw, wy + Math.sin(ang) * rw, 0);
-        flame(p, h * (0.7 + 0.5 * rnd(seed + i + 20)), h * 0.32, a, seed + i);
+    // flat disc in two colours, optionally dithered (smoke, char, rock)
+    const blob = (p, r, colA, colB, dens = 1) => {
+      if (r < 0.5) return;
+      const n = Math.max(1, Math.round(r)), cx = snap(p.x), cy = snap(p.y);
+      for (let j = -n; j <= n; j++) {
+        for (let i = -n; i <= n; i++) {
+          const d = Math.hypot(i, j) / (n + 0.5);
+          if (d > 1 || (dens < 1 && BAY(i, j) >= dens)) continue;
+          ctx.fillStyle = d < 0.55 ? colA : colB;
+          ctx.fillRect(cx + i * tex - tex / 2, cy + j * tex - tex / 2, tex, tex);
+        }
       }
+    };
+    // fireball flying along ang: hot ball with a flickering, cooling tail of shrinking blobs and loose embers
+    const comet = (p, ang, r, tail, cool = 0) => {
+      const dx = Math.cos(ang), dy = Math.sin(ang), st = r > 3 ? 2 : 1;
+      for (let j = Math.round(tail); j >= 1; j -= st) {
+        const t = j / tail;
+        const w = Math.sin(time * 28 + j * 0.9) * t * (r * 0.5 + 1);
+        const q = { x: p.x - (dx * j - dy * w) * tex, y: p.y - (dy * j + dx * w) * tex };
+        const rr = r * (1 - t) * 0.95;
+        if (rr >= 0.8) ball(q, rr, cool + 0.5 + t * 3);
+        else if (hash(j * 7 + frame) > t * 0.7) P(q.x, q.y, R(top - 1 - t * 4 - cool));
+      }
+      ball(p, r, cool);
+    };
+    // embers thrown from screen point p: e (0..1) is their flight, they arc up, fall and cool
+    const embers = (p, n, dist, e, seed = 0) => {
+      if (e <= 0 || e >= 1) return;
+      for (let i = 0; i < n; i++) {
+        const a = rnd(seed + i) * TAU, d = dist * (0.4 + 0.6 * rnd(seed + i + 50)) * out3(e);
+        const q = { x: p.x + Math.cos(a) * d, y: p.y + Math.sin(a) * d * 0.55 - Math.sin(e * Math.PI) * dist * 0.35 + e * e * dist * 0.2 };
+        P(q.x, q.y, R(top - e * 4 - (i % 3 === 0 ? 1 : 0)), i % 4 === 0 ? 2 : 1);
+      }
+    };
+    // impact star: a plus of hot texels with long arms cooling down the ramp, short diagonals
+    const star = (p, n, cool = 0) => {
+      if (n < 1) return;
+      for (let j = n; j >= 0; j--) {
+        const col = R(top - cool - (j / n) * 3.5);
+        for (const [ax, ay] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) P(p.x + ax * j * tex, p.y + ay * j * tex * 0.75, col);
+        if (j <= n * 0.4) for (const [ax, ay] of [[1, 1], [-1, 1], [1, -1], [-1, -1]]) P(p.x + ax * j * tex, p.y + ay * j * tex, col);
+      }
+      P(p.x, p.y, R(top - cool), 2);
+    };
+    // world-space ground arc (a0..a1 are world angles)
+    const warc = (cx, cy, r, a0, a1, col, w = 1, gap = 0) => {
+      if (r <= 0.05) return;
+      const n = Math.max(6, Math.round((r * U * Math.abs(a1 - a0)) / tex));
+      for (let j = 0; j <= n; j++) {
+        if (gap && hash(j * 7 + Math.floor(frame / 2)) < gap) continue;
+        const a = a0 + (a1 - a0) * (j / n), p = toScreen(cx + Math.cos(a) * r, cy + Math.sin(a) * r, 0);
+        P(p.x, p.y, col, w);
+      }
+    };
+    const charCol = (hv, dens, lit) => (lit ? R(4) : hv < dens * 0.3 ? R(2) : R(1));
+    // smouldering ground in a world sector: sparse dull-red cinders with a few live embers winking in it
+    const scorch = (cx, cy, r0, r1, a0, a1, dens, live = 0.06) => {
+      dens *= 0.45;
+      if (dens <= 0.01 || r1 <= r0) return;
+      const s = (tex * 2.5) / U;
+      for (let di = 0, d = Math.max(r0, s); d <= r1; d += s, di++) {
+        const na = Math.max(1, Math.round((d * Math.abs(a1 - a0)) / s));
+        for (let ai = 0; ai < na; ai++) {
+          const hv = hash(di * 131 + ai * 17);
+          if (hv > dens) continue;
+          const a = a0 + (a1 - a0) * ((ai + 0.5) / na) + (hash(di * 7 + ai) - 0.5) * (s / d);
+          const p = toScreen(cx + Math.cos(a) * d, cy + Math.sin(a) * d, 0);
+          P(p.x, p.y, charCol(hv, dens, hash(di * 31 + ai * 3 + Math.floor(frame / 4)) < live));
+        }
+      }
+    };
+    // the same char along a world strip of half-width w
+    const scorchStrip = (x0, y0, x1, y1, w, dens, live = 0.06) => {
+      const len = Math.hypot(x1 - x0, y1 - y0);
+      if (len < 0.05 || dens <= 0.01) return;
+      const ux = (x1 - x0) / len, uy = (y1 - y0) / len, s = (tex * 2.5) / U;
+      for (let ai = 0, a = 0; a <= len; a += s, ai++) {
+        for (let bi = 0, b = -w; b <= w; b += s, bi++) {
+          const hv = hash(ai * 131 + bi * 17), dd = dens * 0.45 * (1 - (Math.abs(b) / w) * 0.6);
+          if (hv > dd) continue;
+          const p = toScreen(x0 + ux * a - uy * b, y0 + uy * a + ux * b, 0);
+          P(p.x, p.y, charCol(hv, dd, hash(ai * 31 + bi * 3 + Math.floor(frame / 4)) < live));
+        }
+      }
+    };
+    // a crown of flame tongues on a world circle (h, w in texels), drawn back to front
+    const crown = (cx, cy, r, n, h, w, seed = 0, a0 = 0) => {
+      if (h < 1) return;
+      const pts = [];
+      for (let i = 0; i < n; i++) {
+        const a = a0 + (i * TAU) / n + (rnd(seed + i) - 0.5) * 0.5;
+        pts.push({ p: toScreen(cx + Math.cos(a) * r, cy + Math.sin(a) * r, 0), h: Math.round(h * (0.65 + 0.5 * rnd(seed + i + 20))), s: seed + i * 1.7 });
+      }
+      pts.sort((a, b) => a.p.y - b.p.y);
+      for (const f of pts) M.flame(f.p.x, f.p.y, f.h, w, f.s);
+    };
+    // pixel phoenix at p heading ang: hot body, feathered wings (flap 0..1 = folded..spread), streaming tail
+    const phoenix = (p, ang, s, flap, cool = 0, tail = true) => {
+      const ca = Math.cos(ang), sa = Math.sin(ang);
+      const L = (fx_, fy_) => ({ x: p.x + (fx_ * ca - fy_ * sa) * tex * s, y: p.y + (fx_ * sa + fy_ * ca) * tex * s });
+      if (tail) {
+        for (const [o, len] of [[-0.4, 20], [0, 27], [0.4, 20]]) {
+          let prev = L(-2, 0);
+          for (let j = 1; j <= 6; j++) {
+            const q = L(-2 - (len * j) / 6, o * j * 2.4 + Math.sin(time * 16 + j + o * 9) * j * 0.45);
+            M.line(prev, q, R(top - 1 - j * 0.65 - cool), j < 3 ? 2 : 1);
+            prev = q;
+          }
+        }
+      }
+      for (const side of [-1, 1]) {
+        for (let f = 0; f < 6; f++) {
+          const sweep = 0.15 + f * 0.2;
+          const len = 17 - f * 1.4;
+          const tip = L(1 - Math.sin(sweep) * len, side * Math.cos(sweep) * len * (0.3 + 0.7 * flap));
+          const root = L(-f * 0.6, side * 1.5);
+          const mid = { x: (root.x + tip.x) / 2, y: (root.y + tip.y) / 2 };
+          M.line(root, mid, R(top - cool - f * 0.25), 2);
+          M.line(mid, tip, R(top - 1.5 - cool - f * 0.25), f < 2 ? 2 : 1);
+          P(tip.x, tip.y, R(top - 1 - cool));
+        }
+      }
+      ball(L(0, 0), 3 * s, cool);
+      ball(L(4, 0), 1.6 * s, cool);
+      P(L(6, 0).x, L(6, 0).y, R(top - cool));
     };
     const BY_SHAPE = {
       cone: 'sp_flame_wave', volley: 'sp_ember_volley', pulse: 'sp_sunburst', dash: 'sp_flame_step',
@@ -3421,29 +4690,30 @@ class IsometricRenderer {
         const base = Math.atan2(fx.dirY || 0, fx.dirX || 1);
         const range = fx.range || 5;
         const reach = range * (0.15 + 0.85 * out3(seg(0, 0.55)));
-        shade(() => {
-          groundBand(tx, ty, 0.4, reach, base - half, base + half, 0);
-          ctx.fillStyle = `rgba(${pal.deep}, ${0.25 * fade})`;
-          ctx.fill();
-        });
-        // glowing band just behind the front, then the wall itself in two ranks
         const wallA = 1 - seg(0.55, 0.95);
-        groundBand(tx, ty, Math.max(0.4, reach - 1.4), reach, base - half, base + half, 0);
-        ctx.fillStyle = c(pal.accent, 0.4 * wallA);
-        ctx.fill();
-        for (const [rank, n, hMul] of [[0.82, 9, 0.7], [1, 14, 1]]) {
+        // char left behind the wall, embers still winking in it
+        scorch(tx, ty, 0.5, reach - 0.5, base - half, base + half, 0.42 * fade, 0.08);
+        // the hot lip just behind the front
+        warc(tx, ty, Math.max(0.4, reach - 0.45), base - half, base + half, R(1 + wallA), 2, 0.2);
+        warc(tx, ty, Math.max(0.4, reach - 0.2), base - half, base + half, R(1 + 4 * wallA), 1, 0.15);
+        // the wall itself: a lower back rank and a taller front rank, centre burning tallest
+        const tongues = [];
+        for (const [rank, n, hMul, w] of [[0.8, 11, 0.6, T(4)], [0.9, 13, 0.8, T(5)], [1, 17, 1, T(6)]]) {
           for (let i = 0; i < n; i++) {
-            const a = base - half + ((i + 0.5) / n) * half * 2;
-            const d = reach * rank * (0.95 + 0.05 * rnd(i + rank * 50));
-            const p = toScreen(tx + Math.cos(a) * d, ty + Math.sin(a) * d, 0);
-            flame(p, (26 + 16 * rnd(i + 5)) * z * hMul * (0.6 + 0.4 * out3(seg(0, 0.3))), 9 * z, wallA, i + rank * 20);
+            const a = base - half + ((i + 0.5 + (rank < 1 ? 0.5 : 0)) / (n + (rank < 1 ? 1 : 0))) * half * 2;
+            const d = reach * rank * (0.96 + 0.04 * rnd(i + rank * 50));
+            const mid = 1 - Math.abs((i + 0.5) / n - 0.5) * 0.8;
+            tongues.push({ p: toScreen(tx + Math.cos(a) * d, ty + Math.sin(a) * d, 0), h: T(30 + 18 * rnd(i + 5 + rank * 9)) * hMul * mid * (0.5 + 0.5 * out3(seg(0, 0.3))) * (0.25 + 0.75 * wallA), w, s: i + rank * 20 });
           }
         }
-        for (let i = 0; i < 10; i++) {
+        tongues.sort((a, b) => a.p.y - b.p.y);
+        for (const f of tongues) M.flame(f.p.x, f.p.y, Math.round(f.h), f.w, f.s);
+        // sparks ripped off the crest
+        for (let i = 0; i < 16; i++) {
           const a = base + (rnd(i + 40) * 2 - 1) * half;
-          const d = reach * rnd(i + 41);
-          const p = toScreen(tx + Math.cos(a) * d, ty + Math.sin(a) * d, 0.2 + progress * 1.4 + rnd(i + 42));
-          bead(p, 2.5 * z, fade * 0.9);
+          const life = (progress * 2 + rnd(i + 43)) % 1;
+          const p = toScreen(tx + Math.cos(a) * reach * (0.75 + 0.2 * rnd(i + 41)), ty + Math.sin(a) * reach * (0.75 + 0.2 * rnd(i + 41)), 0.6 + life * 2.2);
+          if (life < fade) P(p.x, p.y, R(top - life * 4), rnd(i + 44) < 0.25 ? 2 : 1);
         }
         return true;
       }
@@ -3452,24 +4722,29 @@ class IsometricRenderer {
       case 'sp_ember_volley': {
         const op = toScreen(sx, sy, 0.8);
         const cast = seg(0, 0.4);
-        glow(op, 26 * z, (1 - cast) * 0.9);
-        ring(toScreen(sx, sy, 0), (0.5 + 0.6 * out3(cast)) * U, pal.accent, (1 - cast) * 0.8, 2);
+        if (cast < 1) {
+          // a fist of fire gathers at the caster while a heat ring snaps outward
+          ball(op, T(7) * (1 - cast * 0.7), cast * 2.5);
+          star(op, Math.round(T(10) * (1 - cast * 2)), 0.5);
+          M.ellipse(sx, sy, 0.5 + 0.7 * out3(cast), R(top - 1 - cast * 3), cast < 0.5 ? 2 : 1, 0.15 + cast * 0.5);
+        }
         (fx.points || []).forEach((pt, i) => {
           const tp = toScreen(pt.x, pt.y, 0.5);
           const at = (t) => ({ x: op.x + (tp.x - op.x) * t, y: op.y + (tp.y - op.y) * t - Math.sin(t * Math.PI) * 30 * z });
           const fly = seg(i * 0.05, 0.4 + i * 0.05);
           if (fly > 0 && fly < 1) {
-            const p = at(fly), q = at(Math.min(1, fly + 0.02));
-            fireball(p, 6 * z, Math.atan2(q.y - p.y, q.x - p.x), 1);
+            const p = at(fly), q = at(Math.max(0, fly - 0.04));
+            comet(p, Math.atan2(p.y - q.y, p.x - q.x), T(4), T(18));
           }
-          const hit = seg(0.4 + i * 0.05, 0.85 + i * 0.05);
+          const h0 = 0.4 + i * 0.05, hit = seg(h0, h0 + 0.45);
           if (hit > 0 && hit < 1) {
             const g = toScreen(pt.x, pt.y, 0);
-            glow(tp, 28 * z, 1 - seg(0.4 + i * 0.05, 0.6 + i * 0.05));
-            pool(g, 0.7 * U, 0.5 * (1 - hit));
-            flameRing(pt.x, pt.y, 0.35 * out3(hit), 5, 18 * z * (1 - hit * 0.5), 1 - hit, i * 9);
-            ring(g, (0.3 + 0.8 * out3(hit)) * U, pal.light, (1 - hit) * 0.9, 2.5);
-            sparks(tp, 7, 4 * z, 22 * z * out3(hit), 1 - hit, i * 3);
+            scorch(pt.x, pt.y, 0, 0.75, 0, TAU, 0.5 * (1 - hit * 0.4), 0.1);
+            M.ellipse(pt.x, pt.y, 0.3 + 0.8 * out3(hit), R(top - hit * 4), hit < 0.4 ? 2 : 1, 0.15 + hit * 0.6);
+            crown(pt.x, pt.y, 0.15 + 0.3 * out3(hit), 5, T(16) * (1 - hit * 0.7), T(3), i * 9);
+            M.flame(g.x, g.y, Math.round(T(24) * (1 - hit)), T(4), i);
+            if (hit < 0.25) { ball(tp, T(9) * (1 - hit * 3), hit * 8); star(tp, Math.round(T(14) * (1 - hit * 4))); }
+            embers(tp, 9, 26 * z, hit, i * 3);
           }
         });
         return true;
@@ -3477,35 +4752,42 @@ class IsometricRenderer {
 
       // SUNBURST: a small sun flares over the caster; each wave rolls a ring of fire outward
       case 'sp_sunburst': {
-        const Rw = fx.radius || 4, R = Rw * U;
-        const g = toScreen(tx, ty, 0);
+        const Rw = fx.radius || 4;
         const wave = fx.wave || 0;
         const roll = out3(seg(0, 0.7));
         if (wave === 0) {
-          const sun = toScreen(tx, ty, 1.8);
-          glow(sun, 40 * z, fade);
-          bead(sun, 12 * z, fade);
-          // corona rays scorched on the ground
-          ctx.save();
-          ctx.translate(g.x, g.y);
-          ctx.scale(1, 0.5);
-          for (let i = 0; i < 12; i++) {
-            const a = (i * TAU) / 12 + time * 0.3;
-            const len = R * (i % 2 ? 0.7 : 1) * roll;
-            ctx.beginPath();
-            ctx.moveTo(Math.cos(a - 0.08) * R * 0.15, Math.sin(a - 0.08) * R * 0.15);
-            ctx.lineTo(Math.cos(a) * len, Math.sin(a) * len);
-            ctx.lineTo(Math.cos(a + 0.08) * R * 0.15, Math.sin(a + 0.08) * R * 0.15);
-            ctx.closePath();
-            ctx.fillStyle = c(i % 2 ? pal.main : pal.accent, 0.5 * fade);
-            ctx.fill();
+          // corona burnt into the ground: long and short char spokes with a hot inner half
+          for (let i = 0; i < 16; i++) {
+            const a = (i * TAU) / 16 + 0.1;
+            const len = Rw * (i % 2 ? 0.55 : 0.9) * roll;
+            if (len < 0.5) continue;
+            // broken dashes that burn out from the tip inward
+            const steps = Math.max(2, Math.round(len * 3));
+            for (let s = 0; s < steps; s++) {
+              const t0 = 0.4 + ((len - 0.4) * s) / steps, t1 = 0.4 + ((len - 0.4) * (s + 0.6)) / steps;
+              const k0 = s / steps;
+              if (k0 > fade * 1.2 - 0.1 || hash(i * 17 + s) < 0.2) continue;
+              const p0 = toScreen(tx + Math.cos(a) * t0, ty + Math.sin(a) * t0, 0), p1 = toScreen(tx + Math.cos(a) * t1, ty + Math.sin(a) * t1, 0);
+              M.line(p0, p1, R((i % 2 ? 2 : 3) + fade - k0 * 2), 1);
+            }
           }
-          ctx.restore();
+          // the little sun: a white-hot disc ringed by turning pixel rays
+          const sun = toScreen(tx, ty, 1.8);
+          const rr = T(10) * out3(seg(0, 0.15)) * (0.4 + 0.6 * fade);
+          for (let i = 0; i < 12; i++) {
+            const a = (i * TAU) / 12 + time * 0.8;
+            const L = rr * (i % 2 ? 1.5 : 2.2) * (0.85 + 0.15 * Math.sin(time * 20 + i));
+            M.line({ x: sun.x + Math.cos(a) * rr * tex, y: sun.y + Math.sin(a) * rr * tex }, { x: sun.x + Math.cos(a) * L * tex, y: sun.y + Math.sin(a) * L * tex }, R((i % 2 ? 3 : 4) + fade), 1);
+          }
+          ball(sun, rr, 1 - fade);
         }
+        // this wave's ring of fire rolling outward over a band of char
         const rw = Rw * (0.2 + 0.8 * roll);
-        ring(g, rw * U, pal.accent, (1 - roll) * 0.6 + 0.2 * fade, 8);
-        ring(g, rw * U, pal.core, (1 - roll) * 0.9, 2);
-        flameRing(tx, ty, rw, 14, 22 * z, (1 - seg(0.4, 0.9)), wave * 31);
+        const ringA = 1 - seg(0.4, 0.9);
+        scorch(tx, ty, Math.max(0, rw - 0.9), rw - 0.15, 0, TAU, 0.35 * ringA, 0.12);
+        M.ellipse(tx, ty, rw, R(1 + ringA), 3, 0.1);
+        M.ellipse(tx, ty, rw, R(top - (1 - ringA) * 3), 1, 0.15);
+        crown(tx, ty, rw, 18, T(20) * ringA, T(3), wave * 31, wave * 0.3);
         return true;
       }
 
@@ -3513,87 +4795,100 @@ class IsometricRenderer {
       case 'sp_flame_step': {
         const reach = out3(seg(0, 0.3));
         const ex = sx + (tx - sx) * reach, ey = sy + (ty - sy) * reach;
-        shade(() => {
-          strip(sx, sy, ex, ey, 0.15, (fx.width || 1.2) * 0.45, 0);
-          ctx.fillStyle = `rgba(${pal.deep}, ${0.5 * fade})`;
-          ctx.fill();
-        });
-        const a = toScreen(sx, sy, 0.3), b = toScreen(ex, ey, 0.3);
-        const grad = ctx.createLinearGradient(a.x, a.y, b.x, b.y);
-        grad.addColorStop(0, c(pal.main, 0));
-        grad.addColorStop(1, c(pal.accent, 0.9 * fade));
-        ctx.beginPath();
-        ctx.moveTo(a.x, a.y);
-        ctx.lineTo(b.x, b.y);
-        ctx.strokeStyle = grad;
-        ctx.lineWidth = 10 * z;
-        ctx.stroke();
-        ctx.strokeStyle = c(pal.core, 0.8 * fade);
-        ctx.lineWidth = 2 * z;
-        ctx.stroke();
+        const ang = Math.atan2(ty - sy, tx - sx), wd = (fx.width || 1.2) * 0.45;
+        // charred strip under the dash
+        scorchStrip(sx, sy, ex, ey, wd, 0.5 * fade, 0.1);
+        // the streak: a stepped comet line, thin and dark at the tail, fat and white-hot at the head
+        const a = toScreen(sx, sy, 0.35), b = toScreen(ex, ey, 0.35);
+        const streak = 1 - seg(0.3, 0.55);
+        if (streak > 0) {
+          for (let s = 0; s < 6; s++) {
+            const t0 = s / 6, t1 = (s + 1) / 6;
+            const pa = { x: a.x + (b.x - a.x) * t0, y: a.y + (b.y - a.y) * t0 }, pb = { x: a.x + (b.x - a.x) * t1, y: a.y + (b.y - a.y) * t1 };
+            M.line(pa, pb, R(1 + t1 * 2.5), Math.max(1, Math.round(T(6) * t1 * streak)));
+            M.line(pa, pb, R(2 + t1 * 4 * streak), Math.max(1, Math.round(T(2.5) * t1 * streak)));
+          }
+          if (reach < 1) comet(b, Math.atan2(b.y - a.y, b.x - a.x), T(5), T(8));
+        }
+        // burning footprints, left-right, flaring up then guttering
         for (let i = 0; i < 8; i++) {
           const t = (i + 0.5) / 8;
           if (t > reach) break;
-          const life = 1 - seg(t * 0.3 + 0.2, t * 0.3 + 0.75);
-          flame(toScreen(sx + (tx - sx) * t, sy + (ty - sy) * t, 0), (14 + 8 * rnd(i)) * z * life, 6 * z, life, i);
+          const life = 1 - seg(t * 0.3 + 0.2, t * 0.3 + 0.8);
+          const side = (i % 2 ? 1 : -1) * wd * 0.45;
+          const p = toScreen(sx + (tx - sx) * t - Math.sin(ang) * side, sy + (ty - sy) * t + Math.cos(ang) * side, 0);
+          M.flame(p.x, p.y, Math.round(T(14 + 8 * rnd(i)) * life * Math.min(1, (reach - t) * 6 + 0.3)), T(3), i * 2.3);
         }
         const land = seg(0.2, 0.7);
         if (land > 0 && land < 1) {
-          glow(toScreen(tx, ty, 0.4), 30 * z, 1 - land);
-          ring(toScreen(tx, ty, 0), (0.3 + 0.9 * out3(land)) * U, pal.light, 1 - land, 3);
+          const lp = toScreen(tx, ty, 0.4);
+          M.ellipse(tx, ty, 0.3 + 0.9 * out3(land), R(top - land * 4), land < 0.4 ? 2 : 1, 0.15 + land * 0.5);
+          crown(tx, ty, 0.25 + 0.4 * out3(land), 6, T(14) * (1 - land), T(3), 7);
+          if (land < 0.25) star(lp, Math.round(T(14) * (1 - land * 4)));
+          embers(lp, 8, 24 * z, land, 5);
         }
         return true;
       }
 
       // METEOR CALL: a burning rock streaks down onto the target and blows a crater
       case 'sp_meteor_call': {
-        const R = (fx.radius || 2.6) * U;
+        const Rw = fx.radius || 2.6;
         const g = toScreen(tx, ty, 0);
         const fall = seg(0, 0.35), boom = seg(0.35, 1);
         if (fall < 1) {
-          ctx.setLineDash([6 * z, 6 * z]);
-          ring(g, R, pal.main, 0.5 + 0.3 * Math.sin(time * 18), 2);
-          ctx.setLineDash([]);
-          pool(g, R * (0.2 + 0.6 * fall), 0.4);
+          // target sigil: a blinking broken ring, an inner ring closing in, the meteor's shadow growing
+          M.ellipse(tx, ty, Rw, R(Math.floor(time * 10) % 2 ? 4 : 3), 1, 0.45);
+          M.ellipse(tx, ty, Rw * (1 - 0.7 * fall), R(2 + fall * 3), 1, 0.3);
+          M.pool(tx, ty, Rw * (0.1 + 0.3 * fall), R(0), R(1), 1.3);
           // comes in at an angle from high up-left
           const t = fall * fall;
           const from = { x: tx - 2.5, y: ty - 2.5, h: 6.5 };
           const wx = from.x + (tx - from.x) * t, wy = from.y + (ty - from.y) * t, wh = from.h * (1 - t) + 0.4;
           const p = toScreen(wx, wy, wh), q = toScreen(tx, ty, 0.4);
           const ang = Math.atan2(q.y - p.y, q.x - p.x);
-          for (let i = 1; i <= 8; i++) {
-            const tp = { x: p.x - Math.cos(ang) * i * 9 * z, y: p.y - Math.sin(ang) * i * 9 * z };
-            puff(tp, (6 + i * 2.2) * z, 0.35 * (1 - i / 9));
+          // a boiling smoke trail of dithered char blobs behind the fire
+          for (let i = 6; i >= 1; i--) {
+            const d = (T(18) + i * T(8)) * tex;
+            blob({ x: p.x - Math.cos(ang) * d + Math.sin(time * 7 + i) * tex * 2, y: p.y - Math.sin(ang) * d - i * tex }, T(4 + i * 1.4), R(1), R(0), 0.75 - i * 0.08);
           }
-          fireball(p, 13 * z, ang, 1, 7);
-          shade(() => {
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, 7 * z, 0, TAU);
-            ctx.fillStyle = `rgba(${pal.deep2}, 0.85)`;
-            ctx.fill();
-          });
+          comet(p, ang, T(10), T(42));
+          // the rock riding inside the fire, lit along its leading edge
+          const rp = { x: p.x - Math.cos(ang) * T(3) * tex, y: p.y - Math.sin(ang) * T(3) * tex };
+          blob(rp, T(5), R(0), R(1));
+          for (let i = -2; i <= 2; i++) P(rp.x + Math.cos(ang + i * 0.35) * T(5) * tex, rp.y + Math.sin(ang + i * 0.35) * T(5) * tex, R(top - 1));
           return true;
         }
-        const flash = 1 - seg(0.35, 0.55);
-        glow(toScreen(tx, ty, 0.4), R * 0.9, flash);
-        pool(g, R * 0.85, 0.7 * fade);
-        ring(g, R * (0.3 + 0.9 * out3(boom)), pal.light, (1 - boom) * 0.95, 5);
-        ring(g, R * (0.2 + 0.6 * out3(boom)), pal.main, (1 - boom) * 0.7, 2.5);
-        flameRing(tx, ty, (fx.radius || 2.6) * 0.55, 9, 30 * z * (1 - boom * 0.6), 1 - seg(0.5, 1), 77);
-        flame(toScreen(tx, ty, 0), 40 * z * (1 - boom), 12 * z, 1 - boom, 3);
-        // rock debris thrown out
-        for (let i = 0; i < 8; i++) {
-          const a = (i * TAU) / 8 + rnd(i + 60) * 0.5;
-          const d = (10 + 50 * out3(boom)) * z;
-          const p = { x: g.x + Math.cos(a) * d, y: g.y + Math.sin(a) * d * 0.5 - Math.sin(boom * Math.PI) * 26 * z };
-          shade(() => {
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, 3 * z, 0, TAU);
-            ctx.fillStyle = `rgba(${pal.deep2}, ${1 - boom})`;
-            ctx.fill();
-          });
-          bead(p, 3 * z, (1 - boom) * 0.8);
+        // crater: char pool, glowing rim, lava cracks spreading out
+        M.pool(tx, ty, Rw * 0.5 * (0.6 + 0.4 * fade), R(0), R(1), 1.3);
+        scorch(tx, ty, Rw * 0.55, Rw * 0.98, 0, TAU, 0.38 * fade, 0.12);
+        for (let i = 0; i < 7; i++) {
+          const a = (i * TAU) / 7 + rnd(i + 90);
+          M.crack(tx, ty, tx + Math.cos(a) * Rw * (0.7 + 0.25 * rnd(i + 91)), ty + Math.sin(a) * Rw * (0.7 + 0.25 * rnd(i + 91)), i * 19, Math.min(1, boom * 3));
         }
+        M.ellipse(tx, ty, Rw * 0.55, R(1 + 3 * fade), 1, 0.25);
+        // shockwave fronts
+        if (boom < 0.7) {
+          const sw = out3(boom);
+          M.ellipse(tx, ty, Rw * (0.3 + 0.9 * sw), R(top - boom * 5), 2, 0.1 + boom);
+          M.ellipse(tx, ty, Rw * (0.2 + 0.6 * sw), R(3), 1, 0.4 + boom * 0.5);
+        }
+        // flames all round the rim and a pillar of fire in the middle
+        crown(tx, ty, Rw * 0.55, 10, T(26) * (1 - seg(0.5, 1) * 0.85), T(4), 77);
+        M.flame(g.x, g.y, Math.round(T(46) * (1 - boom)), T(7), 3);
+        // impact frame: a white-hot disc and star that collapse fast
+        const flash = 1 - seg(0.35, 0.5);
+        if (flash > 0) { ball(toScreen(tx, ty, 0.4), T(26) * flash, (1 - flash) * 2); star(toScreen(tx, ty, 0.4), Math.round(T(44) * flash)); }
+        // rock debris thrown out, glowing on top
+        if (boom < 0.8) {
+          for (let i = 0; i < 9; i++) {
+            const a = (i * TAU) / 9 + rnd(i + 60) * 0.5;
+            const d = (10 + 60 * out3(boom)) * z;
+            const p = { x: g.x + Math.cos(a) * d, y: g.y + Math.sin(a) * d * 0.5 - Math.sin(Math.min(1, boom * 1.3) * Math.PI) * 30 * z };
+            blob(p, T(2.5), R(0), R(1));
+            P(p.x - tex, p.y - tex, R(top - 1 - boom * 3));
+          }
+        }
+        embers(toScreen(tx, ty, 0.4), 14, 50 * z, boom, 21);
         return true;
       }
 
@@ -3610,24 +4905,32 @@ class IsometricRenderer {
             y: (1 - t) * (1 - t) * p0.y + 2 * (1 - t) * t * cy + t * t * p1.y + Math.sin(t * 14 - time * 18) * 3 * z * Math.sin(t * Math.PI)
           });
           const lashA = 1 - seg(0.55, 0.95);
-          for (const [w, rgb, al] of [[9, pal.main, 0.45], [4, pal.accent, 0.9], [1.5, pal.core, 0.9]]) {
-            ctx.beginPath();
-            for (let s = 0; s <= 18; s++) {
-              const p = at((s / 18) * reach);
-              if (s === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+          // the lash in three passes: dark-red body, orange flesh, white-hot core, licked by little flames
+          for (const [w, k0] of [[T(5) * lashA, 1 + 1.5 * lashA], [T(3) * lashA, 2.5 + 1.5 * lashA], [1, top - (1 - lashA) * 3.5]]) {
+            let prev = null;
+            for (let s = 0; s <= 20; s++) {
+              const p = at((s / 20) * reach);
+              if (prev) M.line(prev, p, R(k0), Math.max(1, Math.round(w)));
+              prev = p;
             }
-            ctx.strokeStyle = c(rgb, lashA * al);
-            ctx.lineWidth = w * z;
-            ctx.stroke();
+          }
+          for (let s = 2; s < 20; s += 4) {
+            const p = at((s / 20) * reach);
+            M.flame(p.x, p.y, Math.round(T(8) * lashA * (0.6 + 0.6 * rnd(s + i * 9))), 1, s + i);
           }
           if (reach < 1) {
-            fireball(at(reach), 5 * z, 0, 1, 0);
+            const hp = at(reach), hq = at(Math.max(0, reach - 0.08));
+            comet(hp, Math.atan2(hp.y - hq.y, hp.x - hq.x), T(4), T(9));
             continue;
           }
           const bloom = seg(i * 0.07 + 0.14, i * 0.07 + 0.6);
-          glow(p1, 22 * z, 1 - bloom);
-          flameRing(nodes[i + 1].x, nodes[i + 1].y, 0.3 * out3(bloom), 5, 16 * z, 1 - bloom, i * 13);
-          ring(toScreen(nodes[i + 1].x, nodes[i + 1].y, 0), (0.3 + 0.6 * out3(bloom)) * U, pal.light, (1 - bloom) * 0.9, 2);
+          if (bloom < 1) {
+            const n = nodes[i + 1];
+            M.ellipse(n.x, n.y, 0.3 + 0.6 * out3(bloom), R(top - bloom * 4), bloom < 0.4 ? 2 : 1, 0.15 + bloom * 0.6);
+            crown(n.x, n.y, 0.1 + 0.25 * out3(bloom), 5, T(16) * (1 - bloom * 0.8), T(3), i * 13);
+            if (bloom < 0.25) star(p1, Math.round(T(12) * (1 - bloom * 4)));
+            embers(p1, 6, 20 * z, bloom, i * 7);
+          }
         }
         return true;
       }
@@ -3635,87 +4938,62 @@ class IsometricRenderer {
       // CINDER RAIN: burning cinders streak down across the area
       case 'sp_cinder_rain': {
         const g = toScreen(tx, ty, 0);
-        if (fx.areaR && !fx.wave) {
-          ctx.setLineDash([6 * z, 6 * z]);
-          ring(toScreen(fx.areaX, fx.areaY, 0), fx.areaR * U, pal.main, fade * 0.6, 1.5);
-          ctx.setLineDash([]);
-        }
+        const hr = fx.radius || 1.2, wv = fx.wave || 0;
+        // the storm's footprint: a broken, slowly blinking ring
+        if (fx.areaR && !fx.wave) M.ellipse(fx.areaX, fx.areaY, fx.areaR, R(1 + 2 * fade + (Math.floor(time * 8) % 2)), 1, 0.55);
         const fall = seg(0, 0.35);
         if (fall < 1) {
           const t = fall * fall;
           const p = toScreen(tx - 1.2 * (1 - t), ty - 1.2 * (1 - t), 5 * (1 - t) + 0.3);
           const q = toScreen(tx, ty, 0.3);
-          fireball(p, 6 * z, Math.atan2(q.y - p.y, q.x - p.x), 1, 5);
+          M.ellipse(tx, ty, hr * (0.9 - 0.6 * fall), R(2 + fall * 2), 1, 0.4);
+          comet(p, Math.atan2(q.y - p.y, q.x - p.x), T(4.5), T(20));
           return true;
         }
         const hit = seg(0.35, 1);
-        glow(toScreen(tx, ty, 0.3), 24 * z, 1 - seg(0.35, 0.55));
-        pool(g, (fx.radius || 1.2) * U * 0.6, 0.45 * (1 - hit));
-        flame(g, 22 * z * (1 - hit), 8 * z, 1 - hit, fx.wave || 0);
-        ring(g, (fx.radius || 1.2) * U * (0.3 + 0.7 * out3(hit)), pal.light, (1 - hit) * 0.9, 2.5);
-        sparks(toScreen(tx, ty, 0.2), 6, 3 * z, 18 * z * out3(hit), 1 - hit, (fx.wave || 0) * 5);
+        scorch(tx, ty, 0, hr * 0.65, 0, TAU, 0.55 * (1 - hit * 0.5), 0.1);
+        M.ellipse(tx, ty, hr * (0.3 + 0.7 * out3(hit)), R(top - hit * 4), hit < 0.4 ? 2 : 1, 0.15 + hit * 0.6);
+        crown(tx, ty, hr * 0.3 * out3(hit), 4, T(12) * (1 - hit), T(2), wv * 7);
+        M.flame(g.x, g.y, Math.round(T(22) * (1 - hit)), T(4), wv);
+        const fl = 1 - seg(0.35, 0.5);
+        if (fl > 0) { ball(toScreen(tx, ty, 0.3), T(8) * fl, (1 - fl) * 2); star(toScreen(tx, ty, 0.3), Math.round(T(12) * fl)); }
+        embers(toScreen(tx, ty, 0.2), 7, 22 * z, hit, wv * 5);
         return true;
       }
 
       // PHOENIX BLINK: burst into flame, fly across as a phoenix, land with wings spread
       case 'sp_phoenix_blink': {
-        const r = (fx.radius || 2.4) * U;
+        const rw = fx.radius || 2.4;
         const burst = seg(0, 0.5), land = seg(0.3, 0.85);
-        const o = toScreen(sx, sy, 0), d = toScreen(tx, ty, 0);
-        if (fx.origin) {
-          ring(o, r * (0.3 + 0.7 * out3(burst)), pal.accent, (1 - burst) * 0.9, 4);
-          flameRing(sx, sy, (fx.radius || 2.4) * 0.5 * out3(burst), 8, 22 * z, 1 - burst, 5);
+        const s1 = (2.1 * z) / tex; // phoenix texel scale
+        // char where the sage burst into flame
+        scorch(sx, sy, 0, rw * 0.6, 0, TAU, 0.45 * (1 - seg(0.2, 1)), 0.1);
+        if (fx.origin && burst < 1) {
+          M.ellipse(sx, sy, rw * (0.3 + 0.7 * out3(burst)), R(top - burst * 4), burst < 0.4 ? 2 : 1, 0.15 + burst * 0.6);
+          crown(sx, sy, rw * 0.5 * out3(burst), 8, T(22) * (1 - burst), T(3), 5);
+          if (burst < 0.2) star(toScreen(sx, sy, 0.6), Math.round(T(16) * (1 - burst * 5)));
         }
-        pool(o, r * 0.6, 0.45 * (1 - seg(0.2, 1)));
-        // the phoenix in flight
+        // the phoenix in flight, shedding a line of embers
         const fly = seg(0.05, 0.45);
         if (fly > 0 && fly < 1) {
           const t = out3(fly);
-          const p = toScreen(sx + (tx - sx) * t, sy + (ty - sy) * t, 0.8 + Math.sin(t * Math.PI) * 1.6);
-          const q = toScreen(tx, ty, 0.8);
-          const ang = Math.atan2(q.y - p.y, q.x - p.x);
-          const flap = Math.sin(time * 22) * 0.35;
-          ctx.save();
-          ctx.translate(p.x, p.y);
-          ctx.rotate(ang);
-          for (const side of [-1, 1]) {
-            ctx.beginPath();
-            ctx.moveTo(4 * z, 0);
-            ctx.quadraticCurveTo(-6 * z, side * (22 + flap * 10) * z, -22 * z, side * (26 + flap * 12) * z);
-            ctx.quadraticCurveTo(-12 * z, side * 8 * z, -10 * z, 0);
-            ctx.closePath();
-            const wg = ctx.createLinearGradient(0, 0, -20 * z, side * 24 * z);
-            wg.addColorStop(0, c(pal.core, 0.95));
-            wg.addColorStop(0.5, c(pal.accent, 0.85));
-            wg.addColorStop(1, c(pal.main, 0.2));
-            ctx.fillStyle = wg;
-            ctx.fill();
+          const hAt = (tt) => toScreen(sx + (tx - sx) * tt, sy + (ty - sy) * tt, 0.8 + Math.sin(tt * Math.PI) * 1.6);
+          const p = hAt(t), q = hAt(Math.max(0, t - 0.05));
+          for (let i = 1; i <= 10; i++) {
+            const tt = Math.max(0, t - i * 0.04), e = hAt(tt);
+            if (hash(i * 5 + frame) < 1 - i / 12) P(e.x + (hash(i + frame) - 0.5) * 6 * tex, e.y + (hash(i * 3 + frame) - 0.5) * 6 * tex, R(top - 1 - i * 0.35), i < 4 ? 2 : 1);
           }
-          // tail plumes
-          for (const s of [-0.25, 0, 0.25]) lens({ x: -22 * z, y: s * 20 * z }, s, 16 * z, 3 * z, pal.accent, 0.8);
-          ctx.restore();
-          glow(p, 22 * z, 0.8);
-          bead(p, 6 * z, 1);
-          for (let i = 1; i <= 6; i++) {
-            const tt = Math.max(0, t - i * 0.05);
-            bead(toScreen(sx + (tx - sx) * tt, sy + (ty - sy) * tt, 0.8 + Math.sin(tt * Math.PI) * 1.6), 4 * z * (1 - i / 7), 0.7 * (1 - i / 7));
-          }
+          phoenix(p, Math.atan2(p.y - q.y, p.x - q.x), s1, 0.5 + 0.5 * Math.sin(time * 22));
         }
         if (land > 0 && land < 1) {
           const la = 1 - land;
-          glow(toScreen(tx, ty, 0.6), 40 * z, la);
-          // wings flared over the landing point
-          const p = toScreen(tx, ty, 1.2);
-          for (const side of [-1, 1]) {
-            ctx.beginPath();
-            ctx.moveTo(p.x, p.y + 8 * z);
-            ctx.quadraticCurveTo(p.x + side * 30 * z, p.y - 24 * z * out3(land), p.x + side * 46 * z, p.y - 6 * z);
-            ctx.quadraticCurveTo(p.x + side * 22 * z, p.y, p.x, p.y + 8 * z);
-            ctx.fillStyle = c(pal.accent, la * 0.7);
-            ctx.fill();
-          }
-          ring(d, (fx.landing ? r : r * 0.5) * (0.3 + 0.7 * out3(land)), pal.light, la * 0.95, 3.5);
-          flameRing(tx, ty, 0.6 * out3(land), 7, 20 * z, la, 17);
+          // the firebird rears up over the landing point, wings flared, then gutters out
+          scorch(tx, ty, 0, rw * 0.5, 0, TAU, 0.4 * la, 0.1);
+          M.ellipse(tx, ty, (fx.landing ? rw : rw * 0.5) * (0.3 + 0.7 * out3(land)), R(top - land * 4), land < 0.4 ? 2 : 1, 0.15 + land * 0.6);
+          crown(tx, ty, 0.6 * out3(land), 7, T(20) * la, T(3), 17);
+          if (land < 0.7) phoenix(toScreen(tx, ty, 1.2 + land * 0.8), -Math.PI / 2, s1 * (0.9 + 0.4 * out3(land)), out3(Math.min(1, land * 3)), land * 2.5, false);
+          if (land < 0.2) star(toScreen(tx, ty, 0.6), Math.round(T(18) * (1 - land * 5)));
+          embers(toScreen(tx, ty, 0.6), 10, 34 * z, land, 33);
         }
         return true;
       }
@@ -3726,33 +5004,94 @@ class IsometricRenderer {
   // ---------------------------------------------------------------- Cryo Sage (SP tier 2, mage)
   // Arcane winter: glyphs, lances, a frozen orb, a glacier dome
   drawCryoSageSkill(ctx, fx, progress, toScreen, z) {
-    const k = this.spFxKit(ctx, progress, toScreen, z, SP_FX_PALETTES.sp_cryo_sage);
-    const { pal, time, TAU, U, seg, out3, fade, c, rnd, ring, glow, bead, lens, blade, sparks, groundBand, strip, spike, silhouette, snowflake, frost, shatterBurst } = k;
-    const { sx, sy, tx, ty } = k.ends(fx);
-    // faceted ice spear pointing along ang, tip at p
-    const lance = (p, ang, L, w, a) => {
-      if (a <= 0.01) return;
-      const dx = Math.cos(ang), dy = Math.sin(ang), nx = -dy, ny = dx;
-      const back = { x: p.x - dx * L, y: p.y - dy * L };
-      const mid = { x: p.x - dx * L * 0.35, y: p.y - dy * L * 0.35 };
-      ctx.beginPath();
-      ctx.moveTo(p.x, p.y);
-      ctx.lineTo(mid.x + nx * w, mid.y + ny * w);
-      ctx.lineTo(back.x, back.y);
-      ctx.lineTo(mid.x - nx * w, mid.y - ny * w);
-      ctx.closePath();
-      const g = ctx.createLinearGradient(back.x, back.y, p.x, p.y);
-      g.addColorStop(0, c(pal.main, a * 0.3));
-      g.addColorStop(0.6, c(pal.accent, a * 0.85));
-      g.addColorStop(1, c(pal.core, a));
-      ctx.fillStyle = g;
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(p.x, p.y);
-      ctx.lineTo(back.x, back.y);
-      ctx.strokeStyle = c(pal.core, a * 0.7);
-      ctx.lineWidth = 1 * z;
-      ctx.stroke();
+    const time = this.animations.time, TAU = Math.PI * 2, U = 32 * Math.SQRT2 * z;
+    const clamp01 = (v) => Math.max(0, Math.min(1, v));
+    const seg = (a, b) => clamp01((progress - a) / (b - a)); // 0..1 across [a, b] of the effect's life
+    const out3 = (t) => 1 - Math.pow(1 - t, 3);
+    const fade = progress < 0.6 ? 1 : clamp01(1 - (progress - 0.6) / 0.4);
+    const rnd = (n) => { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
+    const sx = fx.startX !== undefined ? fx.startX : fx.x, sy = fx.startY !== undefined ? fx.startY : fx.y;
+    const tx = fx.x !== undefined ? fx.x : sx, ty = fx.y !== undefined ? fx.y : sy;
+    // ---- pixel-art kit: everything below lands on the texel grid in ice-ramp colours
+    const M = this.spMotifs(ctx, fx, progress);
+    const { R, top, tex, hash, frame } = M;
+    const P = M.px;
+    ctx.globalCompositeOperation = 'source-over';
+    const snap = (v) => Math.round(v / tex) * tex;
+    const T = (p) => Math.max(1, Math.round((p * z) / tex)); // zoom-1 screen px -> texels
+    // faceted ice orb: six facets lit from the upper left, dark rim, white glint
+    const gem = (p, r, cool = 0, rot = 0) => {
+      if (r < 0.5) return;
+      const n = Math.max(1, Math.round(r)), cx = snap(p.x), cy = snap(p.y);
+      for (let j = -n; j <= n; j++) {
+        for (let i = -n; i <= n; i++) {
+          const d = Math.hypot(i, j) / (n + 0.5);
+          if (d > 1) continue;
+          const f = Math.floor((((Math.atan2(j, i) - rot) / TAU) * 6 + 12)) % 6;
+          const fa = rot + ((f + 0.5) * TAU) / 6;
+          const k0 = d > 0.86 ? 1 : 3 + 1.7 * Math.cos(fa + 2.36) + (1 - d) * 0.8;
+          ctx.fillStyle = R(k0 - cool);
+          ctx.fillRect(cx + i * tex - tex / 2, cy + j * tex - tex / 2, tex, tex);
+        }
+      }
+      P(cx - n * 0.4 * tex, cy - n * 0.45 * tex, R(top - cool), n > 3 ? 2 : 1);
+    };
+    // faceted ice spear, tip at p pointing along ang (L, w in texels): bright left face, mid right face, white spine
+    const lance = (p, ang, L, w, cool = 0) => {
+      if (L < 1) return;
+      const dx = Math.cos(ang), dy = Math.sin(ang);
+      for (let s = 0; s <= L; s += 0.5) {
+        const t = s / L;
+        const half = w * (t < 0.3 ? t / 0.3 : 1 - ((t - 0.3) / 0.7) * 0.8);
+        const hw = Math.round(half);
+        const cx = p.x - dx * s * tex, cy = p.y - dy * s * tex;
+        for (let i = -hw; i <= hw; i++) {
+          const col = hw >= 1 && Math.abs(i) === hw ? R(1.5 + (1 - t) - cool) : i === 0 ? R(top - cool - t * 1.5) : i < 0 ? R(5 - cool - t * 1.5) : R(3 - cool * 0.5 - t);
+          for (const o of [0, 0.5]) P(cx - dy * (i + o * Math.sign(i)) * tex, cy + dx * (i + o * Math.sign(i)) * tex, col);
+        }
+      }
+    };
+    // four-armed glint
+    const twinkle = (p, n, cool = 0) => {
+      if (n < 1) return;
+      for (let j = n; j >= 1; j--) {
+        const col = R(top - cool - (j / n) * 3);
+        P(p.x + j * tex, p.y, col); P(p.x - j * tex, p.y, col); P(p.x, p.y + j * tex, col); P(p.x, p.y - j * tex, col);
+      }
+      P(p.x, p.y, R(top - cool), n > 3 ? 2 : 1);
+    };
+    // ice shards bursting from screen point p: e 0..1 is their flight, they spin out, drop and dim
+    const shatter = (p, n, dist, e, seed = 0) => {
+      if (e <= 0 || e >= 1) return;
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * TAU + rnd(seed + i) * 0.6, d = dist * (0.45 + 0.55 * rnd(seed + i + 30)) * out3(e);
+        const q = { x: p.x + Math.cos(a) * d, y: p.y + Math.sin(a) * d * 0.6 + e * e * dist * 0.35 };
+        const spin = a + e * 8 * (rnd(seed + i + 60) - 0.5), L = i % 3 === 0 ? 3 : 2;
+        M.line(q, { x: q.x + Math.cos(spin) * L * tex, y: q.y + Math.sin(spin) * L * tex }, R(5 - e * 2.5), 1);
+        P(q.x, q.y, R(top - e * 3));
+      }
+    };
+    // snowflake sigil on the ground: six spokes with paired branches (world radius r, turning by rot)
+    const flake = (cx, cy, r, rot, cool = 0) => {
+      if (r < 0.15) return;
+      const W = (x, y) => toScreen(x, y, 0);
+      const c0 = W(cx, cy);
+      for (let j = 0; j < 6; j++) {
+        const a = rot + (j * Math.PI) / 3, ca = Math.cos(a), sa = Math.sin(a);
+        const tip = W(cx + ca * r, cy + sa * r);
+        M.line(c0, tip, R(4 - cool), 1);
+        for (const f of [0.42, 0.7]) {
+          const bx = cx + ca * r * f, by = cy + sa * r * f, b = W(bx, by);
+          for (const sd of [-1, 1]) M.line(b, W(bx + Math.cos(a + (sd * Math.PI) / 3) * r * 0.22, by + Math.sin(a + (sd * Math.PI) / 3) * r * 0.22), R(3.5 - cool * 0.7), 1);
+        }
+        P(tip.x, tip.y, R(top - cool), 2);
+      }
+      P(c0.x, c0.y, R(top - cool), 2);
+    };
+    // world-space crystals drawn back to front: list of { x, y, h, w } (h, w in texels)
+    const crystals = (list) => {
+      list.map((c0) => ({ ...c0, p: toScreen(c0.x, c0.y, 0) })).sort((a, b) => a.p.y - b.p.y)
+        .forEach((c0) => { if (c0.h >= 1) M.crystal(c0.p.x, c0.p.y, Math.round(c0.h), Math.max(1, Math.round(c0.w))); });
     };
     const BY_SHAPE = {
       line: 'sp_ice_lance', pulse: 'sp_frozen_orb', nova: 'sp_permafrost', blink: 'sp_ice_blink',
@@ -3767,157 +5106,194 @@ class IsometricRenderer {
         const fly = out3(seg(0, 0.35));
         const hx = sx + dx * fly, hy = sy + dy * fly;
         const a = toScreen(sx, sy, 0), b = toScreen(hx, hy, 0);
-        const sheen = ctx.createLinearGradient(a.x, a.y, b.x, b.y);
-        sheen.addColorStop(0, c(pal.light, 0.05 * fade));
-        sheen.addColorStop(1, c(pal.light, 0.35 * fade));
-        strip(sx, sy, hx, hy, 0.15, (fx.width || 1) * 0.5, 0);
-        ctx.fillStyle = sheen;
-        ctx.fill();
+        // frozen track: a pale glazed groove frosting along behind the spear
+        if (fade > 0.1) { M.line(a, b, R(2), Math.max(1, Math.round(T(4) * fade))); M.line(a, b, R(4), 1); }
+        // frost cracks fanning off the track, crystals sprouting in its wake
+        const cl = [];
         for (let i = 1; i <= 7; i++) {
           const t = i / 8;
           if (t > fly) break;
-          const off = (rnd(i) - 0.5) * 0.7;
-          const g = toScreen(sx + dx * t + nx * off, sy + dy * t + ny * off, 0);
+          const off = (rnd(i) - 0.5) * 0.7, side = i % 2 ? 1 : -1;
           const grow = out3(seg(t * 0.35, t * 0.35 + 0.15));
-          spike(g, (10 + 8 * rnd(i + 3)) * z * grow, 4 * z, 1 - seg(0.6, 1));
+          const bx = sx + dx * t, by = sy + dy * t;
+          M.crack(bx, by, bx + nx * side * 0.9 + dx / len * 0.3, by + ny * side * 0.9 + dy / len * 0.3, i * 13, grow);
+          cl.push({ x: bx + nx * off, y: by + ny * off, h: T(13 + 9 * rnd(i + 3)) * grow * (1 - seg(0.7, 1) * 0.8), w: T(2.5) });
         }
+        crystals(cl);
         if (fly < 1 || progress < 0.4) {
           const p = toScreen(hx, hy, 0.7), q = toScreen(sx, sy, 0.7);
           const ang = Math.atan2(p.y - q.y, p.x - q.x);
-          glow(p, 22 * z, 1 - seg(0.35, 0.45));
-          lance(p, ang, 40 * z, 6 * z, 1 - seg(0.35, 0.45));
+          // sparkle wake, then the spear itself
+          for (let j = 1; j <= 8; j++) {
+            if (hash(j * 5 + frame) > 0.7) continue;
+            P(p.x - Math.cos(ang) * (T(34) + j * 3) * tex + (hash(j + frame) - 0.5) * 4 * tex, p.y - Math.sin(ang) * (T(34) + j * 3) * tex, R(top - 1 - j * 0.4));
+          }
+          lance(p, ang, T(34), T(5), seg(0.35, 0.45) * 2);
+          twinkle(p, Math.round(T(7) * (1 - seg(0.35, 0.42))));
         }
         const brk = seg(0.35, 0.85);
         if (brk > 0 && brk < 1) {
-          shatterBurst(toScreen(tx, ty, 0.6), 10, (8 + 36 * out3(brk)) * z, 1 - brk, 4);
-          ring(toScreen(tx, ty, 0), (0.3 + 1.0 * out3(brk)) * U, pal.light, 1 - brk, 3);
-          snowflake(toScreen(tx, ty, 0), 0.9 * U * out3(brk), brk, 1 - brk);
+          flake(tx, ty, 0.95 * out3(brk), brk, brk * 3);
+          M.ellipse(tx, ty, 0.3 + 1.0 * out3(brk), R(top - brk * 4), brk < 0.4 ? 2 : 1, 0.15 + brk * 0.6);
+          shatter(toScreen(tx, ty, 0.6), 14, 50 * z, brk, 4);
+          if (brk < 0.2) twinkle(toScreen(tx, ty, 0.6), Math.round(T(16) * (1 - brk * 5)));
         }
         return true;
       }
 
       // FROZEN ORB: a slowly turning orb of ice hangs over the target, each pulse throws shards out
       case 'sp_frozen_orb': {
-        const R = (fx.radius || 2.6) * U;
-        const g = toScreen(tx, ty, 0), o = toScreen(tx, ty, 1.4);
+        const Rw = fx.radius || 2.6;
+        const o = toScreen(tx, ty, 1.4);
         const wave = fx.wave || 0;
         if (wave === 0) {
-          frost(g, R, fade);
-          snowflake(g, R * 0.85 * out3(seg(0, 0.4)), time * 0.4, fade * 0.7);
+          // the frost sigil under the orb: a turning snowflake inside a crisp broken ring
+          const grow = out3(seg(0, 0.4));
+          flake(tx, ty, Rw * 0.85 * grow, time * 0.4, (1 - fade) * 2.5);
+          M.ellipse(tx, ty, Rw * grow, R(2 + 2 * fade), 1, 0.25);
         }
-        // the orb itself: frosted sphere with a turning flake inside
-        glow(o, 42 * z, fade * 0.6);
-        ctx.beginPath();
-        ctx.arc(o.x, o.y, 16 * z, 0, TAU);
-        ctx.fillStyle = c(pal.accent, 0.25 * fade);
-        ctx.fill();
-        ctx.strokeStyle = c(pal.core, 0.8 * fade);
-        ctx.lineWidth = 1.5 * z;
-        ctx.stroke();
-        ctx.save();
-        ctx.translate(o.x, o.y);
-        ctx.rotate(time * 2 + wave);
+        // the orb: a faceted gem turning slowly, crystal motes orbiting it (back ones behind)
+        const motes = [];
+        for (let i = 0; i < 6; i++) {
+          const a = time * 3 + (i * TAU) / 6;
+          motes.push({ p: { x: o.x + Math.cos(a) * T(18) * tex, y: o.y + Math.sin(a) * T(7) * tex }, back: Math.sin(a) < 0 });
+        }
+        const mote = (m) => { P(m.p.x, m.p.y, R(m.back ? 3 : 5), 2); P(m.p.x, m.p.y - tex, R(top)); };
+        motes.filter((m) => m.back).forEach(mote);
+        const gr = T(10) * (0.55 + 0.45 * fade);
+        gem(o, gr, (1 - fade) * 1.5, time * 1.2 + wave);
         for (let i = 0; i < 3; i++) {
-          ctx.rotate(Math.PI / 3);
-          ctx.beginPath();
-          ctx.moveTo(-12 * z, 0);
-          ctx.lineTo(12 * z, 0);
-          ctx.strokeStyle = c(pal.core, 0.7 * fade);
-          ctx.lineWidth = 1.4 * z;
-          ctx.stroke();
+          const a = time * 2 + wave + (i * Math.PI) / 3;
+          M.line({ x: o.x - Math.cos(a) * gr * 0.6 * tex, y: o.y - Math.sin(a) * gr * 0.6 * tex }, { x: o.x + Math.cos(a) * gr * 0.6 * tex, y: o.y + Math.sin(a) * gr * 0.6 * tex }, R(top - 1 - (1 - fade) * 2), 1);
         }
-        ctx.restore();
-        // this pulse's shards and ring
+        motes.filter((m) => !m.back).forEach(mote);
+        // this pulse: eight shards thrown out and down, a cold front on the ground
         const burst = seg(0, 0.6);
-        for (let i = 0; i < 8; i++) {
-          const a = (i * TAU) / 8 + wave * 0.4;
-          const d = (14 + (R * 0.9 - 14) * out3(burst));
-          blade({ x: o.x + Math.cos(a) * d, y: o.y + Math.sin(a) * d * 0.55 + out3(burst) * 16 * z }, a, 7 * z, 2.5 * z, 1 - burst);
+        if (burst < 1) {
+          for (let i = 0; i < 8; i++) {
+            const a = (i * TAU) / 8 + wave * 0.4;
+            const d = T(14) * tex + (Rw * U * 0.9 - T(14) * tex) * out3(burst);
+            const p = { x: o.x + Math.cos(a) * d, y: o.y + Math.sin(a) * d * 0.55 + out3(burst) * 16 * z };
+            lance(p, Math.atan2(Math.sin(a) * 0.55, Math.cos(a)), T(9), T(2), burst * 2);
+          }
+          M.ellipse(tx, ty, Rw * (0.2 + 0.8 * out3(burst)), R(top - burst * 4), burst < 0.4 ? 2 : 1, 0.15 + burst * 0.6);
+          if (burst < 0.15) twinkle(o, Math.round(T(18) * (1 - burst / 0.15)));
         }
-        ring(g, R * (0.2 + 0.8 * out3(burst)), pal.light, (1 - burst) * 0.85, 2.5);
         return true;
       }
 
       // PERMAFROST: the ground freezes over, a wall of ice erupts around the sage under a frost dome
       case 'sp_permafrost': {
-        const Rw = fx.radius || 5, R = Rw * U;
+        const Rw = fx.radius || 5;
         const g = toScreen(tx, ty, 0);
         const spread = out3(seg(0, 0.45));
-        frost(g, R * spread, fade);
-        snowflake(g, R * 0.7 * spread, time * 0.2, fade * 0.8);
+        // frost cracks racing out across the ground, a great snowflake sigil at the heart
+        for (let i = 0; i < 8; i++) {
+          const a = (i * TAU) / 8 + Math.PI / 8 + rnd(i) * 0.3, d = Rw * 0.62 * (0.7 + 0.3 * rnd(i + 1));
+          M.crack(tx, ty, tx + Math.cos(a) * d, ty + Math.sin(a) * d, i * 23, spread * (0.3 + 0.7 * fade));
+        }
+        flake(tx, ty, Rw * 0.55 * spread, time * 0.2, (1 - fade) * 2.5);
+        // the glacier wall ringing the sage: prisms shoulder up out of the ice, then sink away
+        const wall = [];
         for (let i = 0; i < 18; i++) {
           const a = (i * TAU) / 18 + rnd(i) * 0.15;
           const d = Rw * (0.82 + 0.1 * rnd(i + 3));
           const rise = out3(seg(0.15 + rnd(i + 7) * 0.15, 0.45 + rnd(i + 7) * 0.15));
-          spike(toScreen(tx + Math.cos(a) * d, ty + Math.sin(a) * d, 0), (20 + 16 * rnd(i + 9)) * z * rise, 6 * z, 1 - seg(0.7, 1));
+          wall.push({ x: tx + Math.cos(a) * d, y: ty + Math.sin(a) * d, h: T(26 + 18 * rnd(i + 9)) * rise * (1 - seg(0.75, 1)), w: T(3.5 + 2 * rnd(i + 11)) });
         }
+        crystals(wall);
         const wv = seg(0.1, 0.6);
-        ring(g, R * out3(wv), pal.core, (1 - wv) * 0.9, 3);
-        // frost dome (the shield) over the sage
+        if (wv < 1) M.ellipse(tx, ty, Rw * out3(wv), R(top - wv * 4), 2, 0.1 + wv * 0.6);
+        // frost dome (the shield) over the sage: pixel shell, three facet meridians and a glint running over it
         const dome = out3(seg(0.1, 0.4));
-        const top = toScreen(tx, ty, 1.6 * dome);
-        const rx = 1.2 * U * dome;
-        if (rx > 1) {
-          ctx.beginPath();
-          ctx.ellipse(g.x, g.y, rx, rx * 0.5, 0, 0, Math.PI);
-          ctx.quadraticCurveTo(g.x - rx, top.y, g.x, top.y);
-          ctx.quadraticCurveTo(g.x + rx, top.y, g.x + rx, g.y);
-          ctx.fillStyle = c(pal.accent, 0.15 * fade);
-          ctx.fill();
-          ctx.strokeStyle = c(pal.light, (0.5 + 0.3 * Math.sin(time * 6)) * fade);
-          ctx.lineWidth = 1.5 * z;
-          ctx.stroke();
+        const rx = 1.2 * U * dome, ry = rx / 2, H = (g.y - toScreen(tx, ty, 1.6).y) * dome;
+        if (rx > 2 * tex) {
+          const cool = (1 - fade) * 3;
+          const n = Math.max(12, Math.round((rx * 3) / tex));
+          for (let j = 0; j <= n; j++) {
+            const a = (Math.PI * j) / n;
+            P(g.x + Math.cos(a) * rx, g.y - Math.sin(a) * H + tex, R(3 - cool));
+            P(g.x + Math.cos(a) * rx, g.y - Math.sin(a) * H, R(5 - cool + (Math.floor(time * 12 + j / 3) % 7 === 0 ? 1 : 0)));
+            P(g.x + Math.cos(a) * rx, g.y + Math.sin(a) * ry, R(3 - cool));
+          }
+          for (const phi of [0.7, Math.PI / 2, Math.PI - 0.7]) {
+            for (let j = 0; j <= 16; j++) {
+              if (j % 2) continue;
+              const b = (j / 16) * (Math.PI / 2);
+              P(g.x + Math.cos(b) * Math.cos(phi) * rx, g.y + Math.cos(b) * Math.sin(phi) * ry - Math.sin(b) * H, R(3 - cool));
+            }
+          }
+          const gb = (time * 1.5) % 1 * Math.PI;
+          twinkle({ x: g.x + Math.cos(gb) * rx * 0.75, y: g.y - Math.sin(gb) * H * 0.95 }, Math.round(T(4) * fade));
         }
         return true;
       }
 
       // ICE BLINK: leave a frozen statue that bursts into spikes, reappear in a glitter of frost
       case 'sp_ice_blink': {
-        const r = (fx.radius || 2.4) * U;
-        const o = toScreen(sx, sy, 0), d = toScreen(tx, ty, 0);
+        const rw = fx.radius || 2.4;
+        const o = toScreen(sx, sy, 0);
         const burst = seg(0.1, 0.55);
-        frost(o, r, fade);
-        silhouette(o, 46 * z, 0.85 * (1 - seg(0.4, 0.7)), pal.light);
-        for (let i = 0; i < 10; i++) {
-          const a = (i * TAU) / 10 + 0.3;
-          const dd = (fx.radius || 2.4) * (0.4 + 0.5 * rnd(i));
-          spike(toScreen(sx + Math.cos(a) * dd, sy + Math.sin(a) * dd, 0), (14 + 10 * rnd(i + 4)) * z * out3(burst), 5 * z, 1 - seg(0.6, 1));
+        // frost cracks spidering out from where the sage stood
+        for (let i = 0; i < 8; i++) {
+          const a = (i * TAU) / 8 + rnd(i + 40) * 0.5;
+          M.crack(sx, sy, sx + Math.cos(a) * rw * 0.9, sy + Math.sin(a) * rw * 0.9, i * 17, out3(seg(0, 0.3)) * (0.3 + 0.7 * fade));
         }
-        ring(o, r * (0.3 + 0.7 * out3(burst)), pal.core, burst > 0 ? (1 - burst) * 0.9 : 0, 3);
-        if (burst > 0.3) shatterBurst(toScreen(sx, sy, 0.6), 10, (10 + 34 * out3(seg(0.4, 0.8))) * z, 1 - seg(0.4, 0.9), 8);
-        for (let i = 0; i <= 8; i++) {
-          const t = i / 8;
+        // a ring of spikes bursts up around the statue, and the statue itself: a crystal effigy of the sage
+        const ring0 = [];
+        for (let i = 0; i < 10; i++) {
+          const a = (i * TAU) / 10 + 0.3, dd = rw * (0.4 + 0.5 * rnd(i));
+          ring0.push({ x: sx + Math.cos(a) * dd, y: sy + Math.sin(a) * dd, h: T(14 + 10 * rnd(i + 4)) * out3(burst) * (1 - seg(0.65, 1)), w: T(2.5) });
+        }
+        const statueA = 1 - seg(0.45, 0.7);
+        if (statueA > 0) {
+          const h = T(40) * out3(seg(0, 0.12)) * statueA;
+          ring0.push({ x: sx - 0.18, y: sy + 0.18, h: h * 0.6, w: T(3) }, { x: sx + 0.18, y: sy - 0.18, h: h * 0.65, w: T(3) }, { x: sx + 0.02, y: sy + 0.02, h, w: T(5.5) });
+        }
+        crystals(ring0);
+        if (burst > 0 && burst < 1) M.ellipse(sx, sy, rw * (0.3 + 0.7 * out3(burst)), R(top - burst * 4), burst < 0.4 ? 2 : 1, 0.15 + burst * 0.6);
+        shatter(toScreen(sx, sy, 0.6), 16, 50 * z, seg(0.45, 0.9), 8);
+        if (progress > 0.45 && progress < 0.52) twinkle(toScreen(sx, sy, 0.8), T(14));
+        // a glittering streak to the landing
+        for (let i = 0; i <= 10; i++) {
+          const t = i / 10;
           if (t > seg(0, 0.3)) break;
-          bead(toScreen(sx + (tx - sx) * t, sy + (ty - sy) * t, 0.6 + Math.sin(t * Math.PI) * 0.6), 3 * z, fade * 0.8);
+          const e = toScreen(sx + (tx - sx) * t, sy + (ty - sy) * t, 0.6 + Math.sin(t * Math.PI) * 0.6);
+          if (i % 3 === 0) twinkle(e, Math.round(T(3) * fade), (1 - fade) * 2); else P(e.x, e.y, R(top - 1 - (1 - fade) * 3));
         }
         const land = seg(0.15, 0.6);
-        snowflake(d, 0.7 * U * out3(land), time, land > 0 ? fade : 0);
-        sparks(toScreen(tx, ty, 0.5), 8, 4 * z, 22 * z * out3(land), land > 0 ? 1 - land : 0, 2);
+        if (land > 0) {
+          flake(tx, ty, 0.8 * out3(land), time, land * 3);
+          if (land < 0.3) twinkle(toScreen(tx, ty, 0.5), Math.round(T(12) * (1 - land / 0.3)));
+          shatter(toScreen(tx, ty, 0.5), 8, 26 * z, land, 2);
+        }
         return true;
       }
 
       // ICE SHARDS: a fan of spinning ice shards flies to each target and bursts
       case 'sp_ice_shards': {
         const op = toScreen(sx, sy, 0.8);
-        glow(op, 22 * z, 1 - seg(0, 0.35));
+        const c0 = seg(0, 0.35);
+        if (c0 < 1) { gem(op, T(5) * (1 - c0), c0 * 2, time * 3); twinkle(op, Math.round(T(11) * (1 - c0)), c0 * 2); }
         (fx.points || []).forEach((pt, i) => {
           const tp = toScreen(pt.x, pt.y, 0.6);
           const fly = out3(seg(i * 0.03, 0.35 + i * 0.03));
           if (fly > 0 && fly < 1) {
             const p = { x: op.x + (tp.x - op.x) * fly, y: op.y + (tp.y - op.y) * fly };
             const ang = Math.atan2(tp.y - op.y, tp.x - op.x);
-            for (let j = 3; j >= 1; j--) {
-              const tt = Math.max(0, fly - j * 0.06);
-              bead({ x: op.x + (tp.x - op.x) * tt, y: op.y + (tp.y - op.y) * tt }, 3 * z, 0.5 / j);
+            for (let j = 1; j <= 5; j++) {
+              const tt = Math.max(0, fly - j * 0.05);
+              P(op.x + (tp.x - op.x) * tt + (hash(i * 9 + j + frame) - 0.5) * 3 * tex, op.y + (tp.y - op.y) * tt + (hash(i * 7 + j + frame) - 0.5) * 3 * tex, R(top - 1 - j * 0.6));
             }
-            lance(p, ang, 18 * z, 4 * z, 1);
+            lance(p, ang, T(16), T(3));
           }
           const hit = seg(0.35 + i * 0.03, 0.8 + i * 0.03);
           if (hit > 0 && hit < 1) {
             const g = toScreen(pt.x, pt.y, 0);
-            spike(g, 16 * z * out3(Math.min(1, hit * 3)), 5 * z, 1 - hit);
-            snowflake(g, 0.5 * U * out3(hit), i, 1 - hit);
-            shatterBurst(tp, 5, (6 + 18 * out3(hit)) * z, 1 - hit, i * 3);
+            flake(pt.x, pt.y, 0.5 * out3(hit), i, hit * 3);
+            M.crystal(g.x, g.y, Math.round(T(18) * out3(Math.min(1, hit * 3)) * (1 - hit * 0.6)), T(3));
+            if (hit < 0.2) twinkle(tp, Math.round(T(10) * (1 - hit * 5)));
+            shatter(tp, 7, 26 * z, hit, i * 3);
           }
         });
         return true;
@@ -3929,62 +5305,85 @@ class IsometricRenderer {
         const base = Math.atan2(fx.dirY || 0, fx.dirX || 1);
         const range = fx.range || 5;
         const reach = range * out3(seg(0, 0.45));
-        groundBand(tx, ty, 0.3, Math.max(0.35, reach), base - half, base + half, 0);
-        ctx.fillStyle = c(pal.accent, 0.08 * fade);
-        ctx.fill();
-        for (let i = 0; i < 28; i++) {
+        const W = (a, d, h = 0) => toScreen(tx + Math.cos(a) * d, ty + Math.sin(a) * d, h);
+        // frost cracks running out along the cone's edges and spine
+        for (const [k0, s] of [[-1, 3], [1, 11]]) {
+          const a = base + k0 * half * 0.95, d = reach * 0.8;
+          M.crack(tx + Math.cos(a) * 0.4, ty + Math.sin(a) * 0.4, tx + Math.cos(a) * d, ty + Math.sin(a) * d, s, Math.min(1, fade * 1.5));
+        }
+        // rime glittering on the ground inside the cone
+        for (let i = 0; i < 40; i++) {
+          const d = 0.5 + (reach - 0.5) * rnd(i + 200), a = base + (rnd(i + 201) * 2 - 1) * half * 0.95;
+          if (d < 0.5 || hash(i * 3 + Math.floor(frame / 3)) > 0.55 * fade + 0.15) continue;
+          const p = W(a, d);
+          P(p.x, p.y, R(hash(i + Math.floor(frame / 3)) < 0.15 ? top : 4));
+        }
+        // the blizzard: streaks of snow streaming out, bright and long near the caster, thinning out far away
+        for (let i = 0; i < 36; i++) {
           const a = base + (rnd(i) * 2 - 1) * half;
           const t = (progress * 1.6 + rnd(i + 30)) % 1;
-          const d = range * t * out3(seg(0, 0.3));
-          const p = toScreen(tx + Math.cos(a) * d, ty + Math.sin(a) * d, 0.4 + rnd(i + 60) * 0.6);
-          lens(p, Math.atan2(Math.sin(a) * 0.5, Math.cos(a)), 7 * z, 1.6 * z, pal.core, (1 - t) * fade * 0.9);
+          if (t > fade + 0.15) continue;
+          const d = range * t * out3(seg(0, 0.3)), hh = 0.3 + rnd(i + 60) * 0.8;
+          const p = W(a, d, hh), q = W(a, Math.max(0, d - 0.35 * (1 - t * 0.5)), hh);
+          M.line(q, p, R(4 - t * 1.5), 1);
+          P(p.x, p.y, R(top - t * 2));
         }
-        for (let i = 0; i < 9; i++) {
-          const a = base - half + ((i + 0.5) / 9) * half * 2;
-          const d = reach * (0.9 + 0.1 * rnd(i + 90));
-          spike(toScreen(tx + Math.cos(a) * d, ty + Math.sin(a) * d, 0), (12 + 10 * rnd(i + 91)) * z * out3(seg(0.25, 0.5)), 4.5 * z, 1 - seg(0.6, 1));
+        // crystals forming along the front edge
+        const edge = [];
+        for (let i = 0; i < 10; i++) {
+          const a = base - half + ((i + 0.5) / 10) * half * 2;
+          const d = reach * (0.88 + 0.12 * rnd(i + 90));
+          edge.push({ x: tx + Math.cos(a) * d, y: ty + Math.sin(a) * d, h: T(14 + 12 * rnd(i + 91)) * out3(seg(0.25, 0.5)) * (1 - seg(0.75, 1)), w: T(2.5 + rnd(i + 92)) });
         }
+        crystals(edge);
         return true;
       }
 
       // GLACIAL PULL: a frost vortex drags shards inward, then a great ice pillar erupts at its heart
       case 'sp_glacial_pull': {
-        const Rw = fx.radius || 4, R = Rw * U;
+        const Rw = fx.radius || 4;
         const g = toScreen(tx, ty, 0);
         const inward = out3(seg(0, 0.6)), erupt = seg(0.55, 1);
-        frost(g, R, fade);
-        ring(g, R, pal.accent, fade * 0.7, 2);
-        ctx.save();
-        ctx.translate(g.x, g.y);
-        ctx.scale(1, 0.5);
+        // the vortex rim and a second ring tightening inside it
+        M.ellipse(tx, ty, Rw, R(2 + 1.5 * fade), 1, 0.35);
+        if (erupt < 1) M.ellipse(tx, ty, Rw * (1 - 0.65 * inward), R(4), 1, 0.25);
+        // six spiral arms walked texel by texel: dark at the rim, white at the eye
         for (let i = 0; i < 6; i++) {
           const a0 = (i * TAU) / 6 + time * 3;
-          ctx.beginPath();
-          for (let s = 0; s <= 10; s++) {
-            const t = s / 10, rr = R * (1 - t), a = a0 + t * 2.4;
-            if (s === 0) ctx.moveTo(Math.cos(a) * rr, Math.sin(a) * rr); else ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
+          let prev = null;
+          for (let s = 0; s <= 28; s++) {
+            const t = s / 28, rr = Rw * 0.95 * (1 - t), a = a0 + t * 2.4;
+            if (rr < 0.25) break;
+            const p = toScreen(tx + Math.cos(a) * rr, ty + Math.sin(a) * rr, 0);
+            if (prev && hash(i * 40 + s + Math.floor(frame / 2) * 3) > 0.12) M.line(prev, p, R(1.5 + t * 3.5 * fade + (1 - fade)), t < 0.35 ? 2 : 1);
+            prev = p;
           }
-          ctx.strokeStyle = c(pal.light, fade * 0.55);
-          ctx.lineWidth = 2 * z;
-          ctx.stroke();
         }
-        ctx.restore();
         if (erupt < 1) {
+          // shards dragged in toward the heart
           for (let i = 0; i < 10; i++) {
             const a = (i * TAU) / 10 + progress * 6;
             const rr = Rw * (0.95 - 0.85 * inward);
             const p = toScreen(tx + Math.cos(a) * rr, ty + Math.sin(a) * rr, 0.5);
             const q = toScreen(tx, ty, 0.5);
-            lance(p, Math.atan2(q.y - p.y, q.x - p.x), 12 * z, 3 * z, 1 - erupt);
+            lance(p, Math.atan2(q.y - p.y, q.x - p.x), T(12), T(2.5), erupt * 3);
           }
         }
         if (erupt > 0) {
-          const h = 48 * z * out3(Math.min(1, erupt * 3)) * (1 - seg(0.85, 1) * 0.4);
-          spike(g, h, 11 * z, 1 - seg(0.8, 1));
-          spike({ x: g.x - 12 * z, y: g.y + 3 * z }, h * 0.55, 6 * z, 1 - seg(0.8, 1));
-          spike({ x: g.x + 13 * z, y: g.y + 2 * z }, h * 0.6, 6 * z, 1 - seg(0.8, 1));
-          ring(g, R * 0.7 * out3(erupt), pal.core, 1 - erupt, 3.5);
-          glow(toScreen(tx, ty, 0.6), 36 * z, 1 - seg(0.55, 0.75));
+          // a glacier tears up out of the eye: cracks, a cluster of great prisms, a cold front and flying shards
+          for (let i = 0; i < 8; i++) {
+            const a = (i * TAU) / 8 + rnd(i + 70) * 0.4;
+            M.crack(tx, ty, tx + Math.cos(a) * Rw * 0.7, ty + Math.sin(a) * Rw * 0.7, i * 29, Math.min(1, erupt * 3));
+          }
+          const h = T(52) * out3(Math.min(1, erupt * 3)) * (1 - seg(0.85, 1) * 0.5);
+          crystals([
+            { x: tx - 0.25, y: ty - 0.3, h: h * 0.45, w: T(4) }, { x: tx + 0.3, y: ty - 0.2, h: h * 0.5, w: T(4) },
+            { x: tx, y: ty, h, w: T(8) },
+            { x: tx - 0.35, y: ty + 0.15, h: h * 0.6, w: T(5) }, { x: tx + 0.2, y: ty + 0.35, h: h * 0.55, w: T(5) }
+          ]);
+          if (erupt < 1) M.ellipse(tx, ty, Rw * 0.7 * out3(erupt), R(top - erupt * 4), erupt < 0.4 ? 2 : 1, 0.15 + erupt * 0.6);
+          if (erupt < 0.15) twinkle(toScreen(tx, ty, 0.6), Math.round(T(22) * (1 - erupt / 0.15)));
+          shatter(toScreen(tx, ty, 0.8), 14, 54 * z, seg(0.55, 0.95), 31);
         }
         return true;
       }
@@ -3995,30 +5394,38 @@ class IsometricRenderer {
         const nx = -dy / len * 0.3, ny = dx / len * 0.3;
         const reach = out3(seg(0, 0.3));
         const ex = sx + dx * reach, ey = sy + dy * reach;
-        strip(sx, sy, ex, ey, 0.2, (fx.width || 1.2) * 0.5, 0);
-        ctx.fillStyle = c(pal.light, 0.2 * fade);
-        ctx.fill();
+        // twin skate grooves: a dark cut under a bright lip
         for (const s of [-1, 1]) {
           const a = toScreen(sx + nx * s, sy + ny * s, 0), b = toScreen(ex + nx * s, ey + ny * s, 0);
-          ctx.beginPath();
-          ctx.moveTo(a.x, a.y);
-          ctx.lineTo(b.x, b.y);
-          ctx.strokeStyle = c(pal.core, 0.85 * fade);
-          ctx.lineWidth = 1.5 * z;
-          ctx.stroke();
+          M.line({ x: a.x, y: a.y + tex }, { x: b.x, y: b.y + tex }, R(1), 1);
+          M.line(a, b, R(5 - (1 - fade) * 3), 1);
         }
+        // rime glinting between the grooves
+        for (let i = 0; i < 16; i++) {
+          const t = rnd(i + 100);
+          if (t > reach || hash(i + Math.floor(frame / 3) * 7) > 0.6 * fade + 0.1) continue;
+          const o = (rnd(i + 101) - 0.5) * 1.6;
+          const p = toScreen(sx + dx * t + nx * o, sy + dy * t + ny * o, 0);
+          if (i % 5 === 0) twinkle(p, 2, (1 - fade) * 2); else P(p.x, p.y, R(4));
+        }
+        // little prisms kicked up along the way, and puffs of snow
+        const kick = [];
         for (let i = 0; i < 6; i++) {
           const t = (i + 0.5) / 6;
           if (t > reach) break;
-          const p = toScreen(sx + dx * t, sy + dy * t, 0.2 + rnd(i) * 0.4);
-          sparks(p, 4, 1 * z, 8 * z, fade * (1 - t * 0.5), i * 7);
+          const life = 1 - seg(t * 0.3 + 0.15, t * 0.3 + 0.7);
+          kick.push({ x: sx + dx * t + nx * (i % 2 ? 1.6 : -1.6), y: sy + dy * t + ny * (i % 2 ? 1.6 : -1.6), h: T(7 + 4 * rnd(i)) * life, w: T(1.5) });
+          const p = toScreen(sx + dx * t, sy + dy * t, 0.2 + (1 - life) * 0.8);
+          for (let j = 0; j < 4; j++) if (life > 0.05) P(p.x + (rnd(i * 4 + j) - 0.5) * 10 * tex * (1.4 - life), p.y + (rnd(i * 4 + j + 50) - 0.5) * 4 * tex, R(3 + life * 2));
         }
+        crystals(kick);
         const st = seg(0, 0.5);
-        snowflake(toScreen(sx, sy, 0), 0.6 * U * out3(st), 0, 1 - st);
+        if (st < 1) flake(sx, sy, 0.6 * out3(st), 0, st * 3);
         const end = seg(0.2, 0.7);
         if (end > 0 && end < 1) {
-          shatterBurst(toScreen(tx, ty, 0.3), 8, (6 + 24 * out3(end)) * z, 1 - end, 12);
-          ring(toScreen(tx, ty, 0), (0.3 + 0.8 * out3(end)) * U, pal.light, 1 - end, 2.5);
+          M.ellipse(tx, ty, 0.3 + 0.8 * out3(end), R(top - end * 4), end < 0.4 ? 2 : 1, 0.15 + end * 0.6);
+          if (end < 0.2) twinkle(toScreen(tx, ty, 0.4), Math.round(T(12) * (1 - end * 5)));
+          shatter(toScreen(tx, ty, 0.3), 10, 32 * z, end, 12);
         }
         return true;
       }
@@ -4204,20 +5611,113 @@ class IsometricRenderer {
         dotGlow(tip, 14 * z, '103, 232, 249', fade * 0.8);
         break;
       }
-      case 'sp_eclipse_reaper': { // a black sun rides the scythe tip; blood flies off
-        dotGlow(tip, 18 * z, '244, 63, 94', fade);
+      case 'sp_eclipse_reaper': { // a black sun rides the scythe tip; void sparks fly off
+        dotGlow(tip, 18 * z, '167, 139, 250', fade);
         ctx.globalCompositeOperation = 'source-over';
         ctx.beginPath();
         ctx.arc(tip.x, tip.y, 5.5 * z, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(10, 2, 6, ${fade})`;
+        ctx.fillStyle = `rgba(6, 3, 18, ${fade})`;
         ctx.fill();
         ctx.globalCompositeOperation = 'lighter';
         ctx.beginPath();
         ctx.arc(tip.x, tip.y, 5.5 * z, 0, Math.PI * 2);
-        stroke('255, 241, 242', fade * 0.9, 1);
+        stroke('247, 245, 255', fade * 0.9, 1);
         for (let i = 0; i < 5; i++) {
           const p = at(along(0.3 + 0.7 * rnd(i)), outerR * 1.05 + rnd(i + 3) * 12 * z * (1 - fade + 0.3));
-          dotGlow(p, 3 * z, '225, 29, 72', fade);
+          dotGlow(p, 3 * z, '139, 92, 246', fade);
+        }
+        break;
+      }
+      // Mage SP Cards
+      case 'sp_pyromancer': { // roaring solar flame tongues along the crescent curve, erupting fire embers
+        for (let i = 0; i < 6; i++) {
+          const a = along(0.2 + i * 0.15);
+          const fl = Math.sin(time * 24 + i * 1.8) * 6 * z;
+          const p0 = at(a, outerR * 0.9);
+          const p1 = at(a + (rnd(i + step) - 0.5) * 0.18, outerR + (10 + fl) * z);
+          ctx.beginPath();
+          ctx.moveTo(p0.x, p0.y);
+          ctx.quadraticCurveTo(p1.x + fl, p1.y, p1.x, p1.y);
+          stroke('249, 115, 22', fade * 0.85, 3.5);
+          stroke('254, 240, 138', fade * 0.95, 1.4);
+        }
+        dotGlow(tip, 16 * z, '249, 115, 22', fade);
+        break;
+      }
+      case 'sp_cryo_sage': { // spinning crystalline snowflake stars along the arc, freezing ice smoke
+        for (let i = 0; i < 5; i++) {
+          const p = at(along(0.18 + i * 0.2), outerR - thick * 0.3);
+          const L = (4 + 2 * rnd(i)) * z * fade;
+          ctx.beginPath();
+          for (let j = 0; j < 3; j++) {
+            const a = (j * Math.PI) / 3 + time * 3 + i * 0.7;
+            ctx.moveTo(p.x - Math.cos(a) * L, p.y - Math.sin(a) * L);
+            ctx.lineTo(p.x + Math.cos(a) * L, p.y + Math.sin(a) * L);
+          }
+          stroke('236, 254, 255', fade * 0.9, 1.8);
+          stroke('103, 232, 249', fade * 0.6, 3.2);
+        }
+        dotGlow(tip, 15 * z, '103, 232, 249', fade * 0.9);
+        break;
+      }
+      case 'sp_tempest': { // crackling high-voltage ball lightning at the head with erratic electric arc forks
+        const stepT = Math.floor(time * 32);
+        ctx.beginPath();
+        for (let i = 0; i <= 8; i++) {
+          const a = along(0.2 + 0.8 * i / 8);
+          const jitter = (rnd(i * 9 + stepT) - 0.5) * 12 * z;
+          const p = at(a, outerR + jitter);
+          if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+        }
+        stroke('250, 204, 21', fade * 0.9, 2.8);
+        stroke('255, 255, 255', fade, 1.2);
+        dotGlow(tip, 16 * z, '250, 204, 21', fade);
+        break;
+      }
+      case 'sp_chronomancer': { // golden temporal clockwork gear teeth and solar time rays
+        for (let i = 0; i < 7; i++) {
+          const a = along(0.15 + i * 0.14);
+          const p0 = at(a, outerR);
+          const p1 = at(a, outerR + (5 + (i % 2 === 0 ? 6 : 2)) * z);
+          ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y);
+          stroke('253, 224, 71', fade * 0.85, 2);
+        }
+        dotGlow(tip, 14 * z, '253, 224, 71', fade);
+        break;
+      }
+      case 'sp_void_archon': { // cosmic black-hole event horizon singularity at the tip pulling starlight inward
+        dotGlow(tip, 20 * z, '192, 132, 252', fade);
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.beginPath();
+        ctx.arc(tip.x, tip.y, 6 * z, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(15, 5, 29, ${fade * 0.95})`;
+        ctx.fill();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.beginPath();
+        ctx.arc(tip.x, tip.y, 6 * z, 0, Math.PI * 2);
+        stroke('233, 213, 255', fade * 0.9, 1.5);
+        for (let i = 0; i < 5; i++) {
+          const a = along(0.2 + 0.8 * rnd(i));
+          const p = at(a, outerR * (0.85 + 0.3 * rnd(i + 2)));
+          dotGlow(p, 3 * z, '168, 85, 247', fade);
+        }
+        break;
+      }
+      // Default Base Classes (no SP card active)
+      default: {
+        if (fx.class === 'rogue') {
+          // Sharp razor glint at dagger tip and secondary speed line
+          dotGlow(tip, 8 * z, '45, 212, 191', fade * 0.8);
+        } else if (fx.class === 'mage') {
+          // Mystic arcane flare and orbiting stardust motes
+          dotGlow(tip, 12 * z, '253, 224, 71', fade * 0.85);
+          for (let i = 0; i < 3; i++) {
+            const p = at(along(0.3 + i * 0.3), outerR * 1.08 + rnd(i + step) * 5 * z);
+            dotGlow(p, 3 * z, '254, 240, 138', fade * 0.7);
+          }
+        } else {
+          // Steel blade shine gleam
+          dotGlow(tip, 9 * z, '186, 230, 253', fade * 0.7);
         }
         break;
       }
@@ -4434,47 +5934,90 @@ class IsometricRenderer {
   // Lingering ground left by a skill: burning ground (a circle or a trail) or a gravity well
   drawSpField(ctx, fx, progress, toScreen, z) {
     const k = this.spFxKit(ctx, progress, toScreen, z, SP_FX_PALETTES[fx.cardId] || SP_FX_PALETTES.sp_pyromancer);
-    const { pal, time, TAU, U, c, rnd, ring, pool, glow, flame, bead } = k;
+    const { pal, time, TAU, U, rnd, ring, pool, glow, flame, bead, star } = k;
+    const { tex, col, cell, dot, tline, disc, loop, draw } = k;
     const a = Math.min(1, progress * 8) * (progress > 0.8 ? (1 - progress) / 0.2 : 1);
     const line = fx.startX !== undefined && fx.shape === 'field' && fx.x !== fx.startX;
-    if (fx.pull) {
-      // gravity well: dark pool, spiral arms turning inward, a bright rim
-      const g = toScreen(fx.x, fx.y, 0), R = (fx.radius || 3) * U;
-      pool(g, R, 0.55 * a);
-      ctx.save();
-      ctx.translate(g.x, g.y);
-      ctx.scale(1, 0.5);
-      for (let i = 0; i < 5; i++) {
-        const a0 = (i * TAU) / 5 - time * 3;
-        ctx.beginPath();
-        for (let s2 = 0; s2 <= 12; s2++) {
-          const t = s2 / 12, rr = R * (1 - t), ang = a0 + t * 3;
-          if (s2 === 0) ctx.moveTo(Math.cos(ang) * rr, Math.sin(ang) * rr); else ctx.lineTo(Math.cos(ang) * rr, Math.sin(ang) * rr);
-        }
-        ctx.strokeStyle = c(pal.accent, 0.6 * a);
-        ctx.lineWidth = 2.5 * z;
-        ctx.stroke();
+    // glowing ember vein between two world points: a jagged stepped crack whose
+    // heat pulses travel along it (main -> accent -> light)
+    const vein = (x0, y0, x1, y1, salt) => {
+      const n = 5;
+      let prev = toScreen(x0, y0, 0);
+      for (let s = 1; s <= n; s++) {
+        const t = s / n, j = s < n ? 0.35 : 0;
+        const q = toScreen(x0 + (x1 - x0) * t + (rnd(salt + s * 3) - 0.5) * j, y0 + (y1 - y0) * t + (rnd(salt + s * 7) - 0.5) * j, 0);
+        const heat = 0.5 + 0.5 * Math.sin(time * 6 - s * 0.9 + salt);
+        tline(prev.x, prev.y, q.x, q.y, col(heat > 0.8 ? 4 : heat > 0.4 ? 3 : 2), 1);
+        prev = q;
       }
-      ctx.restore();
-      ring(g, R * (0.9 + 0.1 * Math.sin(time * 6)), pal.light, 0.7 * a, 2);
-      glow(toScreen(fx.x, fx.y, 0.3), 18 * z, 0.6 * a, pal.main);
+    };
+    // a lump of char: a small solid deep blot with a lit deep2 cap
+    const char = (p, r) => { disc(p.x, p.y, r, col(0), 0.5); disc(p.x - r * 0.25, p.y - r * 0.12, r * 0.55, col(1), 0.5); };
+
+    if (fx.pull) {
+      // gravity well: dark core, five stepped spiral arms brightening as they wind
+      // inward, motes riding them down, a turning dashed rim and a bright eye
+      const g = toScreen(fx.x, fx.y, 0), Rw = fx.radius || 3, R = Rw * U;
+      pool(g, R * 0.62, 0.6 * a);
+      draw(a, () => {
+        for (let i = 0; i < 5; i++) {
+          const a0 = (i * TAU) / 5 - time * 3;
+          let prev = null;
+          for (let s2 = 0; s2 <= 16; s2++) {
+            const t = s2 / 16, rr = R * (1 - t * 0.92), ang = a0 + t * 3;
+            const q = { x: g.x + Math.cos(ang) * rr, y: g.y + Math.sin(ang) * rr * 0.5 };
+            if (prev) tline(prev.x, prev.y, q.x, q.y, col(t < 0.3 ? 2 : t < 0.7 ? 3 : 4), t < 0.5 ? 2 : 1);
+            prev = q;
+          }
+          for (let m = 0; m < 2; m++) {
+            const t = (time * 0.7 + i * 0.13 + m * 0.5) % 1, rr = R * (1 - t * 0.92), ang = a0 + t * 3;
+            dot(cell(g.x + Math.cos(ang) * rr), cell(g.y + Math.sin(ang) * rr * 0.5), col(5));
+          }
+        }
+        loop(g.x, g.y, R, R * 0.5, col(4), 1, -time * 1.5, -time * 1.5 + TAU, (i) => (i >> 3) % 3 === 2);
+      });
+      ring(g, R * (0.9 + 0.06 * Math.sin(time * 6)), pal.main, 0.8 * a, 1.5);
+      glow(toScreen(fx.x, fx.y, 0.3), 18 * z, a, pal.main);
+      star(toScreen(fx.x, fx.y, 0.3), 1.6 * z * (0.8 + 0.2 * Math.sin(time * 10)), a);
       return;
     }
-    // burning ground: scorched patch with flames licking up across it
+    // burning ground: a charred patch threaded with pulsing ember veins and
+    // pixel flames licking up across it, sparks drifting off the tips
     const pts = [];
     if (line) {
+      const dx = fx.x - fx.startX, dy = fx.y - fx.startY, len = Math.hypot(dx, dy) || 1, nx = -dy / len, ny = dx / len;
+      const w = (fx.radius || 1) * 0.6;
       for (let i = 0; i <= 8; i++) {
         const t = i / 8;
-        pts.push([fx.startX + (fx.x - fx.startX) * t + (rnd(i) - 0.5) * 0.5, fx.startY + (fx.y - fx.startY) * t + (rnd(i + 9) - 0.5) * 0.5]);
+        pts.push([fx.startX + dx * t + (rnd(i) - 0.5) * 0.5, fx.startY + dy * t + (rnd(i + 9) - 0.5) * 0.5]);
       }
-      for (let i = 0; i <= 4; i++) {
-        const t = i / 4;
-        pool(toScreen(fx.startX + (fx.x - fx.startX) * t, fx.startY + (fx.y - fx.startY) * t, 0), (fx.radius || 1) * U * 0.8, 0.4 * a);
-      }
+      draw(a, () => {
+        // char lumps scattered along the burnt strip (no stacked washes)
+        const lumps = Math.max(6, Math.round(len * 3));
+        for (let i = 0; i < lumps; i++) {
+          const t = (i + rnd(i + 31)) / lumps, o = (rnd(i + 57) - 0.5) * 2 * w;
+          char(toScreen(fx.startX + dx * t + nx * o, fx.startY + dy * t + ny * o, 0), (2 + 2.5 * rnd(i + 77)) * tex);
+        }
+        // a main vein down the strip with side cracks off it
+        for (let i = 0; i < 8; i++) vein(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1], i * 11);
+        for (let i = 1; i < 8; i += 2) {
+          const s = rnd(i + 5) > 0.5 ? 1 : -1;
+          vein(pts[i][0], pts[i][1], pts[i][0] + nx * w * s + dx / len * 0.3, pts[i][1] + ny * w * s + dy / len * 0.3, i * 23);
+        }
+      });
     } else {
-      const R = fx.radius || 2;
-      pool(toScreen(fx.x, fx.y, 0), R * U, 0.5 * a);
-      ring(toScreen(fx.x, fx.y, 0), R * U, pal.main, 0.5 * a, 2);
+      const R = fx.radius || 2, g = toScreen(fx.x, fx.y, 0);
+      pool(g, R * U * 0.82, 0.55 * a);
+      draw(a, () => {
+        const veins = Math.max(5, Math.round(R * 3));
+        for (let i = 0; i < veins; i++) {
+          const ang = (i / veins) * TAU + rnd(i + 2) * 0.4, r1 = R * (0.7 + 0.25 * rnd(i + 4));
+          vein(fx.x + Math.cos(ang) * R * 0.12, fx.y + Math.sin(ang) * R * 0.12, fx.x + Math.cos(ang) * r1, fx.y + Math.sin(ang) * r1, i * 13);
+        }
+        // charred, smouldering rim: broken deep2 ring with ember flecks in it
+        loop(g.x, g.y, R * U, R * U * 0.5, col(1), 2, 0, TAU, (i) => rnd(i * 1.7) < 0.25);
+        loop(g.x, g.y, R * U, R * U * 0.5, col(3), 1, 0, TAU, (i) => rnd(i * 2.9 + Math.floor(time * 6)) > 0.12);
+      });
       for (let i = 0; i < 9; i++) {
         const ang = rnd(i) * TAU, d = Math.sqrt(rnd(i + 20)) * R * 0.85;
         pts.push([fx.x + Math.cos(ang) * d, fx.y + Math.sin(ang) * d]);
@@ -4483,8 +6026,8 @@ class IsometricRenderer {
     pts.forEach(([wx, wy], i) => {
       const p = toScreen(wx, wy, 0);
       const flick = 0.75 + 0.25 * Math.sin(time * 7 + i * 1.9);
-      flame(p, (12 + 8 * rnd(i + 40)) * z * flick, 5 * z, a * 0.9, i);
-      if (i % 3 === 0) bead({ x: p.x + (rnd(i + 3) - 0.5) * 10 * z, y: p.y - ((time * 30 + i * 13) % 40) * z }, 2 * z, a * 0.8);
+      flame(p, (12 + 8 * rnd(i + 40)) * z * flick, 4 * z, a, i);
+      if (i % 3 === 0) bead({ x: p.x + (rnd(i + 3) - 0.5) * 10 * z, y: p.y - ((time * 30 + i * 13) % 40) * z }, 1.5 * z, a * (1 - ((time * 30 + i * 13) % 40) / 40));
     });
   }
 
@@ -4634,13 +6177,13 @@ class IsometricRenderer {
           ring(g, R * 0.6 * b, pal.core, 1 - seg(0.12, 0.35), 2);
           // void shards flung out along the ground
           const fly = seg(0.12, 0.6);
-          for (let i = 0; i < 14; i++) {
-            const a = (i * TAU) / 14 + rnd(i) * 0.4;
+          for (let i = 0; i < 6; i++) {
+            const a = (i * TAU) / 6 + rnd(i) * 0.4;
             const d = R * (0.25 + 0.85 * out3(fly)) * (0.7 + 0.3 * rnd(i + 20));
             const p = { x: g.x + Math.cos(a) * d, y: g.y + Math.sin(a) * d * 0.5 - 7 * z * Math.sin(fly * Math.PI) };
             lens(p, Math.atan2(Math.sin(a) * 0.5, Math.cos(a)), 10 * z, 2.2 * z, i % 2 ? pal.accent : pal.light, 1 - seg(0.12, 0.7));
           }
-          sparks(h, 16, 8 * z, R * 0.7 * b, hot, 7);
+          sparks(h, 6, 8 * z, R * 0.7 * b, hot, 7);
         }
         return true;
       }
@@ -4703,21 +6246,21 @@ class IsometricRenderer {
 
       // INFERNO BLADE - Flame Slash: a crescent of fire runs down the line and leaves it burning
       case 'wpn_inferno_blade':
-      {
-        const reach = out3(seg(0, 0.4));
-        const ex = sx + (tx - sx) * reach, ey = sy + (ty - sy) * reach;
-        const ang = screenAng(sx, sy, tx, ty);
-        for (let i = 0; i < 7; i++) {
-          const t = (i + 0.5) / 7;
-          if (t > reach) break;
-          const life = 1 - seg(t * 0.4 + 0.3, t * 0.4 + 0.8);
-          flame(toScreen(sx + (tx - sx) * t, sy + (ty - sy) * t, 0), (14 + 8 * rnd(i)) * z * life, 6 * z, life, i);
+        {
+          const reach = out3(seg(0, 0.4));
+          const ex = sx + (tx - sx) * reach, ey = sy + (ty - sy) * reach;
+          const ang = screenAng(sx, sy, tx, ty);
+          for (let i = 0; i < 7; i++) {
+            const t = (i + 0.5) / 7;
+            if (t > reach) break;
+            const life = 1 - seg(t * 0.4 + 0.3, t * 0.4 + 0.8);
+            flame(toScreen(sx + (tx - sx) * t, sy + (ty - sy) * t, 0), (14 + 8 * rnd(i)) * z * life, 6 * z, life, i);
+          }
+          const p = toScreen(ex, ey, 0.6);
+          crescent(p.x, p.y, 26 * z, ang, 2.4, 14 * z, 1 - seg(0.4, 0.6), 0.8);
+          glow(p, 22 * z, 1 - seg(0.4, 0.6));
+          return true;
         }
-        const p = toScreen(ex, ey, 0.6);
-        crescent(p.x, p.y, 26 * z, ang, 2.4, 14 * z, 1 - seg(0.4, 0.6), 0.8);
-        glow(p, 22 * z, 1 - seg(0.4, 0.6));
-        return true;
-      }
 
       // STORM BREAKER - Thunderclap: bolts spray from the hero, the ground splits and crackles
       case 'wpn_storm_breaker': {
@@ -5104,50 +6647,84 @@ class IsometricRenderer {
   // ---------------------------------------------------------------- Eclipse Reaper (SP tier 5)
   // Black sun + blood crimson: eclipses, scythes, blood
   drawEclipseReaperSkill(ctx, fx, progress, toScreen, z) {
-    const k = this.spFxKit(ctx, progress, toScreen, z, SP_FX_PALETTES.sp_eclipse_reaper);
-    const { time, TAU, U, clamp01, seg, out3, fade, c, shade, ring, pool, bead, slashX, crescent, groundBand } = k;
-    const { main: CRIMSON, accent: ROSE, light: PINK, core: BONE } = k.pal;
-    // Black disc with a flickering blood corona and a diamond-ring glint
-    const blackSun = (p, rad, a) => {
-      if (rad <= 0.5 || a <= 0.01) return;
-      const cor = ctx.createRadialGradient(p.x, p.y, rad * 0.8, p.x, p.y, rad * 2.4);
-      cor.addColorStop(0, c(PINK, a * 0.95));
-      cor.addColorStop(0.18, c(ROSE, a * 0.8));
-      cor.addColorStop(0.5, c(CRIMSON, a * 0.35));
-      cor.addColorStop(1, c(CRIMSON, 0));
-      ctx.fillStyle = cor;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, rad * 2.4, 0, TAU);
-      ctx.fill();
-      for (let k = 0; k < 12; k++) {
-        const ang = (k / 12) * TAU + time * 0.8 + (k % 2) * 0.13;
-        const len = rad * (1.45 + 0.5 * Math.sin(time * 7 + k * 2.3));
-        ctx.beginPath();
-        ctx.moveTo(p.x + Math.cos(ang - 0.17) * rad * 0.95, p.y + Math.sin(ang - 0.17) * rad * 0.95);
-        ctx.lineTo(p.x + Math.cos(ang) * len, p.y + Math.sin(ang) * len);
-        ctx.lineTo(p.x + Math.cos(ang + 0.17) * rad * 0.95, p.y + Math.sin(ang + 0.17) * rad * 0.95);
-        ctx.closePath();
-        ctx.fillStyle = c(k % 2 ? PINK : ROSE, a * 0.5);
-        ctx.fill();
-      }
-      shade(() => {
-        const disc = ctx.createRadialGradient(p.x - rad * 0.25, p.y - rad * 0.25, rad * 0.1, p.x, p.y, rad);
-        disc.addColorStop(0, `rgba(6, 1, 4, ${a})`);
-        disc.addColorStop(0.85, `rgba(18, 3, 9, ${a})`);
-        disc.addColorStop(1, `rgba(70, 8, 26, ${a})`);
-        ctx.fillStyle = disc;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, rad, 0, TAU);
-        ctx.fill();
-      });
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, rad, 0, TAU);
-      ctx.strokeStyle = c(BONE, a * 0.9);
-      ctx.lineWidth = Math.max(1, rad * 0.09);
-      ctx.stroke();
-      const ga = -0.8 + 0.3 * Math.sin(time * 2);
-      bead({ x: p.x + Math.cos(ga) * rad, y: p.y + Math.sin(ga) * rad }, rad * 0.55, a);
+    const time = this.animations.time, TAU = Math.PI * 2;
+    const clamp01 = (v) => Math.max(0, Math.min(1, v));
+    const seg = (a, b) => clamp01((progress - a) / (b - a));
+    const out3 = (t) => 1 - Math.pow(1 - t, 3);
+    const fade = progress < 0.6 ? 1 : clamp01(1 - (progress - 0.6) / 0.4);
+    // ---- pixel toolkit: crimson card ramp for blood and scythes, the fire ramp for solar flares
+    const M = this.spMotifs(ctx, fx, progress);
+    ctx.globalCompositeOperation = 'source-over';
+    const tex = M.tex, hash = M.hash, line = M.line;
+    const snap = (v) => Math.round(v / tex) * tex;
+    const bay = (i, j) => (FX_BAYER[((j + 64) & 3) * 4 + ((i + 64) & 3)] + 0.5) / 16;
+    const RA = this.fxRamp(fx), TOP = RA.length - 1, FR = FX_ELEMENT_RAMPS.fire;
+    const C = (n) => RA[Math.max(0, Math.min(TOP, Math.round(n)))];
+    const F = (n) => FR[Math.max(0, Math.min(FR.length - 1, Math.round(n)))];
+    const VOID = '#060312';
+    const backOut = (t) => { const s = 2.2; t = clamp01(t) - 1; return 1 + t * t * ((s + 1) * t + s); };
+    const dot = (x, y, col, s = 1) => { ctx.fillStyle = col; ctx.fillRect(snap(x) - (s * tex) / 2, snap(y) - (s * tex) / 2, s * tex, s * tex); };
+    const blob = (cx, cy, rx, ry, fn, key) => this.texelBlob(ctx, tex, cx, cy, rx, ry, fn, key);
+    const star = (x, y, s, col, core) => {
+      line({ x: x - s * tex, y }, { x: x + s * tex, y }, col, 1);
+      line({ x, y: y - s * tex }, { x, y: y + s * tex }, col, 1);
+      dot(x, y, core || col, 2);
     };
+    // Black sun: a void disc with a crimson rim-light crescent, a flickering 16-ray corona
+    // (gold at the root, blood at the tips) and a diamond-ring glint
+    const blackSun = (p, rad, a) => {
+      if (rad < tex * 1.5 || a <= 0.02) return;
+      const lit = 2 + 3 * a, fl = Math.floor(time * 10), K = 2.3;
+      blob(p.x, p.y, rad * K, rad * K, (u, v, d, i, j) => {
+        const dr = d * K;
+        if (dr < 0.9) return dr > 0.72 && u + v > 0.25 ? C(1) : VOID;
+        if (dr < 1.05) return u - v > 0.9 ? F(6) : C(lit);
+        const x = (((Math.atan2(v, u) + time * 0.25) / TAU) * 16 + 32) % 16, ray = Math.round(x) % 16, off = Math.abs(x - Math.round(x)) * 2;
+        const reach = 1.2 + (ray % 2 ? 0.35 : 0.8) * (0.55 + 0.45 * hash(ray * 7 + fl)) * a;
+        const L = 1.12 + (reach - 1.12) * (1 - off);
+        if (dr > L) return dr < 1.22 && bay(i, j) < 0.5 ? C(lit - 2) : null;
+        return dr < 1.18 ? F(4 + a) : dr < 1.45 ? C(lit - 1) : C(lit - 2);
+      });
+      const ga = -0.8 + 0.3 * Math.sin(time * 2), gx = p.x + Math.cos(ga) * rad, gy = p.y + Math.sin(ga) * rad;
+      star(gx, gy, Math.round(2 + rad / tex * 0.35), F(5), F(6));
+    };
+    // a scythe crescent around screen point c: thin tail at a0, fat then needle-sharp at a1
+    const crescent = (c0, r, a0, a1, th, sy = 1, lit = TOP) => {
+      const n = Math.max(8, Math.ceil((Math.abs(a1 - a0) * r) / tex * 1.4));
+      for (let q = 0; q <= n; q++) {
+        const t = q / n, a = a0 + (a1 - a0) * t;
+        const prof = t < 0.8 ? Math.pow(t / 0.8, 0.6) : (1 - t) / 0.2;
+        const m = Math.max(1, Math.round((th * prof) / tex)), ca = Math.cos(a), sa = Math.sin(a);
+        const l = lit - (1 - t) * 1.6;
+        for (let s = m - 1; s >= 0; s--) {
+          const rr = r - s * tex;
+          dot(c0.x + ca * rr, c0.y + sa * rr * sy, s === 0 ? C(l) : s === 1 ? C(l - 1) : s >= m - 1 ? C(l - 3) : C(l - 2));
+        }
+      }
+    };
+    // a blood-red X cut, growing to arm length L
+    const slashX = (p, L, a) => {
+      if (L < tex || a <= 0.02) return;
+      for (const sd of [-1, 1]) {
+        const p0 = { x: p.x - L * 0.75, y: p.y + sd * L * 0.55 }, p1 = { x: p.x + L * 0.75, y: p.y - sd * L * 0.55 };
+        line(p0, p1, C(1 + a), 4);
+        line(p0, p1, C(2 + 2 * a), 2);
+        line({ x: p.x - L * 0.45, y: p.y + sd * L * 0.33 }, { x: p.x + L * 0.45, y: p.y - sd * L * 0.33 }, C(3 + 2 * a), 1);
+      }
+      dot(p.x, p.y, F(6), 3);
+    };
+    // blood droplets flung from screen point p (t 0..1), falling under gravity
+    const drops = (p, n, dist, t, salt) => {
+      if (t <= 0 || t >= 1) return;
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * TAU + hash(salt + i) * 0.8, d = dist * (0.45 + 0.55 * hash(salt + i * 3)) * out3(t);
+        const x = p.x + Math.cos(a) * d, y = p.y + Math.sin(a) * d * 0.6 - Math.sin(t * Math.PI) * 12 * z * hash(i + salt * 2) + t * t * 18 * z;
+        dot(x, y, C(3 - t * 2), 2);
+        if (t < 0.6) dot(x - tex / 2, y - tex / 2, C(5));
+      }
+    };
+    // a dithered dark-blood stain on the ground
+    const stain = (cx, cy, r, a) => { if (a > 0.05 && r > 0.1) M.pool(cx, cy, r, C(1), C(0), 0.55 * a); };
 
     const sx = fx.startX !== undefined ? fx.startX : fx.x;
     const sy = fx.startY !== undefined ? fx.startY : fx.y;
@@ -5161,74 +6738,53 @@ class IsometricRenderer {
     switch (fx.skillId || BY_SHAPE[fx.shape]) {
       // TOTAL ECLIPSE: a black sun over the mark, a scythe whips through it, blood X on impact
       case 'sp_total_eclipse': {
-        const g = toScreen(tx, ty, 0);
         const grow = out3(seg(0, 0.3));
+        // the reaper lunges: a dark streak with a bone-white core, the core racing ahead
         const lunge = 1 - seg(0.05, 0.4);
         if (lunge > 0 && Math.hypot(tx - sx, ty - sy) > 0.3) {
-          const a = toScreen(sx, sy, 0.5), b = toScreen(tx, ty, 0.5);
-          ctx.beginPath();
-          ctx.moveTo(a.x, a.y);
-          ctx.lineTo(b.x, b.y);
-          ctx.strokeStyle = c(CRIMSON, lunge * 0.5);
-          ctx.lineWidth = 7 * z;
-          ctx.stroke();
-          ctx.strokeStyle = c(BONE, lunge * 0.8);
-          ctx.lineWidth = 1.5 * z;
-          ctx.stroke();
+          const a = toScreen(sx, sy, 0.5), b = toScreen(tx, ty, 0.5), m = 1 - lunge;
+          const a2 = { x: a.x + (b.x - a.x) * m, y: a.y + (b.y - a.y) * m };
+          line(a2, b, C(1 + lunge), 4);
+          line(a2, b, C(3 + 2 * lunge), 1);
         }
-        pool(g, 1.7 * U * grow, 0.6 * fade);
+        stain(tx, ty, 1.3 * grow, fade);
+        // blood-moon shockwave after the cut
         const wave = seg(0.38, 1);
         if (wave > 0) {
-          ring(g, (0.5 + 2.1 * out3(wave)) * U, ROSE, (1 - wave) * 0.9, 3.5);
-          ring(g, (0.3 + 1.4 * out3(wave)) * U, PINK, (1 - wave) * 0.5, 1.5);
+          M.ellipse(tx, ty, 0.5 + 2.1 * out3(wave), C(4 - wave * 2), 3, 0.1 + wave * 0.6);
+          M.ellipse(tx, ty, 0.3 + 1.4 * out3(wave), F(4 - wave * 2), 1, 0.3 + wave * 0.6);
         }
         blackSun(toScreen(tx, ty, 2.1 - 0.5 * grow), 15 * z * (0.25 + 0.75 * grow), fade);
+        // the scythe whips through the eclipse: a bright crescent with a stepped smear behind it
         const sw = seg(0.18, 0.5);
         const swA = progress < 0.5 ? 1 : 1 - seg(0.5, 0.85);
-        if (sw > 0 && swA > 0) {
+        if (sw > 0 && swA > 0.05) {
           const mid = toScreen(tx, ty, 0.8);
           const rot = -2.4 + out3(sw) * 2.9;
-          for (let k = 3; k >= 0; k--) {
-            crescent(mid.x, mid.y, 46 * z, rot - k * 0.24 * (1 - sw * 0.5), 1.9, 30 * z, swA * (k ? 0.28 / k : 1), 0.7);
-          }
+          for (let q = 3; q >= 1; q--) crescent(mid, 46 * z, rot - 1.9 - q * 0.22, rot - q * 0.22, 6 * z, 0.7, 1 + (3 - q) * 0.6 + swA);
+          crescent(mid, 46 * z, rot - 1.9, rot, 14 * z * (0.6 + 0.4 * swA), 0.7, 2 + 3 * swA);
         }
         const hit = seg(0.4, 0.85);
         if (hit > 0 && hit < 1) {
           const p = toScreen(tx, ty, 0.6), ha = 1 - hit;
-          const L = 38 * z * out3(Math.min(1, hit * 2.5));
-          const flash = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, 30 * z);
-          flash.addColorStop(0, c(BONE, ha));
-          flash.addColorStop(0.4, c(ROSE, ha * 0.6));
-          flash.addColorStop(1, c(CRIMSON, 0));
-          ctx.fillStyle = flash;
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, 30 * z, 0, TAU);
-          ctx.fill();
-          slashX(p, L, ha);
-          // blood spray
-          for (let k = 0; k < 10; k++) {
-            const ang = k * 2.39996 + 0.4, d0 = L * 0.4, d1 = L * (0.9 + (k % 3) * 0.25);
-            ctx.beginPath();
-            ctx.moveTo(p.x + Math.cos(ang) * d0, p.y + Math.sin(ang) * d0 * 0.6);
-            ctx.lineTo(p.x + Math.cos(ang) * d1, p.y + Math.sin(ang) * d1 * 0.6 + hit * 10 * z);
-            ctx.strokeStyle = c(CRIMSON, ha * 0.85);
-            ctx.lineWidth = 2.5 * z;
-            ctx.stroke();
-          }
+          if (hit < 0.14) blob(p.x, p.y, 30 * z, 24 * z, (u, v, d, i, j) => (d < 0.4 ? F(6) : d < 0.7 ? C(5) : bay(i, j) < 0.5 ? C(4) : null));
+          slashX(p, 38 * z * out3(Math.min(1, hit * 2.5)), ha);
+          drops(p, 14, 54 * z, hit, 5);
         }
         return true;
       }
 
       // BLOOD TETHER: writhing veins hook each target, then blood beads flow back to the reaper
       case 'sp_blood_tether': {
-        const og = toScreen(sx, sy, 0), op = toScreen(sx, sy, 0.7);
+        const op = toScreen(sx, sy, 0.7);
         const grow = out3(seg(0, 0.25));
-        pool(og, 1.1 * U * grow, 0.45 * fade);
-        ring(og, (0.6 + 0.5 * grow) * U, ROSE, fade * 0.85, 2.5);
+        const lit = 2 + 3 * fade;
+        stain(sx, sy, 0.9 * grow, fade);
+        M.ellipse(sx, sy, 0.6 + 0.5 * grow, C(lit), 2, 0.12);
         const drink = seg(0.55, 1);
-        if (drink > 0) ring(og, (0.4 + 0.9 * drink) * U, PINK, (1 - drink) * 0.8, 2);
+        if (drink > 0) M.ellipse(sx, sy, 0.4 + 0.9 * drink, C(5 - drink * 3), 1, 0.2 + drink * 0.5);
         (fx.points || []).forEach((pt, i) => {
-          const tp = toScreen(pt.x, pt.y, 0.7), tg = toScreen(pt.x, pt.y, 0);
+          const tp = toScreen(pt.x, pt.y, 0.7);
           const dx = tp.x - op.x, dy = tp.y - op.y, len = Math.hypot(dx, dy) || 1;
           const bow = len * 0.28 * (i % 2 ? 1 : -1);
           const cx = (op.x + tp.x) / 2 - (dy / len) * bow, cy = (op.y + tp.y) / 2 + (dx / len) * bow - 14 * z;
@@ -5242,36 +6798,33 @@ class IsometricRenderer {
           };
           const reach = out3(seg(i * 0.05, 0.28 + i * 0.05));
           if (reach <= 0) return;
-          const trace = () => {
-            ctx.beginPath();
-            for (let k = 0; k <= 24; k++) {
-              const p = at((k / 24) * reach);
-              if (k === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
-            }
-          };
-          shade(() => {
-            trace();
-            ctx.strokeStyle = `rgba(30, 3, 10, ${0.7 * fade})`;
-            ctx.lineWidth = 6 * z;
-            ctx.stroke();
-          });
-          trace();
-          ctx.strokeStyle = c(ROSE, fade * 0.9);
-          ctx.lineWidth = 3 * z;
-          ctx.stroke();
-          ctx.strokeStyle = c(BONE, fade * 0.7);
-          ctx.lineWidth = 1 * z;
-          ctx.stroke();
-          if (reach >= 1) {
-            const bite = seg(0.28 + i * 0.05, 0.6 + i * 0.05);
-            ring(tg, (0.35 + 0.45 * out3(bite)) * U, ROSE, fade * (1 - bite * 0.6), 2.5);
-            bead(tp, 9 * z, fade);
+          // the vein: dark sheath, crimson body, a pale pulse; thorns barb its length
+          const N = 24, pts = [];
+          for (let q = 0; q <= N; q++) pts.push(at((q / N) * reach));
+          // as it withers the vein snaps into loose segments rather than darkening
+          const keep = (q) => hash(q * 7 + i * 31) < fade * 1.6;
+          for (let q = 1; q <= N; q++) if (keep(q)) line(pts[q - 1], pts[q], C(lit - 2), 3);
+          for (let q = 1; q <= N; q++) if (keep(q)) line(pts[q - 1], pts[q], C(Math.max(3, lit - 1)), 1);
+          const pulse = Math.floor(((time * 1.6 + i * 0.3) % 1) * N);
+          for (let q = 1; q <= N; q++) {
+            if (Math.abs(q - pulse) < 2) line(pts[q - 1], pts[q], C(lit + 1), 2);
+            if (q % 4 === 2) { const p = pts[q], sd = q % 8 === 2 ? -1 : 1; line(p, { x: p.x + 2 * tex, y: p.y + sd * 3 * tex }, C(lit), 1); }
           }
+          const head = pts[N];
+          if (reach < 1) dot(head.x, head.y, C(TOP), 3);
+          else {
+            // the hook bites: a small crescent claw closing on the target and a blood-red mark
+            const bite = seg(0.28 + i * 0.05, 0.6 + i * 0.05);
+            M.ellipse(pt.x, pt.y, 0.35 + 0.45 * out3(bite), C(lit - bite), 2, 0.15 + bite * 0.4 + (1 - fade) * 0.5);
+            crescent(tp, 7 * z, -2.6 + bite * 0.8, 0.6 - bite * 0.8, 3 * z, 1, lit + 1);
+            if (bite < 1) drops(tp, 6, 20 * z, bite, i * 9);
+          }
+          // stolen blood beads flow back along the vein to the reaper
           const back = seg(0.35, 0.95);
           if (back > 0 && back < 1) {
             for (let j = 0; j < 3; j++) {
               const t = 1 - clamp01(back * 1.35 - j * 0.14);
-              if (t > 0 && t < 1) bead(at(t), 6 * z, fade);
+              if (t > 0 && t < 1) { const p = at(t); blob(p.x, p.y, 3.5 * z, 3.5 * z, (u, v, d) => (d < 0.4 && u < 0 && v < 0 ? C(5) : d < 0.75 ? C(3) : C(2))); }
             }
           }
         });
@@ -5281,58 +6834,55 @@ class IsometricRenderer {
       // CRIMSON BLOOM: a blood lotus unfurls on the ground under a rising black sun
       case 'sp_crimson_bloom': {
         const g = toScreen(tx, ty, 0);
-        const R = (fx.radius || 4.5) * U;
+        const Rw = fx.radius || 4.5, R = Rw * 32 * Math.SQRT2 * z;
         const open = out3(seg(0, 0.45));
-        pool(g, R * (0.3 + 0.7 * open), 0.55 * fade);
+        // a blood lotus unfurls flat on the ground: three ranks of pointed petals,
+        // each with a lit rim and a pale midrib, the outer ranks deeper red
         const LAYERS = [
-          { n: 8, len: 1.0, w: 0.3, rot: 0, rgb: CRIMSON, a: 0.5 },
-          { n: 8, len: 0.7, w: 0.32, rot: Math.PI / 8, rgb: ROSE, a: 0.6 },
-          { n: 5, len: 0.4, w: 0.45, rot: 0.3, rgb: PINK, a: 0.65 }
-        ];
-        ctx.save();
-        ctx.translate(g.x, g.y);
-        ctx.scale(1, 0.5);
-        LAYERS.forEach((L, li) => {
-          const unfurl = out3(seg(li * 0.07, 0.42 + li * 0.07));
-          if (unfurl <= 0) return;
-          const spin = (1 - unfurl) * 0.9 * (li % 2 ? -1 : 1) + progress * 0.2;
-          const len = R * L.len * unfurl;
-          const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, len);
-          grad.addColorStop(0, c(L.rgb, 0.05 * fade));
-          grad.addColorStop(0.65, c(L.rgb, L.a * fade));
-          grad.addColorStop(1, c(PINK, L.a * fade));
-          for (let k = 0; k < L.n; k++) {
-            const a = L.rot + spin + (k * TAU) / L.n;
-            ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.quadraticCurveTo(Math.cos(a - L.w) * len * 0.75, Math.sin(a - L.w) * len * 0.75, Math.cos(a) * len, Math.sin(a) * len);
-            ctx.quadraticCurveTo(Math.cos(a + L.w) * len * 0.75, Math.sin(a + L.w) * len * 0.75, 0, 0);
-            ctx.fillStyle = grad;
-            ctx.fill();
-            ctx.strokeStyle = c(PINK, 0.7 * fade);
-            ctx.lineWidth = 1.5 * z;
-            ctx.stroke();
-          }
+          { n: 5, len: 0.4, w: 0.42, rot: 0.3, base: 4 },
+          { n: 8, len: 0.7, w: 0.3, rot: Math.PI / 8, base: 3 },
+          { n: 8, len: 1.0, w: 0.26, rot: 0, base: 2.1 }
+        ].map((L, li) => {
+          // (quantised so the painted lotus can be kept and re-stamped between steps)
+          const unfurl = Math.round(out3(seg((2 - li) * 0.07, 0.42 + (2 - li) * 0.07)) * 24) / 24;
+          return Object.assign(L, { unfurl, spin: Math.round((L.rot + (1 - unfurl) * 0.9 * (li % 2 ? -1 : 1) + progress * 0.2) * 40) / 40 });
         });
-        ctx.restore();
+        const dim = 0; // the lotus fades by dithering away, never by darkening
+        const fadeQ = Math.round(fade * 8) / 8;
+        const lotusKey = 'bloom|' + (fx.cardId || '') + '|' + LAYERS.map(L => L.unfurl + ',' + L.spin).join(';') + '|' + fadeQ;
+        blob(g.x, g.y, R, R / 2, (u, v, d, i, j) => {
+          if (fadeQ < 0.5 && bay(i, j) > fadeQ * 2) return null;
+          if (d < 0.05) return F(5);
+          const a = Math.atan2(v, u);
+          for (const L of LAYERS) {
+            const len = L.len * L.unfurl;
+            if (L.unfurl <= 0 || d > len) continue;
+            const f = d / len, per = TAU / L.n;
+            let df = (a - L.spin) % per; if (df < 0) df += per; if (df > per / 2) df -= per;
+            const hw = L.w * 1.2 * Math.sin(Math.PI * Math.pow(f, 0.7));
+            if (Math.abs(df) > hw) continue;
+            const b = L.base - dim;
+            if (Math.abs(df) > hw * 0.72 || f > 0.93) return C(b + 1);
+            if (Math.abs(df) * d * R < tex * 0.6 && f > 0.15) return C(b + 1.6);
+            if (f < 0.4) return bay(i, j) < 0.3 + f ? C(b) : null;
+            return df < 0 ? C(b) : C(b - 0.6);
+          }
+          return null;
+        }, lotusKey);
         const sh = seg(0.3, 0.85);
-        if (sh > 0) {
-          ring(g, R * (0.8 + 0.25 * out3(sh)), ROSE, (1 - sh) * 0.9, 4);
-          ring(g, R * (0.8 + 0.25 * out3(sh)), BONE, (1 - sh) * 0.6, 1.5);
+        if (sh > 0 && sh < 1) {
+          M.ellipse(tx, ty, Rw * (0.8 + 0.25 * out3(sh)), C(5 - sh * 3), 3, 0.08 + sh * 0.5);
+          M.ellipse(tx, ty, Rw * (0.75 + 0.2 * out3(sh)), F(4 - sh * 2), 1, 0.3 + sh * 0.5);
         }
         blackSun(toScreen(tx, ty, 1.4 + 1.0 * open), 14 * z * open, fade);
-        // loose petals drifting up
-        for (let k = 0; k < 12; k++) {
-          const a = k * 2.39996, d = R * (0.35 + 0.55 * ((k * 0.618) % 1));
-          const rise = progress * (40 + (k % 4) * 14) * z;
-          ctx.save();
-          ctx.translate(g.x + Math.cos(a) * d, g.y + Math.sin(a) * d * 0.5 - rise);
-          ctx.rotate(a + time * 3 + k);
-          ctx.beginPath();
-          ctx.ellipse(0, 0, 4.5 * z, 2 * z, 0, 0, TAU);
-          ctx.fillStyle = c(k % 2 ? PINK : ROSE, fade * 0.85 * open);
-          ctx.fill();
-          ctx.restore();
+        // loose petals drifting up, tumbling (two-texel flecks that flip)
+        for (let q = 0; q < 14; q++) {
+          const a = q * 2.39996, d = R * (0.35 + 0.55 * ((q * 0.618) % 1));
+          const rise = progress * (40 + (q % 4) * 14) * z;
+          const x = g.x + Math.cos(a) * d + Math.sin(time * 3 + q) * 3 * tex, y = g.y + Math.sin(a) * d * 0.5 - rise;
+          if (open * fade < 0.2) continue;
+          const flip = Math.floor(time * 8 + q) % 2;
+          dot(x, y, C(4 - dim), 1); dot(x + (flip ? tex : 0), y + (flip ? 0 : tex), C(3 - dim), 1);
         }
         return true;
       }
@@ -5344,52 +6894,42 @@ class IsometricRenderer {
         const w = (fx.width || 1.6) * 0.45;
         const reach = out3(seg(0, 0.3));
         const ex = sx + ddx * reach, ey = sy + ddy * reach;
-        const a = toScreen(sx, sy, 0.15), b = toScreen(ex, ey, 0.15);
-        pool(toScreen(sx, sy, 0), 0.9 * U, 0.5 * (1 - seg(0, 0.6)));
-        // needle at the start, full width where the reaper lands
-        const wake = () => {
-          const pts = [
-            [sx + nx * w * 0.1, sy + ny * w * 0.1], [ex + nx * w, ey + ny * w], [ex + ux * w * 0.8, ey + uy * w * 0.8],
-            [ex - nx * w, ey - ny * w], [sx - nx * w * 0.1, sy - ny * w * 0.1]
-          ].map(([x, y]) => toScreen(x, y, 0.15));
-          ctx.beginPath();
-          pts.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
-          ctx.closePath();
-        };
-        shade(() => {
-          wake();
-          ctx.fillStyle = `rgba(20, 2, 8, ${0.55 * fade})`;
-          ctx.fill();
-        });
-        const grad = ctx.createLinearGradient(a.x, a.y, b.x, b.y);
-        grad.addColorStop(0, c(CRIMSON, 0));
-        grad.addColorStop(0.6, c(CRIMSON, 0.55 * fade));
-        grad.addColorStop(1, c(ROSE, 0.9 * fade));
-        wake();
-        ctx.fillStyle = grad;
-        ctx.fill();
-        ctx.beginPath();
-        ctx.moveTo(a.x, a.y);
-        ctx.lineTo(b.x, b.y);
-        ctx.strokeStyle = c(BONE, 0.8 * fade);
-        ctx.lineWidth = 1.5 * z;
-        ctx.stroke();
-        const full = toScreen(tx, ty, 0.15);
-        const ang = Math.atan2(full.y - toScreen(sx, sy, 0.15).y, full.x - toScreen(sx, sy, 0.15).x);
-        for (let k = 1; k <= 3; k++) {
-          const t = k / 4;
+        stain(sx, sy, 0.7, 1 - seg(0, 0.6));
+        // a tapering blood wake, needle-thin where the reaper left and full width where it lands;
+        // its tail burns out first, breaking into dark embers
+        const steps = Math.max(6, Math.round(dlen * reach * 32));
+        const burn = seg(0.3, 1);
+        for (let q = 0; q <= steps; q++) {
+          const t = (q / steps) * reach, f = reach > 0 ? t / reach : 0;
+          if (f < burn * 1.2 - 0.1 && hash(q * 3) > 0.12) continue;
+          const half = w * (0.1 + 0.9 * f);
+          const cx = sx + ddx * t, cy = sy + ddy * t;
+          const l = toScreen(cx + nx * half, cy + ny * half, 0.15), r = toScreen(cx - nx * half, cy - ny * half, 0.15);
+          const lit = 1.4 + 2.6 * f * fade;
+          line(l, r, bay(q, 1) < 0.5 ? C(lit) : C(lit - 0.6), 1);
+          dot(l.x, l.y, C(lit + 1), 1); dot(r.x, r.y, C(lit + 1), 1);
+        }
+        const a = toScreen(sx + ddx * reach * Math.max(0, burn * 1.2 - 0.1), sy + ddy * reach * Math.max(0, burn * 1.2 - 0.1), 0.15), b = toScreen(ex, ey, 0.15);
+        if (fade > 0.2) line(a, b, C(4 + fade), 1);
+        // afterimage scythes hang along the path
+        const full = toScreen(tx, ty, 0.15), st = toScreen(sx, sy, 0.15);
+        const ang = Math.atan2(full.y - st.y, full.x - st.x);
+        for (let q = 1; q <= 3; q++) {
+          const t = q / 4;
           if (reach < t) continue;
           const p = toScreen(sx + ddx * t, sy + ddy * t, 0.6);
-          crescent(p.x, p.y, 20 * z, ang, 2.2, 12 * z, fade * (0.2 + 0.15 * k), 0.8);
+          crescent(p, 20 * z, ang - 1.1, ang + 1.1, 5 * z, 0.8, 1 + q * 0.6 * fade + fade);
         }
+        // landing: a double cleave, two crescents crossing
         const land = seg(0.2, 0.75);
         if (land > 0 && land < 1) {
           const p = toScreen(tx, ty, 0.6), la = 1 - land;
-          crescent(p.x, p.y, 30 * z, ang - 0.9 + land * 0.8, 1.9, 18 * z, la, 0.75);
-          crescent(p.x, p.y, 30 * z, ang + 0.9 - land * 0.8, 1.9, 18 * z, la * 0.8, 0.75);
+          crescent(p, 30 * z, ang - 0.9 + land * 0.8 - 1.9, ang - 0.9 + land * 0.8, 12 * z, 0.75, 2 + 3 * la);
+          crescent(p, 30 * z, ang + 0.9 - land * 0.8 + 1.9, ang + 0.9 - land * 0.8, 12 * z, 0.75, 1.6 + 3 * la);
+          drops(p, 8, 30 * z, land, 13);
         }
         const rr = seg(0.15, 0.8);
-        if (rr > 0) ring(toScreen(tx, ty, 0), (0.4 + 1.2 * out3(rr)) * U, ROSE, (1 - rr) * 0.85, 3);
+        if (rr > 0 && rr < 1) M.ellipse(tx, ty, 0.4 + 1.2 * out3(rr), C(4 - rr * 2), 2, 0.12 + rr * 0.5);
         return true;
       }
 
@@ -5401,57 +6941,46 @@ class IsometricRenderer {
         const sw = out3(seg(0, 0.45));
         const head = base - half + 2 * half * sw;
         const tail = Math.max(base - half, head - 1.6);
-        shade(() => {
-          groundBand(tx, ty, 0.3, range, tail, head, 0);
-          ctx.fillStyle = `rgba(25, 3, 10, ${0.22 * fade})`;
-          ctx.fill();
-        });
-        // blade ribbon, brightest and thickest at the head
-        const N = 16;
-        const inner = (k) => range * (0.85 - 0.4 * k);
-        for (let i = 0; i < N; i++) {
-          const k0 = i / N, k1 = (i + 1) / N;
-          const a0 = tail + (head - tail) * k0, a1 = tail + (head - tail) * k1;
-          const quad = [[range, a0], [range, a1], [inner(k1), a1], [inner(k0), a0]]
-            .map(([r, a]) => toScreen(tx + Math.cos(a) * r, ty + Math.sin(a) * r, 0.3));
-          ctx.beginPath();
-          quad.forEach((p, j) => (j ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
-          ctx.closePath();
-          ctx.fillStyle = c(k1 > 0.8 ? ROSE : CRIMSON, fade * (0.06 + 0.7 * k1 * k1));
-          ctx.fill();
+        // blade smear swept across the cone: radial texel spokes, sparse and dark at the tail,
+        // dense and blazing at the head, with a bone-white cutting edge
+        const N = Math.max(12, Math.round((head - tail) * range * 9));
+        const G = (r, a, h = 0.3) => toScreen(tx + Math.cos(a) * r, ty + Math.sin(a) * r, h);
+        for (let q = 0; q <= N; q++) {
+          const f = q / N, a = tail + (head - tail) * f;
+          if (bay(q, 0) > f * 1.6 * fade + 0.05) continue;
+          const inner = range * (0.85 - 0.4 * f);
+          line(G(inner, a), G(range, a), C(1 + 2.5 * f * fade), f > 0.75 ? 2 : 1);
         }
-        ctx.beginPath();
-        for (let k = 0; k <= 16; k++) {
-          const a = tail + ((head - tail) * k) / 16;
-          const p = toScreen(tx + Math.cos(a) * range, ty + Math.sin(a) * range, 0.3);
-          if (k === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+        let prev = null;
+        for (let q = 0; q <= N; q++) {
+          const f = q / N, p = G(range, tail + (head - tail) * f);
+          if (prev && hash(q) < fade * 1.3) { line(prev, p, C(2 + 2 * f * fade), 3); line(prev, p, f > 0.4 ? C(3 + 2 * fade) : C(3), 1); }
+          prev = p;
         }
-        ctx.strokeStyle = c(ROSE, fade * 0.35);
-        ctx.lineWidth = 6 * z;
-        ctx.stroke();
-        ctx.strokeStyle = c(BONE, fade * 0.95);
-        ctx.lineWidth = 2 * z;
-        ctx.stroke();
-        // the snath from the reaper's hands to the blade
+        // the snath from the reaper's hands to the blade, and the blade itself riding the head
         const hand = toScreen(tx, ty, 0.7);
-        const heel = toScreen(tx + Math.cos(head) * range * 0.55, ty + Math.sin(head) * range * 0.55, 0.4);
-        shade(() => {
-          ctx.beginPath();
-          ctx.moveTo(hand.x, hand.y);
-          ctx.lineTo(heel.x, heel.y);
-          ctx.strokeStyle = `rgba(30, 6, 12, ${0.85 * fade})`;
-          ctx.lineWidth = 4 * z;
-          ctx.lineCap = 'round';
-          ctx.stroke();
-        });
-        if (sw < 1) bead(toScreen(tx + Math.cos(head) * range * 0.95, ty + Math.sin(head) * range * 0.95, 0.3), 16 * z, fade);
+        const heel = G(range * 0.55, head, 0.4);
+        if (fade > 0.15) {
+          line(hand, heel, VOID, 3);
+          line({ x: hand.x, y: hand.y - tex }, { x: heel.x, y: heel.y - tex }, C(1), 1);
+          const tip = G(range, head + 0.25, 0.4);
+          const phi = Math.atan2(tip.y - heel.y, tip.x - heel.x);
+          crescent({ x: (heel.x + tip.x) / 2, y: (heel.y + tip.y) / 2 }, Math.hypot(tip.x - heel.x, tip.y - heel.y) / 2, phi - Math.PI, phi, 7 * z, 1, 2 + 3 * fade);
+        }
+        // solar flares crackle off the edge as it passes
+        if (sw < 1) {
+          const p = G(range * 0.95, head);
+          star(p.x, p.y, 4, F(5), F(6));
+          for (let q = 0; q < 6; q++) dot(p.x + (hash(q + M.frame) - 0.5) * 18 * z, p.y - hash(q * 3 + M.frame) * 16 * z, F(3 + 3 * hash(q)), q % 2 ? 1 : 2);
+        }
         // stolen life drifting back to the reaper
         const back = seg(0.4, 1);
         if (back > 0 && back < 1) {
-          for (let k = 0; k < 5; k++) {
-            const a = base - half + ((k + 0.5) / 5) * 2 * half;
+          for (let q = 0; q < 5; q++) {
+            const a = base - half + ((q + 0.5) / 5) * 2 * half;
             const d = range * 0.8 * (1 - out3(back));
-            bead(toScreen(tx + Math.cos(a) * d, ty + Math.sin(a) * d, 0.5 + back * 0.4), 5 * z, 1 - back);
+            const p = G(d, a, 0.5 + back * 0.4);
+            blob(p.x, p.y, 3 * z, 3 * z, (u, v, dd) => (dd < 0.45 && u < 0 && v < 0 ? C(5) : C(3 - back)));
           }
         }
         return true;
@@ -5459,164 +6988,151 @@ class IsometricRenderer {
 
       // BLACK SUN: an eclipse drops from the sky and bursts into a corona scorched on the ground
       case 'sp_black_sun': {
-        const R = (fx.radius || 3) * U;
+        const Rw = fx.radius || 3, R = Rw * 32 * Math.SQRT2 * z;
         const g = toScreen(tx, ty, 0);
         const fall = seg(0, 0.3), boom = seg(0.3, 1);
-        const H = 7;
-        pool(g, R * (0.25 + 0.75 * fall), 0.6 * fade);
+        const H = 3.6;
+        stain(tx, ty, Rw * (0.25 + 0.6 * fall), fade);
         if (fall < 1) {
-          ctx.setLineDash([6 * z, 6 * z]);
-          ring(g, R, CRIMSON, 0.6 + 0.3 * Math.sin(time * 20), 2);
-          ctx.setLineDash([]);
+          // the target is marked by a blinking broken ring while the eclipse plunges in
+          const blink = Math.floor(time * 10) % 2;
+          M.ellipse(tx, ty, Rw, C(blink ? 4 : 3), 2, 0.45);
+          M.ellipse(tx, ty, Rw * 0.5 * (1 - fall) + 0.2, C(3), 1, 0.3);
           const h = 0.7 + (H - 0.7) * (1 - fall * fall);
-          const sun = toScreen(tx, ty, h), from = toScreen(tx, ty, Math.min(H + 2, h + 3));
-          const trail = ctx.createLinearGradient(from.x, from.y, sun.x, sun.y);
-          trail.addColorStop(0, c(CRIMSON, 0));
-          trail.addColorStop(1, c(ROSE, 0.8));
-          ctx.beginPath();
-          ctx.moveTo(from.x, from.y);
-          ctx.lineTo(sun.x, sun.y);
-          ctx.strokeStyle = trail;
-          ctx.lineWidth = 18 * z;
-          ctx.stroke();
+          const sun = toScreen(tx, ty, h);
+          // a stepped flare trail streaming up behind it
+          for (let q = 0; q < 8; q++) {
+            const t = q / 8, w = Math.round((7 - q * 0.7) * z / tex * 1.5);
+            const y = sun.y - (q + 1) * 5 * tex - fall * q * 2 * tex;
+            for (let i = -w; i <= w; i++) {
+              if (hash(i * 7 + q * 13 + M.frame) > 1 - t * 0.8) continue;
+              const e = Math.abs(i) / (w + 0.5);
+              dot(sun.x + i * tex + Math.sin(q + time * 12) * tex, y, e < 0.35 ? F(5 - t * 3) : C(4 - t * 2 - e));
+            }
+          }
           blackSun(sun, 17 * z, 1);
           return true;
         }
-        // the sun sinks into the ground
+        // impact: a white-gold flash frame, then the sun sinks into the ground
         blackSun(toScreen(tx, ty, 0.7 * (1 - boom)), 17 * z * (1 - out3(Math.min(1, boom * 2.5))), 1 - boom);
-        const fl = 1 - seg(0.3, 0.55);
-        if (fl > 0) {
-          const p = toScreen(tx, ty, 0.5);
-          const flash = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, R * 0.8);
-          flash.addColorStop(0, c(BONE, fl));
-          flash.addColorStop(0.35, c(ROSE, fl * 0.6));
-          flash.addColorStop(1, c(CRIMSON, 0));
-          ctx.fillStyle = flash;
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, R * 0.8, 0, TAU);
-          ctx.fill();
+        if (boom < 0.12) blob(g.x, g.y - 8 * z, R * 0.7, R * 0.4, (u, v, d, i, j) => (d < 0.3 ? F(6) : d < 0.55 ? F(5) : bay(i, j) < 0.75 - d * 0.6 ? C(4) : null));
+        // corona rays scorched across the ground; they burn out from the centre outward
+        const out = out3(boom);
+        for (let q = 0; q < 16; q++) {
+          const a = (q * TAU) / 16 + 0.1;
+          const len = Rw * (q % 2 ? 0.8 : 1.05) * out, r0 = Rw * (0.18 + 0.7 * seg(0.5, 1));
+          if (len <= r0) continue;
+          const p0 = toScreen(tx + Math.cos(a) * r0, ty + Math.sin(a) * r0, 0), p1 = toScreen(tx + Math.cos(a) * len, ty + Math.sin(a) * len, 0);
+          line(p0, p1, C(1 + 2 * fade), q % 2 ? 2 : 3);
+          line(p0, p1, q % 2 ? C(2 + 2 * fade) : F(3 + 2 * fade), 1);
         }
-        // corona rays scorched across the ground
-        ctx.save();
-        ctx.translate(g.x, g.y);
-        ctx.scale(1, 0.5);
-        for (let k = 0; k < 16; k++) {
-          const a = (k * TAU) / 16 + 0.1;
-          const len = R * (k % 2 ? 0.8 : 1.05) * out3(boom);
-          ctx.beginPath();
-          ctx.moveTo(Math.cos(a - 0.09) * R * 0.2, Math.sin(a - 0.09) * R * 0.2);
-          ctx.lineTo(Math.cos(a) * len, Math.sin(a) * len);
-          ctx.lineTo(Math.cos(a + 0.09) * R * 0.2, Math.sin(a + 0.09) * R * 0.2);
-          ctx.closePath();
-          ctx.fillStyle = c(k % 2 ? CRIMSON : ROSE, (1 - boom) * 0.8);
-          ctx.fill();
+        // solar flares lick up round the rim
+        if (boom < 0.75) {
+          for (let q = 0; q < 10; q++) {
+            const a = (q * TAU) / 10 + 0.3, p = toScreen(tx + Math.cos(a) * Rw * 0.8 * out, ty + Math.sin(a) * Rw * 0.8 * out, 0);
+            M.flame(p.x, p.y, Math.round((8 + 8 * hash(q + Math.floor(M.frame / 3))) * (1 - boom / 0.75)), 2, q * 1.7);
+          }
         }
-        ctx.restore();
-        ring(g, R * (0.2 + 0.9 * out3(boom)), ROSE, (1 - boom) * 0.95, 5);
-        ring(g, R * (0.1 + 0.7 * out3(boom)), BONE, (1 - boom) * 0.6, 1.5);
+        M.ellipse(tx, ty, Rw * (0.2 + 0.9 * out), C(5 - boom * 3), 3, 0.08 + boom * 0.5);
+        M.ellipse(tx, ty, Rw * (0.1 + 0.7 * out), F(5 - boom * 3), 1, 0.25 + boom * 0.5);
         return true;
       }
 
       // HARVEST: a reaping sigil, spectral scythes spiral inward, the core bursts in a blood X
       case 'sp_harvest': {
-        const Rw = fx.radius || 4.5, R = Rw * U;
-        const g = toScreen(tx, ty, 0);
+        const Rw = fx.radius || 4.5;
         const draw = out3(seg(0, 0.25));
         const inward = out3(seg(0.05, 0.62));
-        const snap = seg(0.62, 1);
-        pool(g, R * draw, 0.5 * fade);
-        ctx.save();
-        ctx.translate(g.x, g.y);
-        ctx.scale(1, 0.5);
-        ctx.beginPath();
-        ctx.arc(0, 0, Math.max(0.1, R * draw), 0, TAU);
-        ctx.strokeStyle = c(ROSE, fade * 0.85);
-        ctx.lineWidth = 3 * z;
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.arc(0, 0, Math.max(0.1, R * 0.84 * draw), 0, TAU);
-        ctx.strokeStyle = c(CRIMSON, fade * 0.6);
-        ctx.lineWidth = 1.5 * z;
-        ctx.stroke();
-        // crescent runes between the rings
-        for (let k = 0; k < 10; k++) {
-          const a = (k * TAU) / 10 + time * 0.6;
-          ctx.beginPath();
-          ctx.arc(Math.cos(a) * R * 0.92 * draw, Math.sin(a) * R * 0.92 * draw, 5 * z, a + 0.6, a + 0.6 + Math.PI * 1.2);
-          ctx.strokeStyle = c(PINK, fade * 0.8);
-          ctx.lineWidth = 2 * z;
-          ctx.stroke();
+        const snapT = seg(0.62, 1);
+        const lit = 1.5 + 2.5 * fade;
+        // the reaping sigil: double ring with crescent runes riding between, drawn on fast
+        M.ellipse(tx, ty, Rw * draw, C(lit), 2, 0.06, 0, TAU * draw);
+        M.ellipse(tx, ty, Rw * 0.84 * draw, C(lit - 1), 1, 0.2);
+        for (let q = 0; q < 10; q++) {
+          const a = (q * TAU) / 10 + time * 0.6;
+          if (q / 10 > draw) continue;
+          const p = toScreen(tx + Math.cos(a) * Rw * 0.92 * draw, ty + Math.sin(a) * Rw * 0.92 * draw, 0);
+          crescent(p, 5 * z, a + 0.6, a + 0.6 + Math.PI * 1.3, 2.5 * z, 0.5, lit);
         }
-        // spiral arms dragging everything to the centre
-        for (let k = 0; k < 5; k++) {
-          const a0 = (k * TAU) / 5 - time * 4;
-          ctx.beginPath();
-          for (let s = 0; s <= 10; s++) {
-            const t = s / 10, rr = R * draw * (1 - t), a = a0 + t * 2.6;
-            if (s === 0) ctx.moveTo(Math.cos(a) * rr, Math.sin(a) * rr); else ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
+        // spiral arms dragging everything to the centre, texel by texel
+        for (let q = 0; q < 5; q++) {
+          const a0 = (q * TAU) / 5 - time * 4;
+          let prev = null;
+          for (let s = 0; s <= 14; s++) {
+            const t = s / 14, rr = Rw * draw * (1 - t), a = a0 + t * 2.6;
+            const p = toScreen(tx + Math.cos(a) * rr, ty + Math.sin(a) * rr, 0);
+            if (prev && hash(q * 17 + s) < 0.4 + fade) line(prev, p, C(lit - 1.5 + t * 1.5), t < 0.5 ? 2 : 1);
+            prev = p;
           }
-          ctx.strokeStyle = c(CRIMSON, fade * 0.55);
-          ctx.lineWidth = 2.5 * z;
-          ctx.stroke();
         }
-        ctx.restore();
-        if (snap < 1) {
-          for (let k = 0; k < 4; k++) {
-            const a = (k * TAU) / 4 + progress * 9;
+        // spectral scythes circle inward
+        if (snapT < 1) {
+          for (let q = 0; q < 4; q++) {
+            const a = (q * TAU) / 4 + progress * 9;
             const rr = Rw * (0.95 - 0.8 * inward);
             const p = toScreen(tx + Math.cos(a) * rr, ty + Math.sin(a) * rr, 0.6);
-            const q = toScreen(tx + Math.cos(a + 0.1) * rr, ty + Math.sin(a + 0.1) * rr, 0.6);
-            crescent(p.x, p.y, 18 * z, Math.atan2(q.y - p.y, q.x - p.x), 2.0, 11 * z, (1 - snap) * 0.85 * draw);
+            const p2 = toScreen(tx + Math.cos(a + 0.1) * rr, ty + Math.sin(a + 0.1) * rr, 0.6);
+            const dir = Math.atan2(p2.y - p.y, p2.x - p.x);
+            crescent(p, 18 * z, dir - 2, dir, 9 * z, 0.8, (2 + 3 * (1 - snapT)) * Math.min(1, draw * 1.5));
           }
         }
-        blackSun(toScreen(tx, ty, 0.9), (6 + 12 * inward) * z * (1 - out3(snap)), 1 - snap);
-        if (snap > 0 && snap < 1) {
-          ring(g, R * (0.15 + 0.6 * out3(snap)), ROSE, (1 - snap) * 0.95, 4.5);
-          slashX(toScreen(tx, ty, 0.6), 44 * z * out3(Math.min(1, snap * 3)), 1 - snap);
+        blackSun(toScreen(tx, ty, 0.9), (6 + 12 * inward) * z * (1 - out3(snapT)), 1 - snapT);
+        if (snapT > 0 && snapT < 1) {
+          const p = toScreen(tx, ty, 0.6);
+          if (snapT < 0.12) blob(p.x, p.y, 34 * z, 26 * z, (u, v, d, i, j) => (d < 0.35 ? F(6) : d < 0.65 ? C(5) : bay(i, j) < 0.5 ? C(4) : null));
+          M.ellipse(tx, ty, Rw * (0.15 + 0.6 * out3(snapT)), C(5 - snapT * 3), 3, 0.08 + snapT * 0.5);
+          slashX(p, 44 * z * out3(Math.min(1, snapT * 3)), 1 - snapT);
+          drops(p, 16, 60 * z, snapT, 23);
         }
         return true;
       }
 
       // CRIMSON BLINK: cut an X where you stood, arc through a stream of blood, land in a crimson pillar
       case 'sp_crimson_blink': {
-        const r = (fx.radius || 2.4) * U;
-        const o = toScreen(sx, sy, 0), d = toScreen(tx, ty, 0);
+        const rw = fx.radius || 2.4;
+        const d = toScreen(tx, ty, 0);
         const burst = seg(0, 0.55), land = seg(0.15, 0.75);
-        pool(o, r * 0.8, 0.55 * (1 - burst));
-        if (fx.origin) ring(o, r * (0.3 + 0.7 * out3(burst)), ROSE, (1 - burst) * 0.9, 3);
-        slashX(toScreen(sx, sy, 0.6), 32 * z * out3(Math.min(1, progress * 5)), 1 - seg(0.05, 0.5));
+        // origin: a stain, a burst ring and an X cut where the reaper stood
+        stain(sx, sy, rw * 0.6, 1 - burst);
+        if (fx.origin && burst < 1) M.ellipse(sx, sy, rw * (0.3 + 0.7 * out3(burst)), C(5 - burst * 3), 2, 0.1 + burst * 0.5);
+        const os = toScreen(sx, sy, 0.6);
+        slashX(os, 32 * z * out3(Math.min(1, progress * 5)), 1 - seg(0.05, 0.5));
+        if (progress < 0.4) drops(os, 10, 34 * z, seg(0.02, 0.4), 3);
+        // a stream of blood beads arcs through the air along the path
         const lead = seg(0, 0.3);
-        for (let k = 0; k <= 8; k++) {
-          const t = k / 8;
+        for (let q = 0; q <= 10; q++) {
+          const t = q / 10;
           if (t > lead) break;
+          const life = 1 - seg(0.2 + t * 0.25, 0.55 + t * 0.25);
+          if (life <= 0) continue;
           const p = toScreen(sx + (tx - sx) * t, sy + (ty - sy) * t, 0.5 + Math.sin(t * Math.PI) * 1.2);
-          bead(p, (3 + 2 * t) * z, fade * (0.35 + 0.65 * t));
+          const s = (2 + 2.5 * t) * z * life;
+          blob(p.x, p.y, s, s, (u, v, dd) => (dd < 0.45 && u < 0 && v < 0 ? C(5) : dd < 0.8 ? C(2 + 1.5 * t) : C(1 + t)));
         }
         if (land > 0 && land < 1) {
           const pa = 1 - land;
+          // a crimson pillar erupts on landing: bone-white core, blood body, dithering away at the top
           const top = toScreen(tx, ty, 3.2);
-          const w = 18 * z * (1 - land * 0.6);
-          const col = ctx.createLinearGradient(d.x, d.y, top.x, top.y);
-          col.addColorStop(0, c(ROSE, pa * 0.85));
-          col.addColorStop(0.5, c(CRIMSON, pa * 0.45));
-          col.addColorStop(1, c(CRIMSON, 0));
-          ctx.fillStyle = col;
-          ctx.fillRect(d.x - w / 2, top.y, w, d.y - top.y);
-          ctx.fillStyle = c(BONE, pa * 0.7);
-          ctx.fillRect(d.x - w * 0.12, top.y, w * 0.24, d.y - top.y);
-          // ring of thorns
-          const lr = (fx.landing ? r : r * 0.5) * (0.3 + 0.7 * out3(land));
-          ring(d, lr, ROSE, pa * 0.95, 3.5);
-          for (let k = 0; k < 10; k++) {
-            const a = (k * TAU) / 10;
-            const bx = d.x + Math.cos(a) * lr, by = d.y + Math.sin(a) * lr * 0.5;
-            ctx.beginPath();
-            ctx.moveTo(bx - 2.5 * z, by);
-            ctx.lineTo(bx + Math.cos(a) * 3 * z, by - 12 * z * pa);
-            ctx.lineTo(bx + 2.5 * z, by);
-            ctx.closePath();
-            ctx.fillStyle = c(PINK, pa * 0.9);
-            ctx.fill();
+          const rows = Math.round((d.y - top.y) / tex), half = Math.max(1, Math.round((13 * z * (1 - land * 0.6)) / tex));
+          for (let r = 0; r < rows; r++) {
+            const t = r / rows;
+            for (let i = -half; i <= half; i++) {
+              if (bay(i, r) > pa * 1.3 * (1 - t * 0.85)) continue;
+              const e = Math.abs(i) / half;
+              dot(d.x + i * tex, d.y - r * tex, e < 0.25 ? F(6 - t * 2) : e < 0.6 ? C(4 - t) : C(2 - t));
+            }
+          }
+          // ring of thorns punching up round the landing
+          const lr = (fx.landing ? rw : rw * 0.5) * (0.3 + 0.7 * out3(land));
+          M.ellipse(tx, ty, lr, C(2 + 3 * pa), 2, 0.12 + land * 0.4);
+          const th = Math.round((12 * z * pa * backOut(Math.min(1, land * 4))) / tex);
+          for (let q = 0; q < 10; q++) {
+            const a = (q * TAU) / 10, b = toScreen(tx + Math.cos(a) * lr, ty + Math.sin(a) * lr, 0), lean = Math.cos(a) * 0.4;
+            for (let r = 0; r < th; r++) {
+              const hw = Math.round(2 * (1 - r / th));
+              for (let i = -hw; i <= hw; i++) dot(b.x + (i + r * lean) * tex, b.y - r * tex, i === -hw && hw ? C(1) : i < 0 ? C(4) : C(2));
+            }
+            if (th > 0) dot(b.x + th * lean * tex, b.y - th * tex, C(5));
           }
         }
         return true;
@@ -5824,43 +7340,75 @@ class IsometricRenderer {
     // 3. POISON DARTS / VENOM SHURIKENS (Lv. 5)
     // =========================================================================
     if (fx.type === 'poison_darts') {
-      const screen = toScreen(fx.x, fx.y, 0.4);
-      const dirX = fx.dirX || 1, dirY = fx.dirY || 0;
-      const baseAngle = Math.atan2(dirY, dirX);
-      const dist = 40 * z * Math.min(1.0, progress * 2.2);
+      // Eight steel shurikens fly out in every direction on curving paths, turn at the edge of
+      // their reach and sweep back to the thrower, wherever they have moved to by then.
+      const TAU = Math.PI * 2;
+      const N = 8, REACH = 5.2;
+      const clamp01 = (v) => Math.max(0, Math.min(1, v));
+      const ease = (t) => 1 - Math.pow(1 - t, 2.4);          // fast out, slowing at the turn
+      const easeIn = (t) => t * t * (1.6 - 0.6 * t);          // gathering speed on the way back
+      const gs = this.lastGameState;
+      const owner = fx.playerId && gs && gs.players ? gs.players.find(p => p.id === fx.playerId) : null;
+      const ox0 = fx.x, oy0 = fx.y;                           // where they were thrown from
+      const oxNow = owner && !isNaN(owner.x) ? owner.x : ox0, oyNow = owner && !isNaN(owner.y) ? owner.y : oy0;
+      const base = Math.atan2(fx.dirY || 0, fx.dirX || 1) + Math.PI / N;
+      const hz = (n) => { const q = Math.sin(n * 127.1 + 311.7) * 43758.5453; return q - Math.floor(q); };
+      // where shuriken i is at flight time u (0..1): out to the turn, then back to the owner
+      const posAt = (i, u, h) => {
+        const ang = base + (i / N) * TAU;
+        const tx = ox0 + Math.cos(ang) * REACH, ty = oy0 + Math.sin(ang) * REACH;
+        const side = i % 2 ? 1 : -1, bow = Math.sin(Math.PI * u) * 1.1 * side;   // sideways bow: a curving, boomerang path
+        let x, y;
+        if (u < 0.5) {
+          const t = ease(u / 0.5);
+          x = ox0 + (tx - ox0) * t; y = oy0 + (ty - oy0) * t;
+        } else {
+          const t = easeIn((u - 0.5) / 0.5);
+          x = tx + (oxNow - tx) * t; y = ty + (oyNow - ty) * t;
+        }
+        return toScreen(x - Math.sin(ang) * bow, y + Math.cos(ang) * bow, h + 0.15 * Math.sin(Math.PI * u));
+      };
+      const u = clamp01(progress);
+      const c0 = toScreen(oxNow, oyNow, 0.05);
 
-      // Hero launch shockwave
-      const mRad = 16 * z * easeOut;
-      ctx.beginPath();
-      ctx.ellipse(screen.x, screen.y, mRad, mRad * 0.5, 0, 0, Math.PI * 2);
-      ctx.strokeStyle = `rgba(74, 222, 128, ${alpha * 0.8})`;
-      ctx.lineWidth = 2.5 * z;
-      ctx.stroke();
-
-      // 6 Flying Venom-Coated Heavy Shurikens
-      for (let s = 0; s < 6; s++) {
-        const spreadAngle = baseAngle + (s - 2.5) * 0.18;
-        const sx = screen.x + Math.cos(spreadAngle) * dist;
-        const sy = screen.y + Math.sin(spreadAngle) * (dist * 0.5);
-        const trailX = screen.x + Math.cos(spreadAngle) * (dist * 0.45);
-        const trailY = screen.y + Math.sin(spreadAngle) * (dist * 0.225);
-
-        // Fluid Emerald Toxic Motion Ribbon
+      // the throw: a ring snaps out of the thrower's feet
+      const ring = clamp01(progress / 0.22);
+      if (ring < 1) {
         ctx.beginPath();
-        ctx.moveTo(trailX, trailY);
-        ctx.lineTo(sx, sy);
-        ctx.strokeStyle = `rgba(34, 197, 94, ${alpha * 0.85})`;
-        ctx.lineWidth = 3.5 * z;
+        ctx.ellipse(c0.x, c0.y, 30 * z * ring, 15 * z * ring, 0, 0, TAU);
+        ctx.strokeStyle = `rgba(203, 213, 225, ${(1 - ring) * 0.9})`;
+        ctx.lineWidth = 2.6 * z;
         ctx.stroke();
-        ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.95})`;
-        ctx.lineWidth = 1.2 * z;
-        ctx.stroke();
+      }
 
-        // 4-Pointed Hooked Ninja Shuriken
+      for (let i = 0; i < N; i++) {
+        // motion ribbon: the last stretch of the flight, thick and bright at the head
+        const steps = 10;
+        let prev = null;
+        for (let k = steps; k >= 0; k--) {
+          const uu = u - k * 0.022;
+          if (uu < 0) continue;
+          const p = posAt(i, uu, 0.45);
+          if (prev) {
+            const t = 1 - k / steps;
+            ctx.beginPath();
+            ctx.moveTo(prev.x, prev.y);
+            ctx.lineTo(p.x, p.y);
+            ctx.strokeStyle = `rgba(148, 163, 184, ${t * 0.75 * alpha})`;
+            ctx.lineWidth = (1 + 4 * t) * z;
+            ctx.stroke();
+            ctx.strokeStyle = `rgba(248, 250, 252, ${t * 0.9 * alpha})`;
+            ctx.lineWidth = (0.5 + 1.4 * t) * z;
+            ctx.stroke();
+          }
+          prev = p;
+        }
+        // the shuriken itself: four hooked blades, spinning faster as it heads home
+        const p = posAt(i, u, 0.45);
+        if (u > 0.965) continue;                            // caught
         ctx.save();
-        ctx.translate(sx, sy);
-        ctx.rotate(time * 22 + s);
-
+        ctx.translate(p.x, p.y);
+        ctx.rotate(time * 24 + i * 0.8 + (u > 0.5 ? -u * 6 : u * 6));
         ctx.beginPath();
         for (let b = 0; b < 4; b++) {
           const ba = b * (Math.PI / 2);
@@ -5868,19 +7416,28 @@ class IsometricRenderer {
           ctx.lineTo(Math.cos(ba + 0.35) * 2.5 * z, Math.sin(ba + 0.35) * 2.5 * z);
         }
         ctx.closePath();
-        ctx.fillStyle = '#f8fafc';
+        ctx.fillStyle = '#e2e8f0';
         ctx.fill();
-        ctx.strokeStyle = `rgba(34, 197, 94, ${alpha * 0.98})`;
+        ctx.strokeStyle = 'rgba(71, 85, 105, 0.98)';
         ctx.lineWidth = 1.6 * z;
         ctx.stroke();
-
-        // Center emerald jewel
         ctx.beginPath();
-        ctx.arc(0, 0, 2 * z, 0, Math.PI * 2);
-        ctx.fillStyle = '#15803d';
+        ctx.arc(0, 0, 2 * z, 0, TAU);
+        ctx.fillStyle = '#334155';
         ctx.fill();
-
         ctx.restore();
+      }
+
+      // caught: a flash on the thrower as the shurikens return
+      if (u > 0.9) {
+        const k = (u - 0.9) / 0.1;
+        const g = ctx.createRadialGradient(c0.x, c0.y - 10 * z, 1, c0.x, c0.y - 10 * z, 22 * z);
+        g.addColorStop(0, `rgba(241, 245, 249, ${(1 - k) * 0.85})`);
+        g.addColorStop(1, 'rgba(148, 163, 184, 0)');
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(c0.x, c0.y - 10 * z, 22 * z, 0, TAU);
+        ctx.fill();
       }
 
       ctx.restore();
@@ -6147,66 +7704,183 @@ class IsometricRenderer {
     // 8. DEATH BLOSSOM (Lv. 30 Grand Omnislash)
     // =========================================================================
     if (fx.type === 'death_blossom') {
-      const screen = toScreen(fx.x, fx.y, 0.4);
-      const rad = (fx.radius || 4.0) * 30 * z;
+      // A blood lotus blooms on the floor while blades spiral out of it, cutting as they go,
+      // then it sheds sakura petals into the air.
+      const TAU = Math.PI * 2;
+      const R = fx.radius || 4;
+      const clamp01 = (v) => Math.max(0, Math.min(1, v));
+      const seg = (a, b) => clamp01((progress - a) / (b - a));
+      const smooth = (t) => t * t * (3 - 2 * t);
+      const hz = (n) => { const q = Math.sin(n * 127.1 + 311.7) * 43758.5453; return q - Math.floor(q); };
+      const W = (a, r, h = 0.05) => toScreen(fx.x + Math.cos(a) * r, fx.y + Math.sin(a) * r, h);
+      const c0 = toScreen(fx.x, fx.y, 0.05);
+      const fade = progress < 0.72 ? 1 : clamp01(1 - (progress - 0.72) / 0.28);
+      const bloom = smooth(seg(0.05, 0.5));
+      const spin = time * 0.7 + progress * 1.6;
 
-      // Grand Crimson Blood Lotus Mandala on the Ground
-      for (let petal = 0; petal < 12; petal++) {
-        const pAngle = (petal * Math.PI / 6) + (time * 1.2);
-        const px = screen.x + Math.cos(pAngle) * rad;
-        const py = screen.y + Math.sin(pAngle) * (rad * 0.5);
-
+      // ---- the floor: a dark stain, a shock ring that flies out, soft glow
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.beginPath();
+      for (let i = 0; i <= 40; i++) { const p = W((i / 40) * TAU, R * (0.55 + 0.45 * bloom) * 0.95); if (i) ctx.lineTo(p.x, p.y); else ctx.moveTo(p.x, p.y); }
+      ctx.fillStyle = `rgba(30, 4, 14, ${0.45 * fade * Math.min(1, progress * 6)})`;
+      ctx.fill();
+      const ring = seg(0, 0.32);
+      if (ring > 0 && ring < 1) {
         ctx.beginPath();
-        ctx.moveTo(screen.x, screen.y);
-        ctx.quadraticCurveTo(
-          screen.x + Math.cos(pAngle - 0.25) * (rad * 0.65),
-          screen.y + Math.sin(pAngle - 0.25) * (rad * 0.325),
-          px, py
-        );
-        ctx.quadraticCurveTo(
-          screen.x + Math.cos(pAngle + 0.25) * (rad * 0.65),
-          screen.y + Math.sin(pAngle + 0.25) * (rad * 0.325),
-          screen.x, screen.y
-        );
-        ctx.fillStyle = `rgba(225, 29, 72, ${alpha * 0.38})`;
+        for (let i = 0; i <= 48; i++) { const p = W((i / 48) * TAU, R * 1.1 * (1 - Math.pow(1 - ring, 3))); if (i) ctx.lineTo(p.x, p.y); else ctx.moveTo(p.x, p.y); }
+        ctx.strokeStyle = `rgba(255, 214, 224, ${(1 - ring) * 0.9})`;
+        ctx.lineWidth = (4 - 2 * ring) * z;
+        ctx.stroke();
+      }
+
+      // ---- the lotus: three rings of pointed petals, dark at the root, pink at the tip, lit on the rim
+      const petal = (ang, r0, r1, wid, col0, col1, edge) => {
+        const N = 9, pts = [];
+        for (let i = 0; i <= N; i++) { // one side out to the tip, the other back
+          const t = i / N, r = r0 + (r1 - r0) * t, w = wid * Math.sin(Math.PI * Math.pow(t, 0.75)) * (1 - t * 0.25);
+          pts.push(W(ang - w, r));
+        }
+        for (let i = N; i >= 0; i--) {
+          const t = i / N, r = r0 + (r1 - r0) * t, w = wid * Math.sin(Math.PI * Math.pow(t, 0.75)) * (1 - t * 0.25);
+          pts.push(W(ang + w, r));
+        }
+        const a = W(ang, r0), b = W(ang, r1);
+        const g = ctx.createLinearGradient(a.x, a.y, b.x, b.y);
+        g.addColorStop(0, col0); g.addColorStop(1, col1);
+        ctx.beginPath();
+        pts.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+        ctx.closePath();
+        ctx.fillStyle = g;
         ctx.fill();
-        ctx.strokeStyle = `rgba(251, 113, 133, ${alpha * 0.85})`;
+        ctx.strokeStyle = edge;
+        ctx.lineWidth = 1.4 * z;
+        ctx.stroke();
+        // a lit vein down the middle
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        const m = W(ang, r0 + (r1 - r0) * 0.8);
+        ctx.lineTo(m.x, m.y);
+        ctx.strokeStyle = `rgba(255, 230, 236, ${0.35 * fade})`;
+        ctx.lineWidth = 1 * z;
+        ctx.stroke();
+      };
+      const layers = [
+        { n: 10, r0: 0.16, r1: 1.0, wid: 0.17, rot: spin * 0.5, c0: [88, 6, 30], c1: [214, 40, 90], delay: 0 },
+        { n: 8, r0: 0.12, r1: 0.7, wid: 0.2, rot: -spin * 0.8 + 0.4, c0: [128, 10, 44], c1: [244, 100, 146], delay: 0.08 },
+        { n: 6, r0: 0.06, r1: 0.4, wid: 0.28, rot: spin * 1.2 + 0.2, c0: [180, 30, 80], c1: [255, 186, 206], delay: 0.16 }
+      ];
+      for (const L of layers) {
+        const open = smooth(seg(0.05 + L.delay * 0.4, 0.5 + L.delay * 0.4));
+        if (open <= 0.02) continue;
+        for (let i = 0; i < L.n; i++) {
+          const ang = L.rot + (i / L.n) * TAU;
+          const len = L.r0 + (L.r1 - L.r0) * open;
+          petal(ang, R * L.r0, R * len * L.r1 / L.r1, L.wid, `rgba(${L.c0}, ${0.92 * fade})`, `rgba(${L.c1}, ${0.95 * fade})`, `rgba(255, 220, 230, ${0.7 * fade})`);
+        }
+      }
+      // heart of the flower: a white-pink glow and a ring of stamens
+      ctx.globalCompositeOperation = 'lighter';
+      const core = ctx.createRadialGradient(c0.x, c0.y, 1, c0.x, c0.y, 20 * z * (0.6 + bloom * 0.6));
+      core.addColorStop(0, `rgba(255, 255, 255, ${0.95 * fade})`);
+      core.addColorStop(0.45, `rgba(255, 150, 186, ${0.65 * fade})`);
+      core.addColorStop(1, 'rgba(225, 29, 72, 0)');
+      ctx.fillStyle = core;
+      ctx.beginPath();
+      ctx.arc(c0.x, c0.y, 20 * z * (0.6 + bloom * 0.6), 0, TAU);
+      ctx.fill();
+      for (let i = 0; i < 12; i++) {
+        const p = W(spin * 2 + (i / 12) * TAU, R * 0.1 * bloom, 0.25);
+        ctx.fillStyle = `rgba(255, 240, 200, ${0.9 * fade})`;
+        ctx.fillRect(Math.round(p.x) - z, Math.round(p.y) - z, 2 * z, 2 * z);
+      }
+
+      // ---- the omnislash: six daggers spiral outward, each dragging a crescent of light
+      const run = seg(0.04, 0.62);
+      const blades = 6;
+      for (let i = 0; i < blades; i++) {
+        const head = i * (TAU / blades) + run * TAU * 2.4 + (i % 2 ? 0.4 : 0);
+        const rr = R * (0.2 + 0.8 * Math.pow(run, 0.8)) * (0.78 + 0.22 * Math.sin(i * 1.7 + run * 7));
+        const bh = 0.55 + 0.25 * Math.sin(run * 9 + i);
+        const sweep = 1.25 * (1 - run * 0.5), steps = 16;
+        if (run < 0.98) {
+          for (let k = 0; k < steps; k++) {
+            const t0 = k / steps, t1 = (k + 1) / steps;
+            const pa = W(head - sweep * (1 - t0), rr * (1 - 0.1 * (1 - t0)), bh);
+            const pb = W(head - sweep * (1 - t1), rr * (1 - 0.1 * (1 - t1)), bh);
+            ctx.beginPath();
+            ctx.moveTo(pa.x, pa.y);
+            ctx.lineTo(pb.x, pb.y);
+            ctx.strokeStyle = `rgba(255, 120, 170, ${t1 * 0.85 * fade})`;
+            ctx.lineWidth = (1 + 5 * t1) * z;
+            ctx.stroke();
+            ctx.strokeStyle = `rgba(255, 255, 255, ${t1 * 0.95 * fade})`;
+            ctx.lineWidth = (0.6 + 1.8 * t1) * z;
+            ctx.stroke();
+          }
+          // the dagger itself
+          const tip = W(head + 0.1, rr, bh), tail = W(head - 0.14, rr, bh);
+          const ang = Math.atan2(tip.y - tail.y, tip.x - tail.x);
+          ctx.save();
+          ctx.translate(tip.x, tip.y);
+          ctx.rotate(ang);
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.fillStyle = `rgba(240, 246, 255, ${fade})`;
+          ctx.beginPath();
+          ctx.moveTo(5 * z, 0);
+          ctx.lineTo(-5 * z, -2.2 * z);
+          ctx.lineTo(-5 * z, 2.2 * z);
+          ctx.closePath();
+          ctx.fill();
+          ctx.fillStyle = `rgba(120, 60, 40, ${fade})`;
+          ctx.fillRect(-9 * z, -1.2 * z, 4 * z, 2.4 * z);
+          ctx.restore();
+          ctx.globalCompositeOperation = 'lighter';
+        }
+      }
+
+      // ---- flash cuts: thin slashes snap across the circle in quick succession
+      for (let i = 0; i < 8; i++) {
+        const t0 = 0.12 + i * 0.07, k = (progress - t0) / 0.1;
+        if (k < 0 || k > 1) continue;
+        const ca = hz(i * 3.1) * TAU, cd = R * 0.7 * hz(i * 5.3 + 1), cang = hz(i * 7.7 + 2) * Math.PI;
+        const mx = fx.x + Math.cos(ca) * cd, my = fx.y + Math.sin(ca) * cd, hl = R * 0.55 * Math.min(1, k * 3);
+        const p1 = toScreen(mx - Math.cos(cang) * hl, my - Math.sin(cang) * hl, 0.5);
+        const p2 = toScreen(mx + Math.cos(cang) * hl, my + Math.sin(cang) * hl, 0.5);
+        const a2 = 1 - k;
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.strokeStyle = `rgba(255, 90, 140, ${a2 * 0.8})`;
+        ctx.lineWidth = 6 * z * a2;
+        ctx.stroke();
+        ctx.strokeStyle = `rgba(255, 255, 255, ${a2})`;
         ctx.lineWidth = 2 * z;
         ctx.stroke();
       }
 
-      // 10 Razor Omnislash Blades Slicing across Area
-      for (let s = 0; s < 10; s++) {
-        const angle = (s * Math.PI / 5) + (progress * 14);
-        const d1 = rad * (0.2 + 0.8 * Math.sin(s * 1.5));
-        const x1 = screen.x + Math.cos(angle) * d1;
-        const y1 = screen.y + Math.sin(angle) * (d1 * 0.5);
-
-        const a2 = angle + Math.PI * 0.75;
-        const d2 = rad * (0.4 + 0.6 * Math.cos(s * 2.1));
-        const x2 = screen.x + Math.cos(a2) * d2;
-        const y2 = screen.y + Math.sin(a2) * (d2 * 0.5);
-
+      // ---- sakura petals lift off the flower and drift away
+      ctx.globalCompositeOperation = 'source-over';
+      const lift = seg(0.3, 1);
+      for (let i = 0; i < 30; i++) {
+        const born = 0.3 + hz(i * 2.3) * 0.35;
+        if (progress < born) continue;
+        const k = clamp01((progress - born) / 0.5);
+        const a = hz(i * 9.1) * TAU + k * 1.4 * (i % 2 ? 1 : -1);
+        const r = R * (0.15 + 0.95 * hz(i * 4.7)) * (0.5 + 0.7 * k);
+        const sway = Math.sin(time * 5 + i) * 0.12;
+        const p = W(a + sway, r, 0.2 + k * (1.6 + hz(i) * 1.4));
+        const pa = (1 - k) * Math.min(1, k * 8) * fade;
+        if (pa <= 0.02) continue;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(time * 3 + i);
+        ctx.fillStyle = i % 3 === 0 ? `rgba(255, 235, 240, ${pa})` : `rgba(255, ${150 + (i % 4) * 18}, ${185 + (i % 3) * 12}, ${pa})`;
         ctx.beginPath();
-        ctx.moveTo(x1, y1);
-        ctx.lineTo(x2, y2);
-        ctx.strokeStyle = `rgba(244, 114, 182, ${alpha * 0.95})`;
-        ctx.lineWidth = 5 * z;
-        ctx.stroke();
-
-        ctx.beginPath();
-        ctx.moveTo(x1, y1);
-        ctx.lineTo(x2, y2);
-        ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.98})`;
-        ctx.lineWidth = 2 * z;
-        ctx.stroke();
-
-        // Sakura Blossom Petals
-        ctx.beginPath();
-        ctx.ellipse(x2, y2, 4 * z, 2.5 * z, angle, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(253, 164, 175, ${alpha * 0.95})`;
+        ctx.ellipse(0, 0, 3.4 * z, 1.9 * z * (0.6 + 0.4 * Math.abs(Math.sin(time * 6 + i))), 0, 0, TAU);
         ctx.fill();
+        ctx.restore();
       }
+      void lift;
 
       ctx.restore();
       return true;
@@ -6467,55 +8141,160 @@ class IsometricRenderer {
     // 14. VOID ECLIPSE OMNISLASH (Lv. 60 Grand Ultimate)
     // =========================================================================
     if (fx.type === 'eclipse_execution') {
-      const screen = toScreen(fx.x, fx.y, 0);
-      const rad = (fx.radius || 6.0) * 34 * z * Math.min(1.0, progress * 1.5);
-
-      // Total Cosmic Eclipse Core on Ground
-      const cGrad = ctx.createRadialGradient(screen.x, screen.y, 2 * z, screen.x, screen.y, 28 * z);
-      cGrad.addColorStop(0, '#000000');
-      cGrad.addColorStop(0.4, '#090514');
-      cGrad.addColorStop(0.75, `rgba(147, 51, 234, ${alpha * 0.9})`);
-      cGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-      ctx.fillStyle = cGrad;
-      ctx.beginPath();
-      ctx.ellipse(screen.x, screen.y, 28 * z, 14 * z, 0, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Shimmering Diamond-Violet Solar Corona Flares
-      for (let p = 0; p < 12; p++) {
-        const pa = (p * Math.PI * 2 / 12) + time * 3;
-        const pLen = (28 + 8 * Math.sin(pa * 2)) * z;
-        const px = screen.x + Math.cos(pa) * pLen;
-        const py = screen.y + Math.sin(pa) * (pLen * 0.5);
+      // A black sun rises over the circle and the floor goes dark. The rogue flashes through the
+      // arena in sixteen cuts (each a tapered blade of light, joined by a faint flight path), then
+      // both big blades cross at the centre and the eclipse shatters outward.
+      const TAU = Math.PI * 2;
+      const R = fx.radius || 6;
+      const clamp01 = (v) => Math.max(0, Math.min(1, v));
+      const seg = (a, b) => clamp01((progress - a) / (b - a));
+      const out3 = (t) => 1 - Math.pow(1 - t, 3);
+      const hz = (n) => { const q = Math.sin(n * 127.1 + 311.7) * 43758.5453; return q - Math.floor(q); };
+      const W = (a, r, h = 0.05) => toScreen(fx.x + Math.cos(a) * r, fx.y + Math.sin(a) * r, h);
+      const P = (x, y, h = 0.5) => toScreen(x, y, h);
+      const c0 = toScreen(fx.x, fx.y, 0.05);
+      const intro = seg(0, 0.2), fin = seg(0.68, 1), fade = progress < 0.86 ? 1 : clamp01(1 - (progress - 0.86) / 0.14);
+      const ringPath = (r) => { ctx.beginPath(); for (let i = 0; i <= 56; i++) { const p = W((i / 56) * TAU, r); if (i) ctx.lineTo(p.x, p.y); else ctx.moveTo(p.x, p.y); } };
+      // a blade of light between two screen points: thick in the middle, pointed at both ends
+      const blade = (p1, p2, w, col) => {
+        const mx = (p1.x + p2.x) / 2, my = (p1.y + p2.y) / 2, dx = p2.x - p1.x, dy = p2.y - p1.y, L = Math.hypot(dx, dy) || 1;
+        const nx = -dy / L * w, ny = dx / L * w;
         ctx.beginPath();
-        ctx.moveTo(screen.x, screen.y);
-        ctx.lineTo(px, py);
-        ctx.strokeStyle = `rgba(216, 180, 254, ${alpha * 0.85})`;
-        ctx.lineWidth = 3 * z;
+        ctx.moveTo(p1.x, p1.y);
+        ctx.quadraticCurveTo(mx + nx, my + ny, p2.x, p2.y);
+        ctx.quadraticCurveTo(mx - nx, my - ny, p1.x, p1.y);
+        ctx.fillStyle = col;
+        ctx.fill();
+      };
+
+      // ---- the floor: darkness spreading from the centre, a runic ring marking the circle
+      ctx.globalCompositeOperation = 'source-over';
+      const dark = out3(intro);
+      ringPath(R * (0.35 + 0.65 * dark));
+      ctx.fillStyle = `rgba(6, 1, 14, ${0.62 * fade * Math.min(1, progress * 5)})`;
+      ctx.fill();
+      ctx.globalCompositeOperation = 'lighter';
+      ringPath(R * dark);
+      ctx.strokeStyle = `rgba(168, 85, 247, ${0.8 * fade})`;
+      ctx.lineWidth = 2 * z;
+      ctx.stroke();
+      for (let i = 0; i < 48; i++) {
+        const a = (i / 48) * TAU + time * 0.4, r = R * dark;
+        const p1 = W(a, r), p2 = W(a, r * (i % 4 === 0 ? 0.9 : 0.96));
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.strokeStyle = `rgba(216, 180, 254, ${(i % 4 === 0 ? 0.9 : 0.5) * fade})`;
+        ctx.lineWidth = (i % 4 === 0 ? 2 : 1) * z;
         ctx.stroke();
       }
 
-      // 16 Supersonic Dimensional Omnislash Vectors
-      for (let v = 0; v < 16; v++) {
-        const vAngle = v * 0.95 + time * 14;
-        const x1 = screen.x + Math.cos(vAngle) * rad;
-        const y1 = screen.y + Math.sin(vAngle) * (rad * 0.5);
-        const x2 = screen.x - Math.cos(vAngle) * rad;
-        const y2 = screen.y - Math.sin(vAngle) * (rad * 0.5);
-
+      // ---- the black sun, hanging above the circle with a violet corona
+      const sunH = 3.3 + 0.25 * Math.sin(time * 3);
+      const sun = toScreen(fx.x, fx.y, sunH);
+      const sr = 21 * z * out3(intro) * (1 - 0.8 * out3(fin));
+      if (sr > 1) {
+        const halo = ctx.createRadialGradient(sun.x, sun.y, sr * 0.8, sun.x, sun.y, sr * 3);
+        halo.addColorStop(0, `rgba(192, 132, 252, ${0.7 * fade})`);
+        halo.addColorStop(0.5, `rgba(124, 58, 237, ${0.28 * fade})`);
+        halo.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = halo;
         ctx.beginPath();
-        ctx.moveTo(x1, y1);
-        ctx.lineTo(x2, y2);
-        ctx.strokeStyle = `rgba(192, 132, 252, ${alpha * 0.95})`;
-        ctx.lineWidth = 4.5 * z;
-        ctx.stroke();
-
+        ctx.arc(sun.x, sun.y, sr * 3, 0, TAU);
+        ctx.fill();
+        for (let i = 0; i < 28; i++) {                       // corona rays, long and short alternating
+          const a = (i / 28) * TAU + time * 0.5;
+          const len = sr * (i % 2 ? 1.5 : 2.2) * (0.85 + 0.15 * Math.sin(time * 9 + i));
+          ctx.beginPath();
+          ctx.moveTo(sun.x + Math.cos(a) * sr, sun.y + Math.sin(a) * sr);
+          ctx.lineTo(sun.x + Math.cos(a) * (sr + len * 0.6), sun.y + Math.sin(a) * (sr + len * 0.6));
+          ctx.strokeStyle = `rgba(233, 213, 255, ${(i % 2 ? 0.45 : 0.8) * fade})`;
+          ctx.lineWidth = (i % 2 ? 1.2 : 2) * z;
+          ctx.stroke();
+        }
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.fillStyle = `rgba(3, 1, 8, ${fade})`;
         ctx.beginPath();
-        ctx.moveTo(x1, y1);
-        ctx.lineTo(x2, y2);
-        ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.98})`;
+        ctx.arc(sun.x, sun.y, sr, 0, TAU);
+        ctx.fill();
+        ctx.beginPath();                                      // a thin bright limb on one side
+        ctx.arc(sun.x, sun.y, sr, -2.6, -0.4);
+        ctx.strokeStyle = `rgba(245, 232, 255, ${0.95 * fade})`;
         ctx.lineWidth = 2 * z;
         ctx.stroke();
+        ctx.globalCompositeOperation = 'lighter';
+      }
+
+      // ---- the omnislash: sixteen flash cuts, each a pointed blade of light with a lingering crack
+      const cuts = 16;
+      let prev = null;
+      for (let i = 0; i < cuts; i++) {
+        const t0 = 0.12 + i * 0.034, k = (progress - t0) / 0.16;
+        const ca = hz(i * 3.7) * TAU, cd = R * 0.8 * Math.sqrt(hz(i * 5.9 + 1));
+        const cx = fx.x + Math.cos(ca) * cd, cy = fx.y + Math.sin(ca) * cd;
+        if (prev && k > 0 && k < 1.3) {                      // the rogue's flight path between cuts
+          const pa = P(prev.x, prev.y, 0.4), pb = P(cx, cy, 0.4);
+          ctx.beginPath();
+          ctx.moveTo(pa.x, pa.y);
+          ctx.lineTo(pb.x, pb.y);
+          ctx.strokeStyle = `rgba(168, 85, 247, ${Math.max(0, 0.5 - k * 0.4) * fade})`;
+          ctx.lineWidth = 2 * z;
+          ctx.stroke();
+        }
+        prev = { x: cx, y: cy };
+        if (k < 0 || k > 1) continue;
+        const ang = hz(i * 8.3 + 2) * Math.PI, L = R * 0.62 * out3(Math.min(1, k * 4));
+        const p1 = P(cx - Math.cos(ang) * L, cy - Math.sin(ang) * L), p2 = P(cx + Math.cos(ang) * L, cy + Math.sin(ang) * L);
+        const a2 = (1 - k) * fade;
+        blade(p1, p2, 9 * z * (1 - k * 0.5), `rgba(124, 58, 237, ${a2 * 0.75})`);
+        blade(p1, p2, 4.5 * z * (1 - k * 0.5), `rgba(216, 180, 254, ${a2 * 0.95})`);
+        blade(p1, p2, 1.8 * z, `rgba(255, 255, 255, ${a2})`);
+        if (k < 0.5) {                                        // impact star where the cut lands
+          const m = P(cx, cy, 0.5), sz = (1 - k * 2) * 9 * z;
+          ctx.beginPath();
+          ctx.moveTo(m.x - sz, m.y); ctx.lineTo(m.x + sz, m.y);
+          ctx.moveTo(m.x, m.y - sz * 0.7); ctx.lineTo(m.x, m.y + sz * 0.7);
+          ctx.strokeStyle = `rgba(255, 255, 255, ${a2})`;
+          ctx.lineWidth = 2 * z;
+          ctx.stroke();
+        }
+      }
+
+      // ---- finale: both big blades cross at the centre, the eclipse shatters
+      if (fin > 0) {
+        const grow = out3(Math.min(1, fin * 3)), a3 = (1 - clamp01((fin - 0.35) / 0.65)) * fade;
+        for (const rot of [0.7, -0.7]) {
+          const L = R * 1.15 * grow;
+          const p1 = P(fx.x - Math.cos(rot) * L, fx.y - Math.sin(rot) * L, 0.6), p2 = P(fx.x + Math.cos(rot) * L, fx.y + Math.sin(rot) * L, 0.6);
+          blade(p1, p2, 15 * z * (1 - fin * 0.4), `rgba(124, 58, 237, ${a3 * 0.8})`);
+          blade(p1, p2, 7 * z, `rgba(233, 213, 255, ${a3})`);
+          blade(p1, p2, 2.6 * z, `rgba(255, 255, 255, ${a3})`);
+        }
+        for (const [rs, col, lw] of [[1.3, 'rgba(216, 180, 254,', 4], [0.9, 'rgba(147, 51, 234,', 3]]) {
+          ringPath(R * rs * out3(fin));
+          ctx.strokeStyle = `${col} ${(1 - fin) * fade})`;
+          ctx.lineWidth = lw * z * (1 - fin * 0.5);
+          ctx.stroke();
+        }
+        // void shards thrown out across the floor
+        ctx.globalCompositeOperation = 'source-over';
+        for (let i = 0; i < 18; i++) {
+          const a = hz(i * 2.9) * TAU, r = R * (0.2 + 1.0 * out3(fin)) * (0.6 + 0.4 * hz(i + 4));
+          const p = W(a, r, 0.1 + Math.sin(fin * Math.PI) * (0.5 + hz(i) * 0.8));
+          const s = (3 + 4 * hz(i * 6.1)) * z * (1 - fin * 0.6);
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate(a + fin * 6);
+          ctx.fillStyle = `rgba(20, 6, 40, ${(1 - fin) * fade})`;
+          ctx.strokeStyle = `rgba(216, 180, 254, ${(1 - fin) * 0.9 * fade})`;
+          ctx.lineWidth = 1.2 * z;
+          ctx.beginPath();
+          ctx.moveTo(s, 0); ctx.lineTo(0, s * 0.5); ctx.lineTo(-s * 1.3, 0); ctx.lineTo(0, -s * 0.5);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+          ctx.restore();
+        }
       }
 
       ctx.restore();
@@ -6620,20 +8399,71 @@ class IsometricRenderer {
     if (!L || !L.open) return;
     L.open = false;
     const { c, g, px, ox, oy, cw, ch } = L;
+    if (this.lowEffects || this.potatoMode) {
+      // low graphics: skip the read-back, ramp shading and glow; the layer is
+      // still drawn on the texel grid, so it stays blocky
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(c, 0, 0, cw, ch, ox, oy, cw * px, ch * px);
+      ctx.restore();
+      return;
+    }
     const img = g.getImageData(0, 0, cw, ch);
-    this.pixelateFx(img);
+    // light buffer: the bright pixels only, blurred into a soft additive glow
+    const glow = (this.particleScale || 1) >= 0.9 ? this.fxGlowBuffer(cw, ch) : null;
+    this.pixelateFx(img, glow && glow.img);
     g.putImageData(img, 0, 0);
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalAlpha = 1;
+    if (glow) {
+      glow.g.putImageData(glow.img, 0, 0);
+      // two halvings with smoothing make a cheap blur, then it is stretched back
+      const hw = Math.max(1, Math.ceil(cw / 2)), hh = Math.max(1, Math.ceil(ch / 2));
+      const qw = Math.max(1, Math.ceil(cw / 4)), qh = Math.max(1, Math.ceil(ch / 4));
+      const b = glow.blur;
+      b.g.globalCompositeOperation = 'copy';
+      b.g.imageSmoothingEnabled = true;
+      b.g.drawImage(glow.c, 0, 0, cw, ch, 0, 0, hw, hh);
+      b.g.drawImage(b.c, 0, 0, hw, hh, 0, 0, qw, qh);
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.imageSmoothingEnabled = true;
+      ctx.globalAlpha = 0.7;
+      ctx.drawImage(b.c, 0, 0, qw, qh, ox - px * 2, oy - px * 2, cw * px + px * 4, ch * px + px * 4);
+      ctx.globalAlpha = 1;
+    }
     ctx.globalCompositeOperation = 'source-over';
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(c, 0, 0, cw, ch, ox, oy, cw * px, ch * px);
     ctx.restore();
   }
 
-  pixelateFx(img) {
+  // Scratch canvases for the glow pass, grown to fit the pixel layer
+  fxGlowBuffer(cw, ch) {
+    if (!this._fxGlow) {
+      const mk = () => { const c = document.createElement('canvas'); return { c, g: c.getContext('2d', { willReadFrequently: true }) }; };
+      this._fxGlow = Object.assign(mk(), { blur: mk() });
+    }
+    const G = this._fxGlow;
+    if (G.c.width < cw || G.c.height < ch) {
+      G.c.width = G.blur.c.width = Math.max(G.c.width, cw);
+      G.c.height = G.blur.c.height = Math.max(G.c.height, ch);
+    }
+    if (!G.img || G.img.width !== cw || G.img.height !== ch) G.img = G.g.createImageData(cw, ch);
+    else G.img.data.fill(0);
+    return G;
+  }
+
+  // Turns the layer into pixel art. Each pixel is shaded along its own
+  // colour ramp: brightness snaps to six dithered steps, shadows shift toward
+  // a cool violet and highlights toward a warm white (hue-shifted ramps, as
+  // in hand-made pixel FX). Bright pixels are copied into glowImg.
+  pixelateFx(img, glowImg) {
     const d = img.data, w = img.width, h = img.height;
+    const gd = glowImg ? glowImg.data : null;
     const q = new Uint8Array(w * h);
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
@@ -6652,11 +8482,26 @@ class IsometricRenderer {
         const solid = v >= 0.6;
         d[o + 3] = solid ? 255 : 200;
         q[i] = solid ? 2 : 1;
-        // dithered posterise: six bands per channel
-        const k = (b - 0.5) * 0.9;
-        d[o] = Math.max(0, Math.min(255, Math.round(d[o] / 51 + k) * 51));
-        d[o + 1] = Math.max(0, Math.min(255, Math.round(d[o + 1] / 51 + k) * 51));
-        d[o + 2] = Math.max(0, Math.min(255, Math.round(d[o + 2] / 51 + k) * 51));
+        // ramp shading: brightness to one of six dithered steps (a faint
+        // wash sits a step darker so strokes and sparks read above it)
+        const r0 = d[o], g0 = d[o + 1], b0 = d[o + 2];
+        const mx = Math.max(r0, g0, b0, 1);
+        const lum = mx / 255;
+        const step = Math.max(0, Math.min(5, Math.round(lum * 5 + (b - 0.5) * 0.9 - (solid ? 0 : 0.8))));
+        const lq = step / 5;
+        let r = r0 / mx * lq * 255, gg = g0 / mx * lq * 255, bb = b0 / mx * lq * 255;
+        if (lq < 0.45) {
+          const m = (0.45 - lq) * 1.1; // shadow: toward deep violet
+          r += (34 - r) * m; gg += (14 - gg) * m; bb += (64 - bb) * m;
+        } else if (lq > 0.7) {
+          const m = (lq - 0.7) * 1.5; // highlight: toward warm white
+          r += (255 - r) * m; gg += (250 - gg) * m; bb += (228 - bb) * m;
+        }
+        d[o] = r; d[o + 1] = gg; d[o + 2] = bb;
+        if (gd && solid && step >= 3) {
+          const k = step === 5 ? 1 : step === 4 ? 0.7 : 0.3;
+          gd[o] = r * k; gd[o + 1] = gg * k; gd[o + 2] = bb * k; gd[o + 3] = 255;
+        }
       }
     }
     // a dark rim, in the shape's own hue, around the solid shapes
@@ -6691,19 +8536,16 @@ class IsometricRenderer {
     const R = Math.max(0.8, Math.min(fx.radius || 1.6, 6));
     // stable per-effect randomness
     let seed = fx._pxSeed || (fx._pxSeed = 1 + Math.floor(Math.random() * 1e6));
-    const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-    // a line effect (dash, beam) scatters along its path instead of around a point
-    const sx = fx.startX !== undefined ? fx.startX : cx, sy = fx.startY !== undefined ? fx.startY : cy;
     g.save();
     g.globalCompositeOperation = 'lighter';
-    // shock ring of square pixels on impact
-    if (progress < 0.4) {
-      const k = progress / 0.4, rr = R * (0.35 + 0.85 * (1 - Math.pow(1 - k, 3)));
-      const count = Math.round(18 + R * 10);
+    // a sparse crackle of pixels running out on impact (the shapes draw their own rings)
+    if (progress < 0.3) {
+      const k = progress / 0.3, rr = R * (0.35 + 0.85 * (1 - Math.pow(1 - k, 3)));
+      const count = Math.round(8 + R * 4);
       for (let i = 0; i < count; i++) {
-        if ((i + Math.floor(progress * 40)) % 5 === 0) continue; // broken ring, it crackles
+        if ((i + Math.floor(progress * 40)) % 3 === 0) continue;
         const a = (i / count) * Math.PI * 2;
-        sq(toScreen(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr, 0.05), i % 3 ? 1 : 2, tint(0.35, (1 - k) * 0.95));
+        sq(toScreen(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr, 0.05), 1, tint(0.35, (1 - k) * 0.8));
       }
     }
     // area spells: a pixel rune circle turning on the ground under the effect
@@ -6739,32 +8581,611 @@ class IsometricRenderer {
         else { sq({ x: p.x, y: p.y - tex }, 1, f); sq({ x: p.x, y: p.y + tex }, 1, f); }
       }
     }
-    // embers rising and stars twinkling
-    const embers = Math.round(14 + R * 7);
-    for (let i = 0; i < embers; i++) {
-      const life = 0.35 + rnd() * 0.5, start = rnd() * (1 - life * 0.6);
-      const ang = rnd() * Math.PI * 2, dist = Math.sqrt(rnd()) * R, along = rnd();
-      const drift = (rnd() - 0.5) * 0.6, star = rnd() < 0.22, hue = rnd();
-      const t = (progress - start) / life;
-      if (t < 0 || t > 1) continue;
-      const bx = sx + (cx - sx) * along + Math.cos(ang) * dist * (sx === cx && sy === cy ? 1 : 0.35);
-      const by = sy + (cy - sy) * along + Math.sin(ang) * dist * (sx === cx && sy === cy ? 1 : 0.35);
-      const p = toScreen(bx + drift * t, by - drift * t * 0.5, 0.15 + t * (1.2 + R * 0.25));
-      const fade = Math.min(1, (1 - t) * 2.2) * Math.min(1, alpha * 1.6);
-      if (star) {
-        const s = (t < 0.5 ? t : 1 - t) * 2;
-        sq(p, 1, tint(0.9, fade));
-        const arm = Math.max(1, Math.round(s * 2.4 * Math.min(1.4, z / 2)));
-        for (let k = 1; k <= arm; k++) {
-          const f = tint(0.55, fade * (1 - k / (arm + 1)));
-          sq({ x: p.x + k * tex, y: p.y }, 1, f); sq({ x: p.x - k * tex, y: p.y }, 1, f);
-          sq({ x: p.x, y: p.y + k * tex }, 1, f); sq({ x: p.x, y: p.y - k * tex }, 1, f);
+    g.restore();
+  }
+
+  // ---------------------------------------------------------------- simulated pixel particles
+  // SP card bursts spawn real particles (pixelfx style): each element moves its
+  // own way and cools down a dark-to-bright colour ramp as it ages. They live
+  // in world space, step with the frame and draw into the pixel-art layer, so
+  // they share its grid, dithering and glow.
+  fxRamp(fx) {
+    const key = fx.cardId || fx.color || 'none';
+    this._fxRamps = this._fxRamps || new Map();
+    let ramp = this._fxRamps.get(key);
+    if (ramp) return ramp;
+    const pal = SP_FX_PALETTES[fx.cardId];
+    if (pal) {
+      ramp = [pal.deep, pal.deep2, pal.main, pal.accent, pal.light, pal.core].map(s => `rgb(${s})`);
+    } else {
+      // hue-shifted ramp built from the card colour
+      const n = parseInt((fx.color || '#e2e8f0').slice(1), 16);
+      const c = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+      const mix = (a, b, k) => a.map((v, j) => Math.round(v + (b[j] - v) * k));
+      ramp = [
+        mix([24, 10, 46], c, 0.15), mix([34, 14, 64], c, 0.45), mix([0, 0, 0], c, 0.78),
+        c, mix(c, [255, 250, 228], 0.45), mix(c, [255, 252, 240], 0.8)
+      ].map(([r, g, b]) => `rgb(${r}, ${g}, ${b})`);
+    }
+    this._fxRamps.set(key, ramp);
+    return ramp;
+  }
+
+  pxSpawn(p) {
+    const parts = this.pxParts || (this.pxParts = []);
+    if (parts.length >= FX_PX_MAX * (this.particleScale || 1)) return;
+    p.age = 0;
+    p.seed = p.seed || Math.floor(Math.random() * 1e6);
+    parts.push(p);
+  }
+
+  // A burst of element particles at (x, y). power ~1 for a normal hit, ~1.6
+  // for a big area, ~0.3 for a repeating tick.
+  pxBurst(fx, x, y, power = 1, flash = true) {
+    if (x === undefined || y === undefined || isNaN(x) || isNaN(y)) return;
+    const el = FX_ELEMENT_RAMPS[fx.element] ? fx.element : null;
+    const matter = el ? FX_ELEMENT_RAMPS[el] : this.fxRamp(fx);
+    const magic = this.fxRamp(fx);
+    const R = Math.max(0.6, Math.min(fx.radius || 1.4, 5));
+    const n = (k) => Math.max(1, Math.round(k * power * (this.particleScale || 1)));
+    const rnd = Math.random, TAU = Math.PI * 2;
+    // a full-size burst starts across the inner part of its area, a small one at the point
+    const spread = power >= 1 ? R * 0.45 : 0;
+    const radial = (speed, extra) => {
+      const a = rnd() * TAU, s = speed * (0.4 + rnd() * 0.8), d = Math.sqrt(rnd()) * spread;
+      return Object.assign({ x: x + Math.cos(a) * d, y: y + Math.sin(a) * d, z: 0.3, vx: Math.cos(a) * s, vy: Math.sin(a) * s }, extra);
+    };
+    if (flash && power >= 0.6) this.pxSpawn({ kind: 'flash', x, y, z: 0.4, r: Math.min(0.9, 0.3 + R * 0.12) * Math.min(1.3, power), life: 0.14, ramp: magic });
+    switch (el) {
+      case 'fire':
+        for (let i = 0; i < n(20 + R * 6); i++) this.pxSpawn(radial(2.2 + R * 0.4, { kind: 'ember', vz: 1.2 + rnd() * 2.2, life: 0.5 + rnd() * 0.7, ramp: matter, size: rnd() < 0.3 ? 2 : 1 }));
+        for (let i = 0; i < n(12); i++) this.pxSpawn(radial(5 + R, { kind: 'spark', vz: 1 + rnd() * 2, life: 0.25 + rnd() * 0.25, ramp: matter }));
+        break;
+      case 'ice':
+        for (let i = 0; i < n(18); i++) this.pxSpawn(radial(3 + R * 0.6, { kind: 'shard', vz: 2 + rnd() * 3, life: 0.7 + rnd() * 0.6, ramp: matter, size: rnd() < 0.4 ? 2 : 1 }));
+        for (let i = 0; i < n(10); i++) this.pxSpawn(radial(5 + R, { kind: 'spark', vz: rnd() * 1.5, life: 0.2 + rnd() * 0.2, ramp: matter }));
+        for (let i = 0; i < n(6); i++) this.pxSpawn(radial(0.8, { kind: 'dust', vz: 0.3, life: 0.7 + rnd() * 0.5, ramp: matter }));
+        break;
+      case 'lightning':
+        for (let i = 0; i < n(10); i++) this.pxSpawn(radial(7 + R, { kind: 'bolt', vz: rnd() * 2, life: 0.18 + rnd() * 0.2, ramp: matter, trail: [] }));
+        for (let i = 0; i < n(14); i++) this.pxSpawn(radial(4 + R, { kind: 'spark', vz: 1 + rnd() * 2, life: 0.2 + rnd() * 0.25, ramp: matter }));
+        break;
+      case 'holy':
+        for (let i = 0; i < n(20); i++) {
+          const a = rnd() * TAU, d = Math.sqrt(rnd()) * R;
+          this.pxSpawn({ kind: 'mote', x: x + Math.cos(a) * d, y: y + Math.sin(a) * d, z: 0.1 + rnd() * 0.5, vx: 0, vy: 0, vz: 0.6 + rnd() * 1.1, life: 0.7 + rnd() * 0.8, ramp: matter });
         }
-      } else {
-        sq(p, t < 0.3 ? 2 : 1, tint(hue < 0.5 ? 0.15 : 0.6, fade));
+        for (let i = 0; i < n(10); i++) this.pxSpawn(radial(4 + R, { kind: 'spark', vz: 1.5 + rnd() * 2, life: 0.25 + rnd() * 0.25, ramp: matter }));
+        break;
+      case 'dark':
+        for (let i = 0; i < n(22); i++) {
+          const a = rnd() * TAU, d = R * (0.7 + rnd() * 0.5);
+          this.pxSpawn({ kind: 'wisp', cx: x, cy: y, a, d, spin: (rnd() < 0.5 ? -1 : 1) * (3 + rnd() * 3), x: x + Math.cos(a) * d, y: y + Math.sin(a) * d, z: 0.2 + rnd() * 0.8, vx: 0, vy: 0, vz: 0, life: 0.45 + rnd() * 0.45, ramp: matter, trail: [] });
+        }
+        for (let i = 0; i < n(8); i++) this.pxSpawn(radial(4 + R, { kind: 'spark', vz: 1 + rnd() * 2, life: 0.25 + rnd() * 0.2, ramp: magic }));
+        break;
+      case 'earth':
+        for (let i = 0; i < n(14); i++) this.pxSpawn(radial(2.5 + R * 0.5, { kind: 'chunk', vz: 3 + rnd() * 3.5, life: 0.8 + rnd() * 0.5, ramp: matter, size: rnd() < 0.5 ? 2 : 3 }));
+        for (let i = 0; i < n(10); i++) this.pxSpawn(radial(1.2 + R * 0.3, { kind: 'dust', vz: 0.4, life: 0.6 + rnd() * 0.6, ramp: matter }));
+        for (let i = 0; i < n(8); i++) this.pxSpawn(radial(4 + R, { kind: 'spark', vz: 1 + rnd() * 2, life: 0.25 + rnd() * 0.2, ramp: magic }));
+        break;
+      default:
+        for (let i = 0; i < n(18); i++) this.pxSpawn(radial(4.5 + R, { kind: 'spark', vz: 1 + rnd() * 2.5, life: 0.25 + rnd() * 0.3, ramp: magic }));
+        for (let i = 0; i < n(8); i++) this.pxSpawn(radial(1.5, { kind: 'mote', vz: 0.8 + rnd(), life: 0.5 + rnd() * 0.5, ramp: magic }));
+    }
+  }
+
+  // Particles strung along a path (beams, dashes, lines)
+  pxLine(fx, x0, y0, x1, y1, power = 1) {
+    if ([x0, y0, x1, y1].some(v => v === undefined || isNaN(v))) return;
+    const len = Math.hypot(x1 - x0, y1 - y0);
+    const steps = Math.max(2, Math.min(8, Math.round(len * 1.2)));
+    for (let k = 0; k <= steps; k++) {
+      const t = k / steps;
+      this.pxBurst(fx, x0 + (x1 - x0) * t, y0 + (y1 - y0) * t, power * 0.28, false);
+    }
+    this.pxBurst(fx, x1, y1, power * 0.6, true);
+  }
+
+  // One ambient particle while an effect lingers
+  pxTrickle(fx, x, y) {
+    if (x === undefined || y === undefined || isNaN(x) || isNaN(y)) return;
+    const ramp = FX_ELEMENT_RAMPS[fx.element] || this.fxRamp(fx);
+    const rnd = Math.random;
+    const kind = { fire: 'ember', ice: 'dust', lightning: 'bolt', holy: 'mote', dark: 'mote', earth: 'dust' }[fx.element] || 'mote';
+    this.pxSpawn({
+      kind, x, y, z: 0.1, vx: (rnd() - 0.5) * 0.8, vy: (rnd() - 0.5) * 0.8, ramp, trail: [],
+      vz: kind === 'bolt' ? 0.5 : 0.9 + rnd(), life: kind === 'bolt' ? 0.18 : 0.5 + rnd() * 0.5
+    });
+  }
+
+  // Step the simulation (world units per second) and draw into layer g
+  drawPxParticles(g, dt) {
+    const parts = this.pxParts;
+    if (!parts || !parts.length) return;
+    const W = this.viewW, H = this.viewH;
+    const toScreen = (x, y, h) => Isometric.worldToScreen(x, y, h, this.camera, W, H);
+    const tex = this._fxLayer.px / (this.canvas.width / W);
+    const snap = (v) => Math.round(v / tex) * tex;
+    // every particle texel is queued per colour and filled as one path each at the end
+    const batch = new Map();
+    const sq = (x, y, s, col) => {
+      let a = batch.get(col);
+      if (!a) batch.set(col, (a = []));
+      a.push(snap(x) - (s * tex) / 2, snap(y) - (s * tex) / 2, s * tex);
+    };
+    // a stepped pixel line between two screen points
+    const line = (a, b, col) => {
+      const n = Math.max(1, Math.round(Math.max(Math.abs(b.x - a.x), Math.abs(b.y - a.y)) / tex));
+      for (let k = 0; k <= n; k++) sq(a.x + (b.x - a.x) * k / n, a.y + (b.y - a.y) * k / n, 1, col);
+    };
+    const step = Math.min(dt, 1 / 20);
+    const frame = Math.floor(this.animations.time * 30);
+    g.save();
+    g.globalCompositeOperation = 'source-over';
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const p = parts[i];
+      p.age += step;
+      const t = p.age / p.life;
+      if (t >= 1) { parts.splice(i, 1); continue; }
+      const top = p.ramp.length - 1;
+      // ramp step from heat, flickering one step down now and then
+      const heat = (k) => p.ramp[Math.max(2, Math.min(top, Math.round(2 + k * (top - 2) + (((frame + p.seed) & 3) === 0 ? -1 : 0))))];
+      const px0 = p.x, py0 = p.y, pz0 = p.z;
+      if (p.kind === 'flash') {
+        const k = 1 - t, c = toScreen(p.x, p.y, p.z);
+        const base = p.r * 32 * this.camera.zoom, rr = base * k;
+        g.fillStyle = p.ramp[top];
+        g.beginPath(); g.ellipse(snap(c.x), snap(c.y), rr * 0.7, rr * 0.5, 0, 0, Math.PI * 2); g.fill();
+        g.strokeStyle = p.ramp[top - 1];
+        g.lineWidth = tex * (k > 0.5 ? 2 : 1);
+        g.beginPath(); g.ellipse(snap(c.x), snap(c.y), base * (1.1 - 0.5 * k), base * (1.1 - 0.5 * k) * 0.6, 0, 0, Math.PI * 2); g.stroke();
+        // light rays
+        for (let r = 0; r < 8; r++) {
+          const a = r * Math.PI / 4 + (p.seed % 7) * 0.1, len = base * (r % 2 ? 0.9 : 1.6) * k;
+          line(c, { x: c.x + Math.cos(a) * len, y: c.y + Math.sin(a) * len * 0.75 }, p.ramp[top - (r % 2)]);
+        }
+        continue;
+      }
+      // ---- move
+      if (p.kind === 'ember') {
+        p.vx *= 1 - 2.5 * step; p.vy *= 1 - 2.5 * step;
+        p.vz += (1.6 - p.vz) * 2 * step; // rises like heat
+        p.x += (p.vx + Math.sin(p.age * 9 + p.seed) * 0.6) * step; p.y += p.vy * step; p.z += p.vz * step;
+      } else if (p.kind === 'spark') {
+        p.vx *= 1 - 3.5 * step; p.vy *= 1 - 3.5 * step; p.vz -= 6 * step;
+        p.x += p.vx * step; p.y += p.vy * step; p.z = Math.max(0.02, p.z + p.vz * step);
+      } else if (p.kind === 'bolt') {
+        // darts in a straight line, then jerks to a new heading
+        if (((frame + p.seed) % 3) === 0) {
+          const s = Math.hypot(p.vx, p.vy) || 5, a = Math.atan2(p.vy, p.vx) + (Math.random() - 0.5) * 2.2;
+          p.vx = Math.cos(a) * s; p.vy = Math.sin(a) * s;
+        }
+        p.trail.push({ x: p.x, y: p.y, z: p.z }); if (p.trail.length > 5) p.trail.shift();
+        p.x += p.vx * step; p.y += p.vy * step; p.z += p.vz * step;
+      } else if (p.kind === 'shard' || p.kind === 'chunk') {
+        p.vz -= (p.kind === 'chunk' ? 16 : 11) * step;
+        p.x += p.vx * step; p.y += p.vy * step; p.z += p.vz * step;
+        if (p.z <= 0.02) {
+          p.z = 0.02;
+          if (p.vz < -1.5 && !p.landed) {
+            p.landed = true; p.vz = -p.vz * 0.3; p.vx *= 0.4; p.vy *= 0.4;
+            if (p.kind === 'chunk') this.pxSpawn({ kind: 'dust', x: p.x, y: p.y, z: 0.05, vx: 0, vy: 0, vz: 0.3, life: 0.5, ramp: p.ramp });
+          } else { p.vz = 0; p.vx *= 0.8; p.vy *= 0.8; }
+        }
+      } else if (p.kind === 'mote') {
+        p.vz += (0.9 - p.vz) * step;
+        p.x += (p.vx + Math.sin(p.age * 4 + p.seed) * 0.35) * step; p.y += p.vy * step; p.z += p.vz * step;
+      } else if (p.kind === 'wisp') {
+        // spirals in toward the centre
+        p.a += p.spin * step; p.d = Math.max(0, p.d * (1 - 2.6 * step));
+        p.trail.push({ x: p.x, y: p.y, z: p.z }); if (p.trail.length > 4) p.trail.shift();
+        p.x = p.cx + Math.cos(p.a) * p.d; p.y = p.cy + Math.sin(p.a) * p.d; p.z += 0.6 * step;
+      } else if (p.kind === 'dust') {
+        p.vx *= 1 - 2 * step; p.vy *= 1 - 2 * step;
+        p.x += p.vx * step; p.y += p.vy * step; p.z += p.vz * step;
+      }
+      // ---- draw
+      const s = toScreen(p.x, p.y, p.z);
+      if (p.kind === 'ember') {
+        const k = 1 - Math.pow(t, 1.5);
+        if (t > 0.8) { if ((frame + p.seed) & 1) sq(s.x, s.y, 1, p.ramp[1]); continue; } // cooled to smoke
+        sq(s.x, s.y + tex, 1, heat(k * 0.7));
+        sq(s.x, s.y, (p.size > 1 && t < 0.6) || t < 0.25 ? 2 : 1, heat(k));
+      } else if (p.kind === 'spark') {
+        const prev = toScreen(px0 - p.vx * 0.035, py0 - p.vy * 0.035, pz0 - p.vz * 0.035);
+        line(prev, s, heat(0.55 * (1 - t)));
+        sq(s.x, s.y, 1, heat(1 - t * 0.4));
+      } else if (p.kind === 'bolt') {
+        let a = s;
+        for (let k = p.trail.length - 1; k >= 0; k--) {
+          const b = toScreen(p.trail[k].x, p.trail[k].y, p.trail[k].z);
+          line(a, b, heat((0.55 + 0.45 * k / p.trail.length) * (1 - t * 0.3)));
+          a = b;
+        }
+        sq(s.x, s.y, 1, p.ramp[top]);
+      } else if (p.kind === 'shard') {
+        const c = heat(0.55 + 0.45 * (1 - t));
+        sq(s.x, s.y, 1, c); sq(s.x, s.y - tex, 1, c);
+        if (p.size > 1) { sq(s.x, s.y - tex * 2, 1, p.ramp[top]); sq(s.x - tex, s.y - tex, 1, p.ramp[2]); sq(s.x + tex, s.y - tex, 1, p.ramp[2]); }
+        // a glint now and then
+        if (((frame + p.seed) % 17) === 0) {
+          const w = p.ramp[top];
+          sq(s.x - tex * 2, s.y - tex, 1, w); sq(s.x + tex * 2, s.y - tex, 1, w); sq(s.x, s.y - tex * 3, 1, w); sq(s.x, s.y + tex, 1, w);
+        }
+      } else if (p.kind === 'chunk') {
+        const sz = p.size;
+        sq(s.x, s.y, sz + 1, p.ramp[1]);
+        sq(s.x, s.y, sz, p.ramp[3]);
+        sq(s.x - tex * (sz > 2 ? 1 : 0.5), s.y - tex * (sz > 2 ? 1 : 0.5), 1, p.ramp[4]);
+      } else if (p.kind === 'mote') {
+        const k = 1 - t * 0.7;
+        sq(s.x, s.y, t < 0.4 ? 2 : 1, heat(k));
+        if (Math.sin(p.age * 10 + p.seed) > 0.3) {
+          const arm = t < 0.6 ? 2 : 1;
+          for (let a = 1; a <= arm; a++) {
+            const c = heat(k * (1 - a * 0.25));
+            sq(s.x + a * tex, s.y, 1, c); sq(s.x - a * tex, s.y, 1, c); sq(s.x, s.y + a * tex, 1, c); sq(s.x, s.y - a * tex, 1, c);
+          }
+        }
+      } else if (p.kind === 'wisp') {
+        let a = s;
+        for (let k = p.trail.length - 1; k >= 0; k--) {
+          const b = toScreen(p.trail[k].x, p.trail[k].y, p.trail[k].z);
+          line(a, b, p.ramp[2 + Math.round((k / p.trail.length) * (top - 3))]);
+          a = b;
+        }
+        sq(s.x, s.y, t < 0.7 ? 2 : 1, heat(0.5 + 0.5 * t)); // brightens as it closes in
+      } else if (p.kind === 'dust') {
+        if (((frame + p.seed) & 1) === 0) continue; // a 50% checker puff
+        sq(s.x, s.y, 1 + Math.floor(t * 3), p.ramp[t < 0.4 ? 3 : 2]);
       }
     }
+    for (const [col, a] of batch) {
+      g.fillStyle = col;
+      g.beginPath();
+      for (let i = 0; i < a.length; i += 3) g.rect(a[i], a[i + 1], a[i + 2], a[i + 2]);
+      g.fill();
+    }
     g.restore();
+  }
+
+  // ---------------------------------------------------------------- pixel motif kit
+  // Element motifs drawn texel by texel into the pixel-art layer: flame
+  // tongues, ice prisms, forked bolts, light pillars, shadow tendrils, earth
+  // cracks and rock spikes. Every SP shape is built from these, coloured from
+  // the element's dark-to-bright ramp (FX_ELEMENT_RAMPS) or the card's own.
+  spMotifs(ctx, fx, progress) {
+    const W = this.viewW, H = this.viewH, z = this.camera.zoom;
+    const toScreen = (x, y, h = 0) => Isometric.worldToScreen(x, y, h, this.camera, W, H);
+    const L = this._fxLayer;
+    const tex = L && L.open ? L.px / (this.canvas.width / W) : Math.max(1, z);
+    const el = FX_ELEMENT_RAMPS[fx.element] ? fx.element : null;
+    const ramp = el ? FX_ELEMENT_RAMPS[el] : this.fxRamp(fx);
+    const card = this.fxRamp(fx);
+    const top = ramp.length - 1;
+    const TAU = Math.PI * 2;
+    const time = this.animations.time;
+    const frame = Math.floor(time * 24);
+    const seed0 = fx._pxSeed || (fx._pxSeed = 1 + Math.floor(Math.random() * 1e6));
+    // stable noise: same value for the same (n, frame bucket)
+    const hash = (n) => { const s = Math.sin(n * 127.1 + seed0 * 0.013) * 43758.5453; return s - Math.floor(s); };
+    const snap = (v) => Math.round(v / tex) * tex;
+    const R = (k) => ramp[Math.max(0, Math.min(top, Math.round(k)))];
+    const px = (x, y, col, s = 1) => { ctx.fillStyle = col; ctx.fillRect(snap(x) - (s * tex) / 2, snap(y) - (s * tex) / 2, s * tex, s * tex); };
+    // texels queued per colour and filled as one path each (thousands of
+    // fillRect calls a frame were the main cost); each motif flushes when done
+    const batch = new Map();
+    const put = (col, x, y, s = 1) => {
+      let a = batch.get(col);
+      if (!a) batch.set(col, (a = []));
+      a.push(x - (s * tex) / 2, y - (s * tex) / 2, s * tex);
+    };
+    const flush = () => {
+      for (const [col, a] of batch) {
+        ctx.fillStyle = col;
+        ctx.beginPath();
+        for (let i = 0; i < a.length; i += 3) ctx.rect(a[i], a[i + 1], a[i + 2], a[i + 2]);
+        ctx.fill();
+      }
+      batch.clear();
+    };
+    const line = (a, b, col, w = 1) => {
+      const n = Math.max(1, Math.round(Math.max(Math.abs(b.x - a.x), Math.abs(b.y - a.y)) / tex));
+      for (let k = 0; k <= n; k++) put(col, snap(a.x + (b.x - a.x) * k / n), snap(a.y + (b.y - a.y) * k / n), w);
+      flush();
+    };
+    // a ground ellipse walked pixel by pixel (gaps make it crackle)
+    const ellipse = (cx, cy, r, col, w = 1, gap = 0, a0 = 0, a1 = TAU) => {
+      if (r <= 0.05) return;
+      const c = toScreen(cx, cy, 0), rx = r * 32 * Math.SQRT2 * z, ry = rx / 2;
+      const n = Math.max(12, Math.round((rx * Math.abs(a1 - a0)) / tex));
+      for (let k = 0; k <= n; k++) {
+        if (gap && hash(k * 7 + frame) < gap) continue;
+        const a = a0 + (a1 - a0) * (k / n);
+        put(col, snap(c.x + Math.cos(a) * rx), snap(c.y + Math.sin(a) * ry), w);
+      }
+      flush();
+    };
+    // a soft ground pool: dithered texels, denser in the middle
+    // (painted once per size / colours / density step into a texel-sized
+    // sprite, then stamped on the grid)
+    const pool = (cx, cy, r, colA, colB, density = 0.5) => {
+      const c = toScreen(cx, cy, 0), rx = r * 32 * Math.SQRT2 * z, ry = rx / 2;
+      const nx = Math.ceil(rx / tex), ny = Math.ceil(ry / tex);
+      if (nx < 1 || ny < 1 || density <= 0) return;
+      const dq = Math.round(Math.min(1, density) * 10) / 10;
+      const cache = this._fxPoolCache || (this._fxPoolCache = new Map());
+      const key = nx + '|' + ny + '|' + colA + '|' + colB + '|' + dq;
+      let spr = cache.get(key);
+      if (!spr) {
+        if (cache.size > 160) cache.clear();
+        spr = document.createElement('canvas');
+        spr.width = nx * 2 + 1; spr.height = ny * 2 + 1;
+        const sg = spr.getContext('2d');
+        for (let j = -ny; j <= ny; j++) {
+          for (let i = -nx; i <= nx; i++) {
+            const d = (i * i) / (nx * nx) + (j * j) / (ny * ny);
+            if (d > 1) continue;
+            const b = FX_BAYER[((j + 64) & 3) * 4 + ((i + 64) & 3)] / 16;
+            if (b > dq * (1 - d * 0.85)) continue;
+            sg.fillStyle = d < 0.35 ? colA : colB;
+            sg.fillRect(i + nx, j + ny, 1, 1);
+          }
+        }
+        cache.set(key, spr);
+      }
+      const smooth = ctx.imageSmoothingEnabled;
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(spr, snap(c.x) - nx * tex - tex / 2, snap(c.y) - ny * tex - tex / 2, spr.width * tex, spr.height * tex);
+      ctx.imageSmoothingEnabled = smooth;
+    };
+    // flame tongue rising from screen point (sx, sy): h, w in texels
+    const flame = (sx, sy, h, w, phase) => {
+      if (h < 1) return;
+      for (let r = 0; r < h; r++) {
+        const t = r / h;
+        const sway = Math.sin(phase + t * 3 + time * 9) * t * w * 0.5;
+        const half = Math.max(0, w * Math.pow(1 - t, 0.8) * (0.7 + 0.3 * Math.sin(phase * 3 + r)));
+        const y = sy - r * tex;
+        for (let i = -Math.ceil(half); i <= Math.ceil(half); i++) {
+          const edge = Math.abs(i) / (half + 0.5);
+          const heat = (1 - t) * 0.65 + (1 - edge) * 0.55;
+          put(R(1.5 + heat * (top - 1.5)), snap(sx + sway * tex + i * tex), snap(y));
+        }
+      }
+      flush();
+    };
+    // ice prism standing on (sx, sy)
+    const crystal = (sx, sy, h, w) => {
+      if (h < 1) return;
+      for (let r = 0; r < h; r++) {
+        const t = r / h, half = Math.round(w * (t < 0.7 ? 1 : (1 - t) / 0.3));
+        for (let i = -half; i <= half; i++) {
+          put(Math.abs(i) === half ? R(1) : i < 0 ? R(3) : i === 0 ? R(top - 1) : R(5), snap(sx + i * tex), snap(sy - r * tex));
+        }
+      }
+      flush();
+      px(sx, sy - h * tex, R(top));
+    };
+    // rock spike standing on (sx, sy)
+    const spike = (sx, sy, h, w) => {
+      if (h < 1) return;
+      for (let r = 0; r < h; r++) {
+        const half = Math.round(w * (1 - r / h));
+        for (let i = -half; i <= half; i++) {
+          put(Math.abs(i) === half ? R(0) : i < 0 ? R(2) : R(4), snap(sx + i * tex), snap(sy - r * tex));
+        }
+      }
+      flush();
+    };
+    // forked bolt between two screen points, re-forked every couple of frames
+    const bolt = (a, b, jag = 1, salt = 0) => {
+      const segs = Math.max(3, Math.round(Math.hypot(b.x - a.x, b.y - a.y) / (tex * 6)));
+      const pts = [a];
+      const f = Math.floor(frame / 2);
+      for (let k = 1; k < segs; k++) {
+        const t = k / segs;
+        pts.push({ x: a.x + (b.x - a.x) * t + (hash(k * 13 + f * 7 + salt) - 0.5) * 10 * tex * jag, y: a.y + (b.y - a.y) * t + (hash(k * 29 + f * 3 + salt) - 0.5) * 6 * tex * jag });
+      }
+      pts.push(b);
+      for (let k = 1; k < pts.length; k++) { line(pts[k - 1], pts[k], R(top - 2), 2); }
+      for (let k = 1; k < pts.length; k++) { line(pts[k - 1], pts[k], R(top), 1); }
+      // one side fork
+      const m = pts[Math.floor(pts.length / 2)];
+      const fa = hash(f + salt * 3) * TAU;
+      line(m, { x: m.x + Math.cos(fa) * tex * 6, y: m.y + Math.sin(fa) * tex * 4 }, R(top - 1), 1);
+    };
+    // vertical light pillar standing on (sx, sy), h px tall
+    const pillar = (sx, sy, h, w, env = 1) => {
+      const rows = Math.max(1, Math.round(h / tex)), half = Math.max(1, Math.round(w));
+      for (let r = 0; r < rows; r++) {
+        const t = r / rows;
+        for (let i = -half; i <= half; i++) {
+          const b = FX_BAYER[((r + 64) & 3) * 4 + ((i + 64) & 3)] / 16;
+          if (b > env * (1 - t * 0.9)) continue; // dithered fade toward the top
+          const e = Math.abs(i) / half;
+          put(e < 0.34 ? R(top) : e < 0.7 ? R(top - 1) : R(top - 3), snap(sx + i * tex), snap(sy - r * tex));
+        }
+      }
+      flush();
+    };
+    // wavy tendril from world p0 to world p1, thinning toward p1
+    const tendril = (x0, y0, x1, y1, phase, reach = 1, h = 0.1) => {
+      const n = 14;
+      let prev = null;
+      for (let k = 0; k <= Math.round(n * reach); k++) {
+        const t = k / n;
+        const nx = -(y1 - y0), ny = x1 - x0, len = Math.hypot(nx, ny) || 1;
+        const wob = Math.sin(t * 7 + phase + time * 6) * 0.35 * (1 - t);
+        const p = toScreen(x0 + (x1 - x0) * t + (nx / len) * wob, y0 + (y1 - y0) * t + (ny / len) * wob, h);
+        if (prev) line(prev, p, R(t < 0.3 ? 2 : t < 0.7 ? 3 : 4), t < 0.4 ? 2 : 1);
+        prev = p;
+      }
+      if (prev) px(prev.x, prev.y, R(top - 1));
+    };
+    // jagged crack from world p0 to p1 with a lit lip
+    const crack = (x0, y0, x1, y1, salt, reach = 1) => {
+      const n = 8;
+      let prev = toScreen(x0, y0, 0);
+      for (let k = 1; k <= Math.round(n * reach); k++) {
+        const t = k / n;
+        const p = toScreen(x0 + (x1 - x0) * t + (hash(k * 11 + salt) - 0.5) * 0.5, y0 + (y1 - y0) * t + (hash(k * 17 + salt) - 0.5) * 0.5, 0);
+        line({ x: prev.x, y: prev.y - tex }, { x: p.x, y: p.y - tex }, R(reach < 1 ? top - 1 : 4), 1);
+        line(prev, p, R(1), 1);
+        prev = p;
+      }
+    };
+
+    // ---- compound motifs (world coordinates, env 0..1 = strength)
+    const M = {
+      ramp, card, top, tex, R, px, line, ellipse, pool, flame, crystal, spike, bolt, pillar, tendril, crack, hash, frame,
+      // the expanding front of a burst
+      front(cx, cy, r, env) {
+        ellipse(cx, cy, r, R(top - 2), 2, 0.08);
+        ellipse(cx, cy, r, R(top), 1, 0.2);
+        ellipse(cx, cy, r * 0.92, R(3), 1, 0.5 + 0.4 * (1 - env));
+      },
+      // what covers the ground of an area
+      ground(cx, cy, r, env) {
+        if (env <= 0.02 || r <= 0.1) return;
+        const n = Math.max(6, Math.round(r * 5));
+        const c = toScreen(cx, cy, 0);
+        const rim = (k, f = 1) => { const a = (k / n) * TAU + seed0 * 0.01; return toScreen(cx + Math.cos(a) * r * f, cy + Math.sin(a) * r * f, 0); };
+        switch (el) {
+          case 'fire': {
+            pool(cx, cy, r * 0.95, R(1), R(0), 0.35 * env);
+            for (let k = 0; k < n; k++) { const p = rim(k, 0.55 + 0.4 * hash(k)); flame(p.x, p.y, Math.round((7 + 9 * hash(k * 3 + Math.floor(frame / 3))) * env * Math.min(1.4, z / 1.6)), 2 + Math.round(hash(k * 5) * 2), k * 1.7); }
+            break;
+          }
+          case 'ice': {
+            pool(cx, cy, r * 0.95, R(2), R(1), 0.3 * env);
+            for (let k = 0; k < n; k++) { const p = rim(k, 1); line(c, p, R(4), 1); }
+            for (let k = 0; k < n; k++) { const p = rim(k + 0.5, 0.45 + 0.5 * hash(k)); crystal(p.x, p.y, Math.round((4 + 6 * hash(k * 7)) * env * Math.min(1.4, z / 1.6)), 1 + Math.round(hash(k * 2))); }
+            break;
+          }
+          case 'lightning': {
+            pool(cx, cy, r * 0.9, R(1), R(0), 0.2 * env);
+            const arcs = Math.max(3, Math.round(r * 1.6));
+            for (let k = 0; k < arcs; k++) {
+              if (hash(k * 5 + Math.floor(frame / 2)) > 0.75 * env + 0.2) continue;
+              bolt(toScreen(cx, cy, 0.2), rim(k * (n / arcs) + hash(k + frame) * 2, 0.7 + 0.3 * hash(k * 9 + frame)), 1, k * 31);
+            }
+            break;
+          }
+          case 'holy': {
+            pool(cx, cy, r * 0.9, R(3), R(2), 0.22 * env);
+            ellipse(cx, cy, r * 0.82, R(top - 1), 1, 0.1);
+            const pillars = Math.max(4, Math.round(r * 2));
+            for (let k = 0; k < pillars; k++) { const p = rim(k * (n / pillars), 0.82); pillar(p.x, p.y, (26 + 30 * hash(k)) * z * env, 1, env); }
+            break;
+          }
+          case 'dark': {
+            pool(cx, cy, r * 0.75, R(0), R(1), 0.75 * env);
+            for (let k = 0; k < n; k++) { const a = (k / n) * TAU + time * 0.8; tendril(cx + Math.cos(a) * r, cy + Math.sin(a) * r, cx + Math.cos(a + 0.9) * r * 0.15, cy + Math.sin(a + 0.9) * r * 0.15, k * 2.1, env); }
+            break;
+          }
+          case 'earth': {
+            const cracks = Math.max(4, Math.round(n * 0.6));
+            for (let k = 0; k < cracks; k++) { const a = (k / cracks) * TAU + hash(k) * 0.4; crack(cx, cy, cx + Math.cos(a) * r * (0.6 + 0.4 * hash(k * 3)), cy + Math.sin(a) * r * (0.6 + 0.4 * hash(k * 3)), k * 19, Math.min(1, env * 1.4)); }
+            for (let k = 0; k < Math.round(n * 0.7); k++) { const p = rim(k * 1.4 + 0.3, 0.35 + 0.55 * hash(k * 3)); spike(p.x, p.y, Math.round((5 + 8 * hash(k * 13)) * env * Math.min(1.4, z / 1.6)), 2 + Math.round(hash(k * 7))); }
+            break;
+          }
+          default: {
+            pool(cx, cy, r * 0.85, card[2], card[1], 0.25 * env);
+            ellipse(cx, cy, r * 0.7, card[4], 1, 0.4);
+          }
+        }
+      },
+      // a travelling stroke along a path (beam, dash, slash line)
+      path(x0, y0, x1, y1, w, env, h = 0.15) {
+        if (env <= 0.02) return;
+        const a = toScreen(x0, y0, h), b = toScreen(x1, y1, h);
+        const len = Math.hypot(x1 - x0, y1 - y0) || 1;
+        const steps = Math.max(2, Math.round(len * 2.2));
+        switch (el) {
+          case 'fire':
+            for (let k = 0; k <= steps; k++) { const t = k / steps, p = toScreen(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t, 0); flame(p.x, p.y, Math.round((6 + 8 * hash(k + Math.floor(frame / 3))) * env * (0.5 + t * 0.5)), 3, k); }
+            break;
+          case 'ice':
+            line(a, b, R(3), 2);
+            for (let k = 0; k <= steps; k++) { const t = k / steps, p = toScreen(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t, 0); crystal(p.x + (hash(k) - 0.5) * 6 * tex, p.y, Math.round((3 + 5 * hash(k * 3)) * env), 1); }
+            break;
+          case 'lightning':
+            bolt(a, b, 1.2, 7); bolt(a, b, 0.8, 19);
+            break;
+          case 'holy': {
+            line(a, b, R(top - 2), Math.max(2, Math.round(w * 3 * env)));
+            line(a, b, R(top), Math.max(1, Math.round(w * 1.5 * env)));
+            break;
+          }
+          case 'dark': {
+            // a torn rift: dark core with violet lips
+            line(a, b, R(3), Math.max(3, Math.round(w * 4 * env)));
+            line(a, b, R(0), Math.max(1, Math.round(w * 2.4 * env)));
+            for (let k = 0; k < steps; k++) { const t = (k + 0.5) / steps, p = toScreen(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t, h); px(p.x, p.y - (hash(k) - 0.5) * 6 * tex, R(top - 1)); }
+            break;
+          }
+          case 'earth':
+            crack(x0, y0, x1, y1, 5, 1);
+            for (let k = 1; k <= steps; k++) { const t = k / steps, p = toScreen(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t, 0); spike(p.x, p.y, Math.round((3 + 6 * hash(k * 5)) * env), 2); }
+            break;
+          default:
+            line(a, b, card[3], Math.max(2, Math.round(w * 3 * env)));
+            line(a, b, card[5], 1);
+        }
+      },
+      // a hit flare at one point
+      hit(x, y, s, env) {
+        if (env <= 0.02) return;
+        const c = toScreen(x, y, 0.4), k = Math.max(2, Math.round(s * 5 * env));
+        switch (el) {
+          case 'fire': flame(c.x, c.y + 3 * tex, k + 3, 3, x); break;
+          case 'ice': for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2 + Math.PI / 4; line(c, { x: c.x + Math.cos(a) * k * tex, y: c.y + Math.sin(a) * k * tex * 0.7 }, R(5), 1); } crystal(c.x, c.y + 2 * tex, k, 1); break;
+          case 'lightning': for (let i = 0; i < 3; i++) bolt(c, { x: c.x + (hash(i + frame) - 0.5) * k * 4 * tex, y: c.y + (hash(i * 3 + frame) - 0.5) * k * 3 * tex }, 0.6, i * 11); break;
+          case 'holy': line({ x: c.x, y: c.y - k * 2 * tex }, { x: c.x, y: c.y + k * tex }, R(top), 1); line({ x: c.x - k * tex, y: c.y - k * 0.5 * tex }, { x: c.x + k * tex, y: c.y - k * 0.5 * tex }, R(top), 1); break;
+          case 'dark': line({ x: c.x - k * tex, y: c.y - k * tex }, { x: c.x + k * tex, y: c.y + k * tex }, R(4), 2); line({ x: c.x + k * tex, y: c.y - k * tex }, { x: c.x - k * tex, y: c.y + k * tex }, R(4), 2); line({ x: c.x - k * tex, y: c.y - k * tex }, { x: c.x + k * tex, y: c.y + k * tex }, R(top), 1); break;
+          case 'earth': for (let i = 0; i < 3; i++) spike(c.x + (i - 1) * 3 * tex, c.y + 3 * tex, k - Math.abs(i - 1) * 2, 2); break;
+          default: line({ x: c.x - k * tex, y: c.y }, { x: c.x + k * tex, y: c.y }, card[5], 1); line({ x: c.x, y: c.y - k * tex }, { x: c.x, y: c.y + k * tex }, card[5], 1);
+        }
+        px(c.x, c.y, R(top), 2);
+      },
+      // a field that clings round a hero (buffs and auras)
+      aura(x, y, r, env) {
+        if (env <= 0.02) return;
+        const n = Math.max(6, Math.round(r * 6));
+        const spin = time * 2;
+        ellipse(x, y, r, R(top - 2), 1, 0.35);
+        for (let k = 0; k < n; k++) {
+          const a = (k / n) * TAU + spin, p = toScreen(x + Math.cos(a) * r, y + Math.sin(a) * r, 0);
+          switch (el) {
+            case 'fire': flame(p.x, p.y, Math.round((3 + 4 * hash(k + Math.floor(frame / 3))) * env), 1, k); break;
+            case 'ice': crystal(p.x, p.y - 4 * tex * (1 + Math.sin(spin * 2 + k)), Math.round(3 * env) + 1, 1); break;
+            case 'lightning': if (hash(k + frame) < 0.35) bolt(p, toScreen(x + Math.cos(a + 0.7) * r, y + Math.sin(a + 0.7) * r, 0.3), 0.5, k); break;
+            case 'holy': px(p.x, p.y - ((time * 30 + k * 9) % 24) * tex, R(top - (k % 2))); break;
+            case 'dark': px(p.x, p.y - 2 * tex, R(3), 2); px(p.x, p.y - 2 * tex, R(5)); break;
+            case 'earth': px(p.x, p.y - (3 + Math.sin(spin * 3 + k) * 2) * tex, R(3), 2); px(p.x - tex / 2, p.y - (3.5 + Math.sin(spin * 3 + k) * 2) * tex, R(5)); break;
+            default: px(p.x, p.y - 2 * tex, card[4]);
+          }
+        }
+      },
+      // something dropping out of the sky onto (x, y): t = 0 high, 1 landed
+      fall(x, y, t, size) {
+        const h = 5 * (1 - t), p = toScreen(x, y, h), k = Math.max(2, Math.round(size * 4));
+        const tail = toScreen(x - 0.25, y - 0.25, h + 1.6);
+        switch (el) {
+          case 'lightning': bolt(toScreen(x - 0.3, y - 0.3, 7), toScreen(x, y, 0), 1.3, 3); return;
+          case 'holy': pillar(p.x, toScreen(x, y, 0).y, (toScreen(x, y, 0).y - toScreen(x, y, 6).y) * Math.min(1, t * 1.6), 2, 1); return;
+          case 'ice': line(tail, p, R(4), 2); crystal(p.x, p.y + k * tex, k * 2, Math.max(1, Math.round(k / 2))); return;
+          default: {
+            line(tail, p, R(top - 3), k);
+            line({ x: (tail.x + p.x) / 2, y: (tail.y + p.y) / 2 }, p, R(top - 1), Math.max(1, k - 1));
+            px(p.x, p.y, R(top), k);
+          }
+        }
+      }
+    };
+    return M;
   }
 
   drawSpSkill(ctx, fx, progress, alpha) {
@@ -6777,30 +9198,6 @@ class IsometricRenderer {
       return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${Math.max(0, Math.min(1, a))})`;
     };
     const easeOut = 1 - Math.pow(1 - Math.min(1, progress * 1.8), 3);
-    const ring = (cx, cy, r, fillA, strokeA, width) => {
-      this.spGroundPath(ctx, cx, cy, r);
-      if (fillA) { ctx.fillStyle = rgba(fillA); ctx.fill(); }
-      if (strokeA) { ctx.strokeStyle = rgba(strokeA); ctx.lineWidth = width * z; ctx.stroke(); }
-    };
-    // jagged for lightning, straight otherwise
-    const bolt = (a, b, width, coreA) => {
-      const pa = toScreen(a.x, a.y, 0.6), pb = toScreen(b.x, b.y, 0.6);
-      ctx.beginPath();
-      ctx.moveTo(pa.x, pa.y);
-      if (fx.element === 'lightning') {
-        for (let k = 1; k < 6; k++) {
-          const t = k / 6;
-          ctx.lineTo(pa.x + (pb.x - pa.x) * t + (Math.random() - 0.5) * 14 * z, pa.y + (pb.y - pa.y) * t + (Math.random() - 0.5) * 14 * z);
-        }
-      }
-      ctx.lineTo(pb.x, pb.y);
-      ctx.strokeStyle = rgba(alpha * 0.85);
-      ctx.lineWidth = width * z;
-      ctx.stroke();
-      ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * coreA})`;
-      ctx.lineWidth = Math.max(1, width * 0.35) * z;
-      ctx.stroke();
-    };
 
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
@@ -6814,10 +9211,11 @@ class IsometricRenderer {
       return;
     }
     if ((fx.skillId && fx.skillId.startsWith('wpn_') && this.drawWeaponSkill(ctx, fx, progress, toScreen, z)) ||
-        this.drawRogueSkill(ctx, fx, progress, alpha, toScreen, z, rgba) ||
-        (fx.cardId === 'sp_pyromancer' && this.drawPyromancerSkill(ctx, fx, progress, toScreen, z)) ||
-        (fx.cardId === 'sp_cryo_sage' && this.drawCryoSageSkill(ctx, fx, progress, toScreen, z)) ||
-        (fx.cardId === 'sp_dread_lord' && this.drawDreadLordSkill(ctx, fx, progress, toScreen, z))) {
+      this.drawRogueSkill(ctx, fx, progress, alpha, toScreen, z, rgba) ||
+      (fx.cardId === 'sp_pyromancer' && this.drawPyromancerSkill(ctx, fx, progress, toScreen, z)) ||
+      (fx.cardId === 'sp_cryo_sage' && this.drawCryoSageSkill(ctx, fx, progress, toScreen, z)) ||
+      (fx.cardId === 'sp_tempest' && this.drawTempestSkill(ctx, fx, progress, toScreen, z)) ||
+      (fx.cardId === 'sp_dread_lord' && this.drawDreadLordSkill(ctx, fx, progress, toScreen, z))) {
       ctx.restore();
       return;
     }
@@ -6828,256 +9226,182 @@ class IsometricRenderer {
       return;
     }
 
+    // generic shapes, built from the pixel motif kit (spMotifs)
+    const M = this.spMotifs(ctx, fx, progress);
+    const life = Math.min(1, progress * 6) * (progress < 0.7 ? 1 : Math.max(0, (1 - progress) / 0.3));
+    ctx.globalCompositeOperation = 'source-over';
     switch (fx.shape) {
       case 'nova':
       case 'pulse':
       case 'blast': {
-        const r = (fx.radius || 2) * (fx.shape === 'blast' ? 0.4 + 0.6 * easeOut : easeOut);
-        ring(fx.x, fx.y, r, alpha * 0.22, alpha * 0.9, 4);
-        ring(fx.x, fx.y, r * 0.6, 0, alpha * 0.55, 2);
-        if (fx.shape === 'blast') {
-          // falling column onto the impact point
-          const top = toScreen(fx.x, fx.y, 4 * (1 - easeOut)), base = toScreen(fx.x, fx.y, 0);
-          ctx.beginPath();
-          ctx.moveTo(top.x, top.y);
-          ctx.lineTo(base.x, base.y);
-          ctx.strokeStyle = rgba(alpha);
-          ctx.lineWidth = 10 * z;
-          ctx.stroke();
+        const R0 = fx.radius || 2;
+        const r = R0 * (fx.shape === 'blast' ? 0.4 + 0.6 * easeOut : easeOut);
+        if (fx.shape === 'blast' && progress < 0.3) M.fall(fx.x, fx.y, progress / 0.3, 1.2);
+        if (fx.shape !== 'blast' || progress >= 0.25) {
+          M.ground(fx.x, fx.y, r, life);
+          if (progress < 0.55) M.front(fx.x, fx.y, r, 1 - progress / 0.55);
+          if (fx.shape === 'pulse') M.front(fx.x, fx.y, r * 0.55, life * 0.6);
         }
         break;
       }
       case 'rain': {
-        if (fx.areaR) ring(fx.areaX, fx.areaY, fx.areaR, 0, alpha * 0.25, 1.5);
-        const top = toScreen(fx.x, fx.y, 5 * (1 - easeOut)), base = toScreen(fx.x, fx.y, 0);
-        ctx.beginPath();
-        ctx.moveTo(top.x, top.y - 30 * z);
-        ctx.lineTo(top.x, top.y);
-        ctx.strokeStyle = rgba(alpha);
-        ctx.lineWidth = 6 * z;
-        ctx.stroke();
-        if (progress > 0.4) ring(fx.x, fx.y, (fx.radius || 1.2) * Math.min(1, (progress - 0.4) * 2.5), alpha * 0.3, alpha * 0.9, 3);
-        ctx.beginPath();
-        ctx.arc(base.x, base.y, 3 * z, 0, Math.PI * 2);
-        ctx.fillStyle = rgba(alpha);
-        ctx.fill();
+        if (fx.areaR) M.ellipse(fx.areaX, fx.areaY, fx.areaR, M.R(M.top - 3), 1, 0.6);
+        if (progress < 0.4) M.fall(fx.x, fx.y, progress / 0.4, 0.9);
+        else {
+          const k = Math.min(1, (progress - 0.4) * 2.5);
+          M.ground(fx.x, fx.y, (fx.radius || 1.2) * k, life);
+          M.hit(fx.x, fx.y, 1, 1 - k * 0.6);
+          if (k < 0.8) M.front(fx.x, fx.y, (fx.radius || 1.2) * k, 1 - k);
+        }
         break;
       }
       case 'pull': {
-        const r = (fx.radius || 3) * (1 - 0.65 * easeOut);
-        ring(fx.x, fx.y, fx.radius || 3, 0, alpha * 0.35, 2);
-        ring(fx.x, fx.y, r, alpha * 0.25, alpha * 0.9, 4);
-        const c = toScreen(fx.x, fx.y, 0);
-        for (let k = 0; k < 6; k++) {
-          const a0 = (k / 6) * Math.PI * 2 + this.animations.time * 5;
-          ctx.beginPath();
-          for (let t = 0; t <= 1; t += 0.1) {
-            const rr = (fx.radius || 3) * (1 - t);
-            const pt = toScreen(fx.x + Math.cos(a0 + t * 2.5) * rr, fx.y + Math.sin(a0 + t * 2.5) * rr, 0);
-            if (t === 0) ctx.moveTo(pt.x, pt.y); else ctx.lineTo(pt.x, pt.y);
-          }
-          ctx.strokeStyle = rgba(alpha * 0.7);
-          ctx.lineWidth = 2 * z;
-          ctx.stroke();
+        const R0 = fx.radius || 3;
+        const r = R0 * (1 - 0.65 * easeOut);
+        M.ellipse(fx.x, fx.y, R0, M.R(M.top - 3), 1, 0.45);
+        M.front(fx.x, fx.y, r, life);
+        // every element drags inward along tendrils of its own colour
+        for (let k = 0; k < 8; k++) {
+          const a = (k / 8) * Math.PI * 2 + this.animations.time * 2.5;
+          M.tendril(fx.x + Math.cos(a) * R0, fx.y + Math.sin(a) * R0, fx.x + Math.cos(a + 1.2) * 0.2, fx.y + Math.sin(a + 1.2) * 0.2, k * 1.3, Math.min(1, progress * 3));
         }
-        ctx.beginPath();
-        ctx.arc(c.x, c.y, 8 * z * (0.5 + easeOut), 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(10, 5, 20, ${alpha * 0.6})`;
-        ctx.fill();
+        M.pool(fx.x, fx.y, 0.5 + 0.4 * easeOut, M.R(0), M.R(1), 0.9);
+        M.hit(fx.x, fx.y, 0.8, life);
         break;
       }
       case 'cone': {
         const half = ((fx.arc || 90) * Math.PI) / 360;
         const base = Math.atan2(fx.dirY || 0, fx.dirX || 1);
         const reach = (fx.range || 4) * easeOut;
-        ctx.beginPath();
-        const o = toScreen(fx.x, fx.y, 0);
-        ctx.moveTo(o.x, o.y);
+        // the arc front, then motif rays fanning out across it
+        const front = [];
         for (let k = 0; k <= 16; k++) {
           const a = base - half + (k / 16) * half * 2;
-          const pt = toScreen(fx.x + Math.cos(a) * reach, fx.y + Math.sin(a) * reach, 0);
-          ctx.lineTo(pt.x, pt.y);
+          front.push(toScreen(fx.x + Math.cos(a) * reach, fx.y + Math.sin(a) * reach, 0));
         }
-        ctx.closePath();
-        ctx.fillStyle = rgba(alpha * 0.3);
-        ctx.fill();
-        ctx.strokeStyle = rgba(alpha * 0.95);
-        ctx.lineWidth = 3 * z;
-        ctx.stroke();
+        for (let k = 1; k < front.length; k++) { M.line(front[k - 1], front[k], M.R(M.top - 1), 2); M.line(front[k - 1], front[k], M.R(M.top), 1); }
+        const rays = 5;
+        for (let k = 0; k < rays; k++) {
+          const a = base - half * 0.85 + (k / (rays - 1)) * half * 1.7;
+          M.path(fx.x, fx.y, fx.x + Math.cos(a) * reach * 0.92, fx.y + Math.sin(a) * reach * 0.92, 0.5, life * (k % 2 ? 0.7 : 1));
+        }
         break;
       }
       case 'line': {
         const w = (fx.width || 1.2) * (1 - progress * 0.5);
-        const dx = fx.x - fx.startX, dy = fx.y - fx.startY;
-        const len = Math.hypot(dx, dy) || 1;
-        const nx = -dy / len * w, ny = dx / len * w;
         const reach = Math.min(1, progress * 3);
-        const ex = fx.startX + dx * reach, ey = fx.startY + dy * reach;
-        const pts = [[fx.startX + nx, fx.startY + ny], [ex + nx, ey + ny], [ex - nx, ey - ny], [fx.startX - nx, fx.startY - ny]].map(([x, y]) => toScreen(x, y, 0));
-        ctx.beginPath();
-        pts.forEach((pt, i) => (i ? ctx.lineTo(pt.x, pt.y) : ctx.moveTo(pt.x, pt.y)));
-        ctx.closePath();
-        ctx.fillStyle = rgba(alpha * 0.35);
-        ctx.fill();
-        bolt({ x: fx.startX, y: fx.startY }, { x: ex, y: ey }, 6, 0.9);
+        const ex = fx.startX + (fx.x - fx.startX) * reach, ey = fx.startY + (fx.y - fx.startY) * reach;
+        M.path(fx.startX, fx.startY, ex, ey, w, life);
+        if (reach >= 1) M.hit(fx.x, fx.y, 1, life);
         break;
       }
       case 'strike':
       case 'volley':
       case 'chain': {
-        const from = { x: fx.startX, y: fx.startY };
         const targets = fx.points || [{ x: fx.x, y: fx.y }];
-        let prev = from;
+        let prev = { x: fx.startX, y: fx.startY };
         for (const pt of targets) {
-          bolt(fx.shape === 'chain' ? prev : from, pt, fx.shape === 'strike' ? 7 : 4, 0.85);
-          ring(pt.x, pt.y, 0.9 * easeOut, alpha * 0.3, alpha * 0.9, 2.5);
+          const from = fx.shape === 'chain' ? prev : { x: fx.startX, y: fx.startY };
+          if (fx.shape === 'chain') M.bolt(toScreen(from.x, from.y, 0.6), toScreen(pt.x, pt.y, 0.6), 1, Math.round(pt.x * 13));
+          else if (from.x !== undefined && !isNaN(from.x)) M.path(from.x, from.y, pt.x, pt.y, fx.shape === 'strike' ? 0.6 : 0.35, life * (progress < 0.5 ? 1 : 0.5), 0.6);
+          M.hit(pt.x, pt.y, fx.shape === 'strike' ? 1.3 : 0.9, life);
+          if (progress < 0.5) M.front(pt.x, pt.y, 0.9 * easeOut, 1 - progress * 2);
           prev = pt;
         }
         break;
       }
       case 'dash': {
-        bolt({ x: fx.startX, y: fx.startY }, { x: fx.x, y: fx.y }, 12 * (1 - progress * 0.6), 0.7);
+        M.path(fx.startX, fx.startY, fx.x, fx.y, 1 - progress * 0.6, life);
         break;
       }
       case 'blink': {
-        ring(fx.startX, fx.startY, (fx.origin ? fx.radius || 1 : 0.9) * easeOut, alpha * 0.25, alpha * 0.9, 3);
-        ring(fx.x, fx.y, (fx.landing ? fx.radius || 1 : 0.9) * easeOut, alpha * 0.25, alpha * 0.9, 3);
-        ctx.setLineDash([6 * z, 8 * z]);
+        // burst where the hero vanished and where they land, afterimage squares between
+        M.ground(fx.startX, fx.startY, (fx.origin ? fx.radius || 1 : 0.8) * easeOut, life * 0.8);
+        M.ground(fx.x, fx.y, (fx.landing ? fx.radius || 1 : 0.8) * easeOut, life);
+        M.hit(fx.x, fx.y, 1, life);
         const a = toScreen(fx.startX, fx.startY, 0.5), b = toScreen(fx.x, fx.y, 0.5);
-        ctx.beginPath();
-        ctx.moveTo(a.x, a.y);
-        ctx.lineTo(b.x, b.y);
-        ctx.strokeStyle = rgba(alpha * 0.6);
-        ctx.lineWidth = 2 * z;
-        ctx.stroke();
-        ctx.setLineDash([]);
+        const n = Math.max(3, Math.round(Math.hypot(b.x - a.x, b.y - a.y) / (M.tex * 7)));
+        for (let k = 1; k < n; k++) {
+          const t = k / n;
+          if (t > progress * 3) break;
+          M.px(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, M.R(M.top - (k % 3)), k % 2 ? 1 : 2);
+        }
         break;
       }
       case 'rewind': {
         for (const [wx, wy, dir] of [[fx.startX, fx.startY, 1], [fx.x, fx.y, -1]]) {
-          ring(wx, wy, 1.1 * easeOut, alpha * 0.15, alpha * 0.9, 3);
-          const c0 = toScreen(wx, wy, 0.6);
-          const hand = -dir * this.animations.time * 9;
-          ctx.beginPath();
-          ctx.moveTo(c0.x, c0.y);
-          ctx.lineTo(c0.x + Math.cos(hand) * 16 * z, c0.y + Math.sin(hand) * 8 * z);
-          ctx.strokeStyle = `rgba(255, 251, 235, ${alpha})`;
-          ctx.lineWidth = 2 * z;
-          ctx.stroke();
+          // a pixel clock face with a spinning hand
+          M.ellipse(wx, wy, 1.1 * easeOut, M.R(M.top - 1), 2, 0.05);
+          M.ellipse(wx, wy, 0.8 * easeOut, M.R(3), 1, 0.5);
+          const c0 = toScreen(wx, wy, 0.6), hand = -dir * this.animations.time * 9;
+          M.line(c0, { x: c0.x + Math.cos(hand) * 16 * z, y: c0.y + Math.sin(hand) * 8 * z }, M.R(M.top), 1);
+          M.px(c0.x, c0.y, M.R(M.top), 2);
         }
-        ctx.setLineDash([4 * z, 6 * z]);
-        ctx.lineDashOffset = this.animations.time * 40 * z;
         const a = toScreen(fx.startX, fx.startY, 0.5), b = toScreen(fx.x, fx.y, 0.5);
-        ctx.beginPath();
-        ctx.moveTo(a.x, a.y);
-        ctx.lineTo(b.x, b.y);
-        ctx.strokeStyle = rgba(alpha * 0.8);
-        ctx.lineWidth = 2.5 * z;
-        ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.lineDashOffset = 0;
+        const n = Math.max(3, Math.round(Math.hypot(b.x - a.x, b.y - a.y) / (M.tex * 5)));
+        const shift = Math.floor(this.animations.time * 12);
+        for (let k = 0; k < n; k++) if ((k + shift) % 3) M.px(a.x + (b.x - a.x) * (k / n), a.y + (b.y - a.y) * (k / n), M.R(M.top - 1));
         break;
       }
       case 'buff': {
-        if (fx.radius > 1.5) ring(fx.x, fx.y, fx.radius * easeOut, alpha * 0.18, alpha * 0.8, 3);
-        // rising pillar of light over the hero
-        const base = toScreen(fx.x, fx.y, 0), top = toScreen(fx.x, fx.y, 3.2);
-        const grad = ctx.createLinearGradient(base.x, base.y, top.x, top.y);
-        grad.addColorStop(0, rgba(alpha * 0.55));
-        grad.addColorStop(1, rgba(0));
-        ctx.fillStyle = grad;
-        const w = 22 * z * (0.6 + 0.4 * easeOut);
-        ctx.fillRect(base.x - w / 2, top.y, w, base.y - top.y);
-        ring(fx.x, fx.y, 1.1 + 0.4 * Math.sin(progress * Math.PI), 0, alpha * 0.9, 3);
+        if (fx.radius > 1.5) M.ground(fx.x, fx.y, fx.radius * easeOut, life * 0.8);
+        const base = toScreen(fx.x, fx.y, 0), topP = toScreen(fx.x, fx.y, 3.2);
+        M.pillar(base.x, base.y, (base.y - topP.y) * (0.6 + 0.4 * easeOut), 3, life);
+        M.aura(fx.x, fx.y, 1.1 + 0.3 * Math.sin(progress * Math.PI), life);
         break;
       }
       case 'aura': {
-        // blood aura: a pulse flashes outward, switching on swells, switching off collapses
         const r = fx.radius || 1.4;
         if (fx.pulse && fx.spin) break; // the whirling blade arcs (drawSpToggles) already show each cut
         if (fx.bolts) {
-          // Thunderhead: a jagged bolt drops out of the sky onto each target
-          const fade = 1 - progress;
+          // Thunderhead: a forked bolt drops out of the sky onto each target
           for (const b of fx.bolts) {
-            const top = toScreen(b.x - 0.6, b.y - 0.6, 7), hitPt = toScreen(b.x, b.y, 0);
-            ctx.beginPath();
-            ctx.moveTo(top.x, top.y);
-            for (let k = 1; k < 7; k++) {
-              const t = k / 7;
-              ctx.lineTo(top.x + (hitPt.x - top.x) * t + (Math.random() - 0.5) * 16 * z, top.y + (hitPt.y - top.y) * t + (Math.random() - 0.5) * 6 * z);
-            }
-            ctx.lineTo(hitPt.x, hitPt.y);
-            ctx.strokeStyle = rgba(fade * 0.9);
-            ctx.lineWidth = 5 * z;
-            ctx.stroke();
-            ctx.strokeStyle = `rgba(255, 255, 255, ${fade})`;
-            ctx.lineWidth = 2 * z;
-            ctx.stroke();
-            ring(b.x, b.y, 0.25 + 0.35 * easeOut, alpha * 0.35, alpha * 0.9, 2.5);
+            if (progress < 0.6) M.bolt(toScreen(b.x - 0.6, b.y - 0.6, 7), toScreen(b.x, b.y, 0), 1.4, Math.round(b.x * 7 + b.y * 3));
+            M.hit(b.x, b.y, 1, life);
           }
           break;
         }
-        if (fx.pulse) ring(fx.x, fx.y, r * (0.75 + 0.25 * easeOut), alpha * 0.12, alpha * 0.7, 2.5);
-        else if (fx.off) ring(fx.x, fx.y, r * (1 - 0.8 * easeOut), 0, alpha * 0.7, 3);
-        else ring(fx.x, fx.y, r * easeOut, alpha * 0.2, alpha * 0.9, 4);
+        if (fx.pulse) { M.front(fx.x, fx.y, r * (0.75 + 0.25 * easeOut), life * 0.7); M.aura(fx.x, fx.y, r * 0.8, life * 0.6); }
+        else if (fx.off) M.front(fx.x, fx.y, r * (1 - 0.8 * easeOut), life);
+        else { M.front(fx.x, fx.y, r * easeOut, life); M.aura(fx.x, fx.y, r * easeOut, life); }
         break;
       }
       case 'orbs': {
-        // Storm Orbs: each crackling ball drifts from start to end over the
-        // effect's life, its shock radius flickering round it with small arcs
+        // Storm Orbs: each crackling ball drifts from start to end, arcs flicking out of it
         const fade = progress > 0.9 ? (1 - progress) / 0.1 : 1;
         for (const o of fx.orbs || []) {
           const ox = o.sx + (o.ex - o.sx) * progress, oy = o.sy + (o.ey - o.sy) * progress;
-          ring(ox, oy, (fx.radius || 2) * (0.9 + 0.1 * Math.sin(progress * 40)), 0.08 * fade, 0.5 * fade, 1.5);
+          M.ellipse(ox, oy, (fx.radius || 2) * (0.9 + 0.1 * Math.sin(progress * 40)), M.R(M.top - 3), 1, 0.55);
           const c = toScreen(ox, oy, 0.9);
-          const glow = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, 16 * z);
-          glow.addColorStop(0, `rgba(255, 255, 255, ${fade})`);
-          glow.addColorStop(0.35, rgba(fade * 0.9));
-          glow.addColorStop(1, rgba(0));
-          ctx.fillStyle = glow;
-          ctx.beginPath();
-          ctx.arc(c.x, c.y, 16 * z, 0, Math.PI * 2);
-          ctx.fill();
+          M.px(c.x, c.y, M.R(M.top - 2), 6);
+          M.px(c.x, c.y, M.R(M.top - 1), 4);
+          M.px(c.x, c.y, M.R(M.top), 2);
           for (let k = 0; k < 3; k++) {
-            const a = Math.random() * Math.PI * 2, d = (fx.radius || 2) * (0.4 + Math.random() * 0.6);
-            const tip = toScreen(ox + Math.cos(a) * d, oy + Math.sin(a) * d, 0.2);
-            ctx.beginPath();
-            ctx.moveTo(c.x, c.y);
-            ctx.lineTo((c.x + tip.x) / 2 + (Math.random() - 0.5) * 10 * z, (c.y + tip.y) / 2 + (Math.random() - 0.5) * 10 * z);
-            ctx.lineTo(tip.x, tip.y);
-            ctx.strokeStyle = rgba(fade * 0.8);
-            ctx.lineWidth = 1.5 * z;
-            ctx.stroke();
+            if (M.hash(k + M.frame) > fade) continue;
+            const a = M.hash(k * 7 + M.frame) * Math.PI * 2, d = (fx.radius || 2) * (0.4 + M.hash(k * 3 + M.frame) * 0.6);
+            M.bolt(c, toScreen(ox + Math.cos(a) * d, oy + Math.sin(a) * d, 0.2), 0.7, k * 17);
           }
         }
         break;
       }
       case 'smoke': {
-        // mist cloud (Sentinel Bulwark Mist): rolling haze, tinted rim, drifting swells
+        // mist cloud: clumps of dithered haze rolling round, tinted puffs rising
         const fade = progress > 0.85 ? (1 - progress) / 0.15 : 1;
         const rSm = fx.radius || 3;
-        ctx.fillStyle = rgba(fade * 0.14);
-        for (let o = 0; o < 3; o++) {
-          const a = progress * 1.3 + o * 2.1;
-          this.spGroundPath(ctx, fx.x + Math.cos(a) * rSm * 0.4, fx.y + Math.sin(a) * rSm * 0.4,
-            rSm * (0.85 + 0.12 * Math.sin(progress * 7 + o * 2)));
-          ctx.fill();
+        for (let o = 0; o < 4; o++) {
+          const a = progress * 1.3 + o * 1.6;
+          M.pool(fx.x + Math.cos(a) * rSm * 0.4, fx.y + Math.sin(a) * rSm * 0.4, rSm * (0.55 + 0.12 * Math.sin(progress * 7 + o * 2)), M.R(2), M.R(1), 0.45 * fade);
         }
-        ctx.strokeStyle = rgba(fade * 0.45);
-        ctx.lineWidth = 1.6 * z;
-        this.spGroundPath(ctx, fx.x, fx.y, rSm * (0.8 + 0.2 * Math.sin(progress * 5)));
-        ctx.stroke();
-        for (let i = 0; i < 5; i++) {
-          const a = progress * 2.2 + (i / 5) * Math.PI * 2;
-          const top = toScreen(fx.x + Math.cos(a) * rSm * 0.6, fx.y + Math.sin(a) * rSm * 0.6, ((progress + i * 0.2) % 1) * 1.6);
-          ctx.beginPath();
-          ctx.arc(top.x, top.y, (3 + i) * z, 0, Math.PI * 2);
-          ctx.fillStyle = rgba(fade * 0.1);
-          ctx.fill();
+        M.ellipse(fx.x, fx.y, rSm * (0.8 + 0.2 * Math.sin(progress * 5)), M.R(3), 1, 0.4);
+        for (let i = 0; i < 6; i++) {
+          const a = progress * 2.2 + (i / 6) * Math.PI * 2;
+          const p = toScreen(fx.x + Math.cos(a) * rSm * 0.6, fx.y + Math.sin(a) * rSm * 0.6, ((progress + i * 0.2) % 1) * 1.6);
+          M.px(p.x, p.y, M.R(3), 2 + (i % 2));
         }
         break;
       }
     }
+    ctx.globalCompositeOperation = 'lighter';
     // per-card signature layer for the variant warrior skills
     this.drawWarriorVariantFlair(ctx, fx, progress, alpha, toScreen, z, rgba);
     ctx.restore();
@@ -7092,161 +9416,240 @@ class IsometricRenderer {
     const life = fx.maxLife || 0.8, el = t * life;
     const ease = 1 - Math.pow(1 - Math.min(1, t * 1.8), 3);
     const clamp = (v) => Math.max(0, Math.min(1, v));
-    const W = (a) => `rgba(255, 255, 255, ${clamp(a)})`;
-    const hexA = (hex, a) => {
-      const n = parseInt(hex.slice(1), 16);
-      return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${clamp(a)})`;
-    };
-    const ring = (cx, cy, r, fillA, strokeA, width, col) => {
-      if (r <= 0.02) return;
-      this.spGroundPath(ctx, cx, cy, r);
-      if (fillA) { ctx.fillStyle = col ? hexA(col, fillA) : rgba(fillA); ctx.fill(); }
-      if (strokeA) { ctx.strokeStyle = col ? hexA(col, strokeA) : rgba(strokeA); ctx.lineWidth = width * z; ctx.stroke(); }
-    };
-    const seg = (a, b, w, style) => {
-      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
-      ctx.strokeStyle = style; ctx.lineWidth = w * z; ctx.stroke();
-    };
-    const glow = (p, r, a, col) => {
-      if (r <= 0.5 || a <= 0.01) return;
-      const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
-      g.addColorStop(0, W(a));
-      g.addColorStop(0.35, col ? hexA(col, a * 0.85) : rgba(a * 0.85));
-      g.addColorStop(1, col ? hexA(col, 0) : rgba(0));
-      ctx.fillStyle = g;
-      ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill();
-    };
     // fade in over `fin` s, out over the last `fout` s
     const holdFade = (fin, fout) => clamp(Math.min(el / fin, (life - el) / fout));
     const lerp = (a, b, s) => a + (b - a) * s;
     const time = this.animations.time;
 
+    // ---- pixel kit: everything lands on the texel grid in opaque ramp colours
+    // (the pixel layer then dithers, rims and blooms it)
+    const M = this.spMotifs(ctx, fx, progress);
+    const T = M.tex, R = M.R, TOP = M.top, TAU = Math.PI * 2, hash = M.hash;
+    const CT = M.card.length - 1;
+    const C = (i) => M.card[Math.max(0, Math.min(CT, Math.round(i)))];
+    const snap = (v) => Math.round(v / T) * T;
+    const S = (x, y, h = 0) => toScreen(x, y, h);
+    const L = (a, b, col, w = 1) => M.line(a, b, col, w);
+    const P = (x, y, col, s = 1) => M.px(x, y, col, s);
+    const rampFn = (arr) => (i) => arr[Math.max(0, Math.min(arr.length - 1, Math.round(i)))];
+    const poly = (pts, col) => {
+      ctx.fillStyle = col; ctx.beginPath();
+      pts.forEach((p, i) => (i ? ctx.lineTo(snap(p.x), snap(p.y)) : ctx.moveTo(snap(p.x), snap(p.y))));
+      ctx.closePath(); ctx.fill();
+    };
+    // crisp pixel disc (sq < 1 squashes it into a screen ellipse)
+    const blob = (p, r, col, sq = 1) => {
+      const n = Math.max(0, Math.round(r / T)), m = Math.max(0, Math.round((r * sq) / T));
+      ctx.fillStyle = col;
+      for (let j = -m; j <= m; j++) {
+        const w = m ? Math.round(n * Math.sqrt(Math.max(0, 1 - (j * j) / (m * m)))) : n;
+        ctx.fillRect(snap(p.x) - w * T - T / 2, snap(p.y) + j * T - T / 2, (2 * w + 1) * T, T);
+      }
+    };
+    // local sprite frame: (lx, ly) in texels, turned by ang round o
+    const rot = (o, ang, s = T) => (lx, ly) => ({ x: o.x + (lx * Math.cos(ang) - ly * Math.sin(ang)) * s, y: o.y + (lx * Math.sin(ang) + ly * Math.cos(ang)) * s });
+    const rays = (p, n, r0, r1, col, w = 1, spin = 0, sq = 0.5) => {
+      for (let i = 0; i < n; i++) {
+        const a = spin + (i / n) * TAU, cs = Math.cos(a), sn = Math.sin(a);
+        L({ x: p.x + cs * r0, y: p.y + sn * r0 * sq }, { x: p.x + cs * r1, y: p.y + sn * r1 * sq }, col, w);
+      }
+    };
+    const twinkle = (p, n, col, core) => {
+      if (n < 1) return;
+      L({ x: p.x - n * T, y: p.y }, { x: p.x + n * T, y: p.y }, col);
+      L({ x: p.x, y: p.y - n * T }, { x: p.x, y: p.y + n * T }, col);
+      P(p.x, p.y, core || R(TOP), 2);
+    };
+    // impact ring: a thick lit front that crumbles into dots as f falls
+    const shock = (cx, cy, r, f, Q = R, q = TOP) => {
+      if (f <= 0.02 || r <= 0.05) return;
+      M.ellipse(cx, cy, r * 1.04, Q(q - 3), 1, 0.3 + 0.6 * (1 - f));
+      M.ellipse(cx, cy, r, Q(q - 1 - (1 - f) * 2), 2, 0.05 + 0.6 * (1 - f));
+      M.ellipse(cx, cy, r, Q(q), 1, 0.25 + 0.7 * (1 - f));
+    };
+    // marching dashes round a ground circle
+    const dashRing = (cx, cy, r, col, w, phase, on = 4, off = 3) => {
+      const c = S(cx, cy), rx = r * 32 * Math.SQRT2 * z, ry = rx / 2;
+      const n = Math.max(12, Math.round((rx * TAU) / T));
+      ctx.fillStyle = col;
+      for (let i = 0; i < n; i++) {
+        if (((Math.floor(i + phase) % (on + off)) + (on + off)) % (on + off) >= on) continue;
+        const a = (i / n) * TAU;
+        ctx.fillRect(snap(c.x + Math.cos(a) * rx) - (w * T) / 2, snap(c.y + Math.sin(a) * ry) - (w * T) / 2, w * T, w * T);
+      }
+    };
+    // ice prism in any ramp
+    const prism = (sx, sy, h, w, Q, q = 6) => {
+      if (h < 1) return;
+      for (let r = 0; r < h; r++) {
+        const tt = r / h, half = Math.round(w * (tt < 0.65 ? 1 : (1 - tt) / 0.35));
+        for (let i = -half; i <= half; i++) {
+          ctx.fillStyle = Math.abs(i) === half ? Q(1) : i < 0 ? Q(3) : i === 0 ? Q(q - 1) : Q(4);
+          ctx.fillRect(snap(sx + i * T) - T / 2, snap(sy - r * T) - T / 2, T, T);
+        }
+      }
+      P(sx, sy - h * T, Q(q));
+    };
+
+    ctx.globalCompositeOperation = 'source-over';
     switch (fx.shape) {
       case 'fault': {
         // Gravelord: the crack crawls out segment by segment, rock spikes erupt behind it
         const segs = fx.segs || [];
-        const every = fx.every || 0.09;
+        const every = fx.every || 0.09, rad = fx.radius || 1.2;
         const fade = clamp((life - el) / 0.35);
-        let prev = toScreen(fx.startX, fx.startY, 0);
-        ctx.save();
-        ctx.globalCompositeOperation = 'source-over';
+        let prevW = { x: fx.startX, y: fx.startY };
+        // pass 1: the dark trench with its glowing seam, the tip running ahead
         segs.forEach((p, i) => {
           const age = el - i * every;
           if (age < 0) return;
-          const cur = toScreen(p.x, p.y, 0);
-          const mid = { x: (prev.x + cur.x) / 2 + Math.sin(i * 7.3) * 6 * z, y: (prev.y + cur.y) / 2 + Math.cos(i * 5.1) * 3 * z };
-          ctx.beginPath(); ctx.moveTo(prev.x, prev.y); ctx.lineTo(mid.x, mid.y); ctx.lineTo(cur.x, cur.y);
-          ctx.strokeStyle = `rgba(28, 20, 10, ${0.85 * fade})`; ctx.lineWidth = 6 * z; ctx.stroke();
-          prev = cur;
+          const grow = clamp(age / every);
+          const a = S(prevW.x, prevW.y), b = S(lerp(prevW.x, p.x, grow), lerp(prevW.y, p.y, grow));
+          const mid = { x: (a.x + b.x) / 2 + (hash(i * 7.3) - 0.5) * 8 * T * grow, y: (a.y + b.y) / 2 + (hash(i * 5.1) - 0.5) * 4 * T * grow };
+          L(a, mid, R(0), 4); L(mid, b, R(0), 4);
+          L(a, mid, C(2), 2); L(mid, b, C(2), 2);
+          const seam = C(CT - (1 - fade) * 3 - (age > 0.45 ? 1 : 0));
+          L(a, mid, seam, 1); L(mid, b, seam, 1);
+          if (grow < 1) { P(b.x, b.y, C(CT - 1), 4); P(b.x, b.y, C(CT), 2); }
+          prevW = p;
         });
-        ctx.restore();
-        prev = toScreen(fx.startX, fx.startY, 0);
+        // pass 2: stone fangs burst up behind the crack and crumble back; dust pops
         segs.forEach((p, i) => {
           const age = el - i * every;
           if (age < 0) return;
-          const cur = toScreen(p.x, p.y, 0);
-          seg(prev, cur, 2, rgba(0.9 * fade));
-          prev = cur;
-          // three stone shards jut up, then sink back
-          const rise = Math.sin(clamp(age / 0.5) * Math.PI);
+          const rise = Math.sin(clamp(age / 0.55) * Math.PI);
           for (let s = 0; s < 3; s++) {
-            const a = i * 2.4 + s * 2.1, off = 0.35 + 0.25 * s;
-            const bx = p.x + Math.cos(a) * off * 0.6, by = p.y + Math.sin(a) * off * 0.6;
-            const h = (1.1 - s * 0.25) * rise * (fx.radius || 1.2);
-            const b0 = toScreen(bx - 0.18, by, 0), b1 = toScreen(bx + 0.18, by, 0), tip = toScreen(bx, by, h);
-            ctx.beginPath(); ctx.moveTo(b0.x, b0.y); ctx.lineTo(tip.x, tip.y); ctx.lineTo(b1.x, b1.y); ctx.closePath();
-            ctx.fillStyle = `rgba(110, 92, 60, ${0.9 * fade})`; ctx.fill();
-            ctx.strokeStyle = rgba(0.8 * fade); ctx.lineWidth = 1.4 * z; ctx.stroke();
+            const ang = i * 2.4 + s * 2.1, off = (0.35 + 0.25 * s) * 0.6;
+            const q = S(p.x + Math.cos(ang) * off, p.y + Math.sin(ang) * off);
+            const h = Math.round((25 - s * 6) * rise * Math.min(1.6, rad / 1.2));
+            M.spike(q.x, q.y, h, s > 1 ? 3 : 4);
+            if (h > 4) { P(q.x, q.y - h * T, C(CT)); P(q.x, q.y - (h - 2) * T, C(CT - 2)); }
           }
-          if (age < 0.3) ring(p.x, p.y, (fx.radius || 1.2) * clamp(age / 0.2), 0.12 * (1 - age / 0.3), 0.8 * (1 - age / 0.3), 2.5);
+          if (age < 0.3) {
+            const f = 1 - age / 0.3, c0 = S(p.x, p.y);
+            shock(p.x, p.y, rad * clamp(age / 0.2), f, C, CT);
+            for (let d = 0; d < 6; d++) {
+              const da = (d / 6) * TAU + i, dr = (4 + 12 * (1 - f)) * T;
+              P(c0.x + Math.cos(da) * dr, c0.y + Math.sin(da) * dr * 0.5 - Math.sin((1 - f) * Math.PI) * 7 * T, R(3 + (d % 3)), d % 2 ? 1 : 2);
+            }
+          }
         });
         return true;
       }
 
       case 'spear': {
         // Dragoon: a lance streaks out and stays planted, crackling, until he dives onto it
+        // the lance sprite: dark shaft with a lit spine, finned diamond head toward `head`
+        const lance = (head, butt, f) => {
+          const dx = head.x - butt.x, dy = head.y - butt.y, len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len;
+          const hb = { x: head.x - ux * 8 * T, y: head.y - uy * 8 * T };
+          L(butt, hb, R(1), 3); L(butt, hb, R(2 + f * 1.5), 1);
+          L({ x: hb.x - uy * 5 * T - ux * 2 * T, y: hb.y + ux * 5 * T - uy * 2 * T }, { x: hb.x + uy * 5 * T - ux * 2 * T, y: hb.y - ux * 5 * T - uy * 2 * T }, R(2), 2);
+          poly([{ x: head.x + ux * T, y: head.y + uy * T }, { x: hb.x - uy * 3 * T, y: hb.y + ux * 3 * T }, { x: hb.x - ux * 2 * T, y: hb.y - uy * 2 * T }, { x: hb.x + uy * 3 * T, y: hb.y - ux * 3 * T }], R(3 + f));
+          L(hb, head, R(TOP - 1 + f), 1);
+          P(butt.x, butt.y, R(4), 2);
+        };
         if (fx.dive) {
-          const s = clamp(t * 3);
-          const top = toScreen(lerp(fx.startX, fx.x, s), lerp(fx.startY, fx.y, s), 3.5 * (1 - s) * (1 - s) + 0.2);
-          const from = toScreen(fx.startX, fx.startY, 3.5);
-          seg(from, top, 9 * k, rgba(0.6 * k));
-          seg(from, top, 3, W(0.9 * k));
+          // he drops out of the sky onto the planted lance: lightning in his wake, a thunderclap ring
+          const s = clamp(t * 3), rr = fx.radius || 2.4;
+          const head = S(lerp(fx.startX, fx.x, s), lerp(fx.startY, fx.y, s), 3.5 * (1 - s) * (1 - s) + 0.2);
+          const from = S(fx.startX, fx.startY, 3.5);
+          if (k > 0.45) M.bolt(from, head, 0.7, 5);
+          else if (k > 0.15) L(from, head, R(2), 1);
+          if (s < 1) {
+            const len = Math.hypot(head.x - from.x, head.y - from.y) || 1;
+            lance(head, { x: head.x - (head.x - from.x) / len * 26 * T, y: head.y - (head.y - from.y) / len * 26 * T }, 1);
+            P(head.x, head.y, R(TOP), 3);
+          }
           if (t > 0.3) {
-            const q = clamp((t - 0.3) / 0.7);
-            ring(fx.x, fx.y, (fx.radius || 2.4) * q, 0.18 * (1 - q), 0.95 * (1 - q), 4);
-            ring(fx.x, fx.y, (fx.radius || 2.4) * q * 0.6, 0, 0.7 * (1 - q), 2);
-            const c = toScreen(fx.x, fx.y, 0);
-            for (let i = 0; i < 8; i++) {
-              const a = i / 8 * Math.PI * 2 + i;
-              const r = (fx.radius || 2.4) * (0.5 + 0.5 * q) * 10 * z;
-              seg(c, { x: c.x + Math.cos(a) * r, y: c.y + Math.sin(a) * r * 0.5 }, 1.6, W(0.7 * (1 - q)));
-            }
+            const q = clamp((t - 0.3) / 0.7), c = S(fx.x, fx.y);
+            M.ground(fx.x, fx.y, rr * 0.85 * (0.4 + 0.6 * q), 1 - q);
+            shock(fx.x, fx.y, rr * (1 - Math.pow(1 - q, 3)), 1 - q);
+            shock(fx.x, fx.y, rr * 0.6 * q, 1 - q);
+            if (q < 0.25) { blob(c, (1 - q / 0.25) * 14 * T, R(TOP - 1), 0.5); blob(c, (1 - q / 0.25) * 7 * T, R(TOP), 0.5); }
+            lance(c, { x: c.x - 5 * T, y: c.y - 28 * T }, 1 - q);
           }
           return true;
         }
+        // thrown: a bolt streaks out, the lance plants itself and crackles until recalled
         const fly = clamp(el / 0.14);
         const fade = clamp((life - el) / 0.3);
         const ex = lerp(fx.startX, fx.x, fly), ey = lerp(fx.startY, fx.y, fly);
         if (el < 0.4) {
-          const q = 1 - el / 0.4;
-          seg(toScreen(fx.startX, fx.startY, 0.6), toScreen(ex, ey, 0.6), 7 * q, rgba(0.5 * q));
-          seg(toScreen(fx.startX, fx.startY, 0.6), toScreen(ex, ey, 0.6), 2, W(0.8 * q));
+          const q = 1 - el / 0.4, a = S(fx.startX, fx.startY, 0.6), b = S(ex, ey, 0.6);
+          if (q > 0.55) M.bolt(a, b, 0.6, 3);
+          const n = Math.max(2, Math.round(Math.hypot(b.x - a.x, b.y - a.y) / (2 * T)));
+          for (let j = 0; j <= n; j++) if (hash(j * 3.7) < q) P(lerp(a.x, b.x, j / n), lerp(a.y, b.y, j / n), R(TOP - 1 - (1 - j / n) * 2));
         }
-        // the lance itself: leaning shaft, bright tip buried in the ground
         const dx = fx.x - fx.startX, dy = fx.y - fx.startY, len = Math.hypot(dx, dy) || 1;
-        const base = toScreen(ex, ey, 0), butt = toScreen(ex - dx / len * 0.9, ey - dy / len * 0.9, 2.2);
-        seg(butt, base, 4, `rgba(40, 52, 90, ${fade})`);
-        seg(butt, base, 1.5, rgba(fade));
-        glow(base, 12 * z, fade * (0.6 + 0.4 * Math.sin(time * 18)));
+        const base = S(ex, ey, 0), butt = S(ex - dx / len * 0.9, ey - dy / len * 0.9, 2.2);
         if (fly >= 1) {
-          ring(fx.x, fx.y, 0.7 + 0.15 * Math.sin(time * 6), 0.05 * fade, 0.55 * fade, 1.5);
-          for (let i = 0; i < 2; i++) {
+          M.ellipse(fx.x, fx.y, 0.7 + 0.1 * Math.sin(time * 6), R(2 + fade * 2), 1, 0.45);
+          if (fade > 0.3) for (let i = 0; i < 2; i++) {
             const a = time * 9 + i * Math.PI;
-            const tip = toScreen(fx.x + Math.cos(a) * 0.8, fx.y + Math.sin(a) * 0.8, 0.1);
-            seg(base, { x: (base.x + tip.x) / 2 + (Math.random() - 0.5) * 8 * z, y: (base.y + tip.y) / 2 }, 1.2, rgba(0.8 * fade));
+            M.bolt(base, S(fx.x + Math.cos(a) * 0.8, fx.y + Math.sin(a) * 0.8, 0.05), 0.35, i * 17);
           }
+          if (el < 0.4) { const f = 1 - (el - 0.14) / 0.26; blob(base, f * 9 * T, R(TOP - 1), 0.5); twinkle(base, Math.round(f * 8), R(TOP - 1)); }
         }
+        lance(base, butt, fade);
+        if (Math.sin(time * 18) > 0.3 && fade > 0.2) P(base.x, base.y - T, R(TOP), 2);
         return true;
       }
 
       case 'jump': {
         // Dragoon: a column into the sky, a closing reticle where he will land, then the crash
+        const rr = fx.radius || 3;
         if (fx.landed) {
-          for (const [d, w] of [[0, 5], [0.12, 2.5]]) {
-            const q = clamp((t - d) / (1 - d));
-            ring(fx.x, fx.y, (fx.radius || 3) * (0.2 + 0.8 * q), 0.2 * (1 - q), 0.95 * (1 - q), w);
+          // the crash: the sky streak burns in, the ground splits in lightning-lit cracks
+          const c = S(fx.x, fx.y);
+          if (t < 0.2) {
+            const f = 1 - t / 0.2, sky = S(fx.x, fx.y, 7);
+            L(sky, c, R(TOP - 2), Math.max(1, Math.round(7 * f))); L(sky, c, R(TOP), Math.max(1, Math.round(3 * f)));
           }
-          const c = toScreen(fx.x, fx.y, 0);
+          M.ground(fx.x, fx.y, rr * 0.9 * ease, k * 0.8);
           for (let i = 0; i < 10; i++) {
-            const a = i / 10 * Math.PI * 2 + 0.3;
-            const r = (fx.radius || 3) * 11 * z * ease;
-            seg(c, { x: c.x + Math.cos(a) * r, y: c.y + Math.sin(a) * r * 0.5 }, 2, rgba(0.8 * k));
+            const a = (i / 10) * TAU + 0.3;
+            const e = S(fx.x + Math.cos(a) * rr * ease * (0.75 + 0.25 * hash(i)), fx.y + Math.sin(a) * rr * ease * (0.75 + 0.25 * hash(i)));
+            L(c, e, R(1 + 2 * k), 1);
+            if (hash(i * 5 + Math.floor(M.frame / 2)) < k * 0.8) M.bolt(c, e, 0.45, i * 13);
           }
-          glow(c, 40 * z * k, k);
+          const q1 = clamp(t / 0.85), q2 = clamp((t - 0.12) / 0.88);
+          shock(fx.x, fx.y, rr * (0.2 + 0.8 * (1 - Math.pow(1 - q1, 2))), 1 - q1);
+          shock(fx.x, fx.y, rr * 0.6 * (0.2 + 0.8 * q2), 1 - q2);
+          // rubble thrown up and out
+          for (let i = 0; i < 9; i++) {
+            const a = (i / 9) * TAU + hash(i * 3) * 0.6, d = rr * ease * (0.35 + 0.4 * hash(i * 7));
+            const p = S(fx.x + Math.cos(a) * d, fx.y + Math.sin(a) * d, Math.sin(Math.min(1, t * 1.6) * Math.PI) * (0.6 + hash(i) * 0.9));
+            if (t < 0.65) P(p.x, p.y, R(2 + (i % 3)), 2);
+          }
+          blob(c, 18 * T * k * k, R(TOP - 1), 0.5); blob(c, 9 * T * k * k, R(TOP), 0.5);
           return true;
         }
+        // take-off: a column of light shoots up; a reticle closes on the landing spot
         const air = fx.air || 0.75;
         const up = clamp(el / (air * 0.35));
-        const b = toScreen(fx.startX, fx.startY, 0), top = toScreen(fx.startX, fx.startY, 7);
+        const b = S(fx.startX, fx.startY);
         if (el < air * 0.6) {
           const q = 1 - el / (air * 0.6);
-          seg(b, { x: lerp(b.x, top.x, up), y: lerp(b.y, top.y, up) }, 14 * q, rgba(0.35 * q));
-          seg(b, { x: lerp(b.x, top.x, up), y: lerp(b.y, top.y, up) }, 3, W(0.8 * q));
-          ring(fx.startX, fx.startY, 1.2 * up, 0, 0.7 * q, 2.5);
+          M.pillar(b.x, b.y, (b.y - S(fx.startX, fx.startY, 7).y) * up, Math.max(1, Math.round(3 * q)), Math.min(1, q * 1.4));
+          shock(fx.startX, fx.startY, 1.2 * up, q);
         }
         if (el < air + 0.05) {
-          const s = clamp(el / air);
-          const r = (fx.radius || 3) * (1.6 - 0.6 * s);
-          ring(fx.x, fx.y, r, 0.06 + 0.12 * s, 0.4 + 0.5 * s, 2);
-          const c = toScreen(fx.x, fx.y, 0);
+          const s = clamp(el / air), r = rr * (1.6 - 0.6 * s), c = S(fx.x, fx.y);
+          const lit = s > 0.75 && M.frame % 6 < 3 ? TOP : TOP - 1;
+          M.ellipse(fx.x, fx.y, r, R(2 + 2 * s), 1, 0.55 - 0.45 * s);
+          M.ellipse(fx.x, fx.y, r * 0.45, R(2 + 2 * s), 1, 0.5);
           for (let i = 0; i < 4; i++) {
-            const a = i * Math.PI / 2 + time * 2;
-            const r1 = r * 10 * z, r2 = r1 * 0.55;
-            seg({ x: c.x + Math.cos(a) * r1, y: c.y + Math.sin(a) * r1 * 0.5 }, { x: c.x + Math.cos(a) * r2, y: c.y + Math.sin(a) * r2 * 0.5 }, 2.5, rgba(0.9));
+            const a = (i * Math.PI) / 2 + time * 2;
+            const at = (f, da = 0) => S(fx.x + Math.cos(a + da) * r * f, fx.y + Math.sin(a + da) * r * f);
+            const p1 = at(1.05), p2 = at(0.62);
+            L(p1, p2, R(3), 2); L(p1, p2, R(lit), 1);
+            L(p2, at(0.78, -0.16), R(lit), 1); L(p2, at(0.78, 0.16), R(lit), 1);   // chevron points in
           }
+          P(c.x, c.y, R(lit), 2);
           if (s > 0.7) {
-            const f = (s - 0.7) / 0.3;
-            seg(toScreen(fx.x, fx.y, 7), toScreen(fx.x, fx.y, 7 * (1 - f)), 6, W(0.9));
+            const f = (s - 0.7) / 0.3, a = S(fx.x, fx.y, 7), e = S(fx.x, fx.y, 7 * (1 - f));
+            L(a, e, R(TOP - 2), 5); L(a, e, R(TOP), 2);
           }
         }
         return true;
@@ -7254,87 +9657,117 @@ class IsometricRenderer {
 
       case 'wall': {
         // Reaver: a row of roaring flame tongues across the aim point
-        const fade = holdFade(0.15, 0.5);
-        const n = 14;
+        const fade = holdFade(0.15, 0.5), grow = clamp(el / 0.2);
+        const a = S(fx.startX, fx.startY), b = S(fx.x, fx.y);
+        // an ember bed along the wall's foot
+        L(a, b, R(0), 3); L(a, b, R(1 + fade * 1.5), 2); L(a, b, R(2 + fade * 1.5), 1);
+        const n = 16, tongues = [];
         for (let i = 0; i <= n; i++) {
           const s = i / n;
-          const wx = lerp(fx.startX, fx.x, s), wy = lerp(fx.startY, fx.y, s);
-          const flick = 0.75 + 0.25 * Math.sin(time * 14 + i * 1.9);
-          const h = (1.3 + 0.5 * Math.sin(i * 2.3)) * flick * clamp(el / 0.2);
-          const b0 = toScreen(wx - 0.22, wy, 0), b1 = toScreen(wx + 0.22, wy, 0), tip = toScreen(wx + Math.sin(time * 6 + i) * 0.12, wy, h);
-          ctx.beginPath(); ctx.moveTo(b0.x, b0.y);
-          ctx.quadraticCurveTo((b0.x + tip.x) / 2 - 4 * z, (b0.y + tip.y) / 2, tip.x, tip.y);
-          ctx.quadraticCurveTo((b1.x + tip.x) / 2 + 4 * z, (b1.y + tip.y) / 2, b1.x, b1.y);
-          ctx.closePath();
-          ctx.fillStyle = rgba(0.55 * fade); ctx.fill();
-          const core = toScreen(wx, wy, h * 0.45);
-          glow(core, 7 * z, 0.55 * fade, '#fde68a');
+          tongues.push({ i, s, p: S(lerp(fx.startX, fx.x, s), lerp(fx.startY, fx.y, s)) });
+        }
+        tongues.sort((u, v) => u.p.y - v.p.y);   // back to front
+        for (const { i, s, p } of tongues) {
+          const flick = 0.72 + 0.28 * Math.sin(time * 14 + i * 1.9);
+          const ends = Math.min(1, 0.45 + Math.sin(s * Math.PI) * 1.2);
+          const h = Math.round((27 + 10 * Math.sin(i * 2.3)) * flick * grow * (0.3 + 0.7 * fade) * ends);
+          M.flame(p.x, p.y, h, 4, i * 1.7);
+          if (hash(i * 3 + Math.floor(M.frame / 2)) < 0.35 * fade) {
+            P(p.x + (hash(i + M.frame) - 0.5) * 8 * T, p.y - (h + 3 + hash(i * 9 + M.frame) * 10) * T, R(TOP - 1 - (M.frame % 3 === 0 ? 1 : 0)));
+          }
         }
         return true;
       }
 
       case 'rune': {
-        const KIND = { ruin: fx.color || '#a3e635', bind: '#facc15', frost: '#7dd3fc' };
-        const col = KIND[fx.kind] || fx.color || '#a3e635';
+        // ruin glows in the card's lime, bind in holy gold, frost in ice
+        const Q = rampFn(fx.kind === 'bind' ? FX_ELEMENT_RAMPS.holy : fx.kind === 'frost' ? FX_ELEMENT_RAMPS.ice : M.card);
+        const QT = fx.kind === 'bind' || fx.kind === 'frost' ? 6 : CT;
+        const rr = fx.radius || 2.4, c = S(fx.x, fx.y);
         if (fx.burst) {
           // the glyph goes off: ruin shatters outward, bind snaps chains shut, frost spikes up
-          const r = fx.radius || 2.4;
-          ring(fx.x, fx.y, r * ease, 0.2 * k, 0.95 * k, 4, col);
-          const c = toScreen(fx.x, fx.y, 0);
+          shock(fx.x, fx.y, rr * ease, k, Q, QT);
+          if (t < 0.18) { const f = 1 - t / 0.18; blob(S(fx.x, fx.y, 0.2), f * 14 * T, Q(QT - 1), 0.6); blob(S(fx.x, fx.y, 0.2), f * 7 * T, Q(QT), 0.6); }
+          const spikes = [];
           for (let i = 0; i < 8; i++) {
-            const a = i / 8 * Math.PI * 2;
-            const o = { x: c.x + Math.cos(a) * r * 10 * z, y: c.y + Math.sin(a) * r * 5 * z };
+            const a = (i / 8) * TAU;
             if (fx.kind === 'bind') {
-              // chains drawn inward from the rim
-              const s = ease;
-              const e = { x: lerp(o.x, c.x, s), y: lerp(o.y, c.y, s) };
-              ctx.setLineDash([4 * z, 3 * z]);
-              seg(o, e, 2.5, hexA(col, 0.9 * k));
-              ctx.setLineDash([]);
+              // chain links reel in from the rim and lock on the centre
+              const o = { x: fx.x + Math.cos(a) * rr, y: fx.y + Math.sin(a) * rr }, n = 11;
+              for (let j = 0; j <= n * ease; j++) {
+                const u = j / n, p = S(lerp(o.x, fx.x, u), lerp(o.y, fx.y, u), 0.15 + Math.sin(u * Math.PI) * 0.35 * (1 - ease));
+                if (j % 2) P(p.x, p.y, Q(QT - 1 - (1 - k) * 3), 2);
+                else { P(p.x, p.y, Q(1), 4); P(p.x, p.y, Q(QT - (1 - k) * 3), 2); }
+              }
             } else if (fx.kind === 'frost') {
-              const p = { x: fx.x + Math.cos(a) * r * 0.6 * ease, y: fx.y + Math.sin(a) * r * 0.6 * ease };
-              const b = toScreen(p.x, p.y, 0), tip = toScreen(p.x, p.y, 1.4 * k);
-              seg(b, tip, 4, hexA(col, 0.9 * k));
-              seg(b, tip, 1.5, W(k));
+              spikes.push(S(fx.x + Math.cos(a) * rr * 0.6 * ease, fx.y + Math.sin(a) * rr * 0.6 * ease));
             } else {
-              seg(c, { x: lerp(c.x, o.x, ease), y: lerp(c.y, o.y, ease) }, 2.5, hexA(col, 0.9 * k));
+              // ruin: radial cracks, glyph shards flung out and up
+              const e = S(fx.x + Math.cos(a) * rr * ease, fx.y + Math.sin(a) * rr * ease);
+              L(c, e, Q(2), 2); L(c, e, Q(QT - 1 - (1 - k) * 3), 1);
+              const sh = S(fx.x + Math.cos(a + 0.25) * rr * 1.1 * ease, fx.y + Math.sin(a + 0.25) * rr * 1.1 * ease, Math.sin(ease * Math.PI) * 1.3);
+              if (k > 0.15) { P(sh.x, sh.y, Q(2), 4); P(sh.x, sh.y, Q(QT - (i % 2)), 2); }
             }
           }
-          glow(toScreen(fx.x, fx.y, 0.3), 30 * z * k, k, col);
+          if (fx.kind === 'frost') {
+            const hh = Math.round(28 * clamp(t * 5) * (t < 0.55 ? 1 : 1 - (t - 0.55) / 0.45));
+            spikes.sort((u, v) => u.y - v.y).forEach((p, i) => prism(p.x, p.y, hh - (i % 2) * 6, 3, Q));
+            prism(c.x, c.y, Math.round(hh * 1.35), 4, Q);
+          }
+          if (fx.kind === 'bind') M.ellipse(fx.x, fx.y, 0.35 + 0.4 * (1 - ease), Q(QT), 2, 0.05);
           return true;
         }
-        // a carved glyph waiting on the ground
-        const fade = holdFade(0.35, 0.6);
-        const r = (fx.radius || 2.4) * 0.55;
-        const armed = el > 0.4;
-        const pulse = armed ? 0.75 + 0.25 * Math.sin(time * 5) : clamp(el / 0.4);
-        ring(fx.x, fx.y, fx.radius || 2.4, 0, 0.18 * fade, 1, col);
-        ring(fx.x, fx.y, r, 0.1 * fade * pulse, 0.9 * fade * pulse, 2, col);
-        ring(fx.x, fx.y, r * 0.78, 0, 0.5 * fade, 1, col);
-        // hexagram: two triangles in the ground plane, slowly turning
-        for (const off of [0, Math.PI / 3]) {
-          ctx.beginPath();
-          for (let i = 0; i <= 3; i++) {
-            const a = off + i * Math.PI * 2 / 3 + time * 0.4;
-            const p = toScreen(fx.x + Math.cos(a) * r * 0.75, fx.y + Math.sin(a) * r * 0.75, 0);
-            if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+        // a carved glyph waiting on the ground: drawn stroke by stroke, then breathing
+        const fade = holdFade(0.35, 0.6), draw = clamp(el / 0.4), armed = el > 0.4;
+        const pulse = armed ? 0.5 + 0.5 * Math.sin(time * 5) : 0;
+        const lit = QT - 1 + pulse - (1 - fade) * 3;
+        const r = rr * 0.55, spin = time * 0.4;
+        M.ellipse(fx.x, fx.y, rr, Q(2), 1, 0.6, 0, TAU * draw);
+        M.ellipse(fx.x, fx.y, r, Q(1), 3, 0, 0, TAU * draw);
+        M.ellipse(fx.x, fx.y, r, Q(lit), 1, 0, 0, TAU * draw);
+        M.ellipse(fx.x, fx.y, r * 0.8, Q(lit - 1), 1, 0.15, 0, TAU * draw);
+        const node = (a) => S(fx.x + Math.cos(a) * r * 0.75, fx.y + Math.sin(a) * r * 0.75);
+        for (let tri = 0; tri < 2; tri++) {
+          for (let i = 0; i < 3; i++) {
+            const u = clamp(draw * 6 - tri * 3 - i);
+            if (u <= 0) continue;
+            const a0 = tri * (Math.PI / 3) + (i * TAU) / 3 + spin;
+            const p0 = node(a0), p1 = node(a0 + TAU / 3);
+            L(p0, { x: lerp(p0.x, p1.x, u), y: lerp(p0.y, p1.y, u) }, Q(lit - 1), 1);
           }
-          ctx.strokeStyle = hexA(col, 0.75 * fade * pulse); ctx.lineWidth = 1.6 * z; ctx.stroke();
         }
-        if (Math.random() < 0.08 * fade) this.addParticles(fx.x + (Math.random() - 0.5) * r, fx.y + (Math.random() - 0.5) * r, 'arcane', 1, { sizeScale: 0.4, speed: 0.2, vz: 0.6 });
+        for (let i = 0; i < 6; i++) {
+          if (draw < (i + 1) / 6) continue;
+          const p = node((i * TAU) / 6 + spin);
+          if (fx.kind === 'frost') prism(p.x, p.y, 3 + Math.round(pulse * 2), 1, Q);
+          else { P(p.x, p.y, Q(1), 3); P(p.x, p.y, Q(lit + 1), 1); }
+        }
+        // motes drifting up off the carving
+        if (fade > 0.2) for (let i = 0; i < 4; i++) {
+          const ph = (time * 0.7 + i / 4) % 1, a = i * 1.9 + hash(i) * 3;
+          const p = S(fx.x + Math.cos(a) * r * 0.5, fx.y + Math.sin(a) * r * 0.5, ph * 1.8);
+          P(p.x, p.y, Q(QT - 1 - ph * 2), ph < 0.5 ? 2 : 1);
+        }
         return true;
       }
 
       case 'invoke': {
         // Rune Knight: rune light leaps from the knight to every glyph
-        const c = toScreen(fx.x, fx.y, 0.8);
-        ring(fx.x, fx.y, (fx.radius || 3) * ease, 0.12 * k, 0.8 * k, 3);
-        for (const p of fx.points || []) {
-          const e = toScreen(p.x, p.y, 0.2);
-          seg(c, { x: lerp(c.x, e.x, ease), y: lerp(c.y, e.y, ease) }, 4 * k, rgba(0.7 * k));
-          seg(c, { x: lerp(c.x, e.x, ease), y: lerp(c.y, e.y, ease) }, 1.5, W(0.9 * k));
-        }
-        glow(c, 26 * z * k, k);
+        const c = S(fx.x, fx.y, 0.8);
+        shock(fx.x, fx.y, (fx.radius || 3) * ease, k, C, CT);
+        (fx.points || []).forEach((p, i) => {
+          const e = S(p.x, p.y, 0.2), head = { x: lerp(c.x, e.x, ease), y: lerp(c.y, e.y, ease) };
+          L(c, head, C(1), 3); L(c, head, C(CT - (1 - k) * 3), 1);
+          // rune sparks riding the beam out to the glyph
+          for (let j = 0; j < 3; j++) {
+            const u = ((time * 2 + j / 3 + i * 0.37) % 1) * ease;
+            P(lerp(c.x, e.x, u), lerp(c.y, e.y, u), C(CT), 2);
+          }
+          if (ease < 0.97) P(head.x, head.y, C(CT), 3);
+          else { M.ellipse(p.x, p.y, 0.5 + 0.7 * t, C(CT - 1), 1, 0.25 + 0.6 * t); twinkle(e, Math.round(6 * k), C(CT - 1), C(CT)); }
+        });
+        twinkle(c, Math.round(3 + 7 * k), C(CT - 1), C(CT));
+        blob(c, 4 * T * k, C(CT));
         return true;
       }
 
@@ -7346,24 +9779,29 @@ class IsometricRenderer {
         const pos = clamp(t * 1.05) * legs, leg = Math.min(legs - 1, Math.floor(pos)), s = pos - leg;
         const a = path[leg], b = path[leg + 1];
         const sx = lerp(a.x, b.x, s), sy = lerp(a.y, b.y, s);
+        // every foe it has struck flashes a holy cross and a ring
         for (let i = 1; i <= leg; i++) {
-          const hit = path[i];
-          ring(hit.x, hit.y, 0.9, 0.08 * k, 0.6 * k, 2);
+          const f = clamp(1 - (pos - i) / 0.9);
+          if (f <= 0) continue;
+          M.hit(path[i].x, path[i].y, 1.2, f);
+          shock(path[i].x, path[i].y, 0.3 + 0.7 * (1 - f), f);
         }
-        const tail = toScreen(lerp(a.x, b.x, Math.max(0, s - 0.35)), lerp(a.y, b.y, Math.max(0, s - 0.35)), 0.7);
-        const p = toScreen(sx, sy, 0.7);
-        seg(tail, p, 6, rgba(0.35));
-        // the spinning shield: a tilted disc with a holy cross
-        const spin = time * 22;
-        ctx.save();
-        ctx.translate(p.x, p.y);
-        ctx.rotate(spin);
-        ctx.beginPath(); ctx.ellipse(0, 0, 11 * z, 8 * z, 0, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(90, 100, 133, 0.95)'; ctx.fill();
-        ctx.strokeStyle = rgba(1); ctx.lineWidth = 2.5 * z; ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(-6 * z, 0); ctx.lineTo(6 * z, 0); ctx.moveTo(0, -5 * z); ctx.lineTo(0, 5 * z);
-        ctx.strokeStyle = W(0.9); ctx.lineWidth = 2 * z; ctx.stroke();
-        ctx.restore();
+        const tw = Math.max(0, s - 0.45);
+        const tail = S(lerp(a.x, b.x, tw), lerp(a.y, b.y, tw), 0.7), p = S(sx, sy, 0.7);
+        const tn = Math.max(2, Math.round(Math.hypot(p.x - tail.x, p.y - tail.y) / T));
+        for (let j = 0; j <= tn; j++) {
+          const u = j / tn;
+          if (j % 2 && u < 0.6) continue;
+          P(lerp(tail.x, p.x, u), lerp(tail.y, p.y, u), R(2 + u * 3), u > 0.6 ? 3 : u > 0.3 ? 2 : 1);
+        }
+        // the spinning shield: a coin-flip disc (rim, face, cross) catching the light
+        const spin = time * 22, cw = Math.abs(Math.cos(spin));
+        const rx = Math.max(1, 10 * cw) * T, ry = 11 * T;
+        blob(p, rx + T, R(1), (ry + T) / (rx + T));
+        blob(p, rx, R(3 + (cw > 0.6 ? 1 : 0)), ry / rx);
+        L({ x: p.x, y: p.y - 5 * T }, { x: p.x, y: p.y + 5 * T }, R(TOP), 1);
+        if (cw > 0.35) L({ x: p.x - rx * 0.7, y: p.y - T }, { x: p.x + rx * 0.7, y: p.y - T }, R(TOP), 1);
+        if (cw > 0.8) P(p.x - rx * 0.5, p.y - ry * 0.55, R(TOP), 2);
         return true;
       }
 
@@ -7371,58 +9809,90 @@ class IsometricRenderer {
         if (fx.slash) {
           // a ghost greatsword cuts from one victim to the next
           const s = clamp(t * 2.2);
-          const a = toScreen(fx.startX, fx.startY, 0.8), b = toScreen(fx.x, fx.y, 0.8);
+          const a = S(fx.startX, fx.startY, 0.8), b = S(fx.x, fx.y, 0.8);
           const e = { x: lerp(a.x, b.x, s), y: lerp(a.y, b.y, s) };
-          seg(a, e, 8 * k, rgba(0.35 * k));
-          seg(a, e, 2, W(0.85 * k));
-          ctx.beginPath();
-          ctx.arc(b.x, b.y, 14 * z, -1.2 + t * 2, 0.6 + t * 2);
-          ctx.strokeStyle = rgba(k); ctx.lineWidth = 3 * z; ctx.stroke();
+          // the cut it leaves, dissolving from the tail end
+          const n = Math.max(2, Math.round(Math.hypot(e.x - a.x, e.y - a.y) / T));
+          for (let j = 0; j <= n; j++) {
+            const u = j / n;
+            if (hash(j * 3.1) > k * (0.3 + 0.8 * u) + 0.05) continue;
+            P(lerp(a.x, e.x, u), lerp(a.y, e.y, u), R(2 + u * 2), 2);
+            if (u > 0.4) P(lerp(a.x, e.x, u), lerp(a.y, e.y, u), R(TOP - 1));
+          }
+          // the ghost greatsword itself, point first
+          if (k > 0.3) {
+            const f = rot(e, Math.atan2(b.y - a.y, b.x - a.x), T * 1.6);
+            poly([f(9, 0), f(-10, -2), f(-10, 2)], R(4));
+            L(f(-10, -1), f(9, 0), R(TOP), 1);
+            L(f(-10, -5), f(-10, 5), R(2), 2);
+            L(f(-11, 0), f(-16, 0), R(1), 2);
+            P(f(-17, 0).x, f(-17, 0).y, R(5), 2);
+          }
+          // crescent cut through the victim
+          if (s > 0.55) for (let j = 0; j <= 12; j++) {
+            const u = j / 12, ang = -1.2 + t * 2 + u * 1.8, th = 1 + Math.round(2 * Math.sin(u * Math.PI) * k);
+            P(b.x + Math.cos(ang) * 14 * T, b.y + Math.sin(ang) * 9 * T, R(th > 1 ? TOP : TOP - 2), th);
+          }
           return true;
         }
-        // the summoning: a swirl of soul wisps around the knight
+        // the summoning: soul wisps (little ghost flames with hollow eyes) swirl round the knight
         const fade = holdFade(0.15, 0.3);
+        M.ellipse(fx.x, fx.y, 1.1, R(2), 1, 0.45);
+        M.ellipse(fx.x, fx.y, 0.6, R(1), 2, 0.3);
+        const wisps = [];
         for (let i = 0; i < 6; i++) {
-          const a = time * 6 + i / 6 * Math.PI * 2;
-          const p = toScreen(fx.x + Math.cos(a) * 1.1, fx.y + Math.sin(a) * 1.1, 0.6 + 0.4 * Math.sin(time * 4 + i));
-          glow(p, 7 * z, 0.7 * fade);
+          const a = time * 6 + (i / 6) * TAU;
+          wisps.push({ i, a, p: S(fx.x + Math.cos(a) * 1.1, fx.y + Math.sin(a) * 1.1, 0.6 + 0.4 * Math.sin(time * 4 + i)) });
         }
+        wisps.sort((u, v) => u.p.y - v.p.y).forEach(({ i, a, p }) => {
+          for (let j = 1; j <= 3; j++) {
+            const q = S(fx.x + Math.cos(a - j * 0.22) * 1.1, fx.y + Math.sin(a - j * 0.22) * 1.1, 0.6 + 0.4 * Math.sin(time * 4 + i) + 0.1 * j);
+            P(q.x, q.y, R(4 - j), 1);
+          }
+          M.flame(p.x, p.y + 4 * T, Math.round(13 * fade) + 1, 3, i * 1.3);
+          P(p.x - T, p.y, R(0)); P(p.x + T, p.y, R(0));
+        });
         return true;
       }
 
       case 'hurl': {
         // Titan: the grabbed monster sails in an arc and craters where it lands
-        const fl = clamp(el / 0.35);
+        const fl = clamp(el / 0.35), arcH = fx.heavy ? 1.5 : 3;
         const wx = lerp(fx.startX, fx.x, fl), wy = lerp(fx.startY, fx.y, fl);
-        const h = fx.heavy ? 1.5 * Math.sin(fl * Math.PI) : 3 * Math.sin(fl * Math.PI);
+        const h = arcH * Math.sin(fl * Math.PI);
         if (fl < 1) {
-          const sh = toScreen(wx, wy, 0);
-          ctx.beginPath(); ctx.ellipse(sh.x, sh.y, 10 * z, 5 * z, 0, 0, Math.PI * 2);
-          ctx.fillStyle = 'rgba(0, 0, 0, 0.35)'; ctx.fill();
-          const p = toScreen(wx, wy, h);
-          for (let i = 1; i <= 4; i++) {
-            const q = Math.max(0, fl - i * 0.06);
-            const tp = toScreen(lerp(fx.startX, fx.x, q), lerp(fx.startY, fx.y, q), (fx.heavy ? 1.5 : 3) * Math.sin(q * Math.PI));
-            glow(tp, (10 - i * 2) * z, 0.35 / i);
+          // ground shadow (dithers to a checker), grit shed along the arc, the tumbling body
+          blob(S(wx, wy), 9 * T * (1 - h / 7), 'rgba(0, 0, 0, 0.6)', 0.5);
+          for (let i = 1; i <= 7; i++) {
+            const q = Math.max(0, fl - i * 0.045);
+            const tp = S(lerp(fx.startX, fx.x, q), lerp(fx.startY, fx.y, q), arcH * Math.sin(q * Math.PI));
+            P(tp.x + (hash(i) - 0.5) * 7 * T, tp.y + (hash(i * 3) - 0.5) * 5 * T, i < 3 ? C(CT - 1) : R(5 - i * 0.5), i < 4 ? 2 : 1);
           }
-          ctx.save(); ctx.globalCompositeOperation = 'source-over';
-          ctx.beginPath(); ctx.arc(p.x, p.y, 9 * z, 0, Math.PI * 2);
-          ctx.fillStyle = 'rgba(60, 54, 40, 0.95)'; ctx.fill();
-          ctx.strokeStyle = rgba(1); ctx.lineWidth = 2.5 * z; ctx.stroke();
-          ctx.restore();
+          const p = S(wx, wy, h), spin = fl * 9;
+          blob(p, 12 * T, R(0)); blob(p, 11 * T, R(2)); blob({ x: p.x - 2 * T, y: p.y - 2 * T }, 7 * T, R(3));
+          for (let j = 0; j < 3; j++) {
+            const a = spin + j * 2.1, q = { x: p.x + Math.cos(a) * 6 * T, y: p.y + Math.sin(a) * 6 * T };
+            P(q.x, q.y, j === 0 ? R(5) : R(1), 3);
+          }
+          for (let j = 0; j < 7; j++) { const a = -2.6 + j * 0.3; P(p.x + Math.cos(a) * 12 * T, p.y + Math.sin(a) * 12 * T, C(CT - 1)); }
         } else {
-          const q = clamp((el - 0.35) / Math.max(0.1, life - 0.35));
-          const r = fx.radius || 2.2;
-          ring(fx.x, fx.y, r * (0.3 + 0.7 * q), 0.25 * (1 - q), 0.95 * (1 - q), 5);
-          const c = toScreen(fx.x, fx.y, 0);
+          // the landing: a crater of cracks, stone fangs round the rim, rubble flung out
+          const q = clamp((el - 0.35) / Math.max(0.1, life - 0.35)), rr = fx.radius || 2.2, c = S(fx.x, fx.y);
           for (let i = 0; i < 7; i++) {
-            const a = i / 7 * Math.PI * 2 + 0.5;
-            const rr = r * 11 * z * (0.4 + 0.6 * q);
-            ctx.beginPath(); ctx.moveTo(c.x, c.y);
-            ctx.lineTo(c.x + Math.cos(a) * rr * 0.5 + 3 * z, c.y + Math.sin(a) * rr * 0.25);
-            ctx.lineTo(c.x + Math.cos(a) * rr, c.y + Math.sin(a) * rr * 0.5);
-            ctx.strokeStyle = `rgba(30, 24, 12, ${0.8 * (1 - q)})`; ctx.lineWidth = 3 * z; ctx.stroke();
+            const a = (i / 7) * TAU + 0.5;
+            M.crack(fx.x, fx.y, fx.x + Math.cos(a) * rr * 0.95, fx.y + Math.sin(a) * rr * 0.95, i * 23, Math.min(1, q * 4));
           }
+          shock(fx.x, fx.y, rr * (0.3 + 0.7 * (1 - Math.pow(1 - q, 2))), 1 - q, C, CT);
+          const fang = Math.sin(clamp(q * 2.4) * Math.PI);
+          const fangs = [];
+          for (let i = 0; i < 8; i++) { const a = (i / 8) * TAU + 0.3; fangs.push(S(fx.x + Math.cos(a) * rr * 0.62, fx.y + Math.sin(a) * rr * 0.62)); }
+          fangs.sort((u, v) => u.y - v.y).forEach((p, i) => M.spike(p.x, p.y, Math.round((16 + 8 * hash(i)) * fang), 3));
+          for (let i = 0; i < 10; i++) {
+            const a = hash(i * 5) * TAU, d = rr * Math.min(1, q * 1.6) * (0.4 + 0.7 * hash(i * 9));
+            const p = S(fx.x + Math.cos(a) * d, fx.y + Math.sin(a) * d, Math.sin(clamp(q * 1.5) * Math.PI) * (0.5 + hash(i) * 1.1));
+            if (q < 0.7) P(p.x, p.y, R(2 + (i % 3)), 2);
+          }
+          if (q < 0.18) { const f = 1 - q / 0.18; blob(c, f * 15 * T, C(CT - 1), 0.5); blob(c, f * 7 * T, C(CT), 0.5); }
           if (q < 0.1) this.triggerScreenShake(10, 0.2);
         }
         return true;
@@ -7430,63 +9900,67 @@ class IsometricRenderer {
 
       case 'banner': {
         // Bannerman: a planted war standard, its ring of command glowing on the ground
-        const fade = holdFade(0.3, 0.8);
-        const r = fx.radius || 3.2;
-        ring(fx.x, fx.y, r, 0.07 * fade, 0, 0);
-        ctx.setLineDash([10 * z, 7 * z]);
-        ctx.lineDashOffset = -time * 20 * z;
-        ring(fx.x, fx.y, r, 0, 0.75 * fade, 2.5);
-        ctx.setLineDash([]);
-        ctx.lineDashOffset = 0;
+        const fade = holdFade(0.3, 0.8), rr = fx.radius || 3.2;
+        const cool = (1 - fade) * 3;
+        // the ring of command: marching gold dashes
+        dashRing(fx.x, fx.y, rr, R(1), 3, time * 8);
+        dashRing(fx.x, fx.y, rr, R(TOP - 1 - cool), 1, time * 8);
+        M.ellipse(fx.x, fx.y, rr * 0.9, R(2), 1, 0.8);
         const drop = clamp(el / 0.25);
-        const top = toScreen(fx.x, fx.y, 3.4 + 3 * (1 - drop));
-        const foot = toScreen(fx.x, fx.y, 3 * (1 - drop));
-        ctx.save(); ctx.globalCompositeOperation = 'source-over';
-        seg(foot, top, 3.5, `rgba(92, 58, 22, ${fade})`);
-        // the flag waves from the top of the pole
-        ctx.beginPath();
-        ctx.moveTo(top.x, top.y);
-        for (let i = 1; i <= 8; i++) {
-          const s = i / 8;
-          ctx.lineTo(top.x + s * 26 * z, top.y + Math.sin(time * 7 - s * 4) * 3 * z * s);
+        const foot = S(fx.x, fx.y, 3 * (1 - drop)), top = S(fx.x, fx.y, 3.4 + 3 * (1 - drop));
+        L(foot, top, R(0), 3); L(foot, top, R(2), 1);
+        poly([{ x: top.x, y: top.y - 4 * T }, { x: top.x + 2 * T, y: top.y - T }, { x: top.x, y: top.y + T }, { x: top.x - 2 * T, y: top.y - T }], R(TOP - cool));
+        // the flag, column by column, shaded by its own ripple; swallowtail fly end
+        // (drawn in 2x2 texel cells so the standard reads at a glance)
+        const cols = 14, hgt = 9, G = 2 * T, wave = (s) => Math.sin(time * 7 - s * 4) * 1.6 * s;
+        for (let i = 1; i <= cols; i++) {
+          const s = i / cols, slope = Math.cos(time * 7 - s * 4);
+          const x = top.x + i * G - T, y0 = top.y + G + Math.round(wave(s)) * G;
+          for (let j = 0; j < hgt; j++) {
+            if (i > cols - 4 && Math.abs(j - (hgt - 1) / 2) < (i - (cols - 4)) * 0.8) continue;
+            const col = j === 0 ? R(5 - cool) : j === hgt - 1 ? R(1) : slope > 0.45 ? R(4 - cool) : slope < -0.45 ? R(2) : R(3 - cool * 0.5);
+            P(x, y0 + j * G, col, 2);
+          }
         }
-        for (let i = 8; i >= 0; i--) {
-          const s = i / 8;
-          ctx.lineTo(top.x + s * 26 * z, top.y + 16 * z + Math.sin(time * 7 - s * 4) * 3 * z * s);
+        const ex = top.x + 6 * G, ey = top.y + G + Math.round(wave(6 / cols)) * G + 4 * G;
+        L({ x: ex - 2 * G, y: ey }, { x: ex + 2 * G, y: ey }, R(TOP - cool), 2); L({ x: ex, y: ey - 2 * G }, { x: ex, y: ey + 2 * G }, R(TOP - cool), 2);
+        // planting it: a ring of light rolls out from the foot
+        if (drop >= 1 && el < 0.55) {
+          const q = clamp((el - 0.25) / 0.3);
+          shock(fx.x, fx.y, rr * q, 1 - q);
+          if (q < 0.3) blob(foot, (1 - q / 0.3) * 10 * T, R(TOP), 0.5);
         }
-        ctx.closePath();
-        ctx.fillStyle = hexA('#b8860b', 0.95 * fade); ctx.fill();
-        ctx.strokeStyle = hexA('#fff1a8', 0.9 * fade); ctx.lineWidth = 1.5 * z; ctx.stroke();
-        ctx.restore();
-        glow(top, 10 * z, 0.6 * fade);
-        if (drop >= 1 && el < 0.55) ring(fx.x, fx.y, r * clamp((el - 0.25) / 0.3), 0.15, 0.9, 3);
-        if (Math.random() < 0.15 * fade) {
-          const a = Math.random() * Math.PI * 2, d = Math.random() * r;
-          this.addParticles(fx.x + Math.cos(a) * d, fx.y + Math.sin(a) * d, 'gold', 1, { sizeScale: 0.5, speed: 0.2, vz: 1 });
+        // gold motes rising inside the ring
+        if (fade > 0.15) for (let i = 0; i < 8; i++) {
+          const ph = (time * 0.5 + hash(i)) % 1, a = hash(i * 3) * TAU, d = Math.sqrt(hash(i * 7)) * rr;
+          const p = S(fx.x + Math.cos(a) * d, fx.y + Math.sin(a) * d, ph * 2.5);
+          P(p.x, p.y, R(TOP - 1 - ph * 2), ph < 0.4 ? 2 : 1);
         }
         return true;
       }
 
       case 'rally': {
         // Bannerman: a golden arc back to the standard, then the rallying burst
+        const rr = fx.radius || 3, c = S(fx.x, fx.y);
         if (fx.leap) {
-          ctx.setLineDash([6 * z, 6 * z]);
-          ctx.beginPath();
-          for (let i = 0; i <= 16; i++) {
-            const s = i / 16;
-            const p = toScreen(lerp(fx.startX, fx.x, s), lerp(fx.startY, fx.y, s), 2.5 * Math.sin(s * Math.PI));
-            if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+          // a dotted golden arc back to the standard, its head racing ahead
+          const n = 28;
+          for (let i = 0; i <= n; i++) {
+            const s = i / n;
+            if (s > ease) break;
+            const p = S(lerp(fx.startX, fx.x, s), lerp(fx.startY, fx.y, s), 2.5 * Math.sin(s * Math.PI));
+            if (i % 2 === 0) P(p.x, p.y, R(TOP - 1 - (1 - k) * 3 - (1 - s) * 1.5), 2);
           }
-          ctx.strokeStyle = rgba(0.8 * k); ctx.lineWidth = 2.5 * z; ctx.stroke();
-          ctx.setLineDash([]);
+          if (ease < 0.98) { const h = S(lerp(fx.startX, fx.x, ease), lerp(fx.startY, fx.y, ease), 2.5 * Math.sin(ease * Math.PI)); twinkle(h, 4, R(TOP - 1)); }
         }
-        ring(fx.x, fx.y, (fx.radius || 3) * ease, 0.18 * k, 0.95 * k, 4);
-        const c = toScreen(fx.x, fx.y, 0);
-        for (let i = 0; i < 12; i++) {
-          const a = i / 12 * Math.PI * 2;
-          seg(toScreen(fx.x + Math.cos(a) * 0.5, fx.y + Math.sin(a) * 0.5, 0), toScreen(fx.x + Math.cos(a) * 0.5, fx.y + Math.sin(a) * 0.5, 2.6 * ease), 2, rgba(0.6 * k));
-        }
-        glow(c, 30 * z * k, k);
+        // the rallying burst: a ring, a crown of light shafts, a flare
+        shock(fx.x, fx.y, rr * ease, k);
+        const shafts = [];
+        for (let i = 0; i < 8; i++) { const a = (i / 8) * TAU; shafts.push(S(fx.x + Math.cos(a) * 0.9, fx.y + Math.sin(a) * 0.9)); }
+        const hpx = (c.y - S(fx.x, fx.y, 2.8).y) * ease;
+        shafts.sort((u, v) => u.y - v.y).forEach((b, i) => M.pillar(b.x, b.y, hpx * (0.75 + 0.25 * hash(i)), 1, k));
+        if (t < 0.25) { const f = 1 - t / 0.25; blob(c, f * 14 * T, R(TOP - 1), 0.5); blob(c, f * 7 * T, R(TOP), 0.5); }
+        twinkle(S(fx.x, fx.y, 1.2), Math.round(9 * k), R(TOP - 1));
         return true;
       }
 
@@ -7497,26 +9971,31 @@ class IsometricRenderer {
           const hero = this.lastGameState.players.find(p => p.id === fx.followId);
           if (hero) { hx = hero.x; hy = hero.y; }
         }
-        for (const ax of fx.axes || []) {
-          let wx, wy;
-          if (t < 0.5) {
-            const s = 1 - Math.pow(1 - t / 0.5, 2);
-            wx = lerp(fx.startX, ax.ex, s); wy = lerp(fx.startY, ax.ey, s);
-          } else {
-            const s = Math.pow((t - 0.5) / 0.5, 2);
-            wx = lerp(ax.ex, hx, s); wy = lerp(ax.ey, hy, s);
+        const axeAt = (ax, tt) => {
+          if (tt < 0.5) { const s = 1 - Math.pow(1 - tt / 0.5, 2); return { x: lerp(fx.startX, ax.ex, s), y: lerp(fx.startY, ax.ey, s) }; }
+          const s = Math.pow((tt - 0.5) / 0.5, 2);
+          return { x: lerp(ax.ex, hx, s), y: lerp(ax.ey, hy, s) };
+        };
+        (fx.axes || []).forEach((ax, ai) => {
+          // a trail of embers along its flight
+          for (let j = 1; j <= 6; j++) {
+            const q = axeAt(ax, Math.max(0, t - j * 0.028)), e = S(q.x, q.y, 0.8);
+            P(e.x + (hash(j + ai * 7) - 0.5) * 4 * T, e.y + (hash(j * 3 + ai) - 0.5) * 4 * T, R(TOP - 1 - j * 0.6), j < 3 ? 2 : 1);
           }
-          const p = toScreen(wx, wy, 0.8);
-          const spin = time * 26;
-          for (let i = 0; i < 2; i++) {
-            const a0 = spin + i * Math.PI;
-            ctx.beginPath(); ctx.arc(p.x, p.y, 11 * z, a0, a0 + 1.6);
-            ctx.strokeStyle = rgba(0.95); ctx.lineWidth = 5 * z; ctx.stroke();
-            ctx.strokeStyle = W(0.9); ctx.lineWidth = 1.6 * z; ctx.stroke();
+          const w = axeAt(ax, t), p = S(w.x, w.y, 0.8), spin = time * 26 + ai * 1.3;
+          // the blade's spin smear
+          for (let j = 0; j < 8; j++) {
+            const a = spin - j * 0.28;
+            P(p.x + Math.cos(a) * 18 * T, p.y + Math.sin(a) * 18 * T, R(TOP - j * 0.55), j < 3 ? 3 : 2);
           }
-          seg({ x: p.x - 4 * z, y: p.y }, { x: p.x + 4 * z, y: p.y }, 3, 'rgba(80, 50, 30, 0.9)');
-          if (Math.random() < 0.5) this.addParticles(wx, wy, 'slash', 1, { sizeScale: 0.5, speed: 0.5, z: 0.6 });
-        }
+          // the axe: haft, bearded head, lit edge
+          const f = rot(p, spin, T * 1.6);
+          L(f(-7, 0), f(6, 0), R(0), 3); L(f(-6, 0), f(5, 0), R(2), 1);
+          poly([f(4, -1), f(9, -6), f(12, -1), f(12, 2), f(9, 6), f(4, 2)], R(3));
+          poly([f(5, 0), f(9, -4), f(10, 0), f(9, 4)], R(4));
+          L(f(9, -6), f(12, -1), R(TOP)); L(f(12, 2), f(9, 6), R(TOP)); L(f(12, -1), f(12, 2), R(TOP));
+          P(f(-7, 0).x, f(-7, 0).y, R(4), 2);
+        });
         return true;
       }
 
@@ -7529,53 +10008,55 @@ class IsometricRenderer {
           return { x: lerp(path[i].x, path[i + 1].x, q), y: lerp(path[i].y, path[i + 1].y, q) };
         };
         const fade = holdFade(0.1, 0.2);
-        for (let i = 8; i >= 1; i--) {
-          const p = at(t - i * 0.02);
-          glow(toScreen(p.x, p.y, 1), (12 - i) * z, 0.5 * fade * (1 - i / 9), '#fb923c');
-        }
         const p = at(t), n = at(t + 0.02);
-        const c = toScreen(p.x, p.y, 1.1), ahead = toScreen(n.x, n.y, 1.1);
-        const ang = Math.atan2(ahead.y - c.y, ahead.x - c.x);
-        const flap = Math.sin(time * 20) * 0.6;
-        ctx.save();
-        ctx.translate(c.x, c.y);
-        ctx.rotate(ang);
-        for (const side of [-1, 1]) {
-          ctx.beginPath();
-          ctx.moveTo(0, 0);
-          ctx.quadraticCurveTo(-8 * z, side * (14 + 8 * flap) * z, -20 * z, side * (22 + 10 * flap) * z);
-          ctx.quadraticCurveTo(-12 * z, side * 8 * z, -16 * z, side * 2 * z);
-          ctx.closePath();
-          ctx.fillStyle = rgba(0.8 * fade); ctx.fill();
+        // its burn radius, and flames licking up from the ground it just crossed
+        M.ellipse(p.x, p.y, fx.radius || 1.6, R(2), 1, 0.6);
+        for (let i = 1; i <= 6; i++) {
+          const q = at(t - i * 0.035), g = S(q.x, q.y);
+          M.flame(g.x, g.y, Math.round((9 - i) * fade), 2, i * 2.1);
         }
-        ctx.restore();
-        glow(c, 14 * z, fade, '#fde68a');
-        ring(p.x, p.y, fx.radius || 1.6, 0.05 * fade, 0.3 * fade, 1);
+        // the ember tail at flight height
+        for (let i = 10; i >= 1; i--) {
+          const q = at(t - i * 0.016), e = S(q.x, q.y, 1.1);
+          blob(e, Math.max(0, 9 - i * 0.75) * T, R(TOP - 1 - i * 0.38), 0.8);
+        }
+        const c = S(p.x, p.y, 1.1), ahead = S(n.x, n.y, 1.1);
+        const f = rot(c, Math.atan2(ahead.y - c.y, ahead.x - c.x), T * 1.8), flap = Math.sin(time * 20);
+        for (const side of [-1, 1]) {
+          const tip = f(-10, side * (12 + 6 * flap));
+          poly([f(2, 0), f(-2, side * (6 + 4 * flap)), tip, f(-6, side * (5 + 2 * flap)), f(-4, side)], R(3));
+          L(f(2, 0), tip, R(5)); P(tip.x, tip.y, R(TOP), 2);
+        }
+        poly([f(-5, 0), f(-14, -4), f(-11, 0), f(-14, 4)], R(4));
+        poly([f(7, 0), f(2, -2), f(-6, 0), f(2, 2)], R(5));
+        P(f(6, 0).x, f(6, 0).y, R(TOP), 2);
         return true;
       }
 
       case 'sacrifice': {
         // Phoenix Oath: flames rush into the knight, then burst outward as a pillar and ring
-        const r = fx.radius || 3.6;
-        const c = toScreen(fx.x, fx.y, 0.6);
+        const rr = fx.radius || 3.6, c = S(fx.x, fx.y, 0.6), g = S(fx.x, fx.y);
         if (t < 0.3) {
+          // flame streams rush inward to the knight, who swells with light
           const s = t / 0.3;
+          M.ellipse(fx.x, fx.y, rr * (1 - s), R(3), 1, 0.35);
           for (let i = 0; i < 12; i++) {
-            const a = i / 12 * Math.PI * 2;
-            const o = toScreen(fx.x + Math.cos(a) * r * (1 - s), fx.y + Math.sin(a) * r * (1 - s), 0.3);
-            seg(o, { x: lerp(o.x, c.x, 0.4), y: lerp(o.y, c.y, 0.4) }, 2.5, rgba(0.9));
+            const a = (i / 12) * TAU;
+            const o = S(fx.x + Math.cos(a) * rr * (1 - s), fx.y + Math.sin(a) * rr * (1 - s), 0.3);
+            const m = { x: lerp(o.x, c.x, 0.35), y: lerp(o.y, c.y, 0.35) };
+            L(o, m, R(2), 3); L(o, m, R(TOP - 1), 1); P(o.x, o.y, R(TOP), 2);
           }
-          glow(c, 20 * z * s, s);
+          blob(c, (3 + 8 * s) * T, R(4)); blob(c, (1 + 4 * s) * T, R(TOP));
         } else {
-          const q = (t - 0.3) / 0.7;
-          ring(fx.x, fx.y, r * (1 - Math.pow(1 - q, 3)), 0.25 * (1 - q), 0.95 * (1 - q), 5);
-          const b = toScreen(fx.x, fx.y, 0), top = toScreen(fx.x, fx.y, 5 * (1 - q * 0.5));
-          const g = ctx.createLinearGradient(b.x, b.y, top.x, top.y);
-          g.addColorStop(0, rgba(0.8 * (1 - q)));
-          g.addColorStop(1, rgba(0));
-          ctx.fillStyle = g;
-          ctx.fillRect(b.x - 18 * z, top.y, 36 * z, b.y - top.y);
-          glow(c, 40 * z * (1 - q), 1 - q, '#fde68a');
+          // the pyre: a roaring column of tongues and a ring of fire rolling out
+          const q = (t - 0.3) / 0.7, e = 1 - Math.pow(1 - q, 3);
+          M.ground(fx.x, fx.y, rr * e * 0.9, (1 - q) * 0.8);
+          shock(fx.x, fx.y, rr * e, 1 - q);
+          const rise = q < 0.1 ? q / 0.1 : 1;
+          for (const i of [-3, 3, -2, 2, -1, 1, 0]) {
+            M.flame(g.x + i * 4 * T, g.y + Math.abs(i) * T, Math.round((64 - Math.abs(i) * 12) * (1 - q * 0.75) * rise), 4, i * 1.3);
+          }
+          if (q < 0.2) blob(c, (1 - q / 0.2) * 22 * T, R(TOP), 0.7);
         }
         return true;
       }
@@ -7583,137 +10064,240 @@ class IsometricRenderer {
       case 'doom': {
         if (fx.burst) {
           // the brand comes due: an implosion, then black-violet spikes
-          const c = toScreen(fx.x, fx.y, 0.8);
+          // the brand comes due: violet light is sucked in, then black spikes burst out
+          const c = S(fx.x, fx.y, 0.8), rr = fx.radius || 1.8, rp = rr * 22 * T;
           const inn = t < 0.35 ? 1 - t / 0.35 : 0, out = t < 0.35 ? 0 : (t - 0.35) / 0.65;
-          if (inn) ring(fx.x, fx.y, (fx.radius || 1.8) * inn, 0.25, 0.9, 3);
-          if (out) {
-            ring(fx.x, fx.y, (fx.radius || 1.8) * out, 0.15 * (1 - out), 0.9 * (1 - out), 3);
-            for (let i = 0; i < 9; i++) {
-              const a = i / 9 * Math.PI * 2;
-              const rr = (fx.radius || 1.8) * 14 * z * out;
-              seg(c, { x: c.x + Math.cos(a) * rr, y: c.y + Math.sin(a) * rr * 0.6 }, 3 * (1 - out), rgba(0.9 * (1 - out)));
-            }
+          if (inn) {
+            M.ellipse(fx.x, fx.y, rr * inn, R(4), 2, 0.1);
+            rays(c, 9, rp * inn, rp * inn + 6 * T, R(TOP - 1), 1, t * 4, 0.6);
+            blob(c, (6 + 6 * (1 - inn)) * T, R(3)); blob(c, (5 + 5 * (1 - inn)) * T, R(0));
           }
-          ctx.save(); ctx.globalCompositeOperation = 'source-over';
-          ctx.beginPath(); ctx.arc(c.x, c.y, 10 * z * (inn + out * 0.4), 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(15, 5, 25, ${0.8 * (1 - out)})`; ctx.fill();
-          ctx.restore();
+          if (out) {
+            shock(fx.x, fx.y, rr * out * 1.2, 1 - out);
+            for (let i = 0; i < 9; i++) {
+              const a = (i / 9) * TAU, d = rp * Math.min(1, out * 1.6);
+              const tip = { x: c.x + Math.cos(a) * d, y: c.y + Math.sin(a) * d * 0.6 };
+              L(c, tip, R(0), Math.max(1, Math.round(4 * (1 - out)))); L(c, tip, R(4 - out * 2), 1);
+              P(tip.x, tip.y, R(TOP - out * 2), 2);
+            }
+            if (out < 0.6) { blob(c, 7 * T * (1 - out), R(4)); blob(c, 6 * T * (1 - out), R(0)); }
+          }
           return true;
         }
-        // the brand hangs over its bearer, its countdown ring emptying
+        // the brand hangs over its bearer: a skull in a dark orb, its countdown ring emptying
         let mx = fx.x, my = fx.y;
         if (fx.followMob && this.lastGameState && this.lastGameState.mobs) {
           const mob = this.lastGameState.mobs.find(m => m.id === fx.followMob);
           if (mob) { mx = mob.x; my = mob.y; }
         }
-        const fade = holdFade(0.15, 0.1);
-        const p = toScreen(mx, my, 2.1);
-        ctx.beginPath(); ctx.arc(p.x, p.y, 9 * z, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (1 - t));
-        ctx.strokeStyle = rgba(0.95 * fade); ctx.lineWidth = 3 * z; ctx.stroke();
-        ctx.save(); ctx.globalCompositeOperation = 'source-over';
-        ctx.beginPath(); ctx.arc(p.x, p.y, 5.5 * z, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(20, 6, 34, ${0.85 * fade})`; ctx.fill();
-        ctx.restore();
-        glow(p, 6 * z, 0.7 * fade * (0.6 + 0.4 * Math.sin(time * (6 + t * 18))));
-        ring(mx, my, 0.75, 0, 0.45 * fade, 1.5);
+        const fade = holdFade(0.15, 0.1), p = S(mx, my, 2.1);
+        M.ellipse(mx, my, 0.75, R(3), 1, 0.45);
+        const n = 22;
+        for (let i = 0; i < n; i++) {
+          const a = -Math.PI / 2 + (i / n) * TAU, left = i / n < 1 - t;
+          P(p.x + Math.cos(a) * 15 * T, p.y + Math.sin(a) * 15 * T, left ? R(TOP - 1 - (1 - fade) * 2) : R(1), left ? 3 : 1);
+        }
+        blob(p, 11 * T, R(3)); blob(p, 10 * T, R(0));
+        const beat = Math.sin(time * (6 + t * 18)) > 0;
+        const SK = ['01110', '11111', '10101', '11111', '01010'];
+        SK.forEach((row, j) => { for (let i = 0; i < 5; i++) if (row[i] === '1') P(p.x + (i - 2) * 2 * T, p.y + (j - 2.5) * 2 * T, R(beat ? TOP : 4), 2); });
         return true;
       }
 
       case 'riposte': {
         // Sentinel: a flash of the shield and a cut straight back at the attacker
-        const a = toScreen(fx.startX, fx.startY, 0.8), b = toScreen(fx.x, fx.y, 0.8);
-        ctx.beginPath(); ctx.ellipse(a.x, a.y, 16 * z * ease, 22 * z * ease, 0, 0, Math.PI * 2);
-        ctx.strokeStyle = rgba(0.9 * k); ctx.lineWidth = 3 * z; ctx.stroke();
-        seg(a, { x: lerp(a.x, b.x, ease), y: lerp(a.y, b.y, ease) }, 4 * k, W(0.9 * k));
-        glow(b, 18 * z * k, k);
+        // Sentinel: the kite shield flashes up before him, a thrust of light answers the blow
+        const a = S(fx.startX, fx.startY, 0.8), b = S(fx.x, fx.y, 0.8);
+        const e = { x: lerp(a.x, b.x, ease), y: lerp(a.y, b.y, ease) };
+        if (k > 0.35) { L(a, e, R(2), 3); L(a, e, R(TOP), 1); }
+        else { const n = Math.max(2, Math.round(Math.hypot(e.x - a.x, e.y - a.y) / (2 * T))); for (let j = 0; j <= n; j += 2) P(lerp(a.x, e.x, j / n), lerp(a.y, e.y, j / n), R(4)); }
+        if (ease > 0.9) M.hit(fx.x, fx.y, 1.4, k);
+        const sc = Math.min(1, ease * 1.4) * (t < 0.15 ? 1.2 : 1);
+        if (sc > 0.1 && k > 0.1) {
+          const f = rot(a, 0, T * sc * 1.5);
+          const kite = [f(0, -10), f(7, -7), f(6, 2), f(0, 10), f(-6, 2), f(-7, -7)];
+          poly(kite, R(1));
+          poly(kite.map((q) => ({ x: a.x + (q.x - a.x) * 0.72, y: a.y + (q.y - a.y) * 0.72 })), R(3 + (k > 0.6 ? 1 : 0)));
+          L(f(0, -6), f(0, 6), R(TOP)); L(f(-4, -2), f(4, -2), R(TOP));
+          if (t < 0.45) { const g = f(-6 + 12 * clamp(t * 2.4), -5); P(g.x, g.y, R(TOP), 2); }
+        }
         return true;
       }
 
       case 'rebirth': {
         // Phoenix Oath: wings of fire unfold around the risen knight
-        const r = fx.radius || 4;
-        const c = toScreen(fx.x, fx.y, 1.2);
-        ring(fx.x, fx.y, r * ease, 0.22 * k, 0.95 * k, 5);
+        const rr = fx.radius || 4, c = S(fx.x, fx.y, 1.2), g = S(fx.x, fx.y);
+        M.ground(fx.x, fx.y, rr * ease * 0.85, k * 0.7);
+        shock(fx.x, fx.y, rr * ease, k);
+        // wings of fire: six long feathers a side fanning open, tips white-hot
+        const cool = (1 - k) * 2.5;
         for (const side of [-1, 1]) {
-          ctx.beginPath();
-          ctx.moveTo(c.x, c.y);
-          ctx.quadraticCurveTo(c.x + side * 40 * z * ease, c.y - 60 * z * ease, c.x + side * 80 * z * ease, c.y - 30 * z * ease);
-          ctx.quadraticCurveTo(c.x + side * 50 * z * ease, c.y - 10 * z, c.x + side * 60 * z * ease, c.y + 10 * z * ease);
-          ctx.quadraticCurveTo(c.x + side * 25 * z, c.y, c.x, c.y);
-          ctx.fillStyle = rgba(0.55 * k); ctx.fill();
-          ctx.strokeStyle = W(0.7 * k); ctx.lineWidth = 2 * z; ctx.stroke();
+          for (let i = 5; i >= 0; i--) {
+            const th = side * (0.55 + i * 0.2), len = (56 - i * 5) * T * ease * (0.92 + 0.08 * Math.sin(time * 12 + i));
+            const root = { x: c.x + side * 3 * T, y: c.y }, tip = { x: root.x + Math.sin(th) * len, y: root.y - Math.cos(th) * len * 0.8 };
+            const nx = Math.cos(th) * 3.5 * T, ny = Math.sin(th) * 3.5 * T;
+            const mid = { x: lerp(root.x, tip.x, 0.55), y: lerp(root.y, tip.y, 0.55) };
+            poly([{ x: root.x + nx * 0.4, y: root.y + ny * 0.4 }, { x: mid.x + nx, y: mid.y + ny }, tip, { x: mid.x - nx, y: mid.y - ny }, { x: root.x - nx * 0.4, y: root.y - ny * 0.4 }], R(3 - cool + (i % 2) * 0.6));
+            L(root, tip, R(5 - cool));
+            P(tip.x, tip.y, R(TOP - cool), 2);
+          }
         }
-        glow(c, 50 * z * k, k, '#fde68a');
+        M.flame(g.x, g.y, Math.round(30 * k), 4, 0);
+        blob(c, 10 * T * k * k, R(TOP));
         return true;
       }
     }
+    ctx.globalCompositeOperation = 'lighter';
     return false;
   }
 
   // Per-card signature layer drawn over the variant warrior skills
   drawWarriorVariantFlair(ctx, fx, progress, alpha, toScreen, z, rgba) {
-    const C = fx.cardId, T = ['sp_gravelord','sp_dragoon','sp_reaver','sp_runeknight','sp_sentinel','sp_duskblade','sp_titan','sp_bannerman','sp_warchief','sp_phoenix_oath'];
-    if (!T.includes(C)) return;
+    const C = fx.cardId, CARDS = ['sp_gravelord', 'sp_dragoon', 'sp_reaver', 'sp_runeknight', 'sp_sentinel', 'sp_duskblade', 'sp_titan', 'sp_bannerman', 'sp_warchief', 'sp_phoenix_oath'];
+    if (!CARDS.includes(C)) return;
     const t = progress, k = Math.max(0, 1 - t), rad = (fx.radius > 1 ? fx.radius : 2.4);
-    const cx = fx.x, cy = fx.y, c = toScreen(cx, cy, 0);
-    const W = a => `rgba(255,255,255,${a})`;
-    const ln = (x1,y1,x2,y2,w,a,col) => { ctx.strokeStyle = col || rgba(a); ctx.lineWidth = w*z; ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke(); };
-    const dt = (x,y,r,a,col) => { ctx.fillStyle = col || rgba(a); ctx.beginPath(); ctx.arc(x,y,r*z,0,Math.PI*2); ctx.fill(); };
-    if (C==='sp_gravelord') {
-      for (let i=0;i<6;i++){ const a=i/6*Math.PI*2+t*0.9, d=rad*(0.55+0.3*Math.sin(t*Math.PI+i)); const p=toScreen(cx+Math.cos(a)*d,cy+Math.sin(a)*d,(1-t)*2.6); dt(p.x,p.y,1.7+(i%2),k*0.55); }
-      for (let i=0;i<3;i++){ const a=i*2.1+0.9; ln(c.x,c.y,c.x+Math.cos(a)*rad*9*z*t,c.y+Math.sin(a)*rad*4.5*z*t,2,k*0.5); }
-      return;
+    const cx = fx.x, cy = fx.y;
+    if (cx === undefined || cy === undefined || isNaN(cx) || isNaN(cy) || k <= 0.02) return;
+    // pixel kit: opaque ramp colours on the texel grid; fading = cooling down the ramp
+    const M = this.spMotifs(ctx, fx, progress);
+    const T = M.tex, R = M.R, TOP = M.top, TAU = Math.PI * 2, hash = M.hash, P = M.px, L = M.line;
+    const CT = M.card.length - 1;
+    const Cr = (i) => M.card[Math.max(0, Math.min(CT, Math.round(i)))];
+    const S = (x, y, h = 0) => toScreen(x, y, h), c = S(cx, cy);
+    const cool = (i) => R(i - (1 - k) * 3);
+    const sq = (o, r, a, h = 0) => ({ x: o.x + Math.cos(a) * r, y: o.y + Math.sin(a) * r * 0.5 - h });
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-over';
+    switch (C) {
+      case 'sp_gravelord': {
+        // stone chunks wrenched up out of the ground, a few fresh cracks under them
+        if (k > 0.25) for (let i = 0; i < 3; i++) { const a = i * 2.1 + 0.9; M.crack(cx, cy, cx + Math.cos(a) * rad * 0.9, cy + Math.sin(a) * rad * 0.9, i * 31, Math.min(1, t * 2.5)); }
+        for (let i = 0; i < 6; i++) {
+          const a = (i / 6) * TAU + t * 0.9, d = rad * (0.55 + 0.3 * Math.sin(t * Math.PI + i));
+          const p = S(cx + Math.cos(a) * d, cy + Math.sin(a) * d, (1 - t) * 2.6 * Math.min(1, t * 6));
+          const s = 3 + (i % 2);
+          P(p.x, p.y, R(1), s); P(p.x - T, p.y - T, cool(4), s - 2); P(p.x + T, p.y + T, Cr(CT - 1));
+        }
+        break;
+      }
+      case 'sp_dragoon': {
+        const sx = fx.startX !== undefined ? fx.startX : cx, sy = fx.startY !== undefined ? fx.startY : cy, s = S(sx, sy);
+        if (fx.shape === 'line' || fx.shape === 'dash' || fx.shape === 'blink') {
+          // wind-shear streaks racing ahead of the dragoon
+          const m = { x: s.x + (c.x - s.x) * t, y: s.y + (c.y - s.y) * t };
+          L(s, m, cool(4), 1);
+          const n = Math.max(2, Math.round(Math.hypot(m.x - s.x, m.y - s.y) / (3 * T)));
+          for (const off of [-4, 4]) for (let j = 0; j <= n; j++) if ((j + M.frame) % 3) P(s.x + (m.x - s.x) * (j / n) + off * 0.6 * T, s.y + (m.y - s.y) * (j / n) - off * T, cool(3));
+          L({ x: m.x - 4 * T, y: m.y }, { x: m.x + 4 * T, y: m.y }, R(TOP - 1)); P(m.x, m.y, R(TOP), 2);
+        } else {
+          for (let i = 0; i < 5; i++) {
+            const a = t * 3 + (i / 5) * TAU, p = sq(c, 14 * T * k, a, 2 * T);
+            P(p.x, p.y, cool(TOP), 2);
+            const q = sq(c, 14 * T * k, a - 0.25, 2 * T); P(q.x, q.y, cool(TOP - 2));
+          }
+        }
+        break;
+      }
+      case 'sp_reaver': {
+        // embers spiralling up off the blade
+        for (let i = 0; i < 9; i++) {
+          const a = (i / 9) * TAU + t * 1.2, d = rad * (0.35 + 0.2 * Math.sin(t * 6 + i * 1.3)), h = ((t * 4 + i / 9) % 1) * 3;
+          const p = S(cx + Math.cos(a) * d, cy + Math.sin(a) * d, h), f = 0.5 + 0.5 * Math.sin(t * 9 + i * 2.1);
+          P(p.x, p.y, cool(TOP - 1 - (1 - f) * 2 - h * 0.4), f > 0.5 ? 2 : 1);
+        }
+        break;
+      }
+      case 'sp_runeknight': {
+        // a turning ring of rune ticks that pulses with the cast
+        const beat = 0.5 + 0.5 * Math.sin(t * TAU);
+        for (let i = 0; i < 8; i++) {
+          const a = t * 2.4 + (i / 8) * TAU, r1 = rad * 14 * T * (0.8 + 0.15 * Math.sin(t * 5 + i));
+          const p1 = sq(c, r1, a), p2 = sq(c, r1 * 1.3, a);
+          L(p1, p2, Cr(CT - 1 - (1 - beat) - (1 - k) * 3)); P(p2.x, p2.y, Cr(CT - (1 - k) * 3), 2);
+        }
+        break;
+      }
+      case 'sp_sentinel': {
+        // a hexagonal ward round the guard, holy motes rising inside it
+        const rr = rad * 16 * T;
+        for (let i = 0; i < 6; i++) {
+          const a = t * 1.1 + (i / 6) * TAU, p1 = sq(c, rr, a), p2 = sq(c, rr, a + TAU / 6);
+          const n = Math.max(2, Math.round(Math.hypot(p2.x - p1.x, p2.y - p1.y) / (2 * T)));
+          for (let j = 0; j <= n; j++) if (j % 2 === 0) P(p1.x + (p2.x - p1.x) * (j / n), p1.y + (p2.y - p1.y) * (j / n), cool(4));
+          P(p1.x, p1.y, cool(TOP), 2);
+        }
+        for (let i = 0; i < 3; i++) {
+          const ph = (t * 2 + i / 3) % 1, p = S(cx + Math.sin(t * 3 + i * 2) * 0.5, cy + Math.cos(t * 2.4 + i) * 0.5, ph * 2.4);
+          P(p.x, p.y, cool(TOP - 1 - ph * 2), ph < 0.5 ? 2 : 1);
+        }
+        break;
+      }
+      case 'sp_duskblade': {
+        // souls torn loose and spiralling away
+        for (let s = 0; s < 3; s++) for (let d = 0; d < 3; d++) {
+          const a = s * 2.1 + t * 5 + d * 0.5, w = (t + d * 0.35) % 1;
+          const p = S(cx + Math.cos(a) * (1.5 + d * 0.9) * w * 2, cy + Math.sin(a) * (1.5 + d * 0.9) * w, w * 2.8);
+          P(p.x, p.y, cool(5 - d - w * 2), d === 0 ? 3 : d === 1 ? 2 : 1);
+          if (d === 0) { P(p.x - T, p.y, R(0)); P(p.x + T, p.y, R(0)); }
+        }
+        break;
+      }
+      case 'sp_titan': {
+        // gravity: streaks dragged in toward the titan, a dense core
+        const pull = Math.min(1, t * 1.6);
+        for (let i = 0; i < 8; i++) {
+          const a = (i / 8) * TAU + t * 0.5, ro = rad * 22 * T, ri = ro * (1 - 0.85 * pull);
+          const p1 = sq(c, ro, a), p2 = sq(c, ri, a);
+          L(p1, p2, cool(2)); P(p2.x, p2.y, cool(TOP - 1), 2);
+        }
+        P(c.x, c.y, cool(4), Math.round(3 + pull * 3)); P(c.x, c.y, cool(TOP), Math.round(1 + pull * 2));
+        break;
+      }
+      case 'sp_bannerman': {
+        // two pennants circling on their staves, gold motes drifting up
+        for (let f = 0; f < 2; f++) {
+          const a = t * 2 + f * Math.PI, p = sq(c, rad * 15 * T, a), top = { x: p.x, y: p.y - 12 * T };
+          L(p, top, cool(1), 1);
+          for (let i = 0; i < 5; i++) for (let j = 0; j < 3; j++) {
+            if (i === 4 && j === 1) continue;
+            P(top.x + (i + 1) * T, top.y + j * T + Math.round(Math.sin(t * 12 + f * 3 + i)) * T, j === 0 ? cool(5) : cool(3));
+          }
+        }
+        for (let i = 0; i < 4; i++) {
+          const ph = (t * 2.2 + i / 4) % 1, a = hash(i * 7) * TAU, d = hash(i * 3) * rad * 0.6;
+          const p = S(cx + Math.cos(a) * d, cy + Math.sin(a) * d, ph * 2.2);
+          P(p.x, p.y, cool(TOP - 1 - ph * 2), ph < 0.5 ? 2 : 1);
+        }
+        break;
+      }
+      case 'sp_warchief': {
+        // twin axe arcs whirling round the chief, embers flung off them
+        const spin = t * TAU, rr = rad * 15 * T;
+        for (let f = 0; f < 2; f++) for (let j = 0; j <= 10; j++) {
+          const a = spin + f * Math.PI + (j / 10) * 1.7, p = sq(c, rr, a);
+          P(p.x, p.y, cool(TOP - (10 - j) * 0.35), j > 6 ? 3 : 2);
+        }
+        for (let i = 0; i < 5; i++) { const a = (i / 5) * TAU + t * 4, p = sq(c, 20 * T, a, 2 * T); P(p.x, p.y, cool(TOP - 1), 2); }
+        break;
+      }
+      case 'sp_phoenix_oath': {
+        // a crown of small flames round the knight, feathers of light circling, embers rising
+        for (let i = 0; i < 10; i++) {
+          const a = (i / 10) * TAU + t * 2, p = S(cx + Math.cos(a) * rad * 0.8, cy + Math.sin(a) * rad * 0.8);
+          M.flame(p.x, p.y, Math.round((4 + 4 * hash(i + Math.floor(M.frame / 3))) * k * 1.4), 1, i);
+        }
+        for (let i = 0; i < 3; i++) {
+          const a = t * 6 + (i / 3) * TAU, p = sq(c, rad * 12 * T, a, 6 * T), q = sq(c, rad * 12 * T, a - 0.3, 6 * T);
+          L(q, p, cool(4)); P(p.x, p.y, cool(TOP), 2);
+        }
+        for (let i = 0; i < 4; i++) {
+          const ph = (t * 2.6 + i / 4) % 1, p = S(cx + Math.sin(t * 4 + i * 1.7) * 0.6, cy, ph * 2.6);
+          P(p.x, p.y, cool(TOP - 1 - ph * 3), ph < 0.4 ? 2 : 1);
+        }
+        break;
+      }
     }
-    if (C==='sp_dragoon') {
-      const sx=fx.startX!==undefined?fx.startX:cx, sy=fx.startY!==undefined?fx.startY:cy, s=toScreen(sx,sy,0);
-      if (fx.shape==='line'||fx.shape==='dash'||fx.shape==='blink') {
-        const mx=s.x+(c.x-s.x)*t, my=s.y+(c.y-s.y)*t;
-        ln(s.x,s.y,mx,my,3.5,k,W(k*0.85)); ln(s.x-3*z,s.y+4*z,mx-3*z,my+4*z,1.3,k*0.4); ln(s.x+3*z,s.y-4*z,mx+3*z,my-4*z,1.3,k*0.4); dt(mx,my,2.4,k,W(k));
-      } else { for (let i=0;i<5;i++){ const a=t*3+i/5*Math.PI*2; dt(c.x+Math.cos(a)*9*z*k,c.y+Math.sin(a)*4*z*k,1.5,k*0.8,W(k*0.9)); } }
-      return;
-    }
-    if (C==='sp_reaver') {
-      for (let i=0;i<9;i++){ const a=i/9*Math.PI*2+t*1.2, d=rad*(0.35+0.2*Math.sin(t*6+i*1.3)), h=((t*4+i/9)%1)*3, p=toScreen(cx+Math.cos(a)*d,cy+Math.sin(a)*d,h); const f=0.5+0.5*Math.sin(t*9+i*2.1); dt(p.x,p.y,1.2+f*1.2,k*f*0.8); }
-      return;
-    }
-    if (C==='sp_runeknight') {
-      const beat=0.5+0.5*Math.sin(t*Math.PI*2);
-      for (let i=0;i<8;i++){ const a=t*2.4+i/8*Math.PI*2, r1=rad*9*z*(0.8+0.15*Math.sin(t*5+i)), r2=r1*1.35; ln(c.x+Math.cos(a)*r1,c.y+Math.sin(a)*r1*0.5,c.x+Math.cos(a)*r2,c.y+Math.sin(a)*r2*0.5,1.3,k*(0.4+0.45*beat)); }
-      return;
-    }
-    if (C==='sp_sentinel') {
-      const rr=rad*11*z;
-      for (let i=0;i<6;i++){ const a=t*1.1+i/6*Math.PI*2; ln(c.x+Math.cos(a)*rr,c.y+Math.sin(a)*rr*0.5,c.x+Math.cos(a+0.52)*rr,c.y+Math.sin(a+0.52)*rr*0.5,1.2,k*0.35); }
-      for (let i=0;i<3;i++){ const ph=(t*2+i/3)%1, p=toScreen(cx+Math.sin(t*3+i*2)*0.5,cy+Math.cos(t*2.4+i)*0.5,ph*2.4); dt(p.x,p.y,1.2,k*(1-Math.abs(ph*2-1))*0.7); }
-      return;
-    }
-    if (C==='sp_duskblade') {
-      for (let s=0;s<3;s++){ for (let d=0;d<3;d++){ const a=s*2.1+t*5+d*0.5, w=(t+d*0.35)%1; const p=toScreen(cx+Math.cos(a)*(1.5+d*0.9)*w*2,cy+Math.sin(a)*(1.5+d*0.9)*w,w*2.8); dt(p.x,p.y,1.7-d*0.4,k*(1-w)*0.8); } }
-      return;
-    }
-    if (C==='sp_titan') {
-      const pull=Math.min(1,t*1.6);
-      for (let i=0;i<8;i++){ const a=i/8*Math.PI*2+t*0.5, ro=rad*15*z, ri=ro*(1-0.85*pull); ln(c.x+Math.cos(a)*ro,c.y+Math.sin(a)*ro*0.5,c.x+Math.cos(a)*ri,c.y+Math.sin(a)*ri*0.5,1.8,k*(0.25+0.55*pull)); }
-      dt(c.x,c.y,3+pull*4,k*pull*0.6,W(k*0.5));
-      return;
-    }
-    if (C==='sp_bannerman') {
-      for (let f=0;f<2;f++){ const a=t*2+f*Math.PI, px=c.x+Math.cos(a)*rad*10*z, py=c.y+Math.sin(a)*rad*5*z, wv=Math.sin(t*12+f*3)*3*z; ln(c.x,c.y,px,py,1.6,k*0.6); ln(px,py,px+7*z,py+wv,1.4,k*0.7,W(k*0.7)); ln(px+7*z,py+wv,px+13*z,py-2*z,1.4,k*0.7,W(k*0.7)); }
-      for (let i=0;i<3;i++){ const h=((t*2.2+i/3)%1)*2.2, p=toScreen(cx+(Math.random()-0.5)*rad,cy+(Math.random()-0.5)*rad,h); dt(p.x,p.y,1.1,k*0.6); }
-      return;
-    }
-    if (C==='sp_warchief') {
-      const spin=t*Math.PI*2;
-      for (let f=0;f<2;f++){ const a0=spin+f*Math.PI; ctx.beginPath(); ctx.arc(c.x,c.y,rad*10*z,a0,a0+1.7); ctx.strokeStyle=rgba(k*0.8); ctx.lineWidth=3*z; ctx.stroke(); ctx.strokeStyle=W(k*0.9); ctx.lineWidth=1.2*z; ctx.stroke(); }
-      for (let i=0;i<5;i++){ const a=i/5*Math.PI*2+t*4; dt(c.x+Math.cos(a)*12*z,c.y+Math.sin(a)*6*z,1.5,k*0.7,W(k*0.7)); }
-      return;
-    }
-    if (C==='sp_phoenix_oath') {
-      ctx.beginPath(); ctx.arc(c.x,c.y,rad*12*z*(0.9+0.1*Math.sin(t*8)),0,Math.PI*2); ctx.strokeStyle=rgba(k*0.3); ctx.lineWidth=6*z; ctx.stroke();
-      for (let i=0;i<3;i++){ const a=t*6+i/3*Math.PI*2; dt(c.x+Math.cos(a)*rad*8*z,c.y-4*z+Math.sin(a)*rad*4*z,2,k*0.9,W(k*0.9)); }
-      for (let i=0;i<4;i++){ const ph=(t*2.6+i/4)%1, p=toScreen(cx+Math.sin(t*4+i*1.7)*0.6,cy,ph*2.6); dt(p.x,p.y,1-0.5*Math.abs(ph*2-1),k*0.4); }
-      return;
-    }
+    ctx.restore();
   }
 
   drawSpToggles(mainCtx, player, z, t) {
@@ -7768,109 +10352,74 @@ class IsometricRenderer {
 
   // ---------------------------------------------------------------- Dread Lord (Colossal Black-Violet Executioner Axe)
   drawDreadLordSkill(ctx, fx, progress, toScreen, z) {
-    const P = SP_FX_PALETTES.sp_dread_lord;
     const ease = 1 - Math.pow(1 - progress, 3);
     const fade = progress < 0.2 ? progress / 0.2 : Math.pow(1 - (progress - 0.2) / 0.8, 1.35);
-    const a = (v) => Math.max(0, Math.min(1, v));
-    const col = (rgb, al) => `rgba(${rgb}, ${a(al)})`;
     const seed = ((fx.x || 0) * 19.7 + (fx.y || 0) * 31.3 + (fx.wave || 0) * 7.1) % 100;
-    const rnd = (i) => { const s = Math.sin(seed + i * 97.13) * 43758.5453; return s - Math.floor(s); };
-    const over = (fn) => { ctx.save(); ctx.globalCompositeOperation = 'source-over'; fn(); ctx.restore(); };
-    const glow = (pt, r, al = 1, tint = P.main) => {
-      if (r <= 0.5 || al <= 0.01) return;
-      const g = ctx.createRadialGradient(pt.x, pt.y, 0, pt.x, pt.y, r);
-      g.addColorStop(0, col(P.core, al));
-      g.addColorStop(0.28, col(P.light, al * 0.85));
-      g.addColorStop(0.62, col(tint, al * 0.5));
-      g.addColorStop(1, col(P.main, 0));
-      ctx.fillStyle = g;
-      ctx.beginPath(); ctx.arc(pt.x, pt.y, r, 0, Math.PI * 2); ctx.fill();
+    // ---- pixel kit: abyss ramp R(0) black-violet .. R(TOP) violet-white, all on the texel grid
+    const M = this.spMotifs(ctx, fx, progress);
+    const T = M.tex, R = M.R, TOP = M.top, TAU = Math.PI * 2, hash = M.hash;
+    const snap = (v) => Math.round(v / T) * T;
+    const S = (x, y, h = 0) => toScreen(x, y, h);
+    const L = (p, q, c, w = 1) => M.line(p, q, c, w);
+    const Px = (x, y, c, s = 1) => M.px(x, y, c, s);
+    const lerp = (u, v, s) => u + (v - u) * s;
+    const clamp = (v) => Math.max(0, Math.min(1, v));
+    const F = (i) => R(i - (1 - Math.min(1, fade * 1.3)) * 3);   // a ramp step that cools as it fades
+    const CRIM = ['#2a0610', '#6b0f24', '#b3123a', '#e11d48', '#fb7185', '#ffe4e6'];  // undying-rage accent
+    const poly = (pts, c) => {
+      ctx.fillStyle = c; ctx.beginPath();
+      pts.forEach((p, i) => (i ? ctx.lineTo(snap(p.x), snap(p.y)) : ctx.moveTo(snap(p.x), snap(p.y))));
+      ctx.closePath(); ctx.fill();
     };
-    const isoPoly = (wx, wy, r, n = 28, h = 0) => {
-      ctx.beginPath();
-      for (let i = 0; i <= n; i++) {
-        const ang = (i / n) * Math.PI * 2;
-        const p = toScreen(wx + Math.cos(ang) * r, wy + Math.sin(ang) * r, h);
-        if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+    const blob = (p, r, c, sq = 1) => {
+      const n = Math.max(0, Math.round(r / T)), m = Math.max(0, Math.round((r * sq) / T));
+      ctx.fillStyle = c;
+      for (let j = -m; j <= m; j++) {
+        const w = m ? Math.round(n * Math.sqrt(Math.max(0, 1 - (j * j) / (m * m)))) : n;
+        ctx.fillRect(snap(p.x) - w * T - T / 2, snap(p.y) + j * T - T / 2, (2 * w + 1) * T, T);
       }
     };
+    const rot = (o, ang, s) => (lx, ly) => ({ x: o.x + (lx * Math.cos(ang) - ly * Math.sin(ang)) * s, y: o.y + (lx * Math.sin(ang) + ly * Math.cos(ang)) * s });
+    const flash = (p, f, r = 16) => { if (f > 0) { blob(p, r * f * T, R(TOP - 1), 0.55); blob(p, r * 0.5 * f * T, R(TOP), 0.55); } };
+    // impact ring that crumbles into dots as f falls
+    const shock = (cx, cy, r, f, c = R(TOP)) => {
+      if (f <= 0.02 || r <= 0.05) return;
+      M.ellipse(cx, cy, r * 1.04, R(2), 1, 0.35 + 0.55 * (1 - f));
+      M.ellipse(cx, cy, r, R(TOP - 2 - (1 - f) * 2), 2, 0.05 + 0.6 * (1 - f));
+      M.ellipse(cx, cy, r, c, 1, 0.25 + 0.7 * (1 - f));
+    };
+    // a pool of abyss: dithered black-violet with a crackling lit rim
     const darkPool = (wx, wy, r, al) => {
-      if (r <= 0.05 || al <= 0.01) return;
-      over(() => {
-        isoPoly(wx, wy, r);
-        ctx.fillStyle = col(P.deep, al * 0.78);
-        ctx.fill();
-        ctx.strokeStyle = col(P.accent, al * 0.9);
-        ctx.lineWidth = 2.4 * z;
-        ctx.stroke();
-      });
+      if (r <= 0.05 || al <= 0.05) return;
+      M.pool(wx, wy, r, R(1), R(0), 0.85 * al);
+      M.ellipse(wx, wy, r, R(3 + al), 1, 0.25 + 0.5 * (1 - al));
     };
-    // Draws the colossal black-violet bearded executioner axe in screen space
-    const greatAxe = (sx, sy, rot, scale, al = 1) => {
-      if (al <= 0.02) return;
-      const s = scale * z;
-      ctx.save();
-      ctx.translate(sx, sy);
-      ctx.rotate(rot);
-      ctx.globalCompositeOperation = 'source-over';
-      // Heavy dark-iron haft + pommel spike
-      ctx.strokeStyle = col('24, 18, 34', al * 0.95);
-      ctx.lineWidth = 4.5 * s;
-      ctx.beginPath(); ctx.moveTo(-26 * s, 0); ctx.lineTo(18 * s, 0); ctx.stroke();
-      ctx.strokeStyle = col(P.accent, al * 0.75);
-      ctx.lineWidth = 1.6 * s;
-      ctx.beginPath(); ctx.moveTo(-22 * s, 0); ctx.lineTo(14 * s, 0); ctx.stroke();
-      // Colossal bearded executioner blade (top + hooked lower beard)
-      ctx.beginPath();
-      ctx.moveTo(2 * s, -3 * s);
-      ctx.lineTo(18 * s, -22 * s);
-      ctx.quadraticCurveTo(28 * s, -4 * s, 14 * s, 26 * s);
-      ctx.lineTo(-4 * s, 14 * s);
-      ctx.quadraticCurveTo(4 * s, 6 * s, 2 * s, -3 * s);
-      ctx.closePath();
-      ctx.fillStyle = col(P.deep, al * 0.95);
-      ctx.fill();
-      ctx.strokeStyle = col(P.accent, al * 0.95);
-      ctx.lineWidth = 2.4 * s;
-      ctx.stroke();
-      // Rear jagged executioner fluke
-      ctx.beginPath();
-      ctx.moveTo(2 * s, -3 * s);
-      ctx.lineTo(8 * s, -15 * s);
-      ctx.lineTo(15 * s, -8 * s);
-      ctx.closePath();
-      ctx.fillStyle = col(P.deep2, al * 0.92);
-      ctx.fill();
-      ctx.strokeStyle = col(P.light, al * 0.85);
-      ctx.lineWidth = 1.5 * s;
-      ctx.stroke();
-      // Glowing violet-white razor edge bevel + abyssal eye core
-      ctx.globalCompositeOperation = 'lighter';
-      ctx.beginPath();
-      ctx.moveTo(18 * s, -22 * s);
-      ctx.quadraticCurveTo(28 * s, -4 * s, 14 * s, 26 * s);
-      ctx.lineTo(-4 * s, 14 * s);
-      ctx.strokeStyle = col(P.core, al);
-      ctx.lineWidth = 2.8 * s;
-      ctx.stroke();
-      glow({ x: 9 * s, y: 2 * s }, 10 * s, al * 0.9, P.accent);
-      ctx.restore();
-    };
+    // forked void lightning between two screen points (dotted once it fades)
     const voidBolt = (p0, p1, al, w = 2.5, seedOff = 0) => {
-      const dx = p1.x - p0.x, dy = p1.y - p0.y;
-      const nx = -dy, ny = dx, len = Math.hypot(dx, dy) || 1;
-      const pts = [p0];
-      for (let i = 1; i < 6; i++) {
-        const t = i / 6;
-        const j = (rnd(i + seedOff) - 0.5) * 18 * z * Math.sin(t * Math.PI);
-        pts.push({ x: p0.x + dx * t + (nx / len) * j, y: p0.y + dy * t + (ny / len) * j });
-      }
-      pts.push(p1);
-      ctx.beginPath();
-      pts.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y));
-      ctx.strokeStyle = col(P.accent, al * 0.85); ctx.lineWidth = (w + 3) * z; ctx.stroke();
-      ctx.strokeStyle = col(P.core, al); ctx.lineWidth = w * z; ctx.stroke();
+      if (al > 0.3) { M.bolt(p0, p1, 0.5 + w * 0.15, seedOff * 7); return; }
+      const n = Math.max(2, Math.round(Math.hypot(p1.x - p0.x, p1.y - p0.y) / (3 * T)));
+      for (let i = 0; i <= n; i++) if (hash(i + seedOff) < al * 3) Px(lerp(p0.x, p1.x, i / n), lerp(p0.y, p1.y, i / n), R(3));
     };
+    // the colossal black-violet bearded executioner axe, as a pixel sprite
+    const greatAxe = (sx, sy, ang, scale, al = 1) => {
+      if (al <= 0.05) return;
+      const f = rot({ x: sx, y: sy }, ang, T * scale * 0.85);
+      L(f(-26, 0), f(18, 0), R(0), Math.max(2, Math.round(3 * scale)));
+      L(f(-22, 0), f(14, 0), R(2), 1);
+      L(f(-31, 0), f(-26, 0), R(4), 2);
+      poly([f(2, -3), f(18, -22), f(24, -12), f(25, 0), f(22, 12), f(14, 26), f(-4, 14), f(2, 6)], R(1));
+      poly([f(6, -2), f(17, -16), f(21, 0), f(13, 18), f(3, 9)], R(2));
+      poly([f(15, -14), f(20, -10), f(22, 0), f(19, 10), f(15, 15), f(17, 0)], R(3));   // lit bevel along the edge
+      poly([f(2, -3), f(8, -15), f(15, -8)], R(0));
+      L(f(8, -15), f(15, -8), R(4));
+      const edge = [f(18, -22), f(24, -12), f(25, 0), f(22, 12), f(14, 26)];
+      for (let i = 1; i < edge.length; i++) { L(edge[i - 1], edge[i], R(4), 2); L(edge[i - 1], edge[i], R(al > 0.5 ? TOP : 5), 1); }
+      const eye = f(10, 2);
+      Px(eye.x, eye.y, R(4), 3); Px(eye.x, eye.y, R(TOP), 1);
+    };
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-over';
+    const done = (v) => { ctx.restore(); return v; };
 
     switch (fx.skillId) {
       case 'sp_abyss_cleave': {
@@ -7881,127 +10430,108 @@ class IsometricRenderer {
         const dx = fx.x - sx, dy = fx.y - sy, len = Math.hypot(dx, dy) || 1;
         const px = -dy / len, py = dx / len;
         const w = (fx.width || 2.2) * 0.42;
-        // Obsidian void trench torn open by the axe
-        over(() => {
-          ctx.beginPath();
-          for (let i = 0; i <= 10; i++) {
-            const t = i / 10, side = (i % 2 === 0 ? 1 : -1) * w * (0.4 + 0.6 * Math.sin(t * Math.PI));
-            const p = toScreen(sx + (ex - sx) * t + px * side, sy + (ey - sy) * t + py * side, 0);
-            if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
-          }
-          for (let i = 10; i >= 0; i--) {
-            const t = i / 10, side = (i % 2 === 0 ? -1 : 1) * w * (0.35 + 0.55 * Math.sin(t * Math.PI));
-            const p = toScreen(sx + (ex - sx) * t + px * side, sy + (ey - sy) * t + py * side, 0);
-            ctx.lineTo(p.x, p.y);
-          }
-          ctx.closePath();
-          ctx.fillStyle = col(P.deep, fade * 0.9); ctx.fill();
-          ctx.strokeStyle = col(P.accent, fade * 0.95); ctx.lineWidth = 2.8 * z; ctx.stroke();
-        });
-        const p0 = toScreen(sx, sy, 0.2), p1 = toScreen(ex, ey, 0.2);
-        voidBolt(p0, p1, fade, 3.2, 1);
-        voidBolt(p0, p1, fade * 0.75, 1.8, 9);
-        // Erupting void pillars along the fissure
+        // the obsidian trench torn open by the axe: jagged black gash, violet-lit lips
+        const lipA = [], lipB = [];
+        for (let i = 0; i <= 10; i++) {
+          const t = i / 10;
+          const sa = w * Math.sin(t * Math.PI) * (0.35 + 0.3 * hash(i * 1.7));
+          const sb = -w * Math.sin(t * Math.PI) * (0.35 + 0.3 * hash(i * 2.9 + 5));
+          lipA.push(S(sx + (ex - sx) * t + px * sa, sy + (ey - sy) * t + py * sa));
+          lipB.push(S(sx + (ex - sx) * t + px * sb, sy + (ey - sy) * t + py * sb));
+        }
+        poly([...lipA, ...lipB.slice().reverse()], R(0));
+        for (let i = 1; i <= 10; i++) { L(lipA[i - 1], lipA[i], F(3), 1); L(lipB[i - 1], lipB[i], F(4), 1); }
+        const p0 = S(sx, sy, 0.2), p1 = S(ex, ey, 0.2);
+        voidBolt(p0, p1, fade, 2, 1);
+        // void geysers erupting along the fissure as it reaches them
         for (let i = 1; i <= 5; i++) {
           const t = i / 5;
           if (reach < t * 0.85) continue;
           const wx = sx + (fx.x - sx) * t, wy = sy + (fx.y - sy) * t;
-          const b = toScreen(wx, wy, 0), top = toScreen(wx, wy, 2.2 * Math.sin(Math.min(1, (reach - t * 0.7) * 3) * Math.PI));
-          ctx.beginPath(); ctx.moveTo(b.x, b.y); ctx.lineTo(top.x, top.y);
-          ctx.strokeStyle = col(P.main, fade * 0.75); ctx.lineWidth = 10 * z; ctx.stroke();
-          ctx.strokeStyle = col(P.core, fade * 0.95); ctx.lineWidth = 3 * z; ctx.stroke();
-          glow(b, 18 * z, fade * 0.85, P.accent);
+          const b = S(wx, wy), hh = 2.2 * Math.sin(Math.min(1, (reach - t * 0.7) * 3) * Math.PI);
+          M.pillar(b.x, b.y, b.y - S(wx, wy, hh).y, 2, Math.min(1, fade * 1.3));
+          Px(b.x, b.y, R(TOP), 3);
         }
-        // Giant phantom executioner axe slamming into the tip of the fissure
+        // the phantom executioner's axe slamming into the tip
         const slamT = Math.min(1, progress * 2.2);
-        const axePos = toScreen(ex, ey, (1 - slamT) * 3.2 + 0.3);
+        const axePos = S(ex, ey, (1 - slamT) * 3.2 + 0.3);
         const ang = Math.atan2(p1.y - p0.y, p1.x - p0.x) + (-1.3 + slamT * 1.65);
+        if (slamT >= 1) flash(S(ex, ey), clamp(1 - (progress - 0.45) / 0.2), 14);
         greatAxe(axePos.x, axePos.y, ang, 1.55, fade);
-        return true;
+        return done(true);
       }
 
       case 'sp_void_grasp': {
         // MOCKING DREAD ROAR: Tryndamere-style terrifying warcry + abyssal chains dragging foes inward
-        const R = fx.radius || 5.5;
-        const c = toScreen(fx.x, fx.y, 0.3);
-        darkPool(fx.x, fx.y, R * (1 - 0.55 * ease), fade * 0.85);
-        // Contracting jagged roar shockwaves
+        const Rr = fx.radius || 5.5;
+        const c = S(fx.x, fx.y, 0.3);
+        darkPool(fx.x, fx.y, Rr * (1 - 0.55 * ease) * 0.7, fade * 0.85);
+        // the roar: jagged rings collapsing inward
         for (let k = 0; k < 3; k++) {
-          const rk = R * Math.max(0.12, 1 - ((progress * 1.2 + k * 0.28) % 1) * 0.85);
-          isoPoly(fx.x, fx.y, rk, 28, 0.15);
-          ctx.strokeStyle = col(k === 0 ? P.core : P.accent, fade * (0.85 - k * 0.2));
-          ctx.lineWidth = (3.5 - k * 0.8) * z;
-          ctx.stroke();
+          const rk = Rr * Math.max(0.12, 1 - ((progress * 1.2 + k * 0.28) % 1) * 0.85);
+          M.ellipse(fx.x, fx.y, rk, k === 0 ? F(TOP) : F(4 - k), k === 0 ? 2 : 1, 0.15 + k * 0.2);
         }
-        // 8 spiked black-violet chains yanking inward toward the Dread Lord
+        // eight hooked chains yanking foes in: hollow links, a barb at the end
         for (let i = 0; i < 8; i++) {
-          const ang = (i / 8) * Math.PI * 2 + seed;
-          const pullR = R * (1 - 0.78 * ease);
-          const wx = fx.x + Math.cos(ang) * pullR, wy = fx.y + Math.sin(ang) * pullR;
-          const tip = toScreen(wx, wy, 0.25);
-          over(() => {
-            ctx.beginPath(); ctx.moveTo(c.x, c.y); ctx.lineTo(tip.x, tip.y);
-            ctx.strokeStyle = col(P.deep, fade * 0.9); ctx.lineWidth = 5 * z; ctx.stroke();
-          });
-          ctx.beginPath(); ctx.moveTo(c.x, c.y); ctx.lineTo(tip.x, tip.y);
-          ctx.setLineDash([6 * z, 4 * z]);
-          ctx.strokeStyle = col(P.light, fade * 0.9); ctx.lineWidth = 2.4 * z; ctx.stroke();
-          ctx.setLineDash([]);
-          glow(tip, 11 * z, fade * 0.85, P.accent);
+          const ang = (i / 8) * TAU + seed;
+          const pullR = Rr * (1 - 0.78 * ease);
+          const tip = S(fx.x + Math.cos(ang) * pullR, fx.y + Math.sin(ang) * pullR, 0.25);
+          const n = Math.max(2, Math.round(Math.hypot(tip.x - c.x, tip.y - c.y) / (3 * T)));
+          for (let j = 0; j <= n; j++) {
+            const q = { x: lerp(c.x, tip.x, j / n), y: lerp(c.y, tip.y, j / n) };
+            if (j % 2) Px(q.x, q.y, F(3), 2);
+            else { Px(q.x, q.y, F(4), 3); Px(q.x, q.y, R(0), 1); }
+          }
+          const ux = (tip.x - c.x) / (Math.hypot(tip.x - c.x, tip.y - c.y) || 1), uy = (tip.y - c.y) / (Math.hypot(tip.x - c.x, tip.y - c.y) || 1);
+          L(tip, { x: tip.x - ux * 4 * T - uy * 3 * T, y: tip.y - uy * 4 * T + ux * 3 * T }, F(5), 1);
+          L(tip, { x: tip.x - ux * 4 * T + uy * 3 * T, y: tip.y - uy * 4 * T - ux * 3 * T }, F(5), 1);
+          Px(tip.x, tip.y, F(TOP), 2);
         }
-        // Towering abyssal skull/helm warcry silhouette above the Dread Lord
-        const head = toScreen(fx.x, fx.y, 1.8 + ease * 0.7);
-        glow(head, 32 * z, fade * 0.85, P.main);
-        over(() => {
-          const s = (1.0 + 0.35 * ease) * z;
-          ctx.beginPath();
-          ctx.moveTo(head.x - 16 * s, head.y - 6 * s);
-          ctx.lineTo(head.x - 26 * s, head.y - 24 * s);
-          ctx.lineTo(head.x - 8 * s, head.y - 14 * s);
-          ctx.lineTo(head.x + 8 * s, head.y - 14 * s);
-          ctx.lineTo(head.x + 26 * s, head.y - 24 * s);
-          ctx.lineTo(head.x + 16 * s, head.y - 6 * s);
-          ctx.lineTo(head.x + 12 * s, head.y + 12 * s);
-          ctx.lineTo(head.x - 12 * s, head.y + 12 * s);
-          ctx.closePath();
-          ctx.fillStyle = col(P.deep, fade * 0.88); ctx.fill();
-          ctx.strokeStyle = col(P.accent, fade * 0.95); ctx.lineWidth = 2.2 * z; ctx.stroke();
-        });
-        glow({ x: head.x - 6 * z, y: head.y - 2 * z }, 7 * z, fade, P.core);
-        glow({ x: head.x + 6 * z, y: head.y - 2 * z }, 7 * z, fade, P.core);
-        return true;
+        // the towering horned helm of dread above him, eyes burning
+        const head = S(fx.x, fx.y, 1.8 + ease * 0.7), s = (1.0 + 0.35 * ease) * T * 1.1;
+        const helm = [[-16, -6], [-26, -24], [-8, -14], [8, -14], [26, -24], [16, -6], [12, 12], [-12, 12]].map(([u, v]) => ({ x: head.x + u * s, y: head.y + v * s }));
+        poly(helm, R(0));
+        for (let i = 0; i < helm.length; i++) L(helm[i], helm[(i + 1) % helm.length], F(3), 1);
+        Px(helm[1].x, helm[1].y, F(5), 2); Px(helm[4].x, helm[4].y, F(5), 2);
+        L({ x: head.x, y: head.y - 12 * s }, { x: head.x, y: head.y + 10 * s }, R(1), 1);
+        for (const e of [-1, 1]) { const q = { x: head.x + e * 6 * s, y: head.y - 2 * s }; Px(q.x, q.y, F(4), 4); Px(q.x, q.y, F(TOP), 2); }
+        for (let j = -2; j <= 2; j++) Px(head.x + j * 4 * s, head.y + 9 * s, F(4));
+        return done(true);
       }
 
       case 'sp_soul_bastion': {
         // UNDYING DREAD RAGE: Tryndamere Undying Rage crimson-violet volcano pillar & orbiting executioner axes
-        const R = (fx.radius || 3.8) * (0.45 + 0.55 * ease);
-        const c = toScreen(fx.x, fx.y, 0);
-        const top = toScreen(fx.x, fx.y, 3.6);
-        darkPool(fx.x, fx.y, R, fade * 0.9);
-        // Erupting Undying Rage pillar
-        const g = ctx.createLinearGradient(c.x, c.y, top.x, top.y);
-        g.addColorStop(0, col(P.core, fade * 0.85));
-        g.addColorStop(0.35, col(P.accent, fade * 0.65));
-        g.addColorStop(0.7, col('225, 29, 72', fade * 0.4));
-        g.addColorStop(1, col(P.main, 0));
-        ctx.fillStyle = g;
-        const pw = 38 * z * (0.7 + 0.3 * Math.sin(progress * Math.PI));
-        ctx.fillRect(c.x - pw / 2, top.y, pw, c.y - top.y);
-        // Shockwave rings
-        isoPoly(fx.x, fx.y, R, 32, 0.1);
-        ctx.strokeStyle = col(P.core, fade * 0.95); ctx.lineWidth = 3.5 * z; ctx.stroke();
-        isoPoly(fx.x, fx.y, R * 0.68, 28, 0.25);
-        ctx.strokeStyle = col('244, 63, 94', fade * 0.8); ctx.lineWidth = 2.5 * z; ctx.stroke();
-        // 3 phantom executioner axes orbiting the Undying Dread Lord
+        const Rr = (fx.radius || 3.8) * (0.45 + 0.55 * ease);
+        const c = S(fx.x, fx.y), top = S(fx.x, fx.y, 3.6);
+        darkPool(fx.x, fx.y, Rr * 0.8, fade * 0.9);
+        shock(fx.x, fx.y, Rr, fade);
+        M.ellipse(fx.x, fx.y, Rr * 0.68, CRIM[3], 1, 0.3 + 0.5 * (1 - fade));
+        // phantom executioner axes orbiting (the ones behind the pillar drawn first)
         const spin = this.animations.time * 7 + (fx.wave || 0) * 1.4;
+        const axes = [];
         for (let i = 0; i < 3; i++) {
-          const ang = spin + (i * Math.PI * 2) / 3;
-          const ax = fx.x + Math.cos(ang) * R * 0.78, ay = fx.y + Math.sin(ang) * R * 0.78;
-          const p = toScreen(ax, ay, 0.75 + 0.2 * Math.sin(ang * 2));
-          greatAxe(p.x, p.y, ang + Math.PI * 0.5, 1.05, fade * 0.95);
+          const ang = spin + (i * TAU) / 3;
+          axes.push({ ang, p: S(fx.x + Math.cos(ang) * Rr * 0.78, fx.y + Math.sin(ang) * Rr * 0.78, 0.75 + 0.2 * Math.sin(ang * 2)) });
         }
-        glow(c, 34 * z, fade * 0.85, P.accent);
-        return true;
+        axes.sort((u, v) => u.p.y - v.p.y);
+        const drawAxe = (a) => greatAxe(a.p.x, a.p.y, a.ang + Math.PI * 0.5, 0.9, fade);
+        axes.filter((a) => a.p.y < c.y).forEach(drawAxe);
+        // the undying-rage pillar: violet-white core, crimson flanks, dithering out toward the top
+        const half = Math.round(9 * (0.7 + 0.3 * Math.sin(progress * Math.PI)));
+        const rows = Math.max(1, Math.round((c.y - top.y) / T));
+        for (let r = 0; r < rows; r++) {
+          const tt = r / rows;
+          for (let i = -half; i <= half; i++) {
+            const b = FX_BAYER[((r + 64) & 3) * 4 + ((i + 64) & 3)] / 16;
+            if (b > fade * (1.1 - tt * 1.05)) continue;
+            const e = Math.abs(i) / half;
+            ctx.fillStyle = e < 0.25 ? R(TOP) : e < 0.55 ? (tt < 0.45 ? R(5) : CRIM[4]) : e < 0.85 ? CRIM[3] : R(3);
+            ctx.fillRect(snap(c.x + i * T) - T / 2, snap(c.y - r * T) - T / 2, T, T);
+          }
+        }
+        axes.filter((a) => a.p.y >= c.y).forEach(drawAxe);
+        if (progress < 0.2) flash(c, 1 - progress / 0.2, 18);
+        return done(true);
       }
 
       case 'sp_shadow_charge': {
@@ -8010,177 +10540,161 @@ class IsometricRenderer {
         const w = (fx.width || 2.2) * 0.5;
         const dx = fx.x - sx, dy = fx.y - sy, len = Math.hypot(dx, dy) || 1;
         const px = -dy / len, py = dx / len;
-        // Dark torn earth track along the spin path
-        over(() => {
-          const a0 = toScreen(sx + px * w, sy + py * w, 0), a1 = toScreen(fx.x + px * w, fx.y + py * w, 0);
-          const b1 = toScreen(fx.x - px * w, fx.y - py * w, 0), b0 = toScreen(sx - px * w, sy - py * w, 0);
-          ctx.beginPath();
-          ctx.moveTo(a0.x, a0.y); ctx.lineTo(a1.x, a1.y); ctx.lineTo(b1.x, b1.y); ctx.lineTo(b0.x, b0.y);
-          ctx.closePath();
-          ctx.fillStyle = col(P.deep, fade * 0.75); ctx.fill();
-        });
-        // 4 overlapping cyclone slash rings along the path + spinning giant axe at the head
+        const headT = Math.min(1, progress * 1.6);
+        // the torn track: claw-gouges raked across the ground behind the cyclone
+        const marks = Math.max(4, Math.round(len * 2.4));
+        for (let j = 0; j < marks; j++) {
+          const u = (j + 0.5) / marks;
+          if (u > headT) break;
+          const off = (hash(j * 3.3) - 0.5) * w * 1.4;
+          const a0 = S(sx + dx * u + px * (off - w * 0.35), sy + dy * u + py * (off - w * 0.35));
+          const a1 = S(sx + dx * (u + 0.04) + px * (off + w * 0.35), sy + dy * (u + 0.04) + py * (off + w * 0.35));
+          L(a0, a1, R(1), 2); L(a0, a1, F(4), 1);
+        }
+        // cyclone rings left along the path
         for (let i = 0; i < 4; i++) {
           const t = Math.min(1, (i / 3) * Math.min(1, progress * 1.8));
-          const wx = sx + dx * t, wy = sy + dy * t;
           const r = (fx.width || 2.2) * (0.55 + 0.35 * (i / 3));
-          isoPoly(wx, wy, r, 24, 0.35);
-          ctx.strokeStyle = col(i === 3 ? P.core : P.accent, fade * (0.45 + 0.18 * i));
-          ctx.lineWidth = (2.2 + i * 0.8) * z;
-          ctx.stroke();
+          M.ellipse(sx + dx * t, sy + dy * t, r, i === 3 ? F(TOP) : F(3 + i * 0.5), i === 3 ? 2 : 1, 0.45 - i * 0.1);
         }
-        const headT = Math.min(1, progress * 1.6);
-        const hx = sx + dx * headT, hy = sy + dy * headT;
-        const hc = toScreen(hx, hy, 0.55);
+        // the spinning slash: blade-tip smears whirling round the head, twin axes in it
+        const hc = S(sx + dx * headT, sy + dy * headT, 0.55);
         const spinAng = progress * Math.PI * 6;
-        greatAxe(hc.x, hc.y, spinAng, 1.45, fade);
-        greatAxe(hc.x, hc.y, spinAng + Math.PI, 1.15, fade * 0.7);
-        glow(hc, 28 * z, fade * 0.9, P.accent);
-        return true;
+        for (const off of [0, Math.PI]) for (let j = 0; j < 9; j++) {
+          const a = spinAng + off - j * 0.22;
+          Px(hc.x + Math.cos(a) * 30 * T, hc.y + Math.sin(a) * 15 * T, F(TOP - j * 0.5), j < 3 ? 3 : 2);
+        }
+        greatAxe(hc.x, hc.y, spinAng + Math.PI, 1.0, fade * 0.7);
+        greatAxe(hc.x, hc.y, spinAng, 1.3, fade);
+        return done(true);
       }
 
       case 'sp_soul_rend': {
         // EXECUTIONER'S BEHEADING: Massive X-guillotine cleave + downward executioner axe chop on target
-        const c = toScreen(fx.x, fx.y, 0.5);
-        const gnd = toScreen(fx.x, fx.y, 0);
+        const c = S(fx.x, fx.y, 0.5), gnd = S(fx.x, fx.y);
         darkPool(fx.x, fx.y, 1.5 * ease, fade * 0.9);
-        // Giant X-guillotine slash across the target
+        // soul siphon tether back to the caster
+        if (fx.startX !== undefined && fx.startY !== undefined) voidBolt(gnd, S(fx.startX, fx.startY, 0.6), fade * 0.85, 1.5, 5);
+        // the X-guillotine: two cuts drawn across the target, one after the other
         const slashLen = 46 * z * (0.65 + 0.35 * ease);
-        for (const ang of [-0.68, 0.68]) {
+        [-0.68, 0.68].forEach((ang, n) => {
+          const u = clamp(progress * 7 - n * 0.8);
+          if (u <= 0) return;
           const dx = Math.cos(ang) * slashLen, dy = Math.sin(ang) * slashLen * 0.75;
-          over(() => {
-            ctx.beginPath(); ctx.moveTo(c.x - dx, c.y - dy); ctx.lineTo(c.x + dx, c.y + dy);
-            ctx.strokeStyle = col(P.deep, fade * 0.9); ctx.lineWidth = 11 * z; ctx.stroke();
-          });
-          ctx.beginPath(); ctx.moveTo(c.x - dx, c.y - dy); ctx.lineTo(c.x + dx, c.y + dy);
-          ctx.strokeStyle = col(P.accent, fade * 0.95); ctx.lineWidth = 6 * z; ctx.stroke();
-          ctx.strokeStyle = col(P.core, fade); ctx.lineWidth = 2.4 * z; ctx.stroke();
-        }
-        // Colossal executioner axe guillotine dropping from above onto the target
+          const a = { x: c.x - dx, y: c.y - dy }, b = { x: lerp(a.x, c.x + dx, u), y: lerp(a.y, c.y + dy, u) };
+          L(a, b, R(0), 7); L(a, b, F(3), 4); L(a, b, F(TOP), 1);
+          if (u < 1) Px(b.x, b.y, R(TOP), 4);
+        });
+        // the executioner's axe guillotines down onto the target
         const drop = Math.min(1, progress * 2.5);
-        const axePt = toScreen(fx.x, fx.y, (1 - drop) * 3.4 + 0.4);
+        const axePt = S(fx.x, fx.y, (1 - drop) * 3.4 + 0.4);
+        if (drop >= 1) { flash(c, clamp(1 - (progress - 0.4) / 0.2), 14); shock(fx.x, fx.y, 1.6 * clamp((progress - 0.4) / 0.4), fade); }
         greatAxe(axePt.x, axePt.y, -0.9 + drop * 1.45, 1.65, fade);
-        // Soul siphon tether back to caster if startX/Y present
-        if (fx.startX !== undefined && fx.startY !== undefined) {
-          const caster = toScreen(fx.startX, fx.startY, 0.6);
-          voidBolt(gnd, caster, fade * 0.85, 2.2, 5);
-        }
-        glow(c, 32 * z, fade, P.accent);
-        return true;
+        return done(true);
       }
 
       case 'sp_dread_wave': {
         // CATACLYSMIC AXE DRAG: 140-deg upward axe rip hurling a crescent wave of obsidian spikes
-        const R = (fx.radius || 5.2) * (0.3 + 0.7 * ease);
+        const Rr = (fx.radius || 5.2) * (0.3 + 0.7 * ease);
         const arc = ((fx.arc || 140) * Math.PI) / 180;
         const base = Math.atan2(fx.dirY || 0, fx.dirX || 1);
-        const origin = toScreen(fx.x, fx.y, 0.15);
-        // Dark torn earth fan
-        over(() => {
-          ctx.beginPath();
-          ctx.moveTo(origin.x, origin.y);
-          for (let i = 0; i <= 18; i++) {
-            const a0 = base - arc / 2 + (i / 18) * arc;
-            const p = toScreen(fx.x + Math.cos(a0) * R, fx.y + Math.sin(a0) * R, 0);
-            ctx.lineTo(p.x, p.y);
-          }
-          ctx.closePath();
-          ctx.fillStyle = col(P.deep, fade * 0.78); ctx.fill();
+        const at = (a0, m, h = 0) => S(fx.x + Math.cos(a0) * Rr * m, fx.y + Math.sin(a0) * Rr * m, h);
+        // a band of torn black earth just behind the crescent (not a flat fan)
+        const outer = [], inner = [];
+        for (let i = 0; i <= 20; i++) {
+          const a0 = base - arc / 2 + (i / 20) * arc;
+          outer.push(at(a0, 1)); inner.push(at(a0, 0.62 + 0.06 * Math.sin(i * 2.7)));
+        }
+        if (fade > 0.45) poly([...outer, ...inner.slice().reverse()], R(0));
+        else for (let i = 0; i <= 20; i++) for (let j = 1; j < 4; j++) {
+          // the torn band crumbles away into scattered black clods
+          if (hash(i * 7 + j * 13) > fade * 2) continue;
+          Px(lerp(inner[i].x, outer[i].x, j / 4), lerp(inner[i].y, outer[i].y, j / 4), R(0), 3);
+        }
+        for (let i = 1; i <= 20; i++) {
+          L(inner[i - 1], inner[i], F(3), 1);
+          L(outer[i - 1], outer[i], F(4), 3); L(outer[i - 1], outer[i], F(TOP), 1);
+        }
+        // obsidian fangs erupting along the crest, white-lit tips
+        const fangs = [];
+        for (let i = 0; i < 9; i++) fangs.push(at(base - arc * 0.45 + (i / 8) * arc * 0.9, 0.86 + 0.08 * (i % 2)));
+        const fh = Math.sin(ease * Math.PI);
+        fangs.sort((u, v) => u.y - v.y).forEach((b, i) => {
+          const h = Math.round((18 + 8 * hash(i)) * fh * Math.min(1, fade * 1.5));
+          M.spike(b.x, b.y, h, 3);
+          if (h > 3) Px(b.x, b.y - h * T, R(TOP), 2);
         });
-        // Heavy crescent wave arcs
-        for (const mult of [1, 0.72]) {
-          ctx.beginPath();
-          for (let i = 0; i <= 20; i++) {
-            const a0 = base - arc / 2 + (i / 20) * arc;
-            const p = toScreen(fx.x + Math.cos(a0) * R * mult, fx.y + Math.sin(a0) * R * mult, 0.25);
-            if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
-          }
-          ctx.strokeStyle = col(mult === 1 ? P.core : P.accent, fade * (mult === 1 ? 0.95 : 0.75));
-          ctx.lineWidth = (mult === 1 ? 4.5 : 2.8) * z;
-          ctx.stroke();
-        }
-        // Erupting obsidian spikes along the outer arc
-        for (let i = 0; i < 7; i++) {
-          const a0 = base - arc * 0.45 + (i / 6) * arc * 0.9;
-          const wx = fx.x + Math.cos(a0) * R * 0.92, wy = fx.y + Math.sin(a0) * R * 0.92;
-          const b = toScreen(wx, wy, 0), top = toScreen(wx, wy, 1.5 * Math.sin(ease * Math.PI));
-          over(() => {
-            ctx.beginPath();
-            ctx.moveTo(b.x - 5 * z, b.y);
-            ctx.lineTo(top.x, top.y);
-            ctx.lineTo(b.x + 5 * z, b.y);
-            ctx.closePath();
-            ctx.fillStyle = col(P.deep, fade * 0.92); ctx.fill();
-            ctx.strokeStyle = col(P.accent, fade * 0.95); ctx.lineWidth = 1.8 * z; ctx.stroke();
-          });
-          glow(top, 9 * z, fade * 0.8, P.accent);
-        }
-        // Sweeping giant axe along the crescent wave
+        // the giant axe dragged along the crescent
         const sweepA = base - arc / 2 + ease * arc;
-        const axeTip = toScreen(fx.x + Math.cos(sweepA) * R * 0.85, fx.y + Math.sin(sweepA) * R * 0.85, 0.45);
+        const axeTip = at(sweepA, 0.85, 0.45);
         greatAxe(axeTip.x, axeTip.y, sweepA, 1.4, fade);
-        return true;
+        return done(true);
       }
 
       case 'sp_grave_rain': {
         // GUILLOTINE SKYFALL: Colossal black-violet executioner axes raining from the heavens
         if (fx.areaR && (fx.wave || 0) === 0) {
-          isoPoly(fx.areaX, fx.areaY, fx.areaR, 32, 0.05);
-          ctx.strokeStyle = col(P.accent, fade * 0.45); ctx.lineWidth = 2 * z; ctx.stroke();
+          M.ellipse(fx.areaX, fx.areaY, fx.areaR, F(3), 1, 0.45);
+          M.ellipse(fx.areaX, fx.areaY, fx.areaR * 0.97, R(1), 1, 0.6);
         }
         const fall = Math.min(1, progress * 2.1);
-        const h = (1 - fall) * 5.2;
-        const pos = toScreen(fx.x, fx.y, h);
-        const gnd = toScreen(fx.x, fx.y, 0);
-        // Vertical void skyfall beam
-        ctx.beginPath(); ctx.moveTo(pos.x, pos.y - 36 * z); ctx.lineTo(pos.x, pos.y);
-        ctx.strokeStyle = col(P.accent, fade * 0.75); ctx.lineWidth = 8 * z; ctx.stroke();
-        ctx.strokeStyle = col(P.core, fade); ctx.lineWidth = 2.5 * z; ctx.stroke();
-        // Falling colossal executioner axe embedded into the ground on impact
-        greatAxe(pos.x, pos.y, Math.PI * 0.45 + (1 - fall) * 2.2, 1.4, fade);
+        const pos = S(fx.x, fx.y, (1 - fall) * 5.2), gnd = S(fx.x, fx.y);
+        // the impact: abyss pool, cracks, a ring, a flash
         if (fall >= 0.85) {
           const imp = Math.min(1, (progress - 0.35) / 0.65);
           const hitR = (fx.radius || 1.6) * (0.4 + 0.6 * imp);
-          darkPool(fx.x, fx.y, hitR, fade * 0.85);
-          isoPoly(fx.x, fx.y, hitR, 24, 0.1);
-          ctx.strokeStyle = col(P.core, fade * 0.95); ctx.lineWidth = 3 * z; ctx.stroke();
-          glow(gnd, 24 * z, fade * 0.9, P.accent);
+          darkPool(fx.x, fx.y, hitR * 0.8, fade * 0.85);
+          for (let i = 0; i < 5; i++) {
+            const a = (i / 5) * TAU + seed;
+            M.crack(fx.x, fx.y, fx.x + Math.cos(a) * hitR * 1.2, fx.y + Math.sin(a) * hitR * 1.2, i * 17, Math.min(1, imp * 3));
+          }
+          shock(fx.x, fx.y, hitR, fade);
+          flash(gnd, clamp(1 - imp / 0.25), 13);
         }
-        return true;
+        // the skyfall streak and the falling axe
+        if (fall < 1) { const tail = { x: pos.x, y: pos.y - 36 * z }; L(tail, pos, R(3), 4); L(tail, pos, R(TOP), 1); }
+        greatAxe(pos.x, pos.y, Math.PI * 0.45 + (1 - fall) * 2.2, 1.4, fade);
+        return done(true);
       }
 
       case 'sp_void_step': {
         // OBLIVION LEAP SLAM: Leap through an abyssal tear and slam the giant axe down at destination
         const sx = fx.startX ?? fx.x, sy = fx.startY ?? fx.y;
-        const R = fx.radius || 2.8;
-        const p0 = toScreen(sx, sy, 0.2), p1 = toScreen(fx.x, fx.y, 0.2);
-        // Departure void tear
-        darkPool(sx, sy, R * 0.65 * ease, fade * 0.75);
-        // Parabolic leap arc with spinning executioner axe mid-flight
-        const arcMid = toScreen((sx + fx.x) / 2, (sy + fx.y) / 2, 2.8);
-        ctx.beginPath();
-        ctx.moveTo(p0.x, p0.y);
-        ctx.quadraticCurveTo(arcMid.x, arcMid.y, p1.x, p1.y);
-        ctx.strokeStyle = col(P.accent, fade * 0.85); ctx.lineWidth = 5 * z; ctx.stroke();
-        ctx.strokeStyle = col(P.core, fade); ctx.lineWidth = 2 * z; ctx.stroke();
-        // Destination crater + embedded giant executioner axe slam
-        const slamR = R * (0.35 + 0.65 * ease);
-        darkPool(fx.x, fx.y, slamR, fade * 0.9);
-        isoPoly(fx.x, fx.y, slamR, 28, 0.1);
-        ctx.strokeStyle = col(P.core, fade * 0.95); ctx.lineWidth = 3.5 * z; ctx.stroke();
+        const Rr = fx.radius || 2.8;
+        const p0 = S(sx, sy, 0.2), p1 = S(fx.x, fx.y, 0.2), g0 = S(sx, sy);
+        // the departure tear: a tall black rift with violet lips, closing as he goes
+        const th = 26 * T * Math.sin(Math.min(1, ease * 1.6) * Math.PI * 0.5) * fade;
+        if (th > T) {
+          const rift = [{ x: g0.x, y: g0.y - th }, { x: g0.x + 5 * T, y: g0.y - th * 0.45 }, { x: g0.x, y: g0.y + 2 * T }, { x: g0.x - 5 * T, y: g0.y - th * 0.45 }];
+          poly(rift, R(0));
+          for (let i = 0; i < 4; i++) L(rift[i], rift[(i + 1) % 4], F(4), 1);
+          L({ x: g0.x, y: g0.y - th * 0.85 }, { x: g0.x, y: g0.y - T }, F(TOP), 1);
+        }
+        M.ellipse(sx, sy, Rr * 0.5 * ease, F(3), 1, 0.4);
+        // the leap: a dotted arc of void light
+        const arcMid = S((sx + fx.x) / 2, (sy + fx.y) / 2, 2.8);
+        for (let i = 0; i <= 30; i++) {
+          const u = i / 30, a = (1 - u) * (1 - u), b = 2 * u * (1 - u), cc = u * u;
+          const q = { x: a * p0.x + b * arcMid.x + cc * p1.x, y: a * p0.y + b * arcMid.y + cc * p1.y };
+          if (hash(i * 2.3) < fade * 1.2) Px(q.x, q.y, i % 2 ? F(3) : F(TOP - 1), i % 3 ? 2 : 3);
+        }
+        // the crater where the axe slams down
+        const slamR = Rr * (0.35 + 0.65 * ease);
+        darkPool(fx.x, fx.y, slamR * 0.75, fade * 0.9);
+        shock(fx.x, fx.y, slamR, fade);
         for (let i = 0; i < 6; i++) {
-          const ang = (i / 6) * Math.PI * 2 + seed;
-          const edge = toScreen(fx.x + Math.cos(ang) * slamR, fx.y + Math.sin(ang) * slamR, 0.1);
-          voidBolt(p1, edge, fade * 0.8, 1.8, i * 3);
+          if (hash(i + Math.floor(M.frame / 3)) > fade) continue;
+          const ang = (i / 6) * TAU + seed;
+          voidBolt(p1, S(fx.x + Math.cos(ang) * slamR, fx.y + Math.sin(ang) * slamR, 0.1), fade * 0.8, 1, i * 3);
         }
         const slamDrop = Math.min(1, progress * 2.2);
-        const axeAt = toScreen(fx.x, fx.y, (1 - slamDrop) * 2.6 + 0.35);
+        const axeAt = S(fx.x, fx.y, (1 - slamDrop) * 2.6 + 0.35);
+        if (slamDrop >= 1) flash(S(fx.x, fx.y), clamp(1 - (progress - 0.45) / 0.2), 15);
         greatAxe(axeAt.x, axeAt.y, 0.55, 1.55, fade);
-        glow(p1, 30 * z, fade * 0.95, P.accent);
-        return true;
+        return done(true);
       }
     }
-    return false;
+    return done(false);
   }
 
   // ---------------------------------------------------------------- basic sweep slash
@@ -8193,6 +10707,99 @@ class IsometricRenderer {
     return { half, angle: (fx.side || 1) * (-half + 2 * half * eased), eased };
   }
 
+  // The slash of a plain swing: an upright crescent of light cut out of the character toward the
+  // facing direction. It leaves the chest, tilted like a diagonal cut (the tilt flips with each
+  // combo hit), sharpens as it travels, drags a streak behind it and sheds sparks off its edge.
+  drawSlashWave(ctx, fx, progress, o) {
+    const { screen, base, side, fade, outerR, col, rgba, z } = o;
+    const clamp01 = (v) => Math.max(0, Math.min(1, v));
+    const easeOut = (t) => 1 - Math.pow(1 - clamp01(t), 3);
+    const px = Math.max(2, Math.round(z * 1.1));
+    // screen direction of the cut (the ground plane is squashed, so the facing is too)
+    let dx = Math.cos(base), dy = Math.sin(base) * 0.55;
+    const dl = Math.hypot(dx, dy) || 1; dx /= dl; dy /= dl;
+    const chest = { x: screen.x, y: screen.y - 16 * z };
+    const reach = outerR * (fx.finisher ? 1.05 : 0.9);
+    const tilt = side * (fx.finisher ? 0.35 : 0.6);                        // diagonal cut; the other combo hit tilts the other way
+    const ang = Math.atan2(dy, dx) + Math.PI / 2 + tilt;                  // the crescent's chord, across the cut
+    const ux = Math.cos(ang), uy = Math.sin(ang);
+    const grow = easeOut(progress / 0.22);
+    const chordHalf = reach * (fx.finisher ? 0.5 : 0.42) * (0.35 + 0.65 * grow);
+    const thickMax = chordHalf * (fx.finisher ? 0.5 : 0.36);
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.lineCap = 'round';
+    const at = (age) => {                                                  // where the crescent was `age` ago
+      const t = easeOut((progress - age) / 0.62);
+      const travel = reach * (0.12 + 0.88 * t);
+      return { cx: chest.x + dx * travel, cy: chest.y + dy * travel, t };
+    };
+    // the crescent: outer edge bulges forward, inner edge follows it back, both pinched at the tips
+    const crescent = (cx, cy, half, thick, bulge) => {
+      const p1 = { x: cx - ux * half, y: cy - uy * half }, p2 = { x: cx + ux * half, y: cy + uy * half };
+      ctx.beginPath();
+      ctx.moveTo(p1.x, p1.y);
+      ctx.quadraticCurveTo(cx + dx * bulge * 2, cy + dy * bulge * 2, p2.x, p2.y);               // outer edge
+      ctx.quadraticCurveTo(cx + dx * (bulge - thick) * 2, cy + dy * (bulge - thick) * 2, p1.x, p1.y); // inner edge
+      ctx.closePath();
+      return { p1, p2 };
+    };
+
+    // motion streak: fainter, thinner copies trailing back toward the character
+    for (let g = 4; g >= 1; g--) {
+      const a = at(g * 0.045);
+      if (a.t <= 0) continue;
+      const half = chordHalf * (1 - g * 0.08);
+      crescent(a.cx, a.cy, half, thickMax * (1 - g * 0.18), half * 0.6);
+      ctx.fillStyle = rgba(col.glow, fade * (0.2 - g * 0.04));
+      ctx.fill();
+    }
+    // the cut itself
+    const head = at(0);
+    const bulge = chordHalf * 0.6;
+    const { p1, p2 } = crescent(head.cx, head.cy, chordHalf, thickMax, bulge);
+    const tail = side > 0 ? p1 : p2, tip = side > 0 ? p2 : p1;             // the swing travels tail -> tip
+    const grad = ctx.createLinearGradient(tail.x, tail.y, tip.x, tip.y);
+    grad.addColorStop(0, rgba(col.body, fade * 0.15));
+    grad.addColorStop(0.55, rgba(col.body, fade * 0.8));
+    grad.addColorStop(1, rgba(col.edge, fade));
+    ctx.fillStyle = grad;
+    ctx.fill();
+    // hot white edge along the outer curve, with a glow under it
+    const edge = () => {
+      ctx.beginPath();
+      ctx.moveTo(p1.x, p1.y);
+      ctx.quadraticCurveTo(head.cx + dx * bulge * 2, head.cy + dy * bulge * 2, p2.x, p2.y);
+    };
+    edge(); ctx.strokeStyle = rgba(col.glow, fade * 0.7); ctx.lineWidth = 4.5 * px; ctx.stroke();
+    edge(); ctx.strokeStyle = rgba(col.inner || col.edge, fade * 0.95); ctx.lineWidth = 2.2 * px; ctx.stroke();
+    edge(); ctx.strokeStyle = `rgba(255, 255, 255, ${fade})`; ctx.lineWidth = Math.max(1, px); ctx.stroke();
+
+    // a bright flash where the cut leaves the body
+    if (progress < 0.25) {
+      const k = 1 - progress / 0.25;
+      const g = ctx.createRadialGradient(chest.x, chest.y, 1, chest.x, chest.y, 18 * z);
+      g.addColorStop(0, rgba(col.edge, k * 0.9));
+      g.addColorStop(1, rgba(col.glow, 0));
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(chest.x, chest.y, 18 * z, 0, Math.PI * 2); ctx.fill();
+    }
+    // sparks flung off the leading edge
+    if (head.t > 0.1 && progress < 0.7) {
+      const n = fx.finisher ? 9 : 6;
+      for (let i = 0; i < n; i++) {
+        const u = (i + 0.5) / n, along = (u - 0.5) * 2 * chordHalf * 0.9;
+        const hz = Math.sin(i * 127.1 + (fx.bornAt || 0) * 0.001) * 43758.5453; const r = hz - Math.floor(hz);
+        const out = (bulge * (1 - Math.pow((along / chordHalf), 2)) * 1.0) + (progress * 18 + r * 10) * z * 0.6;
+        const sx = head.cx + ux * along + dx * out, sy = head.cy + uy * along + dy * out - progress * 6 * z;
+        ctx.fillStyle = rgba(i % 2 ? col.edge : col.glow, fade * (0.9 - progress));
+        ctx.fillRect(Math.round(sx), Math.round(sy), px, px);
+      }
+    }
+    ctx.restore();
+  }
+
   // A blade arc drawn flat on the ground plane (iso), sweeping from one side to
   // the other (fx.side picks which), with a tapering trail behind its edge
   drawSweepSlash(ctx, fx, progress) {
@@ -8201,12 +10808,30 @@ class IsometricRenderer {
     const z = this.camera.zoom;
     const FACING = { E: 0, SE: 0.25, S: 0.5, SW: 0.75, W: 1, NW: -0.75, N: -0.5, NE: -0.25 };
     const base = (FACING[fx.facing] !== undefined ? FACING[fx.facing] : 0.25) * Math.PI;
+    const now = performance.now();
+    if (fx.bornAt === undefined) fx.bornAt = now;
+    // a pixel hero's swing comes out of the weapon: the cleave's true cone (facing,
+    // arc, reach) laid on the ground round the gripping hand, filled from the blade out
+    if (fx.blade && fx.blade.hist.length && (fx.onBlade || now - fx.blade.at < 250)) fx.onBlade = true;
+    const bl = fx.onBlade ? fx.blade : null;
     const side = fx.side || 1;
     const { half, angle: head, eased } = this.sweepHead(fx, progress);
-    const fade = progress < 0.55 ? 1 : Math.max(0, 1 - (progress - 0.55) / 0.45);
+    // a slim, quick arc (the hits themselves carry the impact); other heroes' swings
+    // are drawn fainter so a busy fight stays readable
+    const mine = !fx.attackerId || fx.attackerId === this.localPlayerId;
+    const fade = (progress < 0.4 ? 1 : Math.max(0, 1 - (progress - 0.4) / 0.35)) * (mine ? 1 : 0.45);
     // a world circle of r tiles is r * 32√2 px wide on screen (the frame below squashes y)
     const outerR = (fx.reachTiles ? fx.reachTiles * 32 * Math.SQRT2 : (fx.radius || 2.2) * 22) * z * (0.88 + 0.12 * eased);
-    const thick = outerR * (fx.reachTiles ? (fx.finisher ? 0.36 : 0.3) : (fx.finisher ? 0.52 : 0.42));
+    const thick = outerR * (fx.reachTiles ? (fx.finisher ? 0.24 : 0.18) : (fx.finisher ? 0.36 : 0.28));
+    // The arc is anchored where the swing started (the gripping hand's spot at the first frame) and
+    // stays put while the blade travels through it, like a slash hanging in the air, instead of
+    // following the moving hand on an invisible string.
+    if (bl && !fx.pivot) fx.pivot = { x: bl.px, y: bl.py };
+    const pivot = fx.pivot || (bl ? { x: bl.px, y: bl.py } : screen);
+    if (bl) {
+      const a = head + base;
+      fx.headPt = { x: pivot.x + Math.cos(a) * outerR, y: pivot.y + Math.sin(a) * outerR * 0.55 };
+    }
 
     const SWEEP_THEMES = {
       // Warrior SP Cards
@@ -8221,7 +10846,7 @@ class IsometricRenderer {
       sp_venom_lord: { body: [22, 163, 74], edge: [240, 253, 244], glow: [74, 222, 128], inner: [134, 239, 172] }, // Virulent Acid Green
       sp_blade_dancer: { body: [234, 179, 8], edge: [255, 255, 255], glow: [253, 224, 71], inner: [250, 204, 21] }, // Blinding Plasma Flash
       sp_frost_shade: { body: [6, 182, 212], edge: [240, 253, 250], glow: [103, 232, 249], inner: [165, 243, 252] }, // Frost Phantom Shard
-      sp_eclipse_reaper: { body: [190, 18, 60], edge: [255, 228, 230], glow: [244, 63, 94], inner: [251, 113, 133] }, // Crimson Eclipse Scythe
+      sp_eclipse_reaper: { body: [91, 33, 182], edge: [237, 233, 254], glow: [139, 92, 246], inner: [167, 139, 250] }, // Void Eclipse Scythe
 
       // Mage SP Cards
       sp_pyromancer: { body: [234, 88, 12], edge: [255, 237, 213], glow: [249, 115, 22], inner: [251, 146, 60] },
@@ -8236,8 +10861,8 @@ class IsometricRenderer {
       col = SWEEP_THEMES[fx.cardId];
     } else if (fx.class === 'rogue') {
       col = fx.finisher
-        ? { body: [219, 39, 119], edge: [253, 242, 248], glow: [244, 114, 182], inner: [244, 63, 94] }
-        : { body: [168, 85, 247], edge: [240, 253, 244], glow: [74, 222, 128], inner: [192, 132, 252] };
+        ? { body: [109, 40, 217], edge: [237, 233, 254], glow: [139, 92, 246], inner: [45, 212, 191] }
+        : { body: [13, 148, 136], edge: [204, 251, 241], glow: [45, 212, 191], inner: [139, 92, 246] };
     } else if (fx.class === 'mage') {
       col = { body: [249, 115, 22], edge: [254, 240, 138], glow: [253, 224, 71], inner: [255, 255, 255] };
     } else {
@@ -8247,6 +10872,13 @@ class IsometricRenderer {
     }
     const rgba = (c, a) => `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${Math.max(0, Math.min(1, a))})`;
 
+    // A plain class swing leaves a slash that comes out of the character; SP card swings keep their
+    // themed arc (drawSweepAccent decorates that arc)
+    if (!fx.cardId) {
+      this.drawSlashWave(ctx, fx, progress, { screen, base, side, fade, outerR, col, rgba, z });
+      return;
+    }
+
     // trail runs from the start of the swing (or a fixed length behind) to the head
     const startA = -side * half;
     const trailLen = 2 * half * (fx.finisher ? 0.95 : 0.8);
@@ -8255,66 +10887,210 @@ class IsometricRenderer {
     if (span < 0.01) return;
 
     ctx.save();
-    ctx.translate(screen.x, screen.y);
+    ctx.translate(pivot.x, pivot.y);
     ctx.scale(1, 0.55);          // lay the arc on the ground plane
     ctx.rotate(base);
     ctx.globalCompositeOperation = 'lighter';
 
-    // ribbon: segments get thicker and brighter toward the head
-    const N = 18;
+    const px = Math.max(2, Math.round(z));
+
+    // --- Option 3: Classic Ragnarok Online Chunky Pixel Slash ---
+    // 1. Layered Stepped Pixelated Crescent (16-bit angular ribbon plates)
+    const N = fx.finisher ? 22 : 16;
     for (let i = 0; i < N; i++) {
       const k0 = i / N, k1 = (i + 1) / N;
+      const kMid = (k0 + k1) * 0.5;
       const a0 = fromA + (head - fromA) * k0, a1 = fromA + (head - fromA) * k1;
-      const w = thick * (0.15 + 0.85 * k1);
+
+      // Authentic RO crescent thickness profile: thickest in 70%-85% power band, tapering at tail and head
+      // a real blade trail: hair-thin where the swing began, fullest behind the edge, then a sharp point
+      const profile = k1 < 0.78 ? Math.pow(k1 / 0.78, 0.9) : Math.max(0, 1 - Math.pow((k1 - 0.78) / 0.22, 1.4));
+      const w = thick * (0.06 + 1.0 * profile);
+      // the tip path bends out as the swing commits (wind-up close to the body, full reach at the cut)
+      const rOut = outerR * (0.8 + 0.2 * Math.pow(k1, 0.7));
+      const rIn = Math.max(0, rOut - w);
+
+      // Deep outer silhouette & glow plate
+      ctx.fillStyle = rgba(col.glow, fade * (0.16 + 0.44 * kMid * kMid));
       ctx.beginPath();
-      ctx.arc(0, 0, outerR, a0, a1, side < 0);
-      ctx.arc(0, 0, outerR - w, a1, a0, side > 0);
+      ctx.arc(0, 0, rOut + 2 * px, a0, a1, side < 0);
+      ctx.arc(0, 0, Math.max(0, rIn - 2 * px), a1, a0, side > 0);
       ctx.closePath();
-      ctx.fillStyle = rgba(col.body, fade * (0.08 + 0.6 * k1 * k1));
       ctx.fill();
-    }
-    // soft outer glow and the razor edge
-    ctx.beginPath();
-    ctx.arc(0, 0, outerR + 3 * z, fromA + (head - fromA) * 0.35, head, side < 0);
-    ctx.strokeStyle = rgba(col.glow, fade * 0.4);
-    ctx.lineWidth = 7 * z;
-    ctx.stroke();
 
-    ctx.beginPath();
-    ctx.arc(0, 0, outerR, fromA + (head - fromA) * 0.2, head, side < 0);
-    ctx.strokeStyle = rgba(col.edge, fade * 0.95);
-    ctx.lineWidth = (fx.finisher ? 3.5 : 2.5) * z;
-    ctx.stroke();
-
-    // inner secondary energy speed line
-    ctx.beginPath();
-    ctx.arc(0, 0, outerR - thick * 0.55, fromA + (head - fromA) * 0.45, head, side < 0);
-    ctx.strokeStyle = rgba(col.inner || col.glow, fade * 0.65);
-    ctx.lineWidth = (fx.cardId ? 2.5 : 1.5) * z;
-    ctx.stroke();
-
-    // bright tip at the leading edge while it is still moving
-    if (eased < 1) {
-      const hx = Math.cos(head) * (outerR - thick * 0.25), hy = Math.sin(head) * (outerR - thick * 0.25);
-      const tip = ctx.createRadialGradient(hx, hy, 0, hx, hy, 14 * z);
-      tip.addColorStop(0, rgba(col.edge, fade));
-      tip.addColorStop(0.5, rgba(col.inner || col.glow, fade * 0.7));
-      tip.addColorStop(1, rgba(col.glow, 0));
-      ctx.fillStyle = tip;
+      // Main saturated pixel body plate
+      ctx.fillStyle = rgba(col.body, fade * (0.3 + 0.7 * kMid));
       ctx.beginPath();
-      ctx.arc(hx, hy, 14 * z, 0, Math.PI * 2);
+      ctx.arc(0, 0, rOut, a0, a1, side < 0);
+      ctx.arc(0, 0, rIn, a1, a0, side > 0);
+      ctx.closePath();
       ctx.fill();
-    }
-    // finisher: a shock ring at the end of the swing
-    if (fx.finisher && progress > 0.4) {
-      const r = outerR * (1 + (progress - 0.4) * 0.9);
+
+      // Incandescent blade core (white-hot razor edge spine)
+      const rCore = rOut - w * 0.28;
+      ctx.strokeStyle = rgba(col.inner || col.edge, fade * (0.55 + 0.45 * kMid));
+      ctx.lineWidth = (fx.finisher ? 3.5 : 2.2) * px;
       ctx.beginPath();
-      ctx.arc(0, 0, r, 0, Math.PI * 2);
-      ctx.strokeStyle = rgba(col.glow, (1 - progress) * 0.75);
-      ctx.lineWidth = 3.5 * z;
+      ctx.arc(0, 0, rCore, a0, a1, side < 0);
+      ctx.stroke();
+
+      ctx.strokeStyle = `rgba(255, 255, 255, ${fade * (0.45 + 0.55 * kMid)})`;
+      ctx.lineWidth = Math.max(1, px);
+      ctx.beginPath();
+      ctx.arc(0, 0, rCore, a0, a1, side < 0);
+      ctx.stroke();
+
+      // Retro Dithered Dissolve at the Tail (kMid < 0.38)
+      if (kMid < 0.38 && i % 2 === 0) {
+        const dAng = a0;
+        const dR = rOut - w * 0.4;
+        const dx = Math.cos(dAng) * dR, dy = Math.sin(dAng) * dR;
+        ctx.fillStyle = rgba(col.glow, fade * 0.6);
+        ctx.fillRect(dx - px, dy - px, px * 2, px * 2);
+        ctx.fillStyle = rgba(col.edge, fade * 0.85);
+        ctx.fillRect(dx, dy, px, px);
+      }
+
+      // Stepped Pixel Teeth on Outer Rim (Authentic retro pixel staircase effect)
+      if (kMid > 0.32 && i % 2 === 1) {
+        const tAng = a1;
+        const tx = Math.cos(tAng) * (rOut + px * 0.5), ty = Math.sin(tAng) * (rOut + px * 0.5);
+        ctx.fillStyle = rgba(col.edge, fade * 0.85);
+        ctx.fillRect(tx - px * 0.5, ty - px * 0.5, px * 1.5, px * 1.5);
+      }
+    }
+
+    // Rogue Dual-Wield Off-Hand Dagger Secondary Razor Slice
+    if (fx.class === 'rogue' && !fx.finisher) {
+      const offR = outerR * 0.82;
+      const offThick = thick * 0.65;
+      const offFromA = fromA + (head - fromA) * 0.15;
+      const offHead = head - (head - fromA) * 0.06;
+      const offN = 10;
+      for (let j = 0; j < offN; j++) {
+        const ok0 = j / offN, ok1 = (j + 1) / offN;
+        const oa0 = offFromA + (offHead - offFromA) * ok0, oa1 = offFromA + (offHead - offFromA) * ok1;
+        const ow = offThick * (0.25 + 0.75 * ok1);
+        ctx.fillStyle = rgba(col.body, fade * 0.35 * ok1);
+        ctx.beginPath();
+        ctx.arc(0, 0, offR, oa0, oa1, side < 0);
+        ctx.arc(0, 0, Math.max(0, offR - ow), oa1, oa0, side > 0);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.strokeStyle = rgba(col.edge, fade * 0.75);
+      ctx.lineWidth = Math.max(1, px);
+      ctx.beginPath();
+      ctx.arc(0, 0, offR - offThick * 0.3, offFromA, offHead, side < 0);
       ctx.stroke();
     }
-    if (fx.cardId) this.drawSweepAccent(ctx, fx, { outerR, thick, head, fromA, fade, eased, z });
+
+    // Rogue Finisher: Dual Scissor X-Cross Execution Slice
+    if (fx.class === 'rogue' && fx.finisher) {
+      const crossFromA = -fromA;
+      const crossHead = -head;
+      const crossN = 12;
+      for (let j = 0; j < crossN; j++) {
+        const ck0 = j / crossN, ck1 = (j + 1) / crossN;
+        const ca0 = crossFromA + (crossHead - crossFromA) * ck0, ca1 = crossFromA + (crossHead - crossFromA) * ck1;
+        const cw = thick * (0.2 + 0.8 * ck1);
+        ctx.fillStyle = rgba(col.body, fade * 0.45 * ck1);
+        ctx.beginPath();
+        ctx.arc(0, 0, outerR * 0.95, ca0, ca1, side > 0);
+        ctx.arc(0, 0, Math.max(0, outerR * 0.95 - cw), ca1, ca0, side < 0);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.strokeStyle = `rgba(255, 255, 255, ${fade * 0.85})`;
+      ctx.lineWidth = 1.8 * px;
+      ctx.beginPath();
+      ctx.arc(0, 0, outerR * 0.95 - thick * 0.25, crossFromA, crossHead, side > 0);
+      ctx.stroke();
+    }
+
+    // Mage Concentric Pulsating Celestial Wave Rings
+    if (fx.class === 'mage') {
+      const pulseCount = 3;
+      for (let p = 0; p < pulseCount; p++) {
+        const ringProg = ((progress * 3.0 + p * 0.33) % 1.0);
+        const ringR = outerR * (0.35 + 0.65 * ringProg);
+        const ringAlpha = fade * (1.0 - ringProg) * 0.6;
+        ctx.strokeStyle = rgba(col.glow, ringAlpha);
+        ctx.lineWidth = Math.max(1, px * (1.5 - ringProg));
+        ctx.beginPath();
+        ctx.arc(0, 0, ringR, fromA, head, side < 0);
+        ctx.stroke();
+      }
+    }
+
+    // 2. Chunky Square Pixel Sparks Ejected Along the Arc Tangent
+    const sparkCount = fx.finisher ? 12 : 8;
+    for (let s = 0; s < sparkCount; s++) {
+      const sSeed = ((s * 7919 + (fx.bornAt || 0) * 0.05) % 1000) / 1000;
+      const sProg = (progress * 2.2 + sSeed) % 1.0;
+      if (sProg > 0.85) continue;
+      const sAng = fromA + (head - fromA) * (0.25 + 0.75 * sSeed);
+      const tang = sAng + (side > 0 ? 0.35 : -0.35);
+      const dist = outerR + sProg * (18 + sSeed * 32) * z;
+      const spx = Math.cos(tang) * dist;
+      const spy = Math.sin(tang) * dist;
+      const spA = fade * (1.0 - sProg);
+      const spSize = (sSeed > 0.55 ? 2 : 1) * px;
+
+      ctx.fillStyle = rgba(col.glow, spA * 0.85);
+      ctx.fillRect(spx - spSize, spy - spSize, spSize * 2, spSize * 2);
+      ctx.fillStyle = rgba(col.edge || [255, 255, 255], spA);
+      ctx.fillRect(spx - Math.floor(px * 0.5), spy - Math.floor(px * 0.5), px, px);
+    }
+
+    // 3. Leading Blade Head / Flared Pixel Starburst Tip
+    if (eased < 1) {
+      const hx = Math.cos(head) * (outerR - thick * 0.25);
+      const hy = Math.sin(head) * (outerR - thick * 0.25);
+
+      // White-hot core diamond plate
+      ctx.fillStyle = `rgba(255, 255, 255, ${fade})`;
+      ctx.fillRect(hx - px * 1.5, hy - px * 1.5, px * 3, px * 3);
+
+      // Extended cross beams
+      ctx.fillStyle = rgba(col.edge, fade * 0.95);
+      ctx.fillRect(hx - px * 4, hy - px * 0.75, px * 8, px * 1.5);
+      ctx.fillRect(hx - px * 0.75, hy - px * 4, px * 1.5, px * 8);
+
+      // Diagonal pixel glints
+      ctx.fillStyle = rgba(col.inner || col.glow, fade * 0.8);
+      ctx.fillRect(hx - px * 2.5, hy - px * 2.5, px * 1.2, px * 1.2);
+      ctx.fillRect(hx + px * 1.3, hy - px * 2.5, px * 1.2, px * 1.2);
+      ctx.fillRect(hx - px * 2.5, hy + px * 1.3, px * 1.2, px * 1.2);
+      ctx.fillRect(hx + px * 1.3, hy + px * 1.3, px * 1.2, px * 1.2);
+
+      // Flared blade fang wing (angled back against swing)
+      const wingA = head - side * 0.4;
+      const wx = hx + Math.cos(wingA) * px * 3;
+      const wy = hy + Math.sin(wingA) * px * 3;
+      ctx.fillStyle = rgba(col.edge, fade * 0.9);
+      ctx.fillRect(wx - px, wy - px, px * 2, px * 2);
+    }
+
+    // 4. Finisher: Stepped Octagonal / Diamond Pixel Shock Ring
+    if (fx.finisher && progress > 0.38) {
+      const ringProg = (progress - 0.38) / 0.62;
+      const r = outerR * (1 + ringProg * 0.95);
+      const ringFade = (1 - ringProg) * 0.85;
+      const ringSteps = 16;
+      ctx.fillStyle = rgba(col.glow, ringFade);
+      for (let s = 0; s < ringSteps; s++) {
+        const ra0 = (s / ringSteps) * Math.PI * 2;
+        const rx = Math.cos(ra0) * r, ry = Math.sin(ra0) * r;
+        ctx.fillRect(rx - px, ry - px, px * 2, px * 2);
+      }
+      ctx.strokeStyle = rgba(col.edge, ringFade);
+      ctx.lineWidth = 2 * px;
+      ctx.beginPath();
+      ctx.arc(0, 0, r, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    this.drawSweepAccent(ctx, fx, { outerR, thick, head, fromA, fade, eased, z });
     ctx.restore();
   }
 
@@ -8334,30 +11110,35 @@ class IsometricRenderer {
 
     if (fx.type === 'sweeping_edge') {
       const { angle, eased } = this.sweepHead(fx, progress);
-      if (eased >= 1) return;
-      const p = this.sweepPointWorld(fx, angle, fx.reachTiles ? fx.reachTiles * 32 * Math.SQRT2 : (fx.radius || 2.2) * 22);
+      if (eased >= 1 || Math.random() > 0.55) return;
+      const bl = fx.onBlade ? fx.blade : null;
+      const p = bl && fx.headPt
+        ? Isometric.screenToWorld(fx.headPt.x, fx.headPt.y, this.camera, this.viewW, this.viewH)
+        : this.sweepPointWorld(fx, angle, fx.reachTiles ? fx.reachTiles * 32 * Math.SQRT2 : (fx.radius || 2.2) * 22);
       const cardId = fx.cardId;
-      let pType = fx.class === 'rogue' ? 'slash' : 'spark';
-      if (cardId === 'sp_berserker') pType = 'fire';
-      else if (cardId === 'sp_frost_templar' || cardId === 'sp_frost_shade') pType = 'ice';
-      else if (cardId === 'sp_dread_lord' || cardId === 'sp_nightblade') pType = 'shadow';
-      else if (cardId === 'sp_blade_dancer' || cardId === 'sp_crusader' || cardId === 'sp_storm_herald') pType = 'spark';
-      this.addParticles(p.x, p.y, pType, fx.finisher ? 2 : 1, { speed: 2.4, z: 0.4, sizeScale: 0.7 });
+      let pType = fx.class === 'rogue' ? 'slash' : fx.class === 'mage' ? 'arcane' : 'spark';
+      if (cardId === 'sp_berserker' || cardId === 'sp_pyromancer') pType = 'fire';
+      else if (cardId === 'sp_frost_templar' || cardId === 'sp_frost_shade' || cardId === 'sp_cryo_sage') pType = 'ice';
+      else if (cardId === 'sp_dread_lord' || cardId === 'sp_nightblade' || cardId === 'sp_void_archon') pType = 'shadow';
+      else if (cardId === 'sp_blade_dancer' || cardId === 'sp_crusader' || cardId === 'sp_storm_herald' || cardId === 'sp_tempest') pType = 'spark';
+      else if (cardId === 'sp_venom_lord') pType = 'poison';
+      else if (cardId === 'sp_chronomancer') pType = 'spark';
+      this.addParticles(p.x, p.y, pType, fx.finisher ? 3 : 2, { speed: fx.class === 'rogue' ? 3.0 : 2.5, z: 0.45, sizeScale: 0.85 });
+      this.addParticles(p.x, p.y, 'slash', fx.finisher ? 2 : 1, { speed: 2.0, z: 0.4, sizeScale: 0.8 });
       return;
     }
 
     if (fx.type === 'sp_skill') {
       if (fx.followId || fx.followMob) return; // drawn around a moving hero / monster, not at fx.x/y
-      const [main] = SP_ELEMENT_PARTICLES[fx.element] || SP_ELEMENT_PARTICLES.neutral;
       if (fx.shape === 'line' || fx.shape === 'dash') {
         const t = Math.random();
-        this.addParticles(fx.startX + (fx.x - fx.startX) * t, fx.startY + (fx.y - fx.startY) * t, main, 1, { speed: 1.2, z: 0.2 });
+        this.pxTrickle(fx, fx.startX + (fx.x - fx.startX) * t, fx.startY + (fx.y - fx.startY) * t);
       } else if (fx.shape === 'buff') {
         const a = Math.random() * Math.PI * 2;
-        this.addParticles(fxX + Math.cos(a) * 0.7, fxY + Math.sin(a) * 0.7, main, 1, { speed: 0.8, z: 0.2 });
+        this.pxTrickle(fx, fxX + Math.cos(a) * 0.7, fxY + Math.sin(a) * 0.7);
       } else if (fx.radius) {
         const a = Math.random() * Math.PI * 2, r = fx.radius * Math.sqrt(Math.random());
-        this.addParticles(fxX + Math.cos(a) * r, fxY + Math.sin(a) * r, main, 1, { speed: 1.0, z: 0.1 });
+        this.pxTrickle(fx, fxX + Math.cos(a) * r, fxY + Math.sin(a) * r);
       }
       return;
     }
@@ -8476,7 +11257,7 @@ class IsometricRenderer {
     } else if (fx.type === 'poison_darts') {
       const angle = Math.random() * Math.PI * 2;
       const r = 2.0 * progress;
-      this.addParticles(fxX + Math.cos(angle) * r, fxY + Math.sin(angle) * r, 'poison', 1, { speed: 1.4 });
+      if (Math.random() < 0.4) this.addParticles(fxX + Math.cos(angle) * r, fxY + Math.sin(angle) * r, 'spark', 1, { speed: 1.4 });
     } else if (fx.type === 'caltrops') {
       const angle = Math.random() * Math.PI * 2;
       const r = (fx.radius || 3.2) * Math.random();
@@ -8765,6 +11546,7 @@ class IsometricRenderer {
 
   render(gameState, localPlayerId, selectedTargetId, dt) {
     this.lastGameState = gameState;
+    this.localPlayerId = localPlayerId;
     this.animations.time += dt;
     this.updateCamera(dt);
     // While the zoom is still changing (wheel / pinch) the zoom-keyed caches
@@ -8865,7 +11647,46 @@ class IsometricRenderer {
     ctx.restore();
 
     // Summoning circles lie on the floor, under everything standing on it
-    if (this.mobSpawns.size) this.drawMobSpawnCircles(ctx);
+    if (this.mobSpawns.size) {
+      // summon circles are ground effects: pixelated in their own layer, under the monsters
+      const g = this.potatoMode ? null : this.beginFxPixels(ctx);
+      this.drawMobSpawnCircles(g || ctx);
+      if (g) this.endFxPixels(ctx);
+    }
+
+    // Lightning novas (Thunder Nova, Thunderclap) burst across the floor: drawn here,
+    // under the heroes and monsters standing on it, not over them
+    // Player trails (Effects dialog): shed behind every hero wearing one, drawn on the floor under the heroes
+    if (window.TrailFx && !this.potatoMode) this.drawPlayerTrails(ctx, gameState.players, dt || 0.016, localPlayerId);
+
+    const groundNovas = (this.animations.skillEffects || []).filter(fx => this.isGroundNova(fx) && fx.life > 0);
+    if (groundNovas.length) {
+      const g = this.beginFxPixels(ctx);
+      if (g) {
+        for (const fx of groundNovas) {
+          const progress = 1.0 - (fx.life / fx.maxLife);
+          const alpha = Math.max(0, fx.life / fx.maxLife);
+          const base = g.getTransform();
+          try {
+            if (fx.type === 'death_blossom' || fx.type === 'eclipse_execution') {
+              // stays on the caster's feet while it plays
+              const pl = fx.playerId && gameState.players ? gameState.players.find(p => p.id === fx.playerId) : null;
+              if (pl && !isNaN(pl.x) && !isNaN(pl.y)) { fx.x = pl.x; fx.y = pl.y; }
+              const toS = (wx, wy, wz = 0) => Isometric.worldToScreen(wx, wy, wz, this.camera, this.viewW, this.viewH);
+              this.drawBaseRogueSkill(g, fx, progress, alpha, toS, this.camera.zoom);
+            } else {
+              this.drawSpSkill(g, fx, progress, alpha);
+              this.drawFxPixelExtras(g, fx, progress, alpha);
+            }
+          } catch (err) {
+            this.reportDrawError('sp_skill:' + (fx.skillId || fx.shape || fx.type), err);
+            this.recoverContext(g, base);
+            fx.life = 0;
+          }
+        }
+        this.endFxPixels(ctx);
+      }
+    }
 
     // Town ambience (cosmetic): cloud and bird shadows lie on the ground
     let townLife = null;
@@ -8916,6 +11737,7 @@ class IsometricRenderer {
     if (map.obstacles) {
       const zoom = this.camera.zoom;
       for (const obs of map.obstacles) {
+        if (obs.destroyed) continue;                 // a broken field prop is gone until it grows back
         if (obs.type !== 'dungeon_door') {
           const iso = Isometric.worldToIso(obs.x, obs.y);
           const sx = (iso.x - this.camera.x) * zoom + w / 2;
@@ -9008,52 +11830,52 @@ class IsometricRenderer {
     for (const item of renderList) {
       // one broken object must not take the rest of the frame (or the transform) with it
       try {
-      switch (item.type) {
-        case 'dungeon_wall':
-          this.drawDungeonWall(ctx, item.x, item.y, map, item.isBackWall);
-          break;
-        case 'obstacle':
-          if (item.data.hue) {
-            // zone-tinted props (e.g. purple crystals, autumn trees); static
-            // ones are tinted once and cached, animated ones once per frame
-            const obs = item.data;
-            const at = Isometric.worldToScreen(obs.x, obs.y, 0, this.camera, w, h);
-            const z = this.camera.zoom;
-            this.drawTinted(ctx, `hue-rotate(${obs.hue}deg)`, at.x, at.y, { halfW: 80 * z, up: 120 * z, down: 40 * z },
-              c => this.drawObstacle(c, obs), obs, STATIC_TINT_PROPS.has(obs.type) ? 0 : ANIMATED_TINT_REFRESH_MS);
-          } else {
-            this.drawObstacle(ctx, item.data);
+        switch (item.type) {
+          case 'dungeon_wall':
+            this.drawDungeonWall(ctx, item.x, item.y, map, item.isBackWall);
+            break;
+          case 'obstacle':
+            if (item.data.hue) {
+              // zone-tinted props (e.g. purple crystals, autumn trees); static
+              // ones are tinted once and cached, animated ones once per frame
+              const obs = item.data;
+              const at = Isometric.worldToScreen(obs.x, obs.y, 0, this.camera, w, h);
+              const z = this.camera.zoom;
+              this.drawTinted(ctx, `hue-rotate(${obs.hue}deg)`, at.x, at.y, { halfW: 80 * z, up: 120 * z, down: 40 * z },
+                c => this.drawObstacle(c, obs), obs, STATIC_TINT_PROPS.has(obs.type) ? 0 : ANIMATED_TINT_REFRESH_MS);
+            } else {
+              this.drawObstacle(ctx, item.data);
+            }
+            break;
+          case 'chest':
+            this.drawChest(ctx, item.data);
+            break;
+          case 'ground_item':
+            this.drawGroundItem(ctx, item.data);
+            break;
+          case 'mob': {
+            // Freshly summoned mobs fade in and rise out of the ground
+            const k = this.mobSpawnProgress(item.data.id);
+            if (k < 1) {
+              ctx.save();
+              ctx.globalAlpha = k;
+              ctx.translate(0, (1 - k) * 22 * this.camera.zoom);
+            }
+            this.drawMob(ctx, item.data, item.data.id === selectedTargetId);
+            if (this.mobHits.has(item.data.id)) (this._impactMobs || (this._impactMobs = [])).push(item.data);
+            if (k < 1) ctx.restore();
+            break;
           }
-          break;
-        case 'chest':
-          this.drawChest(ctx, item.data);
-          break;
-        case 'ground_item':
-          this.drawGroundItem(ctx, item.data);
-          break;
-        case 'mob': {
-          // Freshly summoned mobs fade in and rise out of the ground
-          const k = this.mobSpawnProgress(item.data.id);
-          if (k < 1) {
-            ctx.save();
-            ctx.globalAlpha = k;
-            ctx.translate(0, (1 - k) * 22 * this.camera.zoom);
-          }
-          this.drawMob(ctx, item.data, item.data.id === selectedTargetId);
-          this.drawMobImpact(ctx, item.data);
-          if (k < 1) ctx.restore();
-          break;
+          case 'player':
+            this.drawPlayer(ctx, item.data, item.isLocal);
+            break;
+          case 'townsfolk':
+            this.drawTownsfolk(ctx, item.data);
+            break;
+          case 'town_critter':
+            townLife.drawCritter(ctx, this, item.data);
+            break;
         }
-        case 'player':
-          this.drawPlayer(ctx, item.data, item.isLocal);
-          break;
-        case 'townsfolk':
-          this.drawTownsfolk(ctx, item.data);
-          break;
-        case 'town_critter':
-          townLife.drawCritter(ctx, this, item.data);
-          break;
-      }
       } catch (err) {
         this.reportDrawError(item.type + (item.data && item.data.type ? ':' + item.data.type : ''), err);
         this.recoverContext(ctx, baseTransform);
@@ -10071,6 +12893,35 @@ class IsometricRenderer {
   // (baseX, baseY) is where the flame sits; scale 1 is a hand-torch flame.
   drawTorchFlame(ctx, baseX, baseY, z, scale, seed) {
     const t = this.animations.time;
+    const theme = DUNGEON_THEME_TORCH[this.currentTheme];
+    if (window.PixelProps) {
+      // pixel flame (4 frames, tinted by the dungeon theme) over a dithered warm glow
+      const P = 1.3 * z * scale * 0.8;
+      const img = window.PixelProps.flame(Math.floor(t * 10 + seed),
+        theme ? theme.outer : 'rgb(234, 88, 12)', theme ? theme.mid : 'rgb(250, 204, 21)', theme ? theme.inner : 'rgb(255, 251, 235)');
+      ctx.save();
+      ctx.imageSmoothingEnabled = false;
+      const gp = Math.max(2, Math.round(P));
+      const gr = 14 * z * scale, gcx = baseX, gcy = baseY - 6 * z * scale;
+      ctx.fillStyle = theme ? theme.haloMid : 'rgba(249, 115, 22, 0.16)';
+      for (let gy = -gr; gy <= gr; gy += gp) {
+        for (let gx = -gr; gx <= gr; gx += gp) {
+          const d = Math.hypot(gx, gy * 1.3) / gr;
+          if (d > 1 || ((Math.round(gx / gp) + Math.round(gy / gp)) & 1) || d > 0.55 + 0.45 * ((Math.round(gx / gp) * 7 + Math.round(gy / gp) * 3) % 5) / 5) continue;
+          ctx.fillRect(Math.round((gcx + gx) / gp) * gp, Math.round((gcy + gy) / gp) * gp, gp, gp);
+        }
+      }
+      ctx.drawImage(img, Math.round(baseX - 6.5 * P), Math.round(baseY - 19 * P), img.width * P, img.height * P);
+      // embers drifting up out of the flame
+      const emberColor = theme ? theme.ember : 'rgba(253, 186, 116, ';
+      for (let i = 0; i < 3; i++) {
+        const life = (t * 0.9 + i / 3 + seed * 0.13) % 1;
+        ctx.fillStyle = `${emberColor}${(1 - life) * 0.9})`;
+        ctx.fillRect(Math.round((baseX + Math.sin(seed + i * 2.1 + life * 6) * 3 * z * scale) / gp) * gp, Math.round((baseY - 18 * P - life * 16 * z * scale) / gp) * gp, gp, gp);
+      }
+      ctx.restore();
+      return;
+    }
     const flick = 1 + Math.sin(t * 13 + seed) * 0.12 + Math.sin(t * 23 + seed * 2) * 0.06;
     const sway = Math.sin(t * 6 + seed) * 1.6 * z * scale;
     const w = 5 * z * scale;
@@ -10208,6 +13059,78 @@ class IsometricRenderer {
   }
 
   // Draw Props & Obstacles
+  // One pixel-art prop from pixelProps.js, at the trees' pixel size (1 sprite
+  // pixel = 1.3 screen px at zoom 1). Animated bits (rune glow, flames,
+  // fountain water) go on top each frame.
+  drawPixelProp(ctx, obs, screen, z) {
+    const PP = window.PixelProps;
+    // town props carry their own variant (roof colour, awning); decorations pick one by position
+    let variant = obs.variant !== undefined ? obs.variant : Math.floor(PP.hash2(Math.round(obs.x * 10), Math.round(obs.y * 10)) * 3);
+    // houses: roof colour from the map, one of four builds picked by where it stands
+    if (obs.type === 'house') variant = (variant % 3) + 3 * Math.floor(PP.hash2(Math.round(obs.x * 7), Math.round(obs.y * 13)) * 4);
+    const spr = PP.sprite(obs.type, variant);
+    if (!spr) return;
+    const P = 1.3 * z, t = this.animations.time;
+    const x0 = Math.round(screen.x - spr.ax * P), y0 = Math.round(screen.y - spr.ay * P);
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    if (obs.type === 'torch') this.drawFloorFireLight(ctx, screen.x, screen.y, z, obs.x * 3.7 + obs.y * 5.3);
+    ctx.drawImage(spr.img, x0, y0, spr.img.width * P, spr.img.height * P);
+    if (spr.front) {
+      // booths: the keeper stands between the back of the booth and its counter
+      const keeper = SHOPKEEPERS[obs.type];
+      ctx.restore();
+      if (keeper && window.PixelMobs) this.drawShopkeeper(ctx, obs, keeper, z);
+      ctx.save();
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(spr.front, x0, y0, spr.front.width * P, spr.front.height * P);
+      const tag = obs.type === 'merchant' ? ['Olaf the Trader [Shop]', '#fde68a']
+        : obs.type === 'blacksmith' ? ['Brom the Master Smith [Reforge]', '#fdba74']
+          : obs.type === 'enchanter' ? ['Valka the Enchanter [Rune Forge]', '#d8b4fe'] : null;
+      if (tag) {
+        ctx.font = '15px "DotGothic16", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#000';
+        ctx.fillText(tag[0], screen.x + 1, y0 + 6 * z + 1);
+        ctx.fillStyle = tag[1];
+        ctx.fillText(tag[0], screen.x, y0 + 6 * z);
+      }
+    }
+    if (spr.glow) {
+      // carved runes pulse
+      ctx.globalAlpha = 0.55 + 0.45 * (0.5 + 0.5 * Math.sin(t * 4 + obs.y));
+      ctx.drawImage(spr.glow, x0, y0, spr.glow.width * P, spr.glow.height * P);
+      ctx.globalAlpha = 1;
+    }
+    if (spr.flameY !== undefined) {
+      const seed = obs.x * 3.7 + obs.y * 5.3;
+      this.drawTorchFlame(ctx, screen.x, y0 + spr.flameY * P, z, obs.type === 'torch' ? 1.25 : 1, seed);
+    }
+    if (spr.water) {
+      // water: an expanding ripple on each pool, sheets falling from the mid bowl, the geyser and the floating crystal
+      const W = spr.water, snap = (v) => Math.round(v / P) * P;
+      const dot = (sx, sy, col) => { ctx.fillStyle = col; ctx.fillRect(snap(x0 + sx * P), snap(y0 + sy * P), P, P); };
+      const rip = (t * 1.5) % 1;
+      const rx = (8 + rip * 12), ry = rx * (W.ry / W.rx);
+      for (let k = 0; k < 48; k++) {
+        const a = (k / 48) * Math.PI * 2;
+        if ((k + Math.floor(t * 20)) % 4 === 0) continue;
+        dot(W.cx + 0.5 + Math.cos(a) * rx, W.by - 0.8 + Math.sin(a) * ry, rip < 0.6 ? '#e3f6ff' : '#8fd5f7');
+      }
+      for (const sx of [W.cx - 9, W.cx + 10]) {
+        for (let y = 25; y < 38; y++) if ((y + Math.floor(t * 18)) % 3) dot(sx, y, (y + Math.floor(t * 18)) % 3 === 1 ? '#e3f6ff' : '#8fd5f7');
+      }
+      const gy = 8 + Math.round(Math.sin(t * 8) * 1.5);
+      dot(W.cx, gy, '#ffffff'); dot(W.cx + 1, gy, '#ffffff'); dot(W.cx - 1, gy + 1, '#8fd5f7'); dot(W.cx + 2, gy + 1, '#8fd5f7');
+      const cy = 2 + Math.round(Math.sin(t * 3) * 1.5);
+      const spin = Math.floor(t * 4) % 2;
+      dot(W.cx, cy - 2, '#e0f2fe'); dot(W.cx, cy + 2, '#22d3ee');
+      dot(W.cx - 1 - spin, cy, '#67e8f9'); dot(W.cx + 1 + spin, cy, '#67e8f9');
+      dot(W.cx, cy - 1, '#a5f3fc'); dot(W.cx, cy, '#ffffff'); dot(W.cx, cy + 1, '#67e8f9');
+    }
+    ctx.restore();
+  }
+
   drawObstacle(ctx, obs) {
     const screen = Isometric.worldToScreen(obs.x, obs.y, 0, this.camera, this.viewW, this.viewH);
     const z = this.camera.zoom;
@@ -10247,8 +13170,8 @@ class IsometricRenderer {
         }
         const tag = obs.type === 'merchant' ? ['Olaf the Trader [Shop]', '#fde68a']
           : obs.type === 'blacksmith' ? ['Brom the Master Smith [Reforge]', '#fdba74']
-          : obs.type === 'enchanter' ? ['Valka the Enchanter [Rune Forge]', '#d8b4fe']
-          : obs.type === 'personal_chest' ? ['📦 Personal Chest [Storage]', '#fde047'] : null;
+            : obs.type === 'enchanter' ? ['Valka the Enchanter [Rune Forge]', '#d8b4fe']
+              : obs.type === 'personal_chest' ? ['📦 Personal Chest [Storage]', '#fde047'] : null;
         if (tag) {
           ctx.save();
           ctx.font = '15px "DotGothic16", monospace';
@@ -10261,6 +13184,12 @@ class IsometricRenderer {
         }
         return;
       }
+    }
+
+    // field / dungeon decorations, the town fountain and torches: pixel sprites (pixelProps.js)
+    if (window.PixelProps && window.PixelProps.TYPES.has(obs.type)) {
+      this.drawPixelProp(ctx, obs, screen, z);
+      return;
     }
 
     if ((obs.type === 'oak_tree' || obs.type === 'pine_tree') && window.TownLife) {
@@ -11100,6 +14029,11 @@ class IsometricRenderer {
     } else if (obs.type === 'field_portal') {
       // Gateway between field zones (colour/label from the destination)
       this.drawPortalGate(ctx, screen, z, obs.color || '#facc15', '#ffffff', obs.label || 'Portal', obs.x * 7 + obs.y);
+    } else if (obs.type === 'dungeon_boss_portal') {
+      const accent = obs.isReturn ? '#38bdf8' : '#f43f5e';
+      const second = obs.isReturn ? '#a78bfa' : '#fb923c';
+      const label = obs.isReturn ? 'Return to Dungeon' : 'Boss Chamber Portal';
+      this.drawPortalGate(ctx, screen, z, accent, second, label, obs.x * 7 + obs.y);
     } else if (obs.type === 'town_portal') {
       // Gateway from Frostfell returning to Town
       const rot = this.animations.time * 2.2;
@@ -12442,13 +15376,18 @@ class IsometricRenderer {
     ctx.restore();
   }
 
-  // A warrior basic swing, beat by beat: a slower wind-up (anticipation), a snap
-  // through the strike, a hit-stop freeze on contact if a monster is in reach,
-  // then the follow-through. Returns { q: pose progress 0..1, lunge: 0..1 }.
-  warriorSwing(player, attack, now, isLocal) {
+  // Hero basic attack swing and spell release beat by beat, tailored by class and SP card:
+  // wind-up (anticipation), snap through the strike/cast, class/card hit-stop freeze on contact,
+  // and follow-through. Returns { q: pose progress 0..1, lunge: 0..1 }.
+  heroAttackSwing(player, attack, now, isLocal, cls) {
+    const isWarrior = cls === 'warrior';
+    const isRogue = cls === 'rogue';
+    const isMage = cls === 'mage';
+    const cardId = attack.cardId;
+
     if (attack.baseDuration === undefined) {
       attack.baseDuration = attack.duration;
-      // something to hit in front of us? then the blow lands with a hit-stop
+      // Something to hit in front of us?
       const fv = FACING_SCREEN[attack.facing] || FACING_SCREEN.SE;
       const mobs = (this.lastGameState && this.lastGameState.mobs) || [];
       attack.connects = mobs.some(m => {
@@ -12456,52 +15395,126 @@ class IsometricRenderer {
         const dx = m.x - player.x, dy = m.y - player.y, d = Math.hypot(dx, dy);
         if (d > (m.isBoss ? 3.6 : 2.8)) return false;
         if (d < 0.6) return true;
-        const sx = (dx - dy) / d, sy = (dx + dy) * 0.5 / d; // world step -> screen direction
+        const sx = (dx - dy) / d, sy = (dx + dy) * 0.5 / d;
         return sx * fv[0] + sy * fv[1] / 0.6 > 0;
       });
-      attack.hitStop = attack.connects ? (attack.finisher ? SWING_FINISHER_HIT_STOP_MS : SWING_HIT_STOP_MS) : 0;
+
+      // Hit-stop tailored by class and SP card
+      let hitStop = 0;
+      if (attack.connects) {
+        if (isWarrior) {
+          hitStop = attack.finisher ? 120 : 70;
+          if (cardId === 'sp_dread_lord') hitStop += 35; // Colossal executioner axe
+          else if (cardId === 'sp_berserker') hitStop = Math.round(hitStop * 0.8); // Blood frenzy haste
+        } else if (isRogue) {
+          hitStop = attack.finisher ? 65 : 35; // Snappy razor cuts
+          if (cardId === 'sp_blade_dancer') hitStop = Math.round(hitStop * 0.65);
+        } else if (isMage) {
+          hitStop = 20; // Subtle spell focus surge
+        }
+      }
+      attack.hitStop = hitStop;
       attack.duration = attack.baseDuration + attack.hitStop;
     }
+
     const base = attack.baseDuration;
-    const contactMs = SWING_CONTACT * base;
+    // Contact point varies by class and SP card
+    const contactRatio = isRogue ? (cardId === 'sp_blade_dancer' ? 0.30 : 0.34)
+      : isMage ? 0.40
+      : (cardId === 'sp_berserker' ? 0.38 : SWING_CONTACT);
+    const contactMs = contactRatio * base;
     const el = now - attack.time;
     const frozen = Math.max(0, Math.min(attack.hitStop, el - contactMs));
     const p = Math.max(0, Math.min(1, (el - frozen) / base));
-    // remap swing time onto the pose keys (wind-up ends at 0.24, contact 0.44, follow-through 0.62)
+
+    // Remap swing time onto class-specific pose keys
     let q;
-    if (p < 0.3) q = 0.24 * (p / 0.3);
-    else if (p < SWING_CONTACT) q = 0.24 + 0.2 * ((p - 0.3) / (SWING_CONTACT - 0.3));
-    else if (p < 0.64) q = 0.44 + 0.18 * ((p - SWING_CONTACT) / (0.64 - SWING_CONTACT));
-    else q = 0.62 + 0.38 * ((p - 0.64) / 0.36);
-    const lunge = p < 0.3 ? -0.25 * (p / 0.3) : p < SWING_CONTACT ? -0.25 + 1.25 * ((p - 0.3) / (SWING_CONTACT - 0.3)) : p < 0.64 ? 1 : Math.max(0, 1 - (p - 0.64) / 0.3);
+    let lunge;
+    if (isRogue) {
+      // Rogue: lightning fast wind-up, sharp snap strike, rapid recovery
+      if (p < 0.22) q = 0.22 * (p / 0.22);
+      else if (p < contactRatio) q = 0.22 + 0.2 * ((p - 0.22) / (contactRatio - 0.22));
+      else if (p < 0.62) q = 0.42 + 0.2 * ((p - contactRatio) / (0.62 - contactRatio));
+      else q = 0.62 + 0.38 * ((p - 0.62) / 0.38);
+
+      const lungeScale = cardId === 'sp_blade_dancer' ? 1.25 : 1.0;
+      lunge = p < 0.22 ? -0.15 * (p / 0.22)
+        : p < contactRatio ? -0.15 + 1.15 * ((p - 0.22) / (contactRatio - 0.22))
+        : p < 0.62 ? 1.0
+        : Math.max(0, 1 - (p - 0.62) / 0.38);
+      lunge *= lungeScale;
+    } else if (isMage) {
+      // Mage: staff raise anticipation, forward thrust casting release, float recoil
+      if (p < 0.26) q = 0.26 * (p / 0.26);
+      else if (p < contactRatio) q = 0.26 + 0.2 * ((p - 0.26) / (contactRatio - 0.26));
+      else if (p < 0.66) q = 0.46 + 0.2 * ((p - contactRatio) / (0.66 - contactRatio));
+      else q = 0.66 + 0.34 * ((p - 0.66) / 0.34);
+
+      // Mage steps back slightly or hovers on cast
+      lunge = p < 0.26 ? -0.3 * (p / 0.26)
+        : p < contactRatio ? -0.3 + 0.6 * ((p - 0.26) / (contactRatio - 0.26))
+        : p < 0.66 ? 0.3
+        : Math.max(0, 0.3 * (1 - (p - 0.66) / 0.34));
+    } else {
+      // Warrior: heavy wind-up, crushing strike snap, follow-through
+      if (p < 0.3) q = 0.24 * (p / 0.3);
+      else if (p < contactRatio) q = 0.24 + 0.2 * ((p - 0.3) / (contactRatio - 0.3));
+      else if (p < 0.64) q = 0.44 + 0.18 * ((p - contactRatio) / (0.64 - contactRatio));
+      else q = 0.62 + 0.38 * ((p - 0.64) / 0.36);
+
+      const lungeScale = cardId === 'sp_berserker' ? 1.35 : 1.0;
+      lunge = p < 0.3 ? -0.25 * (p / 0.3)
+        : p < contactRatio ? -0.25 + 1.25 * ((p - 0.3) / (contactRatio - 0.3))
+        : p < 0.64 ? 1.0
+        : Math.max(0, 1 - (p - 0.64) / 0.3);
+      lunge *= lungeScale;
+    }
 
     if (el >= contactMs && !attack.impacted) {
       attack.impacted = true;
       const spCard = this.spCardFor(player);
-      const color = spCard ? spCard.color : '#e2e8f0';
-      player._swingImpact = { at: now, color, cardId: spCard ? spCard.id : null, finisher: !!attack.finisher, connects: attack.connects, facing: attack.facing, side: attack.side || 1 };
+      const color = spCard ? spCard.color : (isRogue ? '#14b8a6' : isMage ? '#f59e0b' : '#e2e8f0');
+      player._swingImpact = {
+        at: now,
+        color,
+        cardId: spCard ? spCard.id : null,
+        finisher: !!attack.finisher,
+        connects: attack.connects,
+        facing: attack.facing,
+        side: attack.side || 1,
+        blade: attack.blade,
+        class: cls
+      };
       if (attack.pendingSweep) {
-        // the slash arc appears as the blade lands
+        // The slash / spell wave appears as the weapon strikes/releases
         const sw = attack.pendingSweep;
         sw.x = player.x; sw.y = player.y;
         this.animations.skillEffects.push(sw);
         attack.pendingSweep = null;
       }
-      // sparks of the card's element fly from the point of contact
+
+      // Sparks of the card's element fly from the point of contact
       const fv = FACING_SCREEN[attack.facing] || FACING_SCREEN.SE;
-      const wdx = fv[0] * 0.5 + fv[1] / 0.6, wdy = fv[1] / 0.6 - fv[0] * 0.5; // screen dir -> world dir
+      const wdx = fv[0] * 0.5 + fv[1] / 0.6, wdy = fv[1] / 0.6 - fv[0] * 0.5;
       const wl = Math.hypot(wdx, wdy) || 1;
-      const cx = player.x + (wdx / wl) * 1.1, cy = player.y + (wdy / wl) * 1.1;
-      const [main, accent] = (spCard && SP_CARD_PARTICLES[spCard.id]) || ['spark', 'slash'];
+      const cx = player.x + (wdx / wl) * (isMage ? 1.8 : 1.1);
+      const cy = player.y + (wdy / wl) * (isMage ? 1.8 : 1.1);
+      const [main] = (spCard && SP_CARD_PARTICLES[spCard.id]) || (isRogue ? ['slash', 'spark'] : isMage ? ['arcane', 'spark'] : ['spark', 'slash']);
       const big = attack.finisher ? 1.8 : 1;
-      this.addParticles(cx, cy, 'slash', Math.round((attack.connects ? 8 : 4) * big), { speed: 2.6, z: 0.5 });
-      this.addParticles(cx, cy, main, Math.round((attack.connects ? 7 : 3) * big), { speed: 2.2, z: 0.5 });
-      if (accent && attack.connects) this.addParticles(cx, cy, accent, Math.round(4 * big), { speed: 1.6, z: 0.4 });
-      // an enhanced blade bursts in its tier colour on contact (+14 and up also hits harder on screen)
+      this.addParticles(cx, cy, 'slash', Math.round((isRogue ? 4 : isWarrior ? 3 : 2) * big), { speed: isRogue ? 3.0 : 2.5, z: 0.5 });
+      this.addParticles(cx, cy, main, Math.round(3 * big), { speed: 2.2, z: 0.5 });
+
+      if (attack.pendingHits) {
+        this.burstSwingHits(attack.pendingHits, attack.hitCard, attack.finisher);
+        attack.pendingHits = null;
+      }
+
+      // Enhanced weapon contact blast
       const eg = this.enhanceGlowFor(player);
       const heavyBlade = !!(eg && eg.weapon && eg.weapon.lvl >= 14);
       if (isLocal && attack.connects) {
-        this.triggerScreenShake((attack.finisher ? 6 : 2.6) * (heavyBlade ? 1.4 : 1), attack.finisher ? 0.16 : heavyBlade ? 0.12 : 0.09);
+        const shakeMag = isWarrior ? (attack.finisher ? 6 : 2.6) : isRogue ? (attack.finisher ? 4.5 : 1.8) : (attack.finisher ? 4 : 2);
+        this.triggerScreenShake(shakeMag * (heavyBlade ? 1.4 : 1), attack.finisher ? 0.16 : 0.09);
       }
       if (eg && eg.weapon && attack.connects) {
         const w = eg.weapon;
@@ -12517,31 +15530,111 @@ class IsometricRenderer {
     return { q, lunge };
   }
 
+  warriorSwing(player, attack, now, isLocal) {
+    return this.heroAttackSwing(player, attack, now, isLocal, 'warrior');
+  }
+
+  // Record where the weapon of the frame just chosen sits on screen: the
+  // gripping hand (pivot) and the blade's angle and length, with a short
+  // history of angles so swing arcs can trail the real blade
+  trackBlade(blade, frame, x, y, s, flip, now) {
+    const m = frame.meta || {};
+    const pair = m.tip && m.hand ? [m.hand, m.tip] : m.tipF && m.handF ? [m.handF, m.tipF] : m.tipB && m.handB ? [m.handB, m.tipB] : null;
+    if (!pair) return;
+    const hx = (flip ? -pair[0][0] : pair[0][0]) * s, hy = pair[0][1] * s;
+    const tx = (flip ? -pair[1][0] : pair[1][0]) * s, ty = pair[1][1] * s;
+    let a = Math.atan2(ty - hy, tx - hx);
+    const last = blade.hist[blade.hist.length - 1];
+    if (last) {
+      // unwrap so a swing keeps turning the same way past +-PI
+      while (a - last.a > Math.PI) a -= Math.PI * 2;
+      while (a - last.a < -Math.PI) a += Math.PI * 2;
+    }
+    blade.hist.push({ t: now, a });
+    while (blade.hist.length > 2 && now - blade.hist[0].t > 600) blade.hist.shift();
+    Object.assign(blade, { x, y, px: x + hx, py: y + hy, a, len: Math.hypot(tx - hx, ty - hy), at: now });
+  }
+
+  // The stretch of the blade's swing to draw: from its angle spanMs ago (but no
+  // earlier than since) to where it is now
+  bladeArc(blade, since, spanMs, now) {
+    const h = blade.hist;
+    const t0 = Math.max(since, now - spanMs);
+    // walk back while the blade kept turning the same way (a wind-up turns the other way)
+    let i = h.length - 1, dir = 0;
+    while (i > 0 && h[i - 1].t >= t0) {
+      const d = h[i].a - h[i - 1].a;
+      if (d !== 0) {
+        if (dir && Math.sign(d) !== dir) break;
+        dir = Math.sign(d);
+      }
+      i--;
+    }
+    return { head: blade.a, from: h[i].a };
+  }
+
+  // Particles burst on every enemy a melee swing hit (positions from the server),
+  // in the card's colours; crits and combo finishers burst bigger. A warrior still
+  // winding up holds them for its contact frame (warriorSwing).
+  addSwingHits(data) {
+    if (!data || !data.hits || !data.hits.length) return;
+    const atk = this.attacks.get(data.attackerId);
+    if (atk && !atk.impacted && this.usePixelHeroes()) {
+      atk.pendingHits = data.hits;
+      atk.hitCard = data.cardId;
+      return;
+    }
+    this.burstSwingHits(data.hits, data.cardId, atk && atk.finisher);
+  }
+
+  burstSwingHits(hits, cardId, finisher) {
+    const [main, accent] = (cardId && SP_CARD_PARTICLES[cardId]) || ['spark', 'slash'];
+    for (const h of hits) {
+      const big = (h.crit ? 1.7 : 1) * (finisher ? 1.4 : 1);
+      this.addParticles(h.x, h.y, 'slash', Math.round(5 * big), { speed: 2.4, z: 0.5 });
+      this.addParticles(h.x, h.y, main, Math.round(4 * big), { speed: 2, z: 0.5 });
+      if (accent && (h.crit || finisher)) this.addParticles(h.x, h.y, accent, Math.round(3 * big), { speed: 1.6, z: 0.45 });
+    }
+  }
+
   // The blow landing in front of a warrior: a bright crescent in the card's colour
   // following the swing, a star of streaks and a ring at the point of contact
   drawSwingImpact(ctx, imp, k, x, y, z) {
     const fv = FACING_SCREEN[imp.facing] || FACING_SCREEN.SE;
     const big = imp.finisher ? 1.45 : 1;
-    const reach = (imp.connects ? 26 : 22) * z * big;
-    const cx = x + fv[0] * reach, cy = y - 20 * z + fv[1] * reach;
     const fade = 1 - k, grow = 1 - Math.pow(1 - k, 3);
-    const ang = Math.atan2(fv[1], fv[0]);
+    let ox = x, oy = y - 20 * z, R = (18 + 10 * grow) * z * big, sq = 0.7;
+    let ang = Math.atan2(fv[1], fv[0]);
+    let a0 = ang - 1.25 * imp.side, a1 = ang + 0.95 * imp.side;
+    const reach = (imp.connects ? 26 : 22) * z * big;
+    let cx = x + fv[0] * reach, cy = y - 20 * z + fv[1] * reach;
+    const bl = imp.blade && imp.blade.hist.length ? imp.blade : null;
+    if (bl) {
+      // the crescent is the cut the blade really made: round its gripping hand,
+      // out at the blade's length, over the angles it swept into contact
+      ox = x + bl.px - bl.x; oy = y + bl.py - bl.y;
+      R = bl.len * (1.05 + 0.2 * grow) * (imp.finisher ? 1.15 : 1);
+      sq = 1;
+      const arc = this.bladeArc(bl, imp.at - 160, Infinity, performance.now());
+      a0 = arc.from; a1 = arc.head;
+      if (Math.abs(a1 - a0) < 0.3) { a0 = a1 - 0.6 * imp.side; }
+      ang = a1;
+      cx = ox + Math.cos(a1) * bl.len; cy = oy + Math.sin(a1) * bl.len;
+    }
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     ctx.lineCap = 'round';
     // crescent: the arc the edge just cut, sweeping the way this swing went
-    const R = (18 + 10 * grow) * z * big;
-    const a0 = ang - 1.25 * imp.side, a1 = ang + 0.95 * imp.side;
     if (imp.tierColor) {
       // enhanced weapon: a wider halo of the tier colour around the cut
       ctx.beginPath();
-      ctx.ellipse(x, y - 20 * z, R * 1.18, R * 0.82, 0, Math.min(a0, a1), Math.max(a0, a1));
+      ctx.ellipse(ox, oy, R * 1.18, R * (sq + 0.12), 0, Math.min(a0, a1), Math.max(a0, a1));
       ctx.strokeStyle = hexAlpha(imp.tierColor, 0.55 * fade);
       ctx.lineWidth = (4 + (imp.tier - 4) * 0.8) * z * (1 - 0.4 * k);
       ctx.stroke();
     }
     ctx.beginPath();
-    ctx.ellipse(x, y - 20 * z, R, R * 0.7, 0, Math.min(a0, a1), Math.max(a0, a1));
+    ctx.ellipse(ox, oy, R, R * sq, 0, Math.min(a0, a1), Math.max(a0, a1));
     ctx.strokeStyle = hexAlpha(imp.color, 0.85 * fade);
     ctx.lineWidth = (imp.finisher ? 9 : 6) * z * (1 - 0.5 * k);
     ctx.stroke();
@@ -12549,31 +15642,67 @@ class IsometricRenderer {
     ctx.lineWidth = 2 * z;
     ctx.stroke();
     if (imp.connects) {
-      // contact star + ring
-      const n = imp.finisher ? 10 : 7;
-      for (let i = 0; i < n; i++) {
-        const a = ang + (i / n) * Math.PI * 2 + i * 0.37;
-        const r0 = 3 * z, r1 = (8 + 16 * grow) * z * big * (i % 2 ? 0.65 : 1);
-        ctx.beginPath();
-        ctx.moveTo(cx + Math.cos(a) * r0, cy + Math.sin(a) * r0 * 0.7);
-        ctx.lineTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1 * 0.7);
-        ctx.strokeStyle = i % 2 ? hexAlpha(imp.color, fade) : `rgba(255, 255, 255, ${fade})`;
-        ctx.lineWidth = (i % 2 ? 1.6 : 2.4) * z;
-        ctx.stroke();
+      // --- Option 3: Authentic Ragnarok Online Pixel Starburst & Hit Flash ---
+      const px = Math.max(2, Math.round(z));
+      const rayLen = (14 + 28 * grow) * z * big;
+      const diagLen = rayLen * 0.68;
+
+      // 1. 4 Cardinal Rays (N, S, E, W) - stepped pixel diamond beams
+      const cardinals = [[1, 0], [0, 1], [-1, 0], [0, -1]];
+      for (const [cdx, cdy] of cardinals) {
+        const steps = 4;
+        for (let s = 1; s <= steps; s++) {
+          const dist = (rayLen / steps) * s;
+          const sx = cx + cdx * dist;
+          const sy = cy + cdy * dist * 0.7; // squashed for isometric perspective
+          const sW = Math.max(1, (steps - s + 1)) * px;
+          ctx.fillStyle = hexAlpha(imp.color, fade * (1 - (s / (steps + 1))));
+          ctx.fillRect(sx - sW * 0.5, sy - sW * 0.5, sW, sW);
+        }
       }
-      ctx.beginPath();
-      ctx.ellipse(cx, cy, (6 + 18 * grow) * z * big, (4 + 11 * grow) * z * big, 0, 0, Math.PI * 2);
-      ctx.strokeStyle = hexAlpha(imp.color, 0.7 * fade);
-      ctx.lineWidth = 2 * z;
-      ctx.stroke();
-      const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, 14 * z * big);
-      g.addColorStop(0, `rgba(255, 255, 255, ${0.9 * fade})`);
-      g.addColorStop(0.4, hexAlpha(imp.color, 0.6 * fade));
-      g.addColorStop(1, hexAlpha(imp.color, 0));
-      ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.arc(cx, cy, 14 * z * big, 0, Math.PI * 2);
-      ctx.fill();
+
+      // 2. 4 Diagonal Rays (45 deg) - stepped pixel staircases
+      const diagonals = [[0.707, 0.707], [-0.707, 0.707], [-0.707, -0.707], [0.707, -0.707]];
+      for (const [ddx, ddy] of diagonals) {
+        const steps = 3;
+        for (let s = 1; s <= steps; s++) {
+          const dist = (diagLen / steps) * s;
+          const sx = cx + ddx * dist;
+          const sy = cy + ddy * dist * 0.7;
+          const sW = Math.max(1, (steps - s + 1)) * px;
+          ctx.fillStyle = hexAlpha(imp.color, fade * 0.85 * (1 - (s / (steps + 1))));
+          ctx.fillRect(sx - sW * 0.5, sy - sW * 0.5, sW, sW);
+        }
+      }
+
+      // 3. Center Incandescent White-Hot Pixel Diamond Plate
+      ctx.fillStyle = `rgba(255, 255, 255, ${0.95 * fade})`;
+      ctx.fillRect(cx - px * 2, cy - px * 2, px * 4, px * 4);
+      ctx.fillRect(cx - px * 3.5, cy - px * 0.8, px * 7, px * 1.6);
+      ctx.fillRect(cx - px * 0.8, cy - px * 3.5, px * 1.6, px * 7);
+
+      // 4. Expanding Stepped Pixel Diamond Shock Ring
+      const ringR = (8 + 20 * grow) * z * big;
+      const ringSteps = 12;
+      ctx.fillStyle = hexAlpha(imp.color, 0.75 * fade);
+      for (let s = 0; s < ringSteps; s++) {
+        const a = (s / ringSteps) * Math.PI * 2;
+        const rx = cx + Math.cos(a) * ringR;
+        const ry = cy + Math.sin(a) * ringR * 0.7;
+        ctx.fillRect(rx - px, ry - px, px * 2, px * 2);
+      }
+
+      // 5. Chunky Square Pixel Ejection Sparks
+      const nSparks = imp.finisher ? 12 : 8;
+      for (let i = 0; i < nSparks; i++) {
+        const spA = ang + (i / nSparks) * Math.PI * 2 + i * 0.45;
+        const spDist = (6 + 24 * grow) * z * big * (0.7 + 0.6 * ((i % 3) / 3));
+        const spx = cx + Math.cos(spA) * spDist;
+        const spy = cy + Math.sin(spA) * spDist * 0.7;
+        ctx.fillStyle = i % 2 ? hexAlpha(imp.color, fade) : `rgba(255, 255, 255, ${fade})`;
+        const spSize = (i % 2 ? 2 : 1) * px;
+        ctx.fillRect(spx - spSize * 0.5, spy - spSize * 0.5, spSize, spSize);
+      }
     }
     ctx.restore();
   }
@@ -12622,10 +15751,8 @@ class IsometricRenderer {
     }
     else if (isAttacking) {
       action = attack.side < 0 ? 'attack2' : 'attack';
-      if (cls === 'warrior') {
-        swing = this.warriorSwing(player, attack, now, isLocal);
-        idx = Math.min(PH.meta(cls, action).frames - 1, Math.floor(swing.q * PH.meta(cls, action).frames));
-      } else idx = progIdx(action, attack.time, attack.duration);
+      swing = this.heroAttackSwing(player, attack, now, isLocal, cls);
+      idx = Math.min(PH.meta(cls, action).frames - 1, Math.floor(swing.q * PH.meta(cls, action).frames));
     }
     else if (isCasting) { action = 'cast'; idx = progIdx('cast', cast.time, cast.duration); }
     else if (hurtAge < PIXEL_HERO_HURT_MS) { action = 'hurt'; idx = progIdx('hurt', player._hurtAt, PIXEL_HERO_HURT_MS); }
@@ -12649,6 +15776,17 @@ class IsometricRenderer {
       lx = fv[0] * push; ly = fv[1] * push;
     }
     const x = Math.round(screen.x + lx), y = Math.round(screen.y + ly);
+    if (attack && attack.blade) {
+      // the blade is followed through the cut and follow-through (pose keys end at 0.62);
+      // the recovery back to guard would only drag the arcs backwards
+      const q = swing ? swing.q : (now - attack.time) / attack.duration;
+      if (isAttacking && !spinning && q <= 0.64) this.trackBlade(attack.blade, frame, x, y, s, flip, now);
+      else if (attack.blade.at && now - attack.time < attack.duration + 600) {
+        // swing over, its arc still fading: carry it along with the hero
+        const b = attack.blade;
+        b.px += x - b.x; b.py += y - b.y; b.x = x; b.y = y;
+      }
+    }
 
     // Dash afterimages: remember recent poses in world space, draw them fading out
     player._pixelGhosts = player._pixelGhosts || [];
@@ -12657,7 +15795,28 @@ class IsometricRenderer {
       player._pixelGhosts.unshift({ wx: player.x, wy: player.y, frame, flip, time: now });
       if (player._pixelGhosts.length > 5) player._pixelGhosts.pop();
     }
-    const ghostTint = cls === 'mage' ? '#67e8f9' : cls === 'rogue' ? '#4ade80' : '#bae6fd';
+    // Shadow Clone trail (Effects dialog): while walking, leave dark silhouettes of this very pose behind
+    const wearsClone = (player.trail || (isLocal ? window.slopLocalTrail : null)) === 'afterimage';
+    if (wearsClone && player.isMoving && !player.isDead && !isDashing && (!player._cloneAt || now - player._cloneAt > 85)) {
+      player._cloneAt = now;
+      (player._cloneGhosts || (player._cloneGhosts = [])).unshift({ wx: player.x, wy: player.y, frame, flip, time: now });
+      if (player._cloneGhosts.length > 9) player._cloneGhosts.pop();
+    }
+    if (player._cloneGhosts && player._cloneGhosts.length) {
+      player._cloneGhosts = player._cloneGhosts.filter(g => now - g.time < 700);
+      for (let gi = player._cloneGhosts.length - 1; gi >= 0; gi--) {           // oldest first, so the freshest sits nearest you
+        const g = player._cloneGhosts[gi], age = (now - g.time) / 700;
+        const gs = Isometric.worldToScreen(g.wx, g.wy, 0, this.camera, this.viewW, this.viewH);
+        const gx = Math.round(gs.x), gy = Math.round(gs.y);
+        this.drawPixelHeroFrame(ctx, g.frame, gx, gy, s, g.flip, (1 - age) * 0.55, '#2a0f58', 0.85);          // a dark body...
+        ctx.save();                                                                                            // ...with a violet rim of light
+        ctx.globalCompositeOperation = 'lighter';
+        this.drawPixelHeroFrame(ctx, g.frame, gx, gy, s, g.flip, (1 - age) * (1 - age) * 0.28, '#a855f7', 0.9);
+        ctx.restore();
+      }
+    }
+
+    const ghostTint = cls === 'mage' ? '#67e8f9' : cls === 'rogue' ? '#2dd4bf' : '#bae6fd';
     for (const g of player._pixelGhosts) {
       const age = (now - g.time) / 300;
       if (age >= 1) continue;
@@ -12674,7 +15833,7 @@ class IsometricRenderer {
     player._lastFootfall = footfall;
 
     // Body (red flash while recoiling from a hit), wrapped in the SP aura
-    this.drawSpAura(ctx, player, x, y, z, t, 'back');
+    this.drawSpAura(ctx, player, x, y, z, t, 'back', { view, flip });
     const enhance = this.enhanceGlowFor(player);
     if (enhance) this.drawArmorEnhance(ctx, player, enhance, x, y, z, t, 'back', isLocal);
     const hurtFlash = action === 'hurt' ? 0.55 * (1 - hurtAge / PIXEL_HERO_HURT_MS) : 0;
@@ -12699,7 +15858,7 @@ class IsometricRenderer {
       const tips = [['tip', frame.meta.tip], ['tipB', frame.meta.tipB], ['tipF', frame.meta.tipF], ['orb', frame.meta.orb]];
       this.drawWeaponEnhance(ctx, player, enhance, tips, x, y, s, flip, z, t, now, isAttacking, isLocal);
     }
-    this.drawSpAura(ctx, player, x, y, z, t, 'front');
+    this.drawSpAura(ctx, player, x, y, z, t, 'front', { view, flip });
 
     // Additive glow on the mage orb and the rogue's venom blades
     const glowAt = (pt, color, radius) => {
@@ -12726,7 +15885,7 @@ class IsometricRenderer {
       }
       if (cls === 'rogue') {
         const a = strong ? 0.6 : 0.3 * pulse;
-        const c = spCard ? hexAlpha(spCard.color, a) : `rgba(74, 222, 128, ${a})`;
+        const c = spCard ? hexAlpha(spCard.color, a) : `rgba(45, 212, 191, ${a})`;
         glowAt(frame.meta.tipF, c, 6 * z);
         glowAt(frame.meta.tipB, c, 6 * z);
       }
@@ -12782,14 +15941,14 @@ class IsometricRenderer {
 
     // Dynamic 8-Directional Lunge & Facing Vectors
     const lungeVecs = {
-      S:  { x: 0,      y: 1.0 },
-      SE: { x: 0.89,   y: 0.45 },
-      E:  { x: 1.0,    y: 0.0 },
-      NE: { x: 0.89,   y: -0.45 },
-      N:  { x: 0,      y: -1.0 },
-      NW: { x: -0.89,  y: -0.45 },
-      W:  { x: -1.0,   y: 0.0 },
-      SW: { x: -0.89,  y: 0.45 }
+      S: { x: 0, y: 1.0 },
+      SE: { x: 0.89, y: 0.45 },
+      E: { x: 1.0, y: 0.0 },
+      NE: { x: 0.89, y: -0.45 },
+      N: { x: 0, y: -1.0 },
+      NW: { x: -0.89, y: -0.45 },
+      W: { x: -1.0, y: 0.0 },
+      SW: { x: -0.89, y: 0.45 }
     };
     const lv = lungeVecs[facing] || lungeVecs.S;
 
@@ -13225,14 +16384,14 @@ class IsometricRenderer {
 
     // 8-Directional Lunge & Facing Vectors
     const lungeVecs = {
-      S:  { x: 0,      y: 1.0 },
-      SE: { x: 0.89,   y: 0.45 },
-      E:  { x: 1.0,    y: 0.0 },
-      NE: { x: 0.89,   y: -0.45 },
-      N:  { x: 0,      y: -1.0 },
-      NW: { x: -0.89,  y: -0.45 },
-      W:  { x: -1.0,   y: 0.0 },
-      SW: { x: -0.89,  y: 0.45 }
+      S: { x: 0, y: 1.0 },
+      SE: { x: 0.89, y: 0.45 },
+      E: { x: 1.0, y: 0.0 },
+      NE: { x: 0.89, y: -0.45 },
+      N: { x: 0, y: -1.0 },
+      NW: { x: -0.89, y: -0.45 },
+      W: { x: -1.0, y: 0.0 },
+      SW: { x: -0.89, y: 0.45 }
     };
     const lv = lungeVecs[facing] || lungeVecs.S;
 
@@ -13526,14 +16685,14 @@ class IsometricRenderer {
 
     // 8-Directional Lunge & Facing Vectors
     const lungeVecs = {
-      S:  { x: 0,      y: 1.0 },
-      SE: { x: 0.89,   y: 0.45 },
-      E:  { x: 1.0,    y: 0.0 },
-      NE: { x: 0.89,   y: -0.45 },
-      N:  { x: 0,      y: -1.0 },
-      NW: { x: -0.89,  y: -0.45 },
-      W:  { x: -1.0,   y: 0.0 },
-      SW: { x: -0.89,  y: 0.45 }
+      S: { x: 0, y: 1.0 },
+      SE: { x: 0.89, y: 0.45 },
+      E: { x: 1.0, y: 0.0 },
+      NE: { x: 0.89, y: -0.45 },
+      N: { x: 0, y: -1.0 },
+      NW: { x: -0.89, y: -0.45 },
+      W: { x: -1.0, y: 0.0 },
+      SW: { x: -0.89, y: 0.45 }
     };
     const lv = lungeVecs[facing] || lungeVecs.S;
 
@@ -13959,13 +17118,13 @@ class IsometricRenderer {
         let coreX = 0;
         let coreY = cy + Math.sin(time * 7 + 1.2) * 1.5 * z;
         switch (rawFacing) {
-          case 'S':  coreX = 0; coreY += 1 * z; break;
+          case 'S': coreX = 0; coreY += 1 * z; break;
           case 'SE': coreX = 2.5 * z; coreY += 0.6 * z; break;
-          case 'E':  coreX = 4 * z; break;
+          case 'E': coreX = 4 * z; break;
           case 'NE': coreX = 2.5 * z; coreY -= 1.8 * z; break;
-          case 'N':  coreX = 0; coreY -= 2.5 * z; break;
+          case 'N': coreX = 0; coreY -= 2.5 * z; break;
           case 'NW': coreX = -2.5 * z; coreY -= 1.8 * z; break;
-          case 'W':  coreX = -4 * z; break;
+          case 'W': coreX = -4 * z; break;
           case 'SW': coreX = -2.5 * z; coreY += 0.6 * z; break;
         }
 
@@ -16039,13 +19198,13 @@ class IsometricRenderer {
         // 8-Axis turn & depth vectors
         const FACING_ANGLES = { E: 0, SE: Math.PI / 4, S: Math.PI / 2, SW: 3 * Math.PI / 4, W: Math.PI, NW: -3 * Math.PI / 4, N: -Math.PI / 2, NE: -Math.PI / 4 };
         const ELEM_AXES = {
-          S:  [0, 1],
+          S: [0, 1],
           SE: [0.65, 0.7],
-          E:  [1.0, 0.1],
+          E: [1.0, 0.1],
           NE: [0.65, -0.7],
-          N:  [0, -1],
+          N: [0, -1],
           NW: [-0.65, -0.7],
-          W:  [-1.0, 0.1],
+          W: [-1.0, 0.1],
           SW: [-0.65, 0.7]
         };
         const rotAngle = FACING_ANGLES[rawFacing] || 0;
@@ -17100,6 +20259,43 @@ class IsometricRenderer {
     return player.role === 'admin' ? '#ef4444' : '#fff';
   }
 
+  // A name label (black drop shadow + colour) painted once at the canvas'
+  // current resolution. null until the pixel font has loaded, so the cache
+  // never keeps fallback-font labels.
+  labelSprite(text, color, ctx) {
+    // (fonts.check is slow: ask until the font is in, then remember it)
+    if (!this._labelFontReady) {
+      const now = performance.now();
+      if (now - (this._labelFontAsked || 0) < 500) return null;
+      this._labelFontAsked = now;
+      if (!document.fonts || !document.fonts.check('15px "DotGothic16"')) return null;
+      this._labelFontReady = true;
+    }
+    const m = Math.max(0.25, Math.round((ctx.getTransform().a || 1) * 20) / 20);
+    const cache = this._labelCache || (this._labelCache = new Map());
+    const key = text + '|' + color + '|' + m;
+    let c = cache.get(key);
+    if (c) return c;
+    if (cache.size > 600) cache.clear();
+    const font = '15px "DotGothic16", monospace';
+    const meas = this._labelMeasure || (this._labelMeasure = document.createElement('canvas').getContext('2d'));
+    meas.font = font;
+    const pad = 2, base = 15, w = Math.ceil(meas.measureText(text).width) + pad * 2 + 1, h = 21;
+    c = document.createElement('canvas');
+    c.width = Math.ceil(w * m); c.height = Math.ceil(h * m);
+    const g = c.getContext('2d');
+    g.scale(m, m);
+    g.font = font;
+    g.textAlign = 'left';
+    g.fillStyle = '#000';
+    g.fillText(text, pad + 1, base + 1);
+    g.fillStyle = color;
+    g.fillText(text, pad, base);
+    c.cssW = w; c.cssH = h; c.base = base;
+    cache.set(key, c);
+    return c;
+  }
+
   drawEntityOverhead(ctx, screenX, screenY, name, hp, maxHp, nameColor = '#fff', levelTag = '', buffs = [], isCommander = false, hasCommanderBuff = false) {
     ctx.save();
     ctx.font = '15px "DotGothic16", monospace';
@@ -17111,11 +20307,17 @@ class IsometricRenderer {
       nameColor = '#ffcd75';
     }
 
-    // Name text
-    ctx.fillStyle = '#000';
-    ctx.fillText(`${titlePrefix}${levelTag} ${name}`, screenX + 1, screenY + 1);
-    ctx.fillStyle = nameColor;
-    ctx.fillText(`${titlePrefix}${levelTag} ${name}`, screenX, screenY);
+    // Name text (cached as a small image per label; text drawing every frame
+    // for every monster added up)
+    const label = `${titlePrefix}${levelTag} ${name}`;
+    const spr = this.labelSprite(label, nameColor, ctx);
+    if (spr) ctx.drawImage(spr, Math.round(screenX - spr.cssW / 2), Math.round(screenY - spr.base), spr.cssW, spr.cssH);
+    else {
+      ctx.fillStyle = '#000';
+      ctx.fillText(label, screenX + 1, screenY + 1);
+      ctx.fillStyle = nameColor;
+      ctx.fillText(label, screenX, screenY);
+    }
 
     // Mini Health Bar
     const barW = isCommander ? 46 : 38;
@@ -17202,8 +20404,97 @@ class IsometricRenderer {
   }
 
   // Draw Overlays: Click Beacon, Particles, Floating Combat Text
+  // Screen rect (px) that this frame's combat effects can reach, from every
+  // live effect, projectile, impact and particle with generous margins (tall
+  // pillars, falling meteors). null = nothing to draw; true = most of the view.
+  fxLayerBounds() {
+    const W = this.viewW, H = this.viewH, z = this.camera.zoom;
+    const U = 32 * Math.SQRT2 * z;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    const add = (wx, wy, r = 0, up = 0) => {
+      if (wx === undefined || wy === undefined || isNaN(wx) || isNaN(wy)) return;
+      const s = Isometric.worldToScreen(wx, wy, 0, this.camera, W, H);
+      const rx = r * U + 70 * z, ry = r * U * 0.5 + 40 * z;
+      x0 = Math.min(x0, s.x - rx); x1 = Math.max(x1, s.x + rx);
+      y0 = Math.min(y0, s.y - ry - up); y1 = Math.max(y1, s.y + ry);
+    };
+    const gs = this.lastGameState;
+    const findPlayer = (id) => gs && gs.players && gs.players.find(p => p.id === id);
+    const fxs = this.animations.skillEffects || [];
+    for (const fx of fxs) {
+      const r = Math.min(8, Math.max(fx.radius || 0, fx.range || 0, fx.areaR || 0, fx.width || 0) + 1);
+      const up = 260 * z;
+      add(fx.x, fx.y, r, up);
+      add(fx.startX, fx.startY, r, up);
+      if (fx.areaR) add(fx.areaX, fx.areaY, fx.areaR + 1, up);
+      for (const list of [fx.points, fx.bolts, fx.stars, fx.path]) if (Array.isArray(list)) for (const p of list) add(p.x, p.y, 1.5, up);
+      if (Array.isArray(fx.orbs)) for (const o of fx.orbs) { add(o.sx, o.sy, r, up); add(o.ex, o.ey, r, up); }
+      const hero = findPlayer(fx.followId || fx.playerId);
+      if (hero) add(hero.x, hero.y, r, up);
+      if (fx.followMob && gs && gs.mobs) { const m = gs.mobs.find(mm => mm.id === fx.followMob); if (m) add(m.x, m.y, r, up); }
+    }
+    for (const p of this.flyingProjectiles.values()) add(p.x, p.y, 1.5, 60 * z);
+    for (const a of this.aoeRings) add(a.x, a.y, (a.r || 2) + 0.5);
+    for (const h of this.cardImpacts) add(h.x, h.y, 2, 80 * z);
+    if (this._impactMobs) for (const m of this._impactMobs) add(m.x, m.y, 1.5, 90 * z);
+    if (this.animations.clickMarker) add(this.animations.clickMarker.x, this.animations.clickMarker.y, 1);
+    for (const p of this.animations.particles) add(p.x, p.y, 0.5, (p.z || 0) * 40 * z + 30 * z);
+    if (this.pxParts) for (const p of this.pxParts) add(p.x, p.y, 0.5, (p.z || 0) * 40 * z + 40 * z);
+    if (x0 === Infinity) return null;
+    x0 = Math.max(0, x0); y0 = Math.max(0, y0); x1 = Math.min(W, x1); y1 = Math.min(H, y1);
+    if (x1 <= x0 || y1 <= y0) return null;
+    if ((x1 - x0) * (y1 - y0) > W * H * 0.7) return true;
+    return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+  }
+
+  // Trails: each hero wearing one (p.trail, from the server snapshot) sheds particles as they walk
+  // (public/js/trails.js has the looks); the particles live here and are drawn behind the heroes
+  drawPlayerTrails(ctx, players, dt, localPlayerId) {
+    const TF = window.TrailFx;
+    if (!this.trailFx) { this.trailFx = []; this._trailState = new Map(); }
+    for (const p of players || []) {
+      const trail = p.trail || (p.id === localPlayerId ? window.slopLocalTrail : null);   // yours: straight from your choice
+      if (!trail || p.isDead || !TF.KINDS[trail]) { if (this._trailState.has(p.id)) this._trailState.delete(p.id); continue; }
+      let st = this._trailState.get(p.id);
+      if (!st) { st = { acc: 0, dx: 0, dy: 0, px: p.x, py: p.y }; this._trailState.set(p.id, st); }
+      const mx = p.x - st.px, my = p.y - st.py, dist = Math.hypot(mx, my);
+      st.px = p.x; st.py = p.y;
+      if (dist > 0.005 && dist < 3) {                              // (a jump bigger than 3 tiles is a teleport: no streak)
+        st.dx = mx / dist; st.dy = my / dist;
+        TF.shed(trail, st, p.x, p.y, dist, this.trailFx, 450);
+      }
+    }
+    TF.step(this.trailFx, dt);
+    if (!this.trailFx.length) return;
+    TF.draw(ctx, this.trailFx, (x, y, z) => Isometric.worldToScreen(x, y, z, this.camera, this.viewW, this.viewH), this.camera.zoom, this.animations.time);
+  }
+
+  // A lightning nova is a floor effect: it belongs under the characters, not on top of them
+  isGroundNova(fx) {
+    if (this.potatoMode) return false;
+    // the rogue's ultimates are drawn around the caster's feet, under the caster
+    if (fx.type === 'death_blossom' || fx.type === 'eclipse_execution') return true;
+    return fx.type === 'sp_skill' && fx.shape === 'nova' && fx.element === 'lightning';
+  }
+
   drawEffects(ctx, dt) {
+    // Every combat effect (projectiles, impacts, skills, particles) draws into
+    // one full-view pixel-art layer, composited before the floating texts.
+    // Potato mode skips the layer (SP effects still open their own).
+    const mainCtx = ctx;
+    if (this._fxLayer) this._fxLayer.open = false;
+    // the layer only covers the screen area around live effects, and is
+    // skipped altogether when there are none (reading it back is the cost)
+    if (!this.potatoMode) {
+      const rect = this.fxLayerBounds();
+      if (rect) ctx = this.beginFxPixels(mainCtx, rect === true ? undefined : rect) || mainCtx;
+    }
     this.drawProjectiles(ctx, dt);
+    // monster hit slashes, queued by the entity pass
+    if (this._impactMobs && this._impactMobs.length) {
+      for (const mob of this._impactMobs) this.drawMobImpact(ctx, mob);
+      this._impactMobs.length = 0;
+    }
     const z = this.camera.zoom;
 
     // 1. Click-to-Move Destination Beacon
@@ -17230,8 +20521,6 @@ class IsometricRenderer {
 
     // 1.5. Visual Skill Effects (Whirlwind, Firestorm, Shadow Strike)
     if (this.animations.skillEffects) {
-      // a frame that threw mid-loop may have left the pixel layer open: start fresh
-      if (this._fxLayer) this._fxLayer.open = false;
       for (let i = this.animations.skillEffects.length - 1; i >= 0; i--) {
         const fx = this.animations.skillEffects[i];
         fx.life -= dt;
@@ -17249,6 +20538,9 @@ class IsometricRenderer {
           fx.emitTimer = 0;
           this.emitSkillParticlesTick(fx, progress, alpha);
         }
+
+        // lightning novas were already painted on the floor, under the heroes (see the ground pass)
+        if (this.isGroundNova(fx)) continue;
 
         if (fx.type === 'sp_skill') {
           // SP card effects all go onto the pixel-art layer (composited after the loop)
@@ -18902,8 +22194,12 @@ class IsometricRenderer {
           ctx.restore();
         }
       }
-      // composite this frame's pixel-art SP effects
-      this.endFxPixels(ctx);
+      // simulated SP particles join the same layer, which may still be closed
+      // when only particles are left on screen
+      if (this.pxParts && this.pxParts.length) {
+        const g = (this._fxLayer && this._fxLayer.open) ? this._fxLayer.g : this.beginFxPixels(ctx);
+        if (g) this.drawPxParticles(g, dt);
+      }
     }
 
     // 2. Dynamic High-Performance AAA Particle Engine
@@ -18979,6 +22275,10 @@ class IsometricRenderer {
     ctx.globalCompositeOperation = prevComposite;
     ctx.globalAlpha = prevAlpha;
 
+    // composite this frame's pixel-art combat layer; texts stay crisp on top
+    this.endFxPixels(mainCtx);
+    ctx = mainCtx;
+
     // 3. Floating Combat Damage Numbers (Ultra-High FPS Hardware-Accelerated Vector Text)
     if (this.animations.floatingTexts.length > 0) {
       const maxFt = this.potatoMode ? 15 : (this.lowEffects ? 25 : 40);
@@ -19006,9 +22306,6 @@ class IsometricRenderer {
         ft.vx = (ft.vx || 0) * (ft.drag || 0.94);
         ft.screenOffsetX = (ft.screenOffsetX || 0) + ft.vx * dt;
         ft.screenOffsetY = (ft.screenOffsetY || 0) + ft.vy * dt;
-        if (ft.scale && ft.scale > 1.0) {
-          ft.scale = Math.max(1.0, ft.scale - dt * 3.5);
-        }
       }
 
       // Draw from oldest (0) to newest (length - 1) so newest damage numbers always sit crisply on top
@@ -19022,9 +22319,30 @@ class IsometricRenderer {
           continue;
         }
 
-        const alpha = Math.min(1.0, ft.life / (ft.maxLife * 0.25));
+        const alpha = Math.min(1.0, ft.life / (ft.maxLife * 0.3));
         const fontSize = Math.round(ft.size * textZoom);
         ctx.globalAlpha = alpha;
+
+        // Impact: slam in oversized and squashed, overshoot a touch below size,
+        // settle; a white flash on the first frames and a shake on crits
+        const age = ft.maxLife - ft.life;
+        const punch = ft.punch || 1;
+        let k = 1, sx = 1, sy = 1;
+        if (age < 0.07) {
+          const u = age / 0.07;
+          k = punch + (0.88 - punch) * (1 - (1 - u) * (1 - u));
+          sx = 1 + 0.22 * (1 - u); sy = 1 - 0.14 * (1 - u);
+        } else if (age < 0.15) {
+          k = 0.88 + 0.12 * ((age - 0.07) / 0.08);
+        }
+        const flashing = age < 0.05;
+        const jitter = ft.isCrit && age < 0.16 ? (1 - age / 0.16) * 2.5 * textZoom : 0;
+        const jx = jitter ? (Math.random() - 0.5) * 2 * jitter : 0;
+        const jy = jitter ? (Math.random() - 0.5) * 2 * jitter : 0;
+        ctx.save();
+        ctx.translate(drawX + jx, drawY + jy);
+        ctx.scale(k * sx, k * sy);
+        ctx.translate(-drawX, -drawY);
 
         // If Ragnarok Online Critical: Draw the iconic jagged explosive starburst plate!
         if (ft.isCrit) {
@@ -19085,8 +22403,9 @@ class IsometricRenderer {
         ctx.strokeText(ft.text, drawX, drawY);
 
         // Main Text Fill
-        ctx.fillStyle = ft.color;
+        ctx.fillStyle = flashing ? '#ffffff' : ft.color;
         ctx.fillText(ft.text, drawX, drawY);
+        ctx.restore();
       }
 
       ctx.restore();
@@ -19419,7 +22738,7 @@ class IsometricRenderer {
       for (let x = 0; x < map.width; x++) {
         const t = map.tiles[y][x];
         if (t === 3) {
-          mctx.fillStyle = '#0284c7';
+          mctx.fillStyle = map.isDungeon ? '#334155' : '#0284c7';
           mctx.fillRect(x * scaleX, y * scaleY, scaleX + 1, scaleY + 1);
         } else if (t === 4) {
           // Dungeon Room Floor
@@ -19454,8 +22773,19 @@ class IsometricRenderer {
           mctx.fillStyle = '#1e293b';
           mctx.fillRect(x * scaleX, y * scaleY, scaleX + 1, scaleY + 1);
         } else if (FIELD_TILE_PALETTE[t]) {
-          mctx.fillStyle = FIELD_TILE_PALETTE[t].mini;
+          // Ponds (acid, water, shallows, lava, frost, etc.) inside dungeon rooms should not show on minimap
+          mctx.fillStyle = map.isDungeon ? '#334155' : FIELD_TILE_PALETTE[t].mini;
           mctx.fillRect(x * scaleX, y * scaleY, scaleX + 1, scaleY + 1);
+        }
+      }
+    }
+
+    // Highlight dungeon doorways on minimap terrain
+    if (map.isDungeon && map.doors) {
+      for (const d of map.doors) {
+        mctx.fillStyle = d.open ? '#38bdf8' : '#f59e0b';
+        for (const [tx, ty] of d.tiles) {
+          mctx.fillRect(tx * scaleX, ty * scaleY, scaleX + 0.5, scaleY + 0.5);
         }
       }
     }
