@@ -1095,6 +1095,17 @@
     return top;
   }
 
+  // Six-armed snowflake (three crossed bars) centred on c
+  function snowflake(f, c, r, alpha) {
+    for (let i = 0; i < 3; i++) {
+      const a = i * Math.PI / 3;
+      const v = [Math.cos(a) * r, Math.sin(a) * r];
+      paint(f, capsule([c[0] - v[0], c[1] - v[1]], [c[0] + v[0], c[1] + v[1]], 0.45), CM.ice, { tone: 'h', rim: false, alpha });
+    }
+    dot(f, c, CM.ice.h);
+  }
+  const FROST_HAIR = mat('#2b3a4f', '#8fb3cc', '#d4ebf7', '#ffffff');
+
   function stormFork(f, hand, d, glow) {
     const n = perpOf(d);
     paint(f, capsule(add(hand, d, -9), add(hand, d, 12.5), 0.85), CM.iron);
@@ -1170,6 +1181,19 @@
     }
     paint(f, ellRing(c, 3.9, 3.9, 0.5), M.venom, { spec: true });
     return add(c, d, 5.8);
+  }
+
+  // Frost Shade claws: an ice-crusted gauntlet with three long glowing icicle talons
+  function frostClaws(f, hand, d) {
+    const n = perpOf(d);
+    paint(f, disc(add(hand, d, 6), 4.2), CM.ice, { tone: 'l', rim: false, alpha: 45 });
+    for (const k of [-1, 0, 1]) {
+      const v = norm(add(d, n, k * 0.32));
+      spike(f, add(hand, v, 0.6), v, 11 - Math.abs(k) * 2.6, 1, CM.ice, { spec: true });
+      paint(f, capsule(add(hand, v, 2), add(hand, v, 8.5 - Math.abs(k) * 2.2), 0.3), CM.ice, { tone: 'h', rim: false });
+    }
+    paint(f, capsule(add(hand, d, -1.4), add(hand, d, 0.8), 1.4), CM.glass, { spec: true });
+    return add(hand, d, 11.5);
   }
 
   function iceClaws(f, hand, d) {
@@ -1771,26 +1795,97 @@
         paint(f, disc(Hd(sk, 3.6, -3.6), 1), M.venom, { spec: true });
       }
     },
+    // Frost Shade: a ghost of the glacier. A frost-rimmed hood crowned with ice crystals over a
+    // hollow dark face behind a cracked ice half-mask with two piercing eyes, a frozen heart
+    // glowing through the chest, ice spurs on the shoulders and knees, frost-crusted shins and a
+    // long tattered scarf. Snow hangs in the air around it, and its hands end in long glowing
+    // ice claws.
     sp_frost_shade: {
-      smear: () => CM.ice,
-      dagger: iceClaws,
-      // no legs: the body trails off into a ghostly wisp
-      legs({ f, sk, tr, fl }) {
-        const h = sk.hip;
-        paint(f, poly([L(sk, h, -4, 1), L(sk, h, 4.2, 1), [h[0] + 3, h[1] + 8], [h[0] - 2 - tr * 4, h[1] + 13 + fl * 0.6], [h[0] - 7 - tr * 9, h[1] + 15 + fl], [h[0] - 5, h[1] + 6]]), CM.ghost, { alpha: 170 });
-        paint(f, poly([L(sk, h, -2, 0), L(sk, h, 2.4, 0), [h[0] + 1, h[1] + 7], [h[0] - 4 - tr * 6, h[1] + 12 + fl]]), CM.ghost, { tone: 'l', rim: false, alpha: 120 });
+      palette: {
+        strap: ['#0b1d2a', '#5b7f99', '#9cc3db', '#d9f1ff', '#ffffff'],
+        hood: ['#050c14', '#13283a', '#22415a', '#3b6687', '#8fd0ee'],
+        rogue: ['#060f18', '#173149', '#28506e', '#4a7ea3', '#9ad8f2']
       },
-      scarf: ({ f, scarfShape }) => paint(f, scarfShape, CM.ghost, { alpha: 150 }),
-      head({ f, sk, view }) {
-        for (const [dx, lean, len] of [[-3.8, -0.9, 4], [-1.6, -0.5, 5], [0.8, -0.2, 3.6]]) {
-          spike(f, Hd(sk, dx, -4), Hv(sk, lean, -1), len + 1, 1.1, CM.ice, { spec: true });
+      smear: () => CM.ice,
+      dagger: frostClaws,
+      // snow drifting slowly down around the shade
+      behind({ f, sk, ph, p }) {
+        if (p.drop) return;
+        for (let i = 0; i < 5; i++) {
+          const t = (ph + i / 5) % 1;
+          const x = sk.hip[0] + [-9, -4, 3, 8, -12][i] + Math.sin((ph + i) * Math.PI * 2) * 1.2;
+          const y = sk.neck[1] - 8 + t * 26;
+          const alpha = Math.round(200 * Math.sin(t * Math.PI));
+          if (alpha > 20) paint(f, disc([x, y], 0.6), CM.ice, { tone: 'h', rim: false, alpha });
         }
-        paint(f, disc(Hd(sk, -0.6, -0.3), 5.6), M.hood);
-        paint(f, poly([Hd(sk, -1, -5.7), Hd(sk, 4.6, -4.6), Hd(sk, 6.4, -2), Hd(sk, 3, -3.8)]), M.hood);
+      },
+      // real legs in glacier-blue cloth, with frost-crusted shin cuffs and an ice spur at each knee
+      front({ f, sk, p }) {
+        if (p.drop) return;
+        for (const [knee, ankle, sc] of [[sk.kneeB, sk.ankleB, 0.8], [sk.kneeF, sk.ankleF, 1]]) {
+          const shin = norm([ankle[0] - knee[0], ankle[1] - knee[1]]);
+          paint(f, capsule(add(ankle, shin, -2.6), add(ankle, shin, -0.6), 1.5 * sc), CM.ice, { tone: 'l', rim: false, alpha: 190 });
+          spike(f, knee, norm(add(sk.side, sk.up, 0.5)), 2.6 * sc, 0.75, CM.ice, { spec: true });
+        }
+      },
+      // long tattered scarf with a faint frost sheen
+      scarf({ f, scarfShape }) {
+        paint(f, scarfShape, CM.ghost, { alpha: 170, dither: true });
+        paint(f, scarfShape, CM.ice, { tone: 'h', rim: false, alpha: 40 });
+      },
+      // ice spurs on both shoulders, frost on the collar and a frozen heart glowing through the chest
+      torso({ f, sk, view, ph }) {
+        const frontal = isFrontal(sk);
+        paint(f, capsule(L(sk, sk.shC, -3.8, 0.6), L(sk, sk.shC, 4.2, 0.6), 1), CM.ice, { tone: 'l', rim: false, alpha: 170 });
+        for (const [pt, sc] of [[sk.shB, 0.8], [sk.shF, 1]]) {
+          spike(f, add(pt, sk.up, 1.2), norm(add(sk.up, sk.side, -0.9)), 3.4 * sc, 0.85, CM.ice, { spec: true });
+          spike(f, add(add(pt, sk.up, 1.2), sk.side, 1.2), norm(add(sk.up, sk.side, -0.3)), 2.6 * sc, 0.75, CM.ice, { spec: true });
+        }
         if (view === 'front') {
-          paint(f, poly([Hd(sk, 1.4, -2), Hd(sk, 5.4, -2), Hd(sk, 5, 3.4), Hd(sk, 1.6, 3.6)]), CM.shadow, { rim: false });
-          dot(f, Hd(sk, 3, -0.6), GLOW_EYE.ice);
-          dot(f, Hd(sk, 4.6, -0.6), GLOW_EYE.ice);
+          const c = L(sk, sk.shC, frontal ? 0.2 : 1.6, -3.4);
+          const k = 0.5 + 0.5 * Math.sin(ph * Math.PI * 4);
+          paint(f, disc(c, 2.6 + k * 0.6), CM.ice, { tone: 'l', rim: false, alpha: Math.round(60 + 60 * k) });
+          paint(f, poly([add(c, sk.up, 2.2), add(c, sk.side, 1.6), add(c, sk.up, -2.4), add(c, sk.side, -1.6)]), CM.ice, { spec: true });
+          dot(f, c, CM.ice.h);
+        }
+      },
+      // frost-rimmed hood crowned with ice crystals; inside, darkness behind a cracked ice
+      // half-mask and two piercing eyes
+      head({ f, sk, view, tr, fl }) {
+        if (isFrontal(sk)) {
+          for (const [dx, hh] of [[-3, 3.6], [0, 5.2], [3, 3.6]]) spike(f, Hf(sk, dx, -5), norm([dx * 0.12, -1]), hh, 1, CM.ice, { spec: true });
+          paint(f, disc(Hf(sk, 0, -0.3), 5.8), M.hood, { dither: true, selout: true });
+          paint(f, poly([Hf(sk, -1.8, -5.4), Hf(sk, 1.8, -5.4), Hf(sk, 0.4, -7.6)]), M.hood, { dither: true });
+          if (view === 'front') {
+            paint(f, poly([Hf(sk, -3.4, -2.8), Hf(sk, 3.4, -2.8), Hf(sk, 3.6, 4), Hf(sk, -3.6, 4)]), CM.shadow, { rim: false });
+            paint(f, poly([Hf(sk, -2.6, 1), Hf(sk, 2.6, 1), Hf(sk, 2, 3.4), Hf(sk, -2, 3.4)]), CM.ghost, { rim: false, alpha: 190 });
+            paint(f, capsule(Hf(sk, -0.4, 1.2), Hf(sk, 0.4, 3.2), 0.25), CM.ice, { tone: 'd', rim: false });
+            for (const ex of [-1.5, 1.5]) {
+              paint(f, disc(Hf(sk, ex, -0.8), 1), CM.ice, { tone: 'l', rim: false, alpha: 120 });
+              dot(f, Hf(sk, ex, -0.8), GLOW_EYE.ice);
+            }
+          }
+          return;
+        }
+        // hood tail streaming back
+        paint(f, poly([Hd(sk, -4.6, -2.6), Hd(sk, -9.4 - tr * 3, 1 + fl * 0.4), Hd(sk, -4.4, 3.4)]), M.hood, { dither: true });
+        for (const [dx, lean, len] of [[-4, -0.9, 3.4], [-1.6, -0.5, 5.4], [0.8, -0.15, 3.8]]) {
+          spike(f, Hd(sk, dx, -4.4), Hv(sk, lean, -1), len, 1.05, CM.ice, { spec: true });
+        }
+        paint(f, disc(Hd(sk, -0.6, -0.3), 5.7), M.hood, { dither: true, selout: true });
+        paint(f, poly([Hd(sk, -1, -5.7), Hd(sk, 4.6, -4.6), Hd(sk, 6.6, -1.8), Hd(sk, 3, -3.8)]), M.hood, { dither: true });
+        if (view === 'front') {
+          paint(f, poly([Hd(sk, 1.2, -2.4), Hd(sk, 5.8, -2.2), Hd(sk, 5.4, 3.8), Hd(sk, 1.4, 4)]), CM.shadow, { rim: false });
+          // cracked ice half-mask over the lower face
+          paint(f, poly([Hd(sk, 2, 1), Hd(sk, 5.8, 0.8), Hd(sk, 5.2, 3.2), Hd(sk, 3.2, 3.8), Hd(sk, 2, 2.8)]), CM.ghost, { rim: false, alpha: 190 });
+          paint(f, capsule(Hd(sk, 3.4, 1.2), Hd(sk, 3.9, 3.2), 0.25), CM.ice, { tone: 'd', rim: false });
+          for (const ex of [3, 4.8]) {
+            paint(f, disc(Hd(sk, ex, -0.8), 1), CM.ice, { tone: 'l', rim: false, alpha: 120 });
+            dot(f, Hd(sk, ex, -0.8), GLOW_EYE.ice);
+          }
+          paint(f, capsule(Hd(sk, 4.8, -0.8), Hd(sk, 7.2, -1.4), 0.35), CM.ice, { tone: 'l', rim: false, alpha: 110 });
+          // frost lining the hood's opening
+          paint(f, capsule(Hd(sk, 1.2, -2.8), Hd(sk, 1, 4.2), 0.4), CM.ice, { tone: 'l', rim: false, alpha: 150 });
         }
       }
     },
@@ -2385,20 +2480,8 @@
     const f = newFrame();
     const vd = VIEW_DEF[view] || VIEW_DEF.E;
     const sk = skeleton(pose, (COSTUME && COSTUME.rig) || RIGS[cls], vd.phi);
-    // Motion smear when the weapon swept a wide arc since the previous frame
-    if (def.smear && t >= def.smear[0] && t <= def.smear[1] && i > 0 && !pose.drop) {
-      const C = COSTUME || {};
-      const prev = poseAtT(def, Math.max(0, t - SMEAR_SPAN)).pose;
-      const pairs = [[prev.wpn, pose.wpn, sk.handF, WEAPON_TILT]];
-      if ((cls === 'rogue' || C.weaponB) && !C.noSmearB) pairs.push([prev.wpnB === undefined ? prev.wpn : prev.wpnB, pose.wpnB, sk.handB, -WEAPON_TILT]);
-      const sm = C.smear ? C.smear() : cls === 'rogue' ? (COSTUME ? M.venom : RL.venom) : cls === 'mage' ? M.orb : M.smear;
-      const r = C.smearR || (cls === 'warrior' ? [8, 19] : cls === 'mage' ? [12, 18.5] : [3.5, 11.5]);
-      for (const [a0, a1, pivot, tilt] of pairs) {
-        if (a0 === undefined || a1 === undefined || Math.abs(a1 - a0) <= 0.6) continue;
-        const [b0, b1] = projectArc(a0, a1, vd.phi, tilt);
-        smear(f, pivot, b0, b1, r[0], r[1], sm, 200);
-      }
-    }
+    // Motion smear disabled: removed small swing arc near character
+    // if (def.smear && t >= def.smear[0] && t <= def.smear[1] && i > 0 && !pose.drop) { ... }
     DRAW[cls](f, pose, sk, vd.order, t);
     return f;
   }

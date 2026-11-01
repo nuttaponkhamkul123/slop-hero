@@ -375,6 +375,32 @@ document.addEventListener('DOMContentLoaded', () => {
     return { id: 'item', name: str, count: 1, rarity: 'common', type: 'misc' };
   }
 
+  // Merge identical stackable loot (potions, materials, treasures...) into one slot with a summed
+  // count, like the bag does. Gear and SP cards stay one slot each (every roll is unique).
+  function stackLootList(list) {
+    const out = [], byKey = new Map();
+    for (const raw of (list || [])) {
+      const it = normalizeLootItem(raw);
+      if (!it) continue;
+      const unique = (it.type === 'equipment' || it.type === 'sp_card') || it.uniqueId;
+      if (unique) { out.push(it); continue; }
+      const isGold = it.type === 'gold' || it.id === 'gold';
+      const key = isGold ? 'gold' : `${it.id || it.itemId || it.name}|${it.rarity || ''}`;
+      const n = it.count || it.amount || 1;
+      const prev = byKey.get(key);
+      if (prev) {
+        prev.count = (prev.count || 1) + n;
+        if (isGold) prev.name = `${prev.count.toLocaleString()} Gold`;
+        continue;
+      }
+      const copy = { ...it, count: n };
+      byKey.set(key, copy);
+      out.push(copy);
+    }
+    return out;
+  }
+  const lootUnits = (list) => list.reduce((s, it) => s + (it.type === 'gold' ? 0 : it.type === 'equipment' || it.type === 'sp_card' ? 1 : (it.count || 1)), 0);
+
   // Render an inventory-style slot cell with rarity border, pixel icon, count badge, and hover tooltip
   function renderLootItemSlot(itemInput, opts = {}) {
     const item = normalizeLootItem(itemInput);
@@ -2078,7 +2104,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     const st = dungeonRunState;
     const items = st.items || [];
-    const lootItems = (st.lootItems && st.lootItems.length) ? st.lootItems : items;
+    const lootItems = stackLootList((st.lootItems && st.lootItems.length) ? st.lootItems : items);
+    const lootCount = lootUnits(lootItems);
     const time = st.cleared && st.clearedMs != null ? st.clearedMs : Date.now() - runStartLocal;
     runBagPanel.style.display = 'flex';
     runBagPanel.innerHTML = `
@@ -2106,11 +2133,11 @@ document.addEventListener('DOMContentLoaded', () => {
         <div><b>${st.roomsCleared || 0}/${st.roomsTotal || 0}</b><span>ROOMS</span></div>
         <div><b>${st.deaths || 0}</b><span>DEATHS</span></div>
         <div><b>${(st.gold || 0).toLocaleString()}</b><span>GOLD</span></div>
-        <div><b>${lootItems.length}</b><span>ITEMS</span></div>
+        <div><b>${lootCount}</b><span>ITEMS</span></div>
       </div>
       <div class="run-bag-header">
         <span class="run-bag-title">🎒 ESCROWED LOOT</span>
-        <span class="run-bag-count">${lootItems.length} item(s)</span>
+        <span class="run-bag-count">${lootCount} item(s)</span>
       </div>
       <div class="run-bag-grid" id="runBagGrid"></div>
       <div class="run-note">${st.cleared ? 'All chest loot is secured.' : 'Defeat the boss to keep your loot. Leaving now fails the run.'}</div>
@@ -2148,8 +2175,8 @@ document.addEventListener('DOMContentLoaded', () => {
   socket.on('dungeon_result', (data) => {
     const overlay = document.createElement('div');
     overlay.className = `dungeon-result-overlay ${data.success ? 'is-success' : 'is-failed'}`;
-    const keptList = (data.keptItems && data.keptItems.length) ? data.keptItems : (data.kept || []);
-    const lostList = (data.lostItems && data.lostItems.length) ? data.lostItems : (data.lost || []);
+    const keptList = stackLootList((data.keptItems && data.keptItems.length) ? data.keptItems : (data.kept || []));
+    const lostList = stackLootList((data.lostItems && data.lostItems.length) ? data.lostItems : (data.lost || []));
 
     if (data.success && data.rank) {
       const r = data.rewards || {};
@@ -4193,12 +4220,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Sum of the bonus stats on worn gear (with reforges)
   function gearTotals(eq) {
-    const keys = ['bonusDmg', 'bonusDef', 'bonusHp', 'bonusMp', 'bonusSpeed', 'bonusAttackSpeed', 'bonusSwipe'];
+    const keys = ['bonusDmg', 'bonusDef', 'bonusHp', 'bonusMp', 'bonusSpeed', 'bonusAttackSpeed', 'bonusSwipe', 'critChance', 'critDmg'];
     const tot = Object.fromEntries(keys.map(k => [k, 0]));
     for (const it of Object.values(eq || {})) {
       if (!it || it.type !== 'equipment') continue;
       for (const k of keys) tot[k] += (it[k] || 0) + ((it.reforgeStats && it.reforgeStats[k]) || 0);
     }
+    tot.critChance = Number(tot.critChance.toFixed(1));
     return tot;
   }
 
@@ -4789,7 +4817,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const RARITY_RANK = { mythic: 5, legendary: 4, epic: 3, rare: 2, common: 1 };
   const TYPE_RANK = { sp_card: 0, equipment: 1, consumable: 2, material: 3, treasure: 4 };
   const EQUIP_SLOTS = [
-    ['eqSlotHelmet', 'helmet'], ['eqSlotArmor', 'armor'], ['eqSlotWeapon', 'weapon'],
+    ['eqSlotHelmet', 'helmet'], ['eqSlotArmor', 'armor'], ['eqSlotGloves', 'gloves'], ['eqSlotWeapon', 'weapon'],
     ['eqSlotRing', 'ring'], ['eqSlotBoots', 'boots'], ['eqSlotSp', 'sp']
   ];
 
@@ -4902,6 +4930,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ['boots', 'Speed', t.bonusSpeed && `+${t.bonusSpeed.toFixed(1)}`],
         ['bolt', 'Atk Spd', t.bonusAttackSpeed && `+${Math.round(t.bonusAttackSpeed * 100)}%`],
         ['whirl', 'Swipe', t.bonusSwipe && `+${t.bonusSwipe}%`],
+        ['target', 'Crit', (t.critChance || t.critDmg) && `+${t.critChance}% / +${t.critDmg}%`],
         ['fire', 'Element', eq.weapon && eq.weapon.element && eq.weapon.element !== 'neutral' ? ELEMENT_NAMES[eq.weapon.element] : '']
       ];
       bonusesBar.innerHTML = rows.map(([icon, label, val]) =>
@@ -5035,6 +5064,56 @@ document.addEventListener('DOMContentLoaded', () => {
       chance: r.chance[lvl] || 0
     };
   }
+
+  // An item's stats at +lvl: same formula as GameServer.applyItemUpgradeStats (5% of the item's
+  // base stats per level, plus a flat bonus per level that depends on the slot)
+  const GEAR_SLOT_PER_LEVEL = {
+    weapon: { bonusDmg: 4, bonusSwipe: 3, bonusAttackSpeed: 0.02 },
+    armor: { bonusDef: 2, bonusHp: 25 },
+    helmet: { bonusDef: 2, bonusHp: 15, bonusMp: 10 },
+    boots: { bonusDef: 1, bonusSpeed: 0.08, bonusHp: 10 },
+    gloves: { bonusDmg: 4, bonusAttackSpeed: 0.01 },
+    ring: { bonusDmg: 3, bonusHp: 15, bonusMp: 15, bonusAttackSpeed: 0.01 }
+  };
+  const GEAR_STAT_ROWS = [
+    ['bonusDmg', 'Attack', v => `+${v}`],
+    ['bonusDef', 'Defense', v => `+${v}`],
+    ['bonusHp', 'Max HP', v => `+${v}`],
+    ['bonusMp', 'Max MP', v => `+${v}`],
+    ['bonusSpeed', 'Move Speed', v => `+${(+v).toFixed(2)}`],
+    ['bonusAttackSpeed', 'Attack Speed', v => `+${Math.round(v * 100)}%`],
+    ['bonusSwipe', 'Cleave', v => `+${v}%`]
+  ];
+  function gearStatsAt(item, lvl) {
+    const base = (k) => {
+      const b = item['base' + k[0].toUpperCase() + k.slice(1)];
+      return b !== undefined ? b : (item[k] || 0);
+    };
+    const per = GEAR_SLOT_PER_LEVEL[item.slot] || {};
+    const pct = lvl * 0.05;
+    const out = {};
+    for (const [k] of GEAR_STAT_ROWS) {
+      let v = base(k);
+      if (k === 'bonusDmg' || k === 'bonusDef' || k === 'bonusHp' || k === 'bonusMp') v += Math.round(base(k) * pct);
+      v += (per[k] || 0) * lvl;
+      out[k] = k === 'bonusSpeed' || k === 'bonusAttackSpeed' ? Number(v.toFixed(2)) : Math.round(v);
+    }
+    return out;
+  }
+  // A "+3 → +4" stat table: every stat the item has at either level, the change highlighted
+  function gearCompareHtml(from, to, fromLvl, toLvl, title) {
+    const rows = GEAR_STAT_ROWS.filter(([k]) => from[k] || to[k]).map(([k, label, fmt]) => {
+      const d = Number((to[k] - from[k]).toFixed(2));
+      const cls = d > 0 ? 'up' : d < 0 ? 'down' : 'same';
+      const delta = d === 0 ? '' : (k === 'bonusAttackSpeed' ? `${d > 0 ? '+' : '-'}${Math.round(Math.abs(d) * 100)}%`
+        : k === 'bonusSpeed' ? `${d > 0 ? '+' : '-'}${Math.abs(d).toFixed(2)}`
+          : `${d > 0 ? '+' : '-'}${Math.abs(d)}${k === 'bonusSwipe' ? '%' : ''}`);
+      return `<div class="ench-cmp-row"><span class="ench-cmp-label">${label}</span><span class="ench-cmp-from">${fmt(from[k])}</span><span class="ench-cmp-arrow">&rarr;</span><span class="ench-cmp-to ${cls}">${fmt(to[k])}</span><span class="ench-cmp-delta ${cls}">${delta}</span></div>`;
+    });
+    if (!rows.length) return '';
+    return `<div class="ench-compare">${title ? `<div class="ench-cmp-title">${title}</div>` : ''}<div class="ench-cmp-head"><span></span><span>+${fromLvl}</span><span></span><span>+${toLvl}</span><span></span></div>${rows.join('')}</div>`;
+  }
+  let pendingGearEnhance = null; // snapshot taken when ENHANCE is pressed, to show before → after on the result
 
   function cardEnhanceInfo(item) {
     const lvl = item.upgradeLevel || 0;
@@ -5336,13 +5415,19 @@ document.addEventListener('DOMContentLoaded', () => {
       detailEl.innerHTML = `
         <div class="ench-detail-head">${PixelIcons.itemHtml(item)}<div><div class="ench-detail-name" style="color:${({ rare: '#38bdf8', epic: '#c084fc', legendary: '#f59e0b' })[item.rarity] || '#e2e8f0'}">${escapeHtml(item.name)}</div><div class="tip-type">${(item.rarity || 'common').toUpperCase()} ${(item.slot || '').toUpperCase()}</div></div></div>
         <div class="ench-levels">+${info.lvl} ${maxed ? '<span class="arrow">MAX</span>' : `<span class="arrow">&gt;</span> <span class="next">+${info.lvl + 1}</span>`}</div>
+        ${maxed ? '' : gearCompareHtml(gearStatsAt(item, info.lvl), gearStatsAt(item, info.lvl + 1), info.lvl, info.lvl + 1, 'On success')}
+        ${!maxed && info.lvl >= info.safe ? `<div class="ench-cmp-fail">On failure: drops to +${info.lvl - 1}</div>` : ''}
         ${maxed ? '' : chanceBar(info.chance)}
         ${maxed ? '' : `<div class="ench-cost"><span class="${short ? 'short' : ''}">${info.cost.toLocaleString()} Gold</span></div>`}
         <div class="ench-warn">Each level adds ~5% of the item's base stats plus a slot bonus.${info.lvl >= info.safe ? ` Failing at +${info.safe} or higher drops the item one level.` : ` Safe until +${info.safe}: failures only cost gold.`}</div>
         <button class="ench-btn" id="enchAction" ${maxed || short ? 'disabled' : ''}>ENHANCE</button>
-        ${resultHtml}`;
+        ${resultHtml}
+        ${enchResult && enchResult.compare ? enchResult.compare : ''}`;
       const btn = document.getElementById('enchAction');
-      if (btn) btn.addEventListener('click', () => socket.emit('enhance_item', { target: sel.target, slot: sel.slot, itemIndex: sel.itemIndex }));
+      if (btn) btn.addEventListener('click', () => {
+        pendingGearEnhance = { key: sel.key, lvl: info.lvl, stats: gearStatsAt(item, info.lvl) };
+        socket.emit('enhance_item', { target: sel.target, slot: sel.slot, itemIndex: sel.itemIndex });
+      });
     } else {
       const info = cardEnhanceInfo(item);
       const card = info.card;
@@ -5376,7 +5461,17 @@ document.addEventListener('DOMContentLoaded', () => {
     if (data.ok) (data.success ? window.soundEngine.playLevelUp() : window.soundEngine.playUpgradeFail());
     renderEnchanter();
   };
-  socket.on('enhance_result', (data) => showEnchResult(data, d => `Success! Now +${d.level}`));
+  socket.on('enhance_result', (data) => {
+    // before → after for the attempt that just resolved (only when the level actually changed)
+    const before = pendingGearEnhance;
+    pendingGearEnhance = null;
+    let compare = '';
+    if (data.ok && before && data.item && data.level !== before.lvl) {
+      compare = gearCompareHtml(before.stats, gearStatsAt(data.item, data.level), before.lvl, data.level, data.success ? 'Before &rarr; After' : 'Lost on failure');
+    }
+    showEnchResult(data, d => `Success! Now +${d.level}`);
+    if (enchResult && compare) { enchResult.compare = compare; renderEnchanter(); }
+  });
   socket.on('sp_enhance_result', (data) => showEnchResult(data, d => `Card empowered to +${d.level}!`));
   socket.on('sp_exchange_result', (data) => {
     enchResult = data.ok ? { ok: true, text: 'Card obtained! Check your bag.' } : { ok: false, text: data.message };
@@ -5584,7 +5679,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const rf = item.reforgeStats || {};
     let statLines = [];
 
-    if (item.slot === 'weapon') {
+    if (item.slot === 'weapon' || item.slot === 'gloves') {
       const baseDmg = item.baseBonusDmg !== undefined ? item.baseBonusDmg : (item.bonusDmg || 10);
       statLines.push(`
         <div class="sb-stat-line" style="color: #ef4444;">
@@ -6336,6 +6431,7 @@ document.addEventListener('DOMContentLoaded', () => {
         node.className = [
           'talent-node',
           talent.maxRank === 1 ? 'is-keystone' : '',
+          talent.isNotable ? 'is-notable' : '',
           st.isMaxed ? 'is-maxed' : st.curRank > 0 ? 'has-rank' : '',
           st.canLearn ? 'can-upgrade' : '',
           !st.reqMet && st.curRank === 0 ? 'is-locked' : '',
@@ -6351,7 +6447,7 @@ document.addEventListener('DOMContentLoaded', () => {
         else statusText = talent.start ? 'Starting talent: learn it straight from the origin' : 'Connected: you can learn it';
         const tipHtml = () => '<div class="tip-head"><div class="tip-icon-wrap">' + PixelIcons.talentHtml(talent) + '</div><div>' +
           '<div class="tip-name" style="color: #facc15;">' + escapeHtml(talent.name) + '</div>' +
-          '<div class="tip-type">' + escapeHtml(talent.branch || '') + ' • Tier ' + (talent.tier || 1) + ' • Rank ' + st.curRank + '/' + st.maxRank + '</div></div></div>' +
+          '<div class="tip-type">' + escapeHtml(talent.branch || '') + (talent.lane ? ' • ' + escapeHtml(talent.lane) : '') + ' • Tier ' + (talent.tier || 1) + ' • Rank ' + st.curRank + '/' + st.maxRank + '</div></div></div>' +
           '<div class="tip-flavour">' + escapeHtml(talent.desc || '') + '</div>' +
           '<div class="tip-line" style="color: ' + (st.canLearn || st.isMaxed ? '#4ade80' : '#f97316') + '; font-size: 11px;">' + escapeHtml(statusText) + '</div>';
         if (window.GameTooltip) GameTooltip.html(node, tipHtml);

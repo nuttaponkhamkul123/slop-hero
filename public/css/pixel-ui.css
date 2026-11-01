@@ -348,6 +348,7 @@ button, input, select, textarea { font-family: var(--font-px); }
 .talent-link.is-learned { stroke: var(--gold) !important; filter: none !important; }
 .talent-node { width: 54px !important; height: 54px !important; padding: 3px !important; animation: none !important; }
 .talent-node.is-keystone { --line: var(--gold); width: 60px !important; height: 60px !important; }
+.talent-node.is-notable { width: 58px !important; height: 58px !important; }
 .talent-node.has-rank { --line: var(--green); }
 .talent-node.is-maxed { --line: var(--gold); --hi: var(--gold); }
 .talent-node.can-upgrade { animation: pxBlink 1s steps(1) infinite !important; }

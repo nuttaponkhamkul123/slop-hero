@@ -6,7 +6,7 @@
   'use strict';
 
   const RARITY_COLOR = { common: '#e2e8f0', rare: '#38bdf8', epic: '#c084fc', legendary: '#f59e0b', mythic: '#f43f5e' };
-  const SLOT_LABEL = { weapon: 'Weapon', armor: 'Armor', helmet: 'Helmet', boots: 'Boots', ring: 'Ring' };
+  const SLOT_LABEL = { weapon: 'Weapon', armor: 'Armor', helmet: 'Helmet', boots: 'Boots', gloves: 'Gloves', ring: 'Ring' };
   const ELEMENT_LABEL = { fire: 'Fire', ice: 'Ice', lightning: 'Lightning', earth: 'Earth', holy: 'Holy', dark: 'Dark', neutral: 'Neutral' };
   const ELEMENT_COLOR = { fire: '#f97316', ice: '#38bdf8', lightning: '#facc15', earth: '#4ade80', holy: '#fef08a', dark: '#a855f7', neutral: '#94a3b8' };
   // [field, label, formatter]
@@ -17,7 +17,9 @@
     ['bonusMp', 'Max MP', v => `+${v}`],
     ['bonusSpeed', 'Move Speed', v => `+${Number(v).toFixed(2)}`],
     ['bonusAttackSpeed', 'Attack Speed', v => `+${Math.round(v * 100)}%`],
-    ['bonusSwipe', 'Swipe', v => `+${v}%`]
+    ['bonusSwipe', 'Swipe', v => `+${v}%`],
+    ['critChance', 'Crit Chance', v => `+${v}%`],
+    ['critDmg', 'Crit Damage', v => `+${v}%`]
   ];
   const REFORGE_STATS = [
     ['bonusDmg', 'Attack', v => `+${v}`], ['bonusDef', 'Defense', v => `+${v}`], ['bonusHp', 'Max HP', v => `+${v}`],
