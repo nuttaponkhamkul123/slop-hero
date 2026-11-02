@@ -7,6 +7,7 @@ import weapons from './data/items/weapons.json';
 import armor from './data/items/armor.json';
 import helmets from './data/items/helmets.json';
 import boots from './data/items/boots.json';
+import gloves from './data/items/gloves.json';
 import rings from './data/items/rings.json';
 import runes from './data/items/runes.json';
 
@@ -18,6 +19,7 @@ const ITEM_CATEGORIES = {
   armor,
   helmets,
   boots,
+  gloves,
   rings,
   runes
 };
@@ -30,6 +32,7 @@ const ITEMS: Record<string, any> = {
   ...armor,
   ...helmets,
   ...boots,
+  ...gloves,
   ...rings,
   ...runes
 };
@@ -74,7 +77,7 @@ const WEAPON_ABILITIES: Record<string, any> = {
   ember_scythe: { name: 'Reaper Spin', shape: 'nova', r: 3.2, dmg: 2.6, burn: 3, leech: 0.05, mp: 14, cd: 8 },
   nightfall_twinblades: { name: 'Eternal Alpha', shape: 'alpha', n: 5, range: 7, jump: 7, every: 0.12, dmg: 1.7, invuln: 0.9, mp: 20, cd: 12 },
   // Any class (James the Gatekeeper)
-  riftwalker_edge: { name: 'Rift Step', shape: 'blink', len: 3, r: 3, dmg: 2.2, mp: 14, cd: 0.25, cdExact: true }
+  riftwalker_edge: { name: 'Rift Step', shape: 'blink', len: 5.5, r: 3.5, dmg: 3.4, mp: 26, cd: 0.75, cdExact: true }
 };
 // Weapons whose power is passive instead of (or as well as) a right-click
 // ability; recalculatePlayerStats and handlePlayerAttack read these.
@@ -121,14 +124,14 @@ function requiredClass(item) {
 const GEAR_POOLS = {
   common: ['iron_blade', 'shadow_daggers', 'leather_tunic', 'iron_helm', 'iron_greaves',
     'woodsman_axe', 'iron_morningstar', 'hunter_spear', 'chain_hauberk', 'ranger_jerkin',
-    'rogue_bandana', 'traveler_boots', 'copper_band'],
+    'rogue_bandana', 'traveler_boots', 'copper_band', 'leather_gloves', 'iron_gauntlets'],
   rare: ['sweeping_claymore', 'inferno_blade', 'glacial_spire', 'shadow_hood', 'plate_cuirass',
     'frostbite_katana', 'venom_kris', 'voidcaller_wand', 'glacier_plate', 'horned_helm',
-    'starweaver_hat', 'steel_sabatons', 'sapphire_signet', 'ruby_signet', 'emerald_loop'],
+    'starweaver_hat', 'steel_sabatons', 'sapphire_signet', 'ruby_signet', 'emerald_loop', 'brawler_wraps', 'hunters_grips'],
   boss: ['storm_breaker', 'wind_rapier', 'archmage_staff', 'excalibur', 'mystic_robe', 'archmage_cowl',
     'winged_boots', 'ring_of_power', 'ember_scythe', 'thunder_maul', 'dawn_scepter', 'dragonbone_glaive',
     'nightstalker_garb', 'dragonscale_plate', 'archon_vestments', 'winter_crown', 'bone_warden_mask',
-    'ember_treads', 'shadowstep_boots', 'void_eye_ring', 'phoenix_ring']
+    'ember_treads', 'shadowstep_boots', 'void_eye_ring', 'phoenix_ring', 'berserker_fists', 'assassin_grips', 'titans_grasp']
 };
 
 function pickGear(pool) {
@@ -280,6 +283,9 @@ function generateRandomizedGear(baseId, itemLevel = 1, isBoss = false) {
   if (base.bonusSpeed) item.bonusSpeed = Number(((base.bonusSpeed || 0) * qualityMult).toFixed(2));
   if (base.bonusAttackSpeed) item.bonusAttackSpeed = Number(((base.bonusAttackSpeed || 0) * qualityMult).toFixed(2));
   if (base.bonusSwipe) item.bonusSwipe = Math.round((base.bonusSwipe + Math.floor(floorBonus * 0.8)) * qualityMult);
+  // gloves: crit chance / crit damage in percent
+  if (base.critChance) item.critChance = Number((base.critChance * qualityMult).toFixed(1));
+  if (base.critDmg) item.critDmg = Math.round(base.critDmg * qualityMult);
 
   // Armor pieces can roll elemental resistances (bosses roll more often and higher)
   if (base.slot !== 'weapon') {
@@ -319,6 +325,8 @@ function generateRandomizedGear(baseId, itemLevel = 1, isBoss = false) {
   if (item.bonusSpeed) statList.push(`+${item.bonusSpeed} SPD`);
   if (item.bonusAttackSpeed) statList.push(`+${Math.round(item.bonusAttackSpeed * 100)}% Atk Spd`);
   if (item.bonusSwipe) statList.push(`+${item.bonusSwipe}% Swipe`);
+  if (item.critChance) statList.push(`+${item.critChance}% Crit`);
+  if (item.critDmg) statList.push(`+${item.critDmg}% Crit DMG`);
   if (item.elementResist) {
     for (const [el, rawVal] of Object.entries(item.elementResist)) { const val = rawVal as number;
       const info = ELEMENT_INFO[el];
@@ -512,7 +520,7 @@ const SKYBLOCK_REFORGES = {
 };
 
 function getReforgeCategory(slot) {
-  if (slot === 'weapon') return 'weapon';
+  if (slot === 'weapon' || slot === 'gloves') return 'weapon';   // gloves are attack gear: weapon reforges
   if (slot === 'armor' || slot === 'helmet' || slot === 'boots') return 'armor';
   if (slot === 'ring') return 'ring';
   return 'armor';

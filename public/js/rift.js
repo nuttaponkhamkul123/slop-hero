@@ -28,6 +28,8 @@
   hud.style.display = 'none';
   const buildBar = el('div', 'rift-build hud-panel');
   buildBar.style.display = 'none';
+  let buildCollapsed = false;
+  try { buildCollapsed = localStorage.getItem('riftBuildCollapsed') === '1'; } catch (err) { /* storage can be blocked */ }
   const banner = el('div', 'rift-banner');
   banner.style.display = 'none';
 
@@ -58,7 +60,7 @@
       <div class="rift-hud-top">
         <span class="rift-title">${icon('whirl')} ETERNAL RIFT</span>
         <span class="rift-wave">WAVE ${Math.max(1, s.upcoming)}/${s.maxWaves}</span>
-        <span class="rift-lv">Lv. ${s.level}</span>
+        <span class="rift-lv">${catalog.modes && catalog.modes[s.mode] ? catalog.modes[s.mode].name + ' · ' : ''}Lv. ${s.level}</span>
       </div>
       <div class="rift-phase">${phaseLine(s)}</div>
       <div class="rift-fountain">
@@ -78,7 +80,10 @@
     const counts = {};
     for (const st of state.structures || []) counts[st.kind] = (counts[st.kind] || 0) + 1;
     const over = state.phase === 'victory' || state.phase === 'defeat';
-    let html = `<div class="rift-build-head"><span>${icon('hammer')} BUILD</span><span class="rift-points">${fmt(pts)} RP</span></div>`;
+    // the header is a button: click it to fold the whole panel away to just this row
+    let html = `<button type="button" class="rift-build-head rift-build-toggle" title="${buildCollapsed ? 'Expand' : 'Collapse'} the build menu"><span>${icon('hammer')} BUILD ${buildCollapsed ? '▸' : '▾'}</span><span class="rift-points">${fmt(pts)} RP</span></button>`;
+    buildBar.classList.toggle('is-collapsed', buildCollapsed);
+    if (buildCollapsed) { buildBar.innerHTML = html; return; }
     for (const [kind, def] of Object.entries(catalog.structures || {})) {
       const n = counts[kind] || 0;
       const full = def.max && n >= def.max;
@@ -95,6 +100,13 @@
   }
 
   buildBar.addEventListener('click', (e) => {
+    if (e.target.closest('.rift-build-toggle')) {
+      buildCollapsed = !buildCollapsed;
+      if (buildCollapsed) placing = null; // nothing to place from a folded menu
+      try { localStorage.setItem('riftBuildCollapsed', buildCollapsed ? '1' : '0'); } catch (err) { /* storage can be blocked */ }
+      renderBuildBar();
+      return;
+    }
     const btn = e.target.closest('.rift-build-btn');
     if (btn && !btn.disabled) {
       const kind = btn.dataset.kind;
@@ -112,6 +124,48 @@
   });
   // clicks on the panels never reach the canvas underneath
   for (const p of [hud, buildBar]) p.addEventListener('mousedown', (e) => e.stopPropagation());
+
+  // Drag a panel by its handle; the spot is remembered. A press that barely moves
+  // stays a click (so the Build header can still fold the menu).
+  function makeDraggable(panel, key, handleSel) {
+    const place = (x, y) => {
+      const r = panel.getBoundingClientRect();
+      x = Math.max(0, Math.min(window.innerWidth - r.width, x));
+      y = Math.max(0, Math.min(window.innerHeight - 30, y));
+      Object.assign(panel.style, { left: x + 'px', top: y + 'px', right: 'auto', bottom: 'auto', transform: 'none' });
+    };
+    panel.classList.add('rift-draggable');
+    try {
+      const s = JSON.parse(localStorage.getItem(key) || 'null');
+      if (s && Number.isFinite(s.x) && Number.isFinite(s.y)) panel._restore = () => place(s.x, s.y);
+    } catch (err) { /* storage can be blocked */ }
+    panel.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0 || !e.target.closest(handleSel)) return;
+      const r = panel.getBoundingClientRect();
+      const dx = e.clientX - r.left, dy = e.clientY - r.top, sx = e.clientX, sy = e.clientY;
+      let moved = false;
+      const move = (m) => {
+        if (!moved && Math.hypot(m.clientX - sx, m.clientY - sy) < 5) return;
+        moved = true;
+        panel.classList.add('is-dragging');
+        place(m.clientX - dx, m.clientY - dy);
+      };
+      const up = () => {
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', up);
+        panel.classList.remove('is-dragging');
+        if (!moved) return;
+        // the click that ends a drag must not fold / press anything
+        panel.addEventListener('click', (c) => { c.stopPropagation(); c.preventDefault(); }, { capture: true, once: true });
+        const b = panel.getBoundingClientRect();
+        try { localStorage.setItem(key, JSON.stringify({ x: Math.round(b.left), y: Math.round(b.top) })); } catch (err) { /* ignore */ }
+      };
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', up);
+    });
+  }
+  makeDraggable(hud, 'riftHudPos', '*');
+  makeDraggable(buildBar, 'riftBuildPos', '.rift-build-head');
 
   // Structures and the fountain's HP ride on the map's obstacle list so the
   // renderer depth-sorts them with everything else
@@ -241,8 +295,19 @@
   }
 
   // ---------------------------------------------------------------- town gate dialog
+  // Difficulty modes (server RIFT_MODES), remembered between visits
+  let riftModePick = 'normal';
+  try { riftModePick = localStorage.getItem('slop_rift_mode') || 'normal'; } catch (_) {}
+  function modeHint(m) {
+    const start = m.start === null ? 'your level' : `Lv ${m.start}`;
+    return `Starts at ${start}, +${m.perWave} Lv per wave${m.spawn > 1 ? `, ${m.spawn}x monsters` : ''}`;
+  }
+
   function openPortal(info) {
     info = info || {};
+    const modes = catalog.modes || { normal: { name: 'Normal', start: null, perWave: 1, spawn: 1 } };
+    const modeIds = Object.keys(modes);
+    if (!modes[riftModePick]) riftModePick = modeIds[0];
     closeModal('riftPortalModal');
     const party = info.partyRun;
     const overlay = el('div', 'modal-overlay rift-modal');
@@ -256,11 +321,12 @@
         </div>
         <ul class="rift-rules">
           <li>${icon('whirl')} Monsters pour out of four rift gates and march on the <b>Holy Fountain</b> in the middle.</li>
-          <li>${icon('skull')} Every wave they grow <b>one level stronger</b>. ${catalog.maxWaves} waves in all, with a boss at the end.</li>
+          <li>${icon('skull')} Every wave they grow stronger. ${catalog.maxWaves} waves in all, with a boss at the end.</li>
           <li>${icon('hammer')} Kills earn <b>Rift Points</b>. Spend them on turrets, barriers and blessings. They vanish when you leave.</li>
           <li>${icon('essence')} Every ${catalog.checkpointEvery} waves you bank <b>Rift Essence</b> and a little gold, then choose: leave with it, or push on.</li>
           <li>${icon('heart')} Fallen heroes rise at the fountain. If the <b>fountain falls</b>, the banked reward is lost.</li>
         </ul>
+        ${party ? '' : `<div class="rift-mode-pick">${modeIds.map(id => `<button type="button" class="gui-scale-preset rift-mode${id === riftModePick ? ' active' : ''}" data-mode="${id}"><b>${modes[id].name}</b><span>${modeHint(modes[id])}</span></button>`).join('')}</div>`}
         ${party ? `<div class="rift-party-note">${icon('crown')} Your party is already inside (wave ${Math.max(1, party.wave)}). Entering joins them.</div>`
           : info.inParty ? `<div class="rift-party-note">${icon('crown')} Your party shares one rift. Summon them to fight together.</div>` : ''}
         <div class="portal-actions">
@@ -270,9 +336,14 @@
       </div>`;
     overlay.querySelector('.modal-close').addEventListener('click', () => overlay.remove());
     overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
-    overlay.querySelector('.rift-enter').addEventListener('click', () => { ctx.socket.emit('enter_rift', {}); overlay.remove(); });
+    overlay.querySelectorAll('.rift-mode').forEach(btn => btn.addEventListener('click', () => {
+      riftModePick = btn.dataset.mode;
+      try { localStorage.setItem('slop_rift_mode', riftModePick); } catch (_) {}
+      overlay.querySelectorAll('.rift-mode').forEach(b => b.classList.toggle('active', b === btn));
+    }));
+    overlay.querySelector('.rift-enter').addEventListener('click', () => { ctx.socket.emit('enter_rift', { mode: riftModePick }); overlay.remove(); });
     const withParty = overlay.querySelector('.rift-enter-party');
-    if (withParty) withParty.addEventListener('click', () => { ctx.socket.emit('enter_rift', { inviteParty: true }); overlay.remove(); });
+    if (withParty) withParty.addEventListener('click', () => { ctx.socket.emit('enter_rift', { mode: riftModePick, inviteParty: true }); overlay.remove(); });
     document.body.appendChild(overlay);
   }
 
@@ -415,6 +486,8 @@
     inRift = true;
     hud.style.display = 'block';
     buildBar.style.display = 'flex';
+    // put dragged panels back where the player left them (needs them on screen to measure)
+    for (const p of [hud, buildBar]) if (p._restore) { p._restore(); p._restore = null; }
   }
 
   function init(c) {

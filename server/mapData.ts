@@ -103,7 +103,7 @@ export function generateMap(): MapData {
 
   // ---- the three town NPCs & personal storage chest ----
   add({ id: 'npc_merchant', x: 16.2, y: 19.6, type: 'merchant', name: 'Olaf the Trader', collidable: true, radius: 1.0 });
-  add({ id: 'town_personal_chest', x: 17.8, y: 19.6, type: 'personal_chest', name: 'Personal Storage Chest', collidable: true, radius: 0.8 });
+  add({ id: 'town_personal_chest', x: 15.6, y: 17.1, type: 'personal_chest', name: 'Personal Storage Chest', collidable: true, radius: 0.8 });
   add({ id: 'npc_enchanter', x: 23.8, y: 23.4, type: 'enchanter', name: 'Valka the Enchanter', collidable: true, radius: 1.0 });
   add({ id: 'npc_blacksmith', x: 16.2, y: 23.4, type: 'blacksmith', name: 'Brom the Master Smith', collidable: true, radius: 1.0 });
 

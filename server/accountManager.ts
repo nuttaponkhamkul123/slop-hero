@@ -10,6 +10,8 @@ const DATA_DIR = process.env.DATA_DIR || (
     : path.join(process.cwd(), 'server', 'data')
 );
 const ACCOUNTS_FILE = path.join(DATA_DIR, 'accounts.json');
+// Login sessions survive a server restart, so connected players rejoin by themselves
+const SESSIONS_FILE = path.join(DATA_DIR, 'sessions.json');
 const MAX_CHARACTERS = 10;
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 const ROLES: UserRole[] = ['player', 'admin'];
@@ -89,6 +91,7 @@ export class AccountManager {
   issueToken(key: string): string {
     const token = crypto.randomBytes(24).toString('hex');
     this.sessions.set(token, { key, expiresAt: Date.now() + SESSION_TTL_MS });
+    this.saveSessions();
     return token;
   }
 
@@ -97,9 +100,33 @@ export class AccountManager {
     if (!s) return null;
     if (Date.now() > s.expiresAt) {
       this.sessions.delete(token);
+      this.saveSessions();
       return null;
     }
     return this.accounts[s.key] ? this.accounts[s.key].username : null;
+  }
+
+  saveSessions(): void {
+    try {
+      const now = Date.now();
+      for (const [token, s] of this.sessions) if (now > s.expiresAt) this.sessions.delete(token);
+      fs.writeFileSync(SESSIONS_FILE, JSON.stringify(Object.fromEntries(this.sessions)), 'utf-8');
+    } catch (err) {
+      console.error('[AccountManager] Error saving sessions:', err);
+    }
+  }
+
+  loadSessions(): void {
+    try {
+      if (!fs.existsSync(SESSIONS_FILE)) return;
+      const now = Date.now();
+      const raw = JSON.parse(fs.readFileSync(SESSIONS_FILE, 'utf-8'));
+      for (const [token, s] of Object.entries<any>(raw)) {
+        if (s && typeof s.key === 'string' && s.expiresAt > now) this.sessions.set(token, { key: s.key, expiresAt: s.expiresAt });
+      }
+    } catch (err) {
+      console.error('[AccountManager] Error loading sessions:', err);
+    }
   }
 
   summaries(key: string): CharacterSummary[] {
@@ -169,6 +196,7 @@ export class AccountManager {
       } else {
         this.saveAccounts();
       }
+      this.loadSessions();
     } catch (err) {
       console.error('[AccountManager] Error initializing accounts:', err);
       this.accounts = {};

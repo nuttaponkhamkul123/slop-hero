@@ -28,16 +28,24 @@ import {
   ensureWeaponSockets
 } from './items';
 import accountManager from './accountManager';
-import { FIELD_ZONES, FIELD_ZONE_BY_ID, generateFieldMap, buildFieldMobs } from './fieldZones';
-import { expToNext, mobExp, levelGapMult, lootGapMult, masteryMult, MOB_DEF_K } from './progression';
+import { FIELD_ZONES, FIELD_ZONE_BY_ID, generateFieldMap, buildFieldMobs, fieldObstacleGrid, nearObstacles } from './fieldZones';
+import { expToNext, baseExpCurve, mobExp, levelGapMult, lootGapMult, masteryMult, MOB_DEF_K } from './progression';
 import * as SP from './spCards';
 import * as adminCommands from './adminCommands';
 import * as RIFT from './eternalRift';
-const SP_TRANSFORM_COOLDOWN = 8;
+const SP_TRANSFORM_COOLDOWN = 3.2; // 8s reduced by 60% (* 0.4)
 
 // Global tuning knob for every skill's damage against monsters
 // (multiplies player.dmg * skill.dmgMult before rune/berserk/crit).
 const SKILL_DAMAGE_SCALE = 0.9;
+// Cosmetic player effects (Effects dialog): the trail ids a hero may wear (the look is in public/js/trails.js)
+const TRAIL_IDS = new Set(['afterimage', 'ember', 'frost', 'shadow', 'sakura', 'lightning', 'stardust', 'toxic', 'rainbow']);
+// Field props break after a few hits and grow back after PROP_RESPAWN_S seconds
+const PROP_RESPAWN_S = 20;
+const PROP_HITS: Record<string, number> = {
+  cactus: 2, dead_tree: 3, ice_crystal: 3, giant_mushroom: 3, oak_tree: 4, pine_tree: 4, snow_pine: 4,
+  boulder: 5, stone_pillar: 5, frost_monolith: 6
+};
 // Berserker blood auras (SP 'aura' skills): need this share of max HP to switch
 // one on, and all of them fade once HP is drained down to BLOOD_AURA_MIN_HP
 const BLOOD_AURA_START_HP = 0.2;
@@ -45,18 +53,23 @@ const BLOOD_AURA_MIN_HP = 0.1;
 // Mana tuning. Skill costs grow with level so they keep pace with max MP
 // (+15 per level): cost = base * MANA_COST_SCALE * (1 + MANA_COST_PER_LEVEL * (level - 1)).
 // Regen per second = MANA_REGEN_PCT of max MP + MANA_REGEN_FLAT.
-const MANA_COST_SCALE = 1.2;
+const MANA_COST_SCALE = 0.9;
 const MANA_COST_PER_LEVEL = 0.05;
-const MANA_REGEN_PCT = 0.03;
-const MANA_REGEN_FLAT = 1;
+const MANA_REGEN_PCT = 0.035;
+const MANA_REGEN_FLAT = 3;
 // Melee basic-attack cleave: reach past the attack range (tiles) and the default
 // arc (degrees, cos 0.35 either side of the facing); sweep weapons add to both
 const SWEEP_EXTRA_REACH = 1.15;
+// A swing that arrives this close to the end of the attack cooldown (25 Hz tick steps
+// plus network jitter) still lands: the client has already played it. The leftover is
+// carried into the next cooldown, so the attack rate itself never goes up.
+const ATTACK_GRACE_S = 0.15;
 const SWEEP_ARC_DEG = Math.round((Math.acos(0.35) * 360) / Math.PI);
 // Mage card mechanics (see spCards.js): caps and timers
 const SCORCH_MAX = 5, SCORCH_SECONDS = 6;
 const FROST_TO_FREEZE = 3, FROST_SECONDS = 5, FREEZE_SECONDS = 2, BOSS_FREEZE_SECONDS = 0.8;
-const STORM_CHARGE_MAX = 5, STORM_CHARGE_SECONDS = 8;
+// Tempest Caller: Conductor marks on enemies, arcs between marked enemies, delayed Thunderclap
+const CONDUCT_MAX = 3, CONDUCT_SECONDS = 7, CONDUCT_FORK_RANGE = 4.5, CONDUCT_FORK_MAX = 3, CONDUCT_FORK_SHARE = 0.4;
 const VOID_SOUL_MAX = 10, VOID_SOUL_SECONDS = 12, VOID_SOUL_BONUS = 0.04;
 const ECHO_DAMAGE = 0.6;
 // Variant warrior card mechanics (see spCards.ts)
@@ -248,9 +261,9 @@ const ALL_CLASS_SKILLS = {
     desc: 'Phantom sprint through shadows, slicing enemies along the path for 1.9x and gaining +40% speed for 2s.'
   },
   poison_darts: {
-    id: 'poison_darts', class: 'rogue', reqLevel: 5, name: 'Venom Shurikens', icon: '🎯', category: 'Ranged Poison Spread', fxType: 'poison_darts',
-    mpCost: 12, cooldown: 3.5, dmgMult: 2.3, damageMultiplier: 2.3, poisonDuration: 4.0, poisonDmg: 14,
-    desc: 'Fling 3 venom-coated shurikens in a lethal spread, dealing 2.3x damage and inflicting heavy neurotoxin.'
+    id: 'poison_darts', class: 'rogue', reqLevel: 5, name: 'Shurikens', icon: '🎯', category: 'Ranged Spread', fxType: 'poison_darts',
+    mpCost: 12, cooldown: 3.5, dmgMult: 2.3, damageMultiplier: 2.3,
+    desc: 'Hurl 8 steel shurikens in every direction; they curve back to you, hitting every enemy they pass through (out and back) for 1.15x damage each.'
   },
   caltrops: {
     id: 'caltrops', class: 'rogue', reqLevel: 10, name: 'Barbed Caltrops', icon: '⛓️', category: 'Ground Trap / Bleed', fxType: 'caltrops',
@@ -308,6 +321,13 @@ const ALL_CLASS_SKILLS = {
     desc: '[LV. 60 GRAND ULTIMATE] Plunge the arena into total void eclipse: flash through all targets 16 times with neon-violet cross-cleaves for 6.0x catastrophic burst damage!'
   }
 };
+
+// Reduce all class skill cooldowns by 60% (cooldown * 0.40)
+for (const s of Object.values(ALL_CLASS_SKILLS)) {
+  if (s && typeof (s as any).cooldown === 'number') {
+    (s as any).cooldown = Math.max(0.4, Number(((s as any).cooldown * 0.4).toFixed(2)));
+  }
+}
 
 const CLASS_SKILLS_CATALOG = {
   warrior: Object.values(ALL_CLASS_SKILLS).filter(s => s.class === 'warrior').sort((a, b) => a.reqLevel - b.reqLevel),
@@ -391,6 +411,10 @@ const PARTY_SUMMON_TTL_MS = 30000;
 // Loot left on the ground disappears after this long
 const ITEM_DESPAWN_MS = 5 * 60 * 1000;
 const ITEM_SWEEP_INTERVAL_MS = 1000;
+// "Face the cursor" setting: the 8 facings a client may send, and how long a
+// swing keeps the hero turned toward its target before it follows the mouse again
+const FACINGS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+const AIM_FACE_LOCK_SEC = 0.7;
 // Mage basic attacks burst on impact: nearby monsters take this share of the hit
 const MAGE_SPLASH_SHARE = 0.3;
 const MAGE_SPLASH_RADIUS = 1.9;
@@ -566,6 +590,7 @@ class GameServer {
         armor: chosenClass === 'mage' ? { ...ITEMS.mystic_robe, count: 1 } : (chosenClass === 'rogue' ? { ...ITEMS.leather_tunic, count: 1 } : null),
         helmet: chosenClass === 'warrior' ? { ...ITEMS.iron_helm, count: 1 } : null,
         boots: null,
+        gloves: null,
         ring: null
       },
       gold: 50,
@@ -665,13 +690,13 @@ class GameServer {
     return this.dungeonInstances.get(player.dungeonInstanceId) || null;
   }
 
-  getOrCreateDungeonInstance(player, floor = 1, difficulty = 'normal', forceRegen = false) {
+  getOrCreateDungeonInstance(player, floor = 1, difficulty = 'normal', forceRegen = false, mode = 'classic') {
     const instanceId = player.partyId ? `party_${player.partyId}` : `solo_${player.id}`;
-    if (!forceRegen && this.dungeonInstances.has(instanceId)) {
-      return this.dungeonInstances.get(instanceId);
-    }
+    const existing = this.dungeonInstances.get(instanceId);
+    // an unfinished run is resumed, unless the player now asks for the other mode (a fresh dungeon then)
+    if (!forceRegen && existing && (existing.mode || 'classic') === mode) return existing;
 
-    const dungeonMap = generateProceduralDungeon(floor, difficulty);
+    const dungeonMap = generateProceduralDungeon(floor, difficulty, mode);
     // Monsters wait per room and only appear once a door into their room
     // opens (see updateDungeonRooms / spawnDungeonRoom)
     const pendingMobs = new Map<any, any>(); // roomIdx -> mobs
@@ -689,18 +714,32 @@ class GameServer {
       });
     }
 
+    const bossRoomIdx = dungeonMap && dungeonMap.rooms ? dungeonMap.rooms.length - 1 : -1;
+    const trashMobs = (dungeonMap && dungeonMap.mobs) ? dungeonMap.mobs.filter(m => m.roomIdx !== bossRoomIdx) : [];
+    const totalTrashMobs = trashMobs.length;
+    const requiredKills = Math.max(1, Math.round(totalTrashMobs * 0.85));
+
     const inst: any = {
       id: instanceId,
       partyId: player.partyId || null,
       floor,
       difficulty,
+      mode,
       dungeon: dungeonMap,
       mobs: new Map<any, any>(),
       pendingMobs,
       groundItems: new Map<any, any>(),
       chests: dungeonMap.chests || [],
       cleared: false,
-      startedAt: Date.now()
+      startedAt: Date.now(),
+      bossRoomIdx,
+      totalTrashMobs,
+      requiredKills,
+      killedTrashCount: 0,
+      killPercent: 0,
+      bossPortalReady: false,
+      bossPortalSpawned: false,
+      bossPortalPos: null
     };
 
     this.dungeonInstances.set(instanceId, inst);
@@ -970,7 +1009,13 @@ class GameServer {
         for (const [x, y] of d.tiles) dung.tiles[y][x] = DUNGEON_TILES.FLOOR;
         dung.obstacles = dung.obstacles.filter(o => o.id !== d.id);
         opened.push({ id: d.id, tiles: d.tiles, boss: d.boss, x: d.x, y: d.y });
-        if (!inst.roomsSpawned.has(d.to)) spawned.push(...this.spawnDungeonRoom(inst, d.to));
+        if (!inst.roomsSpawned.has(d.to)) {
+          spawned.push(...this.spawnDungeonRoom(inst, d.to));
+          // Rush mode: the door opens onto ONE long hall, so every chamber of it fills at once
+          if (dung.rooms[d.to] && dung.rooms[d.to].rush) {
+            dung.rooms.forEach((r, ri) => { if (r.rush && !inst.roomsSpawned.has(ri)) spawned.push(...this.spawnDungeonRoom(inst, ri)); });
+          }
+        }
         progress = true;
       }
       if (!progress) break;
@@ -978,10 +1023,24 @@ class GameServer {
     if (!newlyCleared.length && !opened.length) return;
 
     const bossIdx = dung.rooms.length - 1;
+    // If all monster rooms are cleared, ensure killPercent is 100% and boss portal is ready
+    if (inst.roomsCleared && dung.rooms && inst.roomsCleared.size >= dung.rooms.length - 1) {
+      inst.killPercent = 100;
+      if (!inst.bossPortalReady) {
+        inst.bossPortalReady = true;
+        this.emitZone('dungeon', 'floating_text', {
+          x: dung.rooms[0].cx + 0.5,
+          y: dung.rooms[0].cy - 1.2,
+          text: '🌀 BOSS PORTAL READY (100%)!',
+          color: '#c084fc',
+          size: 24
+        }, inst.id);
+      }
+    }
     if (!inst.announce) return; // first pass at creation: nobody to tell yet
     if (spawned.length) this.emitZone('dungeon', 'dungeon_mobs_spawned', { mobs: spawned }, inst.id);
     for (const i of newlyCleared) {
-      if (i === 0 || i === bossIdx) continue;
+      if (i === 0 || i === bossIdx || dung.rooms[i].rush) continue;
       const r = dung.rooms[i];
       this.emitZone('dungeon', 'floating_text', { x: r.cx + 0.5, y: r.cy, text: 'ROOM CLEARED', color: '#4ade80', size: 22 }, inst.id);
     }
@@ -1453,6 +1512,70 @@ class GameServer {
     this.broadcastSystemMessage(`🌀 Abyssal Portal re-aligned to ${floorConfig.name} (B${floor}) [${diffLabel.toUpperCase()}]!`);
   }
 
+  // Cosmetic only: which trail the hero wears. Anything outside the whitelist clears it.
+  handleSetEffects(socketId: string, data: any) {
+    const player: any = this.players.get(socketId);
+    if (!player) return;
+    const trail = data && typeof data.trail === 'string' && TRAIL_IDS.has(data.trail) ? data.trail : null;
+    player.effects = { ...(player.effects || {}), trail };
+  }
+
+  // ---- destructible field props: every solid prop in a field zone breaks after a few hits (swings and
+  // skills near it) and grows back PROP_RESPAWN_S seconds later. A broken prop is flagged `destroyed`
+  // on the map obstacle itself, so it stops blocking movement and rides zone_change to late joiners.
+  damageFieldProps(player, cx, cy, radius, cone: { dx: number; dy: number; cos: number } | null = null) {
+    const field = this.fields.get(player.zone);
+    if (!field) return;
+    const grid = fieldObstacleGrid(field.map);
+    const st: Map<string, any> = field.propState || (field.propState = new Map());
+    const now = Date.now();
+    const span = Math.ceil(radius + 1), tx = Math.floor(cx), ty = Math.floor(cy);
+    for (let gy = ty - span; gy <= ty + span; gy++) {
+      for (let gx = tx - span; gx <= tx + span; gx++) {
+        const list = grid.get(gy * 4096 + gx);
+        if (!list) continue;
+        for (const o of list) {
+          if (o.destroyed || /portal/.test(o.type)) continue;
+          const orad = o.radius || 0.5;
+          if (Math.hypot(o.x - cx, o.y - cy) > radius + orad) continue;
+          if (cone) {
+            const px = o.x - player.x, py = o.y - player.y, pl = Math.hypot(px, py) || 1;
+            if (pl > orad + 0.7 && (px * cone.dx + py * cone.dy) / pl < cone.cos) continue;
+          }
+          let s = st.get(o.id);
+          if (!s) { const max = PROP_HITS[o.type] || 3; s = { hp: max, max, hitAt: 0 }; st.set(o.id, s); }
+          if (now - s.hitAt < 220) continue;                    // one blow at a time, whatever hits it
+          s.hitAt = now;
+          s.hp -= 1;
+          if (s.hp > 0) {
+            this.emitZone(player.zone, 'prop_hit', { id: o.id, x: o.x, y: o.y, type: o.type, hp: s.hp, max: s.max });
+            continue;
+          }
+          o.destroyed = true;
+          st.delete(o.id);
+          (field.destroyedProps || (field.destroyedProps = [])).push({ o, at: now + PROP_RESPAWN_S * 1000 });
+          this.emitZone(player.zone, 'prop_state', { id: o.id, destroyed: true, x: o.x, y: o.y, type: o.type });
+        }
+      }
+    }
+  }
+
+  // Bring broken props back once their time is up (never on top of someone standing there)
+  updateFieldProps(field, zoneId) {
+    const list = field.destroyedProps;
+    if (!list || !list.length) return;
+    const now = Date.now();
+    for (let i = list.length - 1; i >= 0; i--) {
+      const e = list[i];
+      if (now < e.at) continue;
+      const blocked = Array.from(this.players.values()).some((p: any) => p.zone === zoneId && !p.isDead && Math.hypot(p.x - e.o.x, p.y - e.o.y) < (e.o.radius || 0.5) + 0.9);
+      if (blocked) { e.at = now + 1000; continue; }
+      delete e.o.destroyed;
+      list.splice(i, 1);
+      this.emitZone(zoneId, 'prop_state', { id: e.o.id, destroyed: false, x: e.o.x, y: e.o.y, type: e.o.type });
+    }
+  }
+
   isColliding(x, y, zone = 'town', radius = 0.4) {
     if (zone === 'town') {
       if (x < 1 || x > MAP_WIDTH - 2 || y < 1 || y > MAP_HEIGHT - 2) return true;
@@ -1476,8 +1599,8 @@ class GameServer {
         const tile = map.tiles[tileY][tileX];
         if (map.blockingTiles.includes(tile)) return true;
       }
-      for (const obs of map.obstacles) {
-        if (!obs.collidable) continue;
+      // big fields hold thousands of props: only test the ones around the point
+      for (const obs of nearObstacles(fieldObstacleGrid(map), x, y)) {
         const obsRadius = obs.radius || 0.65;
         if (Math.hypot(obs.x - x, obs.y - y) < (radius + obsRadius)) return true;
       }
@@ -1607,6 +1730,7 @@ class GameServer {
         armor: null,
         helmet: null,
         boots: null,
+        gloves: null,
         ring: null
       },
       hp: classStats.maxHp,
@@ -1724,12 +1848,17 @@ class GameServer {
         recipes: RIFT.JAMES_RECIPES.map(r => ({ ...r, item: ITEMS[r.itemId] })),
         maxWaves: RIFT.RIFT_MAX_WAVES,
         checkpointEvery: RIFT.RIFT_CHECKPOINT_EVERY,
-        buildReach: RIFT.RIFT_STRUCT_REACH
+        buildReach: RIFT.RIFT_STRUCT_REACH,
+        modes: RIFT.RIFT_MODES
       }
     });
 
     socket.broadcast.emit('player_joined', player);
     this.broadcastSystemMessage(`⚔️ [${player.name} the ${player.characterClass.toUpperCase()}] entered the realm!`);
+    if ((player as any).talentRefunded) {
+      socket.emit('chat_broadcast', { senderId: 'system', senderName: 'SYSTEM', senderClass: 'system', timestamp: Date.now(), text: `🌳 The talent web was redesigned: all ${(player as any).talentRefunded} of your talent points were refunded for free. Open Talents to pick your new path!` });
+      (player as any).talentRefunded = 0;
+    }
   }
 
   removePlayer(socketId) {
@@ -1873,6 +2002,11 @@ class GameServer {
       player.targetY = null;
       player.moveDir = { dx: 0, dy: 0 };
       player.isMoving = false;
+    } else if (input.type === 'aim_facing') {
+      // "Face the cursor" setting: the client sends the 8-way direction
+      // toward the mouse (null when the setting is off)
+      player.aimFacing = FACINGS.includes(input.facing) ? input.facing : null;
+      if (player.aimFacing && !(player.faceLockTimer > 0)) player.facing = player.aimFacing;
     }
   }
 
@@ -1919,7 +2053,109 @@ class GameServer {
         else this.teleportPlayerToField(player, socket, obs.target, obs.arrive);
         return;
       }
+    } else if (player.zone === 'dungeon') {
+      const inst = this.getPlayerDungeonInstance(player);
+      if (inst && inst.dungeon && inst.dungeon.obstacles) {
+        for (const obs of inst.dungeon.obstacles) {
+          if (obs.type !== 'dungeon_boss_portal') continue;
+          if (Math.hypot(player.x - obs.x, player.y - obs.y) >= PORTAL_USE_RANGE) continue;
+          if (obs.isReturn) {
+            this.teleportPlayerFromBossRoom(player, socket, inst);
+          } else {
+            this.teleportPlayerToBossRoom(player, socket, inst);
+          }
+          return;
+        }
+      }
     }
+  }
+
+  handleSpawnBossPortal(socketId: any) {
+    const player = this.players.get(socketId);
+    if (!player || player.zone !== 'dungeon' || player.isDead) return;
+    const inst = this.getPlayerDungeonInstance(player);
+    if (!inst || !inst.bossPortalReady || inst.bossPortalSpawned) return;
+
+    const portalX = Math.round(player.x) + 0.5;
+    const portalY = Math.round(player.y) + 0.5;
+    const portalObstacle = {
+      id: 'portal_boss',
+      x: portalX,
+      y: portalY,
+      type: 'dungeon_boss_portal',
+      isReturn: false,
+      collidable: false
+    };
+
+    inst.bossPortalPos = { x: portalX, y: portalY };
+    inst.bossPortalSpawned = true;
+    if (!inst.dungeon.obstacles) inst.dungeon.obstacles = [];
+    inst.dungeon.obstacles.push(portalObstacle);
+
+    this.emitZone('dungeon', 'boss_portal_spawned', { portal: portalObstacle }, inst.id);
+    this.emitZone('dungeon', 'floating_text', {
+      x: portalX,
+      y: portalY - 1.2,
+      text: '🌀 BOSS PORTAL OPENED!',
+      color: '#c084fc',
+      size: 24
+    }, inst.id);
+    this.broadcastSystemMessage(`🌀 [${player.name}] summoned the Boss Portal!`);
+
+    for (const p of this.players.values()) {
+      if (p.zone === 'dungeon' && p.dungeonInstanceId === inst.id) {
+        this.emitDungeonRunUpdate(p);
+      }
+    }
+  }
+
+  teleportPlayerToBossRoom(player: any, socket: any, inst: any) {
+    if (!inst || !inst.dungeon || !inst.dungeon.rooms) return;
+    const bossRoom = inst.dungeon.rooms[inst.dungeon.rooms.length - 1];
+    if (!bossRoom) return;
+
+    const destX = bossRoom.cx + 0.5;
+    const destY = bossRoom.y + bossRoom.h - 2.5;
+
+    player.x = destX;
+    player.y = destY;
+    player.targetX = null;
+    player.targetY = null;
+    player.portalCooldown = 2.0;
+
+    const bossIdx = inst.dungeon.rooms.length - 1;
+    if (!inst.roomsSpawned.has(bossIdx)) {
+      const spawned = this.spawnDungeonRoom(inst, bossIdx);
+      if (spawned.length) {
+        this.emitZone('dungeon', 'dungeon_mobs_spawned', { mobs: spawned }, inst.id);
+      }
+      this.emitZone('dungeon', 'floating_text', {
+        x: bossRoom.cx + 0.5,
+        y: bossRoom.cy - 1.5,
+        text: '⚔️ BOSS ENCOUNTER!',
+        color: '#ef4444',
+        size: 28
+      }, inst.id);
+    }
+
+    if (socket) socket.emit('player_teleport', { id: player.id, x: player.x, y: player.y });
+    this.emitZone('dungeon', 'player_teleport', { id: player.id, x: player.x, y: player.y }, inst.id);
+    if (socket) socket.emit('floating_text', { x: player.x, y: player.y - 1.0, text: 'ENTERED BOSS LAIR!', color: '#f43f5e' });
+  }
+
+  teleportPlayerFromBossRoom(player: any, socket: any, inst: any) {
+    if (!inst || !inst.dungeon) return;
+    const returnPos = inst.bossPortalPos || inst.dungeon.spawnPoint || { x: player.x, y: player.y };
+
+    player.x = returnPos.x;
+    player.y = returnPos.y;
+    player.targetX = null;
+    player.targetY = null;
+    player.portalCooldown = 2.0;
+
+    if (socket) socket.emit('player_teleport', { id: player.id, x: player.x, y: player.y });
+    this.emitZone('dungeon', 'player_teleport', { id: player.id, x: player.x, y: player.y }, inst.id);
+    if (socket) socket.emit('floating_text', { x: player.x, y: player.y - 1.0, text: 'RETURNED TO DUNGEON', color: '#38bdf8' });
   }
 
   handleEnterDungeon(socketId: any, options: any = {}) {
@@ -1946,8 +2182,10 @@ class GameServer {
 
     const difficulty = partyInst ? partyInst.difficulty
       : (['normal', 'hard', 'nightmare'].includes(options.difficulty) ? options.difficulty : 'normal');
+    // classic labyrinth, or Rush (one super long hall holding every monster); a party joins the leader's mode
+    const mode = partyInst ? (partyInst.mode || 'classic') : (options.mode === 'rush' ? 'rush' : 'classic');
 
-    const inst = this.getOrCreateDungeonInstance(player, floor, difficulty);
+    const inst = this.getOrCreateDungeonInstance(player, floor, difficulty, false, mode);
     if (partyInst) {
       socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: `⚔️ Joining your party in B${inst.floor}!`, color: '#4ade80' });
     }
@@ -2062,7 +2300,8 @@ class GameServer {
       map: field.map,
       player,
       players: Array.from(this.players.values()).filter(p => p.zone === zoneId),
-      mobs: Array.from(field.mobs.values()),
+      // the living mobs in view; game_tick adds the rest as they come into view
+      mobs: (Array.from(field.mobs.values()) as any[]).filter(m => m.state !== 'dead' && (m.isBoss || mobInView(m, player))),
       groundItems: Array.from(field.groundItems.values()),
       raid: this.raidInfo(zoneId)
     });
@@ -2113,38 +2352,22 @@ class GameServer {
     const curRank = player.skills[skillId] || 0;
     if (curRank >= talent.maxRank) return;
 
-    // Specialization lock: once points are spent in a branch, the other
-    // branches stay closed until the talents are reset.
-    const committedBranches = new Set(tree.filter(t => (player.skills[t.id] || 0) > 0).map(t => t.branch));
-    if (committedBranches.size > 0 && !committedBranches.has(talent.branch)) {
+    // Free pathing (no specialization lock): a talent can be learned when it is a starting point
+    // of the web or touches a talent you already own (see the TALENT WEB in talents.ts).
+    const connected = talent.start || (talent.links || []).some(id => (player.skills[id] || 0) > 0);
+    if (!connected) {
       const socket = this.io.sockets.sockets.get(socketId);
       if (socket) {
         socket.emit('floating_text', {
           x: player.x,
           y: player.y - 0.7,
-          text: '⚠️ Locked to your chosen specialization! Reset talents to switch.',
+          text: '⚠️ Connect it to a talent you already have!',
           color: '#ef4444'
         });
         // Resync the client in case it optimistically added the point
         socket.emit('skill_tree_updated', { skillPoints: player.skillPoints, skills: player.skills });
       }
       return;
-    }
-
-    if (talent.requires) {
-      const prereqRank = player.skills[talent.requires] || 0;
-      if (prereqRank < 1) {
-        const socket = this.io.sockets.sockets.get(socketId);
-        if (socket) {
-          socket.emit('floating_text', {
-            x: player.x,
-            y: player.y - 0.7,
-            text: '⚠️ Requires prerequisite talent!',
-            color: '#ef4444'
-          });
-        }
-        return;
-      }
     }
 
     player.skillPoints--;
@@ -2167,6 +2390,20 @@ class GameServer {
     }
 
     this.broadcastSystemMessage(`🌳 [${player.name}] upgraded talent [${talent.name}]!`);
+  }
+
+  // Talents saved against a talent id that no longer exists (the web was redesigned) are refunded
+  // in full, for free: the hero gets every spent point back and re-picks their path.
+  refundStaleTalents(player) {
+    if (!player || !player.skills) return;
+    const tree = SKILL_TREES[player.characterClass] || [];
+    const valid = new Set(tree.map(t => t.id));
+    const ids = Object.keys(player.skills);
+    if (!ids.some(id => !valid.has(id))) return;
+    const spent = ids.reduce((s, id) => s + Number(player.skills[id] || 0), 0);
+    player.skillPoints = (player.skillPoints || 0) + spent;
+    player.skills = {};
+    player.talentRefunded = spent;
   }
 
   handleResetSkillPoints(socketId) {
@@ -2269,10 +2506,10 @@ class GameServer {
 
   handlePlayerAttack(socketId, targetInfo) {
     const player = this.players.get(socketId);
-    if (!player || player.isDead || player.attackCooldown > 0) return;
+    if (!player || player.isDead || player.attackCooldown > ATTACK_GRACE_S) return;
 
     const atkSpeed = Math.max(0.4, player.attackSpeed || 1.0);
-    player.attackCooldown = Math.max(0.12, 0.55 / atkSpeed);
+    player.attackCooldown = Math.max(0, player.attackCooldown || 0) + Math.max(0.12, 0.55 / atkSpeed);
     player.isAttacking = true;
 
     const mobsMap = this.getMobsMap(player.zone);
@@ -2285,6 +2522,9 @@ class GameServer {
       }
     }
 
+    // A swing keeps the hero turned toward its target for a moment, even
+    // with "face the cursor" on
+    player.faceLockTimer = AIM_FACE_LOCK_SEC;
     if (targetMob) {
       player.facing = this.calculateFacing(player.x, player.y, targetMob.x, targetMob.y);
       // In reach of a click-moved hero: plant the feet and swing instead of walking on into the monster
@@ -2297,6 +2537,19 @@ class GameServer {
       }
     } else if (targetInfo && targetInfo.worldX !== undefined) {
       player.facing = this.calculateFacing(player.x, player.y, targetInfo.worldX, targetInfo.worldY);
+    }
+
+    // a swing also hits the props in front of the hero (field zones): melee in a short cone, mages farther
+    if (this.fields.has(player.zone)) {
+      let ax = targetMob ? targetMob.x - player.x : targetInfo && targetInfo.worldX !== undefined ? targetInfo.worldX - player.x : NaN;
+      let ay = targetMob ? targetMob.y - player.y : targetInfo && targetInfo.worldY !== undefined ? targetInfo.worldY - player.y : NaN;
+      if (!Number.isFinite(ax) || !Number.isFinite(ay) || Math.hypot(ax, ay) < 0.01) {
+        const fv: any = { E: [1, 0], SE: [0.707, 0.707], S: [0, 1], SW: [-0.707, 0.707], W: [-1, 0], NW: [-0.707, -0.707], N: [0, -1], NE: [0.707, -0.707] }[player.facing] || [1, 0];
+        ax = fv[0]; ay = fv[1];
+      }
+      const al = Math.hypot(ax, ay) || 1;
+      const propReach = player.characterClass === 'mage' ? 4 : (player.attackRange || 1.6) + 1.2;
+      this.damageFieldProps(player, player.x, player.y, propReach, { dx: ax / al, dy: ay / al, cos: 0.4 });
     }
 
     const critChance = 0.15 + (player.critChanceBonus || 0);
@@ -2318,10 +2571,13 @@ class GameServer {
     if (player.bloodlust) attackDmg = Math.round(attackDmg * this.bloodRage(player));
     // melee hits below add up what they took, for the SP card passive leech
     let meleeDealt = 0;
+    // where each blow landed, so the client can burst particles on what was hit
+    const hits: any[] = [];
     const strike = (mob, dmg, crit) => {
       const before = mob.hp;
       this.applyDamageToMob(player, mob, dmg, crit);
       meleeDealt += Math.max(0, before - Math.max(0, mob.hp));
+      if (hits.length < 12) hits.push({ x: Math.round(mob.x * 100) / 100, y: Math.round(mob.y * 100) / 100, crit: !!crit });
     };
 
     let hasSweepTriggered = false;
@@ -2410,7 +2666,7 @@ class GameServer {
           const dot = dist > 0.001 ? (dx * fv.x + dy * fv.y) / dist : 1.0;
           if (dot >= minDot) {
             hitMobs.add(mob.id);
-            strike(mob, swipeDmg, false);
+            strike(mob, swipeDmg, Math.random() < critChance);   // its own crit roll, like the main target
           }
         }
       }
@@ -2433,7 +2689,8 @@ class GameServer {
       swipe: player.swipe || 0,
       // the cleave's true reach (tiles) and arc (degrees), so the slash covers what it hits
       sweepRange: sweepRangeHit,
-      sweepArc: hasSweepTriggered ? this.meleeSweep(player).arc : 0
+      sweepArc: hasSweepTriggered ? this.meleeSweep(player).arc : 0,
+      hits
     });
   }
 
@@ -2575,7 +2832,7 @@ class GameServer {
       mult *= C.decay;
       visited.add(next);
       points.push({ x: next.x, y: next.y });
-      strike(next, Math.max(1, Math.round(attackDmg * mult)), false);
+      strike(next, Math.max(1, Math.round(attackDmg * mult)), Math.random() < 0.15 + (player.critChanceBonus || 0));
       cur = next;
     }
     if (points.length > 1) {
@@ -2696,7 +2953,6 @@ class GameServer {
     timed('haste', 'Haste', '💨', p.sprintTimer);
     if (p.shieldHp > 0) out.push({ k: 'shield', n: 'Shield', i: '🔰', v: Math.round(p.shieldHp) });
     if (p.flowStacks > 0) out.push({ k: 'flow', n: 'Flow', i: '🌊', v: p.flowStacks, t: Math.ceil(p.flowTimer || 0) });
-    if (p.stormCharge > 0) out.push({ k: 'charge', n: 'Static Charge', i: '⚡', v: p.stormCharge, t: Math.ceil(p.stormChargeTimer || 0) });
     if (p.voidSouls > 0) out.push({ k: 'souls', n: 'Souls', i: '👻', v: p.voidSouls, t: Math.ceil(p.voidSoulTimer || 0) });
     // variant warrior card states
     const now = Date.now();
@@ -2963,17 +3219,6 @@ class GameServer {
 
     let dealt = 0;
     const say = (x, y, text, color, size) => this.emitZone(zone, 'floating_text', { x, y: y - 0.8, text, color, size });
-    // Tempest: Discharge spends every Static Charge for a bigger hit
-    let dischargeMult = 1;
-    if (skill.discharge && player.stormCharge > 0) {
-      dischargeMult = 1 + skill.discharge * player.stormCharge;
-      say(px, py, `⚡ DISCHARGE x${player.stormCharge}`, '#facc15', 17);
-      player.stormCharge = 0;
-    }
-    const gainCharge = (n) => {
-      player.stormCharge = Math.min(STORM_CHARGE_MAX, (player.stormCharge || 0) + n);
-      player.stormChargeTimer = STORM_CHARGE_SECONDS;
-    };
     // Soul harvesters (Void Archon, Duskblade): every Soul empowers its skills; Devour spends them
     const isSoulCard = skill.souls !== undefined || skill.devour !== undefined;
     const souls = isSoulCard ? (player.voidSouls || 0) : 0;
@@ -3033,10 +3278,11 @@ class GameServer {
         say(mob.x, mob.y, '☠️ DOOM SPREADS', '#c084fc', 16);
       }
     };
-    let chargeHits = 0;
     const hit = (mob, mult = 1, fromX = px, fromY = py) => {
       if (!mob || mob.state === 'dead') return;
-      let m = skill.dmgMult * mult * dischargeMult * soulMult * comboMult * heatMult;
+      let m = skill.dmgMult * mult * soulMult * comboMult * heatMult;
+      // Tempest Caller: Conductor marks held by the target when this skill lands
+      const conductNow = mob.conductTimer > 0 ? (mob.conduct || 0) : 0;
       // Gravelord: shatter the Fracture cracks for bonus damage and a stun
       let shatterStun = 0;
       if (skill.shatterEarth && mob.fracture > 0 && mob.fractureUntil > Date.now()) {
@@ -3134,7 +3380,40 @@ class GameServer {
       }
       if (skill.souls) gainSouls(skill.souls);
       else if (!stillUp && isSoulCard) gainSouls(1);
-      if (skill.chargeHit && chargeHits < STORM_CHARGE_MAX) { chargeHits++; gainCharge(skill.chargeHit); }
+      // Conductor: lightning forks from a marked target into the marked enemies around it
+      if (skill.fork && conductNow > 0) {
+        const forks = alive()
+          .filter(o => o !== mob && o.conductTimer > 0 && (o.conduct || 0) > 0 && Math.hypot(o.x - mob.x, o.y - mob.y) <= CONDUCT_FORK_RANGE)
+          .sort((a, b) => Math.hypot(a.x - mob.x, a.y - mob.y) - Math.hypot(b.x - mob.x, b.y - mob.y))
+          .slice(0, CONDUCT_FORK_MAX);
+        if (forks.length) {
+          emit({ quiet: true, shape: 'chain', x: mob.x, y: mob.y, startX: mob.x, startY: mob.y, points: forks.map(o => ({ x: o.x, y: o.y })) }, false);
+          const forkDmg = Math.round(player.dmg * skill.dmgMult * mult * CONDUCT_FORK_SHARE * conductNow);
+          for (const o of forks) {
+            this.applyDamageToMob(player, o, forkDmg, false);
+            say(o.x, o.y, `⚡ ARC -${forkDmg}`, '#fde047', 14);
+          }
+        }
+      }
+      // Thunderclap: the thunder arrives late. The marks are spent and the target booms after a beat
+      if (skill.clap && conductNow > 0) {
+        mob.conduct = 0;
+        const cx = mob.x, cy = mob.y;
+        say(cx, cy, `🌩️ THUNDER x${conductNow}`, '#facc15', 15);
+        later(skill.clap.delay, () => {
+          emit({ shape: 'nova', x: cx, y: cy, radius: skill.clap.r, burst: true }, false);
+          const clapDmg = Math.round(player.dmg * skill.clap.mult * conductNow);
+          for (const o of within(cx, cy, skill.clap.r)) this.applyDamageToMob(player, o, clapDmg, false);
+          say(cx, cy, `🌩️ THUNDERCLAP -${clapDmg}`, '#fef08a', 18);
+        });
+      }
+      // mark the target (after the fork/clap so a fresh mark never feeds its own cast)
+      if (stillUp && skill.conduct) {
+        const held = mob.conductTimer > 0 ? (mob.conduct || 0) : 0;
+        mob.conduct = Math.min(CONDUCT_MAX, held + skill.conduct);
+        mob.conductTimer = CONDUCT_SECONDS;
+        say(mob.x, mob.y - 0.2, `⚡ CONDUCTOR x${mob.conduct}`, '#facc15', 12 + mob.conduct);
+      }
       if (skill.knock && mob.state !== 'dead') {
         const d = Math.hypot(mob.x - fromX, mob.y - fromY) || 1;
         const kx = mob.x + ((mob.x - fromX) / d) * skill.knock;
@@ -3930,7 +4209,6 @@ class GameServer {
         this.castSpSkill(player, echoSkill, Object.assign({}, ctx, { skillData: Object.assign({}, skillData, { targetX: aimX, targetY: aimY }), isEcho: true }));
       });
     }
-    if (skill.charge) gainCharge(skill.charge);
     // Reaver Heat: at 100 the hero Overheats
     if (skill.heat && !(player.overheatUntil > Date.now())) {
       player.heat = Math.min(HEAT_MAX, (player.heat || 0) + skill.heat);
@@ -3958,7 +4236,6 @@ class GameServer {
 
     // Self effects
     const buffs = [];
-    if (skill.charge || skill.chargeHit) buffs.push(`⚡ CHARGE ${player.stormCharge || 0}/${STORM_CHARGE_MAX}`);
     if (skill.haste) buffs.push(`HASTE -${skill.haste}s`);
     if (skill.cleanse) {
       player.statusEffects = [];
@@ -4084,13 +4361,13 @@ class GameServer {
     const runeCounts = this.getWeaponRuneCounts(player);
     let cooldown = skill.cooldown;
     if (runeCounts.tempest > 0) {
-      // (the 1s floor never lengthens a cooldown that is already shorter, e.g. Rift Step's 0.25s)
-      cooldown = Math.max(Math.min(1.0, cooldown), Number((cooldown * Math.pow(0.8, runeCounts.tempest)).toFixed(2)));
+      // (the 0.4s floor never lengthens a cooldown that is already shorter, e.g. Rift Step's 0.1s)
+      cooldown = Math.max(Math.min(0.4, cooldown), Number((cooldown * Math.pow(0.8, runeCounts.tempest)).toFixed(2)));
     }
     if (slot === 'dash') {
-      if (playerTalents.sundering_dash) cooldown = Math.max(1.2, cooldown - playerTalents.sundering_dash * 0.5);
-      if (playerTalents.arcane_haste) cooldown = Math.max(1.2, cooldown - playerTalents.arcane_haste * 0.6);
-      if (playerTalents.shadow_sprint) cooldown = Math.max(1.2, cooldown - playerTalents.shadow_sprint * 0.5);
+      if (playerTalents.sundering_dash) cooldown = Math.max(0.4, cooldown - playerTalents.sundering_dash * 0.2);
+      if (playerTalents.arcane_haste) cooldown = Math.max(0.4, cooldown - playerTalents.arcane_haste * 0.25);
+      if (playerTalents.shadow_sprint) cooldown = Math.max(0.4, cooldown - playerTalents.shadow_sprint * 0.2);
     }
 
     if (!recall) {
@@ -4161,6 +4438,14 @@ class GameServer {
       const dirLen = Math.hypot(dirX, dirY) || 1;
       return { normX: dirX / dirLen, normY: dirY / dirLen };
     };
+
+    // field props near the caster, and near where the skill was aimed, take a hit
+    if (this.fields.has(player.zone)) {
+      this.damageFieldProps(player, player.x, player.y, 3);
+      if (Number.isFinite(skillData && skillData.targetX) && Number.isFinite(skillData && skillData.targetY)) {
+        this.damageFieldProps(player, skillData.targetX, skillData.targetY, 1.8);
+      }
+    }
 
     // EXECUTE SPECIFIC ABILITY
     switch (skill.spShape ? 'sp_skill' : skill.id) {
@@ -4712,14 +4997,54 @@ class GameServer {
       case 'poison_darts': {
         const { normX, normY } = computeDashVector();
         this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'poison_darts', skillSlot: slot, cooldown, x: player.x, y: player.y, dirX: normX, dirY: normY, playerId: player.id });
-        for (const mob of mobsMap.values()) {
-          if (mob.state === 'dead') continue;
-          const dist = Math.hypot(mob.x - player.x, mob.y - player.y);
-          if (dist <= 5.5) {
-            applySkillDamage(mob, Math.round(player.dmg * skill.dmgMult), false);
-            mob.poisonTimer = skill.poisonDuration || 4.0;
-            mob.poisonDmg = skill.poisonDmg || 14;
-          }
+        // Eight shurikens fly out in a ring, curve, turn at their reach and come back to the thrower.
+        // Whatever one of them passes through is hit (once per shuriken on the way out, once on the
+        // way back). The path is the same one the client draws (renderer.js, poison_darts).
+        {
+          const N = 8, REACH = 5.2, DURATION_MS = 950, HIT_R = 0.95, TICK_MS = 40;
+          const zone0 = player.zone, inst0 = player.dungeonInstanceId || null;
+          const ox0 = player.x, oy0 = player.y, base = Math.atan2(normY, normX) + Math.PI / N;
+          const perHit = Math.round(player.dmg * skill.dmgMult * 0.5);
+          const shurikenAt = (i: number, u: number) => {
+            const ang = base + (i / N) * Math.PI * 2;
+            const tx = ox0 + Math.cos(ang) * REACH, ty = oy0 + Math.sin(ang) * REACH;
+            const bow = Math.sin(Math.PI * u) * 1.1 * (i % 2 ? 1 : -1);
+            let x: number, y: number;
+            if (u < 0.5) {
+              const t = 1 - Math.pow(1 - u / 0.5, 2.4);
+              x = ox0 + (tx - ox0) * t; y = oy0 + (ty - oy0) * t;
+            } else {
+              const k = (u - 0.5) / 0.5, t = k * k * (1.6 - 0.6 * k);
+              x = tx + (player.x - tx) * t; y = ty + (player.y - ty) * t;   // home to wherever the thrower is now
+            }
+            return { x: x - Math.sin(ang) * bow, y: y + Math.cos(ang) * bow };
+          };
+          const hitOnce = new Set<string>();
+          const startedAt = Date.now();
+          let prevU = 0;
+          const tick = setInterval(() => {
+            const p = this.players.get(player.id);
+            if (!p || p !== player || p.isDead || p.zone !== zone0 || (p.dungeonInstanceId || null) !== inst0) { clearInterval(tick); return; }
+            const u = Math.min(1, (Date.now() - startedAt) / DURATION_MS);
+            this.runAs(player.id, () => {
+              for (let i = 0; i < N; i++) {
+                for (let s = 1; s <= 3; s++) {                       // sample the stretch since the last tick so none slip through
+                  const pos = shurikenAt(i, prevU + ((u - prevU) * s) / 3);
+                  const phase = u < 0.5 ? 0 : 1;
+                  for (const mob of mobsMap.values()) {
+                    if (mob.state === 'dead' || mob.hp <= 0) continue;
+                    const key = `${i}|${phase}|${mob.id}`;
+                    if (hitOnce.has(key)) continue;
+                    if (Math.hypot(mob.x - pos.x, mob.y - pos.y) > HIT_R + (mob.isBoss ? 0.8 : 0)) continue;
+                    hitOnce.add(key);
+                    applySkillDamage(mob, perHit, false);
+                  }
+                }
+              }
+            });
+            prevU = u;
+            if (u >= 1) clearInterval(tick);
+          }, TICK_MS);
         }
         break;
       }
@@ -4849,7 +5174,10 @@ class GameServer {
     let totalThorns = 0;
     let totalDodgeChance = 0;
     let totalLifeSteal = 0;
+    // talent percentages of (base + gear): damage, HP, armor, MP, and thorns as a share of armor
+    const talentPct = { dmgPct: 0, hpPct: 0, defPct: 0, mpPct: 0, thornsPct: 0 };
     const totalElementResist: Record<string, number> = {};
+    this.refundStaleTalents(player);
 
     if (player.equipment) {
       if (player.equipment.weapon) {
@@ -4869,6 +5197,8 @@ class GameServer {
         if (eq.bonusSpeed) totalBonusSpeed += eq.bonusSpeed;
         if (eq.bonusAttackSpeed) totalBonusAttackSpeed += eq.bonusAttackSpeed;
         if (eq.bonusSwipe) totalBonusSwipe += eq.bonusSwipe;
+        if (eq.critChance) totalCritChanceBonus += eq.critChance / 100;
+        if (eq.critDmg) totalCritDmgBonus += eq.critDmg / 100;
 
         // Hypixel Skyblock Reforge Modifier Stats
         if (eq.reforgeStats) {
@@ -4912,6 +5242,7 @@ class GameServer {
           if (talent.effects.thorns) totalThorns += talent.effects.thorns * rank;
           if (talent.effects.dodgeChance) totalDodgeChance += talent.effects.dodgeChance * rank;
           if (talent.effects.lifeSteal) totalLifeSteal += talent.effects.lifeSteal * rank;
+          for (const k of Object.keys(talentPct)) if (talent.effects[k]) talentPct[k] += talent.effects[k] * rank;
         }
       }
     }
@@ -4941,10 +5272,12 @@ class GameServer {
     // James the Gatekeeper's weapons: passive powers (Gatekeeper's Greatsword -30%, Sunfire Conduit +10%)
     const power = weaponPower(player.equipment && player.equipment.weapon);
     player.weaponPower = power;
-    player.dmg = Math.round((player.baseStats.dmg + totalBonusDmg) * player.mastery * ((power && power.dmgMult) || 1));
-    player.def = player.baseStats.def + totalBonusDef;
-    player.maxHp = player.baseStats.maxHp + totalBonusHp;
-    player.maxMp = player.baseStats.maxMp + totalBonusMp;
+    const pctMult = (v) => Math.max(0.1, 1 + v);   // a keystone trade-off can lower a stat, never zero it
+    player.dmg = Math.round((player.baseStats.dmg + totalBonusDmg) * pctMult(talentPct.dmgPct) * player.mastery * ((power && power.dmgMult) || 1));
+    player.def = Math.round((player.baseStats.def + totalBonusDef) * pctMult(talentPct.defPct));
+    player.maxHp = Math.round((player.baseStats.maxHp + totalBonusHp) * pctMult(talentPct.hpPct));
+    player.maxMp = Math.round((player.baseStats.maxMp + totalBonusMp) * pctMult(talentPct.mpPct));
+    totalThorns += Math.max(0, player.def) * talentPct.thornsPct;
     player.manaCostMult = Number((MANA_COST_SCALE * (1 + MANA_COST_PER_LEVEL * ((player.level || 1) - 1))).toFixed(3));
     player.speed = Number((player.baseStats.speed + totalBonusSpeed).toFixed(2));
     player.attackSpeed = Number(((player.baseStats.attackSpeed || 1.0) + totalBonusAttackSpeed).toFixed(2));
@@ -5546,6 +5879,34 @@ class GameServer {
     }
   }
 
+  // Town Portal Scroll: back to town from a field or a dungeon. A boss room
+  // stays sealed, the same as leaving through the menu, and then the scroll
+  // is not used up.
+  handleUseTownScroll(socketId: string, data: any) {
+    const player = this.players.get(socketId);
+    const socket = this.io.sockets.sockets.get(socketId);
+    if (!player || !socket || player.isDead || !data) return;
+
+    const item = player.inventory.items[Number(data.itemIndex)];
+    if (!item || item.id !== 'town_scroll') return;
+    if (player.zone === 'town') {
+      socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: 'You are already in town!', color: '#ef4444' });
+      return;
+    }
+
+    if (player.zone === 'dungeon') this.handleLeaveDungeon(socketId);
+    else this.teleportPlayerToTown(player, socket);
+    if (player.zone !== 'town') return;
+
+    const idx = player.inventory.items.indexOf(item);
+    if (item.count && item.count > 1) item.count--;
+    else if (idx >= 0) player.inventory.items.splice(idx, 1);
+
+    this.savePlayerAccount(socketId);
+    socket.emit('player_updated', player);
+    socket.emit('floating_text', { x: player.x, y: player.y - 0.8, text: '📜 Returned to town!', color: '#facc15', size: 18 });
+  }
+
   handleUseBagExpander(socketId: string, data: any) {
     const player = this.players.get(socketId);
     const socket = this.io.sockets.sockets.get(socketId);
@@ -5598,7 +5959,7 @@ class GameServer {
       return;
     }
 
-    const dist = Math.hypot(player.x - 17.8, player.y - 19.6);
+    const dist = Math.hypot(player.x - 15.6, player.y - 17.1);
     if (dist > 5.0) {
       socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: 'You are too far from the Personal Chest!', color: '#ef4444' });
       return;
@@ -5623,7 +5984,7 @@ class GameServer {
       socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: 'The Personal Chest is in Town!', color: '#ef4444' });
       return;
     }
-    const dist = Math.hypot(player.x - 17.8, player.y - 19.6);
+    const dist = Math.hypot(player.x - 15.6, player.y - 17.1);
     if (dist > 5.0) {
       socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: 'Too far from Personal Chest!', color: '#ef4444' });
       return;
@@ -5733,7 +6094,7 @@ class GameServer {
       socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: 'The Personal Chest is in Town!', color: '#ef4444' });
       return;
     }
-    const dist = Math.hypot(player.x - 17.8, player.y - 19.6);
+    const dist = Math.hypot(player.x - 15.6, player.y - 17.1);
     if (dist > 5.0) {
       socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: 'Too far from Personal Chest!', color: '#ef4444' });
       return;
@@ -5879,6 +6240,9 @@ class GameServer {
       addDef += lvl * 1;
       addSpeed = lvl * 0.08;
       addHp += lvl * 10;
+    } else if (item.slot === 'gloves') {
+      addDmg += lvl * 4;
+      addAtkSpd = lvl * 0.01;
     } else if (item.slot === 'ring') {
       addDmg += lvl * 3;
       addHp += lvl * 15;
@@ -6127,8 +6491,14 @@ class GameServer {
       difficulty: run.difficulty,
       deaths: run.deaths || 0,
       roomsCleared: inst && inst.roomsCleared ? inst.roomsCleared.size : 0,
+      mode: inst && inst.mode ? inst.mode : 'classic',
       roomsTotal: inst && inst.dungeon.rooms ? inst.dungeon.rooms.length : 0,
-      clearedRooms: inst && inst.roomsCleared ? [...inst.roomsCleared] : [] // minimap ticks
+      clearedRooms: inst && inst.roomsCleared ? [...inst.roomsCleared] : [], // minimap ticks
+      killPercent: inst ? (inst.killPercent || 0) : 0,
+      killedMobs: inst ? (inst.killedTrashCount || 0) : 0,
+      requiredMobs: inst ? (inst.requiredKills || 0) : 0,
+      bossPortalReady: !!(inst && inst.bossPortalReady),
+      bossPortalSpawned: !!(inst && inst.bossPortalSpawned)
     } : { active: false });
   }
 
@@ -6164,7 +6534,7 @@ class GameServer {
     const rank = score >= 90 ? 'S' : score >= 75 ? 'A' : score >= 55 ? 'B' : 'C';
     const mult = RUN_RANK_MULT[rank];
     const bonusGold = Math.round(run.floor * 120 * mult);
-    const bonusExp = Math.round((player.expNext || 100) * 0.06 * mult);
+    const bonusExp = Math.round(baseExpCurve(player.level || 1) * 0.06 * mult);
     const runExp = run.exp || 0;
     player.gold += bonusGold;
     this.awardExp(player, bonusExp);
@@ -6561,7 +6931,7 @@ class GameServer {
     const zone = killerPlayer ? killerPlayer.zone : (mob.fieldZone || (mob.id.startsWith('frost_') ? 'frostfell' : 'town'));
     const isBoss = !!mob.isBoss;
     const isMiniboss = !!mob.isMiniboss;
-    const instId = killerPlayer && killerPlayer.zone === 'dungeon' ? killerPlayer.dungeonInstanceId : null;
+    const instId = (killerPlayer && killerPlayer.zone === 'dungeon' ? killerPlayer.dungeonInstanceId : null) || (mob && (mob as any).dungeonInstanceId) || (this as any).ctxInstanceId || null;
     // Item drops fade out when the killer is far above the monster's level
     // (gold still drops); `lucky` scales every item roll below
     const lootMult = killerPlayer ? lootGapMult(killerPlayer.level, mob.level) : 1;
@@ -6599,6 +6969,31 @@ class GameServer {
 
       killerPlayer.inventory.kills++;
       if (killerPlayer.dungeonRun) killerPlayer.dungeonRun.kills = (killerPlayer.dungeonRun.kills || 0) + 1;
+
+      // Dungeon Monster Kill % Progress
+      const dungeonInst = instId ? this.dungeonInstances.get(instId) : null;
+      if (dungeonInst && !dungeonInst.cleared && mob.roomIdx !== undefined && mob.roomIdx !== dungeonInst.bossRoomIdx && !mob.isBoss) {
+        dungeonInst.killedTrashCount = (dungeonInst.killedTrashCount || 0) + 1;
+        const req = Math.max(1, dungeonInst.requiredKills || 1);
+        dungeonInst.killPercent = Math.min(100, Math.floor((dungeonInst.killedTrashCount / req) * 100));
+
+        if (dungeonInst.killPercent >= 100 && !dungeonInst.bossPortalReady) {
+          dungeonInst.bossPortalReady = true;
+          this.emitZone('dungeon', 'floating_text', {
+            x: killerPlayer ? killerPlayer.x : mob.x,
+            y: (killerPlayer ? killerPlayer.y : mob.y) - 1.2,
+            text: '🌀 BOSS PORTAL READY (100%)!',
+            color: '#c084fc',
+            size: 24
+          }, instId);
+        }
+
+        for (const p of this.players.values()) {
+          if (p.zone === 'dungeon' && p.dungeonInstanceId === instId) {
+            this.emitDungeonRunUpdate(p);
+          }
+        }
+      }
       // full EXP near your level, much less for monsters far below you; party
       // members nearby on the same map split it (see partyExpSharers)
       const sharers = this.partyExpSharers(killerPlayer);
@@ -6622,7 +7017,12 @@ class GameServer {
             if (t.effects.killHealPercent) {
               const heal = Math.round(killerPlayer.maxHp * t.effects.killHealPercent * rank);
               killerPlayer.hp = Math.min(killerPlayer.maxHp, killerPlayer.hp + heal);
-              this.emitZone(zone, 'floating_text', { x: killerPlayer.x, y: killerPlayer.y - 0.5, text: `+${heal} HP (Juggernaut)`, color: '#4ade80' });
+              this.emitZone(zone, 'floating_text', { x: killerPlayer.x, y: killerPlayer.y - 0.5, text: `+${heal} HP (${t.name})`, color: '#4ade80' });
+            }
+            if (t.effects.killManaPercent) {
+              const mana = Math.round(killerPlayer.maxMp * t.effects.killManaPercent * rank);
+              killerPlayer.mp = Math.min(killerPlayer.maxMp, killerPlayer.mp + mana);
+              this.emitZone(zone, 'floating_text', { x: killerPlayer.x, y: killerPlayer.y - 0.5, text: `+${mana} MP (${t.name})`, color: '#38bdf8' });
             }
             if (t.effects.killHealFlat) {
               const heal = t.effects.killHealFlat * rank;
@@ -6985,6 +7385,7 @@ class GameServer {
       }
 
       if (player.attackCooldown > 0) player.attackCooldown = Math.max(0, player.attackCooldown - dt);
+      if (player.faceLockTimer > 0) player.faceLockTimer = Math.max(0, player.faceLockTimer - dt);
       if (player.skillCooldown > 0) player.skillCooldown = Math.max(0, player.skillCooldown - dt);
       if (player.skillCooldowns) {
         for (const k of Object.keys(player.skillCooldowns)) {
@@ -6999,10 +7400,6 @@ class GameServer {
       if (player.undyingTimer > 0) player.undyingTimer = Math.max(0, player.undyingTimer - dt);
       if (player.ironFortressTimer > 0) player.ironFortressTimer = Math.max(0, player.ironFortressTimer - dt);
       if (player.smokeScreenTimer > 0) player.smokeScreenTimer = Math.max(0, player.smokeScreenTimer - dt);
-      if (player.stormChargeTimer > 0) {
-        player.stormChargeTimer -= dt;
-        if (player.stormChargeTimer <= 0) player.stormCharge = 0;
-      }
       if (player.voidSoulTimer > 0) {
         player.voidSoulTimer -= dt;
         if (player.voidSoulTimer <= 0) player.voidSouls = 0;
@@ -7137,6 +7534,7 @@ class GameServer {
       } else {
         player.isMoving = false;
       }
+      if (player.aimFacing && !(player.faceLockTimer > 0)) player.facing = player.aimFacing;
 
       if (moveX !== 0 || moveY !== 0) {
         const nextX = player.x + moveX;
@@ -7174,7 +7572,7 @@ class GameServer {
 
     // Update Town and Field Mobs
     this.updateMobsList(this.townMobs, 'town', dt);
-    for (const [fieldId, field] of this.fields) this.updateMobsList(field.mobs, fieldId, dt);
+    for (const [fieldId, field] of this.fields) { this.updateMobsList(field.mobs, fieldId, dt); this.updateFieldProps(field, fieldId); }
 
     // Field raid / world boss schedule & live leaderboards
     this.updateRaidEvents();
@@ -7322,6 +7720,7 @@ class GameServer {
       }
       if (mob.shadowMarkTimer > 0) mob.shadowMarkTimer = Math.max(0, mob.shadowMarkTimer - dt);
       if (mob.staticCharge > 0) mob.staticCharge = Math.max(0, mob.staticCharge - dt);
+      if (mob.conductTimer > 0) { mob.conductTimer -= dt; if (mob.conductTimer <= 0) mob.conduct = 0; }
       if (mob.scorchTimer > 0) { mob.scorchTimer -= dt; if (mob.scorchTimer <= 0) mob.scorchStacks = 0; }
       if (mob.frostTimer > 0) { mob.frostTimer -= dt; if (mob.frostTimer <= 0) mob.frostStacks = 0; }
       // Frozen solid (Cryo) or stopped in time (Chrono): no moving, no attacking
@@ -7489,17 +7888,20 @@ class GameServer {
       inst = null;
     }
     if (inst) socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: `🌌 Joining your party at wave ${Math.max(1, inst.rift.wave)}!`, color: '#c084fc' });
-    else inst = this.createRiftInstance(id, player);
+    else inst = this.createRiftInstance(id, player, options && options.mode);
     this.joinRift(player, socket, inst);
     if (options && options.inviteParty) this.handlePartySummon(socketId);
   }
 
-  createRiftInstance(id, leader) {
-    // the run's level follows the party members online when it opens
+  createRiftInstance(id, leader, modeId = 'normal') {
+    // Normal and Hard start at a fixed level; Nightmare follows the party
+    // members online when it opens (and spawns twice the monsters)
+    const mode = RIFT.RIFT_MODES[modeId] ? modeId : 'normal';
+    const M = RIFT.riftMode(mode);
     const party = leader.partyId && this.parties.get(leader.partyId);
     const members = party ? [...party.memberIds].map(m => this.players.get(m)).filter(Boolean) : [leader];
     const avgLevel = members.reduce((t, p) => t + (p.level || 1), 0) / members.length;
-    const baseLevel = Math.max(1, Math.round(avgLevel) - 2);
+    const baseLevel = M.start !== null ? M.start : Math.max(1, Math.round(avgLevel) - 2);
     const fountainHp = RIFT.fountainMaxHp(baseLevel, members.length);
     const inst: any = {
       id,
@@ -7514,7 +7916,7 @@ class GameServer {
       cleared: false,
       startedAt: Date.now(),
       rift: {
-        phase: 'prep', wave: 0, timer: RIFT.RIFT_PREP_S, baseLevel,
+        phase: 'prep', wave: 0, timer: RIFT.RIFT_PREP_S, baseLevel, mode, perWave: M.perWave, spawnMult: M.spawn,
         fountain: { hp: fountainHp, maxHp: fountainHp },
         queue: [], spawnEvery: 0.5, spawnClock: 0, gateTurn: 0,
         structures: [], structSeq: 0,
@@ -7578,7 +7980,7 @@ class GameServer {
       maxWaves: RIFT.RIFT_MAX_WAVES,
       checkpointEvery: RIFT.RIFT_CHECKPOINT_EVERY,
       timer: Math.max(0, Math.ceil(R.timer)),
-      level: RIFT.waveLevel(R.baseLevel, upcoming),
+      level: RIFT.waveLevel(R.baseLevel, upcoming, R.perWave), mode: R.mode,
       fountain: { hp: Math.round(R.fountain.hp), maxHp: R.fountain.maxHp },
       structures: R.structures.map(s => ({ id: s.id, kind: s.kind, x: s.x, y: s.y, hp: Math.round(s.hp), maxHp: s.maxHp, owner: s.ownerName })),
       points: Object.fromEntries(R.points),
@@ -7628,7 +8030,7 @@ class GameServer {
         let alive = 0;
         for (const m of inst.mobs.values()) if (m.state !== 'dead') alive++;
         R.spawnClock -= dt;
-        while (R.queue.length && R.spawnClock <= 0 && alive < RIFT.RIFT_MAX_MOBS_ALIVE) {
+        while (R.queue.length && R.spawnClock <= 0 && alive < RIFT.RIFT_MAX_MOBS_ALIVE * (R.spawnMult || 1)) {
           this.spawnRiftMob(inst, R.queue.shift());
           alive++;
           R.spawnClock += R.spawnEvery;
@@ -7647,12 +8049,12 @@ class GameServer {
     R.wave = wave;
     R.phase = 'wave';
     R.timer = 0;
-    R.queue = RIFT.buildRiftWave(wave, R.baseLevel, heroCount);
+    R.queue = RIFT.buildRiftWave(wave, R.baseLevel, heroCount, R.mode);
     R.spawnEvery = RIFT.spawnInterval(wave, R.queue.length);
     R.spawnClock = 0;
     const boss = wave === RIFT.RIFT_MAX_WAVES;
     this.emitZone('dungeon', 'rift_wave', {
-      wave, maxWaves: RIFT.RIFT_MAX_WAVES, level: RIFT.waveLevel(R.baseLevel, wave), count: R.queue.length,
+      wave, maxWaves: RIFT.RIFT_MAX_WAVES, level: RIFT.waveLevel(R.baseLevel, wave, R.perWave), count: R.queue.length,
       boss, elite: !boss && wave % RIFT.RIFT_CHECKPOINT_EVERY === 0
     }, inst.id);
     this.emitRiftState(inst);
@@ -7703,7 +8105,7 @@ class GameServer {
       R.timer = RIFT.RIFT_CHOICE_S;
       R.choices.clear();
       this.emitZone('dungeon', 'rift_checkpoint', {
-        wave, seconds: RIFT.RIFT_CHOICE_S, nextLevel: RIFT.waveLevel(R.baseLevel, wave + 1)
+        wave, seconds: RIFT.RIFT_CHOICE_S, nextLevel: RIFT.waveLevel(R.baseLevel, wave + 1, R.perWave)
       }, inst.id);
     } else {
       R.phase = 'break';
@@ -8213,7 +8615,8 @@ class GameServer {
       buffs: this.heroBuffs(p),
       mastery: p.mastery || 1,
       ironFortressTimer: Number((p.ironFortressTimer || 0).toFixed(1)),
-      smokeScreenTimer: Number((p.smokeScreenTimer || 0).toFixed(1))
+      smokeScreenTimer: Number((p.smokeScreenTimer || 0).toFixed(1)),
+      trail: (p.effects && p.effects.trail) || null
       };
       const heavy = {
         inventory: p.inventory, equipment: p.equipment, baseStats: p.baseStats,
@@ -8247,11 +8650,16 @@ class GameServer {
     };
     const townMobsArr = Array.from(this.townMobs.values()).map(snapMob);
 
-    // Only send field zones somebody is actually standing in
+    // Only send field zones somebody is actually standing in, and of those only
+    // the monsters near one of its players (a big field holds hundreds)
     const occupied = new Set(playersArr.map(p => p.zone));
     const fieldMobs: Record<string, any[]> = {};
     for (const [fieldId, field] of this.fields) {
-      if (occupied.has(fieldId)) fieldMobs[fieldId] = Array.from(field.mobs.values()).map(snapMob);
+      if (!occupied.has(fieldId)) continue;
+      const here = playersArr.filter(p => p.zone === fieldId);
+      fieldMobs[fieldId] = (Array.from(field.mobs.values()) as any[])
+        .filter(m => m.isBoss || here.some(p => mobInView(m, p)))
+        .map(snapMob);
     }
 
     this.syncZoneRooms();
@@ -8312,8 +8720,9 @@ class GameServer {
   }
 }
 
-export { GameServer };
+export { GameServer, ALL_CLASS_SKILLS };
 export default GameServer;
+(GameServer as any).ALL_CLASS_SKILLS = ALL_CLASS_SKILLS;
 module.exports = GameServer;
 
 

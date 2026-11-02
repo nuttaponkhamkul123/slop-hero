@@ -15,6 +15,15 @@
   <link rel="icon" href="data:,">
 </head>
 <body class="pre-login">
+  <!-- Shown while the connection is down (a server update restarts it); the
+     client rejoins the same character by itself once it is back -->
+  <div id="reconnectOverlay" aria-live="polite">
+    <div class="hud-panel reconnect-card">
+      <div class="reconnect-spinner"></div>
+      <div class="reconnect-title" id="reconnectTitle">Connection lost</div>
+      <div class="reconnect-sub">Reconnecting... you'll be back where you were.</div>
+    </div>
+  </div>
   <!-- Login backdrop: a night scene behind the login card. The pre-login body
        class hides the game canvas and HUD until the server confirms the join. -->
   <div id="loginBackdrop" aria-hidden="true">
@@ -289,7 +298,9 @@
           <button class="menu-btn" id="btnOpenStats"><span data-pxi="stats"></span> Stats [C]</button>
           <button class="menu-btn" id="btnOpenInventory"><span data-pxi="bag"></span> Bag [I]</button>
           <button class="menu-btn" id="btnOpenParty"><span data-pxi="shield"></span> Party [O]</button>
+          <button class="menu-btn" id="btnOpenEffects"><span data-pxi="star"></span> Effects</button>
           <button class="menu-btn" id="btnOpenHelp"><span data-pxi="help"></span> Help [H]</button>
+          <button class="menu-btn" id="btnGameMode" title="Fullscreen with browser shortcuts (Ctrl+W, Ctrl+T...) locked. Hold Esc to leave."><span data-pxi="lock"></span> <span class="game-mode-label">Game Mode [F10]</span></button>
           <button class="menu-btn" id="btnOpenAdmin" style="display: none;"><span data-pxi="crown"></span> Admin [F2]</button>
         </div>
       </div>
@@ -675,6 +686,71 @@
           <div class="settings-section-title">
             <span data-pxi="compass"></span> CONTROLS & CAMERA
           </div>
+          <div class="settings-control-row">
+            <div class="settings-label-col">
+              <span class="settings-label-main">Face the Cursor</span>
+              <span class="settings-label-sub">Your hero always looks toward the mouse, even while walking</span>
+            </div>
+            <div class="settings-value-col">
+              <span class="settings-badge" id="lblFaceCursorVal">Off</span>
+            </div>
+          </div>
+          <div class="gui-scale-presets" style="margin-bottom: 14px;">
+            <button type="button" class="gui-scale-preset" data-facecursor="on">On</button>
+            <button type="button" class="gui-scale-preset active" data-facecursor="off">Off</button>
+          </div>
+
+          <div class="settings-control-row">
+            <div class="settings-label-col">
+              <span class="settings-label-main">Monster Lock Target</span>
+              <span class="settings-label-sub">Lock onto and track monsters with reticle, target HUD, and smart attacks</span>
+            </div>
+            <div class="settings-value-col">
+              <span class="settings-badge" id="lblLockTargetVal">On</span>
+            </div>
+          </div>
+          <div class="gui-scale-presets" style="margin-bottom: 14px;">
+            <button type="button" class="gui-scale-preset active" data-locktarget="on">On</button>
+            <button type="button" class="gui-scale-preset" data-locktarget="off">Off</button>
+          </div>
+
+          <div class="settings-control-row">
+            <div class="settings-label-col">
+              <span class="settings-label-main">Auto HP Potion</span>
+              <span class="settings-label-sub">Drink your HP potion when health drops below this (0 = off)</span>
+            </div>
+            <div class="settings-value-col">
+              <span class="settings-badge" id="lblAutoHpVal">Off</span>
+            </div>
+          </div>
+          <div class="settings-slider-wrapper">
+            <input type="range" id="sliderAutoHp" min="0" max="90" step="5" value="0" class="settings-slider">
+          </div>
+          <div class="settings-control-row" style="margin-top: 10px;">
+            <div class="settings-label-col">
+              <span class="settings-label-main">Auto MP Potion</span>
+              <span class="settings-label-sub">Drink your MP potion when mana drops below this (0 = off)</span>
+            </div>
+            <div class="settings-value-col">
+              <span class="settings-badge" id="lblAutoMpVal">Off</span>
+            </div>
+          </div>
+          <div class="settings-slider-wrapper" style="margin-bottom: 14px;">
+            <input type="range" id="sliderAutoMp" min="0" max="90" step="5" value="0" class="settings-slider">
+          </div>
+
+          <div class="settings-control-row">
+            <div class="settings-label-col">
+              <span class="settings-label-main">Key Bindings</span>
+              <span class="settings-label-sub">Click a key, then press the new one (Esc cancels, Backspace clears)</span>
+            </div>
+          </div>
+          <div class="keybind-list" id="keybindList"></div>
+          <div class="settings-btn-grid" style="margin: 8px 0 14px;">
+            <button type="button" class="settings-action-btn" id="btnResetKeybinds">
+              <span data-pxi="refresh"></span> Reset Key Bindings
+            </button>
+          </div>
           <div class="settings-btn-grid">
             <button type="button" class="settings-action-btn" id="btnResetGuiScale">
               <span data-pxi="refresh"></span> Reset UI Scale (100%)
@@ -808,6 +884,11 @@
                 <span class="slot-placeholder-icon" data-pxi="armor"></span>
                 <div class="equip-item-content"></div>
                 <span class="equip-slot-tag">ARMOR</span>
+              </div>
+              <div class="equip-slot" id="eqSlotGloves" data-slot="gloves">
+                <span class="slot-placeholder-icon" data-pxi="gloves"></span>
+                <div class="equip-item-content"></div>
+                <span class="equip-slot-tag">GLOVES</span>
               </div>
               <div class="equip-slot" id="eqSlotWeapon" data-slot="weapon">
                 <span class="slot-placeholder-icon" data-pxi="sword"></span>
@@ -1085,6 +1166,19 @@
         </div>
       </div>
 
+      <!-- Dungeon mode: the classic labyrinth, or Rush -->
+      <div class="portal-section-label" style="margin-top: 14px;">SELECT DUNGEON MODE</div>
+      <div class="mode-select-grid">
+        <div class="mode-card selected" data-mode="classic">
+          <div class="mode-title">🏛️ LABYRINTH</div>
+          <div class="mode-desc">Rooms behind sealed doors. Clear each one to open the way on.</div>
+        </div>
+        <div class="mode-card" data-mode="rush">
+          <div class="mode-title">⚡ RUSH</div>
+          <div class="mode-desc">One super long hall with every monster in it at once. Cut your way to the end, then face the boss.</div>
+        </div>
+      </div>
+
       <!-- Affix description teaser -->
       <div class="affix-info-strip">
         <span class="affix-pill pill-fortified"><span data-pxi="shield"></span> Fortified (-30% Dmg)</span>
@@ -1158,13 +1252,28 @@
 
         <div class="skill-tree-footer">
           <div class="st-footer-info">
-            <span>Earn 1 Skill Point on every Level Up. Each talent unlocks from the node linked above it, and your first point locks you into that branch until you reset.</span>
+            <span>Earn 1 Skill Point on every Level Up. Start from any of the nine origin talents, then learn anything that touches a talent you own: build your own path across all three specializations.</span>
           </div>
           <button class="btn-secondary btn-reset-talents" id="btnResetTalents">
             🔄 Reset Talents (50g / pt)
           </button>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- Effects: customise how your hero looks in motion (trails for now) -->
+  <div class="modal-overlay" id="effectsModal" style="display: none;">
+    <div class="hud-panel modal-card effects-card">
+      <button class="modal-close" id="btnCloseEffects">✕</button>
+      <div class="modal-header">
+        <h2 class="modal-title">EFFECTS</h2>
+        <p class="modal-subtitle">Customize how your hero looks in motion. Other players see it too.</p>
+      </div>
+      <div class="shop-tabs effects-tabs">
+        <button class="shop-tab active" type="button">TRAILING</button>
+      </div>
+      <div class="effects-grid" id="effectsTrailGrid"></div>
     </div>
   </div>
 
@@ -1284,9 +1393,12 @@
   <script src="js/pixelIcons.js"></script>
   <script src="js/tooltip.js"></script>
   <script src="js/pixelHeroes.js"></script>
+  <script src="js/spWings.js"></script>
   <script src="js/pixelMobs.js"></script>
   <script src="js/townLife.js"></script>
   <script src="js/dungeonLife.js"></script>
+  <script src="js/pixelProps.js"></script>
+  <script src="js/trails.js"></script>
   <script src="js/renderer.js"></script>
   <script src="js/rift.js"></script>
   <script src="js/game.js"></script>

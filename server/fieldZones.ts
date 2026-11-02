@@ -170,10 +170,14 @@ const DECOR_RADIUS = {
   boulder: 0.6
 };
 
-// Field zones are larger than the city (about 3x its area) and hold three
-// times the monsters, so they are just as busy per tile
-const FIELD_SIZE = 72;
-const FIELD_MOB_MULT = 3;
+// Field zones are big open maps (160x160, about 15x the city's area) holding
+// 15x each species' base count, so they are about as busy per tile as the city
+const FIELD_SIZE = 160;
+const FIELD_MOB_MULT = 15;
+// The road winds across the map; lakes are scattered on a jittered grid
+const ROAD_SWAY = Math.round(FIELD_SIZE / 9);
+const ROAD_FREQ = 0.15 * 72 / FIELD_SIZE;
+const LAKE_GRID = 5;
 const FIELD_MID = Math.floor(FIELD_SIZE / 2);
 const SOUTH_PORTAL = { x: FIELD_MID, y: FIELD_SIZE - 6 };   // back to the previous zone
 const SOUTH_ARRIVAL = { x: FIELD_MID, y: FIELD_SIZE - 9 };
@@ -228,11 +232,15 @@ function generateFieldMap(zone) {
   const tiles = [];
 
   // a winding road from the south portal up to the north portal
-  const roadX = y => FIELD_MID + Math.round(Math.sin(y * 0.15 + zone.index) * 8);
-  // liquid features (lake / lava / void) off to both sides of the road
-  const lakes = [[0.2, 0.28], [0.74, 0.22], [0.24, 0.62], [0.76, 0.58], [0.5, 0.86]].map(([fx, fy]) => ({
-    x: width * fx + (rand() - 0.5) * 6, y: height * fy + (rand() - 0.5) * 6, r: 3.5 + rand() * 3.5
-  }));
+  const roadX = y => FIELD_MID + Math.round(Math.sin(y * ROAD_FREQ + zone.index) * ROAD_SWAY);
+  // liquid features (lake / lava / void): one per cell of a jittered grid
+  const lakes = [];
+  const cell = width / LAKE_GRID;
+  for (let gy = 0; gy < LAKE_GRID; gy++) {
+    for (let gx = 0; gx < LAKE_GRID; gx++) {
+      lakes.push({ x: cell * (gx + 0.2 + rand() * 0.6), y: cell * (gy + 0.2 + rand() * 0.6), r: 3.5 + rand() * 4 });
+    }
+  }
 
   for (let y = 0; y < height; y++) {
     tiles[y] = [];
@@ -285,6 +293,34 @@ function generateFieldMap(zone) {
   };
 }
 
+// Collidable props bucketed per tile (built once per map and cached on it), so
+// collision checks on a big field only look at the props around a point
+function fieldObstacleGrid(map) {
+  if (map._obsGrid) return map._obsGrid;
+  const grid = new Map();
+  for (const o of map.obstacles) {
+    if (!o.collidable) continue;
+    const key = Math.floor(o.y) * 4096 + Math.floor(o.x);
+    if (!grid.has(key)) grid.set(key, []);
+    grid.get(key).push(o);
+  }
+  Object.defineProperty(map, '_obsGrid', { value: grid, enumerable: false }); // not sent to clients
+  return grid;
+}
+
+// Props in the 5x5 tiles around (x, y): covers any collision reach under 2 tiles
+function nearObstacles(grid, x, y) {
+  const out = [];
+  const tx = Math.floor(x), ty = Math.floor(y);
+  for (let dy = -2; dy <= 2; dy++) {
+    for (let dx = -2; dx <= 2; dx++) {
+      const list = grid.get((ty + dy) * 4096 + tx + dx);
+      if (list) for (const o of list) if (!o.destroyed) out.push(o);   // a broken prop no longer blocks anyone
+    }
+  }
+  return out;
+}
+
 // Mob roster for a zone, spread over open ground away from the portals
 function buildFieldMobs(zone, map) {
   if (zone.custom) return null; // a hand-made zone (custom: true) keeps its own roster
@@ -292,11 +328,12 @@ function buildFieldMobs(zone, map) {
   const blocking = new Set(map.blockingTiles);
   const spots = [];
   const yMin = 9, yMax = map.height - 11;
+  const grid = fieldObstacleGrid(map);
   for (let y = yMin; y <= yMax; y++) {
     for (let x = 4; x <= map.width - 4; x++) {
       // mobs stand at tile centres; keep them clear of liquids, cliffs and props
       if (blocking.has(map.tiles[y][x])) continue;
-      if (map.obstacles.some(o => o.collidable && Math.hypot(o.x - (x + 0.5), o.y - (y + 0.5)) < (o.radius || 0.6) + 0.6)) continue;
+      if (nearObstacles(grid, x + 0.5, y + 0.5).some(o => Math.hypot(o.x - (x + 0.5), o.y - (y + 0.5)) < (o.radius || 0.6) + 0.6)) continue;
       spots.push({ x, y });
     }
   }
@@ -330,8 +367,8 @@ function buildFieldMobs(zone, map) {
   return defs;
 }
 
-export { FIELD_ZONES, FIELD_ZONE_BY_ID, FIELD_TILES, FIELD_MID, generateFieldMap, buildFieldMobs, mobStats };
+export { FIELD_ZONES, FIELD_ZONE_BY_ID, FIELD_TILES, FIELD_MID, generateFieldMap, buildFieldMobs, mobStats, fieldObstacleGrid, nearObstacles };
 export default FIELD_ZONES;
-module.exports = { FIELD_ZONES, FIELD_ZONE_BY_ID, FIELD_TILES, FIELD_MID, generateFieldMap, buildFieldMobs, mobStats };
+module.exports = { FIELD_ZONES, FIELD_ZONE_BY_ID, FIELD_TILES, FIELD_MID, generateFieldMap, buildFieldMobs, mobStats, fieldObstacleGrid, nearObstacles };
 
 

@@ -92,6 +92,9 @@
   // grain, 1px lines where faces of different brightness meet, dark outline.
   const BAYER4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
   const STEP = 14;   // colour ramp step per channel
+  // animated props (smith, flags...) re-render + re-pixelate this often; each
+  // pass is a WebGL draw, a read-back and a full pixel pass
+  const ANIMATED_PROP_FRAME_MS = 125;
   // weathering: grime patches, chipped specks, dirt collecting toward the ground
   const hash = (x, y) => { const n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return n - Math.floor(n); };
   function grime(x, y) {
@@ -760,14 +763,14 @@
       let events = null;
 
       if (inst.animated) {
-        // Pose every frame (cheap) but re-render through WebGL at ~15 fps: each
+        // Pose every frame (cheap) but re-render through WebGL at ~8 fps: each
         // render + copy out of the GL canvas stalls the GPU pipeline
         events = inst.prop.animate(time) || null;
         const now = performance.now();
         const zoomKey = zoom.toFixed(3);
         // mid-zoom: keep the last frame (scaled below) until the zoom settles
         const rezoom = inst.frameZoom !== zoomKey && this.zoomSettled;
-        if (!inst.frameImg || rezoom || (now - inst.frameAt > 66 && inst.frameZoom === zoomKey)) {
+        if (!inst.frameImg || rezoom || (now - inst.frameAt > ANIMATED_PROP_FRAME_MS && inst.frameZoom === zoomKey)) {
           const { w, h } = this.renderInstance(inst, zoom);
           const pr = this.pixelRatio;
           const img = inst.frameImg || (inst.frameImg = document.createElement('canvas'));
