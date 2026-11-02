@@ -1142,6 +1142,13 @@ document.addEventListener('DOMContentLoaded', () => {
   // T / N / Tab are reserved by the browser and only reach the page in Game Mode:
   // fullscreen with the Keyboard Lock API (Chrome / Edge; hold Esc to leave).
   const BLOCKED_CTRL_KEYS = new Set(['KeyS', 'KeyD', 'KeyF', 'KeyG', 'KeyP', 'KeyR', 'KeyH', 'KeyJ', 'KeyU', 'KeyE', 'KeyK', 'KeyL', 'KeyO', 'KeyB']);
+  // Ctrl+Shift+P: performance overlay (per-pass render timings)
+  window.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.shiftKey && (e.key === 'P' || e.key === 'p')) {
+      e.preventDefault();
+      if (renderer && renderer.perfToggle) renderer.perfToggle();
+    }
+  });
   const BLOCKED_BARE_KEYS = new Set(['F1', 'F3', 'F5', 'F6', 'F7', 'BrowserBack', 'BrowserForward', 'BrowserRefresh', 'BrowserSearch']);
   const RESERVED_CTRL_KEYS = new Set(['KeyW', 'KeyT', 'KeyN', 'Tab', 'PageUp', 'PageDown']);
   const isTypingTarget = (el) => !!el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));

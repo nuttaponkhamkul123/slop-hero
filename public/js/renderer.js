@@ -153,6 +153,11 @@ const SP_FX_PALETTES = {
   sp_dread_lord: { deep: '8, 2, 16', deep2: '36, 8, 64', main: '107, 33, 168', accent: '168, 85, 247', light: '233, 213, 255', core: '255, 245, 255' }
 };
 const PIXEL_HERO_SCALE = 0.92;
+// Base warrior skill effects: drawn on their own pixel layer, 1.5x coarser than the hero
+// pixel grid and with a brighter glow (SP card versions stay on the shared layer)
+const WARRIOR_SKILL_FX = new Set(['whirlwind', 'blade_charge', 'shield_slam', 'earthshaker', 'blood_rage', 'iron_fortress', 'war_stomp',
+  'colossus_strike', 'dragon_roar', 'meteor_dive', 'bladestorm_frenzy', 'titan_bastion', 'sundering_cleave', 'ragnarok_slash']);
+const CHUNKY_FX_LAYER = { key: '_fxLayerChunky', scale: 1.5, glow: 0.95 };
 // SP wings: the hero's turn per drawn view (pixelHeroes VIEW_DEF), how far the
 // wings sweep back from the shoulders, and the narrowest a foreshortened wing gets
 const SP_WING_PHI = { E: 0, SE: 0.75, S: Math.PI / 2, NE: -0.75, N: -Math.PI / 2 };
@@ -1346,7 +1351,21 @@ class IsometricRenderer {
     const cls = PH.classes.includes(player.characterClass) ? player.characterClass : 'warrior';
     const card = this.spCardFor(player);
     if (card) return PH.variantFrame(cls, card.id, card.palette, view, action, idx);
+    // not transformed: the hero shows the gear they wear
+    const gear = this.gearKeyFor(player, cls);
+    if (gear) return PH.variantFrame(cls, gear, null, view, action, idx);
     return PH.frame(cls, view, action, idx);
+  }
+
+  // Look key for a hero's equipped items (pixelHeroes gear looks), or null
+  gearKeyFor(player, cls) {
+    const PH = window.PixelHeroes;
+    return PH.gearKey ? PH.gearKey(cls, player.equipment) : null;
+  }
+
+  // Sprite look key used for head height: the SP card when transformed, else the gear look
+  lookKeyFor(player, cls, spCard) {
+    return spCard ? spCard.id : this.gearKeyFor(player, cls);
   }
 
   // Swinging on the move: the attack's upper body over the legs of run frame runIdx
@@ -1354,7 +1373,7 @@ class IsometricRenderer {
     const PH = window.PixelHeroes;
     const cls = PH.classes.includes(player.characterClass) ? player.characterClass : 'warrior';
     const card = this.spCardFor(player);
-    return PH.runAttackFrame(cls, card ? card.id : null, card ? card.palette : null, view, action, idx, runIdx);
+    return PH.runAttackFrame(cls, card ? card.id : this.gearKeyFor(player, cls), card ? card.palette : null, view, action, idx, runIdx);
   }
 
   // SP wings: every +10 on the card grows a different pair (spWings.js), in the
@@ -7176,67 +7195,135 @@ class IsometricRenderer {
       ctx.ellipse(screen.x, screen.y, 24 * z, 12 * z, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      // 14 Radiating Ornate Obsidian-Steel Daggers with Luminous Curving Trails
-      for (let k = 0; k < 14; k++) {
-        const angle = (k * (Math.PI * 2 / 14)) + rot;
-        const kx = screen.x + Math.cos(angle) * hitRadius;
-        const ky = screen.y + Math.sin(angle) * (hitRadius * 0.5);
+      // 14 throwing knives fanning out from the rogue. Each one points along its flight
+      // (outward on the squashed iso ellipse), so the blades sit in the ground's perspective.
+      const KN = 14;
+      for (let k = 0; k < KN; k++) {
+        const angle = (k * (Math.PI * 2 / KN)) + rot;
+        const ca = Math.cos(angle), sa = Math.sin(angle);
+        const kx = screen.x + ca * hitRadius;
+        const ky = screen.y + sa * (hitRadius * 0.5);
         const prevAngle = angle - 0.28;
         const prevKx = screen.x + Math.cos(prevAngle) * (hitRadius * 0.72);
         const prevKy = screen.y + Math.sin(prevAngle) * (hitRadius * 0.36);
 
-        // Curving Poison Motion-Trail
+        // Curving poison motion trail (additive glow behind the steel)
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
         ctx.beginPath();
         ctx.moveTo(prevKx, prevKy);
         ctx.quadraticCurveTo((prevKx + kx) / 2 + Math.cos(angle + 0.5) * 6 * z, (prevKy + ky) / 2, kx, ky);
-        ctx.strokeStyle = `rgba(34, 197, 94, ${alpha * 0.85})`;
-        ctx.lineWidth = 4 * z;
+        ctx.strokeStyle = `rgba(34, 197, 94, ${alpha * 0.6})`;
+        ctx.lineWidth = 3.2 * z;
         ctx.stroke();
-        ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.95})`;
-        ctx.lineWidth = 1.4 * z;
+        ctx.strokeStyle = `rgba(220, 252, 231, ${alpha * 0.8})`;
+        ctx.lineWidth = 1.1 * z;
         ctx.stroke();
+        ctx.restore();
 
-        // 3D Shaded Dagger Model
+        // The knife itself, drawn solid (not additive) so the steel keeps its shading.
+        // Local space: tip toward -y, pommel toward +y; ~28 long, scaled by zoom.
+        const dirX = ca, dirY = sa * 0.5;                       // outward on screen
+        const tilt = Math.sin(time * 18 + k * 1.7) * 0.12;      // a little tumble in flight
         ctx.save();
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.globalAlpha = Math.min(1, alpha * 1.6);
         ctx.translate(kx, ky);
-        ctx.rotate(angle + Math.PI * 0.5);
+        ctx.rotate(Math.atan2(dirY, dirX) + Math.PI * 0.5 + tilt);
+        const u = z;
 
-        // Blade Facets (Split light & shadow)
+        // soft dark halo so the blade reads against bright ground / other effects
         ctx.beginPath();
-        ctx.moveTo(0, -10 * z); // Blade Tip
-        ctx.lineTo(3.2 * z, 2 * z);
-        ctx.lineTo(0, 3 * z);
-        ctx.closePath();
-        ctx.fillStyle = '#ffffff'; // Light edge
+        ctx.ellipse(0, -4 * u, 5.5 * u, 15 * u, 0, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(2, 12, 8, 0.35)';
         ctx.fill();
 
+        // grip: wrapped leather with a ring pommel
+        ctx.fillStyle = '#1c1917';
+        ctx.fillRect(-1.5 * u, 4.2 * u, 3 * u, 6.8 * u);
+        ctx.fillStyle = '#44403c';
+        for (let w = 0; w < 3; w++) ctx.fillRect(-1.5 * u, (5 + w * 2.1) * u, 3 * u, 0.9 * u);
         ctx.beginPath();
-        ctx.moveTo(0, -10 * z);
-        ctx.lineTo(-3.2 * z, 2 * z);
-        ctx.lineTo(0, 3 * z);
-        ctx.closePath();
-        ctx.fillStyle = '#64748b'; // Dark edge
+        ctx.arc(0, 11.8 * u, 1.7 * u, 0, Math.PI * 2);
+        ctx.fillStyle = '#94a3b8';
         ctx.fill();
-
-        // Neon Poison Fuller Channel
         ctx.beginPath();
-        ctx.moveTo(0, -8 * z);
-        ctx.lineTo(0, 2 * z);
-        ctx.strokeStyle = '#4ade80';
-        ctx.lineWidth = 1.5 * z;
-        ctx.stroke();
-
-        // Crossguard & Hilt
+        ctx.arc(0, 11.8 * u, 0.7 * u, 0, Math.PI * 2);
         ctx.fillStyle = '#0f172a';
-        ctx.fillRect(-4 * z, 3 * z, 8 * z, 1.8 * z);
-        ctx.fillRect(-1.5 * z, 4.8 * z, 3 * z, 4.5 * z);
-
-        // Tip Specular Glint
-        ctx.beginPath();
-        ctx.arc(0, -10 * z, 2 * z, 0, Math.PI * 2);
-        ctx.fillStyle = '#ffffff';
         ctx.fill();
 
+        // crossguard: slim steel bar with downturned ends
+        ctx.beginPath();
+        ctx.moveTo(-5 * u, 4.6 * u);
+        ctx.quadraticCurveTo(0, 2.6 * u, 5 * u, 4.6 * u);
+        ctx.lineTo(4.4 * u, 5.8 * u);
+        ctx.quadraticCurveTo(0, 4 * u, -4.4 * u, 5.8 * u);
+        ctx.closePath();
+        ctx.fillStyle = '#cbd5e1';
+        ctx.fill();
+
+        // blade outline (dark), then the two lit facets
+        const blade = (grow) => {
+          ctx.beginPath();
+          ctx.moveTo(0, -17 * u - grow);
+          ctx.lineTo(3.1 * u + grow, -3 * u);
+          ctx.lineTo(2.7 * u + grow, 3.4 * u);
+          ctx.lineTo(-2.7 * u - grow, 3.4 * u);
+          ctx.lineTo(-3.1 * u - grow, -3 * u);
+          ctx.closePath();
+        };
+        blade(0.7 * u);
+        ctx.fillStyle = '#0b1220';
+        ctx.fill();
+        // shadow facet (left) and light facet (right)
+        ctx.beginPath();
+        ctx.moveTo(0, -17 * u);
+        ctx.lineTo(-3.1 * u, -3 * u);
+        ctx.lineTo(-2.7 * u, 3.4 * u);
+        ctx.lineTo(0, 3.4 * u);
+        ctx.closePath();
+        ctx.fillStyle = '#64748b';
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(0, -17 * u);
+        ctx.lineTo(3.1 * u, -3 * u);
+        ctx.lineTo(2.7 * u, 3.4 * u);
+        ctx.lineTo(0, 3.4 * u);
+        ctx.closePath();
+        ctx.fillStyle = '#e2e8f0';
+        ctx.fill();
+        // bright cutting edge down the lit side, and a spine down the middle
+        ctx.beginPath();
+        ctx.moveTo(0.5 * u, -15 * u);
+        ctx.lineTo(2.7 * u, -3 * u);
+        ctx.lineTo(2.4 * u, 3 * u);
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 0.9 * u;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(0, -15.5 * u);
+        ctx.lineTo(0, 3.4 * u);
+        ctx.strokeStyle = '#475569';
+        ctx.lineWidth = 0.7 * u;
+        ctx.stroke();
+        // poison fuller: a glowing green groove running up the blade
+        ctx.beginPath();
+        ctx.moveTo(0, -11 * u);
+        ctx.lineTo(0, 2.4 * u);
+        ctx.strokeStyle = '#4ade80';
+        ctx.lineWidth = 1.1 * u;
+        ctx.stroke();
+        ctx.restore();
+
+        // venom glint on the tip (additive, small)
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.translate(kx, ky);
+        ctx.rotate(Math.atan2(dirY, dirX) + Math.PI * 0.5 + tilt);
+        ctx.beginPath();
+        ctx.arc(0, -16 * z, 1.5 * z, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(187, 247, 208, ${alpha * 0.9})`;
+        ctx.fill();
         ctx.restore();
       }
 
@@ -8340,9 +8427,11 @@ class IsometricRenderer {
   // around solid shapes) and scaled back up without smoothing, so the effects
   // sit on the same pixel grid as the heroes. rect (screen px) limits the layer
   // to one area; omitted, it covers the whole view.
-  beginFxPixels(ctx, rect) {
+  // opts.key names a separate layer (default '_fxLayer'), opts.scale makes its texels coarser
+  beginFxPixels(ctx, rect, opts) {
+    const key = (opts && opts.key) || '_fxLayer';
     const bs = this.canvas.width / this.viewW;
-    const px = Math.max(2, Math.round(PIXEL_HERO_SCALE * this.camera.zoom * bs));
+    const px = Math.max(2, Math.round(PIXEL_HERO_SCALE * this.camera.zoom * bs * ((opts && opts.scale) || 1)));
     let ox = 0, oy = 0, dw = this.canvas.width, dh = this.canvas.height;
     if (rect) {
       // snapped to the full-screen grid so every layer shares one pixel lattice
@@ -8353,11 +8442,11 @@ class IsometricRenderer {
       if (dw <= 0 || dh <= 0) return null;
     }
     const cw = Math.ceil(dw / px), ch = Math.ceil(dh / px);
-    if (!this._fxLayer) {
+    if (!this[key]) {
       const c = document.createElement('canvas');
-      this._fxLayer = { c, g: c.getContext('2d', { willReadFrequently: true }) };
+      this[key] = { c, g: c.getContext('2d', { willReadFrequently: true }) };
     }
-    const L = this._fxLayer;
+    const L = this[key];
     if (L.c.width < cw || L.c.height < ch) {
       L.c.width = Math.max(L.c.width, cw);
       L.c.height = Math.max(L.c.height, ch);
@@ -8376,8 +8465,8 @@ class IsometricRenderer {
     return g;
   }
 
-  endFxPixels(ctx) {
-    const L = this._fxLayer;
+  endFxPixels(ctx, opts) {
+    const L = this[(opts && opts.key) || '_fxLayer'];
     if (!L || !L.open) return;
     L.open = false;
     const { c, g, px, ox, oy, cw, ch } = L;
@@ -8413,7 +8502,7 @@ class IsometricRenderer {
       b.g.drawImage(b.c, 0, 0, hw, hh, 0, 0, qw, qh);
       ctx.globalCompositeOperation = 'lighter';
       ctx.imageSmoothingEnabled = true;
-      ctx.globalAlpha = 0.7;
+      ctx.globalAlpha = (opts && opts.glow) || 0.7;
       ctx.drawImage(b.c, 0, 0, qw, qh, ox - px * 2, oy - px * 2, cw * px + px * 4, ch * px + px * 4);
       ctx.globalAlpha = 1;
     }
@@ -11613,7 +11702,53 @@ class IsometricRenderer {
     ctx.setLineDash([]);
   }
 
+  // ---- profiler: Ctrl+Shift+P toggles an overlay with the cost of each render pass
+  // (rolling average over ~1s) plus entity / effect / particle counts. Off, it costs nothing.
+  perfMark(name) {
+    const P = this.perf;
+    if (!P || !P.on) return;
+    const now = performance.now();
+    if (P.last !== undefined && P.pass) P.cur[P.pass] = (P.cur[P.pass] || 0) + (now - P.last);
+    P.pass = name; P.last = now;
+  }
+
+  perfToggle(on) {
+    if (!this.perf) this.perf = { on: false, cur: {}, avg: {}, frames: 0, acc: 0, frameMs: 0, lastTs: 0 };
+    this.perf.on = on === undefined ? !this.perf.on : !!on;
+    this.perf.cur = {}; this.perf.avg = {}; this.perf.frames = 0; this.perf.pass = null;
+    return this.perf.on;
+  }
+
+  perfEnd(ctx, counts) {
+    const P = this.perf;
+    if (!P || !P.on) return;
+    this.perfMark(null);
+    const ts = performance.now();
+    if (P.lastTs) P.frameMs += ts - P.lastTs;
+    P.lastTs = ts;
+    P.frames++;
+    if (P.frames >= 60) {
+      for (const k of Object.keys(P.cur)) P.avg[k] = P.cur[k] / P.frames;
+      P.avgFrame = P.frameMs / P.frames;
+      P.cur = {}; P.frames = 0; P.frameMs = 0;
+    }
+    if (!P.avg) return;
+    const rows = Object.entries(P.avg).sort((a, b) => b[1] - a[1]);
+    const lines = ['PERF  (Ctrl+Shift+P to hide)', `frame ${(P.avgFrame || 0).toFixed(1)} ms  ~${Math.round(1000 / Math.max(1, P.avgFrame || 16))} fps`];
+    for (const [k, v] of rows) lines.push(`${k.padEnd(10)} ${v.toFixed(2)} ms`);
+    if (counts) lines.push(counts);
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.font = '12px monospace';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.72)';
+    ctx.fillRect(8, 8, 232, lines.length * 15 + 8);
+    ctx.fillStyle = '#9ef0b0';
+    lines.forEach((l, i) => ctx.fillText(l, 14, 24 + i * 15));
+    ctx.restore();
+  }
+
   render(gameState, localPlayerId, selectedTargetId, dt) {
+    this.perfMark('setup');
     this.lastGameState = gameState;
     this.localPlayerId = localPlayerId;
     this.animations.time += dt;
@@ -11667,6 +11802,7 @@ class IsometricRenderer {
       return;
     }
 
+    this.perfMark('ground');
     // PASS 1: VISIBLE GROUND TILES PASS (Base Terrain Layer)
     // Rendered first so flat ground diamond tiles NEVER clip or cover players or mobs walking over them
     const wallTiles = [];
@@ -11777,6 +11913,7 @@ class IsometricRenderer {
       this.dungeonLife = null;
     }
 
+    this.perfMark('entities');
     // PASS 2: ENTITIES, PROPS & 3D DUNGEON WALLS (Depth Sorted with Painter's Algorithm)
     const renderList = [];
 
@@ -11891,6 +12028,7 @@ class IsometricRenderer {
     }
 
     // Sort render list from back to front
+    this.perfMark('draw items');
     renderList.sort((a, b) => a.depth - b.depth);
 
     // DRAW ALL DEPTH SORTED OBJECTS
@@ -11952,13 +12090,16 @@ class IsometricRenderer {
     }
     ctx.restore();
 
+    this.perfMark('ambience');
     // Chimney smoke, falling leaves and birds pass over the rooftops
     if (townLife && !this.lowEffects) townLife.drawSky(ctx, this);
     // Low fog and floating dust / embers / spores in the dungeon air
     if (dungeonLife && !this.lowEffects) dungeonLife.drawAmbient(ctx, this);
 
     // DRAW OVERLAYS & EFFECTS (Click Beacon, Particles, Floating Text)
+    this.perfMark('effects');
     this.drawEffects(ctx, dt);
+    this.perfMark('overlays');
     // Eternal Rift build placement ghost (rift.js)
     if (window.RiftUI) window.RiftUI.drawOverlay(ctx, this);
 
@@ -11971,7 +12112,11 @@ class IsometricRenderer {
     }
 
     // RENDER MINIMAP
+    this.perfMark('minimap');
     this.renderMinimap(gameState, localPlayerId);
+    if (this.perf && this.perf.on) {
+      this.perfEnd(ctx, `items ${renderList.length}  fx ${(this.animations.skillEffects || []).length}  parts ${this.animations.particles.length + (this.pxParts ? this.pxParts.length : 0)}`);
+    }
   }
 
   // Draw Screen Vignettes for Player Status Effects
@@ -15349,7 +15494,7 @@ class IsometricRenderer {
       const PH = window.PixelHeroes;
       const cls = PH.classes.includes(player.characterClass) ? player.characterClass : 'warrior';
       const spCard = this.spCardFor(player);
-      const headY = y - (PH.AY - PH.headTop(cls, spCard && spCard.id)) * PIXEL_HERO_SCALE * z;
+      const headY = y - (PH.AY - PH.headTop(cls, this.lookKeyFor(player, cls, spCard))) * PIXEL_HERO_SCALE * z;
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
       ctx.beginPath();
@@ -16007,7 +16152,7 @@ class IsometricRenderer {
 
     // Name tag & speech bubble sit just above this sprite's head
     if (!player.isDead) {
-      const headY = y - (PH.AY - PH.headTop(cls, spCard && spCard.id)) * s;
+      const headY = y - (PH.AY - PH.headTop(cls, this.lookKeyFor(player, cls, spCard))) * s;
       this.drawEntityOverhead(ctx, x, headY - 12 * z, this.playerTitledName(player), player.hp, player.maxHp, this.playerNameColor(player), `Lv.${player.level}`);
       if (player.speechBubble) this.drawSpeechBubble(ctx, x, headY - 36 * z, player.speechBubble);
     }
@@ -16402,9 +16547,12 @@ class IsometricRenderer {
             ctx.beginPath();
             ctx.arc(glintX, glintY, 2.6 * z * Math.sin(gp * Math.PI), 0, Math.PI * 2);
             ctx.fillStyle = '#ffffff';
-            ctx.shadowColor = '#67e8f9';
-            ctx.shadowBlur = 8 * z;
             ctx.fill();
+            // soft halo: a wide translucent stroke instead of shadowBlur (which is very slow on canvas)
+            ctx.globalAlpha *= 0.4;
+            ctx.strokeStyle = '#67e8f9';
+            ctx.lineWidth = 8 * z * 0.9;
+            ctx.stroke();
             ctx.restore();
           }
         }
@@ -17004,9 +17152,12 @@ class IsometricRenderer {
         ctx.beginPath();
         ctx.arc(glintX, glintY, 2.5 * z * Math.sin(gp * Math.PI), 0, Math.PI * 2);
         ctx.fillStyle = '#ffffff';
-        ctx.shadowColor = '#22c55e';
-        ctx.shadowBlur = 8 * z;
         ctx.fill();
+        // soft halo: a wide translucent stroke instead of shadowBlur (which is very slow on canvas)
+        ctx.globalAlpha *= 0.4;
+        ctx.strokeStyle = '#22c55e';
+        ctx.lineWidth = 8 * z * 0.9;
+        ctx.stroke();
         ctx.restore();
       }
     }
@@ -17043,9 +17194,12 @@ class IsometricRenderer {
       ctx.beginPath();
       ctx.arc(0, 0, 4.5 * z, 0, Math.PI * 2);
       ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
-      ctx.shadowColor = '#22c55e';
-      ctx.shadowBlur = 10 * z;
       ctx.fill();
+      // soft halo: a wide translucent stroke instead of shadowBlur (which is very slow on canvas)
+      ctx.globalAlpha *= 0.4;
+      ctx.strokeStyle = '#22c55e';
+      ctx.lineWidth = 10 * z * 0.9;
+      ctx.stroke();
 
       ctx.restore();
     }
@@ -20624,8 +20778,14 @@ class IsometricRenderer {
 
     // 1.5. Visual Skill Effects (Whirlwind, Firestorm, Shadow Strike)
     if (this.animations.skillEffects) {
+      // the base warrior's skills get their own, chunkier pixel layer with a stronger glow
+      const layerCtx = ctx;
+      const isWarriorFx = fx => WARRIOR_SKILL_FX.has(fx.type) && !fx.cardId;
+      const warriorG = !this.potatoMode && this.animations.skillEffects.some(isWarriorFx)
+        ? this.beginFxPixels(mainCtx, undefined, CHUNKY_FX_LAYER) : null;
       for (let i = this.animations.skillEffects.length - 1; i >= 0; i--) {
         const fx = this.animations.skillEffects[i];
+        ctx = warriorG && isWarriorFx(fx) ? warriorG : layerCtx;
         fx.life -= dt;
         if (fx.life <= 0) {
           this.animations.skillEffects.splice(i, 1);
@@ -22297,6 +22457,8 @@ class IsometricRenderer {
           ctx.restore();
         }
       }
+      ctx = layerCtx;
+      if (warriorG) this.endFxPixels(mainCtx, CHUNKY_FX_LAYER);
       // simulated SP particles join the same layer, which may still be closed
       // when only particles are left on screen
       if (this.pxParts && this.pxParts.length) {

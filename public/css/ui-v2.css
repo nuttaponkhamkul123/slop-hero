@@ -1044,12 +1044,21 @@
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.1);
   border-radius: 12px;
   padding: 20px 24px;
-  /* never taller than the window: the header stays, the sections scroll */
-  max-height: calc(100vh - 32px);
-  max-height: calc(100dvh - 32px);
+  /* never taller than the window: the header stays, the sections scroll.
+     The card is drawn scaled by --gui-scale (see .modal-card above), so its layout
+     height is the window height divided by that scale or it overflows at 115%+ */
+  max-height: calc((100vh - 32px) / var(--gui-scale, 1));
+  max-height: calc((100dvh - 32px) / var(--gui-scale, 1));
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+/* the phone rule (.modal-card { max-height: 88vh; overflow-y: auto }) would make the whole
+   card scroll, header and close button included: keep the header fixed, scroll the body */
+.modal-card.settings-modal-card {
+  max-height: calc((100vh - 24px) / var(--gui-scale, 1)) !important;
+  max-height: calc((100dvh - 24px) / var(--gui-scale, 1)) !important;
+  overflow: hidden !important;
 }
 
 .settings-modal-body {
@@ -1057,6 +1066,7 @@
   flex-direction: column;
   gap: 16px;
   margin-top: 14px;
+  padding-bottom: 4px;
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
@@ -1131,6 +1141,8 @@
   border: 1px solid rgba(56, 189, 248, 0.3);
   min-width: 44px;
   text-align: center;
+  white-space: nowrap;   /* "Auto · 100%" must not wrap out of its box */
+  flex-shrink: 0;
 }
 
 .settings-slider-wrapper {
