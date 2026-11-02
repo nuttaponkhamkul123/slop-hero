@@ -34,18 +34,18 @@ document.addEventListener('DOMContentLoaded', () => {
   let lastFrameTime = performance.now();
 
   let skill1CooldownTimer = 0;
-  let skill1CooldownMax = 3.5;
+  let skill1CooldownMax = 1.4;
   let skill2CooldownTimer = 0;
-  let skill2CooldownMax = 4.5;
+  let skill2CooldownMax = 1.8;
   let skill3CooldownTimer = 0;
-  let skill3CooldownMax = 9.0;
+  let skill3CooldownMax = 3.6;
   let dashCooldownTimer = 0;
-  let dashCooldownMax = 3.0;
+  let dashCooldownMax = 1.2;
   let weaponCooldownTimer = 0;
-  let weaponCooldownMax = 6.0;
+  let weaponCooldownMax = 2.4;
   let weaponAbilities = {};   // right-click weapon abilities, by ability id
   let skillCooldownTimer = 0;
-  let skillCooldownMax = 3.5;
+  let skillCooldownMax = 1.4;
   let lastBasicAttackTime = 0;
 
   // Calculate 8-directional facing vector between two isometric world coordinates
@@ -375,6 +375,32 @@ document.addEventListener('DOMContentLoaded', () => {
     return { id: 'item', name: str, count: 1, rarity: 'common', type: 'misc' };
   }
 
+  // Merge identical stackable loot (potions, materials, treasures...) into one slot with a summed
+  // count, like the bag does. Gear and SP cards stay one slot each (every roll is unique).
+  function stackLootList(list) {
+    const out = [], byKey = new Map();
+    for (const raw of (list || [])) {
+      const it = normalizeLootItem(raw);
+      if (!it) continue;
+      const unique = (it.type === 'equipment' || it.type === 'sp_card') || it.uniqueId;
+      if (unique) { out.push(it); continue; }
+      const isGold = it.type === 'gold' || it.id === 'gold';
+      const key = isGold ? 'gold' : `${it.id || it.itemId || it.name}|${it.rarity || ''}`;
+      const n = it.count || it.amount || 1;
+      const prev = byKey.get(key);
+      if (prev) {
+        prev.count = (prev.count || 1) + n;
+        if (isGold) prev.name = `${prev.count.toLocaleString()} Gold`;
+        continue;
+      }
+      const copy = { ...it, count: n };
+      byKey.set(key, copy);
+      out.push(copy);
+    }
+    return out;
+  }
+  const lootUnits = (list) => list.reduce((s, it) => s + (it.type === 'gold' ? 0 : it.type === 'equipment' || it.type === 'sp_card' ? 1 : (it.count || 1)), 0);
+
   // Render an inventory-style slot cell with rarity border, pixel icon, count badge, and hover tooltip
   function renderLootItemSlot(itemInput, opts = {}) {
     const item = normalizeLootItem(itemInput);
@@ -457,6 +483,18 @@ document.addEventListener('DOMContentLoaded', () => {
     card.addEventListener('mouseleave', () => showFloorDetail(selectedFloorCard()));
   });
 
+  // dungeon mode: classic labyrinth or Rush (one long hall holding every monster)
+  let selectedDungeonMode = 'classic';
+  const modeCards = document.querySelectorAll('.mode-card');
+  modeCards.forEach(card => {
+    card.addEventListener('click', () => {
+      modeCards.forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+      selectedDungeonMode = card.getAttribute('data-mode') === 'rush' ? 'rush' : 'classic';
+      window.soundEngine.playCoin();
+    });
+  });
+
   diffCards.forEach(card => {
     card.addEventListener('click', () => {
       diffCards.forEach(c => c.classList.remove('selected'));
@@ -512,6 +550,7 @@ document.addEventListener('DOMContentLoaded', () => {
     socket.emit('enter_dungeon', {
       floor: selectedDungeonFloor,
       difficulty: selectedDungeonDifficulty,
+      mode: selectedDungeonMode,
       inviteParty
     });
     closeDungeonPortalModal();
@@ -830,6 +869,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   } catch (_) {}
 
+  // Back from an update reload: skip the login and re-enter the same
+  // character (the join itself is sent on 'server_version')
+  try {
+    const resume = JSON.parse(sessionStorage.getItem('slop_update_resume') || 'null');
+    sessionStorage.removeItem('slop_update_resume');
+    const c = resume && resume.account && resume.account.token && (resume.account.characters || [])[resume.slot];
+    if (c) {
+      authenticatedAccount = resume.account;
+      selectedSlot = resume.slot;
+      joinedSlot = resume.slot;
+      renderer.camera.zoom = MAX_ZOOM;
+      if (authModal) authModal.style.display = 'none';
+      setupClassSkillHUD(c.characterClass);
+    }
+  } catch (_) {}
+
   applyClassSelection(selectedClass);
 
   // Auto-join support for testing via URL query (e.g. ?autojoin=1)
@@ -860,6 +915,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // SP skill shapes aimed at the mouse cursor instead of the nearest monster
   const CURSOR_AIMED_SHAPES = new Set(['shuriken', 'shadow', 'spear', 'jump', 'wall', 'rune', 'banner', 'hurl', 'fault', 'boomerang', 'firebird']);
   let lastCursor = null; // canvas px of the mouse
+  // "Face the cursor" setting: last facing sent to the server and when
+  let faceCursorOn = false;
+  let monsterLockTargetOn = true;
+  let sentAimFacing = null;
+  let sentAimAt = 0;
   let shurikenRecall = null; // { slot, until }: Phantom Shuriken stars are out and can be called back
 
   function findSkillDef(skillId) {
@@ -945,15 +1005,15 @@ document.addEventListener('DOMContentLoaded', () => {
       if (mobileDashIcon && sd) SkillIcons.apply(mobileDashIcon, sd.id);
       if (slotDash && sd) slotDash.title = `${sd.name} [Shift] (${manaCost(sd.mpCost)} MP) [${rd.icon} ${rd.name}] - ${sd.desc}`;
 
-      skill1CooldownMax = s1 ? s1.cooldown : 3.5;
-      skill2CooldownMax = s2 ? s2.cooldown : 4.5;
-      skill3CooldownMax = s3 ? s3.cooldown : 9.0;
-      dashCooldownMax = sd ? sd.cooldown : 3.0;
+      skill1CooldownMax = s1 ? s1.cooldown : 1.4;
+      skill2CooldownMax = s2 ? s2.cooldown : 1.8;
+      skill3CooldownMax = s3 ? s3.cooldown : 3.6;
+      dashCooldownMax = sd ? sd.cooldown : 1.2;
 
-      if (r1.id === 'tempest') skill1CooldownMax = Math.max(1.0, Number((skill1CooldownMax * 0.8).toFixed(1)));
-      if (r2.id === 'tempest') skill2CooldownMax = Math.max(1.0, Number((skill2CooldownMax * 0.8).toFixed(1)));
-      if (r3.id === 'tempest') skill3CooldownMax = Math.max(1.0, Number((skill3CooldownMax * 0.8).toFixed(1)));
-      if (rd.id === 'tempest') dashCooldownMax = Math.max(1.0, Number((dashCooldownMax * 0.8).toFixed(1)));
+      if (r1.id === 'tempest') skill1CooldownMax = Math.max(0.4, Number((skill1CooldownMax * 0.8).toFixed(1)));
+      if (r2.id === 'tempest') skill2CooldownMax = Math.max(0.4, Number((skill2CooldownMax * 0.8).toFixed(1)));
+      if (r3.id === 'tempest') skill3CooldownMax = Math.max(0.4, Number((skill3CooldownMax * 0.8).toFixed(1)));
+      if (rd.id === 'tempest') dashCooldownMax = Math.max(0.4, Number((dashCooldownMax * 0.8).toFixed(1)));
       return;
     }
 
@@ -974,10 +1034,10 @@ document.addEventListener('DOMContentLoaded', () => {
       if (mobileDashIcon) SkillIcons.apply(mobileDashIcon, 'blade_charge');
       if (slotDash) slotDash.title = 'Blade Charge Dash [Shift] (10 MP) - Pierce Dash & Slice Forward';
 
-      skill1CooldownMax = 3.5;
-      skill2CooldownMax = 4.5;
-      skill3CooldownMax = 9.0;
-      dashCooldownMax = 3.0;
+      skill1CooldownMax = 1.4;
+      skill2CooldownMax = 1.8;
+      skill3CooldownMax = 3.6;
+      dashCooldownMax = 1.2;
     } else if (cls === 'mage') {
       if (slotSkill1Icon) SkillIcons.apply(slotSkill1Icon, 'firestorm');
       if (mobileSkill1Icon) SkillIcons.apply(mobileSkill1Icon, 'firestorm');
@@ -995,10 +1055,10 @@ document.addEventListener('DOMContentLoaded', () => {
       if (mobileDashIcon) SkillIcons.apply(mobileDashIcon, 'arcane_blink');
       if (slotDash) slotDash.title = 'Arcane Blink [Shift] (15 MP) - Teleport & Break Crowd Control';
 
-      skill1CooldownMax = 4.5;
-      skill2CooldownMax = 4.0;
-      skill3CooldownMax = 12.0;
-      dashCooldownMax = 3.5;
+      skill1CooldownMax = 1.8;
+      skill2CooldownMax = 1.6;
+      skill3CooldownMax = 4.8;
+      dashCooldownMax = 1.4;
     } else if (cls === 'rogue') {
       if (slotSkill1Icon) SkillIcons.apply(slotSkill1Icon, 'fan_of_knives');
       if (mobileSkill1Icon) SkillIcons.apply(mobileSkill1Icon, 'fan_of_knives');
@@ -1016,11 +1076,14 @@ document.addEventListener('DOMContentLoaded', () => {
       if (mobileDashIcon) SkillIcons.apply(mobileDashIcon, 'shadow_dash');
       if (slotDash) slotDash.title = 'Shadow Dash [Shift] (8 MP) - Swift Phantom Dash & Speed Boost';
 
-      skill1CooldownMax = 3.0;
-      skill2CooldownMax = 4.5;
-      skill3CooldownMax = 8.5;
-      dashCooldownMax = 2.5;
+      skill1CooldownMax = 1.2;
+      skill2CooldownMax = 1.8;
+      skill3CooldownMax = 3.4;
+      dashCooldownMax = 1.0;
     }
+    // (an update-resume runs this before the key bindings below are set up;
+    // they refresh the labels themselves once loaded)
+    try { refreshKeyLabels(); } catch (_) {}
   }
 
   // ================= NETWORKING & SOCKET EVENTS =================
@@ -1060,7 +1123,83 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  socket.on('connect', () => {
+  // The server sends its client-files version on every connection. Same
+  // version: rejoin the world as before. New version (an update restarted the
+  // server): reload to get the new files, then re-enter the same character.
+  let knownClientVersion = null;
+  // Ctrl+W (or closing the tab) mid-game asks "Leave site?" first: browsers do not
+  // let a page swallow that shortcut, but they do honour this prompt. Our own
+  // update reload skips it.
+  let reloadingForUpdate = false;
+  window.addEventListener('beforeunload', (e) => {
+    if (reloadingForUpdate || !localPlayerId || document.body.classList.contains('pre-login')) return;
+    e.preventDefault();
+    e.returnValue = '';
+  });
+  // Browser shortcuts that would pull the player out mid-fight. In-game (and not
+  // while typing) the cancellable ones are swallowed: save, bookmark, find, print,
+  // reload, history, downloads, view source, caret browsing, back/forward. Ctrl+W /
+  // T / N / Tab are reserved by the browser and only reach the page in Game Mode:
+  // fullscreen with the Keyboard Lock API (Chrome / Edge; hold Esc to leave).
+  const BLOCKED_CTRL_KEYS = new Set(['KeyS', 'KeyD', 'KeyF', 'KeyG', 'KeyP', 'KeyR', 'KeyH', 'KeyJ', 'KeyU', 'KeyE', 'KeyK', 'KeyL', 'KeyO', 'KeyB']);
+  const BLOCKED_BARE_KEYS = new Set(['F1', 'F3', 'F5', 'F6', 'F7', 'BrowserBack', 'BrowserForward', 'BrowserRefresh', 'BrowserSearch']);
+  const RESERVED_CTRL_KEYS = new Set(['KeyW', 'KeyT', 'KeyN', 'Tab', 'PageUp', 'PageDown']);
+  const isTypingTarget = (el) => !!el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
+  const inWorld = () => !!localPlayerId && !document.body.classList.contains('pre-login');
+  let gameModeOn = false;
+  const keyboardLock = navigator.keyboard && navigator.keyboard.lock ? navigator.keyboard : null;
+  const btnGameMode = document.getElementById('btnGameMode');
+  if (btnGameMode && !document.fullscreenEnabled) btnGameMode.style.display = 'none';
+
+  async function setGameMode(on) {
+    try {
+      if (on) {
+        if (!document.fullscreenElement) await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
+        // no key list: lock everything, so Ctrl+W / Ctrl+T / Esc all come to the game
+        if (keyboardLock) await keyboardLock.lock();
+      } else if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      }
+    } catch (err) {
+      console.warn('Game mode:', err);
+    }
+  }
+  document.addEventListener('fullscreenchange', () => {
+    gameModeOn = !!document.fullscreenElement;
+    if (!gameModeOn && keyboardLock) keyboardLock.unlock();
+    if (btnGameMode) {
+      btnGameMode.classList.toggle('active', gameModeOn);
+      const label = btnGameMode.querySelector('.game-mode-label');
+      if (label) label.textContent = gameModeOn ? 'Exit Game Mode [F10]' : 'Game Mode [F10]';
+    }
+  });
+  if (btnGameMode) btnGameMode.addEventListener('click', () => setGameMode(!gameModeOn));
+
+  window.addEventListener('keydown', (e) => {
+    if (!inWorld() || isTypingTarget(e.target)) return;
+    const ctrl = e.ctrlKey || e.metaKey;
+    if (e.code === 'F10' && !ctrl && !e.altKey) {
+      e.preventDefault();
+      setGameMode(!gameModeOn);
+      return;
+    }
+    if (ctrl && (BLOCKED_CTRL_KEYS.has(e.code) || RESERVED_CTRL_KEYS.has(e.code))) e.preventDefault();
+    else if (!ctrl && !e.altKey && BLOCKED_BARE_KEYS.has(e.code)) e.preventDefault();
+    else if (e.altKey && (e.code === 'ArrowLeft' || e.code === 'ArrowRight' || e.code === 'Home')) e.preventDefault();
+  }, true);
+
+  socket.on('server_version', (version) => {
+    if (knownClientVersion && version !== knownClientVersion) {
+      try {
+        if (authenticatedAccount && authenticatedAccount.token && joinedSlot !== null) {
+          sessionStorage.setItem('slop_update_resume', JSON.stringify({ account: authenticatedAccount, slot: joinedSlot }));
+        }
+      } catch (_) {}
+      reloadingForUpdate = true;
+      location.reload();
+      return;
+    }
+    knownClientVersion = version;
     if (authenticatedAccount && authenticatedAccount.token && joinedSlot !== null) {
       socket.emit('join_game', { token: authenticatedAccount.token, slot: joinedSlot });
     } else if (localPlayer && localPlayer.name) {
@@ -1068,9 +1207,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  const reconnectOverlay = document.getElementById('reconnectOverlay');
+  const reconnectTitle = document.getElementById('reconnectTitle');
+  socket.on('server_restarting', () => {
+    if (reconnectTitle) reconnectTitle.textContent = 'Updating server...';
+  });
+  socket.on('disconnect', () => {
+    if (joinedSlot === null || !reconnectOverlay) return;
+    reconnectOverlay.classList.add('active');
+  });
+
   socket.on('init_game', (data) => {
     // in the world now: show the canvas and HUD, drop the login scene (login.css)
     document.body.classList.remove('pre-login');
+    if (reconnectOverlay) reconnectOverlay.classList.remove('active');
+    if (reconnectTitle) reconnectTitle.textContent = 'Connection lost';
     localPlayerId = data.playerId;
     spCatalog = data.spCatalog || null;
     window.SP_CATALOG = spCatalog;
@@ -1105,6 +1256,7 @@ document.addEventListener('DOMContentLoaded', () => {
     localPlayer = data.player;
     updatePlayerHUD(localPlayer);
     setupClassSkillHUD(localPlayer.characterClass);
+    if (myEffects.trail) sendEffects();          // your saved trail follows you into the world
     requestAdminCatalog();
     renderShopBuyList();
     renderInventoryGrid();
@@ -1118,6 +1270,131 @@ document.addEventListener('DOMContentLoaded', () => {
   function withOwnChestState(chests) {
     return (chests || []).map(c => ({ ...c, opened: !!(c.openedBy && c.openedBy.includes(socket.id)) }));
   }
+
+  // ---------------------------------------------------------------- dimension warp
+  // Plays when you arrive somewhere new (dungeon floor, field zone, town, the Rift): the screen is
+  // covered by a swirling star tunnel that opens like an iris onto the new place, with a title card.
+  const WARP_THEMES = {
+    dungeon: { a: '#12062a', b: '#3b1470', arm: '#a855f7', glow: '#e9d5ff', star: '#c4b5fd', tag: 'DIMENSION' },
+    rift: { a: '#1f0636', b: '#6b1d8f', arm: '#e879f9', glow: '#fdf4ff', star: '#f0abfc', tag: 'THE RIFT' },
+    town: { a: '#2a1a06', b: '#7a4f12', arm: '#fbbf24', glow: '#fffbeb', star: '#fde68a', tag: 'SANCTUARY' },
+    frostfell: { a: '#04182c', b: '#0e4c7c', arm: '#38bdf8', glow: '#f0f9ff', star: '#bae6fd', tag: 'FROZEN REALM' },
+    field: { a: '#04200f', b: '#0f5a2c', arm: '#4ade80', glow: '#f0fdf4', star: '#bbf7d0', tag: 'WILDS' }
+  };
+  let warpState = null;
+  function playDimensionWarp(data, title) {
+    const kind = data.rift ? 'rift' : data.zone === 'dungeon' ? 'dungeon' : data.zone === 'town' ? 'town'
+      : data.zone === 'frostfell' ? 'frostfell' : 'field';
+    const T = WARP_THEMES[kind];
+    if (warpState) warpState.stop();
+    const cv = document.createElement('canvas');
+    cv.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;z-index:4500;pointer-events:none;';
+    const label = document.createElement('div');
+    label.style.cssText = 'position:fixed;left:0;right:0;top:40%;z-index:4501;pointer-events:none;text-align:center;opacity:0;' +
+      'font-family:var(--font-title-px, "Press Start 2P", monospace);color:#fff;text-shadow:0 3px 0 #000,0 0 18px ' + T.arm + ';';
+    label.innerHTML = '<div style="font-size:13px;letter-spacing:6px;color:' + T.star + ';margin-bottom:10px;">' + T.tag +
+      (data.floorLevel && kind === 'dungeon' ? ' ' + data.floorLevel : '') + '</div><div style="font-size:30px;">' + escapeHtml(title || '') + '</div>';
+    document.body.appendChild(cv);
+    document.body.appendChild(label);
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const W = cv.width = Math.round(window.innerWidth * dpr), H = cv.height = Math.round(window.innerHeight * dpr);
+    const g = cv.getContext('2d');
+    const cx = W / 2, cy = H / 2, maxR = Math.hypot(cx, cy) * 1.05;
+    const HOLD = 0.3, OPEN = 0.95, TOTAL = HOLD + OPEN + 0.15;
+    const streaks = Array.from({ length: 140 }, (_, i) => ({ a: (i / 140) * Math.PI * 2 + Math.random() * 0.04, s: 0.4 + Math.random() * 1.2, o: Math.random(), w: 1 + Math.random() * 2 }));
+    const t0 = performance.now();
+    let raf = 0, dead = false;
+    const stop = () => { if (dead) return; dead = true; cancelAnimationFrame(raf); cv.remove(); label.remove(); if (warpState && warpState.stop === stop) warpState = null; };
+    warpState = { stop };
+    const frame = () => {
+      if (dead) return;
+      const t = (performance.now() - t0) / 1000;
+      if (t >= TOTAL) { stop(); return; }
+      const open = Math.max(0, Math.min(1, (t - HOLD) / OPEN)), eased = 1 - Math.pow(1 - open, 3);
+      const spin = t * 2.2 + open * 3;
+      g.globalCompositeOperation = 'source-over';
+      g.clearRect(0, 0, W, H);
+      // the dimension's sky
+      const bg = g.createRadialGradient(cx, cy, 0, cx, cy, maxR);
+      bg.addColorStop(0, T.b); bg.addColorStop(1, T.a);
+      g.fillStyle = bg;
+      g.fillRect(0, 0, W, H);
+      // spiral arms turning into the centre
+      g.lineCap = 'round';
+      for (let arm = 0; arm < 5; arm++) {
+        g.beginPath();
+        for (let k = 0; k <= 60; k++) {
+          const r = (k / 60) * maxR, a = spin + arm * (Math.PI * 2 / 5) + (k / 60) * 5.2 - (1 - (k / 60)) * 0.0;
+          const x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r * 0.8;
+          if (k) g.lineTo(x, y); else g.moveTo(x, y);
+        }
+        g.strokeStyle = T.arm; g.globalAlpha = 0.22; g.lineWidth = 18 * dpr; g.stroke();
+        g.globalAlpha = 0.45; g.lineWidth = 5 * dpr; g.stroke();
+      }
+      // stars streaking outward past the camera
+      g.globalAlpha = 1;
+      for (const s of streaks) {
+        const p = (s.o + t * s.s * 0.9) % 1, r0 = Math.pow(p, 2.2) * maxR, r1 = Math.pow(Math.min(1, p + 0.07 + p * 0.12), 2.2) * maxR;
+        g.beginPath();
+        g.moveTo(cx + Math.cos(s.a) * r0, cy + Math.sin(s.a) * r0);
+        g.lineTo(cx + Math.cos(s.a) * r1, cy + Math.sin(s.a) * r1);
+        g.strokeStyle = T.star; g.globalAlpha = Math.min(1, p * 1.6) * 0.9; g.lineWidth = s.w * dpr * (0.4 + p); g.stroke();
+      }
+      g.globalAlpha = 1;
+      // the iris: a hole that opens onto the new world, ringed by a bright glowing edge
+      if (open > 0) {
+        const r = eased * maxR;
+        g.globalCompositeOperation = 'lighter';
+        const ring = g.createRadialGradient(cx, cy, Math.max(0, r - 60 * dpr), cx, cy, r + 14 * dpr);
+        ring.addColorStop(0, 'rgba(255,255,255,0)'); ring.addColorStop(0.75, T.glow); ring.addColorStop(1, 'rgba(255,255,255,0)');
+        g.globalAlpha = 1 - open * 0.6;
+        g.fillStyle = ring;
+        g.beginPath(); g.arc(cx, cy, r + 14 * dpr, 0, Math.PI * 2); g.fill();
+        g.globalAlpha = 1;
+        g.globalCompositeOperation = 'destination-out';
+        const hole = g.createRadialGradient(cx, cy, Math.max(0, r - 40 * dpr), cx, cy, r);
+        hole.addColorStop(0, 'rgba(0,0,0,1)'); hole.addColorStop(1, 'rgba(0,0,0,0)');
+        g.fillStyle = hole;
+        g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2); g.fill();
+      }
+      // title card: fades in while the tunnel spins, out as the iris finishes opening
+      label.style.opacity = String(Math.max(0, Math.min(1, (t - 0.12) / 0.2, (TOTAL - 0.1 - t) / 0.35)));
+      label.style.transform = 'scale(' + (1 + (1 - Math.min(1, t / 0.5)) * 0.12) + ')';
+      raf = requestAnimationFrame(frame);
+    };
+    raf = requestAnimationFrame(frame);
+  }
+
+  // ---------------------------------------------------------------- destructible field props
+  // The server breaks a prop after a few hits and grows it back 20 s later; we hide / show it and
+  // play the chips and dust.
+  const PROP_DEBRIS = {
+    oak_tree: ['earth', 'poison'], pine_tree: ['earth', 'poison'], snow_pine: ['earth', 'ice'], dead_tree: ['earth', 'dust'],
+    boulder: ['earth', 'dust'], stone_pillar: ['earth', 'dust'], frost_monolith: ['ice', 'earth'], ice_crystal: ['ice', 'spark'],
+    giant_mushroom: ['poison', 'dust'], cactus: ['poison', 'dust']
+  };
+  function propDebris(type, x, y, count, big) {
+    if (!renderer) return;
+    const [a, b] = PROP_DEBRIS[type] || ['earth', 'dust'];
+    renderer.addParticles(x, y, a, Math.ceil(count * 0.6), { speed: big ? 2.4 : 1.6, z: 0.5 });
+    renderer.addParticles(x, y, b, Math.floor(count * 0.4), { speed: big ? 2 : 1.2, z: 0.3 });
+  }
+  socket.on('prop_hit', (d) => {
+    if (!d) return;
+    propDebris(d.type, d.x, d.y, 4, false);
+    if (window.soundEngine && window.soundEngine.playHit) window.soundEngine.playHit();
+  });
+  socket.on('prop_state', (d) => {
+    if (!d) return;
+    const o = ((gameState.map && gameState.map.obstacles) || []).find(p => p.id === d.id);
+    if (o) { if (d.destroyed) o.destroyed = true; else delete o.destroyed; }
+    if (d.destroyed) {
+      propDebris(d.type, d.x, d.y, 16, true);
+      if (renderer) renderer.triggerScreenShake(3, 0.08);
+    } else if (renderer) {
+      renderer.addParticles(d.x, d.y, 'spark', 6, { speed: 1, z: 0.4 });   // it grows back with a little glint
+    }
+  });
 
   socket.on('zone_change', (data) => {
     window.RiftUI.onZoneChange(data);
@@ -1170,6 +1447,9 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
       hideRaidWidget();
     }
+
+    // arriving in a new dimension
+    try { playDimensionWarp(data, zoneText ? zoneText.textContent : ''); } catch (err) { /* cosmetic only */ }
   });
 
   // ---------------------------------------------------------------- field raid / world boss
@@ -1263,6 +1543,7 @@ document.addEventListener('DOMContentLoaded', () => {
         existing.gold = p.gold;
         existing.speechBubble = p.speechBubble;
         existing.isDead = p.isDead;
+        existing.trail = p.trail || null;          // Effects dialog: the trail this hero wears
         existing.statusEffects = p.statusEffects || [];
         // bag / gear / talents only arrive when they change (see broadcastSnapshot)
         if (p.inventory) existing.inventory = p.inventory;
@@ -1361,7 +1642,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Update target HUD with Elemental Badge and Weaknesses
-    if (selectedTargetId && gameState.mobs) {
+    if (!monsterLockTargetOn) {
+      if (selectedTargetId) {
+        selectedTargetId = null;
+        selectedTargetType = null;
+      }
+      if (targetHud && targetHud.classList.contains('active')) {
+        targetHud.classList.remove('active');
+        const elemBadge = document.getElementById('targetElementBadge');
+        if (elemBadge) elemBadge.style.display = 'none';
+        const weakRow = document.getElementById('targetWeaknessRow');
+        if (weakRow) weakRow.style.display = 'none';
+      }
+    } else if (selectedTargetId && gameState.mobs) {
       const mob = gameState.mobs.find(m => m.id === selectedTargetId);
       if (mob && mob.state !== 'dead') {
         targetHud.classList.add('active');
@@ -1484,6 +1777,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (renderer && fx.attackerId !== localPlayerId) {
       renderer.triggerAttackAnimation(fx);
     }
+    // every swing (ours too) bursts particles on the enemies it hit
+    if (renderer && fx.hits) renderer.addSwingHits(fx);
 
     if (fx.attackerType === 'player') {
       if (fx.class === 'mage') {
@@ -1728,12 +2023,56 @@ document.addEventListener('DOMContentLoaded', () => {
     const map = gameState.map;
     if (!map || !map.isDungeon || !data || !data.doors) return;
     for (const d of data.doors) {
+      if (map.doors) {
+        const found = map.doors.find(ed => ed.id === d.id);
+        if (found) found.open = true;
+      }
       for (const [x, y] of d.tiles) if (map.tiles[y]) map.tiles[y][x] = 4;
       map._tilesVersion = (map._tilesVersion || 0) + 1; // repaint cached ground & minimap
       map.obstacles = (map.obstacles || []).filter(o => o.id !== d.id);
       if (renderer) renderer.addParticles(d.x, d.y, d.boss ? 'fire' : 'gold', 18);
     }
     window.soundEngine.playCoin();
+  });
+
+  socket.on('boss_portal_spawned', (data) => {
+    if (!data || !data.portal) return;
+    const p = data.portal;
+    if (gameState.map) {
+      if (!gameState.map.obstacles) gameState.map.obstacles = [];
+      if (!gameState.map.obstacles.some(o => o.id === p.id)) {
+        gameState.map.obstacles.push(p);
+      }
+    }
+    if (renderer) renderer.addParticles(p.x, p.y, 'magic', 30);
+    if (window.soundEngine) window.soundEngine.playLevelUp();
+  });
+
+  socket.on('player_teleport', (data) => {
+    if (!data) return;
+    if (!data.id || (localPlayer && data.id === localPlayer.id)) {
+      if (localPlayer) {
+        localPlayer.x = data.x;
+        localPlayer.y = data.y;
+        localPlayer.targetX = null;
+        localPlayer.targetY = null;
+        if (renderer) {
+          renderer.camera.x = data.x;
+          renderer.camera.y = data.y;
+          renderer.addParticles(data.x, data.y, 'magic', 25);
+        }
+        if (window.soundEngine) window.soundEngine.playBlink();
+      }
+    } else if (gameState.players) {
+      const other = gameState.players.find(p => p.id === data.id);
+      if (other) {
+        other.x = data.x;
+        other.y = data.y;
+        other.targetX = null;
+        other.targetY = null;
+        if (renderer) renderer.addParticles(data.x, data.y, 'magic', 20);
+      }
+    }
   });
 
   // A room just opened: its monsters rise out of summoning circles
@@ -1765,29 +2104,52 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     const st = dungeonRunState;
     const items = st.items || [];
-    const lootItems = (st.lootItems && st.lootItems.length) ? st.lootItems : items;
+    const lootItems = stackLootList((st.lootItems && st.lootItems.length) ? st.lootItems : items);
+    const lootCount = lootUnits(lootItems);
     const time = st.cleared && st.clearedMs != null ? st.clearedMs : Date.now() - runStartLocal;
     runBagPanel.style.display = 'flex';
     runBagPanel.innerHTML = `
       <div class="run-head">
-        <span class="run-floor">B${st.floor || '?'} - ${(st.difficulty || 'normal').toUpperCase()}</span>
+        <span class="run-floor">B${st.floor || '?'} - ${(st.difficulty || 'normal').toUpperCase()}${st.mode === 'rush' ? ' · RUSH' : ''}</span>
         <span class="run-state ${st.cleared ? 'is-cleared' : ''}">${st.cleared ? 'CLEARED' : 'IN PROGRESS'}</span>
       </div>
       <div class="run-clock ${st.cleared ? 'is-cleared' : ''}" id="runTimerValue">${fmtDuration(time)}</div>
+      <div class="run-kill-progress-box">
+        <div class="run-kill-header">
+          <span class="run-kill-title">💀 MONSTER PURGE</span>
+          <span class="run-kill-val">${st.killPercent || 0}%</span>
+        </div>
+        <div class="run-kill-bar">
+          <div class="run-kill-fill" style="width: ${Math.min(100, Math.max(0, st.killPercent || 0))}%;"></div>
+        </div>
+      </div>
+      ${st.bossPortalReady && !st.bossPortalSpawned && !st.cleared ? `
+        <button class="run-boss-btn" id="btnSpawnBossPortal">🌀 SUMMON BOSS PORTAL</button>
+      ` : ''}
+      ${st.bossPortalSpawned && !st.cleared ? `
+        <div class="run-boss-active-note">🌀 Boss Portal is Open!</div>
+      ` : ''}
       <div class="run-stats">
         <div><b>${st.roomsCleared || 0}/${st.roomsTotal || 0}</b><span>ROOMS</span></div>
         <div><b>${st.deaths || 0}</b><span>DEATHS</span></div>
         <div><b>${(st.gold || 0).toLocaleString()}</b><span>GOLD</span></div>
-        <div><b>${lootItems.length}</b><span>ITEMS</span></div>
+        <div><b>${lootCount}</b><span>ITEMS</span></div>
       </div>
       <div class="run-bag-header">
         <span class="run-bag-title">🎒 ESCROWED LOOT</span>
-        <span class="run-bag-count">${lootItems.length} item(s)</span>
+        <span class="run-bag-count">${lootCount} item(s)</span>
       </div>
       <div class="run-bag-grid" id="runBagGrid"></div>
       <div class="run-note">${st.cleared ? 'All chest loot is secured.' : 'Defeat the boss to keep your loot. Leaving now fails the run.'}</div>
       <button class="run-leave-btn ${st.cleared ? 'is-safe' : ''}" id="btnRunLeave">${PixelIcons.html('castle')} RETURN TO TOWN</button>
     `;
+
+    const btnSpawn = document.getElementById('btnSpawnBossPortal');
+    if (btnSpawn) {
+      btnSpawn.addEventListener('click', () => {
+        socket.emit('spawn_boss_portal');
+      });
+    }
 
     const bagGrid = document.getElementById('runBagGrid');
     if (bagGrid) {
@@ -1813,8 +2175,8 @@ document.addEventListener('DOMContentLoaded', () => {
   socket.on('dungeon_result', (data) => {
     const overlay = document.createElement('div');
     overlay.className = `dungeon-result-overlay ${data.success ? 'is-success' : 'is-failed'}`;
-    const keptList = (data.keptItems && data.keptItems.length) ? data.keptItems : (data.kept || []);
-    const lostList = (data.lostItems && data.lostItems.length) ? data.lostItems : (data.lost || []);
+    const keptList = stackLootList((data.keptItems && data.keptItems.length) ? data.keptItems : (data.kept || []));
+    const lostList = stackLootList((data.lostItems && data.lostItems.length) ? data.lostItems : (data.lost || []));
 
     if (data.success && data.rank) {
       const r = data.rewards || {};
@@ -2002,7 +2364,7 @@ document.addEventListener('DOMContentLoaded', () => {
           else socket.emit('player_input', { type: 'click_move', x: riftGate.x, y: riftGate.y + 1 });
           return;
         }
-        const personalChest = townObstacles.find(o => o.id === 'town_personal_chest' || o.type === 'personal_chest') || { x: 17.8, y: 19.6 };
+        const personalChest = townObstacles.find(o => o.id === 'town_personal_chest' || o.type === 'personal_chest') || { x: 15.6, y: 17.1 };
         if (Math.hypot(personalChest.x - worldPos.x, personalChest.y - worldPos.y) < 1.3) {
           if (Math.hypot(personalChest.x - localPlayer.x, personalChest.y - localPlayer.y) <= 3.5) openPersonalChestModal();
           else socket.emit('player_input', { type: 'click_move', x: personalChest.x, y: personalChest.y + 0.8 });
@@ -2058,6 +2420,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
 
+      // 1.5. Check if clicked on a Boss Portal in dungeon
+      if (localPlayer.zone === 'dungeon') {
+        const bossPortal = ((gameState.map && gameState.map.obstacles) || []).find(o =>
+          o.type === 'dungeon_boss_portal' && Math.hypot(o.x - worldPos.x, o.y - worldPos.y) < 1.4);
+        if (bossPortal) {
+          if (Math.hypot(bossPortal.x - localPlayer.x, bossPortal.y - localPlayer.y) <= PORTAL_USE_RANGE) {
+            socket.emit('use_portal');
+          } else {
+            socket.emit('player_input', { type: 'click_move', x: bossPortal.x, y: bossPortal.y });
+          }
+          return;
+        }
+      }
+
       // 2. Check if clicked on a Chest in dungeon
       if (localPlayer.zone === 'dungeon' && gameState.chests) {
         for (const chest of gameState.chests) {
@@ -2097,8 +2473,10 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (clickedMob) {
-        selectedTargetId = clickedMob.id;
-        selectedTargetType = 'mob';
+        if (monsterLockTargetOn) {
+          selectedTargetId = clickedMob.id;
+          selectedTargetType = 'mob';
+        }
 
         const now = performance.now();
         const atkSpeed = Math.max(0.4, (localPlayer && localPlayer.attackSpeed) || 1.0);
@@ -2270,50 +2648,14 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    if (code === 'Tab' || key === 'tab') {
+    // hotbar actions follow the player's key bindings (Settings > Controls)
+    const boundAction = actionForKey(code);
+    if (boundAction) {
       e.preventDefault();
-      cycleNextTarget();
-      return;
-    }
-
-    if (code === 'Space') {
-      e.preventDefault();
-      useBasicAttack();
-      return;
-    }
-
-    if (code === 'KeyQ' || key === 'q') {
-      useSkill('slot1');
-      return;
-    }
-
-    if (code === 'KeyE' || key === 'e') {
-      useSkill('slot2');
-      return;
-    }
-
-    if (code === 'KeyF' || key === 'f') {
-      usePortal();
-      return;
-    }
-
-    if (code === 'KeyR' || key === 'r') {
-      useSkill('slot3');
-      return;
-    }
-
-    if (code === 'ShiftLeft' || code === 'ShiftRight' || key === 'shift') {
-      e.preventDefault();
-      useSkill('dash');
-      return;
-    }
-
-    if (code === 'Digit1' || key === '1') {
-      drinkPotion('health');
-      return;
-    }
-    if (code === 'Digit2' || key === '2') {
-      drinkPotion('mana');
+      // Basic attack is hold-to-attack: our own repeat keeps swinging while you walk (the browser
+      // stops auto-repeating a held key as soon as you press another one, like WASD)
+      if (boundAction.id === 'attack') { startAttackHold(); return; }
+      runKeyAction(boundAction);
       return;
     }
 
@@ -2350,11 +2692,27 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (code === 'KeyH' || key === 'h') toggleModal(helpModal);
     if (code === 'KeyO' || key === 'o') togglePartyPanel();
-    if (code === 'KeyT' || key === 't') requestTransform();
     if (code === 'KeyM' || key === 'm') toggleAudio();
   });
 
+  // ---- hold the attack key to keep attacking, also while walking (WASD or click-move)
+  let attackHoldTimer = null;
+  function stopAttackHold() {
+    if (attackHoldTimer) { clearInterval(attackHoldTimer); attackHoldTimer = null; }
+  }
+  function startAttackHold() {
+    if (attackHoldTimer) return;                       // already swinging (key auto-repeat lands here)
+    useBasicAttack();
+    attackHoldTimer = setInterval(() => {
+      // useBasicAttack paces itself by attack speed; this just keeps asking while the key is down
+      if (!localPlayer || localPlayer.isDead || document.activeElement === chatInput || anyDialogOpen()) { stopAttackHold(); return; }
+      useBasicAttack();
+    }, 40);
+  }
+  window.addEventListener('blur', stopAttackHold);
+
   window.addEventListener('keyup', (e) => {
+    if (normKey(e.code) === keyBinds.attack) stopAttackHold();
     if (document.activeElement === chatInput) return;
     const code = e.code;
     const key = e.key.toLowerCase();
@@ -2375,7 +2733,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (activeKeys.d) { dx += 1; }
 
     if (dx !== 0 || dy !== 0) {
-      if (localPlayer) {
+      if (localPlayer && faceCursorOn) {
+        localPlayer.isMoving = true;
+      } else if (localPlayer) {
         if (dx > 0 && dy < 0) localPlayer.facing = 'NE';
         else if (dx < 0 && dy < 0) localPlayer.facing = 'NW';
         else if (dx > 0 && dy > 0) localPlayer.facing = 'SE';
@@ -2395,6 +2755,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Tab Key Target Cycling through nearby alive enemies
   function cycleNextTarget() {
+    if (!monsterLockTargetOn) return;
     if (!localPlayer || localPlayer.isDead || !gameState.mobs) return;
 
     const TARGET_RADIUS = 9.0;
@@ -2460,50 +2821,63 @@ document.addEventListener('DOMContentLoaded', () => {
     const AUTO_LOCK_RADIUS = 8.5;
     let targetMob = null;
 
-    // 2. Check if currently selected target is valid and alive
-    if (selectedTargetId && gameState.mobs) {
-      const mob = gameState.mobs.find(m => m.id === selectedTargetId);
-      if (mob && mob.state !== 'dead') {
-        const dist = Math.hypot(mob.x - localPlayer.x, mob.y - localPlayer.y);
-        if (dist <= AUTO_LOCK_RADIUS + 3.0) {
-          targetMob = mob;
-        }
-      }
-    }
-
-    // 3. If no valid target, auto-find closest alive mob within radius
-    if (!targetMob && gameState.mobs) {
-      let closestMob = null;
-      let closestDist = AUTO_LOCK_RADIUS;
-
-      for (const m of gameState.mobs) {
-        if (m.state === 'dead') continue;
-        const d = Math.hypot(m.x - localPlayer.x, m.y - localPlayer.y);
-        if (d < closestDist) {
-          closestDist = d;
-          closestMob = m;
+    if (monsterLockTargetOn) {
+      // 2. Check if currently selected target is valid and alive
+      if (selectedTargetId && gameState.mobs) {
+        const mob = gameState.mobs.find(m => m.id === selectedTargetId);
+        if (mob && mob.state !== 'dead') {
+          const dist = Math.hypot(mob.x - localPlayer.x, mob.y - localPlayer.y);
+          if (dist <= AUTO_LOCK_RADIUS + 3.0) {
+            targetMob = mob;
+          }
         }
       }
 
-      if (closestMob) {
-        targetMob = closestMob;
-        selectedTargetId = closestMob.id;
-        selectedTargetType = 'mob';
-        window.soundEngine.playTargetLock();
+      // 3. If no valid target, auto-find closest alive mob within radius
+      if (!targetMob && gameState.mobs) {
+        let closestMob = null;
+        let closestDist = AUTO_LOCK_RADIUS;
 
-        if (targetHud) {
-          targetHud.classList.add('active');
-          targetName.textContent = `${closestMob.name} (Lv. ${closestMob.level})`;
-          const hpPct = Math.round((closestMob.hp / closestMob.maxHp) * 100);
-          targetHpFill.style.width = `${hpPct}%`;
-          targetIcon.dataset.pxi = closestMob.isBoss ? 'crown' : closestMob.isMiniboss ? 'sword' : 'skull';
+        for (const m of gameState.mobs) {
+          if (m.state === 'dead') continue;
+          const d = Math.hypot(m.x - localPlayer.x, m.y - localPlayer.y);
+          if (d < closestDist) {
+            closestDist = d;
+            closestMob = m;
+          }
+        }
+
+        if (closestMob) {
+          targetMob = closestMob;
+          selectedTargetId = closestMob.id;
+          selectedTargetType = 'mob';
+          window.soundEngine.playTargetLock();
+
+          if (targetHud) {
+            targetHud.classList.add('active');
+            targetName.textContent = `${closestMob.name} (Lv. ${closestMob.level})`;
+            const hpPct = Math.round((closestMob.hp / closestMob.maxHp) * 100);
+            targetHpFill.style.width = `${hpPct}%`;
+            targetIcon.dataset.pxi = closestMob.isBoss ? 'crown' : closestMob.isMiniboss ? 'sword' : 'skull';
+          }
         }
       }
     }
 
     // 4. Turn to face locked target when attacking!
+    let attackAimX = undefined;
+    let attackAimY = undefined;
     if (targetMob) {
       localPlayer.facing = calculateFacingFromTo(localPlayer.x, localPlayer.y, targetMob.x, targetMob.y);
+      attackAimX = targetMob.x;
+      attackAimY = targetMob.y;
+    } else if (lastCursor && renderer) {
+      const aimPos = Isometric.screenToWorld(lastCursor.x, lastCursor.y, renderer.camera, renderer.viewW, renderer.viewH);
+      if (aimPos) {
+        localPlayer.facing = calculateFacingFromTo(localPlayer.x, localPlayer.y, aimPos.x, aimPos.y);
+        attackAimX = aimPos.x;
+        attackAimY = aimPos.y;
+      }
     }
 
     // Register attack timestamp
@@ -2516,7 +2890,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // For melee, if slightly out of reach (e.g. 2.2 to 4.5 tiles), step forward to engage:
       // stop at sword's length in front of the monster, not on top of it
-      if (dist > attackRange && dist <= 4.5) {
+      // (not while the player is walking: the swing must never override where they are heading)
+      const walking = activeKeys.w || activeKeys.a || activeKeys.s || activeKeys.d || localPlayer.isMoving;
+      if (!walking && dist > attackRange && dist <= 4.5) {
         const stopAt = Math.max(0.9, attackRange * 0.6);
         socket.emit('player_input', {
           type: 'click_move',
@@ -2532,11 +2908,22 @@ document.addEventListener('DOMContentLoaded', () => {
         worldY: targetMob.y
       });
     } else {
+      let attackWorldX = attackAimX;
+      let attackWorldY = attackAimY;
+      if (attackWorldX === undefined || attackWorldY === undefined) {
+        const facingVectors = {
+          E: { x: 1, y: 0 }, SE: { x: 0.707, y: 0.707 }, S: { x: 0, y: 1 }, SW: { x: -0.707, y: 0.707 },
+          W: { x: -1, y: 0 }, NW: { x: -0.707, y: -0.707 }, N: { x: 0, y: -1 }, NE: { x: 0.707, y: -0.707 }
+        };
+        const fv = facingVectors[localPlayer.facing] || { x: 1, y: 0 };
+        attackWorldX = localPlayer.x + fv.x * 3;
+        attackWorldY = localPlayer.y + fv.y * 3;
+      }
       socket.emit('player_attack', {
         targetId: null,
         targetType: 'none',
-        worldX: localPlayer.x,
-        worldY: localPlayer.y
+        worldX: attackWorldX,
+        worldY: attackWorldY
       });
     }
 
@@ -2549,8 +2936,8 @@ document.addEventListener('DOMContentLoaded', () => {
         x: localPlayer.x,
         y: localPlayer.y,
         facing: localPlayer.facing,
-        targetX: targetMob ? targetMob.x : undefined,
-        targetY: targetMob ? targetMob.y : undefined,
+        targetX: targetMob ? targetMob.x : attackAimX,
+        targetY: targetMob ? targetMob.y : attackAimY,
         attackSpeed: atkSpeed,
         hasSweep: true,
         // the cleave's true reach and arc (from the server snapshot), so the slash grows with range
@@ -2625,13 +3012,13 @@ document.addEventListener('DOMContentLoaded', () => {
       // aimed at the cursor (weapon ability)
       targetX = aim.x;
       targetY = aim.y;
-    } else if (selectedTargetId && gameState.mobs) {
+    } else if (monsterLockTargetOn && selectedTargetId && gameState.mobs) {
       const mob = gameState.mobs.find(m => m.id === selectedTargetId);
       if (mob) {
         targetX = mob.x;
         targetY = mob.y;
       }
-    } else if (gameState.mobs) {
+    } else if (monsterLockTargetOn && gameState.mobs) {
       // Auto-target closest enemy if none targeted
       let closestMob = null;
       let closestDist = 8.0;
@@ -2648,6 +3035,12 @@ document.addEventListener('DOMContentLoaded', () => {
         targetY = closestMob.y;
         selectedTargetId = closestMob.id;
         selectedTargetType = 'mob';
+      }
+    } else if (lastCursor && renderer) {
+      const aimPos = Isometric.screenToWorld(lastCursor.x, lastCursor.y, renderer.camera, renderer.viewW, renderer.viewH);
+      if (aimPos) {
+        targetX = aimPos.x;
+        targetY = aimPos.y;
       }
     }
 
@@ -2765,6 +3158,86 @@ document.addEventListener('DOMContentLoaded', () => {
     socket.emit('use_potion', type);
     window.soundEngine.playPotion();
   }
+
+  // ---------------------------------------------------------------- auto potion
+  // Settings > Controls: drink the selected HP / MP potion by itself when the
+  // bar drops below a share of its max (0 = off). Saved per browser.
+  const AUTO_POTION_GAP_MS = 1500;
+  const autoPotion = { health: 0, mana: 0, last: { health: 0, mana: 0 } };
+  try {
+    const saved = JSON.parse(localStorage.getItem('slop_auto_potion') || '{}');
+    autoPotion.health = Math.max(0, Math.min(90, Number(saved.health) || 0));
+    autoPotion.mana = Math.max(0, Math.min(90, Number(saved.mana) || 0));
+  } catch (_) {}
+
+  function updateAutoPotion(now) {
+    const p = localPlayer;
+    if (!p || p.isDead) return;
+    for (const kind of ['health', 'mana']) {
+      const pct = autoPotion[kind];
+      if (!pct || now - autoPotion.last[kind] < AUTO_POTION_GAP_MS) continue;
+      const cur = kind === 'health' ? p.hp : p.mp, max = kind === 'health' ? p.maxHp : p.maxMp;
+      if (!max || (cur / max) * 100 >= pct) continue;
+      if (potionCount(p, selectedPotion(p, kind)) <= 0) continue;
+      autoPotion.last[kind] = now;
+      drinkPotion(kind);
+    }
+  }
+
+  // ---------------------------------------------------------------- key bindings
+  // Hotbar actions can be rebound in Settings > Controls; saved per browser.
+  // Movement (WASD / arrows), Enter, Esc and F2 stay fixed. A bound key wins
+  // over the fixed menu shortcuts (C, I, H, O, K, M).
+  const KEYBIND_ACTIONS = [
+    { id: 'target', label: 'Lock / Cycle Target', def: 'Tab', slot: 'slotTarget' },
+    { id: 'attack', label: 'Basic Attack', def: 'Space', slot: 'slotAttack' },
+    { id: 'slot1', label: 'Skill 1', def: 'KeyQ', slot: 'slotSkill1' },
+    { id: 'slot2', label: 'Skill 2', def: 'KeyE', slot: 'slotSkill2' },
+    { id: 'slot3', label: 'Skill 3 / Ultimate', def: 'KeyR', slot: 'slotSkill3' },
+    { id: 'dash', label: 'Dash / Mobility', def: 'Shift', slot: 'slotDash' },
+    { id: 'weapon', label: 'Weapon Ability (Right Click too)', def: '', slot: 'slotWeapon' },
+    { id: 'transform', label: 'SP Card Transform', def: 'KeyT', slot: 'slotSpCard' },
+    { id: 'potionHp', label: 'Health Potion', def: 'Digit1', slot: 'slotHealthPotion' },
+    { id: 'potionMp', label: 'Mana Potion', def: 'Digit2', slot: 'slotManaPotion' },
+    { id: 'portal', label: 'Use Portal', def: 'KeyF' }
+  ];
+  const RESERVED_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Escape', 'Enter', 'F2', 'F10']);
+  const KEY_GLYPHS = { Space: 'SPC', Backquote: '`', Minus: '-', Equal: '=', BracketLeft: '[', BracketRight: ']', Semicolon: ';', Quote: "'", Comma: ',', Period: '.', Slash: '/', Backslash: '\\', Control: 'CTRL', CapsLock: 'CAPS' };
+  // left and right modifiers count as one key
+  const normKey = (code) => String(code || '').replace(/^(Shift|Control|Alt|Meta)(Left|Right)$/, '$1');
+  const keyLabel = (code) => !code ? '—' : KEY_GLYPHS[code] || (code.startsWith('Key') ? code.slice(3)
+    : code.startsWith('Digit') ? code.slice(5) : code.startsWith('Numpad') ? 'N' + code.slice(6) : code.toUpperCase().slice(0, 5));
+  const keyBinds = Object.fromEntries(KEYBIND_ACTIONS.map(a => [a.id, a.def]));
+  try {
+    const saved = JSON.parse(localStorage.getItem('slop_keybinds') || '{}');
+    for (const a of KEYBIND_ACTIONS) if (typeof saved[a.id] === 'string' && !RESERVED_KEYS.has(saved[a.id])) keyBinds[a.id] = saved[a.id];
+  } catch (_) {}
+  const saveKeyBinds = () => { try { localStorage.setItem('slop_keybinds', JSON.stringify(keyBinds)); } catch (_) {} };
+  const actionForKey = (code) => { const k = normKey(code); return k ? KEYBIND_ACTIONS.find(a => keyBinds[a.id] === k) : null; };
+
+  function runKeyAction(a) {
+    if (a.id === 'target') cycleNextTarget();
+    else if (a.id === 'attack') useBasicAttack();
+    else if (a.id === 'transform') requestTransform();
+    else if (a.id === 'potionHp') drinkPotion('health');
+    else if (a.id === 'potionMp') drinkPotion('mana');
+    else if (a.id === 'portal') usePortal();
+    else useSkill(a.id);
+  }
+
+  // Hotbar key badges and the key named in each slot's tooltip
+  function refreshKeyLabels() {
+    for (const a of KEYBIND_ACTIONS) {
+      const slotEl = a.slot && document.getElementById(a.slot);
+      if (!slotEl) continue;
+      const label = keyLabel(keyBinds[a.id]);
+      const shown = a.id === 'weapon' ? (keyBinds.weapon ? `${label}/RMB` : 'RMB') : label;
+      const badge = slotEl.querySelector('.slot-key');
+      if (badge) badge.textContent = shown;
+      if (slotEl.title) slotEl.title = slotEl.title.replace(/\[[^\]\s]{1,12}\]/, `[${shown}]`);
+    }
+  }
+  refreshKeyLabels();
 
   function sendChatMessage() {
     const text = chatInput.value.trim();
@@ -3023,6 +3496,144 @@ document.addEventListener('DOMContentLoaded', () => {
       applyTownPropsMode(btn.dataset.props);
     });
   });
+
+  // Face the Cursor (On / Off)
+  const faceCursorPresets = document.querySelectorAll('.gui-scale-preset[data-facecursor]');
+  const lblFaceCursorVal = document.getElementById('lblFaceCursorVal');
+  try {
+    faceCursorOn = localStorage.getItem('slop_face_cursor') === 'on';
+  } catch (_) {}
+
+  function applyFaceCursor(on) {
+    faceCursorOn = on;
+    faceCursorPresets.forEach(b => b.classList.toggle('active', b.dataset.facecursor === (on ? 'on' : 'off')));
+    if (lblFaceCursorVal) lblFaceCursorVal.textContent = on ? 'On' : 'Off';
+    if (!on && sentAimFacing) socket.emit('player_input', { type: 'aim_facing', facing: null });
+    sentAimFacing = null;
+    try {
+      localStorage.setItem('slop_face_cursor', on ? 'on' : 'off');
+    } catch (_) {}
+  }
+  applyFaceCursor(faceCursorOn);
+
+  faceCursorPresets.forEach(btn => {
+    btn.addEventListener('click', () => {
+      applyFaceCursor(btn.dataset.facecursor === 'on');
+    });
+  });
+
+  // Monster Lock Target (On / Off, Enabled by default)
+  const lockTargetPresets = document.querySelectorAll('.gui-scale-preset[data-locktarget]');
+  const lblLockTargetVal = document.getElementById('lblLockTargetVal');
+  try {
+    const saved = localStorage.getItem('slop_lock_target');
+    monsterLockTargetOn = saved !== 'off'; // default: true (On)
+  } catch (_) {}
+
+  function applyMonsterLockTarget(on) {
+    monsterLockTargetOn = on;
+    lockTargetPresets.forEach(b => b.classList.toggle('active', b.dataset.locktarget === (on ? 'on' : 'off')));
+    if (lblLockTargetVal) lblLockTargetVal.textContent = on ? 'On' : 'Off';
+    if (!on) {
+      selectedTargetId = null;
+      selectedTargetType = null;
+      if (targetHud) targetHud.classList.remove('active');
+      const elemBadge = document.getElementById('targetElementBadge');
+      if (elemBadge) elemBadge.style.display = 'none';
+      const weakRow = document.getElementById('targetWeaknessRow');
+      if (weakRow) weakRow.style.display = 'none';
+    }
+    try {
+      localStorage.setItem('slop_lock_target', on ? 'on' : 'off');
+    } catch (_) {}
+  }
+  applyMonsterLockTarget(monsterLockTargetOn);
+
+  lockTargetPresets.forEach(btn => {
+    btn.addEventListener('click', () => {
+      applyMonsterLockTarget(btn.dataset.locktarget === 'on');
+    });
+  });
+
+  // Auto HP / MP potion thresholds
+  for (const [kind, sliderId, lblId] of [['health', 'sliderAutoHp', 'lblAutoHpVal'], ['mana', 'sliderAutoMp', 'lblAutoMpVal']]) {
+    const slider = document.getElementById(sliderId), lbl = document.getElementById(lblId);
+    if (!slider) continue;
+    const show = () => { if (lbl) lbl.textContent = autoPotion[kind] ? `< ${autoPotion[kind]}%` : 'Off'; };
+    slider.value = autoPotion[kind];
+    show();
+    slider.addEventListener('input', () => {
+      autoPotion[kind] = Number(slider.value) || 0;
+      show();
+      try { localStorage.setItem('slop_auto_potion', JSON.stringify({ health: autoPotion.health, mana: autoPotion.mana })); } catch (_) {}
+    });
+  }
+
+  // Key binding editor: click a key, press the new one
+  const keybindList = document.getElementById('keybindList');
+  let keybindListening = null; // action id waiting for a key
+  function renderKeybinds() {
+    if (!keybindList) return;
+    keybindList.innerHTML = KEYBIND_ACTIONS.map(a => `
+      <div class="keybind-row">
+        <span>${a.label}</span>
+        <button type="button" class="keybind-key${keybindListening === a.id ? ' listening' : ''}" data-bind="${a.id}">${keybindListening === a.id ? 'Press a key...' : keyLabel(keyBinds[a.id])}</button>
+      </div>`).join('');
+  }
+  if (keybindList) {
+    keybindList.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-bind]');
+      if (!btn) return;
+      keybindListening = keybindListening === btn.dataset.bind ? null : btn.dataset.bind;
+      renderKeybinds();
+    });
+    // capture phase, so the game and the dialog never see the key being bound
+    window.addEventListener('keydown', (e) => {
+      if (!keybindListening) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      const id = keybindListening;
+      const code = normKey(e.code);
+      if (code === 'Escape') { keybindListening = null; renderKeybinds(); return; }
+      if (code === 'Backspace' || code === 'Delete') keyBinds[id] = '';
+      else if (RESERVED_KEYS.has(code)) {
+        // movement / chat / menu keys stay fixed: say so on the button, keep listening
+        const btn = keybindList.querySelector(`[data-bind="${id}"]`);
+        if (btn) btn.textContent = `${keyLabel(code)} is reserved`;
+        return;
+      } else {
+        // a key already used by another action swaps over
+        const other = KEYBIND_ACTIONS.find(a => a.id !== id && keyBinds[a.id] === code);
+        if (other) keyBinds[other.id] = keyBinds[id];
+        keyBinds[id] = code;
+      }
+      keybindListening = null;
+      saveKeyBinds();
+      renderKeybinds();
+      refreshKeyLabels();
+    }, true);
+  }
+  const btnResetKeybinds = document.getElementById('btnResetKeybinds');
+  if (btnResetKeybinds) btnResetKeybinds.addEventListener('click', () => {
+    for (const a of KEYBIND_ACTIONS) keyBinds[a.id] = a.def;
+    keybindListening = null;
+    saveKeyBinds();
+    renderKeybinds();
+    refreshKeyLabels();
+  });
+  renderKeybinds();
+
+  // Tell the server which way the mouse is from the hero: on change, and
+  // every 1.5 s so a fresh login or map change picks it up again
+  function updateAimFacing(now) {
+    if (!faceCursorOn || !lastCursor || !localPlayer || localPlayer.isDead) return;
+    const aim = Isometric.screenToWorld(lastCursor.x, lastCursor.y, renderer.camera, renderer.viewW, renderer.viewH);
+    const facing = calculateFacingFromTo(localPlayer.x, localPlayer.y, aim.x, aim.y);
+    if (facing === sentAimFacing && now - sentAimAt < 1500) return;
+    sentAimFacing = facing;
+    sentAimAt = now;
+    socket.emit('player_input', { type: 'aim_facing', facing });
+  }
 
   // VFX & Particles quality (Auto, Full, Reduced, Minimal)
   const vfxPresets = document.querySelectorAll('.gui-scale-preset[data-vfx]');
@@ -3609,12 +4220,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Sum of the bonus stats on worn gear (with reforges)
   function gearTotals(eq) {
-    const keys = ['bonusDmg', 'bonusDef', 'bonusHp', 'bonusMp', 'bonusSpeed', 'bonusAttackSpeed', 'bonusSwipe'];
+    const keys = ['bonusDmg', 'bonusDef', 'bonusHp', 'bonusMp', 'bonusSpeed', 'bonusAttackSpeed', 'bonusSwipe', 'critChance', 'critDmg'];
     const tot = Object.fromEntries(keys.map(k => [k, 0]));
     for (const it of Object.values(eq || {})) {
       if (!it || it.type !== 'equipment') continue;
       for (const k of keys) tot[k] += (it[k] || 0) + ((it.reforgeStats && it.reforgeStats[k]) || 0);
     }
+    tot.critChance = Number(tot.critChance.toFixed(1));
     return tot;
   }
 
@@ -4205,7 +4817,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const RARITY_RANK = { mythic: 5, legendary: 4, epic: 3, rare: 2, common: 1 };
   const TYPE_RANK = { sp_card: 0, equipment: 1, consumable: 2, material: 3, treasure: 4 };
   const EQUIP_SLOTS = [
-    ['eqSlotHelmet', 'helmet'], ['eqSlotArmor', 'armor'], ['eqSlotWeapon', 'weapon'],
+    ['eqSlotHelmet', 'helmet'], ['eqSlotArmor', 'armor'], ['eqSlotGloves', 'gloves'], ['eqSlotWeapon', 'weapon'],
     ['eqSlotRing', 'ring'], ['eqSlotBoots', 'boots'], ['eqSlotSp', 'sp']
   ];
 
@@ -4318,6 +4930,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ['boots', 'Speed', t.bonusSpeed && `+${t.bonusSpeed.toFixed(1)}`],
         ['bolt', 'Atk Spd', t.bonusAttackSpeed && `+${Math.round(t.bonusAttackSpeed * 100)}%`],
         ['whirl', 'Swipe', t.bonusSwipe && `+${t.bonusSwipe}%`],
+        ['target', 'Crit', (t.critChance || t.critDmg) && `+${t.critChance}% / +${t.critDmg}%`],
         ['fire', 'Element', eq.weapon && eq.weapon.element && eq.weapon.element !== 'neutral' ? ELEMENT_NAMES[eq.weapon.element] : '']
       ];
       bonusesBar.innerHTML = rows.map(([icon, label, val]) =>
@@ -4380,6 +4993,8 @@ document.addEventListener('DOMContentLoaded', () => {
           drinkPotion('mana');
         } else if (item.id === 'greater_health_potion' || item.id === 'greater_mana_potion') {
           drinkPotion({ itemId: item.id });
+        } else if (item.id === 'town_scroll') {
+          socket.emit('use_town_scroll', { itemIndex: index });
         }
       });
       invGrid.appendChild(cell);
@@ -4449,6 +5064,56 @@ document.addEventListener('DOMContentLoaded', () => {
       chance: r.chance[lvl] || 0
     };
   }
+
+  // An item's stats at +lvl: same formula as GameServer.applyItemUpgradeStats (5% of the item's
+  // base stats per level, plus a flat bonus per level that depends on the slot)
+  const GEAR_SLOT_PER_LEVEL = {
+    weapon: { bonusDmg: 4, bonusSwipe: 3, bonusAttackSpeed: 0.02 },
+    armor: { bonusDef: 2, bonusHp: 25 },
+    helmet: { bonusDef: 2, bonusHp: 15, bonusMp: 10 },
+    boots: { bonusDef: 1, bonusSpeed: 0.08, bonusHp: 10 },
+    gloves: { bonusDmg: 4, bonusAttackSpeed: 0.01 },
+    ring: { bonusDmg: 3, bonusHp: 15, bonusMp: 15, bonusAttackSpeed: 0.01 }
+  };
+  const GEAR_STAT_ROWS = [
+    ['bonusDmg', 'Attack', v => `+${v}`],
+    ['bonusDef', 'Defense', v => `+${v}`],
+    ['bonusHp', 'Max HP', v => `+${v}`],
+    ['bonusMp', 'Max MP', v => `+${v}`],
+    ['bonusSpeed', 'Move Speed', v => `+${(+v).toFixed(2)}`],
+    ['bonusAttackSpeed', 'Attack Speed', v => `+${Math.round(v * 100)}%`],
+    ['bonusSwipe', 'Cleave', v => `+${v}%`]
+  ];
+  function gearStatsAt(item, lvl) {
+    const base = (k) => {
+      const b = item['base' + k[0].toUpperCase() + k.slice(1)];
+      return b !== undefined ? b : (item[k] || 0);
+    };
+    const per = GEAR_SLOT_PER_LEVEL[item.slot] || {};
+    const pct = lvl * 0.05;
+    const out = {};
+    for (const [k] of GEAR_STAT_ROWS) {
+      let v = base(k);
+      if (k === 'bonusDmg' || k === 'bonusDef' || k === 'bonusHp' || k === 'bonusMp') v += Math.round(base(k) * pct);
+      v += (per[k] || 0) * lvl;
+      out[k] = k === 'bonusSpeed' || k === 'bonusAttackSpeed' ? Number(v.toFixed(2)) : Math.round(v);
+    }
+    return out;
+  }
+  // A "+3 → +4" stat table: every stat the item has at either level, the change highlighted
+  function gearCompareHtml(from, to, fromLvl, toLvl, title) {
+    const rows = GEAR_STAT_ROWS.filter(([k]) => from[k] || to[k]).map(([k, label, fmt]) => {
+      const d = Number((to[k] - from[k]).toFixed(2));
+      const cls = d > 0 ? 'up' : d < 0 ? 'down' : 'same';
+      const delta = d === 0 ? '' : (k === 'bonusAttackSpeed' ? `${d > 0 ? '+' : '-'}${Math.round(Math.abs(d) * 100)}%`
+        : k === 'bonusSpeed' ? `${d > 0 ? '+' : '-'}${Math.abs(d).toFixed(2)}`
+          : `${d > 0 ? '+' : '-'}${Math.abs(d)}${k === 'bonusSwipe' ? '%' : ''}`);
+      return `<div class="ench-cmp-row"><span class="ench-cmp-label">${label}</span><span class="ench-cmp-from">${fmt(from[k])}</span><span class="ench-cmp-arrow">&rarr;</span><span class="ench-cmp-to ${cls}">${fmt(to[k])}</span><span class="ench-cmp-delta ${cls}">${delta}</span></div>`;
+    });
+    if (!rows.length) return '';
+    return `<div class="ench-compare">${title ? `<div class="ench-cmp-title">${title}</div>` : ''}<div class="ench-cmp-head"><span></span><span>+${fromLvl}</span><span></span><span>+${toLvl}</span><span></span></div>${rows.join('')}</div>`;
+  }
+  let pendingGearEnhance = null; // snapshot taken when ENHANCE is pressed, to show before → after on the result
 
   function cardEnhanceInfo(item) {
     const lvl = item.upgradeLevel || 0;
@@ -4750,13 +5415,19 @@ document.addEventListener('DOMContentLoaded', () => {
       detailEl.innerHTML = `
         <div class="ench-detail-head">${PixelIcons.itemHtml(item)}<div><div class="ench-detail-name" style="color:${({ rare: '#38bdf8', epic: '#c084fc', legendary: '#f59e0b' })[item.rarity] || '#e2e8f0'}">${escapeHtml(item.name)}</div><div class="tip-type">${(item.rarity || 'common').toUpperCase()} ${(item.slot || '').toUpperCase()}</div></div></div>
         <div class="ench-levels">+${info.lvl} ${maxed ? '<span class="arrow">MAX</span>' : `<span class="arrow">&gt;</span> <span class="next">+${info.lvl + 1}</span>`}</div>
+        ${maxed ? '' : gearCompareHtml(gearStatsAt(item, info.lvl), gearStatsAt(item, info.lvl + 1), info.lvl, info.lvl + 1, 'On success')}
+        ${!maxed && info.lvl >= info.safe ? `<div class="ench-cmp-fail">On failure: drops to +${info.lvl - 1}</div>` : ''}
         ${maxed ? '' : chanceBar(info.chance)}
         ${maxed ? '' : `<div class="ench-cost"><span class="${short ? 'short' : ''}">${info.cost.toLocaleString()} Gold</span></div>`}
         <div class="ench-warn">Each level adds ~5% of the item's base stats plus a slot bonus.${info.lvl >= info.safe ? ` Failing at +${info.safe} or higher drops the item one level.` : ` Safe until +${info.safe}: failures only cost gold.`}</div>
         <button class="ench-btn" id="enchAction" ${maxed || short ? 'disabled' : ''}>ENHANCE</button>
-        ${resultHtml}`;
+        ${resultHtml}
+        ${enchResult && enchResult.compare ? enchResult.compare : ''}`;
       const btn = document.getElementById('enchAction');
-      if (btn) btn.addEventListener('click', () => socket.emit('enhance_item', { target: sel.target, slot: sel.slot, itemIndex: sel.itemIndex }));
+      if (btn) btn.addEventListener('click', () => {
+        pendingGearEnhance = { key: sel.key, lvl: info.lvl, stats: gearStatsAt(item, info.lvl) };
+        socket.emit('enhance_item', { target: sel.target, slot: sel.slot, itemIndex: sel.itemIndex });
+      });
     } else {
       const info = cardEnhanceInfo(item);
       const card = info.card;
@@ -4790,7 +5461,17 @@ document.addEventListener('DOMContentLoaded', () => {
     if (data.ok) (data.success ? window.soundEngine.playLevelUp() : window.soundEngine.playUpgradeFail());
     renderEnchanter();
   };
-  socket.on('enhance_result', (data) => showEnchResult(data, d => `Success! Now +${d.level}`));
+  socket.on('enhance_result', (data) => {
+    // before → after for the attempt that just resolved (only when the level actually changed)
+    const before = pendingGearEnhance;
+    pendingGearEnhance = null;
+    let compare = '';
+    if (data.ok && before && data.item && data.level !== before.lvl) {
+      compare = gearCompareHtml(before.stats, gearStatsAt(data.item, data.level), before.lvl, data.level, data.success ? 'Before &rarr; After' : 'Lost on failure');
+    }
+    showEnchResult(data, d => `Success! Now +${d.level}`);
+    if (enchResult && compare) { enchResult.compare = compare; renderEnchanter(); }
+  });
   socket.on('sp_enhance_result', (data) => showEnchResult(data, d => `Card empowered to +${d.level}!`));
   socket.on('sp_exchange_result', (data) => {
     enchResult = data.ok ? { ok: true, text: 'Card obtained! Check your bag.' } : { ok: false, text: data.message };
@@ -4998,7 +5679,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const rf = item.reforgeStats || {};
     let statLines = [];
 
-    if (item.slot === 'weapon') {
+    if (item.slot === 'weapon' || item.slot === 'gloves') {
       const baseDmg = item.baseBonusDmg !== undefined ? item.baseBonusDmg : (item.bonusDmg || 10);
       statLines.push(`
         <div class="sb-stat-line" style="color: #ef4444;">
@@ -5199,7 +5880,13 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Action Slots
-  if (slotTarget) slotTarget.addEventListener('click', () => cycleNextTarget());
+  if (slotTarget) slotTarget.addEventListener('click', () => {
+    if (!monsterLockTargetOn) {
+      if (renderer && localPlayer) renderer.addFloatingText(localPlayer.x, localPlayer.y - 0.7, 'Target Lock Disabled (Settings)', '#94a3b8', 14);
+      return;
+    }
+    cycleNextTarget();
+  });
   if (slotAttack) slotAttack.addEventListener('click', () => useBasicAttack());
   if (slotSkill1) slotSkill1.addEventListener('click', () => useSkill('slot1'));
   if (slotSkill2) slotSkill2.addEventListener('click', () => useSkill('slot2'));
@@ -5575,6 +6262,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   let selectedTalentId = null;
+  let talentView = null; // pan / zoom of the big talent tree: { x, y, k }
 
   function renderSkillTree() {
     if (!localPlayer || !skillTreeGrid) return;
@@ -5613,6 +6301,11 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('tabContentTalents')
     ].filter(Boolean);
     const scrollMap = scrollContainers.map(el => ({ el, top: el.scrollTop, left: el.scrollLeft }));
+    // The branch columns are the real scrollers and are rebuilt below, so remember each one's offset by branch
+    const branchScroll = new Map();
+    skillTreeGrid.querySelectorAll('.talent-branch-column').forEach(c => {
+      branchScroll.set(c.dataset.branch, c.scrollTop);
+    });
 
     skillTreeGrid.innerHTML = '';
 
@@ -5624,169 +6317,239 @@ document.addEventListener('DOMContentLoaded', () => {
       branchesMap.get(bName).push(talent);
     });
 
-    // Specialization lock (mirrors the server rule): once a branch has points,
-    // the other branches stay closed until the talents are reset.
-    const committedBranches = new Set(
-      tree.filter(t => (skills[t.id] || 0) > 0).map(t => t.branch || 'Specialization Branch')
-    );
-
     const getTalentState = (talent) => {
       const curRank = skills[talent.id] || 0;
       const maxRank = talent.maxRank || 3;
-      const branchName = talent.branch || 'Specialization Branch';
       const isMaxed = curRank >= maxRank;
-      const branchLocked = committedBranches.size > 0 && !committedBranches.has(branchName);
-      const prereq = talent.requires ? tree.find(t => t.id === talent.requires) : null;
-      const reqMet = !talent.requires || (skills[talent.requires] || 0) > 0;
-      const canLearn = availablePoints > 0 && !isMaxed && reqMet && !branchLocked;
-      return { curRank, maxRank, isMaxed, branchLocked, prereq, reqMet, canLearn };
+      // free pathing: a starting talent, or one that touches a talent you already own
+      const reqMet = !!talent.start || (talent.links || []).some(id => (skills[id] || 0) > 0);
+      const canLearn = availablePoints > 0 && !isMaxed && reqMet;
+      return { curRank, maxRank, isMaxed, branchLocked: false, prereq: null, reqMet, canLearn };
     };
 
     if (!selectedTalentId || !tree.some(t => t.id === selectedTalentId)) {
       selectedTalentId = tree.length ? tree[0].id : null;
     }
 
-    const NODE_ROW_HEIGHT = 92;
-    const NODE_TOP_PADDING = 44;
+    // ---- One big connected web, Path of Exile style. The three specialisations are wedges of a
+    // wheel around an origin hub; every first-tier talent is a starting point, and a talent can be
+    // learned once it touches one you already own (lanes are bridged to their neighbours, across
+    // specialisations too), so every player picks their own route. Drag to pan, scroll to zoom
+    // (the view survives every re-render).
+    skillTreeGrid.classList.add('talent-poe');
+    const TAU = Math.PI * 2;
+    const branches = [...branchesMap.entries()];
+    const BRANCH_COLORS = ['#fb7185', '#4ade80', '#38bdf8', '#facc15'];
+    const R0 = 190, STEP = 66;
+    const tiersOf = (list) => [...new Set(list.map(t => t.tier || 1))].sort((x, y) => x - y);
+    const maxTiers = Math.max(1, ...branches.map(([, l]) => tiersOf(l).length));
+    const lanes = Math.max(1, ...branches.map(([, l]) => Math.max(...tiersOf(l).map(tr => l.filter(t => (t.tier || 1) === tr).length))));
+    const RMAX = R0 + (maxTiers - 1) * STEP;
+    const WORLD = (RMAX + 230) * 2, CX = WORLD / 2, CY = WORLD / 2;
+    const sector = TAU / Math.max(1, branches.length);
+    const midAngle = (bi) => -Math.PI / 2 + bi * sector;
+    const laneAngle = (bi, lane) => midAngle(bi) + (lane - (lanes - 1) / 2) * (sector / lanes);   // all lanes evenly spaced round the ring
+    const at = (ang, r) => ({ x: CX + Math.cos(ang) * r, y: CY + Math.sin(ang) * r });
 
-    branchesMap.forEach((branchTalents, branchName) => {
-      const branchLocked = committedBranches.size > 0 && !committedBranches.has(branchName);
-      const branchActive = committedBranches.has(branchName);
-
-      const col = document.createElement('div');
-      col.className = `talent-branch-column ${branchLocked ? 'branch-locked' : ''} ${branchActive ? 'branch-active' : ''}`;
-
-      let branchPoints = 0;
-      branchTalents.forEach(t => { branchPoints += (skills[t.id] || 0); });
-
-      const header = document.createElement('div');
-      header.className = 'talent-branch-header';
-      header.innerHTML = `
-        <span class="branch-title">${branchName}</span>
-        <span class="branch-points-pill">${branchLocked ? 'LOCKED' : `${branchPoints} pts`}</span>
-      `;
-      col.appendChild(header);
-
-      // Lay nodes out row-by-row by tier, spreading siblings evenly
-      const tiers = [...new Set(branchTalents.map(t => t.tier || 1))].sort((a, b) => a - b);
-      const positions = new Map();
-      tiers.forEach((tier, rowIndex) => {
-        const rowNodes = branchTalents.filter(t => (t.tier || 1) === tier);
-        rowNodes.forEach((t, i) => {
-          positions.set(t.id, {
-            x: ((i + 1) / (rowNodes.length + 1)) * 100,
-            y: NODE_TOP_PADDING + rowIndex * NODE_ROW_HEIGHT
-          });
+    const positions = new Map(), polar = new Map();
+    branches.forEach(([, list], bi) => {
+      tiersOf(list).forEach((tier, ti) => {
+        list.filter(t => (t.tier || 1) === tier).forEach((t, lane) => {
+          const ang = laneAngle(bi, lane), r = R0 + ti * STEP;
+          positions.set(t.id, at(ang, r));
+          polar.set(t.id, { ang, r });
         });
       });
-      const canvasHeight = NODE_TOP_PADDING * 2 + (tiers.length - 1) * NODE_ROW_HEIGHT;
+    });
+    const learned = (id) => (skills[id] || 0) > 0;
 
-      const canvas = document.createElement('div');
-      canvas.className = 'talent-tree-canvas';
-      canvas.style.height = `${canvasHeight}px`;
+    // the wheel: a faint wedge per specialisation (brighter where you have points), orbit rings,
+    // then every link of the web
+    let svg = '';
+    branches.forEach(([name, list], bi) => {
+      let pts = 0; list.forEach(t => { pts += (skills[t.id] || 0); });
+      const col = BRANCH_COLORS[bi % BRANCH_COLORS.length];
+      const a0 = midAngle(bi) - sector / 2 + 0.03, a1 = midAngle(bi) + sector / 2 - 0.03;
+      const p0 = at(a0, RMAX + 70), p1 = at(a1, RMAX + 70);
+      svg += '<path d="M' + CX + ' ' + CY + ' L' + p0.x + ' ' + p0.y + ' A' + (RMAX + 70) + ' ' + (RMAX + 70) + ' 0 0 1 ' + p1.x + ' ' + p1.y + ' Z" fill="' + col + '" fill-opacity="' + (pts > 0 ? 0.12 : 0.06) + '" stroke="' + col + '" stroke-opacity="' + (pts > 0 ? 0.45 : 0.2) + '" stroke-width="2" vector-effect="non-scaling-stroke"/>';
+    });
+    for (let ti = 0; ti < maxTiers; ti++) svg += '<circle cx="' + CX + '" cy="' + CY + '" r="' + (R0 + ti * STEP) + '" fill="none" stroke="rgba(148,163,184,0.10)" stroke-width="1" vector-effect="non-scaling-stroke"/>';
+    const byId = new Map(tree.map(t => [t.id, t]));
+    const edgeState = (aLearned, bLearned) => (aLearned && bLearned) ? 'is-learned' : (aLearned || bLearned) ? 'is-open' : 'is-closed';
+    tree.forEach(t => {
+      const pt = positions.get(t.id);
+      if (!pt) return;
+      if (t.start) {                                            // starting points hang off the hub
+        svg += '<line class="talent-link ' + (learned(t.id) ? 'is-learned' : 'is-open') + '" x1="' + CX + '" y1="' + CY + '" x2="' + pt.x + '" y2="' + pt.y + '" vector-effect="non-scaling-stroke"/>';
+      }
+      for (const lid of (t.links || [])) {
+        if (lid < t.id) continue;                               // each edge once
+        const other = byId.get(lid), po = positions.get(lid);
+        if (!other || !po) continue;
+        const state = edgeState(learned(t.id), learned(lid));
+        const a = polar.get(t.id), b = polar.get(lid);
+        if (Math.abs(a.r - b.r) < 1) {                          // a bridge between lanes: an arc along the orbit
+          let da = b.ang - a.ang; while (da > Math.PI) da -= TAU; while (da < -Math.PI) da += TAU;
+          svg += '<path class="talent-link talent-bridge ' + state + '" fill="none" d="M' + pt.x + ' ' + pt.y + ' A' + a.r + ' ' + a.r + ' 0 0 ' + (da > 0 ? 1 : 0) + ' ' + po.x + ' ' + po.y + '" vector-effect="non-scaling-stroke"/>';
+        } else {
+          svg += '<line class="talent-link ' + state + '" x1="' + pt.x + '" y1="' + pt.y + '" x2="' + po.x + '" y2="' + po.y + '" vector-effect="non-scaling-stroke"/>';
+        }
+      }
+    });
 
-      // Connection lines (x in % of the column width, y in px)
-      let links = '';
-      branchTalents.forEach(t => {
-        if (!t.requires || !positions.has(t.requires)) return;
-        const from = positions.get(t.requires);
-        const to = positions.get(t.id);
-        const parentLearned = (skills[t.requires] || 0) > 0;
-        const childLearned = (skills[t.id] || 0) > 0;
-        const state = childLearned ? 'is-learned' : (parentLearned && !branchLocked) ? 'is-open' : 'is-closed';
-        links += `<line class="talent-link ${state}" x1="${from.x}" y1="${from.y}" x2="${to.x}" y2="${to.y}" vector-effect="non-scaling-stroke"/>`;
-      });
-      canvas.innerHTML = `<svg class="talent-links" viewBox="0 0 100 ${canvasHeight}" preserveAspectRatio="none">${links}</svg>`;
+    const viewport = document.createElement('div');
+    viewport.className = 'talent-viewport';
+    const world = document.createElement('div');
+    world.className = 'talent-world';
+    world.style.width = world.style.height = WORLD + 'px';
+    world.innerHTML = '<svg class="talent-links" width="' + WORLD + '" height="' + WORLD + '" viewBox="0 0 ' + WORLD + ' ' + WORLD + '">' + svg + '</svg>';
 
-      branchTalents.forEach(talent => {
+    // origin hub and the branch banners on the rim
+    const hub = document.createElement('div');
+    hub.className = 'talent-hub';
+    hub.style.left = CX + 'px'; hub.style.top = CY + 'px';
+    hub.innerHTML = '<span>' + escapeHtml(cls.toUpperCase()) + '</span><small>ORIGIN</small>';
+    world.appendChild(hub);
+    branches.forEach(([name, list], bi) => {
+      let pts = 0; list.forEach(t => { pts += (skills[t.id] || 0); });
+      const p = at(midAngle(bi), RMAX + 130);
+      const lab = document.createElement('div');
+      lab.className = 'talent-branch-label' + (pts > 0 ? ' is-active' : '');
+      lab.style.left = p.x + 'px'; lab.style.top = p.y + 'px';
+      lab.style.setProperty('--branch', BRANCH_COLORS[bi % BRANCH_COLORS.length]);
+      lab.innerHTML = '<b>' + escapeHtml(name) + '</b><span>' + pts + ' pts</span>';
+      world.appendChild(lab);
+    });
+
+    branches.forEach(([branchName, list]) => {
+      list.forEach(talent => {
         const st = getTalentState(talent);
         const pos = positions.get(talent.id);
-
         const node = document.createElement('button');
         node.type = 'button';
         node.dataset.talentId = talent.id;
         node.className = [
           'talent-node',
           talent.maxRank === 1 ? 'is-keystone' : '',
+          talent.isNotable ? 'is-notable' : '',
           st.isMaxed ? 'is-maxed' : st.curRank > 0 ? 'has-rank' : '',
           st.canLearn ? 'can-upgrade' : '',
-          (!st.reqMet || st.branchLocked) && st.curRank === 0 ? 'is-locked' : '',
+          !st.reqMet && st.curRank === 0 ? 'is-locked' : '',
           talent.id === selectedTalentId ? 'is-selected' : ''
         ].join(' ');
-        node.style.left = `${pos.x}%`;
-        node.style.top = `${pos.y}px`;
-        node.title = `${talent.name} (${st.curRank}/${st.maxRank})`;
-        node.innerHTML = `${PixelIcons.talentHtml(talent)}<span class="talent-node-rank">${st.curRank}/${st.maxRank}</span>`;
+        node.style.left = pos.x + 'px';
+        node.style.top = pos.y + 'px';
+        const nearNames = (talent.links || []).map(id => byId.get(id)).filter(Boolean).map(t => t.name).slice(0, 3).join(', ');
+        let statusText;
+        if (st.isMaxed) statusText = 'Maxed out';
+        else if (!st.reqMet) statusText = 'Not connected yet: learn a talent next to it (' + nearNames + ')';
+        else if (availablePoints <= 0) statusText = 'No skill points available';
+        else statusText = talent.start ? 'Starting talent: learn it straight from the origin' : 'Connected: you can learn it';
+        const tipHtml = () => '<div class="tip-head"><div class="tip-icon-wrap">' + PixelIcons.talentHtml(talent) + '</div><div>' +
+          '<div class="tip-name" style="color: #facc15;">' + escapeHtml(talent.name) + '</div>' +
+          '<div class="tip-type">' + escapeHtml(talent.branch || '') + (talent.lane ? ' • ' + escapeHtml(talent.lane) : '') + ' • Tier ' + (talent.tier || 1) + ' • Rank ' + st.curRank + '/' + st.maxRank + '</div></div></div>' +
+          '<div class="tip-flavour">' + escapeHtml(talent.desc || '') + '</div>' +
+          '<div class="tip-line" style="color: ' + (st.canLearn || st.isMaxed ? '#4ade80' : '#f97316') + '; font-size: 11px;">' + escapeHtml(statusText) + '</div>';
+        if (window.GameTooltip) GameTooltip.html(node, tipHtml);
+        else node.title = talent.name + ' (' + st.curRank + '/' + st.maxRank + ')\n' + (talent.desc || '');
+        // a "+" on the corner of every node that can take a point learns it in one click
+        const plus = st.canLearn ? '<span class="talent-node-plus" title="Learn (1 SP)" aria-label="Learn ' + escapeHtml(talent.name) + '">+</span>' : '';
+        node.innerHTML = PixelIcons.talentHtml(talent) + '<span class="talent-node-rank">' + st.curRank + '/' + st.maxRank + '</span>' + plus;
         node.addEventListener('click', (e) => {
           e.preventDefault();
           selectedTalentId = talent.id;
-          // In-place node selection to avoid destroying DOM and snapping scroll position
-          document.querySelectorAll('.talent-node').forEach(n => {
-            n.classList.toggle('is-selected', n.dataset.talentId === talent.id);
-          });
-          renderTalentDetailPanel();
+          if (st.canLearn && e.target.closest('.talent-node-plus')) { learnTalent(talent); return; }
+          world.querySelectorAll('.talent-node').forEach(n => n.classList.toggle('is-selected', n.dataset.talentId === talent.id));
         });
-        canvas.appendChild(node);
+        world.appendChild(node);
       });
-
-      col.appendChild(canvas);
-      skillTreeGrid.appendChild(col);
     });
+    viewport.appendChild(world);
 
-    // Detail panel for the selected node
-    function renderTalentDetailPanel() {
-      const selected = tree.find(t => t.id === selectedTalentId);
-      if (!selected) return;
-      const st = getTalentState(selected);
-      let statusText = '';
-      if (st.isMaxed) statusText = 'Maxed out';
-      else if (st.branchLocked) statusText = `Locked: you specialized in ${[...committedBranches].join(', ')}. Reset talents to switch.`;
-      else if (!st.reqMet) statusText = `Requires: ${st.prereq ? st.prereq.name : selected.requires}`;
-      else if (availablePoints <= 0) statusText = 'No skill points available';
-      else statusText = st.prereq ? `Requirement met: ${st.prereq.name}` : `Tier ${selected.tier || 1} starter talent`;
-
-      let panel = skillTreeGrid.querySelector('.talent-detail-panel');
-      if (!panel) {
-        panel = document.createElement('div');
-        panel.className = 'talent-detail-panel';
-        skillTreeGrid.appendChild(panel);
+    // ---- pan and zoom (state lives in talentView so a re-render keeps the same view)
+    const vw0 = viewport.clientWidth || skillTreeGrid.clientWidth || 1000, vh0 = viewport.clientHeight || 560;
+    if (!talentView) {
+      // open on whatever you have learned (the middle of it), else on the origin
+      const own = tree.filter(t => learned(t.id) && positions.has(t.id));
+      let f = { x: CX, y: CY };
+      if (own.length) {
+        f = { x: own.reduce((s2, t) => s2 + positions.get(t.id).x, 0) / own.length, y: own.reduce((s2, t) => s2 + positions.get(t.id).y, 0) / own.length };
       }
-      panel.innerHTML = `
-        <div class="talent-detail-icon">${PixelIcons.talentHtml(selected)}</div>
-        <div class="talent-detail-info">
-          <div class="talent-detail-title">
-            <span class="talent-name">${selected.name}</span>
-            <span class="talent-rank-pill ${st.isMaxed ? 'max-rank' : st.curRank > 0 ? 'has-rank' : ''}">Rank ${st.curRank}/${st.maxRank}</span>
-            <span class="talent-detail-branch">${selected.branch || ''} - Tier ${selected.tier || 1}</span>
-          </div>
-          <div class="talent-desc">${selected.desc}</div>
-          <div class="talent-req-tag ${st.canLearn || st.isMaxed ? 'met' : 'unmet'}">${statusText}</div>
-        </div>
-        <button class="btn-learn-talent" ${st.canLearn ? '' : 'disabled'}>
-          ${st.isMaxed ? 'MAXED' : st.canLearn ? '+ LEARN (1 SP)' : (st.branchLocked || !st.reqMet) ? 'LOCKED' : 'NEED SP'}
-        </button>
-      `;
-
-      const btnLearn = panel.querySelector('.btn-learn-talent');
-      if (btnLearn && st.canLearn) {
-        btnLearn.addEventListener('click', (e) => {
-          e.preventDefault();
-          localPlayer.skillPoints = Math.max(0, (localPlayer.skillPoints || 1) - 1);
-          localPlayer.skills = localPlayer.skills || {};
-          localPlayer.skills[selected.id] = (localPlayer.skills[selected.id] || 0) + 1;
-          renderSkillTree();
-          socket.emit('allocate_skill_point', { skillId: selected.id });
-          window.soundEngine.playLevelUp();
-        });
-      }
+      const k0 = 0.62;
+      talentView = { x: vw0 / 2 - f.x * k0, y: vh0 / 2 - f.y * k0, k: k0 };
     }
+    const applyView = () => {
+      const v = talentView, vw = viewport.clientWidth || vw0, vh = viewport.clientHeight || vh0;
+      v.x = Math.max(vw - WORLD * v.k - 160, Math.min(160, v.x));
+      v.y = Math.max(vh - WORLD * v.k - 160, Math.min(160, v.y));
+      world.style.transform = 'translate(' + v.x + 'px, ' + v.y + 'px) scale(' + v.k + ')';
+    };
+    const zoomAt = (mx, my, factor) => {
+      const v = talentView, k2 = Math.max(0.3, Math.min(1.7, v.k * factor));
+      v.x = mx - (mx - v.x) * (k2 / v.k); v.y = my - (my - v.y) * (k2 / v.k); v.k = k2;
+      applyView();
+    };
+    viewport.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const r = viewport.getBoundingClientRect();
+      zoomAt(e.clientX - r.left, e.clientY - r.top, Math.pow(1.0016, -e.deltaY));
+    }, { passive: false });
+    viewport.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0 || e.target.closest('.talent-zoom-controls')) return;
+      const sx = e.clientX, sy = e.clientY, ox = talentView.x, oy = talentView.y;
+      let moved = false;
+      const move = (m) => {
+        if (!moved && Math.hypot(m.clientX - sx, m.clientY - sy) < 5) return;
+        moved = true;
+        viewport.classList.add('is-panning');
+        talentView.x = ox + (m.clientX - sx); talentView.y = oy + (m.clientY - sy);
+        applyView();
+      };
+      const up = () => {
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', up);
+        viewport.classList.remove('is-panning');
+        // the click that ends a drag must not select / learn a node
+        if (moved) viewport.addEventListener('click', (c) => { c.stopPropagation(); c.preventDefault(); }, { capture: true, once: true });
+      };
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', up);
+    });
+    const controls = document.createElement('div');
+    controls.className = 'talent-zoom-controls';
+    controls.innerHTML = '<button type="button" data-z="in" title="Zoom in">+</button><button type="button" data-z="out" title="Zoom out">−</button><button type="button" data-z="home" title="Back to the origin">⌖</button>';
+    controls.addEventListener('click', (e) => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      const w = viewport.clientWidth || vw0, h = viewport.clientHeight || vh0;
+      if (b.dataset.z === 'home') { talentView = null; renderSkillTree(); return; }
+      zoomAt(w / 2, h / 2, b.dataset.z === 'in' ? 1.25 : 0.8);
+    });
+    viewport.appendChild(controls);
+    const hint = document.createElement('div');
+    hint.className = 'talent-viewport-hint';
+    hint.textContent = 'Drag to move · Scroll to zoom · Learn any talent next to one you own';
+    viewport.appendChild(hint);
+    skillTreeGrid.appendChild(viewport);
+    applyView();
 
-    renderTalentDetailPanel();
+    // Spend one skill point on a talent (optimistic: the server confirms via player_updated)
+    function learnTalent(talent) {
+      localPlayer.skillPoints = Math.max(0, (localPlayer.skillPoints || 1) - 1);
+      localPlayer.skills = localPlayer.skills || {};
+      localPlayer.skills[talent.id] = (localPlayer.skills[talent.id] || 0) + 1;
+      renderSkillTree();
+      socket.emit('allocate_skill_point', { skillId: talent.id });
+      window.soundEngine.playLevelUp();
+    }
 
     // Restore scroll positions so the view never jumps
     scrollMap.forEach(({ el, top, left }) => {
       el.scrollTop = top;
       el.scrollLeft = left;
+    });
+    skillTreeGrid.querySelectorAll('.talent-branch-column').forEach(c => {
+      c.scrollTop = branchScroll.get(c.dataset.branch) || 0;
     });
   }
 
@@ -5871,7 +6634,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <button class="btn-shop-action${c.godMode ? ' on' : ''}" data-act="god">God Mode: ${c.godMode ? 'ON' : 'OFF'}</button>
             <button class="btn-shop-action" data-act="heal">Full Heal</button></div>
           <div class="admin-row"><label>Speed</label><input id="admSpeed" class="input-field" type="number" min="0.5" max="5" step="0.5" value="1"><button class="btn-shop-action" data-act="speed">Set</button></div>
-          <div class="admin-row"><label>Level</label><input id="admLevel" class="input-field" type="number" min="1" max="100" value="${localPlayer ? localPlayer.level || 1 : 1}"><button class="btn-shop-action" data-act="level">Set</button></div>
+          <div class="admin-row"><label>Level</label><input id="admLevel" class="input-field" type="number" min="1" max="150" value="${localPlayer ? localPlayer.level || 1 : 1}"><button class="btn-shop-action" data-act="level">Set</button></div>
           <div class="admin-row"><label>Job Level</label><input id="admJobLevel" class="input-field" type="number" min="1" max="60" value="10"><button class="btn-shop-action" data-act="joblevel">Set</button></div>
           <div class="admin-row"><label>Gold</label><input id="admGold" class="input-field" type="number" min="1" value="10000"><button class="btn-shop-action" data-act="gold">Add</button></div>
           <div class="admin-row"><label>EXP</label><input id="admExp" class="input-field" type="number" min="1" value="5000"><button class="btn-shop-action" data-act="exp">Add</button></div>
@@ -5980,6 +6743,101 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btnOpenHelp').addEventListener('click', () => toggleModal(helpModal));
   document.getElementById('btnCloseHelp').addEventListener('click', () => helpModal.style.display = 'none');
 
+  // ---------------------------------------------------------------- Effects dialog (trails)
+  // Pick a trail that follows your hero. It is saved in this browser, sent to the server (so other
+  // players see it too) and each card previews the real effect on a little walking hero.
+  const effectsModal = document.getElementById('effectsModal');
+  const effectsGrid = document.getElementById('effectsTrailGrid');
+  const myEffects = { trail: null };
+  try {
+    const saved = JSON.parse(localStorage.getItem('slop_effects') || '{}');
+    if (saved && window.TrailFx && window.TrailFx.KINDS[saved.trail]) myEffects.trail = saved.trail;
+  } catch (_) { /* storage can be blocked */ }
+  window.slopLocalTrail = myEffects.trail;      // the renderer shows your own trail straight from this
+  function sendEffects() { window.slopLocalTrail = myEffects.trail; socket.emit('set_effects', { trail: myEffects.trail }); }
+  let effectsRaf = 0, effectsPreviews = [];
+
+  function renderEffectsDialog() {
+    if (!effectsGrid || !window.TrailFx) return;
+    effectsGrid.innerHTML = '';
+    effectsPreviews = [];
+    const entries = [{ id: null, name: 'No Trail', desc: 'Keep it clean: nothing follows you.' }]
+      .concat(window.TrailFx.ORDER.map(id => ({ id, name: window.TrailFx.KINDS[id].name, desc: window.TrailFx.KINDS[id].desc })));
+    for (const e of entries) {
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'effect-card' + (myEffects.trail === e.id ? ' is-selected' : '');
+      card.innerHTML = '<canvas width="200" height="64"></canvas><span class="effect-name"></span><span class="effect-desc"></span><span class="effect-state"></span>';
+      card.querySelector('.effect-name').textContent = e.name;
+      card.querySelector('.effect-desc').textContent = e.desc;
+      card.querySelector('.effect-state').textContent = myEffects.trail === e.id ? 'Equipped' : '';
+      card.addEventListener('click', () => {
+        myEffects.trail = e.id;
+        try { localStorage.setItem('slop_effects', JSON.stringify(myEffects)); } catch (_) { /* ignore */ }
+        sendEffects();
+        if (window.soundEngine && window.soundEngine.playCoin) window.soundEngine.playCoin();
+        renderEffectsDialog();
+      });
+      effectsGrid.appendChild(card);
+      effectsPreviews.push({ id: e.id, canvas: card.querySelector('canvas'), list: [], st: { acc: 0, dx: 1, dy: 0 }, t: Math.random() * 3, last: 0 });
+    }
+  }
+
+  // each card: a little hero paces left and right and sheds the trail
+  function effectsPreviewFrame(now) {
+    if (!effectsModal || effectsModal.style.display === 'none') { effectsRaf = 0; return; }
+    const TF = window.TrailFx, time = now / 1000;
+    for (const pv of effectsPreviews) {
+      const dt = Math.min(0.05, pv.last ? (now - pv.last) / 1000 : 0.016);
+      const clone = pv.id && TF.KINDS[pv.id] && TF.KINDS[pv.id].special === 'afterimage';
+      pv.last = now;
+      pv.t += dt;
+      const ph = (pv.t * 0.55) % 2, hx = ph < 1 ? ph : 2 - ph;                // ping-pong 0..1
+      const worldX = 0.2 + hx * 3.3, dir = ph < 1 ? 1 : -1;
+      pv.st.dx = dir; pv.st.dy = 0;
+      if (pv.id) TF.shed(pv.id, pv.st, worldX, 0, Math.abs(dir) * dt * 0.55 * 3.3, pv.list, 140);
+      TF.step(pv.list, dt);
+      const g = pv.canvas.getContext('2d');
+      g.clearRect(0, 0, 200, 64);
+      g.fillStyle = 'rgba(255,255,255,0.05)';
+      g.fillRect(0, 50, 200, 2);                                             // the ground line
+      const project = (x, y, z) => ({ x: 22 + x * 46, y: 49 - z * 36 });
+      if (pv.id) TF.draw(g, pv.list, project, 1.1, time);
+      const hx0 = Math.round(22 + worldX * 46);
+      if (clone) {                                                           // silhouettes of the hero where it has been
+        pv.hist = pv.hist || [];
+        if (!pv.hist.length || now - pv.hist[0].t > 85) pv.hist.unshift({ x: hx0, t: now, f: Math.floor(pv.t * 8) % 2 });
+        pv.hist = pv.hist.filter(h => now - h.t < 700);
+        for (let k = pv.hist.length - 1; k >= 0; k--) {
+          const h = pv.hist[k], a = 1 - (now - h.t) / 700;
+          g.globalAlpha = a * 0.6; g.fillStyle = '#2a0f58';
+          g.fillRect(h.x - 3, 36, 6, 11); g.fillRect(h.x - 2, 30, 5, 5);
+          g.globalAlpha = a * a * 0.5; g.fillStyle = '#a855f7';
+          g.fillRect(h.x - 3, 36, 1, 11); g.fillRect(h.x - 2, 30, 1, 5);
+        }
+        g.globalAlpha = 1;
+      }
+      g.fillStyle = '#7c8db5'; g.fillRect(hx0 - 3, 36, 6, 11);                // body
+      g.fillStyle = '#f1c9a5'; g.fillRect(hx0 - 2, 30, 5, 5);                 // head
+      g.fillStyle = '#334155'; g.fillRect(hx0 - 3 + (Math.floor(pv.t * 8) % 2) * 2, 47, 2, 3); g.fillRect(hx0 + 1 - (Math.floor(pv.t * 8) % 2) * 2, 47, 2, 3); // feet
+    }
+    effectsRaf = requestAnimationFrame(effectsPreviewFrame);
+  }
+  function openEffects() {
+    if (!effectsModal) return;
+    renderEffectsDialog();
+    effectsModal.style.display = 'flex';
+    if (!effectsRaf) effectsRaf = requestAnimationFrame(effectsPreviewFrame);
+  }
+  function closeEffects() {
+    if (effectsModal) effectsModal.style.display = 'none';
+    if (effectsRaf) { cancelAnimationFrame(effectsRaf); effectsRaf = 0; }
+  }
+  const btnOpenEffects = document.getElementById('btnOpenEffects');
+  if (btnOpenEffects) btnOpenEffects.addEventListener('click', () => (effectsModal.style.display === 'flex' ? closeEffects() : openEffects()));
+  const btnCloseEffects = document.getElementById('btnCloseEffects');
+  if (btnCloseEffects) btnCloseEffects.addEventListener('click', closeEffects);
+
   // Quick Menu Bundle Toggle (Bottom-Right on smaller screens)
   const btnQuickMenuBundle = document.getElementById('btnQuickMenuBundle');
   const quickMenuContainer = document.getElementById('quickMenuContainer');
@@ -6022,13 +6880,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!localPlayer || localPlayer.isDead || !gameState.map) return null;
     let best = null, bestD = PORTAL_USE_RANGE;
     for (const o of gameState.map.obstacles || []) {
-      if (o.type !== 'field_portal' && o.id !== 'portal_dungeon' && o.id !== 'portal_rift') continue;
+      if (o.type !== 'field_portal' && o.type !== 'dungeon_boss_portal' && o.id !== 'portal_dungeon' && o.id !== 'portal_rift') continue;
       const d = Math.hypot(o.x - localPlayer.x, o.y - localPlayer.y);
       if (d < bestD) { bestD = d; best = o; }
     }
     return best;
   }
   function portalLabel(o) {
+    if (o.type === 'dungeon_boss_portal') return o.isReturn ? 'Return to Dungeon' : 'Enter Boss Chamber';
     if (o.id === 'portal_dungeon') return 'Enter the Abyssal Dungeon';
     if (o.id === 'portal_rift') return 'Enter the Eternal Rift';
     const text = (o.label || o.name || 'Portal').replace(/^.*?→\s*/, '').replace(/^Back to\s*/i, '');
@@ -6067,7 +6926,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const distDungeon = Math.hypot(23.5 - localPlayer.x, 16.5 - localPlayer.y);
       const distFrost = Math.hypot(16.5 - localPlayer.x, 16.5 - localPlayer.y);
 
-      const personalChest = townObstacles.find(o => o.id === 'town_personal_chest' || o.type === 'personal_chest') || { x: 17.8, y: 19.6 };
+      const personalChest = townObstacles.find(o => o.id === 'town_personal_chest' || o.type === 'personal_chest') || { x: 15.6, y: 17.1 };
       const distChest = Math.hypot(personalChest.x - localPlayer.x, personalChest.y - localPlayer.y);
       const james = townObstacles.find(o => o.id === 'npc_james');
       const distJames = james ? Math.hypot(james.x - localPlayer.x, james.y - localPlayer.y) : Infinity;
@@ -6115,7 +6974,15 @@ document.addEventListener('DOMContentLoaded', () => {
         };
       }
     } else if (localPlayer.zone === 'dungeon') {
-      if (gameState.chests) {
+      const bossPortal = ((gameState.map && gameState.map.obstacles) || []).find(o =>
+        o.type === 'dungeon_boss_portal' && Math.hypot(o.x - localPlayer.x, o.y - localPlayer.y) <= PORTAL_USE_RANGE);
+      if (bossPortal) {
+        targetInteract = {
+          icon: 'door',
+          label: bossPortal.isReturn ? 'RETURN' : 'BOSS',
+          action: () => socket.emit('use_portal')
+        };
+      } else if (gameState.chests) {
         for (const chest of gameState.chests) {
           if (!chest.opened && Math.hypot(chest.x - localPlayer.x, chest.y - localPlayer.y) <= 2.2) {
             targetInteract = {
@@ -6347,7 +7214,13 @@ document.addEventListener('DOMContentLoaded', () => {
     bindFastButton(mobileBtnDash, () => useSkill('dash'));
     bindFastButton(mobileBtnHp, () => drinkPotion('health'));
     bindFastButton(mobileBtnMp, () => drinkPotion('mana'));
-    bindFastButton(mobileBtnTarget, () => cycleNextTarget());
+    bindFastButton(mobileBtnTarget, () => {
+      if (!monsterLockTargetOn) {
+        if (renderer && localPlayer) renderer.addFloatingText(localPlayer.x, localPlayer.y - 0.7, 'Target Lock Disabled (Settings)', '#94a3b8', 14);
+        return;
+      }
+      cycleNextTarget();
+    });
     bindFastButton(mobileBtnInteract, () => {
       if (mobileContextualAction) mobileContextualAction();
     });
@@ -6441,6 +7314,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const dt = Math.min(0.1, (currentTime - lastFrameTime) / 1000);
     lastFrameTime = currentTime;
     trackFrameRate(currentTime);
+    updateAimFacing(currentTime);
+    updateAutoPotion(currentTime);
 
     if (skill1CooldownTimer > 0) {
       skill1CooldownTimer = Math.max(0, skill1CooldownTimer - dt);
@@ -6542,7 +7417,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     try {
 
-      renderer.render(gameState, localPlayerId, selectedTargetId, dt);
+      renderer.render(gameState, localPlayerId, monsterLockTargetOn ? selectedTargetId : null, dt);
     } catch (err) {
       console.error('Render error:', err);
     }

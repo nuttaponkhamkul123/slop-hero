@@ -453,13 +453,18 @@ function shapeRoom(tiles, r, style, calm) {
   each((lx, ly) => { if (walk(get(lx, ly)) && !seen.has(lx + ',' + ly)) pillar(lx, ly); });
 }
 
-function generateProceduralDungeon(floorLevel = 1, difficulty = 'normal') {
+// mode 'classic': a labyrinth of rooms behind sealed doors. mode 'rush': one very long hall that holds
+// every monster at once (see layoutRush), then the isolated boss room
+function generateProceduralDungeon(floorLevel = 1, difficulty = 'normal', mode = 'classic') {
   const diff = DIFFICULTIES[difficulty] || DIFFICULTIES.normal;
+  if (mode === 'rush') return finishDungeon(floorLevel, diff, layoutRush(floorLevel, diff));
 
   // 1. Grid layout: grow a random tree of rooms from the entrance cell
   const roomTarget = roomCountFor(floorLevel, diff.id);
-  // square grid with ~2.25 cells per room, so the random tree has room to branch
-  const grid = Math.max(4, Math.ceil(Math.sqrt(roomTarget * 2.25)));
+  // Separate monster rooms from boss room:
+  // Grow monster rooms tree with (roomTarget - 1) rooms, and keep 1 completely separated room for the boss.
+  const monsterRoomTarget = Math.max(3, roomTarget - 1);
+  const grid = Math.max(5, Math.ceil(Math.sqrt((monsterRoomTarget + 4) * 2.5)) + 1);
   const width = grid * ROOM_CELL + 4;
   const height = grid * ROOM_CELL + 4;
   const tiles = [];
@@ -469,10 +474,10 @@ function generateProceduralDungeon(floorLevel = 1, difficulty = 'normal') {
   }
 
   const key = (cx, cy) => cx + ',' + cy;
-  const start = { cx: Math.floor(Math.random() * grid), cy: grid - 1 };
+  const start = { cx: Math.floor(Math.random() * (grid - 2)) + 1, cy: grid - 2 };
   const cells = new Map([[key(start.cx, start.cy), { ...start, parent: null, depth: 0 }]]);
   const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-  while (cells.size < roomTarget) {
+  while (cells.size < monsterRoomTarget) {
     const frontier = [];
     for (const c of cells.values()) {
       for (const [dx, dy] of DIRS) {
@@ -486,18 +491,41 @@ function generateProceduralDungeon(floorLevel = 1, difficulty = 'normal') {
     cells.set(key(pick.cx, pick.cy), { cx: pick.cx, cy: pick.cy, parent: pick.from, depth: pick.from.depth + 1 });
   }
 
-  // Boss room = the dead-end cell physically farthest from the entrance (ties
-  // go to the deeper one), so it never sits right beside the spawn room.
-  // Entrance first, boss last, the rest by depth
+  // Boss room is completely separated: find an empty cell in the grid with NO doorway or contact
+  // with any monster room (Chebyshev distance >= 2 preferred, minimum >= 1 so no overlap).
   const cellList = [...cells.values()];
-  const isParent = new Set(cellList.map(c => c.parent).filter(Boolean));
-  const gridDist = c => Math.abs(c.cx - start.cx) + Math.abs(c.cy - start.cy);
-  const bossCell = cellList
-    .filter(c => c.parent && !isParent.has(c))
-    .reduce((a, b) => (gridDist(b) > gridDist(a) || (gridDist(b) === gridDist(a) && b.depth > a.depth) ? b : a));
-  const ordered = [cellList.find(c => c.parent === null),
-    ...cellList.filter(c => c.parent && c !== bossCell).sort((a, b) => a.depth - b.depth),
-    bossCell];
+  const startCell: any = cellList.find(c => c.parent === null);
+  const chebyshevDist = (c1: any, c2: any) => Math.max(Math.abs(c1.cx - c2.cx), Math.abs(c1.cy - c2.cy));
+  const manhattanDist = (c1: any, c2: any) => Math.abs(c1.cx - c2.cx) + Math.abs(c1.cy - c2.cy);
+
+  let bestBossCell: any = null;
+  let bestScore = -1;
+
+  for (let gy = 0; gy < grid; gy++) {
+    for (let gx = 0; gx < grid; gx++) {
+      if (cells.has(key(gx, gy))) continue;
+      const candidate = { cx: gx, cy: gy };
+      let minCheb = Infinity;
+      for (const c of cellList) {
+        const d = chebyshevDist(candidate, c);
+        if (d < minCheb) minCheb = d;
+      }
+      // If minCheb >= 1, there's no overlap. If minCheb >= 2, there is an entire empty cell buffer.
+      // Score prioritizes separation (minCheb >= 2) then distance from entrance
+      const score = (minCheb >= 2 ? 1000 : 0) + minCheb * 50 + manhattanDist(candidate, startCell);
+      if (score > bestScore) {
+        bestScore = score;
+        bestBossCell = { cx: gx, cy: gy, parent: null, depth: 999 };
+      }
+    }
+  }
+
+  const bossCell = bestBossCell || { cx: 0, cy: 0, parent: null, depth: 999 };
+  const ordered = [
+    startCell,
+    ...cellList.filter(c => c !== startCell).sort((a, b) => a.depth - b.depth),
+    bossCell
+  ];
 
   const rooms: any[] = ordered.map((c: any, i) => {
     const x = 2 + c.cx * ROOM_CELL + 1, y = 2 + c.cy * ROOM_CELL + 1;
@@ -533,9 +561,10 @@ function generateProceduralDungeon(floorLevel = 1, difficulty = 'normal') {
 
   // Doorways between each room and its parent. They stay VOID here and become
   // walls in the perimeter pass; the server carves them open when unlocked.
+  // The boss room is completely separated and reached only via boss portal, so no door connects to bossCell.
   const doors = [];
   for (const c of ordered) {
-    if (!c.parent) continue;
+    if (!c.parent || c === bossCell) continue;
     const a = (c.parent as any).room, b = (c as any).room;
     const doorTiles = [];
     if (a.cell.cy === b.cell.cy) {
@@ -572,6 +601,68 @@ function generateProceduralDungeon(floorLevel = 1, difficulty = 'normal') {
     r.grid = { x: r.cell.cx, y: r.cell.cy };
     delete r.cell;
   }
+
+  return finishDungeon(floorLevel, diff, { width, height, tiles, rooms, doors, mode: 'classic' });
+}
+
+// Rush layout: the entrance, one hall of chained 9x9 chambers running south (each is shaped like a
+// normal room, joined with no walls between, so it plays like a gauntlet), and the boss room kept
+// apart. The only door is the entrance's: when it opens the server spawns every hall chamber at once.
+function layoutRush(floorLevel, diff) {
+  const segs = Math.max(6, roomCountFor(floorLevel, diff.id) - 2);
+  const x0 = 3, entranceY = 3, hallTop = entranceY + ROOM_INNER + 2;
+  const width = x0 + ROOM_INNER + 4 + ROOM_INNER + 4;
+  const height = hallTop + segs * ROOM_INNER + 4;
+  const tiles = [];
+  for (let y = 0; y < height; y++) {
+    tiles[y] = [];
+    for (let x = 0; x < width; x++) tiles[y][x] = DUNGEON_TILES.VOID;
+  }
+  const rooms: any[] = [];
+  const mk = (x, y, kind) => {
+    const r: any = { x, y, w: ROOM_INNER, h: ROOM_INNER, cx: x + Math.floor(ROOM_INNER / 2), cy: y + Math.floor(ROOM_INNER / 2), kind, grid: { x: 0, y: rooms.length } };
+    rooms.push(r);
+    return r;
+  };
+  const entrance = mk(x0, entranceY, 'entrance');
+  for (let i = 0; i < segs; i++) { const r = mk(x0, hallTop + i * ROOM_INNER, 'combat'); r.rush = true; }
+  mk(x0 + ROOM_INNER + 4, entranceY, 'boss');
+
+  // a few mob-free treasure chambers and 1-2 minibosses in the middle of the hall, as in a classic floor
+  const combatIdx = [];
+  rooms.forEach((r, i) => {
+    if (i > 0 && i < rooms.length - 1) {
+      if (Math.random() < 0.12) r.kind = 'treasure';
+      else combatIdx.push(i);
+    }
+  });
+  const minibossCount = combatIdx.length >= 6 ? 2 : (combatIdx.length >= 3 ? 1 : 0);
+  const mid = combatIdx.filter(idx => idx > 1);
+  for (let m = 0; m < minibossCount && mid.length > 0; m++) {
+    const pick = mid.splice(Math.floor(mid.length / 2), 1)[0];
+    if (rooms[pick]) rooms[pick].kind = 'miniboss';
+  }
+
+  for (const r of rooms) for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) tiles[y][x] = DUNGEON_TILES.FLOOR;
+  const style = FLOOR_STYLES[(DUNGEON_FLOORS[floorLevel - 1] || DUNGEON_FLOORS[0]).theme] || FLOOR_STYLES.dungeon_crypt;
+  for (const r of rooms) shapeRoom(tiles, r, style, r.kind === 'entrance');
+
+  // the entrance's sealed doorway, straight down into the first chamber
+  const doorTiles = [];
+  const midX = entrance.cx - Math.floor(DOOR_WIDTH / 2);
+  for (let gy = entrance.y + entrance.h; gy < entrance.y + entrance.h + 2; gy++) for (let k = 0; k < DOOR_WIDTH; k++) doorTiles.push([midX + k, gy]);
+  const xs = doorTiles.map(t => t[0]), ys = doorTiles.map(t => t[1]);
+  const doors = [{
+    id: 'door_0', from: 0, to: 1, boss: false, tiles: doorTiles,
+    x: (Math.min(...xs) + Math.max(...xs)) / 2, y: (Math.min(...ys) + Math.max(...ys)) / 2, axis: 'y', open: false
+  }];
+  return { width, height, tiles, rooms, doors, mode: 'rush' };
+}
+
+// Everything after the layout: walls, torches, props, chests and every monster. Shared by both modes.
+function finishDungeon(floorLevel, diff, layout) {
+  const { width, height, tiles, rooms, doors } = layout;
+  const style = FLOOR_STYLES[(DUNGEON_FLOORS[floorLevel - 1] || DUNGEON_FLOORS[0]).theme] || FLOOR_STYLES.dungeon_crypt;
 
   const spawnRoom = rooms[0];
   const bossRoom = rooms[rooms.length - 1];
@@ -625,6 +716,16 @@ function generateProceduralDungeon(floorLevel = 1, difficulty = 'normal') {
   const obstacles = [];
   const chests = [];
   let nextEntityId = 5000;
+
+  // Return portal inside isolated boss chamber
+  obstacles.push({
+    id: 'portal_boss_return',
+    x: bossRoom.cx + 0.5,
+    y: bossRoom.y + bossRoom.h - 2.5,
+    type: 'dungeon_boss_portal',
+    isReturn: true,
+    collidable: false
+  });
 
   // Sealed doorways (removed by the server as rooms are cleared)
   const doorTileSet = new Set(doors.flatMap(d => d.tiles.map(([x, y]) => x + ',' + y)));
@@ -1013,7 +1114,8 @@ function generateProceduralDungeon(floorLevel = 1, difficulty = 'normal') {
     color: floorConfig.color,
     icon: floorConfig.icon,
     bg: floorConfig.bg,
-    isDungeon: true
+    isDungeon: true,
+    mode: layout.mode || 'classic'
   };
 };
 

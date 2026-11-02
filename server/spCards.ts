@@ -2,14 +2,14 @@
 // Wearing a card and transforming swaps the hero's look and skill set. Each
 // class has five cards, one per tier; tiers need a higher job level, are
 // rarer to obtain and cost more to enhance (+0 .. +100).
-import { expToNext } from './progression';
+import { baseExpCurve } from './progression';
 
 // ---------------------------------------------------------------- job level
-// Job EXP comes from the same kills as base EXP but each job level needs 30%
-// more, so the job level climbs a little slower than the base level.
+// Job EXP comes from the same kills as base EXP but runs on the reference
+// curve (not the stretched hard-grind base bar), 30% steeper.
 const JOB_MAX_LEVEL = 60;
 const JOB_EXP_FACTOR = 1.3;
-const jobExpToNext = (jobLevel) => Math.round(expToNext(jobLevel) * JOB_EXP_FACTOR);
+const jobExpToNext = (jobLevel) => Math.round(baseExpCurve(jobLevel) * JOB_EXP_FACTOR);
 // Small permanent bonuses per job level above 1
 const JOB_LEVEL_BONUS = { bonusDmg: 1, bonusHp: 5, bonusMp: 3 };
 
@@ -132,7 +132,7 @@ const SP_CARDS: Record<string, any[]> = {
     { id: 'sp_phoenix_oath', kit: 2, tier: 5, name: 'Phoenix Oath', element: 'fire', color: '#fbbf24',
       stats: { bonusDmg: 76, bonusDef: 24, bonusHp: 300, critChance: 10 },
       palette: { steel: ['#241606', '#7a5216', '#b8860b', '#e6c23a', '#fff6c8'], darkSteel: ['#1c1105', '#4a330e', '#6e4e16', '#9a7430'], tabard: ['#250a03', '#93340c', '#d95f1a', '#f59e0b'], cape: ['#2a1202', '#8a3c08', '#c96b14', '#efa63c'], gold: ['#382403', '#b8941f', '#e6b63d', '#f7d86e', '#fff3c4'], robeTrim: ['#2a0d02', '#8a2f0a', '#c85a14', '#ef9a2e'], orb: ['#3b0a02', '#e05a10', '#ffb84c', '#ffe8b0', '#ffffff'] },
-      passive: { name: 'Rebirth', rebirth: { cd: 90, hp: 0.4, r: 4, dmg: 4 } },
+      passive: { name: 'Rebirth', rebirth: { cd: 36, hp: 0.4, r: 4, dmg: 4 } },
       skills: { slot1: 'sp_phoenix_strike', slot2: 'sp_phoenix_firebird', slot3: 'sp_phoenix_immolation', dash: 'sp_phoenix_ember' },
       desc: 'The eternal flame given a knight. Ember Orbs wheel around him scorching whatever they touch; his Immolation Oath refuses to die, and every rebirth erupts in a blinding conflagration.' }
   ],
@@ -149,9 +149,9 @@ const SP_CARDS: Record<string, any[]> = {
       desc: 'Master of the long winter, freezing foes in place before shattering them.' },
     { id: 'sp_tempest', tier: 3, name: 'Tempest Caller', element: 'lightning', color: '#facc15',
       stats: { bonusDmg: 44, bonusAttackSpeed: 0.2, bonusMp: 140 },
-      palette: { robe: ['#1e1b4b', '#312e81', '#4f46e5', '#818cf8'], robeTrim: ['#2a2205', '#ca8a04', '#facc15', '#fef9c3'], orb: ['#2a2205', '#ca8a04', '#fde047', '#fefce8', '#ffffff'] },
+      palette: { robe: ['#4a5166', '#b4bccd', '#eef2f7', '#ffffff'], mageArmor: ['#5a5440', '#c9c2a2', '#f1ecd4', '#fffdf0'], robeTrim: ['#2a2205', '#ca8a04', '#facc15', '#fef9c3'], orb: ['#2a2205', '#ca8a04', '#fde047', '#fefce8', '#ffffff'] },
       skills: { slot1: 'sp_arc_bolt', slot2: 'sp_static_field', slot3: 'sp_storm_lance', dash: 'sp_static_blink' },
-      desc: 'Calls the storm down from a clear sky.' },
+      desc: 'Lightning is instant, thunder is not. Tag enemies as Conductors, watch the lightning arc between them, then cash it all in with a late-arriving Thunderclap.' },
     { id: 'sp_chronomancer', tier: 4, name: 'Chronomancer', element: 'holy', color: '#fef08a',
       stats: { bonusDmg: 58, bonusMp: 220, bonusDef: 20, bonusSpeed: 0.3 },
       palette: { robe: ['#2b2205', '#a16207', '#d4a017', '#fde68a'], robeTrim: ['#1e293b', '#e2e8f0', '#ffffff', '#ffffff'], orb: ['#2b2205', '#facc15', '#fef9c3', '#ffffff', '#ffffff'] },
@@ -166,7 +166,7 @@ const SP_CARDS: Record<string, any[]> = {
   rogue: [
     { id: 'sp_nightblade', tier: 1, name: 'Nightblade', element: 'dark', color: '#a855f7',
       stats: { bonusDmg: 22, critChance: 6 },
-      palette: { scarf: ['#13041f', '#4c1d95', '#7c3aed', '#a78bfa'], venom: ['#13041f', '#7e22ce', '#c084fc', '#f3e8ff', '#ffffff'] },
+      palette: { hood: ['#05050a', '#14141c', '#1f1f2b', '#2e2d3e', '#46445c'], rogue: ['#09080c', '#1c1820', '#2a2430', '#3d3446', '#5a4e66'], strap: ['#0a0809', '#25191b', '#3a2a2c', '#53403f', '#7a615e'], scarf: ['#05040b', '#15122a', '#221c40', '#30275a', '#4c3f86'], venom: ['#13041f', '#7e22ce', '#c084fc', '#f3e8ff', '#ffffff'] },
       skills: { slot1: 'sp_phantom_shuriken', slot2: 'sp_smoke_bomb', slot3: 'sp_shadow_toss', dash: 'sp_night_dash' },
       desc: 'Shuriken master of the night. Throws stars that come back, hides in smoke and tosses a shadow that copies every skill.' },
     { id: 'sp_venom_lord', tier: 2, name: 'Venom Lord', element: 'earth', color: '#4ade80',
@@ -184,9 +184,9 @@ const SP_CARDS: Record<string, any[]> = {
       palette: { scarf: ['#06222e', '#0e7490', '#22d3ee', '#cffafe'], hood: ['#0a1620', '#1c3344', '#2c4d63', '#476f8a'], rogue: ['#0b1620', '#2a4152', '#3e5c73', '#5f86a3'], venom: ['#06222e', '#0891b2', '#67e8f9', '#ecfeff', '#ffffff'] },
       skills: { slot1: 'sp_frozen_execution', slot2: 'sp_shatter', slot3: 'sp_ice_spikes', dash: 'sp_cold_step' },
       desc: 'A ghost of the glacier. Its touch stops the heart.' },
-    { id: 'sp_eclipse_reaper', tier: 5, name: 'Eclipse Reaper', element: 'fire', color: '#f43f5e',
+    { id: 'sp_eclipse_reaper', tier: 5, name: 'Eclipse Reaper', element: 'fire', color: '#8b5cf6',
       stats: { bonusDmg: 80, critChance: 12, bonusAttackSpeed: 0.3, bonusHp: 200 },
-      palette: { scarf: ['#2a0610', '#881337', '#e11d48', '#fda4af'], hood: ['#0d0507', '#2a1015', '#3f1820', '#5f2430'], rogue: ['#120709', '#33141a', '#4f1f28', '#73303c'], venom: ['#2a0610', '#e11d48', '#fda4af', '#fff1f2', '#ffffff'] },
+      palette: { scarf: ['#05030d', '#160d38', '#251560', '#3a2490', '#6d4fd8'], hood: ['#06050f', '#191530', '#28214a', '#3c3368', '#5a4d8a'], rogue: ['#08070f', '#1d1b2a', '#2d2a40', '#433f5c', '#6c6890'], strap: ['#0a0912', '#24222f', '#3a3749', '#57546b', '#8e8aa8'], venom: ['#1a0638', '#6d28d9', '#a78bfa', '#ede9fe', '#ffffff'] },
       skills: { slot1: 'sp_total_eclipse', slot2: 'sp_blood_tether', slot3: 'sp_crimson_bloom', dash: 'sp_reaper_step' },
       desc: 'Harvester under the black sun. Mythic, and almost never seen.' }
   ]
@@ -353,10 +353,11 @@ const SP_SKILLS: Record<string, any> = {
   sp_permafrost: { name: 'Permafrost', shape: 'nova', r: 5, dmg: 2.0, frost: 3, shield: 0.15, mp: 36, cd: 12 },
   sp_ice_blink: { name: 'Ice Blink', shape: 'blink', len: 6, r: 2.4, dmg: 1.2, frost: 2, originOnly: true, taunt: 3, mp: 14, cd: 4 },
   // Mage - Tempest
-  sp_arc_bolt: { name: 'Arc Bolt', shape: 'strike', range: 8, dmg: 2.4, crit: 0.1, charge: 1, mp: 12, cd: 2.5 },
-  sp_static_field: { name: 'Static Field', shape: 'volley', range: 6, n: 6, dmg: 1.2, chargeHit: 1, mp: 22, cd: 5 },
-  sp_storm_lance: { name: 'Storm Lance', shape: 'line', len: 10, width: 1.4, dmg: 2.8, discharge: 0.35, mp: 30, cd: 8 },
-  sp_static_blink: { name: 'Static Blink', shape: 'blink', len: 7, r: 2.2, dmg: 1.6, mana: 0.1, charge: 2, mp: 10, cd: 3.5 },
+  // Tempest Caller: Conductor marks (max 3), Arcs between marked foes, delayed Thunderclap
+  sp_arc_bolt: { name: 'Arc Bolt', shape: 'strike', range: 8, dmg: 2.4, crit: 0.1, conduct: 1, fork: true, mp: 12, cd: 2.5 },
+  sp_static_field: { name: 'Static Field', shape: 'volley', range: 6, n: 6, dmg: 1.2, conduct: 1, mp: 22, cd: 5 },
+  sp_storm_lance: { name: 'Storm Lance', shape: 'line', len: 10, width: 1.4, dmg: 2.4, clap: { delay: 1.0, r: 2.4, mult: 0.9 }, mp: 30, cd: 8 },
+  sp_static_blink: { name: 'Static Blink', shape: 'blink', len: 7, r: 2.2, dmg: 1.6, mana: 0.1, conduct: 1, mp: 10, cd: 3.5 },
   // Mage - Chronomancer
   sp_time_warp: { name: 'Time Warp', shape: 'blast', r: 3, range: 7, dmg: 2.0, chill: 4, echo: 1.5, mp: 18, cd: 4.5 },
   sp_temporal_ward: { name: 'Temporal Ward', shape: 'buff', fortress: 4, mana: 0.2, haste: 3, mp: 10, cd: 14 },
@@ -432,9 +433,9 @@ const SP_SKILLS: Record<string, any> = {
   sp_frost_slide: { name: 'Frost Slide', shape: 'dash', len: 5, width: 1.2, dmg: 1.2, frost: 1, sprint: 1.5, shield: 0.06, mp: 12, cd: 3.5 },
   // Mage - Tempest
   sp_ball_lightning: { name: 'Ball Lightning', shape: 'pulse', at: 'target', r: 2.4, range: 7, n: 6, every: 0.35, dmg: 0.9, seek: 5, mp: 22, cd: 6 },
-  sp_thunder_nova: { name: 'Thunder Nova', shape: 'nova', r: 4, dmg: 2.0, discharge: 0.25, stun: 1.5, mp: 26, cd: 8 },
-  sp_spark_rain: { name: 'Spark Rain', shape: 'rain', r: 3.5, range: 7, n: 8, every: 0.12, hit: 1, dmg: 1.0, chargeHit: 1, mp: 26, cd: 9 },
-  sp_storm_surge: { name: 'Storm Surge', shape: 'dash', len: 6, width: 1.4, dmg: 1.8, mana: 0.06, charge: 1, mp: 12, cd: 3.5 },
+  sp_thunder_nova: { name: 'Thunder Nova', shape: 'nova', r: 4, dmg: 2.0, clap: { delay: 0.8, r: 2.6, mult: 0.7 }, stun: 1.5, mp: 26, cd: 8 },
+  sp_spark_rain: { name: 'Spark Rain', shape: 'rain', r: 3.5, range: 7, n: 8, every: 0.12, hit: 1, dmg: 1.0, conduct: 1, fork: true, mp: 26, cd: 9 },
+  sp_storm_surge: { name: 'Storm Surge', shape: 'dash', len: 6, width: 1.4, dmg: 1.8, mana: 0.06, conduct: 1, mp: 12, cd: 3.5 },
   // Mage - Chronomancer
   sp_rewind: { name: 'Rewind', shape: 'rewind', back: 3, mana: 0.1, mp: 20, cd: 14 },
   sp_chrono_lance: { name: 'Chrono Lance', shape: 'line', len: 9, width: 1.2, dmg: 2.6, stasis: 2, mp: 20, cd: 5 },
@@ -589,9 +590,9 @@ function spSkillDesc(s) {
   if (s.frost) parts.push(`+${s.frost} Frost (3 = Frozen)`);
   if (s.shatterFrozen) parts.push(`x${s.shatterFrozen} Shatter vs Frozen`);
   if (s.taunt) parts.push(`leaves an ice statue that draws enemies ${s.taunt}s`);
-  if (s.charge) parts.push(`+${s.charge} Static Charge`);
-  if (s.chargeHit) parts.push(`+${s.chargeHit} Static Charge per enemy hit`);
-  if (s.discharge) parts.push(`Discharge: spends all Charge for +${Math.round(s.discharge * 100)}% each`);
+  if (s.conduct) parts.push(`+${s.conduct} Conductor on enemies hit (max 3, 7s)`);
+  if (s.fork) parts.push('hitting a Conducted enemy forks arcing lightning into up to 3 other Conducted enemies nearby (40% per Conductor)');
+  if (s.clap) parts.push(`Thunderclap: spends the target's Conductors, then ${s.clap.delay}s later the thunder booms (radius ${s.clap.r}, ${Math.round(s.clap.mult * 100)}% per Conductor)`);
   if (s.seek) parts.push('the bolt hunts the nearest enemy each pulse');
   if (s.stun) parts.push(`stuns ${s.stun}s`);
   if (s.echo) parts.push(`Echo: replays at 60% after ${s.echo}s`);
@@ -624,9 +625,12 @@ function spSkillDesc(s) {
 
 // Normalise into the same shape as base skills (id, mpCost, cooldown, dmgMult...).
 // Also used for weapon abilities (items.js), which run on the same engine.
+// All skill cooldowns are reduced by 60% (* 0.40).
 function normalizeSpSkill(id, s) {
+  const rawCd = typeof s.cd === 'number' ? s.cd : 1.0;
+  const cd = Math.max(0.1, Number((rawCd * 0.4).toFixed(2)));
   return Object.assign(s, {
-    id, spShape: s.shape, mpCost: s.mp, cooldown: s.cd, dmgMult: s.dmg || 0,
+    id, spShape: s.shape, mpCost: s.mp, cooldown: cd, cd: cd, dmgMult: s.dmg || 0,
     critBonus: s.crit || 0, isDash: s.shape === 'dash' || s.shape === 'blink', desc: spSkillDesc(s)
   });
 }

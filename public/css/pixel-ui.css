@@ -348,11 +348,21 @@ button, input, select, textarea { font-family: var(--font-px); }
 .talent-link.is-learned { stroke: var(--gold) !important; filter: none !important; }
 .talent-node { width: 54px !important; height: 54px !important; padding: 3px !important; animation: none !important; }
 .talent-node.is-keystone { --line: var(--gold); width: 60px !important; height: 60px !important; }
+.talent-node.is-notable { width: 58px !important; height: 58px !important; }
 .talent-node.has-rank { --line: var(--green); }
 .talent-node.is-maxed { --line: var(--gold); --hi: var(--gold); }
 .talent-node.can-upgrade { animation: pxBlink 1s steps(1) infinite !important; }
 @keyframes pxBlink { 50% { --line: var(--lime); } }
 .talent-node.is-selected { outline: var(--px) solid var(--white) !important; outline-offset: 4px !important; }
+/* one-click learn: a "+" tab on the top-left corner of nodes that can take a point */
+.talent-node-plus {
+  position: absolute; top: -9px; left: -9px; z-index: 3;
+  width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;
+  background: var(--lime); color: var(--ink); box-shadow: 0 0 0 2px var(--ink);
+  font-family: var(--font-display); font-size: 20px; line-height: 1; cursor: pointer;
+}
+.talent-node-plus:hover { background: var(--white); }
+.talent-node-plus:active { transform: translateY(1px); }
 .talent-node-rank {
   background: var(--ink) !important; border: 0 !important;
   font-size: 15px !important; line-height: 1 !important; padding: 0 4px 1px !important; bottom: -11px !important;

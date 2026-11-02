@@ -135,17 +135,28 @@ const RIFT_ROSTER = [
 const WARDEN = { type: 'golem', name: 'Rift Warden', hue: 300, speed: 2.4, scale: 1.45 };
 const DEVOURER = { type: 'frost_titan', name: 'The Eternal Devourer', hue: 285, speed: 2.1, scale: 2.0 };
 
-export function waveLevel(baseLevel: number, wave: number) {
-  return Math.min(150, baseLevel + (wave - 1));
+// Difficulty modes, picked at the gate. start: wave 1 level (null = the
+// party's own level, like the original rift), perWave: levels gained per
+// wave, spawn: monster count multiplier.
+export const RIFT_MODES: Record<string, { name: string; start: number | null; perWave: number; spawn: number }> = {
+  normal: { name: 'Normal', start: 20, perWave: 2, spawn: 1 },
+  hard: { name: 'Hard', start: 50, perWave: 3, spawn: 1 },
+  nightmare: { name: 'Nightmare', start: null, perWave: 1, spawn: 2 }
+};
+export const riftMode = (id?: string) => RIFT_MODES[id as string] || RIFT_MODES.normal;
+
+export function waveLevel(baseLevel: number, wave: number, perWave = 1) {
+  return Math.min(150, baseLevel + (wave - 1) * perWave);
 }
 
-export function waveSize(wave: number, heroes: number) {
-  return Math.min(60, Math.round((6 + wave * 1.6) * (1 + 0.5 * (heroes - 1))));
+export function waveSize(wave: number, heroes: number, spawn = 1) {
+  return Math.min(60 * spawn, Math.round((6 + wave * 1.6) * (1 + 0.5 * (heroes - 1)) * spawn));
 }
 
 // The monsters of one wave, in spawn order, each tagged with its gate
-export function buildRiftWave(wave: number, baseLevel: number, heroes: number) {
-  const level = waveLevel(baseLevel, wave);
+export function buildRiftWave(wave: number, baseLevel: number, heroes: number, mode = 'normal') {
+  const M = riftMode(mode);
+  const level = waveLevel(baseLevel, wave, M.perWave);
   const pool = RIFT_ROSTER.filter(r => wave >= r.from);
   const list: any[] = [];
   const make = (r: any, kind: string) => {
@@ -167,7 +178,7 @@ export function buildRiftWave(wave: number, baseLevel: number, heroes: number) {
       riftPoints: boss ? 600 : elite ? 60 + wave * 6 : 8 + Math.floor(wave * 1.5)
     };
   };
-  const n = waveSize(wave, heroes);
+  const n = waveSize(wave, heroes, M.spawn);
   for (let i = 0; i < n; i++) list.push(make(pool[Math.floor(Math.random() * pool.length)], 'normal'));
   if (wave === RIFT_MAX_WAVES) list.push(make(DEVOURER, 'boss'));
   else if (wave % RIFT_CHECKPOINT_EVERY === 0) {
@@ -209,5 +220,6 @@ module.exports = {
   RIFT_MAX_WAVES, RIFT_CHECKPOINT_EVERY, RIFT_PREP_S, RIFT_BREAK_S, RIFT_CHOICE_S, RIFT_RESPAWN_S,
   RIFT_PLAYER_AGGRO, RIFT_PLAYER_LEASH, RIFT_STRUCT_REACH, RIFT_MAX_MOBS_ALIVE,
   RIFT_FOUNTAIN, RIFT_GATES, RIFT_SPAWN, RIFT_STRUCTURES, RIFT_ESSENCE_ID, JAMES_RECIPES,
-  generateRiftArena, fountainMaxHp, waveLevel, waveSize, buildRiftWave, spawnInterval, checkpointReward
+  generateRiftArena, fountainMaxHp, waveLevel, waveSize, buildRiftWave, spawnInterval, checkpointReward,
+  RIFT_MODES, riftMode
 };

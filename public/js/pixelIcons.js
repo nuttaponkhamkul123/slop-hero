@@ -76,6 +76,7 @@
     hat: ['.......kk...', '......kek...', '.....keek...', '....keeek...', '....keyek...', '...keeeeek..', '...kyyyyyk..', 'kkkkkkkkkkkk', 'keeeeeeeeeek', '.kkkkkkkkkk.', '............', '............'],
     horned: ['............', 'k..........k', 'kwk.kkkk.kwk', '.kwkllllkwk.', '..klwllssk..', '.klwlllsssk.', '.kllllsssdk.', '.kkkkkkkkkk.', '.klk.kk.ksk.', '.klk.kk.ksk.', '.kk..kk..kk.', '............'],
     bandana: ['............', '............', '...kkkkkk...', '..krrwrrrk..', '.krwrrrrrrk.', '.krrrrrrrrk.', '.kpppppppppk', '..kkkkkkkkrk', '..........kr', '...........k', '............', '............'],
+    gloves: ['...k.k.k....', '..kTkTkTk...', '..kTkTkTk...', '..kTkTkTkk..', '..kTTTTTkTk.', '..kwTTTTTTk.', '..kTTTTTTk..', '..kTTTTTk...', '..kkkkkkk...', '..kyyyyyk...', '..kmmmmmk...', '..kkkkkkk...'],
     // --- talent / card glyphs ---
     thorns: ['.....k......', '....kgk..k..', '.k..kgk.kgk.', 'kgk.kgkkgk..', '.kgkkggk....', '..kggggk....', '...kgtk.k...', '.k.kgtkkgk..', 'kgkkgtkgk...', '.kggttk.....', '..kkgtk.....', '....kk......'],
     fang: ['............', '.kkkkkkkkkk.', '.kwwwwwwwwk.', '.kwkkkkkkwk.', '.kwk....kwk.', '.kwk....kwk.', '.kwk....kwk.', '..kwk..kwk..', '..krk..krk..', '...k....k...', '...r....r...', '............'],
@@ -100,6 +101,11 @@
     boots_steel: ['boots', { m: 's', T: 'l' }],
     boots_ember: ['boots', { m: 'r', T: 'o' }],
     boots_shadow: ['boots', { m: 'p', T: 'e' }],
+    gloves_iron: ['gloves', { T: 'l', m: 's', y: 's' }],
+    gloves_hunter: ['gloves', { T: 'g', m: 't' }],
+    gloves_ember: ['gloves', { T: 'o', m: 'r' }],
+    gloves_shadow: ['gloves', { T: 'p', m: 'd', y: 'e' }],
+    gloves_gold: ['gloves', { T: 'y', m: 'T', y: 'o' }],
     ring_copper: ['ring', { e: 'T', y: 'T', T: 'm' }],
     ring_sapphire: ['ring', { e: 'B' }],
     ring_ruby: ['ring', { e: 'r' }],
@@ -184,6 +190,7 @@
     if (item.slot === 'helmet') return 'helmet';
     if (item.slot === 'boots') return 'boots';
     if (item.slot === 'ring') return 'ring';
+    if (item.slot === 'gloves') return 'gloves';
     if (item.type === 'consumable') return /mana/.test(name) ? 'mp_potion' : 'hp_potion';
     if (item.type === 'treasure') return 'gem';
     if (item.type === 'material') return 'fragment';
@@ -206,6 +213,7 @@
     bonusDef: 'shield', bonusHp: 'heart', thorns: 'thorns', bonusDmg: 'sword', bonusSwipe: 'whirl',
     bonusAttackSpeed: 'bolt', bonusSpeed: 'boots', critChanceBonus: 'target', lifeSteal: 'fang',
     critDmgBonus: 'burst', bonusMp: 'mp_potion', dodgeChance: 'feather',
+    hpPct: 'heart', defPct: 'shield', mpPct: 'mp_potion', thornsPct: 'thorns', killHealPercent: 'heart', killManaPercent: 'mp_potion',
     burnPower: 'fire', chillChance: 'snow', shatterBonus: 'snow', echoChance: 'essence', manaLeech: 'mp_potion', poisonPower: 'poison'
   };
   const BRANCH_ATTACK_ICON = {
@@ -215,8 +223,9 @@
   function talentIconName(t) {
     if (!t) return 'star';
     if (t.isKeystone) return 'crown';
+    if (t.iconName) return t.iconName;
     const effect = Object.keys(t.effects || {})[0];
-    if (effect === 'bonusDmg') {
+    if (effect === 'bonusDmg' || effect === 'dmgPct') {
       const branch = Object.keys(BRANCH_ATTACK_ICON).find(b => (t.branch || '').includes(b));
       if (branch) return BRANCH_ATTACK_ICON[branch];
     }

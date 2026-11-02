@@ -327,12 +327,12 @@ const COMMANDS: Record<string, AdminCommandDef> = {
   },
 
   setlevel: {
-    usage: '/setlevel <level 1-100> [playerName]',
+    usage: '/setlevel <level 1-150> [playerName]',
     desc: 'ปรับระดับเลเวลตัวละคร (Base Level)',
     run(gameServer, player, args) {
       const lvl = parseInt(args[0], 10);
-      if (isNaN(lvl) || lvl < 1 || lvl > 100) {
-        return sendFeedback(gameServer, player, `❌ ระบุเลเวล 1 - 100`);
+      if (isNaN(lvl) || lvl < 1 || lvl > 150) {
+        return sendFeedback(gameServer, player, `❌ ระบุเลเวล 1 - 150`);
       }
 
       let target = player;
