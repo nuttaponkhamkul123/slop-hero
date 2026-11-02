@@ -72,6 +72,9 @@ const FROST_TO_FREEZE = 3, FROST_SECONDS = 5, FREEZE_SECONDS = 2, BOSS_FREEZE_SE
 const CONDUCT_MAX = 3, CONDUCT_SECONDS = 7, CONDUCT_FORK_RANGE = 4.5, CONDUCT_FORK_MAX = 3, CONDUCT_FORK_SHARE = 0.4;
 const VOID_SOUL_MAX = 10, VOID_SOUL_SECONDS = 12, VOID_SOUL_BONUS = 0.04;
 const ECHO_DAMAGE = 0.6;
+// Check a hero's bag / gear / skills for changes this often (in ticks) when building snapshots
+const HEAVY_CHECK_TICKS = Number(process.env.HEAVY_CHECK_TICKS) || 5;
+
 // Variant warrior card mechanics (see spCards.ts)
 const FRACTURE_MAX = 5, FRACTURE_SECONDS = 6, FRACTURE_STUN = 0.35;         // Gravelord
 const HEAT_MAX = 100, HEAT_HOLD_MS = 3000, HEAT_DECAY = 10;                   // Reaver: Heat fades 10/s after 3s idle
@@ -7303,10 +7306,30 @@ class GameServer {
   // Authoritative Game Loop
   startGameLoop() {
     const dt = 1 / this.TICK_RATE;
+    const perfOn = !!process.env.PERF;
+    const budgetMs = 1000 / this.TICK_RATE;
+    const stats = { n: 0, update: 0, snap: 0, worst: 0, slow: 0 };
     this.tickInterval = setInterval(() => {
+      if (!perfOn) {
+        this.update(dt);
+        this.broadcastSnapshot();
+        this.flushFloatingTexts();
+        return;
+      }
+      const t0 = performance.now();
       this.update(dt);
+      const t1 = performance.now();
       this.broadcastSnapshot();
       this.flushFloatingTexts();
+      const t2 = performance.now();
+      stats.n++; stats.update += t1 - t0; stats.snap += t2 - t1;
+      stats.worst = Math.max(stats.worst, t2 - t0);
+      if (t2 - t0 > budgetMs) stats.slow++;
+      if (t2 - t0 > budgetMs * 2) console.warn(`[perf] slow tick ${(t2 - t0).toFixed(1)}ms (update ${(t1 - t0).toFixed(1)}, snapshot ${(t2 - t1).toFixed(1)}) players=${this.players.size}`);
+      if (stats.n >= this.TICK_RATE * (Number(process.env.PERF) > 1 ? Number(process.env.PERF) : 60)) {
+        console.log(`[perf] 60s: avg update ${(stats.update / stats.n).toFixed(2)}ms, snapshot ${(stats.snap / stats.n).toFixed(2)}ms, worst ${stats.worst.toFixed(1)}ms, over-budget ${stats.slow}/${stats.n}, players=${this.players.size}`);
+        stats.n = stats.update = stats.snap = stats.worst = stats.slow = 0;
+      }
     }, 1000 / this.TICK_RATE);
   }
 
@@ -8573,6 +8596,7 @@ class GameServer {
     if (!this._heavySigs) this._heavySigs = new WeakMap();
     const round2 = v => Math.round(v * 100) / 100;
     const playersArr = Array.from(this.players.values()).map(p => {
+      const sweep = p.characterClass === 'mage' ? { reach: 0, arc: 0 } : this.meleeSweep(p);
       const snap = {
       id: p.id,
       name: p.name,
@@ -8603,8 +8627,8 @@ class GameServer {
       attackSpeed: p.attackSpeed || 1.0,
       swipe: p.swipe || 0,
       // melee cleave reach / arc, so the client draws the local swing at its true size
-      sweepReach: p.characterClass === 'mage' ? 0 : round2(this.meleeSweep(p).reach),
-      sweepArc: p.characterClass === 'mage' ? 0 : this.meleeSweep(p).arc,
+      sweepReach: p.characterClass === 'mage' ? 0 : round2(sweep.reach),
+      sweepArc: p.characterClass === 'mage' ? 0 : sweep.arc,
       jobLevel: p.jobLevel || 1,
       spTransformed: !!p.spTransformed,
       spCardId: p.spTransformed && p.equipment && p.equipment.sp ? p.equipment.sp.cardId : null,
@@ -8622,10 +8646,15 @@ class GameServer {
         inventory: p.inventory, equipment: p.equipment, baseStats: p.baseStats,
         skills: p.skills || {}, equippedSkills: p.equippedSkills, elementResist: p.elementResist || {}
       };
-      const sig = JSON.stringify(heavy);
-      if (fullRefresh || sig !== this._heavySigs.get(p)) {
-        this._heavySigs.set(p, sig);
+      if (fullRefresh || !this._heavySigs.has(p)) {   // (a hero's first snapshot always carries everything)
+        this._heavySigs.set(p, JSON.stringify(heavy));
         Object.assign(snap, heavy);
+      } else if (this._snapTick % HEAVY_CHECK_TICKS === 0) {
+        const sig = JSON.stringify(heavy);
+        if (sig !== this._heavySigs.get(p)) {
+          this._heavySigs.set(p, sig);
+          Object.assign(snap, heavy);
+        }
       }
       return snap;
     });
