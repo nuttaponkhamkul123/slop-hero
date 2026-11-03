@@ -760,7 +760,8 @@ class IsometricRenderer {
       this.lowEffects = true;
       this.setRenderScale(0.55);
       this._applyQualityVfx('reduced', 70, 0.6);
-      this._applyQualityProps(false);
+      // the 3D town props cost a slow PC far more than they give at this size
+      this._applyQualityProps(true);
     } else if (quality === 'medium') {
       this.potatoMode = false;
       this.lowEffects = false;
@@ -800,8 +801,8 @@ class IsometricRenderer {
       if (window.townProps3D) window.townProps3D.enabled = true;
     } else {
       // auto
-      this.disable3DProps = this.potatoMode;
-      if (window.townProps3D) window.townProps3D.enabled = !this.potatoMode;
+      this.disable3DProps = this.lowEffects;
+      if (window.townProps3D) window.townProps3D.enabled = !this.lowEffects;
     }
   }
 
@@ -12177,15 +12178,18 @@ class IsometricRenderer {
     const zoom = cam.zoom;
     let g = this.groundCache;
     const version = map._tilesVersion || 0;
+    // painted at the canvas buffer's own resolution (renderScale), so the blit
+    // below is 1:1 instead of shrinking a full-size image every frame
+    const bs = this.canvas.width / this.viewW;
     // The town's pixel ground is painted a slice per frame; repaint once it is ready
     const tex = this.currentTheme === 'town' && window.TownLife ? window.TownLife.groundTexture(map) : null;
     const stale = !g || g.map !== map || g.theme !== this.currentTheme || g.version !== version || g.zoom !== zoom || g.w !== w || g.h !== h ||
-      g.tex !== tex || Math.abs((g.camX - cam.x) * zoom) > M - 16 || Math.abs((g.camY - cam.y) * zoom) > M - 16;
+      g.tex !== tex || g.bs !== bs || Math.abs((g.camX - cam.x) * zoom) > M - 16 || Math.abs((g.camY - cam.y) * zoom) > M - 16;
     // Mid-zoom on the same map: stretch the last painting rather than repaint
     // every tile each frame (it repaints sharp once the zoom settles)
-    if (stale && !this.zoomSettled && g && g.map === map && g.theme === this.currentTheme && g.w === w && g.h === h) {
+    if (stale && !this.zoomSettled && g && g.map === map && g.theme === this.currentTheme && g.w === w && g.h === h && g.bs === bs) {
       const r = zoom / g.zoom;
-      const cw = g.canvas.width, ch = g.canvas.height;
+      const cw = g.cssW, ch = g.cssH;
       const dx = (g.camX - cam.x) * zoom - (cw / 2) * r + w / 2 + (cam.shakeOffsetX || 0);
       const dy = (g.camY - cam.y) * zoom - (ch / 2) * r + h / 2 + (cam.shakeOffsetY || 0);
       ctx.drawImage(g.canvas, Math.round(dx), Math.round(dy), Math.round(cw * r), Math.round(ch * r));
@@ -12195,13 +12199,16 @@ class IsometricRenderer {
       if (!g) g = this.groundCache = { canvas: document.createElement('canvas') };
       g.tex = tex;
       const cw = w + 2 * M, ch = h + 2 * M;
-      if (g.canvas.width !== cw || g.canvas.height !== ch) {
-        g.canvas.width = cw;
-        g.canvas.height = ch;
+      const bw = Math.ceil(cw * bs), bh = Math.ceil(ch * bs);
+      if (g.canvas.width !== bw || g.canvas.height !== bh) {
+        g.canvas.width = bw;
+        g.canvas.height = bh;
       }
       const gctx = g.canvas.getContext('2d');
-      gctx.clearRect(0, 0, cw, ch);
-      Object.assign(g, { map, theme: this.currentTheme, version, zoom, w, h, camX: cam.x, camY: cam.y });
+      gctx.setTransform(1, 0, 0, 1, 0, 0);
+      gctx.clearRect(0, 0, bw, bh);
+      gctx.setTransform(bs, 0, 0, bs, 0, 0);
+      Object.assign(g, { map, theme: this.currentTheme, version, zoom, w, h, bs, cssW: cw, cssH: ch, camX: cam.x, camY: cam.y });
 
       const tiles = [];
       const sealed = this.sealedDoorTiles(map);
@@ -12228,14 +12235,14 @@ class IsometricRenderer {
       // The town's tile tops are replaced by one continuous pixel-art ground
       // (1 texel per screen px at zoom 1); tile side faces stay underneath
       if (tex) {
-        gctx.imageSmoothingEnabled = zoom < 1;
+        gctx.imageSmoothingEnabled = zoom * bs < 1;
         gctx.drawImage(tex.canvas, (tex.minX - cam.x) * zoom + cw / 2, (tex.minY - cam.y) * zoom + ch / 2, tex.canvas.width * zoom, tex.canvas.height * zoom);
         gctx.imageSmoothingEnabled = true;
       }
     }
     const dx = Math.round((g.camX - cam.x) * zoom - M + (cam.shakeOffsetX || 0));
     const dy = Math.round((g.camY - cam.y) * zoom - M + (cam.shakeOffsetY || 0));
-    ctx.drawImage(g.canvas, dx, dy);
+    ctx.drawImage(g.canvas, dx, dy, g.cssW, g.cssH);
   }
 
   // Portal gate: a ring of runestones on the ground, an upright swirling
@@ -12247,6 +12254,8 @@ class IsometricRenderer {
     const cy = y - 26 * z;                 // centre of the upright vortex
     const RX = 15 * z, RY = 24 * z;        // vortex half-width / half-height
     const px = Math.max(1, Math.round(1.5 * z));
+    // potato: a lighter gate (no light beam, thinner spiral, fewer motes, flat core)
+    const lite = this.potatoMode;
     ctx.save();
 
     // ground: dark basin, glowing pool and the runestone ring
@@ -12286,11 +12295,13 @@ class IsometricRenderer {
 
     // column of light rising out of the gate
     ctx.globalCompositeOperation = 'lighter';
-    const beam = ctx.createLinearGradient(0, cy, 0, cy - 70 * z);
-    beam.addColorStop(0, hexAlpha(accent, 0.28));
-    beam.addColorStop(1, hexAlpha(accent, 0));
-    ctx.fillStyle = beam;
-    ctx.fillRect(x - 9 * z, cy - 70 * z, 18 * z, 70 * z);
+    if (!lite) {
+      const beam = ctx.createLinearGradient(0, cy, 0, cy - 70 * z);
+      beam.addColorStop(0, hexAlpha(accent, 0.28));
+      beam.addColorStop(1, hexAlpha(accent, 0));
+      ctx.fillStyle = beam;
+      ctx.fillRect(x - 9 * z, cy - 70 * z, 18 * z, 70 * z);
+    }
 
     // the vortex: soft fill, three spiral arms, bright core
     ctx.save();
@@ -12305,7 +12316,7 @@ class IsometricRenderer {
     ctx.ellipse(0, 0, RX, RY, 0, 0, Math.PI * 2);
     ctx.fill();
     for (let arm = 0; arm < 3; arm++) {
-      for (let j = 0; j < 18; j++) {
+      for (let j = 0; j < 18; j += lite ? 3 : 1) {
         const k = j / 18;
         const a = t * 2.6 + arm * (Math.PI * 2 / 3) + k * 4.2;
         const r = 1 - k;              // arms curl in to the centre
@@ -12315,13 +12326,18 @@ class IsometricRenderer {
         ctx.fillRect(Math.round(ax) - sz / 2, Math.round(ay) - sz / 2, sz, sz);
       }
     }
-    const core = ctx.createRadialGradient(0, 0, 0, 0, 0, 8 * z);
-    core.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
-    core.addColorStop(1, hexAlpha(second, 0));
-    ctx.fillStyle = core;
-    ctx.beginPath();
-    ctx.arc(0, 0, (6 + Math.sin(t * 5)) * z, 0, Math.PI * 2);
-    ctx.fill();
+    if (lite) {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+      ctx.fillRect(-2 * px, -2 * px, 4 * px, 4 * px);
+    } else {
+      const core = ctx.createRadialGradient(0, 0, 0, 0, 0, 8 * z);
+      core.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+      core.addColorStop(1, hexAlpha(second, 0));
+      ctx.fillStyle = core;
+      ctx.beginPath();
+      ctx.arc(0, 0, (6 + Math.sin(t * 5)) * z, 0, Math.PI * 2);
+      ctx.fill();
+    }
     ctx.restore();
 
     // crisp rim with sparkles running round it
@@ -12346,7 +12362,7 @@ class IsometricRenderer {
     }
 
     // motes drifting up from the ring and spiralling into the vortex
-    const MOTES = 14;
+    const MOTES = lite ? 5 : 14;
     for (let i = 0; i < MOTES; i++) {
       const ph = (t * 0.45 + i / MOTES) % 1;
       const a = i * 2.39 + ph * 3;
@@ -13117,14 +13133,11 @@ class IsometricRenderer {
       ctx.imageSmoothingEnabled = false;
       const gp = Math.max(2, Math.round(P));
       const gr = 14 * z * scale, gcx = baseX, gcy = baseY - 6 * z * scale;
-      ctx.fillStyle = theme ? theme.haloMid : 'rgba(249, 115, 22, 0.16)';
-      for (let gy = -gr; gy <= gr; gy += gp) {
-        for (let gx = -gr; gx <= gr; gx += gp) {
-          const d = Math.hypot(gx, gy * 1.3) / gr;
-          if (d > 1 || ((Math.round(gx / gp) + Math.round(gy / gp)) & 1) || d > 0.55 + 0.45 * ((Math.round(gx / gp) * 7 + Math.round(gy / gp) * 3) % 5) / 5) continue;
-          ctx.fillRect(Math.round((gcx + gx) / gp) * gp, Math.round((gcy + gy) / gp) * gp, gp, gp);
-        }
-      }
+      // the dithered glow never changes for a size and colour: stamp it from a cache
+      // (it used to be ~170 fillRects per torch per frame)
+      const glowCol = theme ? theme.haloMid : 'rgba(249, 115, 22, 0.16)';
+      const glow = this.torchGlowSprite(gr, gp, glowCol);
+      ctx.drawImage(glow.canvas, Math.round(gcx / gp) * gp - glow.R, Math.round(gcy / gp) * gp - glow.R);
       ctx.drawImage(img, Math.round(baseX - 6.5 * P), Math.round(baseY - 19 * P), img.width * P, img.height * P);
       // embers drifting up out of the flame
       const emberColor = theme ? theme.ember : 'rgba(253, 186, 116, ';
@@ -13185,19 +13198,54 @@ class IsometricRenderer {
     const flick = 0.85 + Math.sin(this.animations.time * 9 + seed) * 0.08 + Math.sin(this.animations.time * 17 + seed) * 0.05;
     const r = 46 * z * flick;
     const torchTheme = DUNGEON_THEME_TORCH[this.currentTheme];
+    const c0 = torchTheme ? torchTheme.floorWash0 : 'rgba(251, 146, 60, 0.22)';
+    const c1 = torchTheme ? torchTheme.floorWash1 : 'rgba(234, 88, 12, 0.08)';
+    // one gradient disc per colour pair, rendered once and scaled to the flicker
+    const key = c0 + '|' + c1;
+    this._fireLightCache = this._fireLightCache || new Map();
+    let spr = this._fireLightCache.get(key);
+    if (!spr) {
+      const R = 64;
+      spr = document.createElement('canvas');
+      spr.width = spr.height = R * 2;
+      const g2 = spr.getContext('2d');
+      const g = g2.createRadialGradient(R, R, 0, R, R, R);
+      g.addColorStop(0, c0);
+      g.addColorStop(0.6, c1);
+      g.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      g2.fillStyle = g;
+      g2.fillRect(0, 0, R * 2, R * 2);
+      this._fireLightCache.set(key, spr);
+    }
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    ctx.translate(x, y);
-    ctx.scale(1, 0.5);
-    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, r);
-    g.addColorStop(0, torchTheme ? torchTheme.floorWash0 : 'rgba(251, 146, 60, 0.22)');
-    g.addColorStop(0.6, torchTheme ? torchTheme.floorWash1 : 'rgba(234, 88, 12, 0.08)');
-    g.addColorStop(1, 'rgba(0, 0, 0, 0)');
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.arc(0, 0, r, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.drawImage(spr, x - r, y - r * 0.5, r * 2, r);
     ctx.restore();
+  }
+
+  // The dithered warm glow behind a pixel torch flame, pre-rendered per size
+  // (radius gr, dither pixel gp) and colour. R: the sprite's centre offset.
+  torchGlowSprite(gr, gp, color) {
+    const key = gp + '|' + Math.round(gr * 4) + '|' + color;
+    this._torchGlowCache = this._torchGlowCache || new Map();
+    let s = this._torchGlowCache.get(key);
+    if (s) return s;
+    const R = (Math.ceil(gr / gp) + 1) * gp;
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = R * 2;
+    const g = canvas.getContext('2d');
+    g.fillStyle = color;
+    for (let gy = -gr; gy <= gr; gy += gp) {
+      for (let gx = -gr; gx <= gr; gx += gp) {
+        const d = Math.hypot(gx, gy * 1.3) / gr;
+        if (d > 1 || ((Math.round(gx / gp) + Math.round(gy / gp)) & 1) || d > 0.55 + 0.45 * ((Math.round(gx / gp) * 7 + Math.round(gy / gp) * 3) % 5) / 5) continue;
+        g.fillRect(R + Math.round(gx / gp) * gp, R + Math.round(gy / gp) * gp, gp, gp);
+      }
+    }
+    if (this._torchGlowCache.size > 64) this._torchGlowCache.clear();
+    s = { canvas, R };
+    this._torchGlowCache.set(key, s);
+    return s;
   }
 
   // Town curtain wall segment: dressed sandstone blocks with crenellations.
