@@ -87,8 +87,11 @@
           </div>
 
           <!-- Health Bar -->
-          <div class="stat-bar-container">
+          <div class="stat-bar-container hp-bar-wrap">
+            <div class="hp-trail" id="hudHpTrail" style="width: 100%;"></div>
             <div class="stat-bar-fill hp-fill" id="hudHpFill" style="width: 100%;"></div>
+            <div class="hp-absorb" id="hudHpAbsorb" style="width: 0%;"></div>
+            <div class="es-overlay" id="hudEsFill" style="width: 0%;"></div>
             <span class="stat-bar-text" id="hudHpText">180 / 180 HP</span>
           </div>
 
@@ -157,7 +160,8 @@
             <div class="target-name" id="targetName">Meadow Slime (Lv. 1)</div>
             <span class="target-element-badge" id="targetElementBadge" style="display: none;">🌿 Earth</span>
           </div>
-          <div class="stat-bar-container" style="height: 10px;">
+          <div class="stat-bar-container hp-bar-wrap" style="height: 10px;">
+            <div class="hp-trail" id="targetHpTrail" style="width: 100%;"></div>
             <div class="stat-bar-fill hp-fill" id="targetHpFill" style="width: 100%;"></div>
           </div>
           <div class="target-weakness-row" id="targetWeaknessRow" style="display: none;"></div>
@@ -192,6 +196,7 @@
             <button class="menu-btn mobile-menu-item" id="mBtnOpenStats"><span data-pxi="stats"></span> Stats</button>
             <button class="menu-btn mobile-menu-item" id="mBtnOpenInventory"><span data-pxi="bag"></span> Bag</button>
             <button class="menu-btn mobile-menu-item" id="mBtnOpenParty"><span data-pxi="shield"></span> Party</button>
+            <button class="menu-btn mobile-menu-item" id="mBtnOpenCrafting"><span data-pxi="hammer"></span> Craft</button>
             <button class="menu-btn mobile-menu-item" id="mBtnOpenSettings"><span data-pxi="gear"></span> Settings</button>
             <button class="menu-btn mobile-menu-item" id="mBtnOpenHelp"><span data-pxi="help"></span> Help</button>
           </div>
@@ -298,6 +303,7 @@
           <button class="menu-btn" id="btnOpenStats"><span data-pxi="stats"></span> Stats [C]</button>
           <button class="menu-btn" id="btnOpenInventory"><span data-pxi="bag"></span> Bag [I]</button>
           <button class="menu-btn" id="btnOpenParty"><span data-pxi="shield"></span> Party [O]</button>
+          <button class="menu-btn" id="btnOpenCrafting"><span data-pxi="hammer"></span> Craft [J]</button>
           <button class="menu-btn" id="btnOpenEffects"><span data-pxi="star"></span> Effects</button>
           <button class="menu-btn" id="btnOpenHelp"><span data-pxi="help"></span> Help [H]</button>
           <button class="menu-btn" id="btnGameMode" title="Fullscreen with browser shortcuts (Ctrl+W, Ctrl+T...) locked. Hold Esc to leave."><span data-pxi="lock"></span> <span class="game-mode-label">Game Mode [F10]</span></button>
@@ -546,9 +552,17 @@
         <p class="modal-subtitle">Interface scaling, audio levels & preferences</p>
       </div>
 
+      <div class="inv-tabs settings-tabs" id="settingsTabs" role="tablist">
+        <button type="button" class="inv-tab settings-tab active" data-settings-tab="interface" role="tab">INTERFACE</button>
+        <button type="button" class="inv-tab settings-tab" data-settings-tab="graphics" role="tab">GRAPHICS</button>
+        <button type="button" class="inv-tab settings-tab" data-settings-tab="audio" role="tab">AUDIO</button>
+        <button type="button" class="inv-tab settings-tab" data-settings-tab="gameplay" role="tab">GAMEPLAY</button>
+        <button type="button" class="inv-tab settings-tab" data-settings-tab="controls" role="tab">CONTROLS</button>
+      </div>
+
       <div class="settings-modal-body">
         <!-- Section 1: GUI Scale -->
-        <div class="settings-section">
+        <div class="settings-section" data-settings-pane="interface">
           <div class="settings-section-title">
             <span data-pxi="cube"></span> INTERFACE SCALE (GUI SCALE)
           </div>
@@ -574,7 +588,7 @@
         </div>
 
         <!-- Section 2: Graphics -->
-        <div class="settings-section">
+        <div class="settings-section" data-settings-pane="graphics">
           <div class="settings-section-title">
             <span data-pxi="cube"></span> GRAPHICS & PERFORMANCE
           </div>
@@ -640,10 +654,26 @@
             <button type="button" class="gui-scale-preset" data-vfx="reduced">Reduced</button>
             <button type="button" class="gui-scale-preset" data-vfx="minimal">Minimal</button>
           </div>
+
+          <div class="settings-control-row" style="margin-top: 14px;">
+            <div class="settings-label-col">
+              <span class="settings-label-main">Lighting</span>
+              <span class="settings-label-sub">Smooth: soft glow &amp; flicker. Simple: lighter on laptops. Off: no darkness</span>
+            </div>
+            <div class="settings-value-col">
+              <span class="settings-badge" id="lblLightingVal">Auto</span>
+            </div>
+          </div>
+          <div class="gui-scale-presets">
+            <button type="button" class="gui-scale-preset active" data-lighting="auto">Auto</button>
+            <button type="button" class="gui-scale-preset" data-lighting="smooth">Smooth</button>
+            <button type="button" class="gui-scale-preset" data-lighting="simple">Simple</button>
+            <button type="button" class="gui-scale-preset" data-lighting="off">Off</button>
+          </div>
         </div>
 
         <!-- Section 3: Audio Settings -->
-        <div class="settings-section">
+        <div class="settings-section" data-settings-pane="audio">
           <div class="settings-section-title">
             <span data-pxi="sound"></span> AUDIO & SOUND EFFECTS
           </div>
@@ -681,10 +711,10 @@
           </div>
         </div>
 
-        <!-- Section 3: Display & Presets -->
-        <div class="settings-section">
+        <!-- Section 4: Gameplay -->
+        <div class="settings-section" data-settings-pane="gameplay">
           <div class="settings-section-title">
-            <span data-pxi="compass"></span> CONTROLS & CAMERA
+            <span data-pxi="compass"></span> GAMEPLAY
           </div>
           <div class="settings-control-row">
             <div class="settings-label-col">
@@ -735,10 +765,16 @@
               <span class="settings-badge" id="lblAutoMpVal">Off</span>
             </div>
           </div>
-          <div class="settings-slider-wrapper" style="margin-bottom: 14px;">
+          <div class="settings-slider-wrapper">
             <input type="range" id="sliderAutoMp" min="0" max="90" step="5" value="0" class="settings-slider">
           </div>
+        </div>
 
+        <!-- Section 5: Controls & Camera -->
+        <div class="settings-section" data-settings-pane="controls">
+          <div class="settings-section-title">
+            <span data-pxi="compass"></span> CONTROLS & CAMERA
+          </div>
           <div class="settings-control-row">
             <div class="settings-label-col">
               <span class="settings-label-main">Key Bindings</span>
@@ -912,6 +948,11 @@
                 <div class="equip-item-content"></div>
                 <span class="equip-slot-tag">BOOTS</span>
               </div>
+              <div class="equip-slot" id="eqSlotCape" data-slot="cape">
+                <span class="slot-placeholder-icon" data-pxi="cape"></span>
+                <div class="equip-item-content"></div>
+                <span class="equip-slot-tag">CAPE</span>
+              </div>
               <div class="equip-slot" id="eqSlotSp" data-slot="sp">
                 <span class="slot-placeholder-icon" data-pxi="card"></span>
                 <div class="equip-item-content"></div>
@@ -959,6 +1000,26 @@
   </div>
 
   <!-- Valka's Rune Forge: gear enhancement, SP card enhancement, card exchange -->
+  <!-- Crafting (crafting.js): recipes grouped by category -->
+  <div class="modal-overlay" id="craftingModal" style="display: none;">
+    <div class="hud-panel modal-card enchanter-card crafting-card">
+      <button class="modal-close" id="btnCloseCrafting">✕</button>
+      <div class="modal-header">
+        <h2 class="modal-title">🔨 CRAFTING</h2>
+        <p class="modal-subtitle">Turn materials into gear, runes, food and furniture. Craft in town or on your plot.</p>
+      </div>
+      <div class="ench-tabs" id="craftTabs"></div>
+      <div class="ench-body">
+        <div class="ench-list" id="craftList"></div>
+        <div class="ench-detail" id="craftDetail"></div>
+      </div>
+      <div class="ench-foot">
+        <span><span data-pxi="coin"></span> <b id="craftGold">0</b> Gold</span>
+        <span id="craftWhere"></span>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="enchanterModal" style="display: none;">
     <div class="hud-panel modal-card enchanter-card">
       <button class="modal-close" id="btnCloseEnchanter">✕</button>
@@ -970,7 +1031,7 @@
         <button class="ench-tab active" data-tab="gear">GEAR +</button>
         <button class="ench-tab" data-tab="card">SP CARD +</button>
         <button class="ench-tab" data-tab="exchange">CARD EXCHANGE</button>
-        <button class="ench-tab" data-tab="socket">WEAPON SOCKETS</button>
+        <button class="ench-tab" data-tab="socket">SOCKETS</button>
       </div>
       <div class="ench-body">
         <div class="ench-list" id="enchList"></div>
@@ -1178,6 +1239,10 @@
           <div class="mode-desc">One super long hall with every monster in it at once. Cut your way to the end, then face the boss.</div>
         </div>
       </div>
+
+      <!-- Dungeon modifiers (dungeonMods.ts): optional handicaps for bigger rewards -->
+      <div class="portal-section-label" style="margin-top: 14px;">MODIFIERS <span class="dmod-reward" id="dmodReward">No bonus</span></div>
+      <div class="dmod-grid" id="dmodGrid"></div>
 
       <!-- Affix description teaser -->
       <div class="affix-info-strip">
@@ -1397,6 +1462,7 @@
   <script src="js/spWings.js"></script>
   <script src="js/pixelMobs.js"></script>
   <script src="js/townLife.js"></script>
+  <script src="js/fieldGround.js"></script>
   <script src="js/dungeonLife.js"></script>
   <script src="js/pixelProps.js"></script>
   <script src="js/trails.js"></script>
@@ -1404,6 +1470,7 @@
   <script src="js/fpIsoFx.js"></script>
   <script src="js/firstPerson.js"></script>
   <script src="js/rift.js"></script>
+  <script src="js/crafting.js"></script>
   <script src="js/game.js"></script>
 </body>
 </html>

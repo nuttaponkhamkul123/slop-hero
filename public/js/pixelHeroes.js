@@ -532,14 +532,14 @@
       [sk.hip[0] - (5.6 + 2.5 * turn) - tr * 14 * turn, sk.hip[1] + (12.0 - tr * 8 + fl2) * BODY_K]
     ];
     const X = { f, p, sk, view, ph, tr, fl, fl2, capePts };
-    // ragged hem: notches torn up into the cloth between the hem points
-    const tattered = pts => {
-      const top = [(pts[0][0] + pts[1][0]) / 2, (pts[0][1] + pts[1][1]) / 2];
-      const notch = (a, b, t, k) => { const m = [lerp(a[0], b[0], t), lerp(a[1], b[1], t)], u = norm([top[0] - m[0], top[1] - m[1]]); return add(m, u, k); };
-      return [pts[0], pts[1], pts[2], notch(pts[2], pts[3], 0.5, 3.2), pts[3], notch(pts[3], pts[4], 0.35, 2.4), notch(pts[3], pts[4], 0.7, 0.2), notch(pts[3], pts[4], 0.85, 2.8), pts[4]];
-    };
-    const capePoly = C.cape === null ? null : poly(C.cape ? C.cape(X) : cool ? tattered(capePts) : capePts);
+    // only SP costumes bring their own cape; otherwise the hero wears the equipped cape item (if any)
+    const spLook = !!COSTUME && !COSTUME.gear;
+    const capePoly = !spLook || C.cape === null ? null : poly(C.cape ? C.cape(X) : capePts);
     const drawCape = () => {
+      if (!spLook) {
+        if (C.gearCape) drawGearCape(f, sk, p, view, ph, C.gearCape, 4.6);
+        return;
+      }
       if (capePoly) {
         const cm = C.capeMat ? C.capeMat() : M.cape;
         paint(f, capePoly, cm, CLOTH);
@@ -738,6 +738,7 @@
       pauldron(sk.shB, M.steel);
       if (wTipUp) drawSword();
     }
+    if (!spLook && C.gearCape) drawGearCapeFront(f, sk, p, view, ph, C.gearCape, 4.6);
     if (C.front) C.front(X);
     if (p.drop) weapon(f, [6, -1.4], [1, 0.02]);
     if (p.drop && C.weaponB) C.weaponB(f, [-10, -1.2], [-1, 0.05]);
@@ -846,8 +847,12 @@
     const armF = () => { arm(f, sk, 'F', sleeve, [2.1, 2.3, 1.6]); pauldron(sk.shF, true); };
     const armB = () => { arm(f, sk, 'B', sleeve, [2, 2.1, 1.5]); pauldron(sk.shB, false); };
     const staffBehind = view === 'back' ? sk.handF[1] > sk.neck[1] : !!p.wBack;
+    // equipped cape (SP costumes never wear one): behind the body seen from the front, over the coat from behind
+    const gearCape = COSTUME && COSTUME.gear && COSTUME.gearCape;
+    const capeBack = () => { if (gearCape) drawGearCape(f, sk, p, view, ph, gearCape, 4.4); };
     if (C.behind) C.behind(X);
     if (frontal && view === 'front') {
+      capeBack();
       if (staffBehind) drawStaff();
       robeBody();
       armB();
@@ -857,11 +862,13 @@
     } else if (frontal) {
       if (staffBehind) drawStaff();
       robeBody();
+      capeBack();
       inHead(head);
       armF();
       armB();
       if (!staffBehind) drawStaff();
     } else if (view === 'front') {
+      capeBack();
       if (staffBehind) drawStaff();
       armB();
       robeBody();
@@ -872,10 +879,12 @@
       if (staffBehind) drawStaff();
       armF();
       robeBody();
+      capeBack();
       inHead(head);
       armB();
       if (!staffBehind) drawStaff();
     }
+    if (gearCape) drawGearCapeFront(f, sk, p, view, ph, gearCape, 4.4);
     if (C.front) C.front(X);
     else if (!p.drop && !frontal) {
       // two arcane motes circling the waist (seen side-on; head-on they read as buttons)
@@ -914,7 +923,12 @@
     const blade = C.dagger || dagger;
     const drawDaggerF = () => { if (!p.drop) { f.meta.tipF = blade(f, sk.handF, sk.wdir, 'F'); f.meta.handF = sk.handF; } };
     const drawDaggerB = () => { if (!p.drop) { f.meta.tipB = blade(f, sk.handB, sk.wdirB, 'B'); f.meta.handB = sk.handB; } };
-    const drawScarf = () => { if (C.scarf) C.scarf(X); else paint(f, scarf, K.scarf, CLOTH); };
+    // the plain / geared rogue has no cloak of its own: it wears the equipped cape item; SP costumes keep theirs
+    const spLook = !!COSTUME && !COSTUME.gear;
+    const drawScarf = () => {
+      if (!spLook) { if (GC.gearCape) drawGearCape(f, sk, p, view, ph, GC.gearCape, 4.2); return; }
+      if (C.scarf) C.scarf(X); else paint(f, scarf, K.scarf, CLOTH);
+    };
     const legRadii = { F: [2.3, 2, 1.7], B: [2.2, 1.9, 1.6] };
     const drawLegs = (a, b) => {
       if (C.legs) return C.legs(X);
@@ -995,6 +1009,7 @@
       drawDaggerB();
       arm(f, sk, 'B', armMats, [1.8, 1.6, 1.4]);
     }
+    if (!spLook && GC.gearCape) drawGearCapeFront(f, sk, p, view, ph, GC.gearCape, 4.2);
     if (C.front) C.front(X);
     if (p.drop) {
       blade(f, [4, -1.2], [1, 0.05], 'F');
@@ -2002,6 +2017,354 @@
     return STYLES[style];
   }
 
+  // ---- capes: their own equipment slot. Heroes have no cape of their own;
+  // an equipped cape item is drawn from its model below, so every cape has its
+  // own silhouette (hem cut, length, flare) and its own details, not a recolour.
+  // A model: mat (outside), lining (inside, peeks under the hem), len (1 = to
+  // the knees, measured from the shoulders), flare (hem spread), hem(u, ph)
+  // (extra length along the hem, u 0 = back edge .. 1 = front edge, rig units),
+  // decor(D) (details on the cloth), front(D) (clasps etc. over the chest).
+  // SP costumes keep their own capes and never draw these.
+  const tri = x => { x -= Math.floor(x); return 1 - Math.abs(2 * x - 1); };
+  const CPM = {
+    wool: mat('#140b06', '#3e2716', '#5e3d22', '#835a35', '#a87b4e'),
+    tan: mat('#2a1c0c', '#8a6a3e', '#b08c56', '#d2b07a'),
+    wolf: mat('#121418', '#454a52', '#737a85', '#a6adb8', '#dce1e8'),
+    warRed: mat('#1a0410', '#5c0b22', '#9b1430', '#d4283c', '#ff6a6a'),
+    ash: mat('#0c0506', '#2a0d0b', '#46160f', '#6a2414', '#a4401c'),
+    raven: mat('#020205', '#0b0a12', '#17152a', '#2a2645', '#4b4277'),
+    royal: mat('#12041f', '#3b0a5c', '#5b1490', '#8231c4', '#b77ae6'),
+    membrane: mat('#1a0406', '#4a0c10', '#7a1a18', '#a8321e', '#d85a2a'),
+    ruby: mat('#2a0408', '#8a1020', '#d0283c', '#ff7a8a', '#ffffff')
+  };
+  // run a chain of small capsules along the hem (u0..u1), `extra` rig units below its base line
+  function hemBand(D, extra, r, m, o, u0, u1) {
+    u0 = u0 === undefined ? 0 : u0; u1 = u1 === undefined ? 1 : u1;
+    const n = 16;
+    let prev = D.hemAt(u0, extra);
+    for (let i = 1; i <= n; i++) {
+      const u = lerp(u0, u1, i / n), cur = D.hemAt(u, extra);
+      paint(D.f, capsule(prev, cur, r), m, o);
+      prev = cur;
+    }
+  }
+  function goldClasps(D, gem) {
+    const { f, sk } = D;
+    const pts = D.frontal ? [L(sk, sk.shC, -2.6, 0.3), L(sk, sk.shC, 2.6, 0.3)] : [L(sk, sk.shC, 2.2, 0.3)];
+    for (const c of pts) {
+      paint(f, disc(c, 1.25), M.gold, { spec: true });
+      if (gem) dot(f, c, gem.m);
+    }
+    return pts;
+  }
+  const CAPES = {
+    // plain road wool, frayed hem, a patched back and a rope tie
+    travelers_cloak: {
+      mat: CPM.wool, lining: CPM.tan, len: 1,
+      hem: u => 0.7 * tri(u * 11) - 0.3,
+      decor(D) {
+        if (!D.outside) return;
+        const { f, at } = D;
+        paint(f, poly([at(0.52, 0.42), at(0.76, 0.42), at(0.76, 0.6), at(0.52, 0.6)]), CPM.tan, { tone: 'd', rim: false });
+        for (const [u, v] of [[0.52, 0.42], [0.76, 0.42], [0.76, 0.6], [0.52, 0.6], [0.64, 0.42], [0.64, 0.6]]) dot(f, at(u, v), CPM.wool.o);
+      },
+      front(D) {
+        const c = D.frontal ? L(D.sk, D.sk.shC, 0, 0.2) : L(D.sk, D.sk.shC, 2, 0.3);
+        paint(D.f, disc(c, 1.1), CPM.tan, { spec: true });
+        paint(D.f, capsule(c, add(c, D.sk.up, -2.6), 0.35), CPM.tan, { tone: 'd', rim: false });
+      }
+    },
+    // short shoulder mantle of wolf fur, shaggy tufted hem, tusk pin
+    wolfpelt_mantle: {
+      mat: CPM.wolf, lining: M.leather, len: 0.46, flare: 1.15, noFolds: true,
+      hem: u => 2.6 * Math.pow(tri(u * 8), 0.7) + 0.8 * tri(u * 13) - 0.6,
+      decor(D) {
+        const { f, at } = D;
+        for (let i = 0; i < 9; i++) {
+          const u = (i + 0.5) / 9;
+          paint(f, capsule(at(u, 0.3), at(u + 0.03, 0.92), 0.25), CPM.wolf, { tone: i % 2 ? 'd' : 'l', rim: false });
+        }
+        // thick ruff of pale fur over the shoulders
+        paint(f, capsule(at(-0.02, 0.02), at(1.02, 0.02), 1.9), CM.furWhite, { dither: true, selout: true });
+        for (let i = 0; i < 6; i++) dot(f, at((i + 0.5) / 6, 0.06), CM.furWhite.d);
+      },
+      front(D) {
+        if (D.view !== 'front') return;
+        const c = D.frontal ? L(D.sk, D.sk.shC, 0, 0.6) : L(D.sk, D.sk.shC, 2.2, 0.6);
+        spike(D.f, c, norm(add(D.sk.up, D.sk.side, 0.5)), 3.2, 0.9, CM.bone, { spec: true });
+      }
+    },
+    // long crimson battle cape, swallowtail cut, gold-edged, sword sigil
+    crimson_warcape: {
+      mat: CPM.warRed, lining: M.navy, len: 1.18,
+      hem: u => -1 + 5.5 * Math.pow(tri(u * 2), 1.5) - 5 * Math.max(0, 1 - Math.abs(u - 0.5) / 0.16),
+      decor(D) {
+        const { f, at } = D;
+        hemBand(D, -0.7, 0.42, M.gold, { rim: false, spec: true });
+        if (!D.outside || !D.back) return;
+        paint(f, capsule(at(0.5, 0.16), at(0.5, 0.56), 0.55), M.gold, { spec: true });
+        paint(f, capsule(at(0.4, 0.26), at(0.6, 0.26), 0.5), M.gold, { spec: true });
+        paint(f, disc(at(0.5, 0.13), 0.8), M.gold, { spec: true });
+      },
+      front: D => goldClasps(D, CPM.ruby)
+    },
+    // forest-green shroud whose hem is cut into leaves; a rolled hood at the collar
+    ranger_leafshroud: {
+      mat: GM.forest, lining: GM.olive, len: 1.02,
+      hem: u => 3.6 * Math.pow(tri(u * 6), 0.55) - 0.8,
+      decor(D) {
+        const { f, at } = D;
+        for (let k = 0; k < 6; k++) {
+          const u = (k + 0.5) / 6;
+          paint(f, capsule(D.hemAt(u, -2.4), D.hemAt(u, 1.8), 0.28), GM.forest, { tone: 'd', rim: false });
+        }
+        if (D.outside) {
+          for (const [u, v] of [[0.25, 0.32], [0.62, 0.26], [0.42, 0.52], [0.76, 0.56], [0.2, 0.7], [0.55, 0.74]]) {
+            const a = at(u, v), b = at(u + 0.04, v + 0.12);
+            spike(f, a, norm([b[0] - a[0], b[1] - a[1]]), 2.4, 0.9, GM.forest, { tone: 'l', rim: false });
+          }
+        }
+        if (D.back) paint(f, disc(at(0.5, 0.05), 3, 2.2), GM.forest, { dither: true, selout: true });
+      },
+      front(D) {
+        if (D.view !== 'front') return;
+        const c = D.frontal ? L(D.sk, D.sk.shC, 0, 0.3) : L(D.sk, D.sk.shC, 2.2, 0.3);
+        spike(D.f, add(c, D.sk.side, -0.8), D.sk.side, 2.2, 0.9, GM.earth, { spec: true });
+      }
+    },
+    // frost cloth with an icicle hem, rime and a white fur collar
+    frostweave_mantle: {
+      mat: GM.frostCloth, lining: GM.iceSteel, len: 1.05,
+      hem: u => {
+        const L7 = [2.5, 6.2, 3, 7.6, 2.8, 5.6, 3.4], i = Math.min(6, Math.floor(u * 7));
+        return L7[i] * Math.pow(tri(u * 7), 2.2) - 0.4;
+      },
+      decor(D) {
+        const { f, at, ph } = D;
+        hemBand(D, -1.3, 0.55, CM.ice, { tone: 'l', rim: false, alpha: 190 });
+        for (let i = 0; i < 7; i++) dot(f, D.hemAt((i + 0.5) / 7, -0.4), CM.ice.h);
+        if (D.outside) {
+          [[0.3, 0.3], [0.68, 0.22], [0.5, 0.55], [0.22, 0.62], [0.78, 0.66]].forEach(([u, v], i) => {
+            const p = at(u, v), tw = Math.sin((ph + i * 0.29) * Math.PI * 2);
+            if (tw < -0.2) return;
+            dot(f, p, CM.ice.h);
+            if (tw > 0.6) for (const d of [[1, 0], [-1, 0], [0, 1], [0, -1]]) dot(f, [p[0] + d[0], p[1] + d[1]], CM.ice.l);
+          });
+        }
+        paint(f, capsule(at(-0.02, 0.02), at(1.02, 0.02), 1.6), CM.furWhite, { dither: true, selout: true });
+      },
+      front: D => goldClasps(D, CM.ice)
+    },
+    // ash-dark cape whose hem is burning away: glowing edge, flame tongues, rising embers
+    emberwing_cape: {
+      mat: CPM.ash, lining: CM.fire, len: 1.05,
+      hem: u => 1.3 * tri(u * 7) - 0.7 * tri(u * 13),
+      decor(D) {
+        const { f, at, ph } = D;
+        if (D.outside) {
+          // smouldering cracks
+          for (const pts of [[[0.3, 0.45], [0.36, 0.6], [0.3, 0.74], [0.37, 0.88]], [[0.68, 0.55], [0.62, 0.7], [0.7, 0.9]]]) {
+            for (let i = 0; i < pts.length - 1; i++) paint(f, capsule(at(...pts[i]), at(...pts[i + 1]), 0.3), CM.fire, { tone: 'm', rim: false });
+          }
+        }
+        hemBand(D, -0.9, 0.9, CM.fire, { tone: 'm', rim: false, alpha: 170 });
+        for (let i = 0; i < 5; i++) {
+          const u = (i + 0.5) / 5, b = D.hemAt(u, 0.6);
+          flame(f, b, 3.4 + 1.8 * Math.sin((ph * 2 + i * 0.27) * Math.PI * 2), 1.2, Math.sin((ph + i * 0.4) * Math.PI * 2) * 0.8);
+        }
+        for (let i = 0; i < 4; i++) {
+          const q = (ph * 1.5 + i * 0.25) % 1, b = D.hemAt((i + 0.3) / 4, 0);
+          dot(f, [b[0] + Math.sin((q + i) * 6) * 1.5, b[1] - 3 - q * 9], q < 0.6 ? CM.fire.h : CM.fire.l);
+        }
+      }
+    },
+    // layer upon layer of black feathers, a feathered hem and a ruff at the neck
+    ravenfeather_cloak: {
+      mat: CPM.raven, lining: GM.violet, len: 1.1, flare: 1.1, noFolds: true,
+      hem: u => { const i = Math.floor(u * 9); return (i % 2 ? 4.6 : 3) * Math.pow(tri(u * 9), 1.6) - 0.6; },
+      decor(D) {
+        const { f, at, sk } = D;
+        if (D.outside) {
+          [0.22, 0.4, 0.58, 0.76].forEach((v, row) => {
+            for (let k = 0; k < 6; k++) {
+              const u = (k + (row % 2) * 0.5 + 0.25) / 6;
+              if (u > 0.98) continue;
+              const a = at(u, v - 0.05), b = at(u, v + 0.1);
+              spike(f, a, norm([b[0] - a[0], b[1] - a[1]]), Math.hypot(b[0] - a[0], b[1] - a[1]), 1.1, CPM.raven, { tone: 'd', rim: false });
+              dot(f, at(u - 0.03, v), GM.violet.d);
+            }
+          });
+        }
+        for (let k = 0; k < 7; k++) {
+          const u = k / 6;
+          spike(f, at(u, 0.03), norm(add(sk.up, sk.side, (u - 0.5) * 1.4)), 2.8, 0.9, CPM.raven, { selout: true });
+        }
+      },
+      front: D => goldClasps(D, GM.violet)
+    },
+    // imperial purple, rounded train trimmed in spotted ermine, gold chain and crown
+    royal_ermine_mantle: {
+      mat: CPM.royal, lining: M.gold, len: 1.22, flare: 1.2,
+      hem: u => 1.4 * Math.sin(Math.PI * u),
+      decor(D) {
+        const { f, at } = D;
+        hemBand(D, -1.1, 1.35, CM.furWhite, { dither: true, selout: true });
+        for (let i = 0; i < 8; i++) dot(f, D.hemAt((i + 0.5) / 8, -1.1 + (i % 2) * 0.6), CM.shadow.m);
+        if (D.inside) {
+          // the ermine runs up both front edges
+          for (const u of [0.02, 0.98]) paint(f, capsule(at(u, 0.05), at(u, 0.95), 1.2), CM.furWhite, { dither: true, selout: true });
+        }
+        paint(f, capsule(at(-0.02, 0.02), at(1.02, 0.02), 1.5), CM.furWhite, { dither: true, selout: true });
+        for (let i = 0; i < 5; i++) dot(f, at((i + 0.5) / 5, 0.03), CM.shadow.m);
+        if (D.outside && D.back) {
+          const b = at(0.5, 0.36);
+          paint(f, poly([add(b, D.sk.side, -2.6), add(b, D.sk.side, 2.6), add(add(b, D.sk.side, 2.8), D.sk.up, 3.2), add(add(b, D.sk.side, 1.2), D.sk.up, 1.6),
+            add(b, D.sk.up, 3.6), add(add(b, D.sk.side, -1.2), D.sk.up, 1.6), add(add(b, D.sk.side, -2.8), D.sk.up, 3.2)]), M.gold, { spec: true });
+          dot(f, add(b, D.sk.up, 1), CPM.ruby.m);
+        }
+      },
+      front(D) {
+        const pts = goldClasps(D, CPM.ruby);
+        if (pts.length === 2 && D.view === 'front') {
+          const mid = add(L(D.sk, D.sk.shC, 0, 0.3), D.sk.up, -1.6);
+          paint(D.f, capsule(pts[0], mid, 0.35), M.gold, { rim: false, spec: true });
+          paint(D.f, capsule(mid, pts[1], 0.35), M.gold, { rim: false, spec: true });
+        }
+      }
+    },
+    // a piece of the night sky: starlit void, a glowing hem that dissolves into drifting shards
+    starfall_cloak: {
+      mat: CM.void, lining: CM.voidGlow, len: 1.12,
+      hem: u => 2.4 * Math.pow(tri(u * 6), 1.2) - 0.8,
+      decor(D) {
+        const { f, at, ph } = D;
+        if (D.outside) starryCloth(f, [at(0, 0.04), at(1, 0.04), at(1, 0.96), at(0, 0.96)], ph);
+        hemBand(D, -0.6, 0.5, CM.voidGlow, { tone: 'm', rim: false, alpha: 150 });
+        for (let i = 0; i < 5; i++) {
+          const q = (ph + i * 0.37) % 1, c = D.hemAt((i + 0.5) / 5, 2 + q * 5);
+          paint(f, poly([add(c, D.sk.up, 1.1), add(c, D.sk.side, 0.8), add(c, D.sk.up, -1.1), add(c, D.sk.side, -0.8)]), CM.voidGlow, { tone: q < 0.5 ? 'l' : 'm', rim: false, alpha: Math.round(230 * (1 - q)) });
+        }
+      },
+      front: D => goldClasps(D, CM.voidGlow)
+    },
+    // a war banner: stiff gold crossbar, zigzag hem, lightning sigil, crackling sparks
+    stormbanner_cape: {
+      mat: GM.hatBlue, lining: M.navy, len: 1.1, noFolds: true,
+      hem: u => 3.2 * tri(u * 5) - 0.6,
+      decor(D) {
+        const { f, at, ph } = D;
+        hemBand(D, -1.7, 0.32, M.gold, { rim: false, spec: true });
+        if (D.outside && D.back) {
+          const z = [[0.55, 0.14], [0.4, 0.4], [0.56, 0.42], [0.42, 0.7]];
+          for (let i = 0; i < z.length - 1; i++) paint(f, capsule(at(...z[i]), at(...z[i + 1]), 0.75), CM.bolt, { spec: true });
+        }
+        if (!D.inside) {
+          paint(f, capsule(at(-0.08, 0), at(1.08, 0), 0.8), M.gold, { spec: true });
+          for (const u of [-0.08, 1.08]) paint(f, disc(at(u, 0), 1.1), M.gold, { spec: true });
+        }
+        if (Math.sin(ph * Math.PI * 6) > 0.55) {
+          const k = Math.floor(ph * 5) % 5, a = D.hemAt(k / 5, 0), b = D.hemAt((k + 0.5) / 5, 2.6), c = D.hemAt((k + 1) / 5, 0);
+          paint(f, capsule(a, b, 0.3), CM.bolt, { tone: 'h', rim: false });
+          paint(f, capsule(b, c, 0.3), CM.bolt, { tone: 'h', rim: false });
+        }
+      },
+      front: D => goldClasps(D, CM.bolt)
+    },
+    // a folded drake wing: bone fingers fanning to claw tips, scalloped membrane between
+    dragonwing_cape: {
+      mat: CPM.membrane, lining: GM.darkRed, len: 1.16, flare: 1.25, noFolds: true,
+      hem: u => 2.6 - 4.6 * Math.sin(Math.PI * ((u * 3) % 1)),
+      decor(D) {
+        const { f, at, sk } = D;
+        const root = at(0.62, 0.02);
+        for (let k = 0; k <= 3; k++) {
+          const u = k / 3, tip = D.hemAt(u, 2.6), mid = at(lerp(0.62, u, 0.6), 0.45);
+          // a vein of light through each membrane panel
+          if (D.outside && k < 3) paint(f, capsule(at((k + 0.5) / 3, 0.3), D.hemAt((k + 0.5) / 3, -2.6), 0.3), CPM.membrane, { tone: 'l', rim: false, alpha: 140 });
+          if (!D.outside && k > 0 && k < 3) continue;
+          // thin bone finger (dark under-edge, pale ridge) ending in a claw
+          paint(f, capsule(root, mid, 0.6, 0.5), CM.bone, { tone: 'd', rim: false });
+          paint(f, capsule(mid, tip, 0.5, 0.35), CM.bone, { tone: 'd', rim: false });
+          paint(f, capsule(root, mid, 0.3), CM.bone, { tone: 'h', rim: false });
+          paint(f, capsule(mid, tip, 0.25), CM.bone, { tone: 'l', rim: false });
+          spike(f, tip, norm([tip[0] - mid[0], tip[1] - mid[1]]), 1.6, 0.5, CM.bone, { spec: true });
+        }
+        paint(f, disc(root, 1), CM.bone, { spec: true });
+        for (const u of [0, 1]) spike(f, at(u, 0), norm(add(sk.up, sk.side, u ? 0.6 : -0.6)), 3, 1, CM.bone, { spec: true });
+      },
+      front: D => goldClasps(D, CM.fire)
+    }
+  };
+
+  // Build the cape's frame for this pose: top edge (shoulders) and hem curve
+  // (sw: the class's shoulder half-width)
+  function capeFrame(sk, p, ph, model, sw) {
+    const tr = p.cape || 0;
+    const fl = Math.sin(ph * Math.PI * 2) * (0.7 + tr * 1.5);
+    const fl2 = Math.sin(ph * Math.PI * 2 + 1.9) * (0.7 + tr * 1.7);
+    const frontal = isFrontal(sk) && !sk.rotated;
+    // full-length hem points [shoulder back, shoulder front, hem front, hem middle, hem back]
+    const P = frontal ? [
+      L(sk, sk.shC, -sw, 1), L(sk, sk.shC, sw, 1),
+      L(sk, sk.hip, 6.0 + fl * 0.35, -13.5 + tr * 5.5),
+      L(sk, sk.hip, 0.4 + fl * 0.7, -15 + tr * 5.5 + fl * 0.6),
+      L(sk, sk.hip, -6.0 + fl2 * 0.35, -13.5 + tr * 5.5)
+    ] : [
+      L(sk, sk.shC, -sw, 1.3), L(sk, sk.shC, 2.6, 1.3),
+      add(L(sk, sk.hip, 2.6, -13.5), [-tr * 8, -tr * 6], 1),
+      [sk.hip[0] - 4 - tr * 11, sk.hip[1] + (14.5 - tr * 7 + fl) * BODY_K],
+      [sk.hip[0] - 8.1 - tr * 14, sk.hip[1] + (12.0 - tr * 8 + fl2) * BODY_K]
+    ];
+    const len = model.len || 1, flare = model.flare || 1;
+    const pl = (a, b, t) => [lerp(a[0], b[0], t), lerp(a[1], b[1], t)];
+    const topMid = pl(P[0], P[1], 0.5);
+    let hb = pl(P[0], P[4], len), hm = pl(topMid, P[3], len), hf = pl(P[1], P[2], len);
+    hb = pl(hm, hb, flare); hf = pl(hm, hf, flare);
+    const ctl = [2 * hm[0] - (hb[0] + hf[0]) / 2, 2 * hm[1] - (hb[1] + hf[1]) / 2];
+    const top = u => pl(P[0], P[1], u);
+    const hemBase = u => {
+      const a = (1 - u) * (1 - u), b = 2 * u * (1 - u), c = u * u;
+      return [a * hb[0] + b * ctl[0] + c * hf[0], a * hb[1] + b * ctl[1] + c * hf[1]];
+    };
+    const at = (u, v) => pl(top(u), hemBase(u), v);
+    const hemAt = (u, extra) => {
+      const t = top(u), h = hemBase(u), d = norm([h[0] - t[0], h[1] - t[1]]);
+      return add(h, d, (model.hem ? model.hem(u, ph) : 0) + (extra || 0));
+    };
+    return { frontal, top, at, hemAt, tr, fl };
+  }
+
+  // Draw an equipped cape (model) behind / over the hero
+  function drawGearCape(f, sk, p, view, ph, model, sw) {
+    const cf = capeFrame(sk, p, ph, model, sw || 4.6);
+    const inside = cf.frontal && view === 'front';   // facing the camera: the lining shows
+    const D = Object.assign({ f, sk, view, ph, inside, outside: !inside, back: view === 'back' }, cf);
+    const N = 30;
+    const shape = drop => {
+      const pts = [cf.top(0), cf.top(1)];
+      for (let i = N; i >= 0; i--) pts.push(cf.hemAt(i / N, drop));
+      return poly(pts);
+    };
+    const CLOTH = { dither: true, selout: true };
+    if (inside) {
+      paint(f, shape(0), model.lining, CLOTH);
+      for (const u of [0, 1]) paint(f, capsule(cf.at(u, 0.04), cf.at(u, 0.97), 0.7), model.mat, { rim: false });
+    } else {
+      paint(f, shape(1.4), model.lining, { dither: true });
+      paint(f, shape(0), model.mat, CLOTH);
+      if (!model.noFolds) {
+        for (const u of [0.3, 0.7]) paint(f, capsule(cf.at(u, 0.2), cf.at(u, 0.92), 0.3, 0.6), model.mat, { tone: 'd', rim: false });
+      }
+    }
+    if (model.decor) model.decor(D);
+  }
+  // Clasps / chains over the chest, drawn after the body
+  function drawGearCapeFront(f, sk, p, view, ph, model, sw) {
+    if (!model.front || view !== 'front' && !model.frontAlways) return;
+    const cf = capeFrame(sk, p, ph, model, sw || 4.6);
+    model.front(Object.assign({ f, sk, view, ph, inside: cf.frontal, outside: !cf.frontal, back: false }, cf));
+  }
+
   // ---- per-class gear costumes
   function gearCostume(cls, eq) {
     const id = s => (eq[s] && eq[s].id) || '';
@@ -2013,6 +2376,7 @@
     if (style) C.head = gearHead(style, cls);
     const glove = GLOVE_MAT[id('gloves')], boot = BOOT_MAT[id('boots')];
     if (boot) C.gearBoot = boot;
+    if (CAPES[id('cape')]) C.gearCape = CAPES[id('cape')];
     const MET = { metal: true, selout: true };
 
     if (cls === 'warrior') {
@@ -2051,7 +2415,7 @@
   }
 
   const GEAR = new Map();   // gear key -> costume
-  const GEAR_SLOTS = ['weapon', 'armor', 'helmet', 'gloves', 'boots'];
+  const GEAR_SLOTS = ['weapon', 'armor', 'helmet', 'gloves', 'boots', 'cape'];
   // Key of the look a hero's equipment gives them (null: nothing that changes the look)
   function gearKey(cls, eq) {
     if (!eq || !CLASS_ANIMS[cls]) return null;

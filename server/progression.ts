@@ -101,9 +101,9 @@ export function mobHpMult(level?: number): number {
 }
 
 // Combat Mastery: a hero's damage is multiplied along the same curve, a little
-// slower (x6.3 at level 100 against x10 monster HP), so high-level fights take
+// slower (x7.6 at level 100 against x10 monster HP), so high-level fights take
 // only gently longer than low-level ones
-export const MASTERY_EXP = 0.8;
+export const MASTERY_EXP = 0.88;
 export function masteryMult(level: number): number {
   return Math.pow(mobHpMult(level), MASTERY_EXP);
 }

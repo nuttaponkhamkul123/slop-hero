@@ -60,7 +60,7 @@ const FIELD_ZONES: any[] = [
       { type: 'frost_wolf', name: 'Frostbite Wolf', level: 6, count: 6, speed: 3.8, buffs: ['frostbite'], element: 'ice', elementResist: { fire: -0.5, ice: 0.5 }, stats: { maxHp: 550, def: 15, dmg: 38, gold: 90 } },
       { type: 'ice_elemental', name: 'Glacial Elemental', level: 8, count: 6, speed: 2.5, buffs: ['frostbite'], element: 'ice', elementResist: { fire: -0.6, ice: 0.6 }, stats: { maxHp: 750, def: 20, dmg: 48, gold: 140 } }
     ],
-    boss: { type: 'frost_titan', name: 'Frost Titan Ymir', level: 12, buffs: ['frostbite', 'fortified'], element: 'ice', elementResist: { fire: -0.5, ice: 0.7, holy: -0.2 }, stats: { maxHp: 2800, def: 35, dmg: 75, gold: 750 } }
+    boss: { type: 'frost_titan', name: 'Frost Titan Ymir', level: 12, buffs: ['frostbite', 'fortified'], element: 'ice', elementResist: { fire: -0.5, ice: 0.4, holy: -0.2 }, stats: { maxHp: 2800, def: 35, dmg: 75, gold: 750 } }
   },
   {
     id: 'wildwood', name: 'Verdant Wildwood', minLevel: 16, maxLevel: 27,

@@ -12,7 +12,7 @@ export type UserRole = 'player' | 'admin';
 
 export type ItemRarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
 export type ItemType = 'weapon' | 'armor' | 'potion' | 'material' | 'card' | 'chest' | 'currency' | 'consumable';
-export type EquipSlot = 'weapon' | 'armor' | 'helmet' | 'boots' | 'gloves' | 'ring' | 'amulet' | 'spCard';
+export type EquipSlot = 'weapon' | 'armor' | 'helmet' | 'boots' | 'gloves' | 'cape' | 'ring' | 'amulet' | 'spCard';
 
 export interface Stats {
   hp?: number;

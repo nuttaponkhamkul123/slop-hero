@@ -75,5 +75,62 @@
       "dark": 0.1
     },
     "desc": "+1 Speed, +10% Attack Speed, Dark RES +10%. Step between the shadows."
+  },
+  "wayfarer_treads": {
+    "id": "wayfarer_treads",
+    "name": "Wayfarer's Treads",
+    "type": "equipment",
+    "slot": "boots",
+    "iconKey": "boots",
+    "rarity": "epic",
+    "sellPrice": 130,
+    "classReq": "all",
+    "setId": "wayfarer",
+    "bonusDef": 4,
+    "bonusSpeed": 0.5,
+    "desc": "+4 Defense, +0.5 Speed. Worn soles, tireless feet."
+  },
+  "emberheart_sabatons": {
+    "id": "emberheart_sabatons",
+    "name": "Emberheart Sabatons",
+    "type": "equipment",
+    "slot": "boots",
+    "iconKey": "boots_ember",
+    "rarity": "legendary",
+    "sellPrice": 240,
+    "classReq": "all",
+    "setId": "emberheart",
+    "bonusDef": 6,
+    "bonusSpeed": 0.4,
+    "desc": "+6 Defense, +0.4 Speed. Leave cinders where you stand."
+  },
+  "stormcaller_striders": {
+    "id": "stormcaller_striders",
+    "name": "Stormcaller's Striders",
+    "type": "equipment",
+    "slot": "boots",
+    "iconKey": "boots_steel",
+    "rarity": "legendary",
+    "sellPrice": 240,
+    "classReq": "all",
+    "setId": "stormcaller",
+    "bonusDef": 5,
+    "bonusSpeed": 0.6,
+    "desc": "+5 Defense, +0.6 Speed. Quick as a lightning flash."
+  },
+  "duskwalker_boots": {
+    "id": "duskwalker_boots",
+    "name": "Duskwalker Boots",
+    "type": "equipment",
+    "slot": "boots",
+    "iconKey": "boots_shadow",
+    "rarity": "legendary",
+    "sellPrice": 240,
+    "classReq": "all",
+    "setId": "eclipse",
+    "bonusDef": 5,
+    "bonusHp": 40,
+    "bonusSpeed": 0.4,
+    "desc": "+5 Defense, +40 Max Health, +0.4 Speed. They leave no shadow."
   }
 }

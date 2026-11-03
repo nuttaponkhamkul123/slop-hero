@@ -109,9 +109,18 @@ export function generateMap(): MapData {
 
   // ---- portals: dungeon on the plaza, the outside world through the north gate ----
   add({ id: 'portal_dungeon', x: 23.5, y: 16.5, type: 'portal', name: 'Abyssal Dungeon Portal', collidable: false, radius: 1.2 });
-  // ---- the Eternal Rift gate at the end of the east boulevard, kept by James ----
-  add({ id: 'portal_rift', x: 28.6, y: 20.5, type: 'portal', name: 'Eternal Rift', label: '🌌 Eternal Rift', color: '#c084fc', collidable: false, radius: 1.2 });
-  add({ id: 'npc_james', x: 31.2, y: 20.5, type: 'gatekeeper', name: 'James the Gatekeeper', collidable: true, radius: 0.7 });
+  // ---- the Eternal Rift: a cave mouth in a pile of boulders in the east block
+  // (north of the east boulevard, past the side lane), kept by James ----
+  const RIFT_CAVE = { x: 35.8, y: 16.0 };   // the cave floor at its mouth
+  add({ id: 'portal_rift', x: RIFT_CAVE.x, y: RIFT_CAVE.y, type: 'portal', style: 'cave', name: 'Eternal Rift', label: '🌌 Eternal Rift', color: '#c084fc', collidable: false, radius: 1.2 });
+  // the rock mound behind the mouth blocks like a wall (the portal sprite draws it)
+  add({ id: 'rift_cave_rock', x: RIFT_CAVE.x, y: RIFT_CAVE.y - 1.6, type: 'collider', collidable: true, radius: 1.3 });
+  add({ id: 'rift_cave_rock_w', x: RIFT_CAVE.x - 1.15, y: RIFT_CAVE.y - 0.45, type: 'collider', collidable: true, radius: 0.6 });
+  add({ id: 'rift_cave_rock_e', x: RIFT_CAVE.x + 1.15, y: RIFT_CAVE.y - 0.5, type: 'collider', collidable: true, radius: 0.6 });
+  add({ id: 'npc_james', x: RIFT_CAVE.x - 2.0, y: RIFT_CAVE.y + 1.0, type: 'gatekeeper', name: 'James the Gatekeeper', collidable: true, radius: 0.7 });
+  // boulders piled around the cave
+  [[33.4, 13.0, 0], [35.0, 11.9, 1], [36.9, 11.8, 2], [38.4, 13.2, 0], [38.5, 15.5, 1], [33.3, 15.2, 2], [38.1, 17.1, 0]]
+    .forEach(([x, y, v], i) => add({ id: `rift_boulder_${i}`, x, y, type: 'boulder', variant: v, collidable: true, radius: 0.55 }));
   add({
     id: 'portal_outskirts', x: CITY.NORTH_GATE.x, y: CITY.NORTH_GATE.y, type: 'field_portal',
     target: 'meadow', arrive: 'south', label: 'City Gate → Greenmeadow Outskirts [Lv. 1+]', color: '#86efac',
@@ -165,6 +174,7 @@ export function generateMap(): MapData {
           if (tiles[ty][tx] !== TILES.GRASS || inGarden(tx, ty)) continue;
           if (inRange(tx, [14, 26] as [number, number]) && inRange(ty, [14, 26] as [number, number])) continue; // plaza, booths & portal
           if (Math.hypot(x - 30.5, (y - 5.8) * 1.6) < 8.5) continue;    // lakeside park
+          if (x > 32.5 && y > 10.5 && y < 18) continue;                  // the Eternal Rift cave
           if (nearProp(x, y, 2.3) || near(x, y, 1.2)) continue;
           add({ id: `house_${houseN}`, x, y, type: 'house', variant: houseN % 3, collidable: true, radius: 1.3 });
           houseN++;

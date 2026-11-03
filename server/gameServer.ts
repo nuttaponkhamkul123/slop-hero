@@ -25,7 +25,14 @@ import {
   RUNE_DROP_CHANCE,
   SOCKET_EXPANDER_DROP_CHANCE,
   RUNES_DEF,
-  ensureWeaponSockets
+  ensureWeaponSockets,
+  ensureSockets,
+  socketKind,
+  runeFits,
+  SOCKET_MAX,
+  ARMOR_SOCKET_SLOTS,
+  ARMOR_SETS,
+  equippedSetCounts
 } from './items';
 import accountManager from './accountManager';
 import { FIELD_ZONES, FIELD_ZONE_BY_ID, generateFieldMap, buildFieldMobs, fieldObstacleGrid, nearObstacles } from './fieldZones';
@@ -33,6 +40,8 @@ import { expToNext, baseExpCurve, mobExp, levelGapMult, lootGapMult, masteryMult
 import * as SP from './spCards';
 import * as adminCommands from './adminCommands';
 import * as RIFT from './eternalRift';
+import * as CRAFT from './crafting';
+import * as DMODS from './dungeonMods';
 const SP_TRANSFORM_COOLDOWN = 3.2; // 8s reduced by 60% (* 0.4)
 
 // Global tuning knob for every skill's damage against monsters
@@ -410,6 +419,11 @@ const TALENT_PROCS = SKILL_TREES.TALENT_PROCS;
 
 
 const MAX_PLAYER_ELEMENT_RESIST = 0.6;
+// Mage passive Energy Shield: size from Max HP and Max MP; recharges once the
+// mage has gone `delay` seconds without being hit
+const ENERGY_SHIELD = { hpShare: 0.12, mpShare: 0.3, delay: 3, rechargePerSec: 0.15 };
+// Chance a kill drops a defensive armor rune (crafting makes them too)
+const ARMOR_RUNE_DROP = { normal: 0.0015, boss: 0.08 };
 const PARTY_SUMMON_TTL_MS = 30000;
 // Loot left on the ground disappears after this long
 const ITEM_DESPAWN_MS = 5 * 60 * 1000;
@@ -594,6 +608,7 @@ class GameServer {
         helmet: chosenClass === 'warrior' ? { ...ITEMS.iron_helm, count: 1 } : null,
         boots: null,
         gloves: null,
+        cape: null,
         ring: null
       },
       gold: 50,
@@ -693,11 +708,12 @@ class GameServer {
     return this.dungeonInstances.get(player.dungeonInstanceId) || null;
   }
 
-  getOrCreateDungeonInstance(player, floor = 1, difficulty = 'normal', forceRegen = false, mode = 'classic') {
+  getOrCreateDungeonInstance(player, floor = 1, difficulty = 'normal', forceRegen = false, mode = 'classic', mods: string[] = []) {
     const instanceId = player.partyId ? `party_${player.partyId}` : `solo_${player.id}`;
     const existing = this.dungeonInstances.get(instanceId);
-    // an unfinished run is resumed, unless the player now asks for the other mode (a fresh dungeon then)
-    if (!forceRegen && existing && (existing.mode || 'classic') === mode) return existing;
+    // an unfinished run is resumed, unless the player now asks for the other mode or other modifiers (a fresh dungeon then)
+    const sameMods = (existing && existing.mods || []).join() === mods.join();
+    if (!forceRegen && existing && (existing.mode || 'classic') === mode && sameMods) return existing;
 
     const dungeonMap = generateProceduralDungeon(floor, difficulty, mode);
     // Monsters wait per room and only appear once a door into their room
@@ -706,14 +722,14 @@ class GameServer {
     if (dungeonMap && dungeonMap.mobs) {
       dungeonMap.mobs.forEach(mob => {
         if (!pendingMobs.has(mob.roomIdx)) pendingMobs.set(mob.roomIdx, []);
-        pendingMobs.get(mob.roomIdx).push({
+        pendingMobs.get(mob.roomIdx).push(DMODS.applyModsToMob({
           ...mob,
           def: mob.def || 10,
           buffs: mob.buffs || [],
           isCommander: !!mob.isCommander,
           auraRadius: mob.auraRadius || 0,
           hasCommanderBuff: false
-        });
+        }, mods));
       });
     }
 
@@ -728,6 +744,8 @@ class GameServer {
       floor,
       difficulty,
       mode,
+      mods,                       // dungeon modifiers (dungeonMods.ts)
+      modReward: DMODS.modReward(mods),
       dungeon: dungeonMap,
       mobs: new Map<any, any>(),
       pendingMobs,
@@ -1442,7 +1460,7 @@ class GameServer {
     const frostDefs = [
       { type: 'frost_wolf', name: 'Frostbite Wolf', level: 6, maxHp: 550, def: 15, dmg: 38, speed: 3.8, exp: 160, gold: 90, count: 6, buffs: ['frostbite'], element: 'ice', elementResist: { fire: -0.5, ice: 0.5 }, zone: { minX: 5, maxX: 18, minY: 20, maxY: 33 } },
       { type: 'ice_elemental', name: 'Glacial Elemental', level: 8, maxHp: 750, def: 20, dmg: 48, speed: 2.5, exp: 240, gold: 140, count: 6, buffs: ['frostbite'], element: 'ice', elementResist: { fire: -0.6, ice: 0.6 }, zone: { minX: 24, maxX: 38, minY: 8, maxY: 25 } },
-      { type: 'frost_titan', name: 'Frost Titan Ymir', level: 12, maxHp: 2800, def: 35, dmg: 75, speed: 2.2, exp: 950, gold: 750, count: 1, buffs: ['frostbite', 'fortified'], element: 'ice', elementResist: { fire: -0.5, ice: 0.7, holy: -0.2 }, zone: { minX: 19, maxX: 23, minY: 16, maxY: 20 }, isBoss: true }
+      { type: 'frost_titan', name: 'Frost Titan Ymir', level: 12, maxHp: 2800, def: 35, dmg: 75, speed: 2.2, exp: 950, gold: 750, count: 1, buffs: ['frostbite', 'fortified'], element: 'ice', elementResist: { fire: -0.5, ice: 0.4, holy: -0.2 }, zone: { minX: 19, maxX: 23, minY: 16, maxY: 20 }, isBoss: true }
     ];
 
     frostDefs.forEach(def => {
@@ -1734,6 +1752,7 @@ class GameServer {
         helmet: null,
         boots: null,
         gloves: null,
+        cape: null,
         ring: null
       },
       hp: classStats.maxHp,
@@ -1845,6 +1864,16 @@ class GameServer {
       skillRunes: SKILL_RUNES,
       spCatalog: SP.clientCatalog(),
       weaponAbilities: Object.fromEntries(Object.values(WEAPON_ABILITIES).map(a => [a.id, { id: a.id, name: a.name, desc: a.desc, mpCost: a.mpCost, cooldown: a.cooldown, isDash: a.isDash, shape: a.shape, element: a.element, color: a.color }])),
+      armorSets: ARMOR_SETS,
+      // every rune: what it does and which item kind it goes into (Rune Forge, tooltips)
+      runeCatalog: Object.fromEntries((Object.values(ITEMS) as any[]).filter(it => it.type === 'rune').map(r => [r.id, {
+        id: r.id, name: r.name, icon: r.icon, color: r.color, socketFor: r.socketFor || 'weapon',
+        effect: r.effect || (RUNES_DEF[r.runeType] && RUNES_DEF[r.runeType].desc) || r.desc
+      }])),
+      socketMax: SOCKET_MAX,
+      crafting: CRAFT.craftingCatalog(),
+      dungeonMods: DMODS.clientCatalog(),
+      itemNames: Object.fromEntries((Object.values(ARMOR_SETS) as any[]).flatMap(s => s.pieces.map(id => [id, ITEMS[id] && ITEMS[id].name]))),
       enhanceRules: { max: ENHANCE_MAX, safeLevel: ENHANCE_SAFE_LEVEL, base: ENHANCE_BASE_COST, growth: ENHANCE_COST_GROWTH, chance: ENHANCE_CHANCE },
       riftCatalog: {
         structures: RIFT.RIFT_STRUCTURES,
@@ -2188,7 +2217,9 @@ class GameServer {
     // classic labyrinth, or Rush (one super long hall holding every monster); a party joins the leader's mode
     const mode = partyInst ? (partyInst.mode || 'classic') : (options.mode === 'rush' ? 'rush' : 'classic');
 
-    const inst = this.getOrCreateDungeonInstance(player, floor, difficulty, false, mode);
+    // modifiers picked at the portal; a party member gets the leader's
+    const mods = partyInst ? (partyInst.mods || []) : DMODS.parseMods(options.mods);
+    const inst = this.getOrCreateDungeonInstance(player, floor, difficulty, false, mode, mods);
     if (partyInst) {
       socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: `⚔️ Joining your party in B${inst.floor}!`, color: '#4ade80' });
     }
@@ -2955,6 +2986,22 @@ class GameServer {
     timed('undying', 'Undying', '💀', p.undyingTimer);
     timed('haste', 'Haste', '💨', p.sprintTimer);
     if (p.shieldHp > 0) out.push({ k: 'shield', n: 'Shield', i: '🔰', v: Math.round(p.shieldHp) });
+    // shown in 10% steps: an exact number would change every tick while it recharges
+    // and rebuild the buff bar 25 times a second (the HP bar shows the exact value)
+    if (p.esMax > 0) out.push({ k: 'es', n: 'Energy Shield', i: '💠', v: `${Math.round((p.es || 0) / p.esMax * 10) * 10}%` });
+    // armor set 4-piece states
+    if (p.set4) {
+      const nowMs = Date.now();
+      if (p.set4.wayfarer) {
+        const cd = Math.max(0, ((p.secondWindReadyAt || 0) - nowMs) / 1000);
+        out.push(cd > 0 ? { k: 'second_wind', n: 'Second Wind (cooldown)', i: '🌿', t: Math.ceil(cd), d: true } : { k: 'second_wind', n: 'Second Wind ready', i: '🌿' });
+      }
+      if (p.set4.stormcaller) out.push({ k: 'static', n: 'Static', i: '⚡', v: p.staticStacks || 0 });
+      if (p.set4.eclipse && p.eclipsePhase) {
+        const dusk = p.eclipsePhase === 'dusk';
+        out.push({ k: 'eclipse', n: dusk ? 'Dusk (+15% DMG, leech)' : 'Dawn (+20% DEF, party heal)', i: dusk ? '🌑' : '🌕', t: Math.ceil(p.eclipseTimer || 0) });
+      }
+    }
     if (p.flowStacks > 0) out.push({ k: 'flow', n: 'Flow', i: '🌊', v: p.flowStacks, t: Math.ceil(p.flowTimer || 0) });
     if (p.voidSouls > 0) out.push({ k: 'souls', n: 'Souls', i: '👻', v: p.voidSouls, t: Math.ceil(p.voidSoulTimer || 0) });
     // variant warrior card states
@@ -4367,6 +4414,13 @@ class GameServer {
       // (the 0.4s floor never lengthens a cooldown that is already shorter, e.g. Rift Step's 0.1s)
       cooldown = Math.max(Math.min(0.4, cooldown), Number((cooldown * Math.pow(0.8, runeCounts.tempest)).toFixed(2)));
     }
+    // Stormcaller 2-piece: shorter cooldowns
+    if (player.set2 && player.set2.stormcaller) cooldown = Number((cooldown * (1 - player.set2.stormcaller.cdr)).toFixed(2));
+    // Exhausting dungeon modifier: longer cooldowns for the whole run
+    if (player.zone === 'dungeon') {
+      const dInst = this.getPlayerDungeonInstance(player);
+      if (dInst && dInst.mods && dInst.mods.includes('exhausting')) cooldown = Number((cooldown * 1.25).toFixed(2));
+    }
     if (slot === 'dash') {
       if (playerTalents.sundering_dash) cooldown = Math.max(0.4, cooldown - playerTalents.sundering_dash * 0.2);
       if (playerTalents.arcane_haste) cooldown = Math.max(0.4, cooldown - playerTalents.arcane_haste * 0.25);
@@ -4378,6 +4432,7 @@ class GameServer {
       player.skillCooldowns[slot] = cooldown;
       player.skillCooldowns[rawSlot] = cooldown;
       if (slot === 'slot1') player.skillCooldown = cooldown;
+      this.applySetOnSkillCast(player, skill.cooldown);
       if (socket) socket.emit('player_updated', player);
     }
 
@@ -5183,9 +5238,7 @@ class GameServer {
     this.refundStaleTalents(player);
 
     if (player.equipment) {
-      if (player.equipment.weapon) {
-        ensureWeaponSockets(player.equipment.weapon);
-      }
+      for (const eq of Object.values(player.equipment) as any[]) ensureSockets(eq);
       for (const eq of (Object.values(player.equipment) as any[])) {
         if (!eq) continue;
         if (eq.elementResist) {
@@ -5222,6 +5275,15 @@ class GameServer {
     if (weaponRunes.vampiric > 0) {
       totalLifeSteal += 0.25 * weaponRunes.vampiric;
     }
+    // Defensive runes in armor sockets (data/items/runes.json, socketFor: armor)
+    const armorRunes = this.getArmorRuneCounts(player);
+    talentPct.hpPct += 0.06 * (armorRunes.bulwark || 0);
+    talentPct.defPct += 0.08 * (armorRunes.aegis || 0);
+    totalBonusSpeed += 0.25 * (armorRunes.swiftness || 0);
+    if (armorRunes.warding) {
+      for (const el of ['fire', 'ice', 'lightning', 'earth', 'holy', 'dark']) totalElementResist[el] = (totalElementResist[el] || 0) + 0.06 * armorRunes.warding;
+    }
+    player.armorRunes = armorRunes;
 
     // Talent tree passive bonuses
     const procs = {};
@@ -5250,6 +5312,25 @@ class GameServer {
       }
     }
 
+    // Armor sets: 2-piece stat bonuses here; the 4-piece effects are read by
+    // combat code through player.set4[setId] (see the SET EFFECTS section)
+    const setCounts = equippedSetCounts(player.equipment);
+    player.setCounts = setCounts;
+    player.set2 = {};
+    player.set4 = {};
+    for (const [setId, n] of Object.entries(setCounts)) {
+      const set = ARMOR_SETS[setId];
+      if (n >= 2) {
+        const b2 = set.bonuses['2'] || {};
+        player.set2[setId] = b2;
+        if (b2.hpPct) talentPct.hpPct += b2.hpPct;
+        for (const [el, v] of Object.entries(b2.resist || {})) totalElementResist[el] = (totalElementResist[el] || 0) + (v as number);
+      }
+      if (n >= 4) player.set4[setId] = set.bonuses['4'];
+    }
+    if (!player.set4.eclipse) player.eclipsePhase = null;
+    else if (!player.eclipsePhase) { player.eclipsePhase = 'dusk'; player.eclipseTimer = player.set4.eclipse.period; }
+
     // Job level bonus
     const jobSteps = Math.max(0, (player.jobLevel || 1) - 1);
     totalBonusDmg += jobSteps * SP.JOB_LEVEL_BONUS.bonusDmg;
@@ -5277,7 +5358,9 @@ class GameServer {
     player.weaponPower = power;
     const pctMult = (v) => Math.max(0.1, 1 + v);   // a keystone trade-off can lower a stat, never zero it
     player.dmg = Math.round((player.baseStats.dmg + totalBonusDmg) * pctMult(talentPct.dmgPct) * player.mastery * ((power && power.dmgMult) || 1));
-    player.def = Math.round((player.baseStats.def + totalBonusDef) * pctMult(talentPct.defPct));
+    // (Eclipse set, Dawn phase: +20% Defense)
+    const dawnDef = player.eclipsePhase === 'dawn' && player.set4.eclipse ? player.set4.eclipse.dawnDef : 0;
+    player.def = Math.round((player.baseStats.def + totalBonusDef) * pctMult(talentPct.defPct + dawnDef));
     player.maxHp = Math.round((player.baseStats.maxHp + totalBonusHp) * pctMult(talentPct.hpPct));
     player.maxMp = Math.round((player.baseStats.maxMp + totalBonusMp) * pctMult(talentPct.mpPct));
     totalThorns += Math.max(0, player.def) * talentPct.thornsPct;
@@ -5303,6 +5386,17 @@ class GameServer {
 
     player.hp = Math.min(player.hp, player.maxHp);
     player.mp = Math.min(player.mp, player.maxMp);
+
+    // Mage Energy Shield: a passive barrier that soaks hits before HP and
+    // recharges after a moment without taking damage (see tickEnergyShield)
+    if (player.characterClass === 'mage') {
+      player.esMax = Math.round(player.maxHp * ENERGY_SHIELD.hpShare + player.maxMp * ENERGY_SHIELD.mpShare);
+      if (player.es === undefined || player.es === null) player.es = player.esMax;
+      player.es = Math.min(player.es, player.esMax);
+    } else {
+      player.esMax = 0;
+      player.es = 0;
+    }
   }
 
   handleEquipItem(socketId, itemIndex) {
@@ -5609,6 +5703,60 @@ class GameServer {
     }
   }
 
+  // Volatile dungeon modifier: a dead monster bursts after a short warning,
+  // hurting every hero of the run standing close to it
+  scheduleVolatileBurst(inst, mob) {
+    const V = DMODS.VOLATILE, x = mob.x, y = mob.y;
+    this.emitZone('dungeon', 'skill_fx', { type: 'set_proc', set: 'emberheart', x, y, radius: V.radius * 0.6, color: '#f97316' }, inst.id);
+    setTimeout(() => {
+      if (!this.dungeonInstances.has(inst.id)) return;
+      this.emitZone('dungeon', 'skill_fx', { type: 'set_proc', set: 'emberheart', x, y, radius: V.radius, color: '#f97316' }, inst.id);
+      for (const p of this.players.values()) {
+        if (p.isDead || p.zone !== 'dungeon' || p.dungeonInstanceId !== inst.id || p.godMode) continue;
+        if (Math.hypot(p.x - x, p.y - y) > V.radius) continue;
+        let dmg = this.absorbIncomingDamage(p, Math.round(p.maxHp * V.hpShare), 'dungeon');
+        p.hp = Math.max(p.undyingTimer > 0 ? 1 : 0, p.hp - dmg);
+        this.emitZone('dungeon', 'floating_text', { x: p.x, y: p.y - 0.7, text: `💥 -${dmg}`, color: '#fb923c', size: 15 }, inst.id);
+        if (p.hp <= 0) this.phoenixRebirth(p);
+        if (p.hp <= 0 && !p.isDead) {
+          p.hp = 0; p.isDead = true; p.respawnTimer = 5.0;
+          if (p.dungeonRun) p.dungeonRun.deaths = (p.dungeonRun.deaths || 0) + 1;
+          this.emitZone('dungeon', 'player_died', { playerId: p.id, killerName: 'a Volatile burst' }, inst.id);
+        }
+      }
+    }, V.delayMs);
+  }
+
+  // Crafting window: craft `times` of a recipe (crafting.ts does every check)
+  handleCraft(socketId: string, data: any) {
+    const player = this.players.get(socketId);
+    const socket = this.io.sockets.sockets.get(socketId);
+    if (!player || !socket || player.isDead || !data) return;
+    const res: any = CRAFT.craft(this, player, String(data.recipeId || ''), Number(data.times) || 1);
+    socket.emit('craft_result', { ok: res.ok, message: res.message, recipeId: data.recipeId, items: res.items || [] });
+    if (!res.ok) return;
+    const top = res.items[0];
+    this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.8, text: `🔨 ${res.message}`, color: top && top.rarity === 'legendary' ? '#f59e0b' : '#4ade80', size: 16 });
+    if (top && top.setId) this.broadcastSystemMessage(`🔨 [${player.name}] crafted [${top.name}]!`);
+    this.savePlayerAccount(socketId);
+    socket.emit('player_updated', player);
+  }
+
+  // Defensive runes socketed in the worn armor pieces: { bulwark: 2, aegis: 1, ... }
+  getArmorRuneCounts(player: any): Record<string, number> {
+    const counts: Record<string, number> = {};
+    for (const slot of ARMOR_SOCKET_SLOTS) {
+      const it = player?.equipment?.[slot];
+      if (!it || !Array.isArray(it.sockets)) continue;
+      for (const s of it.sockets) {
+        if (!s) continue;
+        const def = ITEMS[s];
+        if (def && def.socketFor === 'armor') counts[def.runeType] = (counts[def.runeType] || 0) + 1;
+      }
+    }
+    return counts;
+  }
+
   getWeaponRuneCounts(player: any): Record<string, number> {
     const counts: Record<string, number> = { flame: 0, frost: 0, tempest: 0, vampiric: 0 };
     const weapon = player?.equipment?.weapon;
@@ -5636,17 +5784,21 @@ class GameServer {
     } else if (data.target === 'inventory' && Number.isInteger(data.itemIndex)) {
       targetItem = player.inventory.items[data.itemIndex];
     }
-    if (!targetItem || targetItem.slot !== 'weapon') {
-      socket.emit('socket_result', { ok: false, message: 'Only weapons have sockets!' });
+    if (!socketKind(targetItem)) {
+      socket.emit('socket_result', { ok: false, message: 'Only weapons and armor pieces have sockets!' });
       return;
     }
 
-    ensureWeaponSockets(targetItem);
+    ensureSockets(targetItem);
 
     const runeIndex = Number(data.runeIndex);
     const runeItem = player.inventory.items[runeIndex];
     if (!runeItem || runeItem.type !== 'rune') {
       socket.emit('socket_result', { ok: false, message: 'Select a valid rune item!' });
+      return;
+    }
+    if (!runeFits(runeItem, targetItem)) {
+      socket.emit('socket_result', { ok: false, message: socketKind(targetItem) === 'armor' ? 'Armor takes defensive runes only!' : 'Weapons take elemental runes only!' });
       return;
     }
 
@@ -5656,7 +5808,7 @@ class GameServer {
     let slotIdx = Number(data.socketSlotIndex !== undefined ? data.socketSlotIndex : targetItem.sockets.findIndex((s: any) => s === null));
 
     if (slotIdx < 0 || slotIdx >= usableSockets) {
-      socket.emit('socket_result', { ok: false, message: 'No available weapon socket slot!' });
+      socket.emit('socket_result', { ok: false, message: 'No available socket slot!' });
       return;
     }
 
@@ -5721,9 +5873,9 @@ class GameServer {
     } else if (data.target === 'inventory' && Number.isInteger(data.itemIndex)) {
       targetItem = player.inventory.items[data.itemIndex];
     }
-    if (!targetItem || targetItem.slot !== 'weapon') return;
+    if (!socketKind(targetItem)) return;
 
-    ensureWeaponSockets(targetItem);
+    ensureSockets(targetItem);
 
     const slotIdx = Number(data.socketSlotIndex);
     if (slotIdx < 0 || slotIdx >= targetItem.sockets.length || !targetItem.sockets[slotIdx]) {
@@ -5789,15 +5941,17 @@ class GameServer {
     } else if (data.target === 'inventory' && Number.isInteger(data.itemIndex)) {
       targetItem = player.inventory.items[data.itemIndex];
     }
-    if (!targetItem || targetItem.slot !== 'weapon') {
-      socket.emit('socket_result', { ok: false, message: 'Can only expand sockets on weapons!' });
+    const kind = socketKind(targetItem);
+    if (!kind) {
+      socket.emit('socket_result', { ok: false, message: 'Can only expand sockets on weapons and armor!' });
       return;
     }
 
-    ensureWeaponSockets(targetItem);
+    ensureSockets(targetItem);
 
-    if (targetItem.maxSockets >= 4) {
-      socket.emit('socket_result', { ok: false, message: 'This weapon already has maximum sockets (4)!' });
+    const maxAllowed = SOCKET_MAX[kind];
+    if (targetItem.maxSockets >= maxAllowed) {
+      socket.emit('socket_result', { ok: false, message: `This ${kind} already has maximum sockets (${maxAllowed})!` });
       return;
     }
 
@@ -6246,6 +6400,9 @@ class GameServer {
     } else if (item.slot === 'gloves') {
       addDmg += lvl * 4;
       addAtkSpd = lvl * 0.01;
+    } else if (item.slot === 'cape') {
+      addDef += lvl * 2;
+      addHp += lvl * 12;
     } else if (item.slot === 'ring') {
       addDmg += lvl * 3;
       addHp += lvl * 15;
@@ -6495,6 +6652,8 @@ class GameServer {
       deaths: run.deaths || 0,
       roomsCleared: inst && inst.roomsCleared ? inst.roomsCleared.size : 0,
       mode: inst && inst.mode ? inst.mode : 'classic',
+      mods: inst && inst.mods ? inst.mods : [],
+      modReward: inst ? (inst.modReward || 0) : 0,
       roomsTotal: inst && inst.dungeon.rooms ? inst.dungeon.rooms.length : 0,
       clearedRooms: inst && inst.roomsCleared ? [...inst.roomsCleared] : [], // minimap ticks
       killPercent: inst ? (inst.killPercent || 0) : 0,
@@ -6749,6 +6908,8 @@ class GameServer {
     if (procs && procs.shatterBonus && mob.chillTimer > 0) {
       rawDamage = Math.round(rawDamage * (1 + procs.shatterBonus));
     }
+    // Armor sets: Emberheart (vs burning), Eclipse Dusk
+    if (player && (player.set2 || player.set4)) rawDamage = Math.round(rawDamage * this.setDamageMult(player, mob));
 
     // Level Gap Mitigation & Deflection
     let isGlancing = false;
@@ -6785,6 +6946,16 @@ class GameServer {
       damage = Math.max(1, Math.round(damage * 0.7));
     }
 
+    // Shielded Elites (dungeon modifier): the shield soaks hits before HP
+    if (mob.shield > 0 && !isDeflected) {
+      const soak = Math.min(mob.shield, damage);
+      mob.shield -= soak;
+      damage -= soak;
+      if (mob.shield <= 0) {
+        this.emitZone((player && player.zone) || mob.fieldZone, 'floating_text', { x: mob.x, y: mob.y - 1.0, text: '🛡️ SHIELD BROKEN!', color: '#93c5fd', size: 16 },
+          player && player.zone === 'dungeon' ? player.dungeonInstanceId : null);
+      }
+    }
     mob.hp -= damage;
     // Duskblade Doom brand soaks up what its owner deals (replayed when it ends)
     if (player && mob.doom && mob.doom.owner === player.id && mob.doom.until > Date.now()) mob.doom.stored += damage;
@@ -6885,6 +7056,8 @@ class GameServer {
       size: textSize,
       crit: !!isCritical
     }, instId);
+
+    if (player && player.set4 && !isDeflected) this.applySetOnHit(player, mob, damage);
 
     if (mob.hp <= 0) {
       this.handleMobDeath(mob, player);
@@ -7155,6 +7328,31 @@ class GameServer {
       const chosenRune = runeKeys[Math.floor(Math.random() * runeKeys.length)];
       this.spawnGroundItem(zone, 'item', chosenRune, mob.x + (Math.random() - 0.5) * 0.8, mob.y + (Math.random() - 0.5) * 0.8, 1, null, instId);
       this.broadcastSystemMessage(`✨ MYTHICAL DROP! [${killerPlayer ? killerPlayer.name : 'A hero'}] uncovered a rare [${ITEMS[chosenRune]?.name || chosenRune}]!`);
+    }
+
+    // Armor set fragments (crafting.ts): bosses usually, other monsters rarely
+    const frag = CRAFT.rollFragmentDrop(mob);
+    if (frag) this.spawnGroundItem(zone, 'item', frag.itemId, mob.x + (Math.random() - 0.5) * 0.8, mob.y + (Math.random() - 0.5) * 0.8, frag.n, null, instId);
+
+    // Dungeon modifiers: a modded boss pays out extra fragments; Volatile monsters burst
+    const modInst = zone === 'dungeon' && instId ? this.dungeonInstances.get(instId) : null;
+    if (modInst && modInst.mods && modInst.mods.length) {
+      const extra = isBoss ? DMODS.bonusBossFragments(modInst.mods) : 0;
+      if (extra > 0) {
+        const pick = CRAFT.rollFragmentDrop({ isBoss: true, level: Math.max(40, mob.level || 1) }) || { itemId: 'fragment_wayfarer' };
+        this.spawnGroundItem(zone, 'item', pick.itemId, mob.x, mob.y + 0.4, extra, null, instId);
+      }
+      if (modInst.mods.includes('volatile')) this.scheduleVolatileBurst(modInst, mob);
+    }
+
+    // Defensive armor runes: rarer than gear, far more common than the elemental ones
+    if (Math.random() < (isBoss ? ARMOR_RUNE_DROP.boss : ARMOR_RUNE_DROP.normal)) {
+      const armorRunes = Object.values(ITEMS).filter((it: any) => it.type === 'rune' && it.socketFor === 'armor') as any[];
+      const r = armorRunes[Math.floor(Math.random() * armorRunes.length)];
+      if (r) {
+        this.spawnGroundItem(zone, 'item', r.id, mob.x + (Math.random() - 0.5) * 0.8, mob.y + (Math.random() - 0.5) * 0.8, 1, null, instId);
+        if (isBoss) this.broadcastSystemMessage(`🔷 [${killerPlayer ? killerPlayer.name : 'A hero'}] found a [${r.name}] on [${mob.name}]!`);
+      }
     }
 
     // Ancient Socket Expander drop: 0.00005% chance (0.0000005) from boss monsters
@@ -7452,7 +7650,10 @@ class GameServer {
 
       // an HP-draining toggle (Crimson Aura) stops natural HP regen
       const bleeding = player.spToggles && Object.keys(player.spToggles).length && this.tickSpToggles(player, dt);
-      if (!bleeding) player.hp = Math.min(player.maxHp, player.hp + (player.maxHp * 0.015 * dt));
+      const regenMult = ((player.set2 && player.set2.wayfarer && player.set2.wayfarer.regenMult) || 1)
+        * (1 + 0.35 * ((player.armorRunes && player.armorRunes.renewal) || 0));   // Renewal runes
+      if (!bleeding) player.hp = Math.min(player.maxHp, player.hp + (player.maxHp * 0.015 * regenMult * dt));
+      this.tickPlayerShields(player, dt);
       if (player.bloodlust) {
         player.bloodlust.timer -= dt;
         if (player.bloodlust.timer <= 0) {
@@ -8477,6 +8678,169 @@ class GameServer {
     this.savePlayerAccount(socketId);
   }
 
+  // Absorption layers on a hero, outermost first: shields (skills, set
+  // effects) then the mage's Energy Shield. Returns the damage left for HP.
+  absorbIncomingDamage(player, damage, zone) {
+    player.lastHitAt = Date.now();   // pauses the Energy Shield recharge
+    if (player.shieldHp > 0 && damage > 0) {
+      const absorbed = Math.min(player.shieldHp, damage);
+      player.shieldHp -= absorbed;
+      damage -= absorbed;
+      this.emitZone(zone, 'floating_text', { x: player.x, y: player.y - 0.5, text: `🛡️ Absorbed -${absorbed}`, color: '#e2e8f0' });
+    }
+    if (player.es > 0 && damage > 0) {
+      const soaked = Math.min(player.es, damage);
+      player.es -= soaked;
+      damage -= soaked;
+      this.emitZone(zone, 'floating_text', { x: player.x, y: player.y - 0.5, text: `💠 -${Math.round(soaked)}`, color: '#67e8f9' });
+      if (player.es <= 0) {
+        this.emitZone(zone, 'floating_text', { x: player.x, y: player.y - 1.0, text: '💠 ENERGY SHIELD BROKEN', color: '#38bdf8', size: 15 });
+      }
+    }
+    return damage;
+  }
+
+  // ===== SET EFFECTS (armor set 4-piece bonuses, data/items/sets.json) =====
+
+  // Wayfarer's Resolve: Second Wind when HP falls under the threshold
+  checkSecondWind(player, zone) {
+    const sw = player.set4 && player.set4.wayfarer;
+    const now = Date.now();
+    if (!sw || player.isDead || player.hp <= 0 || player.hp > player.maxHp * sw.hpThreshold) return;
+    if ((player.secondWindReadyAt || 0) > now) return;
+    player.secondWindReadyAt = now + sw.cooldown * 1000;
+    const shield = Math.round(player.maxHp * sw.shieldPct);
+    player.shieldHp = (player.shieldHp || 0) + shield;
+    player.sprintTimer = Math.max(player.sprintTimer || 0, sw.hasteSec);
+    if (player.statusEffects) player.statusEffects = player.statusEffects.filter(e => e.type !== 'chill');
+    player.speedFactor = 1.0;
+    this.emitZone(zone, 'floating_text', { x: player.x, y: player.y - 1.0, text: `🌿 SECOND WIND! +${shield} Shield`, color: '#4ade80', size: 18 });
+    this.emitZone(zone, 'skill_fx', { type: 'set_proc', set: 'wayfarer', x: player.x, y: player.y, radius: 1.6, color: '#4ade80', playerId: player.id });
+  }
+
+  // Damage multiplier from set bonuses for one hit on `mob`
+  setDamageMult(player, mob) {
+    let m = 1;
+    if (player.set2 && player.set2.emberheart && mob.burnTimer > 0) m += player.set2.emberheart.dmgVsBurning;
+    if (player.eclipsePhase === 'dusk' && player.set4 && player.set4.eclipse) m += player.set4.eclipse.duskDmg;
+    return m;
+  }
+
+  // On-hit set effects after a hit of `damage` landed on a living or dead mob.
+  // Hits made by these procs pass player._inSetProc so they never chain again.
+  applySetOnHit(player, mob, damage) {
+    if (!player.set4 || player._inSetProc) return;
+    const zone = player.zone;
+    const instId = player.zone === 'dungeon' ? player.dungeonInstanceId : null;
+    const mobs = () => this.getMobsMap(player.zone, player);
+
+    // Eclipse, Dusk: heal from damage dealt (capped per hit like other leech)
+    const ec = player.set4.eclipse;
+    if (ec && player.eclipsePhase === 'dusk' && damage > 0) {
+      const heal = Math.min(Math.round(player.maxHp * 0.05), Math.max(1, Math.round(damage * ec.duskLeech)));
+      player.hp = Math.min(player.maxHp, player.hp + heal);
+    }
+
+    // Emberheart: Ember brands, erupting at full stacks
+    const em = player.set4.emberheart;
+    if (em) {
+      if (!mob.embers) mob.embers = {};
+      const n = (mob.embers[player.id] || 0) + 1;
+      if (n < em.stacks) {
+        mob.embers[player.id] = n;
+      } else {
+        mob.embers[player.id] = 0;
+        player._inSetProc = true;
+        try {
+          const hit = Math.max(1, Math.round(player.dmg * em.dmgMult * SKILL_DAMAGE_SCALE));
+          for (const other of mobs().values()) {
+            if (other.state === 'dead' || other.hp <= 0) continue;
+            if (Math.hypot(other.x - mob.x, other.y - mob.y) > em.radius) continue;
+            other.burnTimer = Math.max(other.burnTimer || 0, em.burnSec);
+            other.burnDmg = Math.max(other.burnDmg || 0, Math.round(player.dmg * em.burnMult));
+            this.applyDamageToMob(player, other, hit, false);
+          }
+        } finally { player._inSetProc = false; }
+        this.emitZone(zone, 'skill_fx', { type: 'set_proc', set: 'emberheart', x: mob.x, y: mob.y, radius: em.radius, color: '#f97316', playerId: player.id }, instId);
+        this.emitZone(zone, 'floating_text', { x: mob.x, y: mob.y - 1.1, text: '🔥 CINDER CASCADE!', color: '#fb923c', size: 17 }, instId);
+      }
+    }
+
+    // Stormcaller: a full Static charge discharges into a lightning chain
+    const st = player.set4.stormcaller;
+    if (st && (player.staticStacks || 0) >= st.stacks) {
+      player.staticStacks = 0;
+      const points = [{ x: mob.x, y: mob.y }];
+      const struck = new Set([mob.id]);
+      let from = mob;
+      let mult = st.dmgMult;
+      player._inSetProc = true;
+      try {
+        for (let i = 0; i < st.chains; i++) {
+          let next = null, best = st.range;
+          for (const other of mobs().values()) {
+            if (struck.has(other.id) || other.state === 'dead' || other.hp <= 0) continue;
+            const d = Math.hypot(other.x - from.x, other.y - from.y);
+            if (d <= best) { best = d; next = other; }
+          }
+          if (!next) break;
+          struck.add(next.id);
+          points.push({ x: next.x, y: next.y });
+          this.applyDamageToMob(player, next, Math.max(1, Math.round(player.dmg * mult * SKILL_DAMAGE_SCALE)), false);
+          mult *= (1 - st.falloff);
+          from = next;
+        }
+      } finally { player._inSetProc = false; }
+      if (player.skillCooldowns) {
+        for (const k of Object.keys(player.skillCooldowns)) {
+          if (player.skillCooldowns[k] > 0) player.skillCooldowns[k] = Number((player.skillCooldowns[k] * (1 - st.cdCut)).toFixed(2));
+        }
+      }
+      this.emitZone(zone, 'skill_fx', { type: 'set_proc', set: 'stormcaller', x: mob.x, y: mob.y, points, color: '#facc15', playerId: player.id }, instId);
+      this.emitZone(zone, 'floating_text', { x: player.x, y: player.y - 1.0, text: '⚡ STATIC OVERLOAD!', color: '#facc15', size: 17 }, instId);
+    }
+  }
+
+  // Skill cast hooks: Stormcaller Static stacks, Eclipse phase flip
+  applySetOnSkillCast(player, cooldown) {
+    if (!player.set4) return;
+    const st = player.set4.stormcaller;
+    if (st) player.staticStacks = Math.min(st.stacks, (player.staticStacks || 0) + 1);
+    const ec = player.set4.eclipse;
+    if (ec && cooldown >= ec.flipCooldown) this.flipEclipse(player);
+  }
+
+  flipEclipse(player) {
+    const ec = player.set4 && player.set4.eclipse;
+    if (!ec) return;
+    player.eclipsePhase = player.eclipsePhase === 'dusk' ? 'dawn' : 'dusk';
+    player.eclipseTimer = ec.period;
+    this.recalculatePlayerStats(player);   // Dawn's Defense bonus
+    const dusk = player.eclipsePhase === 'dusk';
+    this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 1.0, text: dusk ? '🌑 DUSK' : '🌕 DAWN', color: dusk ? '#a855f7' : '#fde68a', size: 16 });
+    this.emitZone(player.zone, 'skill_fx', { type: 'set_proc', set: 'eclipse', phase: player.eclipsePhase, x: player.x, y: player.y, radius: dusk ? 1.4 : ec.dawnRadius, color: dusk ? '#a855f7' : '#fde68a', playerId: player.id });
+  }
+
+  // Per-tick upkeep: Energy Shield recharge, Eclipse phase clock and Dawn's party heal
+  tickPlayerShields(player, dt) {
+    if (player.esMax > 0 && player.es < player.esMax && Date.now() - (player.lastHitAt || 0) >= ENERGY_SHIELD.delay * 1000) {
+      player.es = Math.min(player.esMax, player.es + player.esMax * ENERGY_SHIELD.rechargePerSec * dt);
+    }
+    const ec = player.set4 && player.set4.eclipse;
+    if (!ec) return;
+    player.eclipseTimer = (player.eclipseTimer || ec.period) - dt;
+    if (player.eclipseTimer <= 0) this.flipEclipse(player);
+    if (player.eclipsePhase === 'dawn') {
+      const inst = player.dungeonInstanceId || null;
+      for (const ally of this.players.values()) {
+        if (ally.isDead || ally.zone !== player.zone || (ally.dungeonInstanceId || null) !== inst) continue;
+        if (ally !== player && (!player.partyId || ally.partyId !== player.partyId)) continue;
+        if (Math.hypot(ally.x - player.x, ally.y - player.y) > ec.dawnRadius) continue;
+        ally.hp = Math.min(ally.maxHp, ally.hp + ally.maxHp * ec.dawnHealPct * dt);
+      }
+    }
+  }
+
   // One monster blow landing on a hero: immunities, dodges, shields, thorns,
   // elemental resistance and on-hit affixes. The caller handles reach and cooldown.
   mobStrikePlayer(mob, targetPlayer, zone) {
@@ -8529,7 +8893,8 @@ class GameServer {
     }
 
     // Thorns reflection (Iron Fortress + passive Unyielding Spikes/Colossus Avatar)
-    const thornsDmg = (targetPlayer.ironFortressTimer > 0 ? 25 : 0) + (targetPlayer.thorns || 0);
+    const runeThorns = targetPlayer.armorRunes && targetPlayer.armorRunes.thorns ? Math.round(targetPlayer.maxHp * 0.03 * targetPlayer.armorRunes.thorns) : 0;
+    const thornsDmg = (targetPlayer.ironFortressTimer > 0 ? 25 : 0) + (targetPlayer.thorns || 0) + runeThorns;
     if (thornsDmg > 0) {
       this.applyDamageToMob(targetPlayer, mob, thornsDmg, false);
       this.emitZone(zone, 'floating_text', { x: mob.x, y: mob.y - 0.7, text: `🌵 ${thornsDmg} Thorns!`, color: '#e2e8f0' });
@@ -8540,15 +8905,11 @@ class GameServer {
       damageDealt = Math.max(1, Math.round(damageDealt * 0.40));
     }
 
-    // Shield Barrier absorption
-    if (targetPlayer.shieldHp > 0) {
-      const absorbed = Math.min(targetPlayer.shieldHp, damageDealt);
-      targetPlayer.shieldHp -= absorbed;
-      damageDealt -= absorbed;
-      this.emitZone(zone, 'floating_text', { x: targetPlayer.x, y: targetPlayer.y - 0.5, text: `🛡️ Absorbed -${absorbed}`, color: '#38bdf8' });
-    }
+    // Shield Barrier absorption, then the mage's Energy Shield
+    damageDealt = this.absorbIncomingDamage(targetPlayer, damageDealt, zone);
 
     targetPlayer.hp -= damageDealt;
+    if (damageDealt > 0) this.checkSecondWind(targetPlayer, zone);
     if (targetPlayer.undyingTimer > 0 && targetPlayer.hp < 1) {
       targetPlayer.hp = 1;
       this.emitZone(zone, 'floating_text', { x: targetPlayer.x, y: targetPlayer.y - 1.0, text: '💀 UNDYING RAGE!', color: '#c084fc', size: 18 });
@@ -8634,6 +8995,9 @@ class GameServer {
       spCardId: p.spTransformed && p.equipment && p.equipment.sp ? p.equipment.sp.cardId : null,
       spLevel: p.spTransformed && p.equipment && p.equipment.sp ? (p.equipment.sp.upgradeLevel || 0) : 0,
       shieldHp: Math.round(p.shieldHp || 0),
+      es: Math.round(p.es || 0),
+      esMax: p.esMax || 0,
+      setCounts: p.setCounts || {},
       berserkTimer: Number((p.berserkTimer || 0).toFixed(1)),
       spToggles: p.spToggles ? Object.values(p.spToggles).map((a: any) => ({ id: a.skill.id, r: a.skill.r || 0, spin: !!a.skill.spin, c: a.skill.color })) : [],
       buffs: this.heroBuffs(p),
