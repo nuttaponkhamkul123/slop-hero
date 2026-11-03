@@ -1,0 +1,46 @@
+{
+  "fragment_wayfarer": {
+    "id": "fragment_wayfarer",
+    "name": "Wayfarer Fragment",
+    "type": "material",
+    "iconKey": "fragment",
+    "icon": "🌿",
+    "rarity": "epic",
+    "color": "#4ade80",
+    "sellPrice": 60,
+    "desc": "A scrap of road-worn leather and thread. Crafting: 8 make a missing Wayfarer's Resolve piece."
+  },
+  "fragment_emberheart": {
+    "id": "fragment_emberheart",
+    "name": "Emberheart Fragment",
+    "type": "material",
+    "iconKey": "fragment",
+    "icon": "🔥",
+    "rarity": "legendary",
+    "color": "#f97316",
+    "sellPrice": 120,
+    "desc": "A still-warm shard of volcanic plate. Crafting: 8 make a missing Emberheart Regalia piece."
+  },
+  "fragment_stormcaller": {
+    "id": "fragment_stormcaller",
+    "name": "Stormcaller Fragment",
+    "type": "material",
+    "iconKey": "fragment",
+    "icon": "⚡",
+    "rarity": "legendary",
+    "color": "#facc15",
+    "sellPrice": 120,
+    "desc": "A thread of storm-woven cloth that hums when touched. Crafting: 8 make a missing Stormcaller's Vestments piece."
+  },
+  "fragment_eclipse": {
+    "id": "fragment_eclipse",
+    "name": "Eclipse Fragment",
+    "type": "material",
+    "iconKey": "fragment",
+    "icon": "🌗",
+    "rarity": "legendary",
+    "color": "#c084fc",
+    "sellPrice": 120,
+    "desc": "A sliver of veil, half gold and half violet. Crafting: 8 make a missing Eclipse of the Twin Veil piece."
+  }
+}

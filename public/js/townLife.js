@@ -545,6 +545,8 @@
   }
 
   function treeSprite(type, variant) {
+    // isometric 3D trees from pixelProps.js (loaded after this file, so looked up when first drawn)
+    if (window.PixelProps && window.PixelProps.isoTree) return window.PixelProps.isoTree(type, variant);
     const key = `${type}|${variant}`;
     if (treeCache.has(key)) return treeCache.get(key);
     const seed = variant * 101 + (type === 'pine_tree' ? 7 : 3);

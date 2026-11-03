@@ -806,6 +806,19 @@ class IsometricRenderer {
     }
   }
 
+  // Settings > Lighting: 'auto' | 'smooth' | 'simple' | 'off'
+  setLightingMode(mode) {
+    this.lightingSetting = mode;
+  }
+
+  // The lighting actually used this frame; auto follows the graphics quality
+  // (Low / Potato, or Auto once it has stepped down for a slow PC -> simple)
+  lightingMode() {
+    const s = this.lightingSetting || 'auto';
+    if (s !== 'auto') return s;
+    return this.lowEffects ? 'simple' : 'smooth';
+  }
+
   setVfxLevel(level) {
     this.vfxSetting = level;
     if (level === 'minimal') {
@@ -1539,6 +1552,51 @@ class IsometricRenderer {
     ctx.restore();
   }
 
+  // Particle bursts for the armor set effects (server: applySetOnHit & co.)
+  addSetProcEffect(fx) {
+    const ring = (type, r, n, opts) => {
+      for (let k = 0; k < n; k++) {
+        const a = (k / n) * Math.PI * 2;
+        this.addParticles(fx.x + Math.cos(a) * r, fx.y + Math.sin(a) * r, type, 1, opts);
+      }
+    };
+    if (fx.set === 'emberheart') {
+      // Cinder Cascade: a fiery eruption with a ring at the blast's edge
+      const r = fx.radius || 2.6;
+      this.addParticles(fx.x, fx.y, 'fire', 22, { speed: 3.2, z: 0.3 });
+      this.addParticles(fx.x, fx.y, 'spark', 10, { speed: 3.6 });
+      ring('fire', r * 0.9, 20, { speed: 0.9, sizeScale: 0.9 });
+      this.triggerScreenShake(4, 0.16);
+    } else if (fx.set === 'stormcaller') {
+      // Static Overload: crackling sparks along each jump of the chain
+      const pts = fx.points || [{ x: fx.x, y: fx.y }];
+      this.addParticles(pts[0].x, pts[0].y, 'lightning', 10, { speed: 2.6 });
+      for (let i = 1; i < pts.length; i++) {
+        const a = pts[i - 1], b = pts[i];
+        const steps = Math.max(3, Math.round(Math.hypot(b.x - a.x, b.y - a.y) * 3));
+        for (let s = 0; s <= steps; s++) {
+          const t = s / steps;
+          const jitter = (Math.random() - 0.5) * 0.35;
+          this.addParticles(a.x + (b.x - a.x) * t + jitter, a.y + (b.y - a.y) * t - jitter, 'lightning', 1, { speed: 0.4, sizeScale: 0.9 });
+        }
+        this.addParticles(b.x, b.y, 'spark', 6, { speed: 2.4 });
+      }
+    } else if (fx.set === 'eclipse') {
+      // Dawn & Dusk: a golden halo spreading over the party, or a violet shroud
+      if (fx.phase === 'dawn') {
+        ring('gold', Math.min(3, fx.radius || 3), 18, { speed: 0.7, z: 0.3 });
+        this.addParticles(fx.x, fx.y, 'spark', 10, { speed: 1.6, z: 0.5 });
+      } else {
+        ring('shadow', 1.2, 14, { speed: 0.9 });
+        this.addParticles(fx.x, fx.y, 'arcane', 10, { speed: 1.4, z: 0.4 });
+      }
+    } else if (fx.set === 'wayfarer') {
+      // Second Wind: a gust of green leaves swirling up around the hero
+      ring('earth', 1.3, 16, { speed: 1.2, z: 0.4 });
+      this.addParticles(fx.x, fx.y, 'wind', 10, { speed: 2.2 });
+    }
+  }
+
   addSkillEffect(fx) {
     if (!fx || !fx.type) return;
     // Eternal Rift Frost Spire pulse: a quiet ring of ice, no shake
@@ -1549,6 +1607,11 @@ class IsometricRenderer {
         this.addParticles(fx.x + Math.cos(a) * r * 0.85, fx.y + Math.sin(a) * r * 0.85, 'ice', 1, { speed: 0.8, sizeScale: 0.8 });
       }
       this.addParticles(fx.x, fx.y, 'ice', 8, { speed: 2.2, sizeScale: 0.7 });
+      return;
+    }
+    // Armor set 4-piece procs (no cast pose: they fire off hits and timers)
+    if (fx.type === 'set_proc') {
+      this.addSetProcEffect(fx);
       return;
     }
     // Casting a non-movement skill plays the hero's cast pose
@@ -11811,6 +11874,7 @@ class IsometricRenderer {
 
     const sealed = this.sealedDoorTiles(map);
     const vis = this.visibleTileBounds(map, w, h, 160);
+    const fieldPainted = this.fieldGroundOn(map, isDungeon) ? (x, y) => window.FieldGround.paintedAt(map, x, y) : null;
     for (let y = vis.y0; y <= vis.y1; y++) {
       for (let x = vis.x0; x <= vis.x1; x++) {
         const tileType = map.tiles[y][x];
@@ -11829,6 +11893,15 @@ class IsometricRenderer {
         // a sealed doorway is floor with a portcullis standing in it instead
         if (isDungeon && tileType === 7) { if (!sealed.has(x + ',' + y)) wallTiles.push({ x, y }); continue; }
         const pal = FIELD_TILE_PALETTE[tileType];
+        // painted field ground: liquids only get a shimmer, the frost pads only their rune glow
+        if (fieldPainted && fieldPainted(x, y)) {
+          if (tileType === 11) animatedTiles.push({ x, y, tileType, depth: x + y, rune: true });
+          else if (window.FieldGround.liquidKind(tileType)) animatedTiles.push({ x, y, tileType, depth: x + y, shimmer: true });
+          else if (pal && OVERLAY_TILE_DETAILS.has(pal.detail)) {
+            if (pal.detail !== 'sparkle' || ((x * 73 + y * 151) % 97) % 3 === 0) animatedTiles.push({ x, y, tileType, depth: x + y, overlay: true });
+          }
+          continue;
+        }
         const overlay = !!(pal && OVERLAY_TILE_DETAILS.has(pal.detail));
         // (matches drawFieldTileDetail: only every third sparkle tile has a sparkle)
         if (overlay && pal.detail === 'sparkle' && ((x * 73 + y * 151) % 97) % 3 !== 0) continue;
@@ -11842,10 +11915,18 @@ class IsometricRenderer {
     animatedTiles.sort((a, b) => a.depth - b.depth);
     ctx.save();
     for (const tile of animatedTiles) {
-      if (tile.overlay) {
+      if (tile.overlay || tile.shimmer || tile.rune) {
         const screen = Isometric.worldToScreen(tile.x, tile.y, 0, this.camera, w, h);
-        const z = this.camera.zoom;
-        this.drawFieldTileDetail(ctx, FIELD_TILE_PALETTE[tile.tileType].detail, screen, (TILE_WIDTH / 2) * z, (TILE_HEIGHT / 2) * z, tile.x, tile.y);
+        const z = this.camera.zoom, hw = (TILE_WIDTH / 2) * z, hh = (TILE_HEIGHT / 2) * z;
+        if (tile.shimmer) this.drawLiquidShimmer(ctx, tile.tileType, screen, hw, hh, tile.x, tile.y);
+        else if (tile.rune) {
+          // Frostfell stone pad: just the pulsing rune ring over the painted flagstones
+          ctx.strokeStyle = `rgba(103, 232, 249, ${0.45 * (Math.sin(this.animations.time * 3 + tile.x + tile.y) * 0.2 + 0.8)})`;
+          ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          ctx.arc(screen.x, screen.y, hw * 0.28, 0, Math.PI * 2);
+          ctx.stroke();
+        } else this.drawFieldTileDetail(ctx, FIELD_TILE_PALETTE[tile.tileType].detail, screen, hw, hh, tile.x, tile.y);
       } else {
         this.drawIsometricTile(ctx, tile.x, tile.y, tile.tileType, true);
       }
@@ -11909,7 +11990,7 @@ class IsometricRenderer {
       if (!this.dungeonLife || this.dungeonLife.map !== map) this.dungeonLife = new window.DungeonLife.Atmosphere(map, this.currentTheme);
       dungeonLife = this.dungeonLife;
       dungeonLife.update(dt || 0.016, this);
-      dungeonLife.drawLighting(ctx, this, gameState, localPlayerId);
+      dungeonLife.drawLighting(ctx, this, gameState, localPlayerId, this.lightingMode());
     } else {
       this.dungeonLife = null;
     }
@@ -12169,6 +12250,52 @@ class IsometricRenderer {
     };
   }
 
+  // Field zones get the painted pixel ground (fieldGround.js), except in Potato
+  // mode, which keeps the plain tiles
+  fieldGroundOn(map, isDungeon) {
+    return !isDungeon && !this.potatoMode && this.currentTheme !== 'town' && !!window.FieldGround && window.FieldGround.handles(map);
+  }
+
+  // Over painted field liquids the tile is not repainted each frame; only a
+  // little movement is drawn on top: glints on water, a breathing glow on lava
+  drawLiquidShimmer(ctx, tileType, screen, hw, hh, x, y) {
+    const t = this.animations.time, seed = x * 1.7 + y * 2.3;
+    const pal = FIELD_TILE_PALETTE[tileType];
+    const detail = pal ? pal.detail : (tileType === 10 ? 'ice' : null);
+    ctx.save();
+    if (detail === 'lava') {
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 0.1 + 0.08 * Math.sin(t * 2.2 + seed);
+      ctx.fillStyle = '#fb923c';
+      ctx.beginPath();
+      ctx.ellipse(screen.x, screen.y, hw * 0.8, hh * 0.8, 0, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (detail === 'pool' || detail === 'murk') {
+      // a slow bubble now and then
+      const ph = (t * 0.6 + seed) % 3;
+      if (ph < 1) {
+        ctx.globalAlpha = 0.5 * (1 - ph);
+        ctx.strokeStyle = detail === 'pool' ? '#c4b5fd' : '#86a873';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.ellipse(screen.x + Math.sin(seed) * hw * 0.3, screen.y, 2 + ph * hw * 0.2, 1 + ph * hh * 0.2, 0, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    } else {
+      // water / ice: two short glints that fade in and out
+      const z = this.camera.zoom, p = Math.max(1, Math.round(1.5 * z));
+      ctx.fillStyle = detail === 'ice' ? '#f0fbff' : '#cfeaff';
+      for (let k = 0; k < 2; k++) {
+        const a = Math.sin(t * 1.6 + seed * (k + 1) * 3.1);
+        if (a < 0.4) continue;
+        ctx.globalAlpha = (a - 0.4) * 1.2;
+        const gx = screen.x + Math.sin(seed * 5.3 + k * 2) * hw * 0.5, gy = screen.y + Math.cos(seed * 3.1 + k) * hh * 0.5;
+        ctx.fillRect(Math.round(gx), Math.round(gy), p * 3, p);
+      }
+    }
+    ctx.restore();
+  }
+
   // Paint the static ground into an offscreen canvas a margin larger than the
   // screen and blit it; repaint only when the camera leaves the margin, the
   // zoom or viewport changes, or the map's tiles change (map._tilesVersion).
@@ -12183,8 +12310,22 @@ class IsometricRenderer {
     const bs = this.canvas.width / this.viewW;
     // The town's pixel ground is painted a slice per frame; repaint once it is ready
     const tex = this.currentTheme === 'town' && window.TownLife ? window.TownLife.groundTexture(map) : null;
+    // Field zones: pixel ground painted in chunks around the camera (fieldGround.js);
+    // fieldSig changes whenever a chunk in view has just been finished
+    const field = this.fieldGroundOn(map, isDungeon);
+    let fieldSig = g ? g.fieldSig : 0, fieldNew = false;
+    if (field) {
+      const FG = window.FieldGround, hx = (w / 2 + M) / zoom, hy = (h / 2 + M) / zoom;
+      // a bigger slice while much of the view is still plain tiles (entering a zone)
+      const backlog = FG.pending(map) > 12;
+      fieldSig = FG.pump(map, cam.x - hx, cam.y - hy, cam.x + hx, cam.y + hy, (this.lowEffects ? 3 : 5) * (backlog ? 2 : 1));
+      // new chunks are shown at most ~8 times a second while many are arriving,
+      // so the ground cache is not rebuilt for every single one
+      const now = performance.now();
+      fieldNew = !!g && fieldSig !== g.fieldSig && (!backlog || now - (g.paintedAt || 0) > 120);
+    }
     const stale = !g || g.map !== map || g.theme !== this.currentTheme || g.version !== version || g.zoom !== zoom || g.w !== w || g.h !== h ||
-      g.tex !== tex || g.bs !== bs || Math.abs((g.camX - cam.x) * zoom) > M - 16 || Math.abs((g.camY - cam.y) * zoom) > M - 16;
+      g.tex !== tex || g.bs !== bs || fieldNew || Math.abs((g.camX - cam.x) * zoom) > M - 16 || Math.abs((g.camY - cam.y) * zoom) > M - 16;
     // Mid-zoom on the same map: stretch the last painting rather than repaint
     // every tile each frame (it repaints sharp once the zoom settles)
     if (stale && !this.zoomSettled && g && g.map === map && g.theme === this.currentTheme && g.w === w && g.h === h && g.bs === bs) {
@@ -12198,6 +12339,8 @@ class IsometricRenderer {
     if (stale) {
       if (!g) g = this.groundCache = { canvas: document.createElement('canvas') };
       g.tex = tex;
+      g.fieldSig = fieldSig;
+      g.paintedAt = performance.now();
       const cw = w + 2 * M, ch = h + 2 * M;
       const bw = Math.ceil(cw * bs), bh = Math.ceil(ch * bs);
       if (g.canvas.width !== bw || g.canvas.height !== bh) {
@@ -12239,150 +12382,155 @@ class IsometricRenderer {
         gctx.drawImage(tex.canvas, (tex.minX - cam.x) * zoom + cw / 2, (tex.minY - cam.y) * zoom + ch / 2, tex.canvas.width * zoom, tex.canvas.height * zoom);
         gctx.imageSmoothingEnabled = true;
       }
+      // Field zones: the finished ground chunks cover the tile tops the same way
+      if (field) {
+        const hx = cw / 2 / zoom, hy = ch / 2 / zoom;
+        gctx.imageSmoothingEnabled = zoom * bs < 1;
+        for (const c of window.FieldGround.readyChunks(map, cam.x - hx, cam.y - hy, cam.x + hx, cam.y + hy)) {
+          // whole pixels, slightly overlapped, so no hairline seams open between chunks
+          const x0 = Math.floor((c.x - cam.x) * zoom + cw / 2), y0 = Math.floor((c.y - cam.y) * zoom + ch / 2);
+          const sz = Math.ceil(c.canvas.width * zoom) + 1;
+          gctx.drawImage(c.canvas, x0, y0, sz, sz);
+        }
+        gctx.imageSmoothingEnabled = true;
+      }
     }
     const dx = Math.round((g.camX - cam.x) * zoom - M + (cam.shakeOffsetX || 0));
     const dy = Math.round((g.camY - cam.y) * zoom - M + (cam.shakeOffsetY || 0));
     ctx.drawImage(g.canvas, dx, dy, g.cssW, g.cssH);
   }
 
-  // Portal gate: a ring of runestones on the ground, an upright swirling
-  // vortex with a bright core, sparkles running round its rim, motes rising
-  // from the base and spiralling in, and a faint column of light above
-  drawPortalGate(ctx, screen, z, accent, second, label, seed) {
+  // Portal gate: a stone arch on a stepped dais (pixelProps.portalGate, the iso
+  // projection the other props use) with a swirling vortex in the plane of the
+  // arch, rune grooves pulsing in the portal's colour, a column of light and
+  // motes rising from the dais into the vortex
+  drawPortalGate(ctx, screen, z, accent, second, label, seed, style = 'arch') {
     const t = this.animations.time + seed;
     const x = Math.round(screen.x), y = Math.round(screen.y);
-    const cy = y - 26 * z;                 // centre of the upright vortex
-    const RX = 15 * z, RY = 24 * z;        // vortex half-width / half-height
+    const P = 1.3 * z;                     // one sprite pixel / model unit on screen
     const px = Math.max(1, Math.round(1.5 * z));
     // potato: a lighter gate (no light beam, thinner spiral, fewer motes, flat core)
     const lite = this.potatoMode;
+    // 'arch': the stone gate; 'cave': a tunnel mouth in a rocky mound (the Eternal Rift)
+    const PP = window.PixelProps;
+    const spr = PP ? (style === 'cave' && PP.caveMouth ? PP.caveMouth(accent) : PP.portalGate ? PP.portalGate(accent) : null) : null;
+    const G = spr ? spr.geo : { half: 13, z0: 5, inner: 10.4, top: 34.4 };
+    const V = G.v || 0;            // the vortex plane sits this far toward +y (inside a cave mouth)
+    // model point (u along the arch, w up, v across) -> screen
+    const proj = (u, w, v = 0) => ({ x: x + (u - v) * P, y: y + ((u + v) / 2 - w) * P });
+    const zc = (G.z0 + G.top) / 2, RX = G.inner * 0.94, RZ = (G.top - G.z0) / 2 * 0.95;
+    const pv = (u, w) => proj(u, w, V);   // a point in the vortex plane
     ctx.save();
 
-    // ground: dark basin, glowing pool and the runestone ring
-    ctx.fillStyle = 'rgba(8, 10, 20, 0.75)';
-    ctx.beginPath();
-    ctx.ellipse(x, y, 26 * z, 13 * z, 0, 0, Math.PI * 2);
-    ctx.fill();
+    // soft glow pooled on the ground around the dais
     ctx.globalCompositeOperation = 'lighter';
-    const pool = ctx.createRadialGradient(x, y, 0, x, y, 26 * z);
-    pool.addColorStop(0, hexAlpha(accent, 0.55 + 0.15 * Math.sin(t * 3)));
+    const pool = ctx.createRadialGradient(x, y, 0, x, y, 30 * z);
+    pool.addColorStop(0, hexAlpha(accent, 0.4 + 0.12 * Math.sin(t * 3)));
     pool.addColorStop(1, hexAlpha(accent, 0));
     ctx.fillStyle = pool;
     ctx.save();
     ctx.translate(x, y);
     ctx.scale(1, 0.5);
     ctx.beginPath();
-    ctx.arc(0, 0, 26 * z, 0, Math.PI * 2);
+    ctx.arc(0, 0, 30 * z, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
     ctx.globalCompositeOperation = 'source-over';
-    const STONES = 10;
-    for (let i = 0; i < STONES; i++) {
-      const a = (i / STONES) * Math.PI * 2;
-      const sx = Math.round(x + Math.cos(a) * 24 * z), sy = Math.round(y + Math.sin(a) * 12 * z);
-      const w = 5 * px, h = (Math.sin(a) > 0 ? 5 : 4) * px;
-      ctx.fillStyle = '#1a1c2c';
-      ctx.fillRect(sx - w / 2 - px, sy - h - px, w + 2 * px, h + 2 * px);
-      ctx.fillStyle = '#566c86';
-      ctx.fillRect(sx - w / 2, sy - h, w, h);
-      ctx.fillStyle = '#94b0c2';
-      ctx.fillRect(sx - w / 2, sy - h, w, px);
-      // rune lights chase round the ring
-      const lit = 0.5 + 0.5 * Math.sin(t * 4 - i * 0.9);
-      ctx.fillStyle = hexAlpha(i % 2 ? second : accent, 0.35 + 0.65 * lit);
-      ctx.fillRect(sx - px, sy - h + px, 2 * px, 2 * px);
+
+    // the stone gate, and its runes glowing in a slow pulse
+    if (spr) {
+      const x0 = Math.round(x - spr.ax * P), y0 = Math.round(y - spr.ay * P);
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(spr.img, x0, y0, spr.img.width * P, spr.img.height * P);
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 0.55 + 0.45 * (0.5 + 0.5 * Math.sin(t * 3));
+      ctx.drawImage(spr.glow, x0, y0, spr.glow.width * P, spr.glow.height * P);
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = 'source-over';
     }
 
     // column of light rising out of the gate
     ctx.globalCompositeOperation = 'lighter';
+    const c = pv(0, zc);
     if (!lite) {
-      const beam = ctx.createLinearGradient(0, cy, 0, cy - 70 * z);
-      beam.addColorStop(0, hexAlpha(accent, 0.28));
+      const top = proj(0, G.top + 30);
+      const beam = ctx.createLinearGradient(0, c.y, 0, top.y);
+      beam.addColorStop(0, hexAlpha(accent, 0.22));
       beam.addColorStop(1, hexAlpha(accent, 0));
       ctx.fillStyle = beam;
-      ctx.fillRect(x - 9 * z, cy - 70 * z, 18 * z, 70 * z);
+      ctx.fillRect(c.x - 8 * z, top.y, 16 * z, c.y - top.y);
     }
 
-    // the vortex: soft fill, three spiral arms, bright core
+    // the vortex, drawn in the arch's own plane: (u, w) -> screen is a shear
     ctx.save();
-    ctx.translate(x, cy);
-    const fill = ctx.createRadialGradient(0, 0, 0, 0, 0, RY);
+    ctx.translate(x - V * P, y + V / 2 * P);
+    ctx.transform(P, P / 2, 0, -P, 0, 0);
+    const fill = ctx.createRadialGradient(0, zc, 0, 0, zc, RZ);
     fill.addColorStop(0, hexAlpha('#ffffff', 0.55));
-    fill.addColorStop(0.3, hexAlpha(second, 0.4));
-    fill.addColorStop(0.75, hexAlpha(accent, 0.45));
-    fill.addColorStop(1, hexAlpha(accent, 0));
+    fill.addColorStop(0.3, hexAlpha(second, 0.45));
+    fill.addColorStop(0.75, hexAlpha(accent, 0.55));
+    fill.addColorStop(1, hexAlpha(accent, 0.12));
     ctx.fillStyle = fill;
     ctx.beginPath();
-    ctx.ellipse(0, 0, RX, RY, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, zc, RX, RZ, 0, 0, Math.PI * 2);
     ctx.fill();
+    ctx.restore();
+    // spiral arms (crisp pixels placed through the same projection)
     for (let arm = 0; arm < 3; arm++) {
       for (let j = 0; j < 18; j += lite ? 3 : 1) {
         const k = j / 18;
         const a = t * 2.6 + arm * (Math.PI * 2 / 3) + k * 4.2;
         const r = 1 - k;              // arms curl in to the centre
-        const ax = Math.cos(a) * RX * 0.92 * r, ay = Math.sin(a) * RY * 0.92 * r;
+        const q = pv(Math.cos(a) * RX * 0.92 * r, zc + Math.sin(a) * RZ * 0.92 * r);
         ctx.fillStyle = hexAlpha(j % 3 ? accent : '#ffffff', 0.25 + 0.6 * k);
         const sz = Math.max(px, Math.round((1 + 1.5 * (1 - k)) * px));
-        ctx.fillRect(Math.round(ax) - sz / 2, Math.round(ay) - sz / 2, sz, sz);
+        ctx.fillRect(Math.round(q.x) - sz / 2, Math.round(q.y) - sz / 2, sz, sz);
       }
     }
     if (lite) {
       ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-      ctx.fillRect(-2 * px, -2 * px, 4 * px, 4 * px);
+      ctx.fillRect(Math.round(c.x) - 2 * px, Math.round(c.y) - 2 * px, 4 * px, 4 * px);
     } else {
-      const core = ctx.createRadialGradient(0, 0, 0, 0, 0, 8 * z);
+      const core = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, 8 * z);
       core.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
       core.addColorStop(1, hexAlpha(second, 0));
       ctx.fillStyle = core;
       ctx.beginPath();
-      ctx.arc(0, 0, (6 + Math.sin(t * 5)) * z, 0, Math.PI * 2);
+      ctx.arc(c.x, c.y, (6 + Math.sin(t * 5)) * z, 0, Math.PI * 2);
       ctx.fill();
     }
-    ctx.restore();
-
-    // crisp rim with sparkles running round it
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.strokeStyle = '#1a1c2c';
-    ctx.lineWidth = 3 * px;
-    ctx.beginPath();
-    ctx.ellipse(x, cy, RX + px, RY + px, 0, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.strokeStyle = accent;
-    ctx.lineWidth = 1.5 * px;
-    ctx.beginPath();
-    ctx.ellipse(x, cy, RX + px, RY + px, 0, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.globalCompositeOperation = 'lighter';
+    // sparkles running round the edge of the opening
     for (let i = 0; i < 4; i++) {
       const a = t * 1.8 + i * (Math.PI / 2);
-      const sx = Math.round(x + Math.cos(a) * (RX + px)), sy = Math.round(cy + Math.sin(a) * (RY + px));
+      const q = pv(Math.cos(a) * RX, zc + Math.sin(a) * RZ);
+      const sx = Math.round(q.x), sy = Math.round(q.y);
       ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
       ctx.fillRect(sx - px / 2, sy - 2 * px, px, 4 * px);
       ctx.fillRect(sx - 2 * px, sy - px / 2, 4 * px, px);
     }
 
-    // motes drifting up from the ring and spiralling into the vortex
+    // motes drifting up off the dais and spiralling into the vortex
     const MOTES = lite ? 5 : 14;
     for (let i = 0; i < MOTES; i++) {
       const ph = (t * 0.45 + i / MOTES) % 1;
       const a = i * 2.39 + ph * 3;
       const r = 1 - ph;
-      const mx = x + Math.cos(a) * 24 * z * r;
-      const my = (y + Math.sin(a) * 12 * z * r) * (1 - ph) + cy * ph;
+      const q = proj(Math.cos(a) * 14 * r, G.z0 + (zc - G.z0) * ph, V + (style === 'cave' ? 6 + Math.abs(Math.sin(a)) * 6 : Math.sin(a) * 10) * r);
       const alpha = Math.min(1, ph * 4, (1 - ph) * 3);
       ctx.fillStyle = hexAlpha(i % 3 ? accent : second, 0.9 * alpha);
-      ctx.fillRect(Math.round(mx) - px, Math.round(my) - px, 2 * px, 2 * px);
+      ctx.fillRect(Math.round(q.x) - px, Math.round(q.y) - px, 2 * px, 2 * px);
     }
     ctx.restore();
 
-    // name tag above the gate
+    // name tag above the arch
+    const tagAt = proj(0, G.labelZ || G.top + 9);
     ctx.save();
     ctx.font = '15px "DotGothic16", monospace';
     ctx.textAlign = 'center';
     ctx.fillStyle = '#000';
-    ctx.fillText(label, x + 1, cy - RY - 12 * z + 1);
+    ctx.fillText(label, x + 1, tagAt.y + 1);
     ctx.fillStyle = accent;
-    ctx.fillText(label, x, cy - RY - 12 * z);
+    ctx.fillText(label, x, tagAt.y);
     ctx.restore();
   }
 
@@ -13195,6 +13343,7 @@ class IsometricRenderer {
 
   // Warm pool of firelight on the floor around a light source
   drawFloorFireLight(ctx, x, y, z, seed) {
+    if (this.lightingMode() !== 'smooth') return;   // additive glow: smooth lighting only
     const flick = 0.85 + Math.sin(this.animations.time * 9 + seed) * 0.08 + Math.sin(this.animations.time * 17 + seed) * 0.05;
     const r = 46 * z * flick;
     const torchTheme = DUNGEON_THEME_TORCH[this.currentTheme];
@@ -13397,6 +13546,9 @@ class IsometricRenderer {
     const screen = Isometric.worldToScreen(obs.x, obs.y, 0, this.camera, this.viewW, this.viewH);
     const z = this.camera.zoom;
 
+    // invisible blockers (e.g. the rock mound of the Eternal Rift cave, drawn by the portal itself)
+    if (obs.type === 'collider') return;
+
     if (obs.type === 'dungeon_door') {
       this.drawDungeonDoor(ctx, obs, z);
       return;
@@ -13460,7 +13612,7 @@ class IsometricRenderer {
       const spr = TL.treeSprite(obs.type, Math.floor(TL.hash2(Math.round(obs.x * 10), Math.round(obs.y * 10)) * 3));
       const p = 1.3 * z;
       ctx.beginPath();
-      ctx.ellipse(screen.x, screen.y, (obs.type === 'oak_tree' ? 26 : 16) * z, (obs.type === 'oak_tree' ? 12 : 8) * z, 0, 0, Math.PI * 2);
+      ctx.ellipse(screen.x, screen.y, (obs.type === 'oak_tree' ? 28 : 24) * z, (obs.type === 'oak_tree' ? 14 : 12) * z, 0, 0, Math.PI * 2);
       ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
       ctx.fill();
       const x0 = Math.round(screen.x - spr.ax * p), y0 = Math.round(screen.y - spr.ay * p);
@@ -13808,7 +13960,7 @@ class IsometricRenderer {
       ctx.restore();
     } else if (obs.type === 'portal') {
       // Abyssal dungeon portal on the plaza
-      this.drawPortalGate(ctx, screen, z, obs.color || '#a855f7', '#22d3ee', obs.label || '🌀 Dungeon Portal', obs.x * 7 + obs.y);
+      this.drawPortalGate(ctx, screen, z, obs.color || '#a855f7', '#22d3ee', obs.label || '🌀 Dungeon Portal', obs.x * 7 + obs.y, obs.style);
     } else if (obs.type === 'blacksmith') {
       // NPC Brom the Master Smith (Reforge / Item Enhancement)
       // Ground Shadow
@@ -15403,7 +15555,7 @@ class IsometricRenderer {
     ctx.restore(); // End Player coordinate space (Line 1084)
 
     // Nametag, Guild Badge & Mini HP Bar
-    this.drawEntityOverhead(ctx, screen.x, screen.y - 50 * z, this.playerTitledName(player), player.hp, player.maxHp, this.playerNameColor(player), `Lv.${player.level}`);
+    this.drawEntityOverhead(ctx, screen.x, screen.y - 50 * z, this.playerTitledName(player), player.hp, player.maxHp, this.playerNameColor(player), `Lv.${player.level}`, [], false, false, this.heroBarExtra(player));
 
     // Speech Bubble
     if (player.speechBubble) {
@@ -16201,7 +16353,7 @@ class IsometricRenderer {
     // Name tag & speech bubble sit just above this sprite's head
     if (!player.isDead) {
       const headY = y - (PH.AY - PH.headTop(cls, this.lookKeyFor(player, cls, spCard))) * s;
-      this.drawEntityOverhead(ctx, x, headY - 12 * z, this.playerTitledName(player), player.hp, player.maxHp, this.playerNameColor(player), `Lv.${player.level}`);
+      this.drawEntityOverhead(ctx, x, headY - 12 * z, this.playerTitledName(player), player.hp, player.maxHp, this.playerNameColor(player), `Lv.${player.level}`, [], false, false, this.heroBarExtra(player));
       if (player.speechBubble) this.drawSpeechBubble(ctx, x, headY - 36 * z, player.speechBubble);
     }
   }
@@ -16650,7 +16802,7 @@ class IsometricRenderer {
     // =========================================================================
     // OVERHEAD NAMETAG, GUILD BADGE & MINI HP BAR
     // =========================================================================
-    this.drawEntityOverhead(ctx, screen.x, screen.y - 54 * z, this.playerTitledName(player), player.hp, player.maxHp, this.playerNameColor(player), `Lv.${player.level}`);
+    this.drawEntityOverhead(ctx, screen.x, screen.y - 54 * z, this.playerTitledName(player), player.hp, player.maxHp, this.playerNameColor(player), `Lv.${player.level}`, [], false, false, this.heroBarExtra(player));
 
     // =========================================================================
     // SPEECH BUBBLE
@@ -16953,7 +17105,7 @@ class IsometricRenderer {
     }
 
     // Overhead Nametag, Guild Badge & Mini HP Bar
-    this.drawEntityOverhead(ctx, screen.x, screen.y - 54 * z, this.playerTitledName(player), player.hp, player.maxHp, this.playerNameColor(player), `Lv.${player.level}`);
+    this.drawEntityOverhead(ctx, screen.x, screen.y - 54 * z, this.playerTitledName(player), player.hp, player.maxHp, this.playerNameColor(player), `Lv.${player.level}`, [], false, false, this.heroBarExtra(player));
 
     // Speech Bubble
     if (player.speechBubble) {
@@ -17253,7 +17405,7 @@ class IsometricRenderer {
     }
 
     // Overhead Nametag, Guild Badge & Mini HP Bar
-    this.drawEntityOverhead(ctx, screen.x, screen.y - 54 * z, this.playerTitledName(player), player.hp, player.maxHp, this.playerNameColor(player), `Lv.${player.level}`);
+    this.drawEntityOverhead(ctx, screen.x, screen.y - 54 * z, this.playerTitledName(player), player.hp, player.maxHp, this.playerNameColor(player), `Lv.${player.level}`, [], false, false, this.heroBarExtra(player));
 
     // Speech Bubble
     if (player.speechBubble) {
@@ -20081,7 +20233,8 @@ class IsometricRenderer {
       `Lv.${mob.level}${isMiniboss ? ' [MINIBOSS]' : ''}`,
       mob.buffs,
       mob.isCommander,
-      mob.hasCommanderBuff
+      mob.hasCommanderBuff,
+      { key: 'm' + mob.id }
     );
 
     if (mob.frozen || mob.scorch || mob.frost) this.drawMobStatus(ctx, mob, screen, z, overheadY);
@@ -20601,7 +20754,39 @@ class IsometricRenderer {
     return c;
   }
 
-  drawEntityOverhead(ctx, screenX, screenY, name, hp, maxHp, nameColor = '#fff', levelTag = '', buffs = [], isCommander = false, hasCommanderBuff = false) {
+  heroBarExtra(player) {
+    return { key: 'p' + player.id, shield: player.shieldHp || 0, es: player.es || 0, esMax: player.esMax || 0 };
+  }
+
+  // Width (0..1) of the yellow "damage taken" trail behind an HP bar: it waits
+  // a moment at the old value after a hit, then drains down to the real HP.
+  hpTrailRatio(key, ratio) {
+    if (!key) return ratio;
+    const now = performance.now();
+    if (!this._hpTrails) this._hpTrails = new Map();
+    let t = this._hpTrails.get(key);
+    if (!t || ratio >= t.pct) {
+      t = { pct: ratio, last: ratio, holdUntil: 0, at: now, seen: now };
+      this._hpTrails.set(key, t);
+      return ratio;
+    }
+    if (ratio < t.last - 1e-4) t.holdUntil = now + 380;   // a fresh hit: hold before draining
+    t.last = ratio;
+    const dt = Math.min(0.1, (now - t.at) / 1000);
+    t.at = now;
+    t.seen = now;
+    if (now >= t.holdUntil) t.pct = Math.max(ratio, t.pct - Math.max(0.35, (t.pct - ratio) * 4) * dt);
+    // forget bars that have not been drawn for a while
+    if (this._hpTrails.size > 400 && (!this._hpTrailSweep || now - this._hpTrailSweep > 5000)) {
+      this._hpTrailSweep = now;
+      for (const [k, v] of this._hpTrails) if (now - v.seen > 5000) this._hpTrails.delete(k);
+    }
+    return t.pct;
+  }
+
+  // extra: { key, shield, es, esMax } - key turns on the damage trail; shield
+  // (absorb HP) and es / esMax (mage Energy Shield) are drawn over the bar
+  drawEntityOverhead(ctx, screenX, screenY, name, hp, maxHp, nameColor = '#fff', levelTag = '', buffs = [], isCommander = false, hasCommanderBuff = false, extra = null) {
     ctx.save();
     ctx.font = '15px "DotGothic16", monospace';
     ctx.textAlign = 'center';
@@ -20629,7 +20814,11 @@ class IsometricRenderer {
     const barH = 5;
     const barX = screenX - barW / 2;
     const barY = screenY + 4;
-    const hpRatio = Math.max(0, Math.min(1, hp / maxHp));
+    // an absorb shield shares the bar with HP; past Max HP the bar rescales
+    const shield = extra && extra.shield > 0 ? extra.shield : 0;
+    const span = Math.max(maxHp || 1, (hp || 0) + shield);
+    const hpRatio = Math.max(0, Math.min(1, hp / span));
+    const healthRatio = Math.max(0, Math.min(1, hp / (maxHp || 1)));   // colour by real HP
 
     const bx = Math.round(barX), by = Math.round(barY);
     ctx.fillStyle = '#1a1c2c';
@@ -20637,10 +20826,37 @@ class IsometricRenderer {
     ctx.fillStyle = '#5d275d';
     ctx.fillRect(bx, by, barW, barH);
     const fillW = Math.round(barW * hpRatio);
-    ctx.fillStyle = isCommander ? '#ef7d57' : (hpRatio > 0.35 ? '#38b764' : '#b13e53');
+    // yellow trail: the chunk the last hits took off
+    const trailRatio = extra && extra.key ? this.hpTrailRatio(extra.key, hpRatio) : hpRatio;
+    const trailW = Math.round(barW * trailRatio);
+    if (trailW > fillW) {
+      ctx.fillStyle = '#ffcd75';
+      ctx.fillRect(bx + fillW, by, trailW - fillW, barH);
+      ctx.fillStyle = '#fff3c4';
+      ctx.fillRect(bx + fillW, by, trailW - fillW, 1);
+    }
+    ctx.fillStyle = isCommander ? '#ef7d57' : (healthRatio > 0.35 ? '#38b764' : '#b13e53');
     ctx.fillRect(bx, by, fillW, barH);
-    ctx.fillStyle = isCommander ? '#ffcd75' : (hpRatio > 0.35 ? '#a7f070' : '#ef7d57');
+    ctx.fillStyle = isCommander ? '#ffcd75' : (healthRatio > 0.35 ? '#a7f070' : '#ef7d57');
     ctx.fillRect(bx, by, fillW, 1);
+    if (shield > 0) {
+      // absorb: pale striped segment right after the HP
+      const sw = Math.max(1, Math.min(barW - fillW, Math.round(barW * shield / span)));
+      ctx.fillStyle = '#f4f4f4';
+      ctx.fillRect(bx + fillW, by, sw, barH);
+      ctx.fillStyle = '#94b0c2';
+      for (let i = 1; i < sw; i += 3) ctx.fillRect(bx + fillW + i, by + 2, 1, barH - 2);
+    }
+    if (extra && extra.esMax > 0) {
+      // mage Energy Shield: a cyan strip riding on top of the bar
+      const ew = Math.round(barW * Math.max(0, Math.min(1, (extra.es || 0) / extra.esMax)));
+      ctx.fillStyle = '#1a1c2c';
+      ctx.fillRect(bx - 2, by - 5, barW + 4, 4);
+      ctx.fillStyle = '#29366f';
+      ctx.fillRect(bx, by - 4, barW, 2);
+      ctx.fillStyle = '#73eff7';
+      ctx.fillRect(bx, by - 4, ew, 2);
+    }
 
     // Draw Affix / Buff Badges above name
     if ((buffs && buffs.length > 0) || hasCommanderBuff) {

@@ -77,6 +77,7 @@
     horned: ['............', 'k..........k', 'kwk.kkkk.kwk', '.kwkllllkwk.', '..klwllssk..', '.klwlllsssk.', '.kllllsssdk.', '.kkkkkkkkkk.', '.klk.kk.ksk.', '.klk.kk.ksk.', '.kk..kk..kk.', '............'],
     bandana: ['............', '............', '...kkkkkk...', '..krrwrrrk..', '.krwrrrrrrk.', '.krrrrrrrrk.', '.kpppppppppk', '..kkkkkkkkrk', '..........kr', '...........k', '............', '............'],
     gloves: ['...k.k.k....', '..kTkTkTk...', '..kTkTkTk...', '..kTkTkTkk..', '..kTTTTTkTk.', '..kwTTTTTTk.', '..kTTTTTTk..', '..kTTTTTk...', '..kkkkkkk...', '..kyyyyyk...', '..kmmmmmk...', '..kkkkkkk...'],
+    cape: ['...kkkkkk...', '..kyrrrryk..', '.krwrrrrrpk.', '.krwrrrrrpk.', 'krwrrrrrrrpk', 'krwrrrrrrrpk', 'krrrrrrrrppk', 'krrrrrrrrppk', 'krrrrrrrpppk', 'kprrrrrrpppk', 'kpkprrpkpkpk', 'kk.kkkk.k.kk'],
     // --- talent / card glyphs ---
     thorns: ['.....k......', '....kgk..k..', '.k..kgk.kgk.', 'kgk.kgkkgk..', '.kgkkggk....', '..kggggk....', '...kgtk.k...', '.k.kgtkkgk..', 'kgkkgtkgk...', '.kggttk.....', '..kkgtk.....', '....kk......'],
     fang: ['............', '.kkkkkkkkkk.', '.kwwwwwwwwk.', '.kwkkkkkkwk.', '.kwk....kwk.', '.kwk....kwk.', '.kwk....kwk.', '..kwk..kwk..', '..krk..krk..', '...k....k...', '...r....r...', '............'],
@@ -106,6 +107,17 @@
     gloves_ember: ['gloves', { T: 'o', m: 'r' }],
     gloves_shadow: ['gloves', { T: 'p', m: 'd', y: 'e' }],
     gloves_gold: ['gloves', { T: 'y', m: 'T', y: 'o' }],
+    cape_brown: ['cape', { r: 'T', p: 'm', w: 'o', y: 'm' }],
+    cape_fur: ['cape', { r: 'l', p: 's', w: 'w', y: 'w' }],
+    cape_red: ['cape', { y: 'y' }],
+    cape_green: ['cape', { r: 'g', p: 't', w: 'L', y: 'T' }],
+    cape_ice: ['cape', { r: 'c', p: 'B', w: 'w', y: 'l' }],
+    cape_fire: ['cape', { r: 'o', p: 'r', w: 'y', y: 'y' }],
+    cape_raven: ['cape', { r: 'd', p: 'n', w: 'e', y: 's' }],
+    cape_royal: ['cape', { r: 'e', p: 'p', w: 'w', y: 'y' }],
+    cape_void: ['cape', { r: 'n', p: 'd', w: 'c', y: 'e' }],
+    cape_storm: ['cape', { r: 'b', p: 'n', w: 'c', y: 'y' }],
+    cape_dragon: ['cape', { r: 'r', p: 'p', w: 'o', y: 'l' }],
     ring_copper: ['ring', { e: 'T', y: 'T', T: 'm' }],
     ring_sapphire: ['ring', { e: 'B' }],
     ring_ruby: ['ring', { e: 'r' }],
@@ -191,6 +203,7 @@
     if (item.slot === 'boots') return 'boots';
     if (item.slot === 'ring') return 'ring';
     if (item.slot === 'gloves') return 'gloves';
+    if (item.slot === 'cape') return 'cape';
     if (item.type === 'consumable') return /mana/.test(name) ? 'mp_potion' : 'hp_potion';
     if (item.type === 'treasure') return 'gem';
     if (item.type === 'material') return 'fragment';

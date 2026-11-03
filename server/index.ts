@@ -243,6 +243,9 @@ io.on('connection', (socket: Socket) => {
   socket.on('socket_rune', (data: any) => {
     gameServer.handleSocketRune(socket.id, data);
   });
+  socket.on('craft', (data: any) => {
+    gameServer.handleCraft(socket.id, data);
+  });
 
   socket.on('unsocket_rune', (data: any) => {
     gameServer.handleUnsocketRune(socket.id, data);

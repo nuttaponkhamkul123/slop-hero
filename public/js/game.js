@@ -11,9 +11,13 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   // Camera zoom range for the wheel / pinch; heroes enter at the closest zoom
   const MIN_ZOOM = 0.65;
+  // Potato can not zoom out as far: a wide view draws ~2x the monsters, props and ground
+  const POTATO_MIN_ZOOM = 0.9;
+  const minZoom = () => (renderer && renderer.potatoMode ? POTATO_MIN_ZOOM : MIN_ZOOM);
   const MAX_ZOOM = 3.0;
   renderer.camera.zoom = MAX_ZOOM;
   const socket = io();
+  if (window.Crafting) window.Crafting.init(socket, () => localPlayer);
 
   let localPlayerId = null;
   let localPlayer = null;
@@ -131,6 +135,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const playerLevelBadge = document.getElementById('playerLevelBadge');
   const hudHpFill = document.getElementById('hudHpFill');
   const hudHpText = document.getElementById('hudHpText');
+  const hudHpTrail = document.getElementById('hudHpTrail');
+  const hudHpAbsorb = document.getElementById('hudHpAbsorb');
+  const hudEsFill = document.getElementById('hudEsFill');
+  const targetHpTrail = document.getElementById('targetHpTrail');
   const hudMpFill = document.getElementById('hudMpFill');
   const hudMpText = document.getElementById('hudMpText');
   const hudExpFill = document.getElementById('hudExpFill');
@@ -536,6 +544,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       dungeonPortalModal.style.display = 'flex';
+      renderDungeonMods();
       const sel = selectedFloorCard();
       showFloorDetail(sel);
       if (sel) sel.scrollIntoView({ block: 'nearest', inline: 'center' });
@@ -553,11 +562,41 @@ document.addEventListener('DOMContentLoaded', () => {
     btnCloseDungeonPortal.addEventListener('click', closeDungeonPortalModal);
   }
 
+  // Dungeon modifiers picked at the portal (server: dungeonMods.ts); remembered per browser
+  let dungeonModCatalog = { max: 4, mods: [] };
+  let selectedDungeonMods = [];
+  try { selectedDungeonMods = JSON.parse(localStorage.getItem('slop_dungeon_mods') || '[]'); } catch (_) {}
+  function renderDungeonMods() {
+    const grid = document.getElementById('dmodGrid');
+    const label = document.getElementById('dmodReward');
+    if (!grid) return;
+    selectedDungeonMods = selectedDungeonMods.filter(id => dungeonModCatalog.mods.some(m => m.id === id));
+    grid.innerHTML = dungeonModCatalog.mods.map(m => {
+      const on = selectedDungeonMods.includes(m.id);
+      return `<button type="button" class="dmod-card ${on ? 'selected' : ''}" data-mod="${m.id}" title="${escapeHtml(m.desc)}">
+        <span class="dmod-icon">${m.icon}</span><span class="dmod-name">${escapeHtml(m.name)}</span>
+        <span class="dmod-desc">${escapeHtml(m.desc)}</span><span class="dmod-plus">+${Math.round(m.reward * 100)}%</span></button>`;
+    }).join('');
+    const total = selectedDungeonMods.reduce((t, id) => t + ((dungeonModCatalog.mods.find(m => m.id === id) || {}).reward || 0), 0);
+    if (label) {
+      label.textContent = total > 0 ? `+${Math.round(total * 100)}% EXP & Gold · +${Math.floor(total / 0.2 + 1e-9)} boss fragments` : `pick up to ${dungeonModCatalog.max} for bigger rewards`;
+      label.classList.toggle('active', total > 0);
+    }
+    grid.querySelectorAll('.dmod-card').forEach(b => b.addEventListener('click', () => {
+      const id = b.dataset.mod;
+      if (selectedDungeonMods.includes(id)) selectedDungeonMods = selectedDungeonMods.filter(x => x !== id);
+      else if (selectedDungeonMods.length < dungeonModCatalog.max) selectedDungeonMods.push(id);
+      try { localStorage.setItem('slop_dungeon_mods', JSON.stringify(selectedDungeonMods)); } catch (_) {}
+      renderDungeonMods();
+    }));
+  }
+
   function enterDungeon(inviteParty) {
     socket.emit('enter_dungeon', {
       floor: selectedDungeonFloor,
       difficulty: selectedDungeonDifficulty,
       mode: selectedDungeonMode,
+      mods: selectedDungeonMods,
       inviteParty
     });
     closeDungeonPortalModal();
@@ -1265,6 +1304,13 @@ document.addEventListener('DOMContentLoaded', () => {
     skillRunesCatalog = data.skillRunes || {};
     weaponAbilities = data.weaponAbilities || {};
     window.WeaponAbilities = weaponAbilities; // read by tooltip.js
+    window.ArmorSets = data.armorSets || {};  // armor set bonuses, read by tooltip.js
+    window.RuneCatalog = data.runeCatalog || {};   // every rune: effect and weapon / armor fit
+    window.SocketMax = data.socketMax || { weapon: 4, armor: 2 };
+    if (window.Crafting) window.Crafting.setCatalog(data.crafting);
+    if (data.dungeonMods) dungeonModCatalog = data.dungeonMods;
+    window.ArmorSetPieceNames = data.itemNames || {};
+    window.getLocalPlayer = () => localPlayer;
     window.RiftUI.setCatalog(data.riftCatalog);
 
     localPlayer = data.player;
@@ -1553,6 +1599,10 @@ document.addEventListener('DOMContentLoaded', () => {
         existing.maxHp = p.maxHp;
         existing.mp = p.mp;
         existing.maxMp = p.maxMp;
+        existing.shieldHp = p.shieldHp || 0;     // absorb shield (drawn over the HP bar)
+        existing.es = p.es || 0;                 // mage Energy Shield
+        existing.esMax = p.esMax || 0;
+        existing.setCounts = p.setCounts || {};
         existing.level = p.level;
         existing.gold = p.gold;
         existing.speechBubble = p.speechBubble;
@@ -1675,6 +1725,8 @@ document.addEventListener('DOMContentLoaded', () => {
         targetName.textContent = `${mob.name} (Lv. ${mob.level})`;
         const hpPct = Math.round((mob.hp / mob.maxHp) * 100);
         targetHpFill.style.width = `${hpPct}%`;
+        setHpTrail(targetHpTrail, hpPct, !targetHpTrail || targetHpTrail.__mobId !== mob.id);
+        if (targetHpTrail) targetHpTrail.__mobId = mob.id;
         targetIcon.dataset.pxi = mob.isBoss ? 'crown' : mob.isMiniboss ? 'sword' : 'skull';
 
         const elemBadge = document.getElementById('targetElementBadge');
@@ -1729,6 +1781,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderShopSellList();
     if (shopModal && shopModal.style.display === 'flex' && tabShopBuy && tabShopBuy.classList.contains('active')) renderShopBuyList();
     if (enchanterModal && enchanterModal.style.display === 'flex') renderEnchanter();
+    if (window.Crafting) window.Crafting.render();
     if (shopPlayerGold) shopPlayerGold.textContent = localPlayer.gold;
     if (skillTreeModal && skillTreeModal.style.display === 'flex') {
       if (activeSkillsModalTab === 'loadout') {
@@ -2127,6 +2180,10 @@ document.addEventListener('DOMContentLoaded', () => {
         <span class="run-floor">B${st.floor || '?'} - ${(st.difficulty || 'normal').toUpperCase()}${st.mode === 'rush' ? ' · RUSH' : ''}</span>
         <span class="run-state ${st.cleared ? 'is-cleared' : ''}">${st.cleared ? 'CLEARED' : 'IN PROGRESS'}</span>
       </div>
+      ${st.mods && st.mods.length ? `<div class="run-mods" title="Dungeon modifiers">${st.mods.map(id => {
+        const m = dungeonModCatalog.mods.find(x => x.id === id);
+        return m ? `<span title="${escapeHtml(m.name + ': ' + m.desc)}">${m.icon}</span>` : '';
+      }).join('')}<b>+${Math.round((st.modReward || 0) * 100)}%</b></div>` : ''}
       <div class="run-clock ${st.cleared ? 'is-cleared' : ''}" id="runTimerValue">${fmtDuration(time)}</div>
       <div class="run-kill-progress-box">
         <div class="run-kill-header">
@@ -2560,7 +2617,7 @@ document.addEventListener('DOMContentLoaded', () => {
   canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
     const zoomDelta = e.deltaY > 0 ? -0.1 : 0.1;
-    renderer.camera.zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, renderer.camera.zoom + zoomDelta));
+    renderer.camera.zoom = Math.max(minZoom(), Math.min(MAX_ZOOM, renderer.camera.zoom + zoomDelta));
   }, { passive: false });
 
   // Mobile Touch Gestures (Pinch-to-zoom & Tap-to-move)
@@ -2590,7 +2647,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const t2 = e.touches[1];
       const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
       const ratio = dist / touchStartDist;
-      renderer.camera.zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, touchStartZoom * ratio));
+      renderer.camera.zoom = Math.max(minZoom(), Math.min(MAX_ZOOM, touchStartZoom * ratio));
     } else if (e.touches.length === 1 && !isPinching && isPointerDown && !selectedTargetId) {
       const t = e.touches[0];
       handlePointerAction({ clientX: t.clientX, clientY: t.clientY, button: 0 }, true);
@@ -2707,6 +2764,7 @@ document.addEventListener('DOMContentLoaded', () => {
       toggleModal(inventoryModal);
     }
     if (code === 'KeyH' || key === 'h') toggleModal(helpModal);
+    if ((code === 'KeyJ' || key === 'j') && window.Crafting) window.Crafting.toggle();
     if (code === 'KeyO' || key === 'o') togglePartyPanel();
     if (code === 'KeyM' || key === 'm') toggleAudio();
   });
@@ -2824,6 +2882,8 @@ document.addEventListener('DOMContentLoaded', () => {
       targetName.textContent = `${nextTarget.name} (Lv. ${nextTarget.level})`;
       const hpPct = Math.round((nextTarget.hp / nextTarget.maxHp) * 100);
       targetHpFill.style.width = `${hpPct}%`;
+      setHpTrail(targetHpTrail, hpPct, true);
+      if (targetHpTrail) targetHpTrail.__mobId = nextTarget.id;
       targetIcon.dataset.pxi = nextTarget.isBoss ? 'crown' : nextTarget.isMiniboss ? 'sword' : 'skull';
     }
   }
@@ -2883,6 +2943,8 @@ document.addEventListener('DOMContentLoaded', () => {
             targetName.textContent = `${closestMob.name} (Lv. ${closestMob.level})`;
             const hpPct = Math.round((closestMob.hp / closestMob.maxHp) * 100);
             targetHpFill.style.width = `${hpPct}%`;
+            setHpTrail(targetHpTrail, hpPct, true);
+            if (targetHpTrail) targetHpTrail.__mobId = closestMob.id;
             targetIcon.dataset.pxi = closestMob.isBoss ? 'crown' : closestMob.isMiniboss ? 'sword' : 'skull';
           }
         }
@@ -3511,6 +3573,7 @@ document.addEventListener('DOMContentLoaded', () => {
       autoScaleStep++;
       try { localStorage.setItem('slop_auto_step', String(autoScaleStep)); } catch (_) {}
       applyGraphicsQuality('auto');
+      afterQualityChange();
     }
   }
 
@@ -3524,8 +3587,15 @@ document.addEventListener('DOMContentLoaded', () => {
         try { localStorage.removeItem('slop_auto_step'); } catch (_) {}
       }
       applyGraphicsQuality(btn.dataset.quality);
+      afterQualityChange();
     });
   });
+
+  // Potato and back: re-apply its 30 FPS cap and pull the camera in to its zoom limit
+  function afterQualityChange() {
+    applyTargetFps(targetFps);
+    renderer.camera.zoom = Math.max(minZoom(), renderer.camera.zoom);
+  }
 
   // Target FPS limiter (30 FPS eco, 60 FPS, Uncapped)
   const targetFpsPresets = document.querySelectorAll('.gui-scale-preset[data-fps]');
@@ -3544,12 +3614,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   } catch (_) {}
 
+  // Potato runs at 30 FPS unless the player picked a limit themselves: half the
+  // frames is half the CPU work, and a cooler laptop throttles itself less
+  const POTATO_FPS = 30;
   function applyTargetFps(fps) {
     targetFps = parseInt(fps, 10) || 0;
-    frameInterval = targetFps > 0 ? (1000 / targetFps) : 0;
+    const effective = targetFps || (renderer.potatoMode ? POTATO_FPS : 0);
+    frameInterval = effective > 0 ? (1000 / effective) : 0;
     targetFpsPresets.forEach(b => b.classList.toggle('active', parseInt(b.dataset.fps, 10) === targetFps));
     if (lblFpsLimitVal) {
-      lblFpsLimitVal.textContent = targetFps === 0 ? 'Uncapped' : `${targetFps} FPS`;
+      lblFpsLimitVal.textContent = targetFps ? `${targetFps} FPS` : (effective ? `${effective} FPS (Potato)` : 'Uncapped');
     }
     try {
       localStorage.setItem('slop_target_fps', targetFps.toString());
@@ -3773,6 +3847,29 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  // Lighting quality (Auto, Smooth, Simple, Off): dungeon darkness, torch glow
+  const lightingPresets = document.querySelectorAll('.gui-scale-preset[data-lighting]');
+  const lblLightingVal = document.getElementById('lblLightingVal');
+  const LIGHTING_MODES = ['auto', 'smooth', 'simple', 'off'];
+  let lightingMode = 'auto';
+  try {
+    const savedLighting = localStorage.getItem('slop_lighting');
+    if (LIGHTING_MODES.includes(savedLighting)) lightingMode = savedLighting;
+  } catch (_) {}
+
+  function applyLightingMode(mode) {
+    lightingMode = mode;
+    if (renderer && renderer.setLightingMode) renderer.setLightingMode(mode);
+    lightingPresets.forEach(b => b.classList.toggle('active', b.dataset.lighting === mode));
+    if (lblLightingVal) lblLightingVal.textContent = mode.charAt(0).toUpperCase() + mode.slice(1);
+    try { localStorage.setItem('slop_lighting', mode); } catch (_) {}
+  }
+  applyLightingMode(lightingMode);
+
+  lightingPresets.forEach(btn => {
+    btn.addEventListener('click', () => applyLightingMode(btn.dataset.lighting));
+  });
+
   if (btnSettingsResetCamera) {
     btnSettingsResetCamera.addEventListener('click', () => {
       if (renderer && renderer.resetCamera) {
@@ -3827,6 +3924,27 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
+
+  // Settings category tabs (Interface / Graphics / Audio / Gameplay / Controls);
+  // the last one opened is remembered per browser
+  const settingsTabs = document.querySelectorAll('.settings-tab[data-settings-tab]');
+  const settingsPanes = document.querySelectorAll('[data-settings-pane]');
+  function showSettingsTab(tab) {
+    if (![...settingsTabs].some(b => b.dataset.settingsTab === tab)) tab = 'interface';
+    settingsTabs.forEach(b => {
+      const on = b.dataset.settingsTab === tab;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    settingsPanes.forEach(p => p.classList.toggle('is-hidden', p.dataset.settingsPane !== tab));
+    const body = settingsModal && settingsModal.querySelector('.settings-modal-body');
+    if (body) body.scrollTop = 0;
+    try { localStorage.setItem('slop_settings_tab', tab); } catch (_) {}
+  }
+  settingsTabs.forEach(b => b.addEventListener('click', () => showSettingsTab(b.dataset.settingsTab)));
+  let savedSettingsTab = 'interface';
+  try { savedSettingsTab = localStorage.getItem('slop_settings_tab') || 'interface'; } catch (_) {}
+  showSettingsTab(savedSettingsTab);
 
   function openSettingsModal() {
     if (!settingsModal) return;
@@ -4214,14 +4332,43 @@ document.addEventListener('DOMContentLoaded', () => {
   const setWidth = (el, pct) => { const v = pct.toFixed(1) + '%'; if (el && el.__hudWidth !== v) { el.__hudWidth = v; el.style.width = v; } };
   const setTitle = (el, v) => { if (el && el.__hudTitle !== v) { el.__hudTitle = v; el.title = v; } };
 
+  // Yellow "damage taken" trail behind an HP fill: it holds the old width for a
+  // moment and then drains down; heals (or a new target, `reset`) snap it.
+  function setHpTrail(el, pct, reset = false) {
+    if (!el) return;
+    const prev = el.__trailPct;
+    if (reset || prev === undefined || pct >= prev) {
+      el.classList.remove('draining');
+      el.style.width = pct.toFixed(1) + '%';
+    } else if (pct < prev) {
+      el.classList.add('draining');
+      el.style.width = pct.toFixed(1) + '%';
+    }
+    el.__trailPct = pct;
+  }
+  window.setHpTrail = setHpTrail;
+
   function updatePlayerHUD(p) {
     renderBuffTray(p);
     setText(hudPlayerName, p.name);
     setText(hudPlayerClass, p.characterClass);
     setText(playerLevelBadge, `Lv. ${p.level}`);
 
-    setWidth(hudHpFill, Math.max(0, Math.min(100, (p.hp / p.maxHp) * 100)));
-    setText(hudHpText, `${p.hp} / ${p.maxHp} HP`);
+    // HP + absorb shield share the bar; when they overflow Max HP the bar
+    // rescales so the shield stays visible (as in most RPGs)
+    const shield = Math.max(0, p.shieldHp || 0);
+    const span = Math.max(p.maxHp || 1, (p.hp || 0) + shield);
+    const hpPct = Math.max(0, Math.min(100, (p.hp / span) * 100));
+    setWidth(hudHpFill, hpPct);
+    setHpTrail(hudHpTrail, hpPct);
+    if (hudHpAbsorb) {
+      const absorbPct = Math.min(100 - hpPct, (shield / span) * 100);
+      if (hudHpAbsorb.__left !== hpPct) { hudHpAbsorb.__left = hpPct; hudHpAbsorb.style.left = hpPct.toFixed(1) + '%'; }
+      setWidth(hudHpAbsorb, absorbPct);
+    }
+    setWidth(hudEsFill, p.esMax > 0 ? Math.max(0, Math.min(100, (p.es / p.esMax) * 100)) : 0);
+    const extras = (shield > 0 ? ` +${shield}🛡` : '') + (p.esMax > 0 ? ` 💠${p.es}` : '');
+    setText(hudHpText, `${p.hp} / ${p.maxHp} HP${extras}`);
 
     setWidth(hudMpFill, Math.max(0, Math.min(100, (p.mp / p.maxMp) * 100)));
     setText(hudMpText, `${p.mp} / ${p.maxMp} MP`);
@@ -4924,7 +5071,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const TYPE_RANK = { sp_card: 0, equipment: 1, consumable: 2, material: 3, treasure: 4 };
   const EQUIP_SLOTS = [
     ['eqSlotHelmet', 'helmet'], ['eqSlotArmor', 'armor'], ['eqSlotGloves', 'gloves'], ['eqSlotWeapon', 'weapon'],
-    ['eqSlotRing', 'ring'], ['eqSlotBoots', 'boots'], ['eqSlotSp', 'sp']
+    ['eqSlotRing', 'ring'], ['eqSlotBoots', 'boots'], ['eqSlotCape', 'cape'], ['eqSlotSp', 'sp']
   ];
 
   // Gear locked to another class (weapons, SP cards) goes in OTHER instead of GEAR
@@ -5142,15 +5289,21 @@ document.addEventListener('DOMContentLoaded', () => {
     return stack ? (stack.count || 1) : 0;
   }
 
+  // Rune Forge: items with sockets, and which kind of rune each rune item fits
+  const SOCKET_SLOTS = ['weapon', 'armor', 'helmet', 'gloves', 'boots', 'cape'];
+  const runeSocketFor = (rune) => ((window.RuneCatalog && window.RuneCatalog[rune.id]) || rune).socketFor || 'weapon';
+
   function enchEntries() {
     const eq = localPlayer.equipment || {};
     const out = [];
     if (enchTab === 'socket') {
-      if (eq.weapon && eq.weapon.type === 'equipment' && eq.weapon.slot === 'weapon') {
-        out.push({ key: 'eq:weapon', item: eq.weapon, target: 'equipped', slot: 'weapon', equipped: true });
+      // weapons take elemental runes, armor pieces the defensive ones
+      for (const slot of SOCKET_SLOTS) {
+        const it = eq[slot];
+        if (it && it.type === 'equipment') out.push({ key: `eq:${slot}`, item: it, target: 'equipped', slot, equipped: true });
       }
       (localPlayer.inventory.items || []).forEach((it, i) => {
-        if (it && it.type === 'equipment' && it.slot === 'weapon') {
+        if (it && it.type === 'equipment' && SOCKET_SLOTS.includes(it.slot)) {
           out.push({ key: `inv:${i}`, item: it, target: 'inventory', itemIndex: i });
         }
       });
@@ -5180,6 +5333,7 @@ document.addEventListener('DOMContentLoaded', () => {
     helmet: { bonusDef: 2, bonusHp: 15, bonusMp: 10 },
     boots: { bonusDef: 1, bonusSpeed: 0.08, bonusHp: 10 },
     gloves: { bonusDmg: 4, bonusAttackSpeed: 0.01 },
+    cape: { bonusDef: 2, bonusHp: 12 },
     ring: { bonusDmg: 3, bonusHp: 15, bonusMp: 15, bonusAttackSpeed: 0.01 }
   };
   const GEAR_STAT_ROWS = [
@@ -5277,7 +5431,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const entries = enchEntries();
       if (!entries.some(e => e.key === enchSelected)) enchSelected = entries[0] ? entries[0].key : null;
       if (!entries.length) {
-        listEl.innerHTML = '<div class="ench-empty">No weapons found in your equipment or bag.</div>';
+        listEl.innerHTML = '<div class="ench-empty">No weapons or armor found in your equipment or bag.</div>';
         detailEl.innerHTML = '';
         return;
       }
@@ -5303,9 +5457,12 @@ document.addEventListener('DOMContentLoaded', () => {
       const usableSockets = Math.max(0, maxSockets - brokenSockets);
       const sockets = Array.isArray(item.sockets) ? item.sockets : [];
 
+      // only the runes that fit this item (elemental -> weapon, defensive -> armor)
+      const kind = item.slot === 'weapon' ? 'weapon' : 'armor';
+      const SOCKET_LIMIT = (window.SocketMax && window.SocketMax[kind]) || (kind === 'weapon' ? 4 : 2);
       const runesInBag = [];
       (localPlayer.inventory.items || []).forEach((it, idx) => {
-        if (it && it.type === 'rune') runesInBag.push({ item: it, index: idx });
+        if (it && it.type === 'rune' && runeSocketFor(it) === kind) runesInBag.push({ item: it, index: idx });
       });
 
       const expanderItem = (localPlayer.inventory.items || []).find(it => it && it.id === 'socket_expander');
@@ -5321,10 +5478,13 @@ document.addEventListener('DOMContentLoaded', () => {
         rune_vampiric: { name: 'Vampiric Drain Rune', icon: '🟣', desc: '25% Damage Dealt as HP Life Leech', color: '#a855f7' },
         vampiric: { name: 'Vampiric Drain Rune', icon: '🟣', desc: '25% Damage Dealt as HP Life Leech', color: '#a855f7' }
       };
+      for (const [id, r] of Object.entries(window.RuneCatalog || {})) {
+        RUNE_INFO[id] = { name: r.name, icon: r.icon, desc: r.effect, color: r.color };
+      }
 
       let socketsHtml = '';
       if (maxSockets === 0) {
-        socketsHtml = '<div class="ench-warn" style="font-size:12px; padding: 10px; background: #1e293b; border-radius: 4px;">This weapon has 0 sockets. Use an Ancient Socket Expander below to drill sockets into it!</div>';
+        socketsHtml = `<div class="ench-warn" style="font-size:12px; padding: 10px; background: #1e293b; border-radius: 4px;">This ${kind === 'weapon' ? 'weapon' : 'piece'} has 0 sockets. Use an Ancient Socket Expander below to drill sockets into it!</div>`;
       } else {
         for (let i = 0; i < usableSockets; i++) {
           const rId = sockets[i];
@@ -5351,7 +5511,7 @@ document.addEventListener('DOMContentLoaded', () => {
                   <div class="socket-icon" style="color: #64748b;">⬡</div>
                   <div>
                     <div class="socket-name" style="color: #94a3b8;">Socket ${i + 1}: Empty Socket</div>
-                    <div class="socket-desc" style="color: #64748b;">Ready to be socketed with an Elemental Rune</div>
+                    <div class="socket-desc" style="color: #64748b;">Ready for ${kind === 'weapon' ? 'an Elemental Rune' : 'a Defensive Rune'}</div>
                   </div>
                 </div>
                 <div class="socket-actions">
@@ -5360,7 +5520,7 @@ document.addEventListener('DOMContentLoaded', () => {
                       ${runeOptions}
                     </select>
                     <button class="socket-btn-insert" data-slot="${i}">Socket</button>
-                  ` : '<span style="font-size:11px; color:#64748b;">No runes in bag</span>'}
+                  ` : `<span style="font-size:11px; color:#64748b;">No ${kind === 'weapon' ? 'elemental' : 'defensive'} runes in bag</span>`}
                 </div>
               </div>`;
           }
@@ -5379,7 +5539,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
 
-      const canExpand = maxSockets < 4 && expanderCount > 0;
+      const canExpand = maxSockets < SOCKET_LIMIT && expanderCount > 0;
       const expandRates = [
         { success: 70, fail: 30, breakRate: 0 },
         { success: 50, fail: 30, breakRate: 20 },
@@ -5395,7 +5555,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="ench-detail-name" style="color:${({ rare: '#38bdf8', epic: '#c084fc', legendary: '#f59e0b' })[item.rarity] || '#e2e8f0'}">
               ${escapeHtml(item.name)}
             </div>
-            <div class="tip-type">${(item.rarity || 'common').toUpperCase()} WEAPON - Sockets: ${usableSockets} Active (${brokenSockets} Broken, Max 4)</div>
+            <div class="tip-type">${(item.rarity || 'common').toUpperCase()} ${(item.slot || '').toUpperCase()} - Sockets: ${usableSockets} Active (${brokenSockets} Broken, Max ${SOCKET_LIMIT})</div>
           </div>
         </div>
 
@@ -5409,14 +5569,14 @@ document.addEventListener('DOMContentLoaded', () => {
               🔮 Ancient Socket Expander <span style="font-size: 13px; color: ${expanderCount > 0 ? '#4ade80' : '#ef4444'};">(In Bag: x${expanderCount})</span>
             </div>
             <div class="socket-expander-stats">
-              <span>Drill Expansion: <b>${maxSockets} / 4 Sockets</b></span>
+              <span>Drill Expansion: <b>${maxSockets} / ${SOCKET_LIMIT} Sockets</b></span>
               <span>Success: <b style="color: #4ade80;">${curRate.success}%</b> | Harmless Fail: <b style="color: #facc15;">${curRate.fail}%</b> | Break Risk: <b style="color: #ef4444;">${curRate.breakRate}%</b></span>
             </div>
             <div class="socket-expander-warn">
               ⚠️ Warning: Expanding sockets past base slots carries a real risk to permanently break the slot!
             </div>
             <button class="socket-expander-btn" id="btnExpandSocket" ${canExpand ? '' : 'disabled'}>
-              ${maxSockets >= 4 ? 'MAXIMUM SOCKETS REACHED (4)' : expanderCount <= 0 ? 'ANCIENT EXPANDER NEEDED' : `DRILL +1 SOCKET (${curRate.success}% Success)`}
+              ${maxSockets >= SOCKET_LIMIT ? `MAXIMUM SOCKETS REACHED (${SOCKET_LIMIT})` : expanderCount <= 0 ? 'ANCIENT EXPANDER NEEDED' : `DRILL +1 SOCKET (${curRate.success}% Success)`}
             </button>
           </div>
         </div>
@@ -6848,6 +7008,8 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btnCloseInventory').addEventListener('click', () => inventoryModal.style.display = 'none');
 
   document.getElementById('btnOpenHelp').addEventListener('click', () => toggleModal(helpModal));
+  const btnOpenCrafting = document.getElementById('btnOpenCrafting');
+  if (btnOpenCrafting) btnOpenCrafting.addEventListener('click', () => window.Crafting && window.Crafting.toggle());
   document.getElementById('btnCloseHelp').addEventListener('click', () => helpModal.style.display = 'none');
 
   // ---------------------------------------------------------------- Effects dialog (trails)
@@ -7375,6 +7537,13 @@ document.addEventListener('DOMContentLoaded', () => {
       mBtnOpenHelp.addEventListener('click', () => {
         if (mobileMenuDrawer) mobileMenuDrawer.style.display = 'none';
         toggleModal(helpModal);
+      });
+    }
+    const mBtnOpenCrafting = document.getElementById('mBtnOpenCrafting');
+    if (mBtnOpenCrafting) {
+      mBtnOpenCrafting.addEventListener('click', () => {
+        if (mobileMenuDrawer) mobileMenuDrawer.style.display = 'none';
+        if (window.Crafting) window.Crafting.toggle();
       });
     }
 

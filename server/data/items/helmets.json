@@ -101,5 +101,71 @@
       "dark": 0.1
     },
     "desc": "+8 Defense, +10 Attack Power, Dark RES +10%. The face of a long-dead warden."
+  },
+  "wayfarer_hood": {
+    "id": "wayfarer_hood",
+    "name": "Wayfarer's Hood",
+    "type": "equipment",
+    "slot": "helmet",
+    "iconKey": "hat",
+    "rarity": "epic",
+    "sellPrice": 150,
+    "classReq": "all",
+    "setId": "wayfarer",
+    "bonusDef": 5,
+    "bonusHp": 40,
+    "bonusMp": 20,
+    "desc": "+5 Defense, +40 Max Health, +20 Max Mana. A hood that has seen every road."
+  },
+  "emberheart_crown": {
+    "id": "emberheart_crown",
+    "name": "Emberheart Crown",
+    "type": "equipment",
+    "slot": "helmet",
+    "iconKey": "horned",
+    "rarity": "legendary",
+    "sellPrice": 260,
+    "classReq": "all",
+    "setId": "emberheart",
+    "bonusDmg": 10,
+    "bonusMp": 40,
+    "elementResist": {
+      "fire": 0.08
+    },
+    "desc": "+10 Attack Power, +40 Max Mana, Fire RES +8%. Still warm from the volcano's heart."
+  },
+  "stormcaller_circlet": {
+    "id": "stormcaller_circlet",
+    "name": "Stormcaller's Circlet",
+    "type": "equipment",
+    "slot": "helmet",
+    "iconKey": "crown_frost",
+    "rarity": "legendary",
+    "sellPrice": 260,
+    "classReq": "all",
+    "setId": "stormcaller",
+    "bonusDmg": 8,
+    "bonusMp": 50,
+    "elementResist": {
+      "lightning": 0.1
+    },
+    "desc": "+8 Attack Power, +50 Max Mana, Lightning RES +10%. Hums before the thunder."
+  },
+  "eclipse_veil": {
+    "id": "eclipse_veil",
+    "name": "Veil of the Eclipse",
+    "type": "equipment",
+    "slot": "helmet",
+    "iconKey": "skull_mask",
+    "rarity": "legendary",
+    "sellPrice": 260,
+    "classReq": "all",
+    "setId": "eclipse",
+    "bonusDef": 6,
+    "bonusDmg": 8,
+    "elementResist": {
+      "dark": 0.1
+    },
+    "desc": "+6 Defense, +8 Attack Power, Dark RES +10%. Half light, half shadow."
   }
 }

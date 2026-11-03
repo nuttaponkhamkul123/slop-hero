@@ -8,8 +8,14 @@ import armor from './data/items/armor.json';
 import helmets from './data/items/helmets.json';
 import boots from './data/items/boots.json';
 import gloves from './data/items/gloves.json';
+import capes from './data/items/capes.json';
 import rings from './data/items/rings.json';
 import runes from './data/items/runes.json';
+import craftingMats from './data/items/crafting.json';
+import armorSets from './data/items/sets.json';
+
+// Armor sets: wearing 2 / 4 pieces turns on the set's bonuses (see data/items/sets.json)
+const ARMOR_SETS: Record<string, any> = armorSets;
 
 const ITEM_CATEGORIES = {
   consumables,
@@ -20,8 +26,10 @@ const ITEM_CATEGORIES = {
   helmets,
   boots,
   gloves,
+  capes,
   rings,
-  runes
+  runes,
+  craftingMats
 };
 
 const ITEMS: Record<string, any> = {
@@ -33,8 +41,10 @@ const ITEMS: Record<string, any> = {
   ...helmets,
   ...boots,
   ...gloves,
+  ...capes,
   ...rings,
-  ...runes
+  ...runes,
+  ...craftingMats
 };
 
 
@@ -124,15 +134,30 @@ function requiredClass(item) {
 const GEAR_POOLS = {
   common: ['iron_blade', 'shadow_daggers', 'leather_tunic', 'iron_helm', 'iron_greaves',
     'woodsman_axe', 'iron_morningstar', 'hunter_spear', 'chain_hauberk', 'ranger_jerkin',
-    'rogue_bandana', 'traveler_boots', 'copper_band', 'leather_gloves', 'iron_gauntlets'],
+    'rogue_bandana', 'traveler_boots', 'copper_band', 'leather_gloves', 'iron_gauntlets',
+    'travelers_cloak', 'wolfpelt_mantle'],
   rare: ['sweeping_claymore', 'inferno_blade', 'glacial_spire', 'shadow_hood', 'plate_cuirass',
     'frostbite_katana', 'venom_kris', 'voidcaller_wand', 'glacier_plate', 'horned_helm',
-    'starweaver_hat', 'steel_sabatons', 'sapphire_signet', 'ruby_signet', 'emerald_loop', 'brawler_wraps', 'hunters_grips'],
+    'starweaver_hat', 'steel_sabatons', 'sapphire_signet', 'ruby_signet', 'emerald_loop', 'brawler_wraps', 'hunters_grips',
+    'crimson_warcape', 'ranger_leafshroud'],
   boss: ['storm_breaker', 'wind_rapier', 'archmage_staff', 'excalibur', 'mystic_robe', 'archmage_cowl',
     'winged_boots', 'ring_of_power', 'ember_scythe', 'thunder_maul', 'dawn_scepter', 'dragonbone_glaive',
     'nightstalker_garb', 'dragonscale_plate', 'archon_vestments', 'winter_crown', 'bone_warden_mask',
-    'ember_treads', 'shadowstep_boots', 'void_eye_ring', 'phoenix_ring', 'berserker_fists', 'assassin_grips', 'titans_grasp']
+    'ember_treads', 'shadowstep_boots', 'void_eye_ring', 'phoenix_ring', 'berserker_fists', 'assassin_grips', 'titans_grasp',
+    'frostweave_mantle', 'emberwing_cape', 'ravenfeather_cloak', 'royal_ermine_mantle', 'starfall_cloak', 'stormbanner_cape', 'dragonwing_cape']
 };
+// Armor set pieces (any class) drop from bosses like the rest of the boss gear
+for (const s of Object.values(ARMOR_SETS) as any[]) GEAR_POOLS.boss.push(...s.pieces);
+
+// How many pieces of each armor set a hero has on: { setId: count }
+function equippedSetCounts(equipment) {
+  const counts: Record<string, number> = {};
+  for (const eq of Object.values(equipment || {}) as any[]) {
+    const setId = eq && ((ITEMS[eq.id] && ITEMS[eq.id].setId) || eq.setId);
+    if (setId && ARMOR_SETS[setId]) counts[setId] = (counts[setId] || 0) + 1;
+  }
+  return counts;
+}
 
 function pickGear(pool) {
   const list = GEAR_POOLS[pool] || GEAR_POOLS.common;
@@ -286,6 +311,14 @@ function generateRandomizedGear(baseId, itemLevel = 1, isBoss = false) {
   // gloves: crit chance / crit damage in percent
   if (base.critChance) item.critChance = Number((base.critChance * qualityMult).toFixed(1));
   if (base.critDmg) item.critDmg = Math.round(base.critDmg * qualityMult);
+
+  // Armor pieces roll 0-1 rune sockets (boss drops up to 2)
+  if (ARMOR_SOCKET_SLOTS.has(base.slot)) {
+    const n = isBoss ? (Math.random() < 0.5 ? 1 : 0) + (Math.random() < 0.15 ? 1 : 0) : (Math.random() < 0.25 ? 1 : 0);
+    item.maxSockets = n;
+    item.sockets = new Array(n).fill(null);
+    item.brokenSockets = 0;
+  }
 
   // Armor pieces can roll elemental resistances (bosses roll more often and higher)
   if (base.slot !== 'weapon') {
@@ -521,7 +554,7 @@ const SKYBLOCK_REFORGES = {
 
 function getReforgeCategory(slot) {
   if (slot === 'weapon' || slot === 'gloves') return 'weapon';   // gloves are attack gear: weapon reforges
-  if (slot === 'armor' || slot === 'helmet' || slot === 'boots') return 'armor';
+  if (slot === 'armor' || slot === 'helmet' || slot === 'boots' || slot === 'cape') return 'armor';
   if (slot === 'ring') return 'ring';
   return 'armor';
 }
@@ -581,6 +614,8 @@ export {
   WEAPON_POWERS,
   weaponPower,
   GEAR_POOLS,
+  ARMOR_SETS,
+  equippedSetCounts,
   pickGear,
   pickGearForLevel,
   ENHANCE_MAX,
@@ -607,6 +642,39 @@ export const RUNES_DEF: Record<string, any> = {
   vampiric: { id: 'rune_vampiric', runeType: 'vampiric', name: 'Vampiric Drain', icon: '🟣', color: '#a855f7', desc: '25% Damage Dealt as HP Life Leech' }
 };
 
+// Sockets: weapons take the elemental runes (up to 4 sockets), armor pieces
+// the defensive ones (up to 2). A rune item's socketFor says which it fits.
+export const ARMOR_SOCKET_SLOTS = new Set(['armor', 'helmet', 'gloves', 'boots', 'cape']);
+export const SOCKET_MAX: Record<string, number> = { weapon: 4, armor: 2 };
+export function socketKind(item: any): 'weapon' | 'armor' | null {
+  if (!item || item.type !== 'equipment') return null;
+  if (item.slot === 'weapon') return 'weapon';
+  return ARMOR_SOCKET_SLOTS.has(item.slot) ? 'armor' : null;
+}
+export function runeFits(rune: any, item: any): boolean {
+  const kind = socketKind(item);
+  if (!kind || !rune || rune.type !== 'rune') return false;
+  const base = ITEMS[rune.id] || rune;
+  return (base.socketFor || 'weapon') === kind;
+}
+
+// Gives a weapon or armor piece its socket fields (items saved before sockets
+// existed roll them the first time they are seen)
+export function ensureSockets(item: any) {
+  const kind = socketKind(item);
+  if (!kind) return item;
+  if (item.maxSockets === undefined) {
+    item.maxSockets = kind === 'weapon' ? Math.floor(Math.random() * 3) : (Math.random() < 0.25 ? 1 : 0);
+  }
+  if (!Array.isArray(item.sockets)) {
+    item.sockets = new Array(item.maxSockets).fill(null);
+  }
+  if (item.brokenSockets === undefined) {
+    item.brokenSockets = 0;
+  }
+  return item;
+}
+
 export function ensureWeaponSockets(item: any) {
   if (!item || item.slot !== 'weapon') return item;
   if (item.maxSockets === undefined) {
@@ -631,6 +699,8 @@ module.exports = {
   WEAPON_POWERS,
   weaponPower,
   GEAR_POOLS,
+  ARMOR_SETS,
+  equippedSetCounts,
   pickGear,
   pickGearForLevel,
   ENHANCE_MAX,
@@ -649,7 +719,12 @@ module.exports = {
   RUNE_DROP_CHANCE,
   SOCKET_EXPANDER_DROP_CHANCE,
   RUNES_DEF,
-  ensureWeaponSockets
+  ensureWeaponSockets,
+  ensureSockets,
+  socketKind,
+  runeFits,
+  SOCKET_MAX,
+  ARMOR_SOCKET_SLOTS
 };
 
 

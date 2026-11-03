@@ -10,7 +10,8 @@
     "color": "#ef4444",
     "buyPrice": 1200,
     "sellPrice": 500,
-    "desc": "An ancient elemental rune glowing with fire. Socket into a weapon to grant +25% Damage and ignite enemies with persistent Burn DoT."
+    "desc": "An ancient elemental rune glowing with fire. Socket into a weapon to grant +25% Damage and ignite enemies with persistent Burn DoT.",
+    "socketFor": "weapon"
   },
   "rune_frost": {
     "id": "rune_frost",
@@ -23,7 +24,8 @@
     "color": "#38bdf8",
     "buyPrice": 1200,
     "sellPrice": 500,
-    "desc": "An icy elemental rune frozen for millennia. Socket into a weapon to inflict 40% Chill Slow for 3.5s and 25% chance to Freeze enemies solid."
+    "desc": "An icy elemental rune frozen for millennia. Socket into a weapon to inflict 40% Chill Slow for 3.5s and 25% chance to Freeze enemies solid.",
+    "socketFor": "weapon"
   },
   "rune_tempest": {
     "id": "rune_tempest",
@@ -36,7 +38,8 @@
     "color": "#eab308",
     "buyPrice": 1200,
     "sellPrice": 500,
-    "desc": "A crackling elemental rune brimming with lightning. Socket into a weapon to grant -20% Skill Cooldown reduction and +10% Electric Shock Damage."
+    "desc": "A crackling elemental rune brimming with lightning. Socket into a weapon to grant -20% Skill Cooldown reduction and +10% Electric Shock Damage.",
+    "socketFor": "weapon"
   },
   "rune_vampiric": {
     "id": "rune_vampiric",
@@ -49,7 +52,8 @@
     "color": "#a855f7",
     "buyPrice": 1200,
     "sellPrice": 500,
-    "desc": "A dark mystical rune pulsing with shadow thirst. Socket into a weapon to restore 25% of all damage dealt as immediate HP life leech."
+    "desc": "A dark mystical rune pulsing with shadow thirst. Socket into a weapon to restore 25% of all damage dealt as immediate HP life leech.",
+    "socketFor": "weapon"
   },
   "socket_expander": {
     "id": "socket_expander",
@@ -62,5 +66,89 @@
     "buyPrice": 5000,
     "sellPrice": 2500,
     "desc": "Rare prehistoric drill crafted by titan smiths. Attempt to drill +1 socket into a weapon (up to 4 max). Warning: has a chance to break the socket slot on failure!"
+  },
+  "rune_bulwark": {
+    "id": "rune_bulwark",
+    "name": "Bulwark Rune",
+    "type": "rune",
+    "runeType": "bulwark",
+    "socketFor": "armor",
+    "icon": "❤️",
+    "iconKey": "heart",
+    "rarity": "epic",
+    "color": "#ef4444",
+    "sellPrice": 350,
+    "effect": "+6% Max HP",
+    "desc": "A heavy rune of packed earth. Socket into armor for +6% Max HP."
+  },
+  "rune_aegis": {
+    "id": "rune_aegis",
+    "name": "Aegis Rune",
+    "type": "rune",
+    "runeType": "aegis",
+    "socketFor": "armor",
+    "icon": "🛡️",
+    "iconKey": "shield",
+    "rarity": "epic",
+    "color": "#94a3b8",
+    "sellPrice": 350,
+    "effect": "+8% Defense",
+    "desc": "A rune etched with an iron ward. Socket into armor for +8% Defense."
+  },
+  "rune_thorns": {
+    "id": "rune_thorns",
+    "name": "Thorns Rune",
+    "type": "rune",
+    "runeType": "thorns",
+    "socketFor": "armor",
+    "icon": "🌵",
+    "iconKey": "thorns",
+    "rarity": "epic",
+    "color": "#84cc16",
+    "sellPrice": 350,
+    "effect": "Reflect 3% Max HP per blow",
+    "desc": "A rune of brambles. Socket into armor: each monster blow you take hits back for 3% of your Max HP."
+  },
+  "rune_renewal": {
+    "id": "rune_renewal",
+    "name": "Renewal Rune",
+    "type": "rune",
+    "runeType": "renewal",
+    "socketFor": "armor",
+    "icon": "💚",
+    "iconKey": "droplet",
+    "rarity": "epic",
+    "color": "#4ade80",
+    "sellPrice": 350,
+    "effect": "+35% HP regeneration",
+    "desc": "A rune of spring water. Socket into armor for +35% HP regeneration."
+  },
+  "rune_warding": {
+    "id": "rune_warding",
+    "name": "Warding Rune",
+    "type": "rune",
+    "runeType": "warding",
+    "socketFor": "armor",
+    "icon": "🔷",
+    "iconKey": "gem",
+    "rarity": "epic",
+    "color": "#818cf8",
+    "sellPrice": 350,
+    "effect": "+6% all elemental RES",
+    "desc": "A rune of old wards. Socket into armor for +6% resistance to every element."
+  },
+  "rune_swiftness": {
+    "id": "rune_swiftness",
+    "name": "Swiftness Rune",
+    "type": "rune",
+    "runeType": "swiftness",
+    "socketFor": "armor",
+    "icon": "🪶",
+    "iconKey": "feather",
+    "rarity": "epic",
+    "color": "#38bdf8",
+    "sellPrice": 350,
+    "effect": "+0.25 Move Speed",
+    "desc": "A rune light as a feather. Socket into armor for +0.25 Move Speed."
   }
 }
