@@ -5,9 +5,17 @@
 (function (root) {
   'use strict';
 
-  const W = 80, H = 72;          // frame size
-  const AX = 40, AY = 66;        // anchor (feet on the ground)
+  const W = 80, H = 80;          // frame size (tall enough for overhead swings on the longer body)
+  const AX = 40, AY = 74;        // anchor (feet on the ground)
   const LIGHT = [-0.54, -0.84];  // light from the upper left
+  // Anatomy: poses and bones are authored for a stocky, big-headed hero. The
+  // body is stretched by BODY_K (limbs keep their thickness, so it reads leaner)
+  // and the head is drawn at HEAD_K, for closer-to-life proportions
+  // (about five and a half heads tall instead of three and a half).
+  const BODY_K = 1.2;
+  const HEAD_K = 0.78;
+  // while a head is being drawn, head-space offsets and shape radii shrink by this
+  let HEAD_SCALE = 1;
 
   // ---------------------------------------------------------------- palette
   function hexRgb(h) {
@@ -78,6 +86,7 @@
   // returning a pseudo-normal used for shading.
   function capsule(a, b, r1, r2) {
     if (r2 === undefined) r2 = r1;
+    r1 *= HEAD_SCALE; r2 *= HEAD_SCALE;
     const ax = AX + a[0], ay = AY + a[1], bx = AX + b[0], by = AY + b[1];
     const dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy || 1e-6;
     const r = Math.max(r1, r2);
@@ -97,6 +106,7 @@
 
   function disc(c, r, ry) {
     if (ry === undefined) ry = r;
+    r *= HEAD_SCALE; ry *= HEAD_SCALE;
     const cx = AX + c[0], cy = AY + c[1];
     return {
       bbox: [Math.floor(cx - r - 1), Math.floor(cy - ry - 1), Math.ceil(cx + r + 1), Math.ceil(cy + ry + 1)],
@@ -157,7 +167,10 @@
         }
       }
     }
-    const ramp = [m.d, m.m, m.l, m.h];
+    // Seven-step ramp: the material's four tones with a blended tone between each
+    // pair, so round forms turn gradually instead of in three hard bands.
+    // index: 0 dark, 1 dark/mid, 2 mid, 3 mid/light, 4 light, 5 light/high, 6 high
+    const ramp = m._ramp7 || (m._ramp7 = [m.d, mixRgb(m.d, m.m, 0.5), m.m, mixRgb(m.m, m.l, 0.5), m.l, mixRgb(m.l, m.h, 0.5), m.h]);
     for (let y = y0; y <= y1; y++) {
       for (let x = x0; x <= x1; x++) {
         const n = inside(x, y);
@@ -166,16 +179,25 @@
         if (o.tone) c = m[o.tone];
         else {
           const s2 = n[0] * LIGHT[0] + n[1] * LIGHT[1];
+          // how close to the silhouette edge (1 = on the rim): edges turn away from the viewer
+          const edge = Math.min(1, n[0] * n[0] + n[1] * n[1]);
           let i;
-          if (o.metal) i = s2 > 0.84 ? 3 : s2 > 0.4 ? 2 : s2 > -0.2 ? 1 : s2 > -0.8 ? 0 : 1;
-          else {
-            i = (o.spec && s2 > 0.8) ? 3 : s2 > 0.38 ? 2 : s2 < -0.36 ? 0 : 1;
+          if (o.metal) {
+            // polished plate: dark core, bright band, hot glint, bounce light on the far rim
+            i = s2 > 0.86 ? 6 : s2 > 0.62 ? 5 : s2 > 0.38 ? 4 : s2 > 0.1 ? 3 : s2 > -0.2 ? 2 : s2 > -0.5 ? 1 : s2 > -0.82 ? 0 : 1;
+          } else {
+            i = (o.spec && s2 > 0.8) ? 6 : s2 > 0.55 ? 4 : s2 > 0.22 ? 3 : s2 > -0.14 ? 2 : s2 > -0.48 ? 1 : 0;
             if (o.dither) {
-              if (Math.abs(s2 - 0.38) < 0.15) i = (s2 - 0.23) / 0.3 > bayer(x, y) ? 2 : 1;
-              else if (Math.abs(s2 + 0.36) < 0.15) i = (s2 + 0.51) / 0.3 > bayer(x, y) ? 1 : 0;
+              // cloth: blend across each band edge through the Bayer pattern
+              const edges = [0.55, 0.22, -0.14, -0.48];
+              for (let k = 0; k < edges.length; k++) {
+                if (Math.abs(s2 - edges[k]) < 0.09) { i = (s2 - edges[k] + 0.09) / 0.18 > bayer(x, y) ? 4 - k : 3 - k; break; }
+              }
             }
+            // soft occlusion: the shadow side of the silhouette rolls off one more step
+            if (s2 < 0 && edge > 0.72) i = Math.max(0, i - 1);
           }
-          if (o.mail && !(y & 1) && ((x + (y >> 1)) & 1)) i = Math.max(0, i - 1);
+          if (o.mail && !(y & 1) && ((x + (y >> 1)) & 1)) i = Math.max(0, i - 2);
           c = ramp[i];
         }
         put(f, x, y, c, alpha);
@@ -228,6 +250,12 @@
   // about the vertical axis: 0 = side-on (the authored pose), +PI/2 = facing
   // the camera, -PI/2 = facing away (see projectSkeleton).
   function skeleton(p, rig, phi) {
+    // longer body (see BODY_K): the authored pose and bones stretch together, the head shrinks
+    const K = BODY_K, sc = v => (v ? [v[0] * K, v[1] * K] : v);
+    p = Object.assign({}, p, { hip: sc(p.hip), handF: sc(p.handF), handB: sc(p.handB), footF: sc(p.footF), footB: sc(p.footB) });
+    rig = Object.assign({}, rig, {
+      torso: rig.torso * K, thigh: rig.thigh * K, shin: rig.shin * K, upper: rig.upper * K, fore: rig.fore * K, headUp: rig.headUp * HEAD_K
+    });
     const lean = p.lean || 0;
     const up = [Math.sin(lean), -Math.cos(lean)];
     const side = [Math.cos(lean), Math.sin(lean)];
@@ -338,13 +366,21 @@
   }
 
   // Local-frame helpers: o + side*a + up*b ; head space uses (dx right, dy down)
-  const L = (sk, o, a, b) => [o[0] + sk.side[0] * a + sk.up[0] * b, o[1] + sk.side[1] * a + sk.up[1] * b];
-  const Hd = (sk, dx, dy) => [sk.head[0] + sk.hside[0] * dx - sk.hup[0] * dy, sk.head[1] + sk.hside[1] * dx - sk.hup[1] * dy];
+  // (b, along the body, stretches with BODY_K like the torso it sits on)
+  const L = (sk, o, a, b) => (b *= BODY_K, [o[0] + sk.side[0] * a + sk.up[0] * b, o[1] + sk.side[1] * a + sk.up[1] * b]);
+  const Hd = (sk, dx, dy) => (dx *= HEAD_SCALE, dy *= HEAD_SCALE, [sk.head[0] + sk.hside[0] * dx - sk.hup[0] * dy, sk.head[1] + sk.hside[1] * dx - sk.hup[1] * dy]);
   // Frontal head space: dx is left-right across the face (never squashed)
   const Hf = (sk, dx, dy) => {
+    dx *= HEAD_SCALE; dy *= HEAD_SCALE;
     const lat = sk.hlat || sk.hside;
     return [sk.head[0] + lat[0] * dx - sk.hup[0] * dy, sk.head[1] + lat[1] * dx - sk.hup[1] * dy];
   };
+
+  // draw a head at HEAD_K (head-space offsets and radii shrink about the head centre)
+  function inHead(fn) {
+    HEAD_SCALE = HEAD_K;
+    try { fn(); } finally { HEAD_SCALE = 1; }
+  }
 
   // ---------------------------------------------------------------- body parts
   function leg(f, sk, which, mats, r) {
@@ -492,8 +528,8 @@
     ] : [
       L(sk, sk.shC, -4.6, 1.3), L(sk, sk.shC, 3.8 - 1.2 * turn, 1.3),
       add(L(sk, sk.hip, 4.0 - 1.4 * turn, -13.5), [-tr * 8 * turn, -tr * 6], 1),
-      [sk.hip[0] - (1.8 + 2.2 * turn) - tr * 11 * turn, sk.hip[1] + 14.5 - tr * 7 + fl],
-      [sk.hip[0] - (5.6 + 2.5 * turn) - tr * 14 * turn, sk.hip[1] + 12.0 - tr * 8 + fl2]
+      [sk.hip[0] - (1.8 + 2.2 * turn) - tr * 11 * turn, sk.hip[1] + (14.5 - tr * 7 + fl) * BODY_K],
+      [sk.hip[0] - (5.6 + 2.5 * turn) - tr * 14 * turn, sk.hip[1] + (12.0 - tr * 8 + fl2) * BODY_K]
     ];
     const X = { f, p, sk, view, ph, tr, fl, fl2, capePts };
     // ragged hem: notches torn up into the cloth between the hem points
@@ -655,7 +691,7 @@
       torso();
       armB([1.9, 1.7, 1.5]);
       pauldron(sk.shB, M.darkSteel);
-      head();
+      inHead(head);
       if (!swordBehind) drawSword();
       arm(f, sk, 'F', armMatsF, [2, 1.8, 1.6]);
       pauldron(sk.shF, M.steel);
@@ -669,7 +705,7 @@
       torso();
       arm(f, sk, 'F', armMatsF, [2, 1.8, 1.6]);
       armB([1.9, 1.7, 1.5]);
-      head();
+      inHead(head);
       drawCape();
       pauldron(sk.shF, M.steel);
       pauldron(sk.shB, M.steel);
@@ -682,7 +718,7 @@
       leg(f, sk, 'F', legMats, [2.5, 2.1, 1.8]);
       torso();
       pauldron(sk.shB, M.darkSteel);
-      head();
+      inHead(head);
       if (!swordBehind) drawSword();
       arm(f, sk, 'F', armMatsF, [2, 1.8, 1.6]);
       pauldron(sk.shF, M.steel);
@@ -693,7 +729,7 @@
       leg(f, sk, 'F', legMats, [2.5, 2.1, 1.8]);
       leg(f, sk, 'B', legMats, [2.3, 2.0, 1.7]);
       torso();
-      head();
+      inHead(head);
       if (!wTipUp) drawSword();
       // the near arm also passes under the cape (see the facing-away case)
       armB([1.9, 1.7, 1.5]);
@@ -815,13 +851,13 @@
       if (staffBehind) drawStaff();
       robeBody();
       armB();
-      head();
+      inHead(head);
       if (!staffBehind) drawStaff();
       armF();
     } else if (frontal) {
       if (staffBehind) drawStaff();
       robeBody();
-      head();
+      inHead(head);
       armF();
       armB();
       if (!staffBehind) drawStaff();
@@ -829,14 +865,14 @@
       if (staffBehind) drawStaff();
       armB();
       robeBody();
-      head();
+      inHead(head);
       if (!staffBehind) drawStaff();
       armF();
     } else {
       if (staffBehind) drawStaff();
       armF();
       robeBody();
-      head();
+      inHead(head);
       armB();
       if (!staffBehind) drawStaff();
     }
@@ -926,7 +962,7 @@
       drawScarf();
       drawLegs('B', 'F');
       torso();
-      head();
+      inHead(head);
       drawDaggerB();
       arm(f, sk, 'B', armMats, [1.8, 1.6, 1.4]);
       drawDaggerF();
@@ -936,7 +972,7 @@
       drawDaggerB();
       drawLegs('F', 'B');
       torso();
-      head();
+      inHead(head);
       drawScarf();
       arm(f, sk, 'F', armMats, [1.9, 1.7, 1.5]);
       arm(f, sk, 'B', armMats, [1.8, 1.6, 1.4]);
@@ -946,7 +982,7 @@
       arm(f, sk, 'B', armMats, [1.8, 1.6, 1.4]);
       drawLegs('B', 'F');
       torso();
-      head();
+      inHead(head);
       drawDaggerF();
       arm(f, sk, 'F', armMats, [1.9, 1.7, 1.5]);
     } else {
@@ -954,7 +990,7 @@
       arm(f, sk, 'F', armMats, [1.9, 1.7, 1.5]);
       drawLegs('F', 'B');
       torso();
-      head();
+      inHead(head);
       drawScarf();
       drawDaggerB();
       arm(f, sk, 'B', armMats, [1.8, 1.6, 1.4]);
@@ -1584,17 +1620,218 @@
     };
   }
 
+  // ---- forged swords: every sword item (and SP card blade) is its own model
+  // built from a spec, so they differ in silhouette, not just in colour.
+  //   len / w      blade length and half-width at the guard (rig units)
+  //   profile(t)   width along the blade, t 0 (guard) .. 1 (tip)
+  //   curve(t)     sideways bend of the centre line (sabres, katanas)
+  //   wave / zig   flamberge waves or a lightning zigzag ({ amp, n })
+  //   serrate      teeth on the leading edge ({ amp, n })
+  //   back         width of the back edge (1 double-edged, < 1 single-edged)
+  //   guard        bar | swept | wings | horns | bolt | tsuba | cup | crescent | gate
+  //   pommel       disc | gem | spike | ring
+  //   fuller       dark groove material, or glow: lit rune channel material
+  //   extras(f, at, k)  one-off details; at(s, o) is a point s along the blade, o across it
+  const smoothTip = tipFrac => t => (t < 1 - tipFrac ? 1 : Math.max(0, (1 - t) / tipFrac));
+  function forgeBlade(spec) {
+    return (f, hand, d) => {
+      const n = perpOf(d);
+      const L = spec.len, b0 = 2.3, N = 22;
+      const curve = spec.curve || (() => 0);
+      const wiggle = t => (spec.wave ? spec.wave.amp * Math.sin(t * spec.wave.n * Math.PI * 2) : 0)
+        + (spec.zig ? spec.zig.amp * (Math.abs(((t * spec.zig.n) % 1) - 0.5) * 4 - 1) * (t < 0.92 ? 1 : 0) : 0);
+      const tOf = s => Math.max(0, Math.min(1, (s - b0) / (L - b0)));
+      const at = (s, o) => add(add(hand, d, s), n, (o || 0) + curve(tOf(s)) + (s > b0 ? wiggle(tOf(s)) : 0));
+      const bm = spec.mat || M.steel, gm = spec.guardMat || M.gold;
+      // grip, wrap and pommel
+      const grip = spec.grip || 3.4;
+      paint(f, capsule(at(-grip, 0), at(1.4, 0), 0.9), spec.gripMat || M.leather);
+      if (spec.wrap) for (let s = -grip + 0.8; s < 1.2; s += 1.1) paint(f, capsule(at(s, 0.8), at(s + 0.5, -0.8), 0.3), spec.wrap, { tone: 'l', rim: false });
+      const pm = spec.pommelMat || gm, pp = at(-grip - 0.7, 0);
+      if (spec.pommel === 'spike') spike(f, at(-grip, 0), [-d[0], -d[1]], 2.6, 1.1, pm, { spec: true });
+      else if (spec.pommel === 'ring') paint(f, ellRing(pp, 1.5, 1.5, 0.45), pm, { spec: true });
+      else if (spec.pommel === 'gem') { paint(f, disc(pp, 1.3), gm, { spec: true }); paint(f, disc(pp, 0.7), pm, { tone: 'h', rim: false }); }
+      else paint(f, disc(pp, 1.2), pm, { spec: true });
+      // blade outline: both edges sampled along the (bent) centre line
+      const prof = spec.profile || smoothTip(0.2);
+      const back = spec.back === undefined ? 1 : spec.back;
+      const top = [], bot = [], inner = [], mid = [];
+      for (let i = 0; i <= N; i++) {
+        const t = i / N, s = b0 + t * (L - b0);
+        let w = spec.w * prof(t);
+        let wt = w;
+        if (spec.serrate && t > 0.08 && t < 0.86) wt += ((i % 2) ? spec.serrate.amp : 0);
+        top.push(at(s, wt));
+        bot.unshift(at(s, -w * back));
+        inner.push(at(s, w * 0.5));
+        mid.push(at(s, (w - w * back) * 0.5));
+      }
+      paint(f, poly(top.concat([at(L, 0)], bot)), bm, { metal: true, selout: true });
+      // fuller: a dark groove, or a lit rune channel with bright beads
+      const fEnd = Math.round(N * (spec.fullerTo || 0.66));
+      if (spec.glow) {
+        paint(f, disc(at(b0 + (L - b0) * 0.45, 0), spec.w + 2.4, spec.w + 2.4), spec.glow, { tone: 'm', rim: false, alpha: 40 });
+        for (let i = 1; i < fEnd; i++) paint(f, capsule(mid[i], mid[i + 1], spec.glowW || 0.45), spec.glow, { tone: 'm', rim: false });
+        for (let i = 2; i < fEnd; i += 3) paint(f, disc(mid[i], 0.55), spec.glow, { tone: 'h', rim: false });
+      } else if (spec.fuller !== null) {
+        for (let i = 1; i < fEnd; i++) paint(f, capsule(mid[i], mid[i + 1], 0.38), spec.fuller || bm, { tone: 'd', rim: false });
+      }
+      // the bright bevel along the leading edge
+      const em = spec.edgeMat || bm;
+      for (let i = 1; i < N - 1; i++) paint(f, capsule(inner[i], inner[i + 1], 0.32), em, { tone: 'h', rim: false });
+      // guard
+      const G = 1.8, span = spec.span || 3.2, gp = at(G, 0);
+      const MET = { metal: true, selout: true };
+      switch (spec.guard) {
+        case 'swept':      // quillons bent toward the blade, quatrefoil ends
+          for (const k of [-1, 1]) {
+            paint(f, capsule(gp, at(G + 1.6, span * k), 0.75), gm, MET);
+            paint(f, disc(at(G + 1.9, (span + 0.5) * k), 1), gm, { spec: true });
+          }
+          break;
+        case 'wings':      // angel wings swept up the blade
+          for (const k of [-1, 1]) {
+            paint(f, poly([at(G - 0.4, 0.7 * k), at(G - 0.2, span * k), at(G + 4.6, (span + 1.4) * k), at(G + 3.2, span * 0.62 * k), at(G + 2.4, (span * 0.7) * k), at(G + 1.4, 1.1 * k)]), gm, MET);
+            paint(f, capsule(at(G + 0.6, span * 0.55 * k), at(G + 3.6, (span + 0.6) * k), 0.3), gm, { tone: 'h', rim: false });
+          }
+          break;
+        case 'horns':      // curled horns hooking forward
+          for (const k of [-1, 1]) horn(f, [at(G, 0.6 * k), at(G + 0.2, span * 0.7 * k), at(G + 1.6, span * k), at(G + 3.2, (span - 0.4) * k)], 0.9, 0.35, gm);
+          break;
+        case 'bolt':       // a crossguard broken like lightning
+          for (const k of [-1, 1]) paint(f, poly([at(G - 0.7, 0.4 * k), at(G + 0.3, span * 0.55 * k), at(G - 0.5, span * 0.6 * k), at(G + 0.9, (span + 0.9) * k), at(G + 0.6, span * 0.45 * k), at(G + 1.2, 0.5 * k)]), gm, MET);
+          break;
+        case 'tsuba':      // round katana guard
+          paint(f, disc(gp, span * 0.6, span * 0.6), gm, MET);
+          paint(f, disc(gp, span * 0.28, span * 0.28), gm, { tone: 'd', rim: false });
+          break;
+        case 'cup':        // rapier cup and knuckle bow
+          paint(f, crescentShape(at(G - 0.2, 0), span * 0.7, [d[0] * -1.4, d[1] * -1.4]), gm, MET);
+          horn(f, [at(G, -span * 0.6), at(-0.6, -span * 0.85), at(-grip + 0.4, -1)], 0.45, 0.4, gm);
+          break;
+        case 'crescent':   // a moon hooked round the blade
+          paint(f, crescentShape(gp, span * 0.75, [d[0] * 1.4, d[1] * 1.4]), gm, MET);
+          break;
+        case 'gate':       // a wide lintel with two posts running up the blade
+          paint(f, capsule(at(G, span), at(G, -span), 0.95), gm, MET);
+          for (const k of [-1, 1]) spike(f, at(G, (span - 0.5) * k), d, 3.4, 0.7, gm, MET);
+          paint(f, disc(gp, 1.1), spec.gemMat || CM.ice, { spec: true });
+          break;
+        default:           // straight bar with squared ends
+          paint(f, capsule(at(G, span), at(G, -span), 0.8), gm, MET);
+          for (const k of [-1, 1]) paint(f, disc(at(G, span * k), 1.05), gm, { spec: true });
+      }
+      if (spec.gemMat && spec.guard !== 'gate') paint(f, disc(gp, 0.95), spec.gemMat, { spec: true });
+      if (spec.extras) spec.extras(f, at, { hand, d, n, L, b0, top, bot });
+      return at(L, 0);
+    };
+  }
+  // a small four-point sparkle
+  const twinkle = (f, p, m) => { dot(f, p, m.h); for (const v of [[1, 0], [-1, 0], [0, 1], [0, -1]]) dot(f, [p[0] + v[0], p[1] + v[1]], m.l); };
+
+  const SWORDS = {
+    // Knight Broadsword: broad, parallel edges, plain bar guard and iron pommel
+    iron_blade: forgeBlade({ len: 19, w: 1.6, profile: smoothTip(0.16), guard: 'bar', span: 3.4, guardMat: CM.iron, pommelMat: CM.iron, fullerTo: 0.72 }),
+    // Sweeping Claymore: long two-hander, swept quillons, leather ricasso, earthen runes
+    sweeping_claymore: forgeBlade({ len: 24, w: 1.45, profile: t => (t < 0.8 ? 1 - 0.3 * t : (1 - t) / 0.2 * 0.76), grip: 4.8, guard: 'swept', span: 3.6, guardMat: GM.bronze,
+      pommel: 'gem', pommelMat: GM.earth, glow: GM.earth, fullerTo: 0.7,
+      extras: (f, at) => paint(f, capsule(at(2.6, 0), at(4.6, 0), 1.9), GM.wraps, { selout: true }) }),
+    // Inferno Edge: flamberge waves, horned guard, a burning channel and a flame at the tip
+    inferno_blade: forgeBlade({ len: 21, w: 1.55, wave: { amp: 0.75, n: 3 }, profile: smoothTip(0.18), guard: 'horns', span: 2.8, guardMat: GM.darkRed,
+      pommel: 'spike', pommelMat: GM.darkRed, glow: CM.fire, glowW: 0.6, edgeMat: CM.fire,
+      extras: (f, at, k) => { flame(f, at(k.L - 1.5, 0), 3.4, 1.3, 0); for (const s of [8, 13]) dot(f, at(s, 2.6), CM.fire.h); } }),
+    // Storm Breaker: a lightning-bolt blade, a broken crossguard and sparks jumping off it
+    storm_breaker: forgeBlade({ len: 21, w: 1.35, zig: { amp: 0.75, n: 4 }, profile: smoothTip(0.14), mat: CM.iron, guard: 'bolt', span: 3, guardMat: CM.bolt,
+      pommel: 'gem', pommelMat: CM.bolt, glow: CM.bolt, glowW: 0.35, fullerTo: 0.9,
+      extras: (f, at) => { twinkle(f, at(11, 3.4), CM.bolt); twinkle(f, at(17, -3.2), CM.bolt); } }),
+    // Radiant Holy Blade: silver leaf blade between angel wings, a sapphire and a halo of light
+    excalibur: forgeBlade({ len: 23, w: 1.4, profile: t => (t < 0.82 ? 1 + 0.3 * Math.sin(t / 0.82 * Math.PI) : (1 - t) / 0.18), mat: CM.silver, guard: 'wings', span: 4,
+      guardMat: GM.holy, gemMat: CM.ice, pommel: 'gem', pommelMat: CM.ice, glow: GM.holy, glowW: 0.35,
+      extras: (f, at, k) => twinkle(f, at(k.L + 1.2, 0), GM.holy) }),
+    // Gatekeeper's Greatsword: a slab of silver with gate-window slots, a squared chisel point and a gate guard
+    gatekeeper_greatsword: forgeBlade({ len: 26, w: 2.5, profile: t => (t < 0.9 ? 1 : 1 - (t - 0.9) / 0.1 * 0.7), back: 0.85, mat: CM.silver, guard: 'gate', span: 4.4,
+      guardMat: GM.holy, grip: 5, pommel: 'ring', fuller: null,
+      extras: (f, at) => { for (const s of [7, 11.5, 16]) paint(f, capsule(at(s, 0), at(s + 2.2, 0), 0.65), CM.void, { rim: false }); for (const s of [5, 20]) dot(f, at(s, 0), GM.holy.h); } }),
+    // Riftwalker's Edge: a dark single-edged blade split by a glowing rift, shards drifting at the tip
+    riftwalker_edge: forgeBlade({ len: 22, w: 1.9, back: 0.55, curve: t => 0.9 * t * t, mat: GM.night, guard: 'crescent', span: 3, guardMat: GM.violet,
+      pommel: 'gem', pommelMat: CM.voidGlow, fuller: null, edgeMat: GM.lavender,
+      extras: (f, at, k) => {
+        const crack = [at(3, 0), at(6, 0.6), at(8, -0.3), at(11, 0.5), at(13.5, -0.4), at(16, 0.3), at(18, 0)];
+        paint(f, disc(at(11, 0), 4.6, 4.6), CM.voidGlow, { tone: 'm', rim: false, alpha: 45 });
+        for (let i = 0; i < crack.length - 1; i++) paint(f, capsule(crack[i], crack[i + 1], 0.75), CM.voidGlow, { tone: 'l', rim: false });
+        for (let i = 0; i < crack.length - 1; i++) paint(f, capsule(crack[i], crack[i + 1], 0.35), CM.voidGlow, { tone: 'h', rim: false });
+        paint(f, capsule(at(8, -0.3), at(9.5, -1.6), 0.3), CM.voidGlow, { tone: 'l', rim: false });
+        for (const [s, o] of [[k.L - 2, 3.2], [k.L + 1, -2.6]]) { const c = at(s, o); paint(f, poly([[c[0], c[1] - 1.4], [c[0] + 0.8, c[1]], [c[0], c[1] + 1.4], [c[0] - 0.8, c[1]]]), CM.voidGlow, { spec: true }); }
+      } }),
+    // Nightfall (one blade in a warrior's hands): a crescent sabre with a moon guard and stars
+    nightfall_twinblades: forgeBlade({ len: 20, w: 1.4, back: 0.5, profile: t => (t < 0.8 ? 0.8 + 0.6 * Math.sin(t / 0.8 * Math.PI) : (1 - t) / 0.2 * 0.8), curve: t => 4.2 * t * t, mat: GM.night, guard: 'crescent', span: 2.8, guardMat: CM.silver,
+      pommel: 'disc', pommelMat: CM.silver, fuller: null, edgeMat: CM.silver,
+      extras: (f, at) => { for (const [s, o] of [[9, 3.4], [14, -2.8], [18, 3.6]]) twinkle(f, at(s, o), CM.silver); } })
+  };
+
+  // SP card blades (Reaver, Runeknight, Duskblade, Phoenix Oath). Specs are
+  // read when drawn, so a card's palette (it swaps shared materials) applies.
+  const SP_SPECS = {
+    // a serrated blood greatsword
+    reaver: () => forgeBlade({ len: 27, w: 1.9, serrate: { amp: 0.75 }, back: 0.8, profile: smoothTip(0.14), mat: CM.iron, guard: 'horns', span: 3.4, guardMat: CM.bone,
+      grip: 4.6, pommel: 'spike', pommelMat: CM.bone, glow: CM.crimson, glowW: 0.5 }),
+    // a rune-etched knightly blade: glyph crosses along a pale channel
+    runeknight: () => forgeBlade({ len: 25, w: 1.5, mat: CM.silver, guard: 'swept', span: 3.4, guardMat: M.robeTrim, pommel: 'gem', pommelMat: M.orb, glow: CM.ghost, glowW: 0.3,
+      extras: (f, at) => { for (const s of [6, 10, 14]) { paint(f, capsule(at(s, -0.9), at(s, 0.9), 0.25), M.orb, { tone: 'h', rim: false }); paint(f, capsule(at(s - 0.9, 0), at(s + 0.9, 0), 0.25), M.orb, { tone: 'h', rim: false }); } } }),
+    // a falchion that widens toward a clipped point
+    duskblade: () => forgeBlade({ len: 25, w: 1.4, back: 0.4, profile: t => (t < 0.82 ? 0.9 + 0.9 * t : (1 - t) / 0.18 * 1.64), curve: t => -1.2 * t * t, mat: GM.riftCloth,
+      guard: 'crescent', span: 3, guardMat: GM.violet, pommel: 'gem', pommelMat: CM.voidGlow, fuller: null, edgeMat: CM.voidGlow }),
+    // a silver blade cradled by flame wings
+    phoenix: () => forgeBlade({ len: 25, w: 1.45, mat: CM.silver, guard: 'wings', span: 3.2, guardMat: CM.fire, pommel: 'gem', pommelMat: CM.fire, glow: CM.fire, glowW: 0.4 })
+  };
+  const SP_SWORDS = {};
+  for (const k of Object.keys(SP_SPECS)) SP_SWORDS[k] = (f, hand, d) => SP_SPECS[k]()(f, hand, d);
+
+  // Rogue blades: a pair per weapon (the off hand gets its partner, or nothing)
+  const ROGUE_SWORDS = {
+    // Zephyr Swiftblade: a swept-hilt rapier, with a parrying dagger in the off hand
+    wind_rapier: {
+      F: forgeBlade({ len: 18, w: 0.65, profile: t => 1 - 0.4 * t, mat: CM.silver, guard: 'cup', span: 3, guardMat: GM.iceSteel, grip: 2.6, pommel: 'disc', pommelMat: GM.iceSteel,
+        fuller: null, extras: (f, at) => { for (const [s, o] of [[8, 2.2], [11, -2]]) paint(f, capsule(at(s, o), at(s - 3, o), 0.3), CM.ghost, { tone: 'l', rim: false, alpha: 160 }); } }),
+      B: forgeBlade({ len: 9, w: 0.85, mat: CM.silver, guard: 'bar', span: 2.2, guardMat: GM.iceSteel, grip: 2.2, fuller: null })
+    },
+    // Frostbite Katana: curved single edge, round tsuba, white-wrapped grip, ice at the tip; a wakizashi beside it
+    frostbite_katana: {
+      F: forgeBlade({ len: 18, w: 0.95, back: 0.35, curve: t => 1.3 * t * t, profile: smoothTip(0.1), mat: GM.iceSteel, edgeMat: CM.ice, guard: 'tsuba', span: 2.4, guardMat: CM.iron,
+        grip: 3.4, gripMat: GM.frostCloth, wrap: CM.iron, pommel: 'disc', pommelMat: CM.iron, fuller: null,
+        extras: (f, at, k) => spike(f, at(k.L - 1, 0.6), k.d, 2.2, 0.7, CM.ice, { spec: true }) }),
+      B: forgeBlade({ len: 10, w: 0.75, back: 0.35, curve: t => 0.6 * t * t, profile: smoothTip(0.12), mat: GM.iceSteel, edgeMat: CM.ice, guard: 'tsuba', span: 2, guardMat: CM.iron,
+        grip: 2.4, gripMat: GM.frostCloth, wrap: CM.iron, fuller: null })
+    },
+    // Nightfall Twinblades: a matched pair of crescent moon blades
+    nightfall_twinblades: {
+      F: forgeBlade({ len: 13, w: 1.25, back: 0.5, curve: t => 2.8 * t * t, mat: GM.night, edgeMat: CM.silver, guard: 'crescent', span: 2.2, guardMat: CM.silver, grip: 2.4, fuller: null,
+        extras: (f, at) => dot(f, at(8, 2.4), STAR) }),
+      B: forgeBlade({ len: 13, w: 1.25, back: 0.5, curve: t => -2.8 * t * t, mat: GM.night, edgeMat: CM.silver, guard: 'crescent', span: 2.2, guardMat: CM.silver, grip: 2.4, fuller: null,
+        extras: (f, at) => dot(f, at(8, -2.4), STAR) })
+    },
+    // Riftwalker's Edge: one rift-split blade, the off hand free
+    riftwalker_edge: {
+      F: forgeBlade({ len: 16, w: 1.4, back: 0.5, curve: t => 0.7 * t * t, mat: GM.night, edgeMat: GM.lavender, guard: 'crescent', span: 2.6, guardMat: GM.violet, grip: 2.6,
+        pommel: 'gem', pommelMat: CM.voidGlow, fuller: null,
+        extras: (f, at) => { const c = [at(3, 0), at(5.5, 0.4), at(8, -0.3), at(11, 0.2)]; for (let i = 0; i < c.length - 1; i++) paint(f, capsule(c[i], c[i + 1], 0.55), CM.voidGlow, { tone: 'h', rim: false }); } }),
+      B: null
+    }
+  };
+
   const WARRIOR_WEAPONS = {
-    iron_blade: () => (f, h, d) => sword(f, h, d, 18),
-    sweeping_claymore: () => runeSword(22, 1.9, GM.earth),
-    inferno_blade: () => runeSword(19, 1.5, CM.fire),
-    storm_breaker: () => runeSword(21, 1.8, CM.bolt),
-    excalibur: () => runeSword(22, 1.6, GM.holy, CM.silver),
+    iron_blade: () => SWORDS.iron_blade,
+    sweeping_claymore: () => SWORDS.sweeping_claymore,
+    inferno_blade: () => SWORDS.inferno_blade,
+    storm_breaker: () => SWORDS.storm_breaker,
+    excalibur: () => SWORDS.excalibur,
     woodsman_axe: () => battleAxe,
     iron_morningstar: () => mace,
     thunder_maul: () => warhammer,
     dragonbone_glaive: () => lance,
-    gatekeeper_greatsword: () => runeSword(23, 2.1, GM.holy, CM.silver)
+    gatekeeper_greatsword: () => SWORDS.gatekeeper_greatsword,
+    riftwalker_edge: () => SWORDS.riftwalker_edge,
+    nightfall_twinblades: () => SWORDS.nightfall_twinblades
   };
   const MAGE_STAVES = {
     glacial_spire: crystalStaff, archmage_staff: brazierStaff, sunfire_conduit: brazierStaff,
@@ -1802,7 +2039,10 @@
       Object.assign(C, base, style ? { head: C.head } : {});
       C.gearRL = Object.assign({}, RL, tones ? { rogue: tones.main } : {});
       const w = id('weapon');
-      if (w === 'venom_kris') C.dagger = kris;
+      if (ROGUE_SWORDS[w]) {
+        const pair = ROGUE_SWORDS[w];
+        C.dagger = (f, hand, d, which) => (pair[which] ? pair[which](f, hand, d) : undefined);
+      } else if (w === 'venom_kris') C.dagger = kris;
       else if (w === 'ember_scythe') C.dagger = (f, hand, d, which) => which === 'F' ? scythe(f, hand, d) : undefined;
       if (w === 'venom_kris' || w === 'ember_scythe') C.palette.venom = glowOf() || RL.venom;
       if (glove) C.gearHand = glove;
@@ -2420,7 +2660,7 @@
     },
     sp_reaver: {
       smear: () => CM.fire,
-      weapon: (f, hand, d) => { const tip = sword(f, hand, d, 27); flame(f, add(hand, d, 24), 4.5, 2, 0); return tip; },
+      weapon: (f, hand, d) => { const tip = SP_SWORDS.reaver(f, hand, d); flame(f, add(hand, d, 24), 4.5, 2, 0); return tip; },
       capeMat: () => CM.crimson,
       cape: (X) => [
         L(X.sk, X.sk.shC, -4.2, 1), L(X.sk, X.sk.shC, 4.4, 1),
@@ -2440,12 +2680,7 @@
     },
     sp_runeknight: {
       smear: () => CM.ghost,
-      weapon: (f, hand, d) => {
-        const tip = sword(f, hand, d, 25);
-        paint(f, disc(add(hand, d, 15), 1.2), M.orb, { spec: true });
-        paint(f, disc(add(hand, d, 19), 0.8), M.venom, { spec: true });
-        return tip;
-      },
+      weapon: (f, hand, d) => SP_SWORDS.runeknight(f, hand, d),
       capeMat: () => M.robeTrim,
       behind({ f, sk, p }) {
         if (p.drop) return;
@@ -2493,11 +2728,7 @@
     },
     sp_duskblade: {
       smear: () => CM.voidGlow,
-      weapon: (f, hand, d) => {
-        const tip = sword(f, hand, d, 26);
-        paint(f, disc(add(hand, d, 15), 1.2), CM.voidGlow, { spec: true });
-        return tip;
-      },
+      weapon: (f, hand, d) => SP_SWORDS.duskblade(f, hand, d),
       capeMat: () => CM.shadow,
       cape: (X) => [
         L(X.sk, X.sk.shC, -4.2, 1), L(X.sk, X.sk.shC, 4.4, 1),
@@ -2600,7 +2831,7 @@
     sp_phoenix_oath: {
       smear: () => CM.fire,
       smearR: [8, 20],
-      weapon: (f, hand, d) => { const tip = sword(f, hand, d, 25); flame(f, add(hand, d, 22), 5, 1.8, 0); return tip; },
+      weapon: (f, hand, d) => { const tip = SP_SWORDS.phoenix(f, hand, d); flame(f, add(hand, d, 22), 5, 1.8, 0); return tip; },
       capeMat: () => CM.fire,
       // warm rebirth halo behind the head
       behind({ f, sk, p }) {

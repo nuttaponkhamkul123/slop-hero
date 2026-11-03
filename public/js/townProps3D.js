@@ -648,6 +648,14 @@
   const BOULEVARD_MID_Y = 20.5;
   const propVariant = obs => (obs.type === 'market_stall' && obs.y > BOULEVARD_MID_Y ? (obs.variant || 0) + 4 : obs.variant);
 
+  // The raw prop models (game axes, TILE units, anchored at the obstacle), for
+  // the first-person view (firstPerson.js), which places them in its own scene
+  window.TownPropModels = {
+    TILE,
+    has: type => !!BUILDERS[type],
+    build: obs => (BUILDERS[obs.type] ? BUILDERS[obs.type](propVariant(obs) || 0) : null)
+  };
+
   // ---------- offscreen renderer ----------
   class TownProps3D {
     constructor() {

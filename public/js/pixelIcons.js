@@ -292,8 +292,21 @@
   // ---------- emoji stripping (DOM + canvas) ----------
   const SYMBOL_SWAP = [[/➜|➔|→|➡️?/g, '>'], [/✕|✖️?|✗/g, 'x'], [/★|⭐/g, '*'], [/✓|✔️?/g, '+']];
   const EMOJI_RE = /(?:[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{2190}-\u{21FF}\u{2300}-\u{23FF}\u{1F1E6}-\u{1F1FF}][\u{FE0F}\u{200D}\u{1F3FB}-\u{1F3FF}]*)+|\u{FE0F}|\u{200D}/gu;
+  // Runs on every canvas fillText and DOM text change, so plain text (nothing
+  // from the symbol / emoji ranges) returns at once and the rest is memoised
+  const MAYBE_EMOJI = /[←-⯿\uD83C-\uD83E️‍]/;
+  const stripCache = new Map();
   function stripEmoji(text) {
-    if (typeof text !== 'string' || !text) return text;
+    if (typeof text !== 'string' || !text || !MAYBE_EMOJI.test(text)) return text;
+    let hit = stripCache.get(text);
+    if (hit === undefined) {
+      hit = stripEmojiSlow(text);
+      if (stripCache.size > 2000) stripCache.clear();
+      stripCache.set(text, hit);
+    }
+    return hit;
+  }
+  function stripEmojiSlow(text) {
     let out = text;
     for (const [re, rep] of SYMBOL_SWAP) out = out.replace(re, rep);
     out = out.replace(EMOJI_RE, '');

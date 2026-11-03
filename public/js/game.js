@@ -2,6 +2,13 @@
 document.addEventListener('DOMContentLoaded', () => {
   const canvas = document.getElementById('gameCanvas');
   const renderer = new IsometricRenderer(canvas);
+  // First-person billboard view (firstPerson.js), toggled with its key binding
+  let fpView = null;
+  try {
+    if (window.FirstPersonView) fpView = new FirstPersonView(canvas, renderer);
+  } catch (err) {
+    console.warn('First-person view unavailable:', err);
+  }
   // Camera zoom range for the wheel / pinch; heroes enter at the closest zoom
   const MIN_ZOOM = 0.65;
   const MAX_ZOOM = 3.0;
@@ -1709,7 +1716,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (onlineCountText) {
       const count = gameState.players.length;
-      onlineCountText.textContent = `${count} Hero${count > 1 ? 'es' : ''} Online`;
+      setText(onlineCountText, `${count} Hero${count > 1 ? 'es' : ''} Online`);
     }
   });
 
@@ -2313,14 +2320,16 @@ document.addEventListener('DOMContentLoaded', () => {
     e.preventDefault();
   });
 
-  function handlePointerAction(e, isDragging = false) {
+  // worldOverride: a world point picked some other way (the first-person crosshair)
+  function handlePointerAction(e, isDragging = false, worldOverride = null) {
     window.soundEngine.init();
     if (!localPlayer || localPlayer.isDead) return;
 
-    const rect = canvas.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
-    const worldPos = Isometric.screenToWorld(mouseX, mouseY, renderer.camera, renderer.viewW, renderer.viewH);
+    let worldPos = worldOverride;
+    if (!worldPos) {
+      const rect = canvas.getBoundingClientRect();
+      worldPos = Isometric.screenToWorld(e.clientX - rect.left, e.clientY - rect.top, renderer.camera, renderer.viewW, renderer.viewH);
+    }
 
     // Placing an Eternal Rift structure: this click builds (or right click cancels)
     if (!isDragging && window.RiftUI.handleClick(worldPos, e.button)) return;
@@ -2739,6 +2748,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (activeKeys.a) { dx -= 1; }
     if (activeKeys.d) { dx += 1; }
 
+    // First person: W walks where you look, A / D strafe
+    if ((dx !== 0 || dy !== 0) && fpView && fpView.active) {
+      const mv = fpView.moveVector(dx, dy);
+      if (localPlayer) localPlayer.isMoving = true;
+      syncFirstPersonFacing();
+      socket.emit('player_input', { type: 'wasd_move', dx: mv.dx, dy: mv.dy });
+      return;
+    }
+
     if (dx !== 0 || dy !== 0) {
       if (localPlayer && faceCursorOn) {
         localPlayer.isMoving = true;
@@ -2965,7 +2983,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const rawEquipped = localPlayer.equippedSkills && localPlayer.equippedSkills[slot];
     const equippedDef = findSkillDef(typeof rawEquipped === 'object' && rawEquipped ? rawEquipped.skillId : rawEquipped);
     // Nightblade throws go where the mouse points, not at the nearest monster
-    if (!aim && equippedDef && CURSOR_AIMED_SHAPES.has(equippedDef.shape) && lastCursor && renderer) {
+    const firstPerson = !!(fpView && fpView.active);
+    if (!aim && equippedDef && CURSOR_AIMED_SHAPES.has(equippedDef.shape) && firstPerson) {
+      aim = fpView.aimPoint(localPlayer, 6);
+    } else if (!aim && equippedDef && CURSOR_AIMED_SHAPES.has(equippedDef.shape) && lastCursor && renderer) {
       aim = Isometric.screenToWorld(lastCursor.x, lastCursor.y, renderer.camera, renderer.viewW, renderer.viewH);
     }
     // Phantom Shuriken out: pressing again calls the stars back, cooldown or not
@@ -3043,6 +3064,11 @@ document.addEventListener('DOMContentLoaded', () => {
         selectedTargetId = closestMob.id;
         selectedTargetType = 'mob';
       }
+    } else if (firstPerson) {
+      // first person: the crosshair (the 2D cursor is hidden under the 3D view)
+      const aimPos = fpView.aimPoint(localPlayer, 6);
+      targetX = aimPos.x;
+      targetY = aimPos.y;
     } else if (lastCursor && renderer) {
       const aimPos = Isometric.screenToWorld(lastCursor.x, lastCursor.y, renderer.camera, renderer.viewW, renderer.viewH);
       if (aimPos) {
@@ -3058,6 +3084,14 @@ document.addEventListener('DOMContentLoaded', () => {
       const d = Math.hypot(aim.x - localPlayer.x, aim.y - localPlayer.y) || 1;
       dirX = (aim.x - localPlayer.x) / d;
       dirY = (aim.y - localPlayer.y) / d;
+    } else if (slot === 'dash' && firstPerson) {
+      // first person: the held WASD direction relative to the view, else straight ahead
+      const kx = (activeKeys.d ? 1 : 0) - (activeKeys.a ? 1 : 0);
+      const ky = (activeKeys.s ? 1 : 0) - (activeKeys.w ? 1 : 0);
+      const wd = fpView.worldDir(kx, ky);
+      dirX = wd.x;
+      dirY = wd.y;
+      localPlayer.facing = calculateFacingFromTo(0, 0, dirX, dirY);
     } else if (slot === 'dash') {
       if (activeKeys.w || activeKeys.a || activeKeys.s || activeKeys.d) {
         let dx = 0;
@@ -3131,8 +3165,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const current = POTION_CHOICES[kind].find(c => c.id === selectedPotion(p, kind)) || POTION_CHOICES[kind][0];
       const label = document.getElementById(labelId);
       const slot = document.getElementById(slotId);
-      if (label) label.textContent = current.name;
-      if (slot) slot.title = `Click to drink ${current.name} (${key})`;
+      setText(label, current.name);
+      setTitle(slot, `Click to drink ${current.name} (${key})`);
     });
   }
 
@@ -3206,7 +3240,8 @@ document.addEventListener('DOMContentLoaded', () => {
     { id: 'transform', label: 'SP Card Transform', def: 'KeyT', slot: 'slotSpCard' },
     { id: 'potionHp', label: 'Health Potion', def: 'Digit1', slot: 'slotHealthPotion' },
     { id: 'potionMp', label: 'Mana Potion', def: 'Digit2', slot: 'slotManaPotion' },
-    { id: 'portal', label: 'Use Portal', def: 'KeyF' }
+    { id: 'portal', label: 'Use Portal', def: 'KeyF' },
+    { id: 'firstPerson', label: 'Toggle First-Person View', def: 'KeyV' }
   ];
   const RESERVED_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Escape', 'Enter', 'F2', 'F10']);
   const KEY_GLYPHS = { Space: 'SPC', Backquote: '`', Minus: '-', Equal: '=', BracketLeft: '[', BracketRight: ']', Semicolon: ';', Quote: "'", Comma: ',', Period: '.', Slash: '/', Backslash: '\\', Control: 'CTRL', CapsLock: 'CAPS' };
@@ -3229,7 +3264,54 @@ document.addEventListener('DOMContentLoaded', () => {
     else if (a.id === 'potionHp') drinkPotion('health');
     else if (a.id === 'potionMp') drinkPotion('mana');
     else if (a.id === 'portal') usePortal();
+    else if (a.id === 'firstPerson') toggleFirstPerson();
     else useSkill(a.id);
+  }
+
+  // ---- First-person view: swoops the camera down from the iso view to the
+  // hero's eyes; WASD then moves relative to the look direction, the mouse
+  // looks around (pointer lock) and skills fire where you look
+  let fpAimFacing = null;
+  function toggleFirstPerson() {
+    if (!fpView) return;
+    const on = fpView.toggle();
+    fpAimFacing = null;
+    if (!on && localPlayer && !faceCursorOn) socket.emit('player_input', { type: 'aim_facing', facing: null });
+    sentAimFacing = null;
+    updateWASDInput();
+    if (renderer && localPlayer) renderer.addFloatingText(localPlayer.x, localPlayer.y - 0.7, on ? 'First-Person View' : 'Isometric View', '#e2e8f0', 14);
+  }
+  // face where the camera looks, so attacks and skills go that way
+  function syncFirstPersonFacing() {
+    if (!fpView || !fpView.active || !localPlayer || localPlayer.isDead) return;
+    const facing = fpView.facing();
+    localPlayer.facing = facing;
+    if (facing !== fpAimFacing) {
+      fpAimFacing = facing;
+      socket.emit('player_input', { type: 'aim_facing', facing });
+    }
+  }
+  if (fpView) {
+    let lastTurnSend = 0;
+    fpView.onTurn = () => {
+      syncFirstPersonFacing();
+      // re-aim a held WASD walk at the new heading (throttled)
+      const now = performance.now();
+      if ((activeKeys.w || activeKeys.a || activeKeys.s || activeKeys.d) && now - lastTurnSend > 60) {
+        lastTurnSend = now;
+        updateWASDInput();
+      }
+    };
+    fpView.onClick = (button, worldPos) => {
+      if (!localPlayer || localPlayer.isDead) return;
+      if (button === 2) { useSkill('weapon', worldPos || undefined); return; }
+      if (button !== 0) return;
+      // looking at the sky or far away: a plain attack forward
+      if (!worldPos) { useBasicAttack(); return; }
+      // a monster / NPC / chest under the crosshair goes through the normal click handling;
+      // clicking the ground walks there
+      handlePointerAction({ button: 0 }, false, worldPos);
+    };
   }
 
   // Hotbar key badges and the key named in each slot's tooltip
@@ -3379,6 +3461,12 @@ document.addEventListener('DOMContentLoaded', () => {
   try {
     const saved = localStorage.getItem('slop_graphics_quality');
     if (saved === 'auto' || GRAPHICS_SCALES[saved]) graphicsQuality = saved;
+    // Auto resumes at the level it settled on last time, so a slow PC does not
+    // sit through several laggy seconds of High every launch; a first launch on
+    // a machine reporting 2 cores or 2 GB of memory starts at Low
+    const savedStep = parseInt(localStorage.getItem('slop_auto_step'), 10);
+    if (savedStep >= 0 && savedStep < AUTO_SCALE_STEPS.length) autoScaleStep = savedStep;
+    else if ((navigator.hardwareConcurrency || 8) <= 2 || (navigator.deviceMemory || 8) <= 2) autoScaleStep = 2;
   } catch (_) {}
 
   function applyGraphicsQuality(quality) {
@@ -3421,6 +3509,7 @@ document.addEventListener('DOMContentLoaded', () => {
     fpsWindow.start = 0;
     if (fps < AUTO_LOW_FPS) {
       autoScaleStep++;
+      try { localStorage.setItem('slop_auto_step', String(autoScaleStep)); } catch (_) {}
       applyGraphicsQuality('auto');
     }
   }
@@ -3430,7 +3519,10 @@ document.addEventListener('DOMContentLoaded', () => {
   graphicsPresets.forEach(btn => {
     btn.addEventListener('click', () => {
       // picking Auto again gives it a fresh start at full sharpness
-      if (btn.dataset.quality === 'auto') autoScaleStep = 0;
+      if (btn.dataset.quality === 'auto') {
+        autoScaleStep = 0;
+        try { localStorage.removeItem('slop_auto_step'); } catch (_) {}
+      }
       applyGraphicsQuality(btn.dataset.quality);
     });
   });
@@ -3633,6 +3725,12 @@ document.addEventListener('DOMContentLoaded', () => {
   // Tell the server which way the mouse is from the hero: on change, and
   // every 1.5 s so a fresh login or map change picks it up again
   function updateAimFacing(now) {
+    if (fpView && fpView.active) {
+      // re-send now and then so a map change / respawn keeps the look direction
+      if (now - sentAimAt > 1500) { fpAimFacing = null; sentAimAt = now; }
+      syncFirstPersonFacing();
+      return;
+    }
     if (!faceCursorOn || !lastCursor || !localPlayer || localPlayer.isDead) return;
     const aim = Isometric.screenToWorld(lastCursor.x, lastCursor.y, renderer.camera, renderer.viewW, renderer.viewH);
     const facing = calculateFacingFromTo(localPlayer.x, localPlayer.y, aim.x, aim.y);
@@ -4107,63 +4205,64 @@ document.addEventListener('DOMContentLoaded', () => {
     }));
   }
 
+  // The HUD refreshes on every server tick (25 a second); a DOM write costs a
+  // style pass and an emoji scan (pixelIcons) even when nothing changed, so
+  // these only touch the page when the value is different. They compare with
+  // what they last wrote, not with the page: pixelIcons rewrites text holding
+  // symbols (★ ⇄), so reading it back would never match and loop every tick.
+  const setText = (el, v) => { v = String(v); if (el && el.__hudText !== v) { el.__hudText = v; el.textContent = v; } };
+  const setWidth = (el, pct) => { const v = pct.toFixed(1) + '%'; if (el && el.__hudWidth !== v) { el.__hudWidth = v; el.style.width = v; } };
+  const setTitle = (el, v) => { if (el && el.__hudTitle !== v) { el.__hudTitle = v; el.title = v; } };
+
   function updatePlayerHUD(p) {
     renderBuffTray(p);
-    hudPlayerName.textContent = p.name;
-    hudPlayerClass.textContent = p.characterClass;
-    playerLevelBadge.textContent = `Lv. ${p.level}`;
+    setText(hudPlayerName, p.name);
+    setText(hudPlayerClass, p.characterClass);
+    setText(playerLevelBadge, `Lv. ${p.level}`);
 
-    const hpPct = Math.max(0, Math.min(100, (p.hp / p.maxHp) * 100));
-    hudHpFill.style.width = `${hpPct}%`;
-    hudHpText.textContent = `${p.hp} / ${p.maxHp} HP`;
+    setWidth(hudHpFill, Math.max(0, Math.min(100, (p.hp / p.maxHp) * 100)));
+    setText(hudHpText, `${p.hp} / ${p.maxHp} HP`);
 
-    const mpPct = Math.max(0, Math.min(100, (p.mp / p.maxMp) * 100));
-    hudMpFill.style.width = `${mpPct}%`;
-    hudMpText.textContent = `${p.mp} / ${p.maxMp} MP`;
+    setWidth(hudMpFill, Math.max(0, Math.min(100, (p.mp / p.maxMp) * 100)));
+    setText(hudMpText, `${p.mp} / ${p.maxMp} MP`);
 
-    const expPct = Math.max(0, Math.min(100, (p.exp / p.expNext) * 100));
-    hudExpFill.style.width = `${expPct}%`;
+    setWidth(hudExpFill, Math.max(0, Math.min(100, (p.exp / p.expNext) * 100)));
 
-    goldCountText.textContent = `${p.gold} Gold`;
-    if (shopPlayerGold) shopPlayerGold.textContent = p.gold;
+    setText(goldCountText, `${p.gold} Gold`);
+    if (shopPlayerGold) setText(shopPlayerGold, p.gold);
 
     if (p.inventory) {
       const hpId = selectedPotion(p, 'health');
       const mpId = selectedPotion(p, 'mana');
       const hpCount = potionCount(p, hpId);
       const mpCount = potionCount(p, mpId);
-      if (badgeHealthPotion) badgeHealthPotion.textContent = hpCount;
-      if (badgeManaPotion) badgeManaPotion.textContent = mpCount;
-      if (mobileBadgeHp) mobileBadgeHp.textContent = hpCount;
-      if (mobileBadgeMp) mobileBadgeMp.textContent = mpCount;
+      setText(badgeHealthPotion, hpCount);
+      setText(badgeManaPotion, mpCount);
+      setText(mobileBadgeHp, hpCount);
+      setText(mobileBadgeMp, mpCount);
 
       const isGreaterHp = hpId === 'greater_health_potion';
       const isGreaterMp = mpId === 'greater_mana_potion';
 
       if (slotHealthPotion) {
         slotHealthPotion.classList.toggle('greater-potion', isGreaterHp);
-        slotHealthPotion.title = `${isGreaterHp ? '★ Greater Health Potion (+75% HP)' : 'Health Potion (+45% HP)'} [x${hpCount}]\n• Click or ⇄ to Switch Size\n• Press [1] to Drink`;
+        setTitle(slotHealthPotion, `${isGreaterHp ? '★ Greater Health Potion (+75% HP)' : 'Health Potion (+45% HP)'} [x${hpCount}]\n• Click or ⇄ to Switch Size\n• Press [1] to Drink`);
       }
       if (slotManaPotion) {
         slotManaPotion.classList.toggle('greater-potion', isGreaterMp);
-        slotManaPotion.title = `${isGreaterMp ? '★ Greater Mana Potion (+80% MP)' : 'Mana Potion (+50% MP)'} [x${mpCount}]\n• Click or ⇄ to Switch Size\n• Press [2] to Drink`;
+        setTitle(slotManaPotion, `${isGreaterMp ? '★ Greater Mana Potion (+80% MP)' : 'Mana Potion (+50% MP)'} [x${mpCount}]\n• Click or ⇄ to Switch Size\n• Press [2] to Drink`);
       }
 
-      const invHp = document.getElementById('invHpCount');
-      const invMp = document.getElementById('invMpCount');
-      const invGold = document.getElementById('invGoldText');
-      if (invHp) invHp.textContent = hpCount;
-      if (invMp) invMp.textContent = mpCount;
-      if (invGold) invGold.textContent = p.gold;
+      setText(document.getElementById('invHpCount'), hpCount);
+      setText(document.getElementById('invMpCount'), mpCount);
+      setText(document.getElementById('invGoldText'), p.gold);
       renderPotionSlotLabels(p);
     }
 
     // Job level bar and SP transform slot
     const jobPct = p.jobExpNext ? Math.max(0, Math.min(100, ((p.jobExp || 0) / p.jobExpNext) * 100)) : 0;
-    const hudJobBadge = document.getElementById('hudJobBadge');
-    const hudJobFill = document.getElementById('hudJobFill');
-    if (hudJobBadge) hudJobBadge.textContent = `JOB ${p.jobLevel || 1}`;
-    if (hudJobFill) hudJobFill.style.width = `${jobPct}%`;
+    setText(document.getElementById('hudJobBadge'), `JOB ${p.jobLevel || 1}`);
+    setWidth(document.getElementById('hudJobFill'), jobPct);
     updateSpSlot(p);
     if (statsModal && statsModal.style.display === 'flex') renderStatsPanel(p);
   }
@@ -4883,7 +4982,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (inventoryModal.style.display !== 'flex' || !localPlayer) { invPreviewRaf = 0; return; }
       g.clearRect(0, 0, cv.width, cv.height);
       g.imageSmoothingEnabled = false;
-      g.drawImage(renderer.heroFrameFor(localPlayer, 'S', 'idle', PixelHeroes.loopIndex(localPlayer.characterClass, 'idle', ts / 1000)), 0, 0);
+      // feet on the preview's floor line (y 66), whatever the sprite frame's height
+      g.drawImage(renderer.heroFrameFor(localPlayer, 'S', 'idle', PixelHeroes.loopIndex(localPlayer.characterClass, 'idle', ts / 1000)), 0, 66 - PixelHeroes.AY);
       invPreviewRaf = requestAnimationFrame(step);
     };
     invPreviewRaf = requestAnimationFrame(step);
@@ -7040,12 +7140,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (targetInteract) {
       mobileContextualAction = targetInteract.action;
-      if (mobileInteractIcon) mobileInteractIcon.dataset.pxi = targetInteract.icon;
-      if (mobileInteractText) mobileInteractText.textContent = targetInteract.label;
-      mobileBtnInteract.style.display = 'inline-flex';
+      // runs every frame: rewriting an unchanged icon still fires the DOM observers
+      if (mobileInteractIcon && mobileInteractIcon.dataset.pxi !== targetInteract.icon) mobileInteractIcon.dataset.pxi = targetInteract.icon;
+      setText(mobileInteractText, targetInteract.label);
+      if (mobileBtnInteract.style.display !== 'inline-flex') mobileBtnInteract.style.display = 'inline-flex';
     } else {
       mobileContextualAction = null;
-      mobileBtnInteract.style.display = 'none';
+      if (mobileBtnInteract.style.display !== 'none') mobileBtnInteract.style.display = 'none';
     }
   }
 
@@ -7427,6 +7528,13 @@ document.addEventListener('DOMContentLoaded', () => {
       renderer.render(gameState, localPlayerId, monsterLockTargetOn ? selectedTargetId : null, dt);
     } catch (err) {
       console.error('Render error:', err);
+    }
+    if (fpView) {
+      try {
+        fpView.update(dt, gameState, localPlayerId);
+      } catch (err) {
+        console.error('First-person render error:', err);
+      }
     }
 
     requestAnimationFrame(gameLoop);
