@@ -5,7 +5,7 @@
 (function () {
   'use strict';
 
-  const RARITY_COLOR = { common: '#e2e8f0', rare: '#38bdf8', epic: '#c084fc', legendary: '#f59e0b', mythic: '#f43f5e' };
+  const RARITY_COLOR = { common: '#e2e8f0', uncommon: '#4ade80', rare: '#38bdf8', epic: '#c084fc', legendary: '#f59e0b', divine: '#fff1a6', mythic: '#f43f5e' };
   const SLOT_LABEL = { weapon: 'Weapon', armor: 'Armor', helmet: 'Helmet', boots: 'Boots', gloves: 'Gloves', cape: 'Cape', ring: 'Ring' };
   const ELEMENT_LABEL = { fire: 'Fire', ice: 'Ice', lightning: 'Lightning', earth: 'Earth', holy: 'Holy', dark: 'Dark', neutral: 'Neutral' };
   const ELEMENT_COLOR = { fire: '#f97316', ice: '#38bdf8', lightning: '#facc15', earth: '#4ade80', holy: '#fef08a', dark: '#a855f7', neutral: '#94a3b8' };
@@ -19,8 +19,29 @@
     ['bonusAttackSpeed', 'Attack Speed', v => `+${Math.round(v * 100)}%`],
     ['bonusSwipe', 'Swipe', v => `+${v}%`],
     ['critChance', 'Crit Chance', v => `+${v}%`],
-    ['critDmg', 'Crit Damage', v => `+${v}%`]
+    ['critDmg', 'Crit Damage', v => `+${v}%`],
+    ['hpRegen', 'HP Regen', v => `+${v}/s`],
+    ['mpRegen', 'MP Regen', v => `+${v}/s`],
+    ['cdr', 'Cooldown Reduction', v => `+${v}%`]
   ];
+  // Attribute slots (Jerry): open slots with their attribute, then the ones still closed
+  function attrsHtml(item) {
+    const IA = window.ItemAttrs;
+    if (!IA || !IA.isGear(item)) return '';
+    const cap = IA.cap(item);
+    if (!cap) return '';
+    const list = IA.slots(item);
+    let html = `<div class="tip-sub">Attributes (${list.filter(Boolean).length}/${cap})</div>`;
+    for (const a of list) {
+      html += a
+        ? `<div class="tip-line attr"><span>◆ ${esc(IA.label(a))}</span><b class="attr-${IA.tier(a)}">${IA.value(a)}</b></div>`
+        : `<div class="tip-line" style="color:#64748b"><span>◇ Empty slot</span><i>(Attribute Roller)</i></div>`;
+    }
+    for (let i = list.length; i < cap; i++) {
+      html += `<div class="tip-line" style="color:#475569"><span>✕ Closed slot</span><i>(Attribute Socketer)</i></div>`;
+    }
+    return html;
+  }
   const REFORGE_STATS = [
     ['bonusDmg', 'Attack', v => `+${v}`], ['bonusDef', 'Defense', v => `+${v}`], ['bonusHp', 'Max HP', v => `+${v}`],
     ['bonusMp', 'Max MP', v => `+${v}`], ['bonusSpeed', 'Move Speed', v => `+${v}`],
@@ -104,6 +125,7 @@
           if (item.reforgeStats[k]) body += `<div class="tip-line reforge"><span>${label}</span><b>${fmt(item.reforgeStats[k])}</b></div>`;
         }
       }
+      body += attrsHtml(item);
       if (item.elementResist && Object.keys(item.elementResist).length) {
         body += `<div class="tip-sub">Resistances</div>`;
         for (const [el, v] of Object.entries(item.elementResist)) {
@@ -198,6 +220,7 @@
     }
 
     const footer = [];
+    if (item.favorite) footer.push('<span class="tip-fav">Favorite</span>');
     if (item.count > 1) footer.push(`x${item.count}`);
     if (item.sellPrice && !opts.buyPrice) footer.push(`Sell ${item.sellPrice.toLocaleString()}g`);
     if (opts.hint) footer.push(esc(opts.hint));

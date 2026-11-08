@@ -153,7 +153,9 @@ export function generateMap(): MapData {
   let stall = 0;
   for (const x of [11.6, 14.2, 26.6, 29.2]) {
     for (const y of [16.9, 24.1]) {
-      add({ id: `stall_${stall}`, x, y, type: 'market_stall', variant: stall % 4, collidable: true, radius: 0.8 });
+      // the blue stall south-east of the plaza is Jerry's, the Attribute Smith (faces the boulevard)
+      if (stall === 5) add({ id: 'npc_jerry', x, y, type: 'market_stall', variant: stall % 4, name: 'Jerry the Attribute Smith', collidable: true, radius: 0.8 });
+      else add({ id: `stall_${stall}`, x, y, type: 'market_stall', variant: stall % 4, collidable: true, radius: 0.8 });
       stall++;
     }
   }

@@ -1,5 +1,6 @@
 // Item Database & Loot Tables for Slop Hero
 import { ELEMENT_INFO } from './elements';
+import { rollDropAttrs } from './itemAttributes';
 import consumables from './data/items/consumables.json';
 import materials from './data/items/materials.json';
 import treasures from './data/items/treasures.json';
@@ -206,7 +207,7 @@ function pickGearForLevel(level, { boss = false, cls = null } = {}) {
 // Enhancement (+1 .. +15) at the enchanter: price grows ~55% per level and
 // the success chance falls; failing from +7 upward drops one level.
 const ENHANCE_MAX = 15;
-const ENHANCE_BASE_COST = { common: 400, rare: 900, epic: 2000, legendary: 4500 };
+const ENHANCE_BASE_COST = { common: 400, uncommon: 600, rare: 900, epic: 2000, legendary: 4500, divine: 8000 };
 const ENHANCE_COST_GROWTH = 1.55;
 const ENHANCE_CHANCE = [1, 1, 1, 0.9, 0.8, 0.7, 0.6, 0.5, 0.42, 0.35, 0.28, 0.22, 0.17, 0.13, 0.1];
 const ENHANCE_SAFE_LEVEL = 7;
@@ -249,7 +250,7 @@ function generateRandomizedGear(baseId, itemLevel = 1, isBoss = false) {
   } else if (qualityRoll < 0.55) {
     qualityName = 'Tempered';
     qualityMult = 1.0 + Math.random() * 0.12;
-    rarity = base.rarity === 'legendary' ? 'legendary' : (base.rarity === 'epic' ? 'epic' : 'common');
+    rarity = base.rarity === 'legendary' ? 'legendary' : (base.rarity === 'epic' ? 'epic' : (qualityRoll < 0.35 ? 'common' : 'uncommon'));
   } else if (qualityRoll < 0.85) {
     qualityName = 'Honed';
     qualityMult = 1.18 + Math.random() * 0.15;
@@ -258,6 +259,11 @@ function generateRandomizedGear(baseId, itemLevel = 1, isBoss = false) {
     qualityName = 'Masterwork';
     qualityMult = 1.35 + Math.random() * 0.18;
     rarity = base.rarity === 'legendary' ? 'legendary' : 'epic';
+  } else if (Math.random() < (isBoss ? 0.08 : 0.03)) {
+    // the rarest roll there is: divine (5 attribute slots)
+    qualityName = 'Divine';
+    qualityMult = 1.85 + Math.random() * 0.25;
+    rarity = 'divine';
   } else {
     qualityName = 'Mythic';
     qualityMult = 1.55 + Math.random() * 0.25;
@@ -369,6 +375,8 @@ function generateRandomizedGear(baseId, itemLevel = 1, isBoss = false) {
 
   item.desc = `${statList.join(', ')} (${qualityName || 'Standard'} Roll)`;
   item.sellPrice = Math.round((base.sellPrice || 30) * qualityMult * (chosenSuffix ? 1.3 : 1.0));
+  // attribute slots: the rarity sets the cap, the drop opens some of them
+  rollDropAttrs(item);
   delete item.buyPrice;
 
   return item;
@@ -376,9 +384,11 @@ function generateRandomizedGear(baseId, itemLevel = 1, isBoss = false) {
 
 const REFORGE_COSTS = {
   common: 50,
+  uncommon: 100,
   rare: 150,
   epic: 350,
-  legendary: 750
+  legendary: 750,
+  divine: 1500
 };
 
 const SKYBLOCK_REFORGES = {
@@ -579,7 +589,8 @@ function applySkyblockReforge(item, reforgeName) {
   const reforgeDef = SKYBLOCK_REFORGES[catKey] && SKYBLOCK_REFORGES[catKey][reforgeName];
   if (!reforgeDef) return item;
 
-  const rarity = item.rarity || 'common';
+  // reforges have four strengths: uncommon gear gets the common one, divine the legendary one
+  const rarity = item.rarity === 'divine' ? 'legendary' : item.rarity === 'uncommon' ? 'common' : (item.rarity || 'common');
   const stats = (reforgeDef.stats[rarity] || reforgeDef.stats.common);
 
   if (!item.baseName) {

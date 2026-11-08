@@ -1146,7 +1146,10 @@
     const post = (x, y, z, px0, py0) => x >= px0 && x <= px0 + 2 && y >= py0 && y <= py0 + 2 && z >= G0;
     const bottleCols = ['#4aa3df', '#e25a5a', '#7bc96f', '#f0c24a'];
 
-    const backWall = [0, Wx, 0, 2.6, G0, G0 + 24];
+    // A stall turned to face away from the camera (south of the road) shows us its back wall, so
+    // there it is a low shelf painted over the keeper, who stays in view above it
+    const lowWall = kind === 'stall' && !nearCounter;
+    const backWall = [0, Wx, 0, 2.6, G0, G0 + (lowWall ? 9 : 24)];
     // posts and the sloped striped awning (with scalloped fringe). Merchant and smithy roofs only cover the back half.
     const shortRoof = true;   // every roof covers only the back half, so counters and wares stay in view
     const aLim = shortRoof ? 15 : Wy + ov + 2;
@@ -1186,6 +1189,7 @@
         // a counter on the near side is painted over the keeper; on the far side it belongs behind them
         const cc = nearCounter ? counter(x, y, z) : null;
         if (cc) return cc;
+        if (lowWall) { const w = wallAt(x, y, z); if (w) return w; }
         return (kind === 'stall' || kind === 'enchanter') ? canopy(x, y, z) : null;
       }
       // ---- back layer
@@ -1224,8 +1228,12 @@
           return q(ARCANE, 4.6 + (z - cz) * 0.18 + (x < ax0 + 7 ? 0.3 : -0.2), x, y);
         }
       }
-      // back wall: shelves of bottles and sacks
-      if (kind !== 'blacksmith' && inBox(x, y, z, backWall)) {
+      if (kind !== 'blacksmith' && !lowWall) { const w = wallAt(x, y, z); if (w) return w; }
+      return null;
+    };
+    // back wall: shelves of bottles and sacks
+    function wallAt(x, y, z) {
+      if (inBox(x, y, z, backWall)) {
         const f = faceOf(x, y, z, backWall), vv = z - G0;
         if (!hitFront && f !== 'z') return q(WOOD, 1.8, x, y);   // its back, or its side
         if (kind === 'enchanter' && f !== 'z') return q(ARCANE, 1.6 + (Math.floor(x / 4) % 2 ? 0.6 : 0) + (z - G0 > 20 ? 1 : 0), x, y);
@@ -1239,7 +1247,7 @@
         return q(WOOD, 1.1 + (hash2(Math.floor(x), Math.floor(vv)) * 0.3), x, y);
       }
       return null;
-    };
+    }
     const cast = (layer, X, Y, z) => { const [lx, ly] = toLocal(X, Y); return castLocal(layer, lx, ly, z); };
     return {
       Wd, Ht, OX, OY, ov: PAD, cast, zMax: zTop, xMax: WXw + PAD, yMax: WYw + PAD,

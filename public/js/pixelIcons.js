@@ -84,7 +84,11 @@
     feather: ['.........kk.', '........kwck', '.......kwcck', '......kwcck.', '.....kwcck..', '....kwcck...', '...kwcck....', '..kwcck.....', '..kcck......', '.kmkk.......', 'kmk.........', 'kk..........'],
     burst: ['.....k......', '.k...ok...k.', '..k.kok..k..', '...koyok.k..', '.kkoyyyokk..', 'kooyywyyook.', '.kkoyyyokk..', '...koyok....', '..k.kok.k...', '.k...ok..k..', '.....k......', '............'],
     card: ['.kkkkkkkkk..', 'kyyyyyyyyyk.', 'kyeeeeeeeyk.', 'kyekkkkkeyk.', 'kyekwwwkeyk.', 'kyekwkwkeyk.', 'kyekwwwkeyk.', 'kyekkkkkeyk.', 'kyeeeeeeeyk.', 'kyyyyyyyyyk.', '.kkkkkkkkk..', '............'],
-    anvil: ['............', '............', 'kkkkkkkkkk..', 'klllllllllkk', 'klwllllllssk', '.kkllllsskk.', '...klllsk...', '...klllsk...', '..kllllssk..', '.kssssssddk.', '.kkkkkkkkkk.', '............']
+    anvil: ['............', '............', 'kkkkkkkkkk..', 'klllllllllkk', 'klwllllllssk', '.kkllllsskk.', '...klllsk...', '...klllsk...', '..kllllssk..', '.kssssssddk.', '.kkkkkkkkkk.', '............'],
+    // --- Jerry's attribute materials ---
+    attr_socketer: ['.........kk.', '........kwBk', '.......kwBk.', '......kBBk..', '.....kllk...', '....klwlk...', '...kllsk....', '..kTTsk.....', '.kTyTk......', 'kTmmk.......', 'kmmk........', '.kk.........'],
+    attr_roller: ['............', '.kkkkkkkkkk.', 'kwwwwwwwwwLk', 'kwkkwwwwwwLk', 'kwkkwwwwwwLk', 'kwwwwkkwwwLk', 'kwwwwkkwwwLk', 'kwwwwwwkkwLk', 'kwwwwwwkkwLk', 'kwwwwwwwwwLk', 'kLLLLLLLLLgk', '.kkkkkkkkkk.'],
+    attr_reseter: ['kkkkkkkkkkkk', '.kTTTTTTTTk.', '..kwwwwwwk..', '..keyyyyek..', '...keyyek...', '....keek....', '....kwek....', '...kwweek...', '..kwwyyeek..', '..keyyyyek..', '.kTTTTTTTTk.', 'kkkkkkkkkkkk']
   };
 
   // Recoloured variants of the base icons

@@ -3,6 +3,7 @@
 // class has five cards, one per tier; tiers need a higher job level, are
 // rarer to obtain and cost more to enhance (+0 .. +100).
 import { baseExpCurve } from './progression';
+import { SIGNATURES, PASSIVES, EXTRA_UNLOCK_LEVELS } from './spSignatures';
 
 // ---------------------------------------------------------------- job level
 // Job EXP comes from the same kills as base EXP but runs on the reference
@@ -68,11 +69,11 @@ const SP_CARDS: Record<string, any[]> = {
       skills: { slot1: 'sp_crimson_aura', slot2: 'sp_bloodlust', slot3: 'sp_blade_whirl', dash: 'sp_crimson_rush' },
       passive: { name: 'Bloodthirst', leech: 0.1, cap: 0.05 },
       desc: 'Fury made flesh, wielding twin blood-blades. Burns his own blood in a crimson aura and whirls both swords for as long as his mana lasts. Bloodthirst: basic attacks and Blade Whirl heal 10% of the damage they deal.' },
-    { id: 'sp_frost_templar', tier: 3, name: 'Frost Templar', element: 'ice', color: '#67e8f9',
+    { id: 'sp_frost_templar', kit: 2, tier: 3, name: 'Frost Templar', element: 'ice', color: '#67e8f9',
       stats: { bonusDef: 26, bonusHp: 260, bonusDmg: 22 },
       palette: { cape: ['#06222e', '#0e7490', '#22d3ee', '#a5f3fc'], steel: ['#0c1d2b', '#4f86a6', '#9fd3ee', '#e0f6ff', '#ffffff'], tabard: ['#0b1f33', '#1e3a8a', '#3b82f6', '#93c5fd'] },
-      skills: { slot1: 'sp_glacier_strike', slot2: 'sp_winter_ward', slot3: 'sp_avalanche', dash: 'sp_ice_glide' },
-      desc: 'A knight of the frozen north whose blade freezes everything it touches.' },
+      skills: { slot1: 'sp_ft_glacier_smash', slot2: 'sp_ft_rime_quake', slot3: 'sp_ft_hammerfall', dash: 'sp_ft_glacial_charge' },
+      desc: 'A templar of the frozen north swinging a glacier warhammer. Every blow packs on Frost until the enemy freezes solid (3 stacks), then Glacier Smash and Hammerfall shatter the ice for massive damage.' },
     { id: 'sp_storm_herald', tier: 4, name: 'Storm Herald', element: 'lightning', color: '#facc15',
       stats: { bonusDmg: 52, bonusAttackSpeed: 0.22, bonusSpeed: 0.4 },
       palette: { cape: ['#2a2205', '#a16207', '#eab308', '#fef08a'], steel: ['#14161f', '#3f4660', '#6b7596', '#b8c2e0', '#fffbe0'], tabard: ['#1e1b4b', '#3730a3', '#6366f1', '#a5b4fc'] },
@@ -84,16 +85,16 @@ const SP_CARDS: Record<string, any[]> = {
       skills: { slot1: 'sp_abyss_cleave', slot2: 'sp_void_grasp', slot3: 'sp_soul_bastion', dash: 'sp_shadow_charge' },
       desc: 'An undying warlord dragging a colossal black-violet executioner axe. Hits harder as his blood runs low and refuses to die.' },
     // ---- variant cards below: each has its own 8-axis costume (pixelHeroes.js COSTUMES) ----
-    { id: 'sp_gravelord', kit: 2, tier: 1, name: 'Gravelord', element: 'earth', color: '#4ade80',
+    { id: 'sp_gravelord', kit: 4, tier: 1, name: 'Gravelord', element: 'earth', color: '#4ade80',
       stats: { bonusDef: 22, bonusHp: 150, bonusDmg: 12 },
       palette: { steel: ['#14130d', '#4a4a3a', '#6e6e58', '#9a9a7d', '#d6d6ba'], darkSteel: ['#0d0f0a', '#2c3324', '#45573a', '#647c52'], tabard: ['#0c1a10', '#1f4d2e', '#2e7d46', '#4c9e63'], cape: ['#171008', '#4a3018', '#6e4a28', '#996a3c'], gold: ['#2a2005', '#9a6b12', '#cba72a', '#e8d46a', '#fff3c4'], leather: ['#180f08', '#4a2c15', '#6b4322', '#93653a'], robeTrim: ['#101607', '#3a5c1c', '#5c8a2e', '#8ab84e'] },
-      skills: { slot1: 'sp_gravelord_slam', slot2: 'sp_gravelord_fault', slot3: 'sp_gravelord_cataclysm', dash: 'sp_gravelord_siege' },
-      desc: 'A walking avalanche in rusted plate, swinging a seismic warhammer. Every strike grinds the earth into Seismic Charge — then Cataclysm lets it all loose and leaves a quaking ruin behind.' },
-    { id: 'sp_dragoon', kit: 2, tier: 1, name: 'Dragoon', element: 'lightning', color: '#facc15',
+      skills: { slot1: 'sp_gravelord_raise', slot2: 'sp_gravelord_fault', slot3: 'sp_gravelord_frenzy', dash: 'sp_gravelord_siege' },
+      desc: 'A walking avalanche in rusted plate and lord of the graves. The monsters he kills rise again as his undead minions, striking with his strength; Grave Frenzy drives them into a killing rage, and Corpse Detonation blows them apart in grave fire.' },
+    { id: 'sp_dragoon', kit: 3, tier: 1, name: 'Dragoon', element: 'lightning', color: '#facc15',
       stats: { bonusDmg: 30, bonusAttackSpeed: 0.15, bonusSpeed: 0.3 },
-      palette: { steel: ['#0e1426', '#3b4f78', '#5f7ea8', '#8fb2dd', '#e6f2ff'], darkSteel: ['#0a0f1c', '#22304d', '#3a5176', '#5a76a3'], tabard: ['#0b1630', '#1e3a8a', '#2563eb', '#60a5fa'], cape: ['#0b1630', '#1e3a8a', '#3b82f6', '#93c5fd'], gold: ['#2a2205', '#a16207', '#eab308', '#fde047', '#fffbe0'], robeTrim: ['#0f1526', '#334a86', '#5a7cc9', '#93b4f0'] },
-      skills: { slot1: 'sp_dragoon_impale', slot2: 'sp_dragoon_wing_slash', slot3: 'sp_dragoon_leap', dash: 'sp_dragoon_wind' },
-      desc: 'A winged lancer who fights from the air. Leaping impales finish wounded prey, and a skyfall barrage of lances rains down on the field below.' },
+      palette: { steel: ['#1a2236', '#6f80a3', '#a9b8d4', '#dfe7f5', '#ffffff'], darkSteel: ['#070b18', '#16224a', '#22346e', '#3a5294'], tabard: ['#08102c', '#1c2f7a', '#2c48b8', '#5c7fe6'], cape: ['#0a1030', '#1d2c78', '#2f47b0', '#5a78e0'], gold: ['#2e1f02', '#a86d08', '#e0a91c', '#fde58a', '#fffbe0'], robeTrim: ['#2e1f02', '#a86d08', '#e0a91c', '#fde58a'] },
+      skills: { slot1: 'sp_dragoon_storm_lance', slot2: 'sp_dragoon_thunderwing', slot3: 'sp_dragoon_skyfall', dash: 'sp_dragoon_volt_step' },
+      desc: 'A storm-knight of the dragon court in gilded plate. His lances become Lightning Rods where they land: the sky strikes them again and again, rods near each other link into crackling fences, and Skyfall Dive overloads every rod at once.' },
     { id: 'sp_reaver', kit: 2, tier: 2, name: 'Reaver', element: 'fire', color: '#fb923c',
       stats: { bonusDmg: 40, bonusAttackSpeed: 0.12 },
       palette: { steel: ['#24100a', '#5a2418', '#7e3624', '#a64e34', '#e8b894'], darkSteel: ['#160806', '#38150d', '#542418', '#7a3824'], tabard: ['#1c0602', '#7f1d1d', '#b91c1c', '#ef4444'], cape: ['#170705', '#4a140c', '#6e200f', '#93351c'], gold: ['#241203', '#8a4a0a', '#c8791a', '#efac3c', '#ffe2a0'], leather: ['#160b07', '#402313', '#5f341c', '#8a5230'], venom: ['#2a0702', '#c2410c', '#fb8c1c', '#ffd166', '#fff6d5'] },
@@ -221,11 +222,12 @@ const SP_SKILLS: Record<string, any> = {
   sp_bloodlust: { name: 'Bloodlust', shape: 'buff', bloodlust: { dur: 8, rage: 0.3, atkSpeed: 0.25, thirst: 2 }, hpCost: 0.06, mp: 14, cd: 16 },
   sp_blade_whirl: { name: 'Blade Whirl', shape: 'aura', icon: '🌀', spin: true, r: 2.6, every: 0.25, dmg: 0.4, mpDrain: 0.09, mp: 6, cd: 1 },
   sp_crimson_rush: { name: 'Crimson Rush', shape: 'dash', len: 6, width: 1.5, dmg: 2.4, leech: 0.12, mp: 10, cd: 3.5 },
-  // Warrior - Frost Templar
-  sp_glacier_strike: { name: 'Glacier Strike', shape: 'strike', range: 3.5, dmg: 3.6, chill: 3, execute: [0.3, 1.5], mp: 14, cd: 3.5 },
-  sp_winter_ward: { name: 'Winter Ward', shape: 'buff', r: 3.2, dmg: 1.6, chill: 3, shield: 0.25, mp: 20, cd: 9 },
-  sp_avalanche: { name: 'Avalanche', shape: 'rain', r: 3.5, range: 7, n: 6, every: 0.18, hit: 1.4, dmg: 1.6, chill: 2, mp: 32, cd: 11 },
-  sp_ice_glide: { name: 'Ice Glide', shape: 'dash', len: 6, width: 1.2, dmg: 1.8, chill: 2, sprint: 2, mp: 10, cd: 3.5 },
+  // Warrior - Frost Templar: a glacier warhammer. Every hit adds Frost (3 stacks freeze the
+  // enemy); Glacier Smash and Hammerfall shatter frozen enemies for big damage (and thaw them)
+  sp_ft_glacier_smash: { name: 'Glacier Smash', shape: 'blast', r: 2.2, range: 3.2, dmg: 2.6, frost: 1, shatterFrozen: 2, knock: 0.6, mp: 12, cd: 3 },
+  sp_ft_rime_quake: { name: 'Rime Quake', shape: 'fault', n: 6, step: 1.1, every: 0.08, hit: 1.3, dmg: 1.5, frost: 1, chill: 2, mp: 16, cd: 5 },
+  sp_ft_hammerfall: { name: 'Hammerfall', shape: 'jump', range: 7, air: 0.55, r: 3.2, dmg: 3.4, frost: 1, shatterFrozen: 2.5, mp: 26, cd: 9 },
+  sp_ft_glacial_charge: { name: 'Glacial Charge', shape: 'dash', len: 5.5, width: 1.4, dmg: 1.8, frost: 1, mp: 10, cd: 4 },
   // Warrior - Storm Herald: area storm - a toggled thunderhead that strikes
   // whatever comes near, a toggled conduit that chains every swing (paid in
   // MP per swing), and two storm orbs that shock everything they pass
@@ -242,24 +244,30 @@ const SP_SKILLS: Record<string, any> = {
   // ---- Variant warriors: every card plays around its own mechanic ----
   // Warrior - Gravelord: Fracture. Hits crack enemies (up to 5 Fracture);
   // Cataclysm and Rupture shatter the cracks for bonus damage and a stun.
-  sp_gravelord_slam: { name: 'Seismic Hammer', shape: 'strike', range: 3.4, dmg: 2.8, fracture: 2, knock: 0.8, mp: 12, cd: 2.8 },
+  // Raise the Fallen: monsters that died near the cursor rise as undead minions (GameServer.raiseMinion);
+  // with no corpse in reach a Grave Thrall claws out of the earth instead. minion: share of ATK per blow
+  sp_gravelord_raise: { name: 'Raise the Fallen', shape: 'raise', r: 5, range: 7, n: 3, dur: 20, minion: 0.45, dmg: 1.0, mp: 14, cd: 2.4 },   // cd cut 60% (6 -> 2.4)
   sp_gravelord_fault: { name: 'Fault Line', shape: 'fault', n: 6, step: 1.1, every: 0.09, hit: 1.2, dmg: 1.3, fracture: 1, stun: 0.4, mp: 16, cd: 5 },
-  sp_gravelord_cataclysm: { name: 'Cataclysm', shape: 'blast', r: 3.2, range: 7, dmg: 2.4, shatterEarth: 0.45, field: { dur: 2.5, every: 0.5, r: 2.6, mult: 0.3 }, mp: 24, cd: 9 },
+  // Grave Frenzy: every minion rages for rage.dur s: +dmg damage, +aspd attack speed, crit chance (x critMult)
+  sp_gravelord_frenzy: { name: 'Grave Frenzy', shape: 'rage', r: 3, rage: { dur: 7, dmg: 0.6, aspd: 0.6, crit: 0.3, critMult: 2 }, mp: 22, cd: 25 },
   sp_gravelord_siege: { name: 'Siege Plow', shape: 'dash', len: 5.5, width: 1.5, dmg: 1.6, plow: true, fracture: 1, mp: 8, cd: 4 },
-  sp_gravelord_aftershock: { name: 'Aftershock', shape: 'pulse', at: 'target', r: 2.8, range: 7, n: 3, every: 0.6, dmg: 1.0, fracture: 1, mp: 20, cd: 8 },
+  // Corpse Detonation: every minion explodes (r around it) and is spent
+  sp_gravelord_corpse_bomb: { name: 'Corpse Detonation', shape: 'gravebomb', r: 2.2, dmg: 2.4, mp: 18, cd: 8 },
   sp_gravelord_rupture: { name: 'Rupture', shape: 'nova', r: 3.4, dmg: 1.6, shatterEarth: 0.3, knock: 1.5, mp: 18, cd: 6 },
   sp_gravelord_boulder: { name: 'Quake Boulders', shape: 'rain', r: 3.2, range: 7, n: 5, every: 0.2, hit: 1.2, dmg: 1.2, fracture: 1, mp: 26, cd: 9 },
   sp_gravelord_bastion: { name: 'Granite Skin', shape: 'buff', fortress: 5, shield: 0.12, mp: 22, cd: 12 },
   // Warrior - Dragoon: the air is his. Hurl the Sky Lance and dive onto it,
   // or vanish upward with Dragon Dive and come down on the cursor.
-  sp_dragoon_impale: { name: 'Sky Lance', shape: 'spear', len: 7, width: 1.1, dmg: 2.4, hold: 4, dive: 1.8, diveR: 2.4, mp: 12, cd: 4 },
-  sp_dragoon_wing_slash: { name: 'Wing Slash', shape: 'cone', range: 4, arc: 110, dmg: 2.2, crit: 0.15, mp: 14, cd: 3.5 },
-  sp_dragoon_leap: { name: 'Dragon Dive', shape: 'jump', air: 0.75, range: 7, r: 3, dmg: 3.4, execute: [0.3, 1.7], stun: 0.6, mp: 22, cd: 8 },
-  sp_dragoon_wind: { name: 'Wind Lance Dash', shape: 'dash', len: 6, width: 1.3, dmg: 1.8, crit: 0.1, sprint: 1.5, mp: 8, cd: 3.5 },
-  sp_dragoon_pierce: { name: 'Piercing Lance', shape: 'chain', range: 5.5, jump: 4, n: 5, decay: 0.88, dmg: 1.8, execute: [0.3, 1.5], mp: 18, cd: 4.5 },
-  sp_dragoon_impact: { name: 'Impact Wake', shape: 'nova', r: 3, dmg: 2.0, knock: 1.0, mp: 16, cd: 6 },
-  sp_dragoon_barrage: { name: 'Skyfall Barrage', shape: 'rain', r: 3.2, range: 7, n: 5, every: 0.2, hit: 1.2, dmg: 1.5, execute: [0.35, 1.8], mp: 26, cd: 9 },
-  sp_dragoon_updraft: { name: 'Updraft', shape: 'buff', sprint: 3, haste: 2.5, mp: 16, cd: 12 },
+  // Dragoon: Lightning Rods (planted lances the sky keeps striking; nearby rods link into
+  // arc fences; an overload discharges them all at once). See GameServer.castSpSkill.
+  sp_dragoon_storm_lance: { name: 'Storm Lance', shape: 'spear', len: 7, width: 1.1, dmg: 2.2, hold: 4, dive: 2.0, diveR: 2.6, rod: true, mp: 12, cd: 4 },
+  sp_dragoon_thunderwing: { name: 'Thunderwing Sweep', shape: 'cone', range: 4.2, arc: 150, dmg: 2.0, stun: 0.35, rodArc: 0.9, mp: 14, cd: 3.5 },
+  sp_dragoon_skyfall: { name: 'Skyfall Dive', shape: 'jump', air: 0.7, range: 7, r: 3, dmg: 3.2, execute: [0.3, 1.6], stun: 0.6, overload: 1.5, rod: true, mp: 22, cd: 8 },
+  sp_dragoon_volt_step: { name: 'Volt Step', shape: 'blink', len: 6, r: 1.8, dmg: 1.6, origin: true, stun: 0.2, mp: 8, cd: 3.5 },
+  sp_dragoon_arc_lance: { name: 'Arc Lance', shape: 'chain', range: 6, jump: 4.5, n: 6, decay: 0.9, dmg: 1.7, stun: 0.2, mp: 18, cd: 4.5 },
+  sp_dragoon_stormcall: { name: 'Stormcall Standard', shape: 'blast', r: 2.4, range: 7, dmg: 1.8, rod: true, mp: 16, cd: 6 },
+  sp_dragoon_lance_storm: { name: 'Lance Storm', shape: 'rain', r: 3.4, range: 7, n: 7, every: 0.14, hit: 1.2, dmg: 1.4, stun: 0.25, mp: 26, cd: 9 },
+  sp_dragoon_tempest_wings: { name: 'Tempest Wings', shape: 'nova', r: 3.4, dmg: 1.8, knock: 1.4, sprint: 2.5, rodArc: 0.6, mp: 18, cd: 10 },
   // Warrior - Reaver: Heat. Every skill stokes Heat; at 100 he Overheats -
   // free skills and +40% damage while his own armour cooks him. Meltdown vents it all.
   sp_reaver_slash: { name: 'Pyre Slash', shape: 'cone', range: 3.8, arc: 120, dmg: 2.4, burn: 4, heat: 15, mp: 10, cd: 2.8 },
@@ -273,11 +281,11 @@ const SP_SKILLS: Record<string, any> = {
   // Warrior - Rune Knight: glyph traps. Carve glyphs on the ground (4 at most);
   // they burst when an enemy steps on them, or all at once on Invocation.
   sp_runeknight_wave: { name: 'Runic Bladewave', shape: 'line', len: 6.5, width: 1.3, dmg: 2.4, mp: 12, cd: 3.5 },
-  sp_runeknight_glyph: { name: 'Glyph of Ruin', shape: 'rune', kind: 'ruin', r: 2.4, range: 7, dur: 12, dmg: 2.6, mp: 14, cd: 2.5 },
+  sp_runeknight_glyph: { name: 'Glyph of Ruin', shape: 'rune', kind: 'ruin', r: 2.4, range: 7, dur: 12, dmg: 2.6, dot: { mult: 0.3, every: 0.5, linger: 3 }, mp: 14, cd: 2.5 },
   sp_runeknight_invoke: { name: 'Invocation', shape: 'invoke', r: 3, dmg: 1.6, mp: 20, cd: 8 },
   sp_runeknight_step: { name: 'Runic Step', shape: 'blink', len: 5.5, r: 2, dmg: 1.2, leaveRune: 'sp_runeknight_bind', mp: 10, cd: 4 },
-  sp_runeknight_bind: { name: 'Binding Glyph', shape: 'rune', kind: 'bind', r: 2.2, range: 7, dur: 12, dmg: 1.2, stun: 1.6, mp: 14, cd: 5 },
-  sp_runeknight_frost: { name: 'Frost Glyph', shape: 'rune', kind: 'frost', r: 2.8, range: 7, dur: 12, dmg: 1.4, chill: 4, mp: 14, cd: 5 },
+  sp_runeknight_bind: { name: 'Binding Glyph', shape: 'rune', kind: 'bind', r: 2.2, range: 7, dur: 12, dmg: 1.2, stun: 1.6, dot: { mult: 0.3, every: 0.5, linger: 3 }, mp: 14, cd: 5 },
+  sp_runeknight_frost: { name: 'Frost Glyph', shape: 'rune', kind: 'frost', r: 2.8, range: 7, dur: 12, dmg: 1.4, chill: 4, dot: { mult: 0.3, every: 0.5, linger: 3 }, mp: 14, cd: 5 },
   sp_runeknight_chain: { name: 'Ley Chain', shape: 'chain', range: 5.5, jump: 4, n: 5, decay: 0.85, dmg: 1.6, mp: 18, cd: 5 },
   sp_runeknight_guard: { name: 'Guardian Glyph', shape: 'buff', fortress: 4, mana: 0.10, shield: 0.12, mp: 24, cd: 10 },
   // Warrior - Sentinel: the wall. Riposte Stance blocks every blow and strikes
@@ -405,11 +413,11 @@ const SP_SKILLS: Record<string, any> = {
   sp_exsanguinate: { name: 'Exsanguinate', shape: 'nova', r: 3.8, dmg: 4.4, burn: 3, hpCost: 0.12, mp: 18, cd: 7 },
   sp_crimson_cross: { name: 'Crimson Cross', shape: 'line', len: 6, width: 1.4, dmg: 3.4, burn: 2, leech: 0.1, mp: 16, cd: 4 },
   sp_blood_leap: { name: 'Blood Leap', shape: 'blink', len: 6, r: 2.4, dmg: 2.2, leech: 0.1, mp: 10, cd: 4 },
-  // Warrior - Frost Templar
-  sp_frost_lance: { name: 'Frost Lance', shape: 'line', len: 7, width: 1.2, dmg: 3.0, chill: 2, mp: 16, cd: 4 },
-  sp_hail_shards: { name: 'Hail Shards', shape: 'volley', range: 6, n: 4, dmg: 1.8, chill: 1.5, mp: 18, cd: 4.5 },
-  sp_glacial_prison: { name: 'Glacial Prison', shape: 'pull', r: 4, range: 7, dmg: 2.4, chill: 4, mp: 26, cd: 9 },
-  sp_frost_vault: { name: 'Frost Vault', shape: 'blink', len: 5, r: 2.4, dmg: 2.0, chill: 2, mp: 10, cd: 4 },
+  // Warrior - Frost Templar (arsenal extras)
+  sp_ft_hammer_throw: { name: 'Frost Hammer Throw', shape: 'boomerang', n: 1, spread: 0, len: 6, width: 1.1, dur: 1.1, dmg: 1.7, frost: 1, mp: 16, cd: 0.5 },
+  sp_ft_frozen_bulwark: { name: 'Frozen Bulwark', shape: 'buff', r: 2.6, dmg: 1.2, frost: 1, shield: 0.18, fortress: 4, mp: 22, cd: 12 },
+  sp_ft_hailstorm: { name: 'Hailstorm', shape: 'rain', r: 3.2, range: 7, n: 6, every: 0.16, hit: 1.2, dmg: 1.3, frost: 1, mp: 24, cd: 9 },
+  sp_ft_ice_prison: { name: 'Ice Prison', shape: 'pull', r: 3.6, range: 7, dmg: 1.6, frost: 2, chill: 3, mp: 22, cd: 8 },
   // Warrior - Storm Herald
   sp_thunder_spear: { name: 'Thunder Spear', shape: 'line', len: 9, width: 1.2, dmg: 3.4, mp: 18, cd: 4 },
   sp_static_cleave: { name: 'Static Cleave', shape: 'cone', range: 4, arc: 100, dmg: 2.6, chill: 0.8, mp: 14, cd: 3.5 },
@@ -478,11 +486,11 @@ const SP_SKILLS: Record<string, any> = {
 const SP_CARD_EXTRAS = {
   sp_crusader: ['sp_radiant_lance', 'sp_consecration', 'sp_halo_burst', 'sp_angel_step'],
   sp_berserker: ['sp_twin_rend', 'sp_exsanguinate', 'sp_crimson_cross', 'sp_blood_leap'],
-  sp_frost_templar: ['sp_frost_lance', 'sp_hail_shards', 'sp_glacial_prison', 'sp_frost_vault'],
+  sp_frost_templar: ['sp_ft_hammer_throw', 'sp_ft_frozen_bulwark', 'sp_ft_hailstorm', 'sp_ft_ice_prison'],
   sp_storm_herald: ['sp_thunder_spear', 'sp_static_cleave', 'sp_storm_aegis', 'sp_storm_dash'],
   sp_dread_lord: ['sp_soul_rend', 'sp_dread_wave', 'sp_grave_rain', 'sp_void_step'],
-  sp_gravelord: ['sp_gravelord_aftershock', 'sp_gravelord_rupture', 'sp_gravelord_boulder', 'sp_gravelord_bastion'],
-  sp_dragoon: ['sp_dragoon_pierce', 'sp_dragoon_impact', 'sp_dragoon_barrage', 'sp_dragoon_updraft'],
+  sp_gravelord: ['sp_gravelord_corpse_bomb', 'sp_gravelord_rupture', 'sp_gravelord_boulder', 'sp_gravelord_bastion'],
+  sp_dragoon: ['sp_dragoon_arc_lance', 'sp_dragoon_stormcall', 'sp_dragoon_lance_storm', 'sp_dragoon_tempest_wings'],
   sp_reaver: ['sp_reaver_stance', 'sp_reaver_ember_cleave', 'sp_reaver_firebrand', 'sp_reaver_crater'],
   sp_runeknight: ['sp_runeknight_bind', 'sp_runeknight_frost', 'sp_runeknight_chain', 'sp_runeknight_guard'],
   sp_sentinel: ['sp_sentinel_mist', 'sp_sentinel_ram', 'sp_sentinel_bulwark', 'sp_sentinel_hallowed'],
@@ -531,6 +539,9 @@ const SP_SHAPE_TEXT = {
     : `Toggle: blood aura around you (radius ${s.r})`),
   orbs: s => `Launch ${s.n} storm orbs ${s.len} tiles ahead over ${s.dur}s, shocking everything within ${s.r} of each`,
   // variant warrior shapes
+  raise: s => `Raise up to ${s.n} monsters that died within ${s.r} tiles of the cursor as undead minions for ${s.dur}s (5 at most); each strikes for ${Math.round(s.minion * 100)}% of your Attack. With no corpse near, a Grave Thrall claws out of the earth. The ground bursts where they rise`,
+  rage: s => `Drive every minion into a frenzy for ${s.rage.dur}s: +${Math.round(s.rage.dmg * 100)}% damage, +${Math.round(s.rage.aspd * 100)}% attack speed and a ${Math.round(s.rage.crit * 100)}% chance to crit for ${s.rage.critMult}x (also minions raised while it lasts)`,
+  gravebomb: s => `Detonate every minion: each explodes in grave fire (radius ${s.r}) and is spent`,
   fault: s => `A crack crawls ${Math.round(s.n * s.step)} tiles through the ground, erupting ${s.n} times`,
   spear: s => `Hurl a lance ${s.len} tiles; cast again within ${s.hold}s to dive onto it (${s.dive}x around the landing)`,
   jump: s => `Leap into the sky for ${s.air}s (untouchable), then crash down on the cursor (radius ${s.r})`,
@@ -595,6 +606,10 @@ function spSkillDesc(s) {
   if (s.clap) parts.push(`Thunderclap: spends the target's Conductors, then ${s.clap.delay}s later the thunder booms (radius ${s.clap.r}, ${Math.round(s.clap.mult * 100)}% per Conductor)`);
   if (s.seek) parts.push('the bolt hunts the nearest enemy each pulse');
   if (s.stun) parts.push(`stuns ${s.stun}s`);
+  if (s.dot) parts.push(`enemies inside the glyph take ${s.dot.mult}x every ${s.dot.every}s; after it bursts the ground stays inscribed ${s.dot.linger}s and keeps burning anything that walks in`);
+  if (s.rod) parts.push('plants a Lightning Rod (3 at most, 8s): the sky strikes it every 1.2s, and rods within 7 tiles link into an arc fence');
+  if (s.rodArc) parts.push(`every Lightning Rod fires a bolt at the nearest enemy (${s.rodArc}x)`);
+  if (s.overload) parts.push(`Overload: every other Lightning Rod is struck at once (${s.overload}x around it) and spent`);
   if (s.echo) parts.push(`Echo: replays at 60% after ${s.echo}s`);
   if (s.stasis) parts.push(`Stasis: stops enemies in time ${s.stasis}s`);
   if (s.haste) parts.push(`cuts your other cooldowns by ${s.haste}s`);
@@ -643,6 +658,32 @@ for (const cls of Object.keys(SP_CARDS)) {
     CARD_BY_ID[c.id] = Object.assign(c, { cls, arsenal, jobReq: SP_TIERS[c.tier].jobReq, rarity: SP_TIERS[c.tier].rarity });
     for (const skillId of arsenal) Object.assign(SP_SKILLS[skillId], { element: c.element, color: c.color, cardId: c.id });
   }
+}
+
+// Signatures, passives and extra-skill unlocks (spSignatures.ts). The four
+// default skills are always open; the extras open at EXTRA_UNLOCK_LEVELS.
+for (const c of Object.values(CARD_BY_ID) as any[]) {
+  // the older data passives (Berserker leech, Phoenix rebirth) keep their fields
+  c.passive = Object.assign({}, c.passive || {}, PASSIVES[c.id] || {});
+  c.unlocks = {};
+  SP_CARD_EXTRAS[c.id].forEach((skillId, i) => { c.unlocks[skillId] = EXTRA_UNLOCK_LEVELS[i] || 0; });
+  const sig = SIGNATURES[c.id];
+  if (sig) {
+    const id = 'ult_' + c.id;
+    c.signature = {
+      id, name: sig.name, desc: sig.desc,
+      stages: sig.stages.map(st => Object.assign(normalizeSpSkill(id, Object.assign({}, st, { mp: 0, cd: 0 })), {
+        name: sig.name, element: c.element, color: c.color, cardId: c.id, delay: st.delay || 0
+      }))
+    };
+  }
+}
+
+// Can this hero use this card skill at this card level?
+function skillUnlocked(card, skillId, upgradeLevel = 0) {
+  if (!card) return false;
+  const need = card.unlocks && card.unlocks[skillId];
+  return !need || (upgradeLevel || 0) >= need;
 }
 
 // Inventory item for a card
@@ -714,8 +755,10 @@ function clientCatalog() {
   for (const cls of Object.keys(SP_CARDS)) {
     out[cls] = SP_CARDS[cls].map(c => ({
       id: c.id, tier: c.tier, name: c.name, element: c.element, color: c.color, jobReq: c.jobReq, rarity: c.rarity,
-      stats: c.stats, palette: c.palette, desc: c.desc, passive: c.passive || null,
-      skills: c.skills, arsenal: c.arsenal,
+      stats: c.stats, palette: c.palette, desc: c.desc,
+      passive: c.passive && c.passive.name ? { name: c.passive.name, desc: c.passive.desc } : null,
+      signature: c.signature ? { id: c.signature.id, name: c.signature.name, desc: c.signature.desc } : null,
+      skills: c.skills, arsenal: c.arsenal, unlocks: c.unlocks,
       exchange: SP_TIERS[c.tier].exchange,
       drop: { minFloor: SP_DROP_TABLE[c.tier][0], chances: SP_DROP_TABLE[c.tier][1] }
     }));
@@ -737,13 +780,13 @@ function clientCatalog() {
 export {
   JOB_MAX_LEVEL, JOB_LEVEL_BONUS, jobExpToNext,
   SP_TIERS, SP_CARDS, SP_SKILLS, CARD_BY_ID, SP_MAX_LEVEL, SP_ENHANCE_CHANCE, SP_SAFE_LEVEL, SP_SKILL_PER_LEVEL, FRAGMENT_DROP, bossFragments,
-  makeCardItem, cardStats, cardEnhanceCost, upgradeCardScale, rollCardDrop, clientCatalog, normalizeSpSkill
+  makeCardItem, cardStats, cardEnhanceCost, upgradeCardScale, rollCardDrop, clientCatalog, normalizeSpSkill, skillUnlocked
 };
 export default SP_CARDS;
 module.exports = {
   JOB_MAX_LEVEL, JOB_LEVEL_BONUS, jobExpToNext,
   SP_TIERS, SP_CARDS, SP_SKILLS, CARD_BY_ID, SP_MAX_LEVEL, SP_ENHANCE_CHANCE, SP_SAFE_LEVEL, SP_SKILL_PER_LEVEL, FRAGMENT_DROP, bossFragments,
-  makeCardItem, cardStats, cardEnhanceCost, upgradeCardScale, rollCardDrop, clientCatalog, normalizeSpSkill
+  makeCardItem, cardStats, cardEnhanceCost, upgradeCardScale, rollCardDrop, clientCatalog, normalizeSpSkill, skillUnlocked
 };
 
 

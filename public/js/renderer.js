@@ -18,7 +18,10 @@ const SHOPKEEPERS = {
   // north-facing ones (turned round, see townProps3D) south of it
   market_stall: {
     npc: 'stallkeeper', x: 0, z: -11, scale: 0.82, flip: true,
-    forObs: obs => (obs.y > 20.5 ? { npc: 'stallkeeper', x: 0, z: 11, scale: 0.82, view: 'back' } : null)
+    // Jerry the Attribute Smith keeps the blue stall south-east of the plaza, his back to us,
+    // facing the boulevard like the other keepers on that side
+    forObs: obs => (obs.id === 'npc_jerry' ? { npc: 'jerry', x: 0, z: 11, scale: 0.86, view: 'back' }
+      : obs.y > 20.5 ? { npc: 'stallkeeper', x: 0, z: 11, scale: 0.82, view: 'back' } : null)
   }
 };
 const SMITH_BLOW_S = 1.3;   // Brom's hammer cycle; the blow lands at 68% of it
@@ -92,6 +95,10 @@ const SP_SHAPE_LIFE = {
   chain: 0.6, pulse: 0.55, rain: 0.6, dash: 0.5, blink: 0.6, backstep: 0.6, detonate: 0.95, rewind: 0.8, aura: 0.6,
   shuriken: 0.4, // the recall flight; thrown stars, smoke, shadow and orbit last their server 'duration'
   // variant warrior one-shot beats (placed glyphs, banners, lances... carry a 'duration')
+  // Dragoon Lightning Rods (dragoonFx.js; the server sends their duration)
+  rodStrike: 0.5, fence: 0.55, overload: 0.9,
+  echo: 0.6,   // Rune Knight passive echo (runeKnightFx.js)
+  raise: 1.2, crumble: 0.7, rage: 1.0, gravebomb: 0.85,   // Gravelord minion skills (gravelordFx.js)
   spear: 0.7, jump: 0.8, rune: 0.75, invoke: 0.9, rally: 0.8, sacrifice: 1.0, doom: 0.8, riposte: 0.5, rebirth: 1.4, phantom: 0.35
 };
 // Variant warrior shapes drawn by drawVariantWarriorShape; placed objects skip the card flair layer
@@ -111,6 +118,14 @@ const SP_SKILL_LIFE = {
   // Pyromancer
   sp_flame_wave: 0.7, sp_ember_volley: 0.8, sp_sunburst: 0.7, sp_flame_step: 0.6,
   sp_meteor_call: 1.0, sp_fire_chain: 0.8, sp_cinder_rain: 0.65, sp_phoenix_blink: 0.8,
+  // Frost Templar (frostTemplarFx.js); fault / jump / boomerang carry their own duration
+  // Dragoon (dragoonFx.js); rods, strikes, fences and overloads carry their own duration
+  sp_dragoon_thunderwing: 0.6, sp_dragoon_volt_step: 0.6, sp_dragoon_arc_lance: 0.7, sp_dragoon_stormcall: 0.9,
+  sp_dragoon_lance_storm: 0.65, sp_dragoon_tempest_wings: 0.9,
+  // Rune Knight (runeKnightFx.js): glyph bursts (the carved glyphs carry their own duration)
+  sp_runeknight_glyph: 0.85, sp_runeknight_bind: 0.85, sp_runeknight_frost: 0.85, sp_runeknight_guard: 1.2,
+  sp_runeknight_wave: 0.8, sp_runeknight_step: 0.7, sp_runeknight_chain: 0.8, ult_sp_runeknight: 1.1,
+  sp_ft_glacier_smash: 0.9, sp_ft_glacial_charge: 0.8, sp_ft_frozen_bulwark: 1.2, sp_ft_hailstorm: 0.75, sp_ft_ice_prison: 1.1,
   // Cryo Sage
   sp_ice_lance: 0.8, sp_frozen_orb: 0.8, sp_permafrost: 1.1, sp_ice_blink: 0.8,
   sp_ice_shards: 0.75, sp_frost_cone: 0.8, sp_glacial_pull: 1.05, sp_frost_slide: 0.6,
@@ -1032,7 +1047,7 @@ class IsometricRenderer {
       // Mages cast, they don't swing: no sweep arc (the server sends sweepArc 0 for them too)
     } else if (isRogue) {
       // Rogue Agile Twin-Blade Cuts
-      const life = finisher ? 0.34 : 0.26;
+      const life = finisher ? 0.38 : 0.3;
       const sweep = {
         type: 'sweeping_edge',
         x: posX,
@@ -1051,13 +1066,13 @@ class IsometricRenderer {
         blade
       };
       if (this.usePixelHeroes()) this.attacks.get(data.attackerId).pendingSweep = sweep;
-      else this.animations.skillEffects.push(sweep);
+      else this.pushSweep(sweep);
       const pMain = cardId === 'sp_venom_lord' ? 'poison' : cardId === 'sp_frost_shade' ? 'ice' : cardId === 'sp_blade_dancer' ? 'spark' : 'shadow';
       this.addParticles(posX, posY, pMain, finisher ? 4 : 2);
       this.addParticles(posX, posY, 'slash', finisher ? 5 : 3);
     } else {
       // Warrior Crushing Heavy Cleave
-      const life = finisher ? 0.42 : 0.32;
+      const life = finisher ? 0.44 : 0.34;
       const sweep = {
         type: 'sweeping_edge',
         x: posX,
@@ -1077,7 +1092,7 @@ class IsometricRenderer {
       };
       if (this.usePixelHeroes()) this.attacks.get(data.attackerId).pendingSweep = sweep;
       else {
-        this.animations.skillEffects.push(sweep);
+        this.pushSweep(sweep);
         const pMain = cardId === 'sp_berserker' ? 'fire' : cardId === 'sp_frost_templar' ? 'ice' : cardId === 'sp_dread_lord' ? 'shadow' : 'spark';
         this.addParticles(posX, posY, 'slash', finisher ? 12 : 6);
         this.addParticles(posX, posY, pMain, finisher ? 9 : 5);
@@ -1184,6 +1199,116 @@ class IsometricRenderer {
       ctx.fill();
       ctx.restore();
     }
+  }
+
+  // ---- Boss telegraphs (server/bossMechanics.ts): a red zone on the floor fills up while the
+  // boss winds up; when it lands, a flash and a burst. Shapes are in world tiles:
+  // circle {x,y,r}, ring {x,y,r0,r1}, cone {x,y,angle,arc,range}, line {x,y,x2,y2,width}.
+  addBossTelegraph(t) {
+    if (!t || !t.shapes) return;
+    if (!this.bossTelegraphs) this.bossTelegraphs = [];
+    this.bossTelegraphs.push({ ...t, start: performance.now(), delay: Math.max(150, t.delay || 1000), landed: false });
+  }
+
+  cancelBossTelegraphs(bossId) {
+    if (this.bossTelegraphs) this.bossTelegraphs = this.bossTelegraphs.filter(t => t.bossId !== bossId);
+  }
+
+  // Trace one shape at `p` (0..1) of its full size as a path in screen space
+  traceTelegraph(ctx, s, p) {
+    const W = (x, y) => Isometric.worldToScreen(x, y, 0, this.camera, this.viewW, this.viewH);
+    const circle = (cx, cy, r, steps = 40) => {
+      for (let i = 0; i <= steps; i++) {
+        const a = (i / steps) * Math.PI * 2, q = W(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+        if (i === 0) ctx.moveTo(q.x, q.y); else ctx.lineTo(q.x, q.y);
+      }
+      ctx.closePath();
+    };
+    ctx.beginPath();
+    if (s.shape === 'circle') circle(s.x, s.y, Math.max(0.05, s.r * p));
+    else if (s.shape === 'ring') {
+      circle(s.x, s.y, s.r0 + (s.r1 - s.r0) * Math.max(0.02, p), 56);
+      circle(s.x, s.y, s.r0, 40);
+    } else if (s.shape === 'cone') {
+      const o = W(s.x, s.y), r = Math.max(0.05, s.range * p);
+      ctx.moveTo(o.x, o.y);
+      for (let i = 0; i <= 18; i++) {
+        const a = s.angle - s.arc / 2 + (s.arc * i) / 18, q = W(s.x + Math.cos(a) * r, s.y + Math.sin(a) * r);
+        ctx.lineTo(q.x, q.y);
+      }
+      ctx.closePath();
+    } else if (s.shape === 'line') {
+      const dx = s.x2 - s.x, dy = s.y2 - s.y, len = Math.hypot(dx, dy) || 1;
+      const nx = -dy / len * s.width / 2, ny = dx / len * s.width / 2;
+      const ex = s.x + dx * Math.max(0.02, p), ey = s.y + dy * Math.max(0.02, p);
+      const pts = [W(s.x + nx, s.y + ny), W(ex + nx, ey + ny), W(ex - nx, ey - ny), W(s.x - nx, s.y - ny)];
+      ctx.moveTo(pts[0].x, pts[0].y);
+      for (let i = 1; i < 4; i++) ctx.lineTo(pts[i].x, pts[i].y);
+      ctx.closePath();
+    }
+  }
+
+  drawBossTelegraphs(ctx) {
+    const list = this.bossTelegraphs;
+    if (!list || !list.length) return;
+    const now = performance.now();
+    const FLASH = 320;
+    ctx.save();
+    for (let i = list.length - 1; i >= 0; i--) {
+      const t = list[i];
+      const el = now - t.start;
+      if (el > t.delay + FLASH) { list.splice(i, 1); continue; }
+      if (el >= t.delay && !t.landed) { t.landed = true; this.bossTelegraphImpact(t); }
+      const p = Math.min(1, el / t.delay);
+      for (const s of t.shapes) {
+        if (!t.landed) {
+          // the whole danger zone, pulsing faster as it fills
+          const pulse = 0.5 + 0.5 * Math.sin(el / (p > 0.7 ? 45 : 90));
+          this.traceTelegraph(ctx, s, 1);
+          ctx.fillStyle = `rgba(239, 68, 68, ${0.13 + 0.08 * p})`;
+          ctx.fill('evenodd');
+          ctx.lineWidth = 2 * this.camera.zoom;
+          ctx.strokeStyle = `rgba(254, 202, 202, ${0.55 + 0.35 * pulse})`;
+          ctx.stroke();
+          // the fill that grows toward the edge: when it reaches it, the attack lands
+          this.traceTelegraph(ctx, s, p);
+          ctx.fillStyle = `rgba(220, 38, 38, ${0.22 + 0.18 * p})`;
+          ctx.fill('evenodd');
+        } else {
+          const k = (el - t.delay) / FLASH;
+          this.traceTelegraph(ctx, s, 1);
+          ctx.fillStyle = hexAlpha(t.color || '#ef4444', 0.55 * (1 - k));
+          ctx.fill('evenodd');
+        }
+      }
+    }
+    ctx.restore();
+  }
+
+  bossTelegraphImpact(t) {
+    const part = { fire: 'fire', ice: 'ice', dark: 'shadow', lightning: 'lightning', holy: 'spark', earth: 'earth' }[t.element] || 'spark';
+    for (const s of t.shapes) {
+      if (s.shape === 'circle') {
+        this.addParticles(s.x, s.y, part, Math.round(10 + s.r * 6), { speed: 2.4 });
+        this.addParticles(s.x, s.y, 'dust', 8, { speed: 1.4 });
+      } else if (s.shape === 'ring') {
+        for (let k = 0; k < 28; k++) {
+          const a = (k / 28) * Math.PI * 2, r = s.r0 + Math.random() * (s.r1 - s.r0);
+          this.addParticles(s.x + Math.cos(a) * r, s.y + Math.sin(a) * r, part, 1, { speed: 1.8 });
+        }
+      } else if (s.shape === 'cone') {
+        for (let k = 0; k < 18; k++) {
+          const a = s.angle - s.arc / 2 + Math.random() * s.arc, r = Math.random() * s.range;
+          this.addParticles(s.x + Math.cos(a) * r, s.y + Math.sin(a) * r, k % 3 ? part : 'slash', 1, { speed: 2.2 });
+        }
+      } else if (s.shape === 'line') {
+        for (let k = 0; k < 16; k++) {
+          const q = k / 15;
+          this.addParticles(s.x + (s.x2 - s.x) * q, s.y + (s.y2 - s.y) * q, part, 1, { speed: 2.0 });
+        }
+      }
+    }
+    this.triggerScreenShake(t.shapes.length > 3 ? 7 : 5, 0.18);
   }
 
   // Dungeon room opened: a summoning circle + burst under each new monster
@@ -5498,298 +5623,6 @@ class IsometricRenderer {
     return false;
   }
 
-  // ---------------------------------------------------------------- per-card basic attacks
-  // Card flourish layered on a basic swing, drawn in drawSweepSlash's local
-  // frame (squashed to the ground, rotated to the facing, additive)
-  drawSweepAccent(ctx, fx, s) {
-    const { outerR, thick, head, fromA, fade, eased, z } = s;
-    const time = this.animations.time;
-    const at = (a, r) => ({ x: Math.cos(a) * r, y: Math.sin(a) * r });
-    const along = (k) => fromA + (head - fromA) * k;
-    const rgba = (rgb, a) => `rgba(${rgb}, ${Math.max(0, Math.min(1, a))})`;
-    const seed = fx.x * 7.3 + fx.y * 3.1;
-    const rnd = (n) => { const v = Math.sin((n + seed) * 127.1) * 43758.5453; return v - Math.floor(v); };
-    const step = Math.floor(time * 24); // re-rolls jagged lines (lightning, cracks) 24x a second
-    const dotGlow = (p, r, rgb, a) => {
-      const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
-      g.addColorStop(0, rgba('255, 255, 255', a));
-      g.addColorStop(0.4, rgba(rgb, a * 0.7));
-      g.addColorStop(1, rgba(rgb, 0));
-      ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-      ctx.fill();
-    };
-    const stroke = (rgb, a, w) => { ctx.strokeStyle = rgba(rgb, a); ctx.lineWidth = w * z; ctx.stroke(); };
-    const tip = at(head, outerR - thick * 0.25);
-    ctx.save();
-    ctx.lineCap = 'round';
-    switch (fx.cardId) {
-      case 'sp_crusader': { // rays of light fan out along the swing, a cross gleams at the tip
-        for (let i = 0; i < 4; i++) {
-          const p = at(along(0.2 + i * 0.25), outerR * 1.2);
-          ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(p.x, p.y);
-          stroke('253, 224, 71', fade * 0.3, 3);
-        }
-        const L = 11 * z * (0.6 + 0.4 * eased);
-        ctx.beginPath();
-        ctx.moveTo(tip.x - L, tip.y); ctx.lineTo(tip.x + L, tip.y);
-        ctx.moveTo(tip.x, tip.y - L * 1.5); ctx.lineTo(tip.x, tip.y + L * 1.5);
-        stroke('255, 251, 235', fade, 2.2);
-        dotGlow(tip, 16 * z, '253, 224, 71', fade);
-        break;
-      }
-      case 'sp_berserker': { // twin blade cuts, one per sword, and flung blood
-        for (const [k, w] of [[1.05, 3.2], [0.78, 2.8]]) {
-          ctx.beginPath();
-          ctx.arc(0, 0, outerR * k, along(0.25), head, head < fromA);
-          stroke('239, 68, 68', fade * 0.9, w);
-          stroke('254, 202, 202', fade * 0.6, w * 0.35);
-        }
-        for (let i = 0; i < 6; i++) {
-          const p = at(along(0.3 + 0.7 * rnd(i)), outerR * (1.1 + 0.3 * (1 - fade)) + rnd(i + 9) * 8 * z);
-          dotGlow(p, 3.5 * z, '220, 38, 38', fade);
-        }
-        break;
-      }
-      case 'sp_frost_templar': { // ice shards jut out of the blade's path
-        for (let i = 0; i < 6; i++) {
-          const k = (i + 0.5) / 6;
-          if (k > eased + 0.1) break;
-          const a = along(k), b = at(a, outerR), t = at(a, outerR + (10 + 6 * rnd(i)) * z);
-          const n = { x: -Math.sin(a) * 3 * z, y: Math.cos(a) * 3 * z };
-          ctx.beginPath();
-          ctx.moveTo(b.x + n.x, b.y + n.y); ctx.lineTo(t.x, t.y); ctx.lineTo(b.x - n.x, b.y - n.y); ctx.closePath();
-          ctx.fillStyle = rgba('165, 243, 252', fade * 0.85);
-          ctx.fill();
-          stroke('240, 249, 255', fade, 1);
-        }
-        break;
-      }
-      case 'sp_storm_herald': { // lightning crawls along the edge and forks outward
-        ctx.beginPath();
-        for (let i = 0; i <= 10; i++) {
-          const a = along(0.15 + 0.85 * i / 10);
-          const p = at(a, outerR + (rnd(i * 7 + step) - 0.5) * 10 * z);
-          if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
-        }
-        stroke('250, 204, 21', fade * 0.8, 3);
-        stroke('255, 255, 255', fade, 1.2);
-        for (let j = 0; j < 2; j++) {
-          const a = along(0.5 + j * 0.4), p0 = at(a, outerR);
-          ctx.beginPath(); ctx.moveTo(p0.x, p0.y);
-          const p1 = at(a + (rnd(j + step) - 0.5) * 0.3, outerR + 12 * z), p2 = at(a + (rnd(j + 5 + step) - 0.5) * 0.4, outerR + 22 * z);
-          ctx.lineTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y);
-          stroke('254, 240, 138', fade * 0.9, 1.5);
-        }
-        break;
-      }
-      case 'sp_dread_lord': { // colossal black-violet executioner axe drag, heavy crescent edge & void cracks
-        const dir = head >= fromA ? 1 : -1;
-        ctx.globalCompositeOperation = 'source-over';
-        ctx.beginPath();
-        ctx.arc(0, 0, outerR * 0.92, along(0.05), along(0.95), head < fromA);
-        stroke('10, 2, 22', fade * 0.8, thick / z * 0.72);
-        // Bearded executioner axe silhouette at the leading edge
-        const hPt = at(head, outerR * 0.88);
-        ctx.save();
-        ctx.translate(hPt.x, hPt.y);
-        ctx.rotate(head + dir * Math.PI * 0.45);
-        ctx.beginPath();
-        ctx.moveTo(-10 * z, -6 * z);
-        ctx.lineTo(14 * z, -16 * z);
-        ctx.quadraticCurveTo(22 * z, 0, 10 * z, 20 * z);
-        ctx.lineTo(-6 * z, 8 * z);
-        ctx.closePath();
-        ctx.fillStyle = `rgba(18, 4, 34, ${fade * 0.9})`;
-        ctx.fill();
-        ctx.strokeStyle = `rgba(216, 180, 254, ${fade * 0.95})`;
-        ctx.lineWidth = 2.2 * z;
-        ctx.stroke();
-        ctx.restore();
-        ctx.globalCompositeOperation = 'lighter';
-        // Jagged black-violet ground cracks radiating from the heavy axe drag
-        for (let i = 0; i < 4; i++) {
-          const a = along(0.25 + i * 0.22);
-          const p0 = at(a, outerR * 0.75);
-          const p1 = at(a + (rnd(i + step) - 0.5) * 0.18, outerR * 1.02);
-          const p2 = at(a + (rnd(i + 7 + step) - 0.5) * 0.25, outerR * 1.18);
-          ctx.beginPath();
-          ctx.moveTo(p0.x, p0.y);
-          ctx.lineTo(p1.x, p1.y);
-          ctx.lineTo(p2.x, p2.y);
-          stroke('168, 85, 247', fade * 0.85, 2.2);
-          stroke('243, 232, 255', fade * 0.75, 1.0);
-        }
-        for (let i = 0; i < 6; i++) {
-          const p = at(along(0.15 + 0.75 * rnd(i)), outerR * (0.68 + 0.35 * rnd(i + 3)));
-          dotGlow({ x: p.x, y: p.y - (1 - fade) * 34 * z }, 6 * z, '192, 132, 252', fade);
-        }
-        break;
-      }
-      case 'sp_nightblade': { // a second, straight cut crosses the arc: an X
-        const a0 = at(head - 0.9 * Math.sign(head - fromA || 1), outerR * 0.35), a1 = at(head, outerR * 1.12);
-        ctx.beginPath(); ctx.moveTo(a0.x, a0.y); ctx.lineTo(a1.x, a1.y);
-        stroke('168, 85, 247', fade * 0.85, 4);
-        stroke('250, 245, 255', fade, 1.4);
-        dotGlow(tip, 12 * z, '147, 51, 234', fade * 0.9);
-        break;
-      }
-      case 'sp_venom_lord': { // acid flung off the blade
-        for (let i = 0; i < 7; i++) {
-          const a = along(0.2 + 0.8 * rnd(i));
-          const p = at(a, outerR + (4 + 14 * (1 - fade)) * z * (0.5 + rnd(i + 2)));
-          dotGlow({ x: p.x, y: p.y + (1 - fade) * 10 * z }, (2.5 + 2 * rnd(i + 4)) * z, '74, 222, 128', fade);
-        }
-        ctx.beginPath();
-        ctx.arc(0, 0, outerR * 0.9, along(0.4), head, head < fromA);
-        stroke('190, 242, 100', fade * 0.5, 1.5);
-        break;
-      }
-      case 'sp_blade_dancer': { // afterimage blades a beat behind, a star flash at the tip
-        for (const [lag, al] of [[0.3, 0.55], [0.6, 0.3]]) {
-          const h = head - lag * Math.sign(head - fromA || 1);
-          ctx.beginPath();
-          ctx.arc(0, 0, outerR * (1 - lag * 0.15), Math.min(h, fromA), Math.max(h, fromA));
-          stroke('250, 204, 21', fade * al, 2);
-        }
-        const L = 12 * z * fade;
-        ctx.beginPath();
-        ctx.moveTo(tip.x - L, tip.y); ctx.lineTo(tip.x + L, tip.y);
-        ctx.moveTo(tip.x, tip.y - L); ctx.lineTo(tip.x, tip.y + L);
-        stroke('255, 255, 245', fade, 1.6);
-        dotGlow(tip, 10 * z, '250, 204, 21', fade);
-        break;
-      }
-      case 'sp_frost_shade': { // little frost stars glint along the cut
-        for (let i = 0; i < 4; i++) {
-          const p = at(along(0.2 + i * 0.25), outerR - thick * 0.4);
-          const L = 4.5 * z * fade;
-          ctx.beginPath();
-          for (let j = 0; j < 3; j++) {
-            const a = (j * Math.PI) / 3 + time * 2;
-            ctx.moveTo(p.x - Math.cos(a) * L, p.y - Math.sin(a) * L);
-            ctx.lineTo(p.x + Math.cos(a) * L, p.y + Math.sin(a) * L);
-          }
-          stroke('240, 253, 255', fade, 1.2);
-        }
-        dotGlow(tip, 14 * z, '103, 232, 249', fade * 0.8);
-        break;
-      }
-      case 'sp_eclipse_reaper': { // a black sun rides the scythe tip; void sparks fly off
-        dotGlow(tip, 18 * z, '167, 139, 250', fade);
-        ctx.globalCompositeOperation = 'source-over';
-        ctx.beginPath();
-        ctx.arc(tip.x, tip.y, 5.5 * z, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(6, 3, 18, ${fade})`;
-        ctx.fill();
-        ctx.globalCompositeOperation = 'lighter';
-        ctx.beginPath();
-        ctx.arc(tip.x, tip.y, 5.5 * z, 0, Math.PI * 2);
-        stroke('247, 245, 255', fade * 0.9, 1);
-        for (let i = 0; i < 5; i++) {
-          const p = at(along(0.3 + 0.7 * rnd(i)), outerR * 1.05 + rnd(i + 3) * 12 * z * (1 - fade + 0.3));
-          dotGlow(p, 3 * z, '139, 92, 246', fade);
-        }
-        break;
-      }
-      // Mage SP Cards
-      case 'sp_pyromancer': { // roaring solar flame tongues along the crescent curve, erupting fire embers
-        for (let i = 0; i < 6; i++) {
-          const a = along(0.2 + i * 0.15);
-          const fl = Math.sin(time * 24 + i * 1.8) * 6 * z;
-          const p0 = at(a, outerR * 0.9);
-          const p1 = at(a + (rnd(i + step) - 0.5) * 0.18, outerR + (10 + fl) * z);
-          ctx.beginPath();
-          ctx.moveTo(p0.x, p0.y);
-          ctx.quadraticCurveTo(p1.x + fl, p1.y, p1.x, p1.y);
-          stroke('249, 115, 22', fade * 0.85, 3.5);
-          stroke('254, 240, 138', fade * 0.95, 1.4);
-        }
-        dotGlow(tip, 16 * z, '249, 115, 22', fade);
-        break;
-      }
-      case 'sp_cryo_sage': { // spinning crystalline snowflake stars along the arc, freezing ice smoke
-        for (let i = 0; i < 5; i++) {
-          const p = at(along(0.18 + i * 0.2), outerR - thick * 0.3);
-          const L = (4 + 2 * rnd(i)) * z * fade;
-          ctx.beginPath();
-          for (let j = 0; j < 3; j++) {
-            const a = (j * Math.PI) / 3 + time * 3 + i * 0.7;
-            ctx.moveTo(p.x - Math.cos(a) * L, p.y - Math.sin(a) * L);
-            ctx.lineTo(p.x + Math.cos(a) * L, p.y + Math.sin(a) * L);
-          }
-          stroke('236, 254, 255', fade * 0.9, 1.8);
-          stroke('103, 232, 249', fade * 0.6, 3.2);
-        }
-        dotGlow(tip, 15 * z, '103, 232, 249', fade * 0.9);
-        break;
-      }
-      case 'sp_tempest': { // crackling high-voltage ball lightning at the head with erratic electric arc forks
-        const stepT = Math.floor(time * 32);
-        ctx.beginPath();
-        for (let i = 0; i <= 8; i++) {
-          const a = along(0.2 + 0.8 * i / 8);
-          const jitter = (rnd(i * 9 + stepT) - 0.5) * 12 * z;
-          const p = at(a, outerR + jitter);
-          if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
-        }
-        stroke('250, 204, 21', fade * 0.9, 2.8);
-        stroke('255, 255, 255', fade, 1.2);
-        dotGlow(tip, 16 * z, '250, 204, 21', fade);
-        break;
-      }
-      case 'sp_chronomancer': { // golden temporal clockwork gear teeth and solar time rays
-        for (let i = 0; i < 7; i++) {
-          const a = along(0.15 + i * 0.14);
-          const p0 = at(a, outerR);
-          const p1 = at(a, outerR + (5 + (i % 2 === 0 ? 6 : 2)) * z);
-          ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y);
-          stroke('253, 224, 71', fade * 0.85, 2);
-        }
-        dotGlow(tip, 14 * z, '253, 224, 71', fade);
-        break;
-      }
-      case 'sp_void_archon': { // cosmic black-hole event horizon singularity at the tip pulling starlight inward
-        dotGlow(tip, 20 * z, '192, 132, 252', fade);
-        ctx.globalCompositeOperation = 'source-over';
-        ctx.beginPath();
-        ctx.arc(tip.x, tip.y, 6 * z, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(15, 5, 29, ${fade * 0.95})`;
-        ctx.fill();
-        ctx.globalCompositeOperation = 'lighter';
-        ctx.beginPath();
-        ctx.arc(tip.x, tip.y, 6 * z, 0, Math.PI * 2);
-        stroke('233, 213, 255', fade * 0.9, 1.5);
-        for (let i = 0; i < 5; i++) {
-          const a = along(0.2 + 0.8 * rnd(i));
-          const p = at(a, outerR * (0.85 + 0.3 * rnd(i + 2)));
-          dotGlow(p, 3 * z, '168, 85, 247', fade);
-        }
-        break;
-      }
-      // Default Base Classes (no SP card active)
-      default: {
-        if (fx.class === 'rogue') {
-          // Sharp razor glint at dagger tip and secondary speed line
-          dotGlow(tip, 8 * z, '45, 212, 191', fade * 0.8);
-        } else if (fx.class === 'mage') {
-          // Mystic arcane flare and orbiting stardust motes
-          dotGlow(tip, 12 * z, '253, 224, 71', fade * 0.85);
-          for (let i = 0; i < 3; i++) {
-            const p = at(along(0.3 + i * 0.3), outerR * 1.08 + rnd(i + step) * 5 * z);
-            dotGlow(p, 3 * z, '254, 240, 138', fade * 0.7);
-          }
-        } else {
-          // Steel blade shine gleam
-          dotGlow(tip, 9 * z, '186, 230, 253', fade * 0.7);
-        }
-        break;
-      }
-    }
-    ctx.restore();
-  }
-
   // Mage card bolts: each card throws its own kind of missile. Returns false
   // for plain mages so the element bolt is drawn instead.
   drawCardProjectile(ctx, p, sx, sy, z) {
@@ -9349,6 +9182,10 @@ class IsometricRenderer {
       this.drawRogueSkill(ctx, fx, progress, alpha, toScreen, z, rgba) ||
       (fx.cardId === 'sp_pyromancer' && this.drawPyromancerSkill(ctx, fx, progress, toScreen, z)) ||
       (fx.cardId === 'sp_cryo_sage' && this.drawCryoSageSkill(ctx, fx, progress, toScreen, z)) ||
+      (fx.cardId === 'sp_frost_templar' && this.drawFrostTemplarSkill && this.drawFrostTemplarSkill(ctx, fx, progress, toScreen, z)) ||
+      (fx.cardId === 'sp_dragoon' && this.drawDragoonSkill && this.drawDragoonSkill(ctx, fx, progress, toScreen, z)) ||
+      (fx.cardId === 'sp_runeknight' && this.drawRuneKnightSkill && this.drawRuneKnightSkill(ctx, fx, progress, toScreen, z)) ||
+      (fx.cardId === 'sp_gravelord' && this.drawGravelordSkill && this.drawGravelordSkill(ctx, fx, progress, toScreen, z)) ||
       (fx.cardId === 'sp_tempest' && this.drawTempestSkill(ctx, fx, progress, toScreen, z)) ||
       (fx.cardId === 'sp_dread_lord' && this.drawDreadLordSkill(ctx, fx, progress, toScreen, z))) {
       ctx.restore();
@@ -10842,478 +10679,90 @@ class IsometricRenderer {
     return { half, angle: (fx.side || 1) * (-half + 2 * half * eased), eased };
   }
 
-  // The slash of a plain swing: an upright crescent of light cut out of the character toward the
-  // facing direction. It leaves the chest, tilted like a diagonal cut (the tilt flips with each
-  // combo hit), sharpens as it travels, drags a streak behind it and sheds sparks off its edge.
-  drawSlashWave(ctx, fx, progress, o) {
-    const { screen, base, side, fade, outerR, col, rgba, z } = o;
-    const clamp01 = (v) => Math.max(0, Math.min(1, v));
-    const easeOut = (t) => 1 - Math.pow(1 - clamp01(t), 3);
-    const px = Math.max(2, Math.round(z * 1.1));
-    // screen direction of the cut (the ground plane is squashed, so the facing is too)
-    let dx = Math.cos(base), dy = Math.sin(base) * 0.55;
-    const dl = Math.hypot(dx, dy) || 1; dx /= dl; dy /= dl;
-    const chest = { x: screen.x, y: screen.y - 16 * z };
-    const reach = outerR * (fx.finisher ? 1.05 : 0.9);
-    const tilt = side * (fx.finisher ? 0.35 : 0.6);                        // diagonal cut; the other combo hit tilts the other way
-    const ang = Math.atan2(dy, dx) + Math.PI / 2 + tilt;                  // the crescent's chord, across the cut
-    const ux = Math.cos(ang), uy = Math.sin(ang);
-    const grow = easeOut(progress / 0.22);
-    const chordHalf = reach * (fx.finisher ? 0.5 : 0.42) * (0.35 + 0.65 * grow);
-    const thickMax = chordHalf * (fx.finisher ? 0.5 : 0.36);
-
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.lineCap = 'round';
-    const at = (age) => {                                                  // where the crescent was `age` ago
-      const t = easeOut((progress - age) / 0.62);
-      const travel = reach * (0.12 + 0.88 * t);
-      return { cx: chest.x + dx * travel, cy: chest.y + dy * travel, t };
-    };
-    // the crescent: outer edge bulges forward, inner edge follows it back, both pinched at the tips
-    const crescent = (cx, cy, half, thick, bulge) => {
-      const p1 = { x: cx - ux * half, y: cy - uy * half }, p2 = { x: cx + ux * half, y: cy + uy * half };
-      ctx.beginPath();
-      ctx.moveTo(p1.x, p1.y);
-      ctx.quadraticCurveTo(cx + dx * bulge * 2, cy + dy * bulge * 2, p2.x, p2.y);               // outer edge
-      ctx.quadraticCurveTo(cx + dx * (bulge - thick) * 2, cy + dy * (bulge - thick) * 2, p1.x, p1.y); // inner edge
-      ctx.closePath();
-      return { p1, p2 };
-    };
-
-    // motion streak: fainter, thinner copies trailing back toward the character
-    for (let g = 4; g >= 1; g--) {
-      const a = at(g * 0.045);
-      if (a.t <= 0) continue;
-      const half = chordHalf * (1 - g * 0.08);
-      crescent(a.cx, a.cy, half, thickMax * (1 - g * 0.18), half * 0.6);
-      ctx.fillStyle = rgba(col.glow, fade * (0.2 - g * 0.04));
-      ctx.fill();
+  // Start a swing's smear. One hero shows one swing at a time: a new swing clears what is left of
+  // the previous one, so alternating combo swings never overlap into an X.
+  pushSweep(sw) {
+    const list = this.animations.skillEffects;
+    for (let i = list.length - 1; i >= 0; i--) {
+      if (list[i].type === 'sweeping_edge' && list[i].attackerId === sw.attackerId) list.splice(i, 1);
     }
-    // the cut itself
-    const head = at(0);
-    const bulge = chordHalf * 0.6;
-    const { p1, p2 } = crescent(head.cx, head.cy, chordHalf, thickMax, bulge);
-    const tail = side > 0 ? p1 : p2, tip = side > 0 ? p2 : p1;             // the swing travels tail -> tip
-    const grad = ctx.createLinearGradient(tail.x, tail.y, tip.x, tip.y);
-    grad.addColorStop(0, rgba(col.body, fade * 0.15));
-    grad.addColorStop(0.55, rgba(col.body, fade * 0.8));
-    grad.addColorStop(1, rgba(col.edge, fade));
-    ctx.fillStyle = grad;
-    ctx.fill();
-    // hot white edge along the outer curve, with a glow under it
-    const edge = () => {
-      ctx.beginPath();
-      ctx.moveTo(p1.x, p1.y);
-      ctx.quadraticCurveTo(head.cx + dx * bulge * 2, head.cy + dy * bulge * 2, p2.x, p2.y);
-    };
-    edge(); ctx.strokeStyle = rgba(col.glow, fade * 0.7); ctx.lineWidth = 4.5 * px; ctx.stroke();
-    edge(); ctx.strokeStyle = rgba(col.inner || col.edge, fade * 0.95); ctx.lineWidth = 2.2 * px; ctx.stroke();
-    edge(); ctx.strokeStyle = `rgba(255, 255, 255, ${fade})`; ctx.lineWidth = Math.max(1, px); ctx.stroke();
-
-    // a bright flash where the cut leaves the body
-    if (progress < 0.25) {
-      const k = 1 - progress / 0.25;
-      const g = ctx.createRadialGradient(chest.x, chest.y, 1, chest.x, chest.y, 18 * z);
-      g.addColorStop(0, rgba(col.edge, k * 0.9));
-      g.addColorStop(1, rgba(col.glow, 0));
-      ctx.fillStyle = g;
-      ctx.beginPath(); ctx.arc(chest.x, chest.y, 18 * z, 0, Math.PI * 2); ctx.fill();
-    }
-    // sparks flung off the leading edge
-    if (head.t > 0.1 && progress < 0.7) {
-      const n = fx.finisher ? 9 : 6;
-      for (let i = 0; i < n; i++) {
-        const u = (i + 0.5) / n, along = (u - 0.5) * 2 * chordHalf * 0.9;
-        const hz = Math.sin(i * 127.1 + (fx.bornAt || 0) * 0.001) * 43758.5453; const r = hz - Math.floor(hz);
-        const out = (bulge * (1 - Math.pow((along / chordHalf), 2)) * 1.0) + (progress * 18 + r * 10) * z * 0.6;
-        const sx = head.cx + ux * along + dx * out, sy = head.cy + uy * along + dy * out - progress * 6 * z;
-        ctx.fillStyle = rgba(i % 2 ? col.edge : col.glow, fade * (0.9 - progress));
-        ctx.fillRect(Math.round(sx), Math.round(sy), px, px);
-      }
-    }
-    ctx.restore();
+    list.push(sw);
   }
 
-  // A slim ribbon hugging the weapon: it replays the blade's real angles from the last ~150ms,
-  // tapering from a faint tail to a bright, sharp leading edge at the tip, with a few sparks.
-  drawBladeTrail(ctx, fx, bl, o) {
-    const { now, z, fade, col, rgba } = o;
-    const h = bl.hist;
-    if (!h || h.length < 2 || h[h.length - 1].hx === undefined) return;
-    // newest samples that kept turning one way (a wind-up turning back is skipped)
-    const pts = [h[h.length - 1]];
-    let dir = 0;
-    for (let i = h.length - 2; i >= 0; i--) {
-      const d = pts[0].a - h[i].a;
-      if (Math.abs(d) < 1e-4) continue;
-      if (dir && Math.sign(d) !== dir) break;
-      dir = Math.sign(d);
-      if (now - h[i].t > 190 || h[i].hx === undefined) break;
-      pts.unshift(h[i]);
-    }
-    if (pts.length < 2) return;
-    // the blade's true swept surface. Sprite frames are sparse, so turn the blade through the gap
-    // (hand slides, angle and length ease) instead of cutting a straight chord between tips.
-    const ox = bl.x, oy = bl.y;                                // the hero's current spot (the trail rides along)
-    const lenOf = (p) => Math.hypot(p.tx - p.hx, p.ty - p.hy);
-    const ease = (u) => u * u * (3 - 2 * u);
-    let path = [];
-    for (let i = 0; i < pts.length - 1; i++) {
-      const A = pts[i], B = pts[i + 1];
-      const steps = Math.max(2, Math.ceil(Math.abs(B.a - A.a) / 0.1));
-      for (let s = 0; s < steps; s++) {
-        const u = s / steps, e = ease(u);
-        const hx = A.hx + (B.hx - A.hx) * u, hy = A.hy + (B.hy - A.hy) * u;
-        const ang = A.a + (B.a - A.a) * e, L = lenOf(A) + (lenOf(B) - lenOf(A)) * u;
-        path.push({ t: A.t + (B.t - A.t) * u, a: ang, hx, hy, tx: hx + Math.cos(ang) * L, ty: hy + Math.sin(ang) * L });
-      }
-    }
-    const last = pts[pts.length - 1];
-    path.push({ t: last.t, a: last.a, hx: last.hx, hy: last.hy, tx: last.tx, ty: last.ty });
-    // never wrap into a ring: keep only the newest ~100 degrees of the swing
-    const MAX_SPAN = 1.75;
-    const headA = path[path.length - 1].a;
-    let cut = 0;
-    while (cut < path.length - 2 && Math.abs(headA - path[cut].a) > MAX_SPAN) cut++;
-    path = path.slice(cut);
-    if (path.length < 2) return;
-    const spanA = Math.max(0.01, Math.abs(headA - path[0].a));
-    const px = Math.max(2, Math.round(z));
-    const n = path.length - 1;
-    const ageFade = (t) => Math.max(0, 1 - (now - t) / 190);
-    // point along hand -> tip (f = 0 hand, 1 tip, >1 past the tip)
-    const on = (p, f) => ({ x: ox + p.hx + (p.tx - p.hx) * f, y: oy + p.hy + (p.ty - p.hy) * f });
-    const BASE = 0.4, TIP = 1.08;
-
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    for (let i = 0; i < n; i++) {
-      const A = path[i], B = path[i + 1];
-      const k = 1 - Math.min(1, Math.abs(headA - B.a) / spanA); // 0 tail .. 1 head, by angle
-      const f = fade * ageFade(B.t) * Math.pow(k, 1.1);
-      if (f <= 0.01) continue;
-      const inner = BASE + (TIP - BASE) * (1 - k) * 0.6;       // the ribbon narrows toward its tail
-      const q = [on(A, TIP), on(B, TIP), on(B, inner), on(A, inner)];
-      ctx.beginPath();
-      ctx.moveTo(q[0].x, q[0].y); ctx.lineTo(q[1].x, q[1].y); ctx.lineTo(q[2].x, q[2].y); ctx.lineTo(q[3].x, q[3].y);
-      ctx.closePath();
-      ctx.fillStyle = rgba(col.body, f * 0.5);
-      ctx.fill();
-      // cutting edge along the tip's path
-      ctx.strokeStyle = rgba(col.edge, f);
-      ctx.lineWidth = Math.max(1, px * (0.5 + 1.3 * k));
-      ctx.beginPath(); ctx.moveTo(q[0].x, q[0].y); ctx.lineTo(q[1].x, q[1].y); ctx.stroke();
-    }
-    // a few sparks at the tip
-    const head = path[path.length - 1], hf = fade * ageFade(head.t);
-    const seed = Math.floor(now / 45);
-    for (let i = 0; i < 3; i++) {
-      const hz = Math.sin((seed + i * 17) * 12.9898) * 43758.5453, r = hz - Math.floor(hz);
-      const tp = on(head, TIP);
-      ctx.fillStyle = rgba(i % 2 ? col.edge : col.glow, hf * (0.9 - r * 0.5));
-      ctx.fillRect(Math.round(tp.x + (r - 0.5) * 14 * z), Math.round(tp.y + (((r * 7) % 1) - 0.5) * 14 * z), px, px);
-    }
-    ctx.restore();
-  }
-
-  // A blade arc drawn flat on the ground plane (iso), sweeping from one side to
-  // the other (fx.side picks which), with a tapering trail behind its edge
+  // A melee swing (warrior / rogue basic attack): SlashFx.crescent, the blade's motion blur at
+  // blade length round the hero's chest, sweeping across the front (left to right or right to
+  // left: combo hits alternate). A finisher reaches a little further with a faint second smear;
+  // a rogue's off-hand cuts a second, parallel stroke the same way. Mages cast, they don't swing.
   drawSweepSlash(ctx, fx, progress) {
-    const screen = Isometric.worldToScreen(fx.x, fx.y, 0.35, this.camera, this.viewW, this.viewH);
+    if (fx.class === 'mage' || !window.SlashFx) return;
+    // follow the hero if it moves mid-swing
+    const pl = fx.attackerId && this.lastGameState && this.lastGameState.players ? this.lastGameState.players.find(p => p.id === fx.attackerId) : null;
+    const wx = pl && !isNaN(pl.x) ? pl.x : fx.x, wy = pl && !isNaN(pl.y) ? pl.y : fx.y;
+    const screen = Isometric.worldToScreen(wx, wy, 0.85, this.camera, this.viewW, this.viewH);   // waist height
     if (isNaN(screen.x) || isNaN(screen.y)) return;
     const z = this.camera.zoom;
     const FACING = { E: 0, SE: 0.25, S: 0.5, SW: 0.75, W: 1, NW: -0.75, N: -0.5, NE: -0.25 };
-    const base = (FACING[fx.facing] !== undefined ? FACING[fx.facing] : 0.25) * Math.PI;
-    const now = performance.now();
-    if (fx.bornAt === undefined) fx.bornAt = now;
-    // a pixel hero's swing comes out of the weapon: the cleave's true cone (facing,
-    // arc, reach) laid on the ground round the gripping hand, filled from the blade out
-    if (fx.blade && fx.blade.hist.length && (fx.onBlade || now - fx.blade.at < 250)) fx.onBlade = true;
-    const bl = fx.onBlade ? fx.blade : null;
-    const side = fx.side || 1;
-    const { half, angle: head, eased } = this.sweepHead(fx, progress);
-    // a slim, quick arc (the hits themselves carry the impact); other heroes' swings
-    // are drawn fainter so a busy fight stays readable
+    const dir = (FACING[fx.facing] !== undefined ? FACING[fx.facing] : 0.25) * Math.PI;
+    // other heroes' swings are fainter so a busy fight stays readable
     const mine = !fx.attackerId || fx.attackerId === this.localPlayerId;
-    const fade = (progress < 0.4 ? 1 : Math.max(0, 1 - (progress - 0.4) / 0.35)) * (mine ? 1 : 0.45);
-    // a world circle of r tiles is r * 32√2 px wide on screen (the frame below squashes y)
-    const outerR = (fx.reachTiles ? fx.reachTiles * 32 * Math.SQRT2 : (fx.radius || 2.2) * 22) * z * (0.88 + 0.12 * eased);
-    const thick = outerR * (fx.reachTiles ? (fx.finisher ? 0.24 : 0.18) : (fx.finisher ? 0.36 : 0.28));
-    // The arc is anchored where the swing started (the gripping hand's spot at the first frame) and
-    // stays put while the blade travels through it, like a slash hanging in the air, instead of
-    // following the moving hand on an invisible string.
-    if (bl && !fx.pivot) fx.pivot = { x: bl.px, y: bl.py };
-    const pivot = fx.pivot || (bl ? { x: bl.px, y: bl.py } : screen);
-    if (bl) {
-      const a = head + base;
-      fx.headPt = { x: pivot.x + Math.cos(a) * outerR, y: pivot.y + Math.sin(a) * outerR * 0.55 };
-    }
-
-    const SWEEP_THEMES = {
-      // Warrior SP Cards
-      sp_crusader: { body: [245, 158, 11], edge: [255, 255, 255], glow: [253, 224, 71], inner: [254, 240, 138] }, // Golden Holy Sun
-      sp_berserker: { body: [220, 38, 38], edge: [254, 202, 202], glow: [239, 68, 68], inner: [249, 115, 22] }, // Crimson Magma Bleed
-      sp_frost_templar: { body: [14, 165, 233], edge: [240, 249, 255], glow: [103, 232, 249], inner: [186, 230, 253] }, // Glacial Steel
-      sp_storm_herald: { body: [234, 179, 8], edge: [254, 252, 232], glow: [250, 204, 21], inner: [253, 224, 71] }, // Electric Thunder
-      sp_dread_lord: { body: [107, 33, 168], edge: [245, 208, 254], glow: [168, 85, 247], inner: [192, 132, 252] }, // Abyssal Void Violet
-
-      // Rogue SP Cards
-      sp_nightblade: { body: [76, 29, 149], edge: [233, 213, 255], glow: [147, 51, 234], inner: [168, 85, 247] }, // Dark Umbral Shroud
-      sp_venom_lord: { body: [22, 163, 74], edge: [240, 253, 244], glow: [74, 222, 128], inner: [134, 239, 172] }, // Virulent Acid Green
-      sp_blade_dancer: { body: [234, 179, 8], edge: [255, 255, 255], glow: [253, 224, 71], inner: [250, 204, 21] }, // Blinding Plasma Flash
-      sp_frost_shade: { body: [6, 182, 212], edge: [240, 253, 250], glow: [103, 232, 249], inner: [165, 243, 252] }, // Frost Phantom Shard
-      sp_eclipse_reaper: { body: [91, 33, 182], edge: [237, 233, 254], glow: [139, 92, 246], inner: [167, 139, 250] }, // Void Eclipse Scythe
-
-      // Mage SP Cards
-      sp_pyromancer: { body: [234, 88, 12], edge: [255, 237, 213], glow: [249, 115, 22], inner: [251, 146, 60] },
-      sp_cryo_sage: { body: [8, 145, 178], edge: [236, 254, 255], glow: [103, 232, 249], inner: [165, 243, 252] },
-      sp_tempest: { body: [202, 138, 4], edge: [254, 252, 232], glow: [250, 204, 21], inner: [253, 224, 71] },
-      sp_chronomancer: { body: [217, 119, 6], edge: [254, 249, 195], glow: [253, 224, 71], inner: [254, 240, 138] },
-      sp_void_archon: { body: [109, 40, 217], edge: [245, 208, 254], glow: [192, 132, 252], inner: [216, 180, 254] }
+    // a world circle of r tiles is r * 32 * sqrt2 px wide on screen (the crescent squashes y)
+    // the blade's reach from the body (about a tile and a quarter), not the whole cleave area
+    const tile = 32 * Math.SQRT2 * z;
+    const R = tile * (fx.finisher ? 1.45 : 1.25) * (fx.class === 'rogue' ? 0.92 : 1);
+    const half = fx.halfArc || (fx.finisher ? SWEEP_HALF_ARC_FINISHER : SWEEP_HALF_ARC);
+    const o = {
+      x: screen.x, y: screen.y, dir, squash: 0.5, R, W: R * 0.24, half,
+      side: fx.side || 1, p: progress, col: this.swingColors(fx.cardId, fx.class, fx.finisher),
+      alpha: mine ? 1 : 0.45, z, finisher: !!fx.finisher
     };
+    SlashFx.crescent(ctx, o);
+    if (fx.class === 'rogue') SlashFx.crescent(ctx, { ...o, y: o.y + 5 * z, R: R * 0.84, W: o.W * 0.75, delay: 0.14, alpha: o.alpha * 0.75 });
+    if (fx.finisher) SlashFx.crescent(ctx, { ...o, R: R * 1.12, W: o.W * 0.6, delay: 0.08, alpha: o.alpha * 0.5 });
+  }
 
-    let col;
-    if (fx.cardId && SWEEP_THEMES[fx.cardId]) {
-      col = SWEEP_THEMES[fx.cardId];
-    } else if (fx.class === 'rogue') {
-      col = fx.finisher
-        ? { body: [109, 40, 217], edge: [237, 233, 254], glow: [139, 92, 246], inner: [45, 212, 191] }
-        : { body: [13, 148, 136], edge: [204, 251, 241], glow: [45, 212, 191], inner: [139, 92, 246] };
-    } else if (fx.class === 'mage') {
-      col = { body: [249, 115, 22], edge: [254, 240, 138], glow: [253, 224, 71], inner: [255, 255, 255] };
-    } else {
-      col = fx.finisher
-        ? { body: [251, 191, 36], edge: [255, 251, 235], glow: [253, 224, 71], inner: [254, 240, 138] }
-        : { body: [56, 189, 248], edge: [255, 255, 255], glow: [186, 230, 253], inner: [125, 211, 252] };
-    }
-    const rgba = (c, a) => `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${Math.max(0, Math.min(1, a))})`;
+  // Swing and hit colours { core, body, glow } (rgb) for a class, or an SP card's theme
+  swingColors(cardId, cls, finisher) {
+    const CARD = {
+      sp_crusader: [[254, 240, 138], [245, 158, 11]], sp_berserker: [[248, 113, 113], [220, 38, 38]],
+      sp_frost_templar: [[103, 232, 249], [14, 165, 233]], sp_storm_herald: [[250, 204, 21], [202, 138, 4]],
+      sp_dread_lord: [[192, 132, 252], [107, 33, 168]], sp_nightblade: [[168, 85, 247], [76, 29, 149]],
+      sp_venom_lord: [[74, 222, 128], [22, 163, 74]], sp_blade_dancer: [[253, 224, 71], [234, 179, 8]],
+      sp_frost_shade: [[103, 232, 249], [6, 182, 212]], sp_eclipse_reaper: [[167, 139, 250], [91, 33, 182]],
+      sp_pyromancer: [[251, 146, 60], [234, 88, 12]], sp_cryo_sage: [[165, 243, 252], [8, 145, 178]],
+      sp_tempest: [[253, 224, 71], [202, 138, 4]], sp_chronomancer: [[254, 240, 138], [217, 119, 6]],
+      sp_void_archon: [[216, 180, 254], [109, 40, 217]]
+    };
+    const white = [255, 255, 255];
+    if (cardId && CARD[cardId]) return { core: white, body: CARD[cardId][0], glow: CARD[cardId][1] };
+    // plain swings read as light on steel: cool silver, warm gold on a finisher
+    if (cls === 'rogue') return finisher
+      ? { core: white, body: [214, 200, 255], glow: [140, 110, 255] }
+      : { core: white, body: [196, 255, 240], glow: [70, 200, 180] };
+    if (cls === 'mage') return { core: [255, 247, 237], body: [255, 196, 140], glow: [234, 120, 40] };
+    return finisher
+      ? { core: [255, 250, 235], body: [255, 214, 140], glow: [255, 160, 50] }
+      : { core: white, body: [205, 228, 255], glow: [110, 160, 255] };
+  }
 
-    // A plain class swing draws no arc at all (hits still burst); only SP card swings keep their
-    // themed arc (drawSweepAccent decorates that arc)
-    // Warrior / rogue basic swings: a tight ribbon that follows the real blade, no big ground arc
-    if (!fx.cardId) {
-      if (fx.class !== 'mage' && bl) this.drawBladeTrail(ctx, fx, bl, { now, z, fade, col, rgba });
-      return;
-    }
-    // SP card swings draw no arc either (hit bursts and card particles still play)
-    return;
-
-    // trail runs from the start of the swing (or a fixed length behind) to the head
-    const startA = -side * half;
-    const trailLen = 2 * half * (fx.finisher ? 0.95 : 0.8);
-    const fromA = side > 0 ? Math.max(startA, head - trailLen) : Math.min(startA, head + trailLen);
-    const span = Math.abs(head - fromA);
-    if (span < 0.01) return;
-
-    ctx.save();
-    ctx.translate(pivot.x, pivot.y);
-    ctx.scale(1, 0.55);          // lay the arc on the ground plane
-    ctx.rotate(base);
-    ctx.globalCompositeOperation = 'lighter';
-
-    const px = Math.max(2, Math.round(z));
-
-    // --- Option 3: Classic Ragnarok Online Chunky Pixel Slash ---
-    // 1. Layered Stepped Pixelated Crescent (16-bit angular ribbon plates)
-    const N = fx.finisher ? 22 : 16;
-    for (let i = 0; i < N; i++) {
-      const k0 = i / N, k1 = (i + 1) / N;
-      const kMid = (k0 + k1) * 0.5;
-      const a0 = fromA + (head - fromA) * k0, a1 = fromA + (head - fromA) * k1;
-
-      // Authentic RO crescent thickness profile: thickest in 70%-85% power band, tapering at tail and head
-      // a real blade trail: hair-thin where the swing began, fullest behind the edge, then a sharp point
-      const profile = k1 < 0.78 ? Math.pow(k1 / 0.78, 0.9) : Math.max(0, 1 - Math.pow((k1 - 0.78) / 0.22, 1.4));
-      const w = thick * (0.06 + 1.0 * profile);
-      // the tip path bends out as the swing commits (wind-up close to the body, full reach at the cut)
-      const rOut = outerR * (0.8 + 0.2 * Math.pow(k1, 0.7));
-      const rIn = Math.max(0, rOut - w);
-
-      // Deep outer silhouette & glow plate
-      ctx.fillStyle = rgba(col.glow, fade * (0.16 + 0.44 * kMid * kMid));
-      ctx.beginPath();
-      ctx.arc(0, 0, rOut + 2 * px, a0, a1, side < 0);
-      ctx.arc(0, 0, Math.max(0, rIn - 2 * px), a1, a0, side > 0);
-      ctx.closePath();
-      ctx.fill();
-
-      // Main saturated pixel body plate
-      ctx.fillStyle = rgba(col.body, fade * (0.3 + 0.7 * kMid));
-      ctx.beginPath();
-      ctx.arc(0, 0, rOut, a0, a1, side < 0);
-      ctx.arc(0, 0, rIn, a1, a0, side > 0);
-      ctx.closePath();
-      ctx.fill();
-
-      // Incandescent blade core (white-hot razor edge spine)
-      const rCore = rOut - w * 0.28;
-      ctx.strokeStyle = rgba(col.inner || col.edge, fade * (0.55 + 0.45 * kMid));
-      ctx.lineWidth = (fx.finisher ? 3.5 : 2.2) * px;
-      ctx.beginPath();
-      ctx.arc(0, 0, rCore, a0, a1, side < 0);
-      ctx.stroke();
-
-      ctx.strokeStyle = `rgba(255, 255, 255, ${fade * (0.45 + 0.55 * kMid)})`;
-      ctx.lineWidth = Math.max(1, px);
-      ctx.beginPath();
-      ctx.arc(0, 0, rCore, a0, a1, side < 0);
-      ctx.stroke();
-
-      // Retro Dithered Dissolve at the Tail (kMid < 0.38)
-      if (kMid < 0.38 && i % 2 === 0) {
-        const dAng = a0;
-        const dR = rOut - w * 0.4;
-        const dx = Math.cos(dAng) * dR, dy = Math.sin(dAng) * dR;
-        ctx.fillStyle = rgba(col.glow, fade * 0.6);
-        ctx.fillRect(dx - px, dy - px, px * 2, px * 2);
-        ctx.fillStyle = rgba(col.edge, fade * 0.85);
-        ctx.fillRect(dx, dy, px, px);
+  // Hit sparks (SlashFx.impact) on every enemy a swing hit, drawn over the battlefield
+  drawHitBursts(ctx) {
+    const list = this.hitBursts;
+    if (!list || !list.length || !window.SlashFx) return;
+    const now = performance.now(), z = this.camera.zoom;
+    for (let i = list.length - 1; i >= 0; i--) {
+      const b = list[i];
+      const p = (now - b.at) / b.life;
+      if (p >= 1) { list.splice(i, 1); continue; }
+      const sc = Isometric.worldToScreen(b.x, b.y, 0.55, this.camera, this.viewW, this.viewH);
+      if (isNaN(sc.x) || isNaN(sc.y)) continue;
+      // sparks fly on in the direction the blow travelled (attacker -> target, on screen)
+      let dir;
+      if (b.fx !== undefined) {
+        const from = Isometric.worldToScreen(b.fx, b.fy, 0.55, this.camera, this.viewW, this.viewH);
+        dir = Math.atan2(sc.y - from.y, sc.x - from.x);
       }
-
-      // Stepped Pixel Teeth on Outer Rim (Authentic retro pixel staircase effect)
-      if (kMid > 0.32 && i % 2 === 1) {
-        const tAng = a1;
-        const tx = Math.cos(tAng) * (rOut + px * 0.5), ty = Math.sin(tAng) * (rOut + px * 0.5);
-        ctx.fillStyle = rgba(col.edge, fade * 0.85);
-        ctx.fillRect(tx - px * 0.5, ty - px * 0.5, px * 1.5, px * 1.5);
-      }
+      SlashFx.impact(ctx, { x: sc.x, y: sc.y, size: (b.crit ? 15 : 11) * b.big * z, p, col: b.col, seed: b.seed, crit: b.crit, dir });
     }
-
-    // Rogue Dual-Wield Off-Hand Dagger Secondary Razor Slice
-    if (fx.class === 'rogue' && !fx.finisher) {
-      const offR = outerR * 0.82;
-      const offThick = thick * 0.65;
-      const offFromA = fromA + (head - fromA) * 0.15;
-      const offHead = head - (head - fromA) * 0.06;
-      const offN = 10;
-      for (let j = 0; j < offN; j++) {
-        const ok0 = j / offN, ok1 = (j + 1) / offN;
-        const oa0 = offFromA + (offHead - offFromA) * ok0, oa1 = offFromA + (offHead - offFromA) * ok1;
-        const ow = offThick * (0.25 + 0.75 * ok1);
-        ctx.fillStyle = rgba(col.body, fade * 0.35 * ok1);
-        ctx.beginPath();
-        ctx.arc(0, 0, offR, oa0, oa1, side < 0);
-        ctx.arc(0, 0, Math.max(0, offR - ow), oa1, oa0, side > 0);
-        ctx.closePath();
-        ctx.fill();
-      }
-      ctx.strokeStyle = rgba(col.edge, fade * 0.75);
-      ctx.lineWidth = Math.max(1, px);
-      ctx.beginPath();
-      ctx.arc(0, 0, offR - offThick * 0.3, offFromA, offHead, side < 0);
-      ctx.stroke();
-    }
-
-    // Rogue Finisher: Dual Scissor X-Cross Execution Slice
-    if (fx.class === 'rogue' && fx.finisher) {
-      const crossFromA = -fromA;
-      const crossHead = -head;
-      const crossN = 12;
-      for (let j = 0; j < crossN; j++) {
-        const ck0 = j / crossN, ck1 = (j + 1) / crossN;
-        const ca0 = crossFromA + (crossHead - crossFromA) * ck0, ca1 = crossFromA + (crossHead - crossFromA) * ck1;
-        const cw = thick * (0.2 + 0.8 * ck1);
-        ctx.fillStyle = rgba(col.body, fade * 0.45 * ck1);
-        ctx.beginPath();
-        ctx.arc(0, 0, outerR * 0.95, ca0, ca1, side > 0);
-        ctx.arc(0, 0, Math.max(0, outerR * 0.95 - cw), ca1, ca0, side < 0);
-        ctx.closePath();
-        ctx.fill();
-      }
-      ctx.strokeStyle = `rgba(255, 255, 255, ${fade * 0.85})`;
-      ctx.lineWidth = 1.8 * px;
-      ctx.beginPath();
-      ctx.arc(0, 0, outerR * 0.95 - thick * 0.25, crossFromA, crossHead, side > 0);
-      ctx.stroke();
-    }
-
-    // Mage Concentric Pulsating Celestial Wave Rings
-    if (fx.class === 'mage') {
-      const pulseCount = 3;
-      for (let p = 0; p < pulseCount; p++) {
-        const ringProg = ((progress * 3.0 + p * 0.33) % 1.0);
-        const ringR = outerR * (0.35 + 0.65 * ringProg);
-        const ringAlpha = fade * (1.0 - ringProg) * 0.6;
-        ctx.strokeStyle = rgba(col.glow, ringAlpha);
-        ctx.lineWidth = Math.max(1, px * (1.5 - ringProg));
-        ctx.beginPath();
-        ctx.arc(0, 0, ringR, fromA, head, side < 0);
-        ctx.stroke();
-      }
-    }
-
-    // 2. Chunky Square Pixel Sparks Ejected Along the Arc Tangent
-    const sparkCount = fx.finisher ? 12 : 8;
-    for (let s = 0; s < sparkCount; s++) {
-      const sSeed = ((s * 7919 + (fx.bornAt || 0) * 0.05) % 1000) / 1000;
-      const sProg = (progress * 2.2 + sSeed) % 1.0;
-      if (sProg > 0.85) continue;
-      const sAng = fromA + (head - fromA) * (0.25 + 0.75 * sSeed);
-      const tang = sAng + (side > 0 ? 0.35 : -0.35);
-      const dist = outerR + sProg * (18 + sSeed * 32) * z;
-      const spx = Math.cos(tang) * dist;
-      const spy = Math.sin(tang) * dist;
-      const spA = fade * (1.0 - sProg);
-      const spSize = (sSeed > 0.55 ? 2 : 1) * px;
-
-      ctx.fillStyle = rgba(col.glow, spA * 0.85);
-      ctx.fillRect(spx - spSize, spy - spSize, spSize * 2, spSize * 2);
-      ctx.fillStyle = rgba(col.edge || [255, 255, 255], spA);
-      ctx.fillRect(spx - Math.floor(px * 0.5), spy - Math.floor(px * 0.5), px, px);
-    }
-
-    // 3. Leading Blade Head / Flared Pixel Starburst Tip
-    if (eased < 1) {
-      const hx = Math.cos(head) * (outerR - thick * 0.25);
-      const hy = Math.sin(head) * (outerR - thick * 0.25);
-
-      // White-hot core diamond plate
-      ctx.fillStyle = `rgba(255, 255, 255, ${fade})`;
-      ctx.fillRect(hx - px * 1.5, hy - px * 1.5, px * 3, px * 3);
-
-      // Extended cross beams
-      ctx.fillStyle = rgba(col.edge, fade * 0.95);
-      ctx.fillRect(hx - px * 4, hy - px * 0.75, px * 8, px * 1.5);
-      ctx.fillRect(hx - px * 0.75, hy - px * 4, px * 1.5, px * 8);
-
-      // Diagonal pixel glints
-      ctx.fillStyle = rgba(col.inner || col.glow, fade * 0.8);
-      ctx.fillRect(hx - px * 2.5, hy - px * 2.5, px * 1.2, px * 1.2);
-      ctx.fillRect(hx + px * 1.3, hy - px * 2.5, px * 1.2, px * 1.2);
-      ctx.fillRect(hx - px * 2.5, hy + px * 1.3, px * 1.2, px * 1.2);
-      ctx.fillRect(hx + px * 1.3, hy + px * 1.3, px * 1.2, px * 1.2);
-
-      // Flared blade fang wing (angled back against swing)
-      const wingA = head - side * 0.4;
-      const wx = hx + Math.cos(wingA) * px * 3;
-      const wy = hy + Math.sin(wingA) * px * 3;
-      ctx.fillStyle = rgba(col.edge, fade * 0.9);
-      ctx.fillRect(wx - px, wy - px, px * 2, px * 2);
-    }
-
-    // 4. Finisher: Stepped Octagonal / Diamond Pixel Shock Ring
-    if (fx.finisher && progress > 0.38) {
-      const ringProg = (progress - 0.38) / 0.62;
-      const r = outerR * (1 + ringProg * 0.95);
-      const ringFade = (1 - ringProg) * 0.85;
-      const ringSteps = 16;
-      ctx.fillStyle = rgba(col.glow, ringFade);
-      for (let s = 0; s < ringSteps; s++) {
-        const ra0 = (s / ringSteps) * Math.PI * 2;
-        const rx = Math.cos(ra0) * r, ry = Math.sin(ra0) * r;
-        ctx.fillRect(rx - px, ry - px, px * 2, px * 2);
-      }
-      ctx.strokeStyle = rgba(col.edge, ringFade);
-      ctx.lineWidth = 2 * px;
-      ctx.beginPath();
-      ctx.arc(0, 0, r, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-    this.drawSweepAccent(ctx, fx, { outerR, thick, head, fromA, fade, eased, z });
-    ctx.restore();
   }
 
   // World offset of a point on the sweep arc (for sparks thrown off the edge)
@@ -11336,7 +10785,7 @@ class IsometricRenderer {
       const bl = fx.onBlade ? fx.blade : null;
       const p = bl && fx.headPt
         ? Isometric.screenToWorld(fx.headPt.x, fx.headPt.y, this.camera, this.viewW, this.viewH)
-        : this.sweepPointWorld(fx, angle, fx.reachTiles ? fx.reachTiles * 32 * Math.SQRT2 : (fx.radius || 2.2) * 22);
+        : this.sweepPointWorld(fx, angle, 32 * Math.SQRT2 * (fx.finisher ? 1.45 : 1.25));
       const cardId = fx.cardId;
       let pType = fx.class === 'rogue' ? 'slash' : fx.class === 'mage' ? 'arcane' : 'spark';
       if (cardId === 'sp_berserker' || cardId === 'sp_pyromancer') pType = 'fire';
@@ -11941,6 +11390,9 @@ class IsometricRenderer {
       if (g) this.endFxPixels(ctx);
     }
 
+    // Boss attack telegraphs lie on the floor too, under whoever is about to get hit
+    if (this.bossTelegraphs && this.bossTelegraphs.length) this.drawBossTelegraphs(ctx);
+
     // Lightning novas (Thunder Nova, Thunderclap) burst across the floor: drawn here,
     // under the heroes and monsters standing on it, not over them
     // Player trails (Effects dialog): shed behind every hero wearing one, drawn on the floor under the heroes
@@ -12079,6 +11531,14 @@ class IsometricRenderer {
       }
     }
 
+    // 4b. Gravelord undead minions (each hero carries their own)
+    if (gameState.players) {
+      for (const p of gameState.players) {
+        if (!p.minions) continue;
+        for (const m of p.minions) renderList.push({ type: 'minion', data: m, depth: Isometric.getDepth(m.x, m.y, 0, 50) });
+      }
+    }
+
     // 5. Players
     if (gameState.players) {
       for (const player of gameState.players) {
@@ -12157,6 +11617,9 @@ class IsometricRenderer {
           }
           case 'player':
             this.drawPlayer(ctx, item.data, item.isLocal);
+            break;
+          case 'minion':
+            this.drawMinion(ctx, item.data);
             break;
           case 'townsfolk':
             this.drawTownsfolk(ctx, item.data);
@@ -13479,6 +12942,8 @@ class IsometricRenderer {
     let variant = obs.variant !== undefined ? obs.variant : Math.floor(PP.hash2(Math.round(obs.x * 10), Math.round(obs.y * 10)) * 3);
     // houses: roof colour from the map, one of four builds picked by where it stands
     if (obs.type === 'house') variant = (variant % 3) + 3 * Math.floor(PP.hash2(Math.round(obs.x * 7), Math.round(obs.y * 13)) * 4);
+    // market stalls south of the boulevard are turned round to open onto it (variants 4+), as in townProps3D
+    if (obs.type === 'market_stall' && obs.y > 20.5) variant = (variant % 4) + 4;
     const spr = PP.sprite(obs.type, variant);
     if (!spr) return;
     const P = 1.3 * z, t = this.animations.time;
@@ -13495,9 +12960,10 @@ class IsometricRenderer {
       ctx.save();
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(spr.front, x0, y0, spr.front.width * P, spr.front.height * P);
-      const tag = obs.type === 'merchant' ? ['Olaf the Trader [Shop]', '#fde68a']
-        : obs.type === 'blacksmith' ? ['Brom the Master Smith [Reforge]', '#fdba74']
-          : obs.type === 'enchanter' ? ['Valka the Enchanter [Rune Forge]', '#d8b4fe'] : null;
+      const tag = obs.id === 'npc_jerry' ? ['Jerry the Attribute Smith [Attributes]', '#a7f070']
+        : obs.type === 'merchant' ? ['Olaf the Trader [Shop]', '#fde68a']
+          : obs.type === 'blacksmith' ? ['Brom the Master Smith [Reforge]', '#fdba74']
+            : obs.type === 'enchanter' ? ['Valka the Enchanter [Rune Forge]', '#d8b4fe'] : null;
       if (tag) {
         ctx.font = '15px "DotGothic16", monospace';
         ctx.textAlign = 'center';
@@ -13582,7 +13048,8 @@ class IsometricRenderer {
           const so = drawn.sparkOffset;
           this.addParticles(obs.x + so.x, obs.y + so.y, 'spark', 6, { speed: 2.2, z: so.z, sizeScale: 0.7 });
         }
-        const tag = obs.type === 'merchant' ? ['Olaf the Trader [Shop]', '#fde68a']
+        const tag = obs.id === 'npc_jerry' ? ['Jerry the Attribute Smith [Attributes]', '#a7f070']
+          : obs.type === 'merchant' ? ['Olaf the Trader [Shop]', '#fde68a']
           : obs.type === 'blacksmith' ? ['Brom the Master Smith [Reforge]', '#fdba74']
             : obs.type === 'enchanter' ? ['Valka the Enchanter [Rune Forge]', '#d8b4fe']
               : obs.type === 'personal_chest' ? ['📦 Personal Chest [Storage]', '#fde047'] : null;
@@ -15903,7 +15370,7 @@ class IsometricRenderer {
         // The slash / spell wave appears as the weapon strikes/releases
         const sw = attack.pendingSweep;
         sw.x = player.x; sw.y = player.y;
-        this.animations.skillEffects.push(sw);
+        this.pushSweep(sw);
         attack.pendingSweep = null;
       }
 
@@ -15919,7 +15386,7 @@ class IsometricRenderer {
       this.addParticles(cx, cy, main, Math.round(3 * big), { speed: 2.2, z: 0.5 });
 
       if (attack.pendingHits) {
-        this.burstSwingHits(attack.pendingHits, attack.hitCard, attack.finisher);
+        this.burstSwingHits(attack.pendingHits, attack.hitCard, attack.finisher, cls, player);
         attack.pendingHits = null;
       }
 
@@ -15969,24 +15436,6 @@ class IsometricRenderer {
     Object.assign(blade, { x, y, px: x + hx, py: y + hy, a, len: Math.hypot(tx - hx, ty - hy), at: now });
   }
 
-  // The stretch of the blade's swing to draw: from its angle spanMs ago (but no
-  // earlier than since) to where it is now
-  bladeArc(blade, since, spanMs, now) {
-    const h = blade.hist;
-    const t0 = Math.max(since, now - spanMs);
-    // walk back while the blade kept turning the same way (a wind-up turns the other way)
-    let i = h.length - 1, dir = 0;
-    while (i > 0 && h[i - 1].t >= t0) {
-      const d = h[i].a - h[i - 1].a;
-      if (d !== 0) {
-        if (dir && Math.sign(d) !== dir) break;
-        dir = Math.sign(d);
-      }
-      i--;
-    }
-    return { head: blade.a, from: h[i].a };
-  }
-
   // Particles burst on every enemy a melee swing hit (positions from the server),
   // in the card's colours; crits and combo finishers burst bigger. A warrior still
   // winding up holds them for its contact frame (warriorSwing).
@@ -15998,161 +15447,20 @@ class IsometricRenderer {
       atk.hitCard = data.cardId;
       return;
     }
-    this.burstSwingHits(data.hits, data.cardId, atk && atk.finisher);
+    this.burstSwingHits(data.hits, data.cardId, atk && atk.finisher, atk && atk.class, atk);
   }
 
-  burstSwingHits(hits, cardId, finisher) {
+  burstSwingHits(hits, cardId, finisher, cls, from) {
     const [main, accent] = (cardId && SP_CARD_PARTICLES[cardId]) || ['spark', 'slash'];
+    if (!this.hitBursts) this.hitBursts = [];
+    const col = this.swingColors(cardId, cls, finisher);
     for (const h of hits) {
       const big = (h.crit ? 1.7 : 1) * (finisher ? 1.4 : 1);
+      this.hitBursts.push({ x: h.x, y: h.y, fx: from && from.x, fy: from && from.y, at: performance.now(), life: h.crit ? 520 : 420, big: finisher ? 1.25 : 1, crit: !!h.crit, col, seed: (Math.random() * 100000) | 0 });
       this.addParticles(h.x, h.y, 'slash', Math.round(5 * big), { speed: 2.4, z: 0.5 });
       this.addParticles(h.x, h.y, main, Math.round(4 * big), { speed: 2, z: 0.5 });
       if (accent && (h.crit || finisher)) this.addParticles(h.x, h.y, accent, Math.round(3 * big), { speed: 1.6, z: 0.45 });
     }
-  }
-
-  // The blow landing in front of a warrior: a bright crescent in the card's colour
-  // following the swing, a star of streaks and a ring at the point of contact
-  drawSwingImpact(ctx, imp, k, x, y, z) {
-    const fv = FACING_SCREEN[imp.facing] || FACING_SCREEN.SE;
-    const big = imp.finisher ? 1.45 : 1;
-    const fade = 1 - k, grow = 1 - Math.pow(1 - k, 3);
-    let ox = x, oy = y - 20 * z, R = (18 + 10 * grow) * z * big, sq = 0.7;
-    let ang = Math.atan2(fv[1], fv[0]);
-    let a0 = ang - 1.25 * imp.side, a1 = ang + 0.95 * imp.side;
-    const reach = (imp.connects ? 26 : 22) * z * big;
-    let cx = x + fv[0] * reach, cy = y - 20 * z + fv[1] * reach;
-    const bl = imp.blade && imp.blade.hist.length ? imp.blade : null;
-    if (bl) {
-      // the crescent is the cut the blade really made: round its gripping hand,
-      // out at the blade's length, over the angles it swept into contact
-      ox = x + bl.px - bl.x; oy = y + bl.py - bl.y;
-      R = bl.len * (1.05 + 0.2 * grow) * (imp.finisher ? 1.15 : 1);
-      sq = 1;
-      const arc = this.bladeArc(bl, imp.at - 160, Infinity, performance.now());
-      a0 = arc.from; a1 = arc.head;
-      if (Math.abs(a1 - a0) < 0.3) { a0 = a1 - 0.6 * imp.side; }
-      ang = a1;
-      cx = ox + Math.cos(a1) * bl.len; cy = oy + Math.sin(a1) * bl.len;
-    }
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.lineCap = 'round';
-    // crescent: the arc the edge just cut, sweeping the way this swing went (only if not connecting, or for enhanced weapon trail)
-    if (imp.tierColor) {
-      // enhanced weapon: a wider halo of the tier colour around the cut
-      ctx.beginPath();
-      const hDir = Math.sign(a1 - a0) || 1, hFrom = a1 - hDir * Math.min(Math.abs(a1 - a0), 1.6);
-      ctx.ellipse(ox, oy, R * 1.18, R * (sq + 0.12), 0, Math.min(hFrom, a1), Math.max(hFrom, a1));
-      ctx.strokeStyle = hexAlpha(imp.tierColor, 0.55 * fade);
-      ctx.lineWidth = (4 + (imp.tier - 4) * 0.8) * z * (1 - 0.4 * k);
-      ctx.stroke();
-    }
-    if (!imp.connects) {
-      // A smooth, tapered crescent (pointed at both ends, fullest just behind the head) over at
-      // most ~90 degrees of the swing, fading from a clear tail to a bright head. As it fades,
-      // the tail retracts toward the head instead of the whole ring just dimming in place.
-      const dir = Math.sign(a1 - a0) || imp.side || 1;
-      const span = Math.min(Math.abs(a1 - a0), 1.6);
-      const from = a1 - dir * span;
-      const tail = 0.6 * k;
-      const N = 32;
-      const wMax = (imp.finisher ? 8 : 5.5) * z * (1 - 0.35 * k);
-      const pt = (a, r) => ({ x: ox + Math.cos(a) * r, y: oy + Math.sin(a) * r * sq });
-      const band = (wScale) => {
-        const outer = [], inner = [];
-        for (let i = 0; i <= N; i++) {
-          const u = tail + (1 - tail) * (i / N);              // 0 tail .. 1 head
-          const a = from + dir * span * u;
-          const w = wMax * wScale * Math.sin(Math.PI * Math.pow(u, 1.7));
-          outer.push(pt(a, R + w * 0.5));
-          inner.push(pt(a, R - w * 0.5));
-        }
-        ctx.beginPath();
-        ctx.moveTo(outer[0].x, outer[0].y);
-        for (let i = 1; i <= N; i++) ctx.lineTo(outer[i].x, outer[i].y);
-        for (let i = N; i >= 0; i--) ctx.lineTo(inner[i].x, inner[i].y);
-        ctx.closePath();
-      };
-      const t0 = pt(from + dir * span * tail, R), t1 = pt(a1, R);
-      const grad = (c, aMax) => {
-        const g = ctx.createLinearGradient(t0.x, t0.y, t1.x, t1.y);
-        g.addColorStop(0, c(0));
-        g.addColorStop(0.6, c(aMax * 0.7));
-        g.addColorStop(1, c(aMax));
-        return g;
-      };
-      band(1);
-      ctx.fillStyle = grad((a) => hexAlpha(imp.color, a), 0.85 * fade);
-      ctx.fill();
-      band(0.35);
-      ctx.fillStyle = grad((a) => `rgba(255, 255, 255, ${a})`, 0.95 * fade);
-      ctx.fill();
-    }
-    if (imp.connects) {
-      // --- Option 3: Authentic Ragnarok Online Pixel Starburst & Hit Flash ---
-      const px = Math.max(2, Math.round(z));
-      const rayLen = (14 + 28 * grow) * z * big;
-      const diagLen = rayLen * 0.68;
-
-      // 1. 4 Cardinal Rays (N, S, E, W) - stepped pixel diamond beams
-      const cardinals = [[1, 0], [0, 1], [-1, 0], [0, -1]];
-      for (const [cdx, cdy] of cardinals) {
-        const steps = 4;
-        for (let s = 1; s <= steps; s++) {
-          const dist = (rayLen / steps) * s;
-          const sx = cx + cdx * dist;
-          const sy = cy + cdy * dist * 0.7; // squashed for isometric perspective
-          const sW = Math.max(1, (steps - s + 1)) * px;
-          ctx.fillStyle = hexAlpha(imp.color, fade * (1 - (s / (steps + 1))));
-          ctx.fillRect(sx - sW * 0.5, sy - sW * 0.5, sW, sW);
-        }
-      }
-
-      // 2. 4 Diagonal Rays (45 deg) - stepped pixel staircases
-      const diagonals = [[0.707, 0.707], [-0.707, 0.707], [-0.707, -0.707], [0.707, -0.707]];
-      for (const [ddx, ddy] of diagonals) {
-        const steps = 3;
-        for (let s = 1; s <= steps; s++) {
-          const dist = (diagLen / steps) * s;
-          const sx = cx + ddx * dist;
-          const sy = cy + ddy * dist * 0.7;
-          const sW = Math.max(1, (steps - s + 1)) * px;
-          ctx.fillStyle = hexAlpha(imp.color, fade * 0.85 * (1 - (s / (steps + 1))));
-          ctx.fillRect(sx - sW * 0.5, sy - sW * 0.5, sW, sW);
-        }
-      }
-
-      // 3. Center Incandescent White-Hot Pixel Diamond Plate
-      ctx.fillStyle = `rgba(255, 255, 255, ${0.95 * fade})`;
-      ctx.fillRect(cx - px * 2, cy - px * 2, px * 4, px * 4);
-      ctx.fillRect(cx - px * 3.5, cy - px * 0.8, px * 7, px * 1.6);
-      ctx.fillRect(cx - px * 0.8, cy - px * 3.5, px * 1.6, px * 7);
-
-      // 4. Expanding Stepped Pixel Diamond Shock Ring
-      const ringR = (8 + 20 * grow) * z * big;
-      const ringSteps = 12;
-      ctx.fillStyle = hexAlpha(imp.color, 0.75 * fade);
-      for (let s = 0; s < ringSteps; s++) {
-        const a = (s / ringSteps) * Math.PI * 2;
-        const rx = cx + Math.cos(a) * ringR;
-        const ry = cy + Math.sin(a) * ringR * 0.7;
-        ctx.fillRect(rx - px, ry - px, px * 2, px * 2);
-      }
-
-      // 5. Chunky Square Pixel Ejection Sparks
-      const nSparks = imp.finisher ? 12 : 8;
-      for (let i = 0; i < nSparks; i++) {
-        const spA = ang + (i / nSparks) * Math.PI * 2 + i * 0.45;
-        const spDist = (6 + 24 * grow) * z * big * (0.7 + 0.6 * ((i % 3) / 3));
-        const spx = cx + Math.cos(spA) * spDist;
-        const spy = cy + Math.sin(spA) * spDist * 0.7;
-        ctx.fillStyle = i % 2 ? hexAlpha(imp.color, fade) : `rgba(255, 255, 255, ${fade})`;
-        const spSize = (i % 2 ? 2 : 1) * px;
-        ctx.fillRect(spx - spSize * 0.5, spy - spSize * 0.5, spSize, spSize);
-      }
-    }
-    ctx.restore();
   }
 
   drawPixelHero(ctx, player, isLocal, screen, z, t) {
@@ -16300,7 +15608,6 @@ class IsometricRenderer {
     } else {
       this.drawPixelHeroFrame(ctx, frame, x, y, s, flip, 1, hurtFlash > 0 ? '#ff3b3b' : null, hurtFlash);
     }
-    if (impactAge < impactLife) this.drawSwingImpact(ctx, player._swingImpact, impactAge / impactLife, x, y, z);
     if (enhance) {
       this.drawArmorEnhance(ctx, player, enhance, x, y, z, t, 'front', isLocal);
       const tips = [['tip', frame.meta.tip], ['tipB', frame.meta.tipB], ['tipF', frame.meta.tipF], ['orb', frame.meta.orb]];
@@ -20274,6 +19581,98 @@ class IsometricRenderer {
     ctx.restore();
   }
 
+  // A Gravelord minion: the risen monster in grave colours, climbing out of the earth when it is
+  // raised, a grave-light aura at its feet, soul wisps rising off it and a thin bar of time left
+  drawMinion(ctx, m) {
+    const PM = window.PixelMobs;
+    if (!PM || !PM.has(m.type)) return;
+    if (!this.minionView) this.minionView = new Map();
+    const now = performance.now();
+    let v = this.minionView.get(m.id);
+    if (!v) {
+      v = { x: m.x, y: m.y, t: now, atk: m.atk, born: now };
+      this.minionView.set(m.id, v);
+      if (this.minionView.size > 80) for (const [id, o] of this.minionView) if (now - o.seen > 5000) this.minionView.delete(id);
+    }
+    // the server moves them a few times a second: glide between updates
+    const dt = Math.min(0.1, (now - v.t) / 1000);
+    v.t = now; v.seen = now;
+    const k = 1 - Math.pow(0.0005, dt);
+    v.x += (m.x - v.x) * k; v.y += (m.y - v.y) * k;
+    if (m.atk && m.atk !== v.atk) {
+      v.atk = m.atk;
+      if (!this.mobAttacks) this.mobAttacks = new Map();
+      this.mobAttacks.set(m.id, now);
+    }
+    const z = this.camera.zoom;
+    const screen = Isometric.worldToScreen(v.x, v.y, 0, this.camera, this.viewW, this.viewH);
+    const rise = Math.min(1, (now - v.born) / 650);
+    const fadeOut = m.life < 0.12 ? Math.max(0.25, m.life / 0.12) : 1;
+    const t = this.animations.time;
+    const scale = m.scale || 1;
+
+    ctx.save();
+    // grave-light pooled at its feet (in a frenzy it boils: brighter, faster, with grave fire)
+    const pulse = 0.5 + 0.5 * Math.sin(t * (m.rage ? 9 : 3) + v.born);
+    ctx.globalAlpha = 0.5 * fadeOut;
+    ctx.fillStyle = '#0b2a17';
+    ctx.beginPath(); ctx.ellipse(screen.x, screen.y, 17 * z * scale, 8 * z * scale, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = (m.rage ? 0.6 + 0.4 * pulse : 0.35 + 0.3 * pulse) * fadeOut;
+    ctx.strokeStyle = m.rage ? '#d9f99d' : '#4ade80';
+    ctx.lineWidth = Math.max(1, z);
+    ctx.beginPath(); ctx.ellipse(screen.x, screen.y, 15 * z * scale, 7 * z * scale, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+
+    // the body, climbing up out of the ground while it rises
+    ctx.save();
+    if (rise < 1) {
+      ctx.beginPath();
+      ctx.rect(screen.x - 300 * z, screen.y - 600 * z, 600 * z, 600 * z + 2 * z);
+      ctx.clip();
+    }
+    ctx.globalAlpha = 0.95 * fadeOut;
+    this.drawPixelMob(ctx, { id: m.id, type: m.type, x: v.x, y: v.y, facing: m.facing, hp: 1, hue: 'undead', scale: scale * 0.95 },
+      { x: screen.x, y: screen.y + (1 - rise) * 46 * z * scale }, z);
+    ctx.restore();
+
+    // soul wisps drifting up off it (whipped up fast in a frenzy, with tongues of grave fire)
+    ctx.save();
+    ctx.globalAlpha = fadeOut;
+    const P = Math.max(2, Math.round(1.5 * z));
+    if (m.rage) {
+      for (let i = 0; i < 7; i++) {
+        const a = (i / 7) * Math.PI * 2 + t * 2;
+        const fx0 = screen.x + Math.cos(a) * 12 * z * scale, fy0 = screen.y + Math.sin(a) * 5 * z * scale;
+        const h = (6 + 8 * (0.5 + 0.5 * Math.sin(t * 13 + i * 2.3))) * z * scale;
+        ctx.fillStyle = '#4ade80';
+        ctx.fillRect(Math.round(fx0), Math.round(fy0 - h), P, Math.round(h));
+        ctx.fillStyle = '#ecfccb';
+        ctx.fillRect(Math.round(fx0), Math.round(fy0 - h), P, P);
+      }
+    }
+    for (let i = 0; i < (m.rage ? 6 : 4); i++) {
+      const ph = (t * (m.rage ? 1.6 : 0.6) + i * 0.27 + (v.born % 1000) / 1000) % 1;
+      const wx = screen.x + Math.sin(t * 2 + i * 1.7) * 9 * z;
+      const wy = screen.y - (12 + ph * 46) * z * scale;
+      ctx.fillStyle = ph < 0.5 ? '#bbf7d0' : '#4ade80';
+      ctx.globalAlpha = fadeOut * (1 - ph);
+      ctx.fillRect(Math.round(wx), Math.round(wy), P, P);
+    }
+    ctx.restore();
+
+    // time left: a thin bar under its feet
+    if (m.life !== undefined && rise >= 1) {
+      const w = 22 * z, h = Math.max(2, Math.round(2 * z)), x0 = Math.round(screen.x - w / 2), y0 = Math.round(screen.y + 9 * z * scale);
+      ctx.save();
+      ctx.globalAlpha = 0.85 * fadeOut;
+      ctx.fillStyle = '#0b1a10';
+      ctx.fillRect(x0 - 1, y0 - 1, w + 2, h + 2);
+      ctx.fillStyle = m.life < 0.25 ? '#a3a33a' : '#4ade80';
+      ctx.fillRect(x0, y0, w * Math.max(0, Math.min(1, m.life)), h);
+      ctx.restore();
+    }
+  }
+
   // Brom's hammer meets the anvil once per cycle (matches his sprite loop)
   smithBlow(obs) {
     const t = this.animations.time, blow = Math.floor(t / SMITH_BLOW_S);
@@ -21040,6 +20439,9 @@ class IsometricRenderer {
       }
     }
 
+    // 1.4. Melee hit sparks
+    this.drawHitBursts(ctx);
+
     // 1.5. Visual Skill Effects (Whirlwind, Firestorm, Shadow Strike)
     if (this.animations.skillEffects) {
       // the base warrior's skills get their own, chunkier pixel layer with a stronger glow
@@ -21094,9 +20496,7 @@ class IsometricRenderer {
           if (fx.x === undefined || fx.y === undefined || isNaN(fx.x) || isNaN(fx.y)) {
             continue;
           }
-          // an SP card's basic swing joins the pixel-art layer too
-          const sg = !fx.cardId ? ctx : (this._fxLayer && this._fxLayer.open) ? this._fxLayer.g : this.beginFxPixels(ctx);
-          this.drawSweepSlash(sg, fx, progress);
+          this.drawSweepSlash(ctx, fx, progress);
         } else if (fx.type === 'mage_basic_blast') {
           // Mage Incandescent Solar Arcane Burst
           if (fx.x === undefined || fx.y === undefined || isNaN(fx.x) || isNaN(fx.y)) {

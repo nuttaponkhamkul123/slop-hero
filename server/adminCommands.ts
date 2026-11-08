@@ -146,7 +146,7 @@ const COMMANDS: Record<string, AdminCommandDef> = {
       if (rawId === 'gold') {
         targetPlayer.gold = (targetPlayer.gold || 0) + count;
         gameServer.emitZone(targetPlayer.zone, 'floating_text', {
-          x: targetPlayer.x, y: targetPlayer.y - 0.6, text: `+${count} Gold`, color: '#facc15'
+          x: targetPlayer.x, y: targetPlayer.y - 0.6, text: `+${Number(count).toLocaleString('en-US')} Gold`, color: '#facc15'
         });
         const targetSocket = gameServer.io.sockets.sockets.get(targetPlayer.id);
         if (targetSocket) targetSocket.emit('player_updated', targetPlayer);
@@ -172,7 +172,7 @@ const COMMANDS: Record<string, AdminCommandDef> = {
         if (!targetPlayer.inventory || !targetPlayer.inventory.items) {
           targetPlayer.inventory = { items: [], healthPotions: 3, manaPotions: 3 };
         }
-        const maxSlots = targetPlayer.inventory.maxSlots || 30;
+        const maxSlots = targetPlayer.inventory.maxSlots || 150;
         if (targetPlayer.inventory.items.length >= maxSlots) {
           return sendFeedback(gameServer, player, `❌ กระเป๋าของ ${targetPlayer.name} เต็มแล้ว (${maxSlots}/${maxSlots} ช่อง)`);
         }
@@ -204,7 +204,7 @@ const COMMANDS: Record<string, AdminCommandDef> = {
       if (itemDef.type === 'equipment') {
         // Generate randomized gear
         for (let i = 0; i < Math.min(count, 10); i++) {
-          const maxSlots = targetPlayer.inventory.maxSlots || 30;
+          const maxSlots = targetPlayer.inventory.maxSlots || 150;
           if (targetPlayer.inventory.items.length >= maxSlots) {
             sendFeedback(gameServer, player, `⚠️ กระเป๋าเต็ม เสกได้ ${i} ชิ้น`);
             break;
@@ -247,7 +247,7 @@ const COMMANDS: Record<string, AdminCommandDef> = {
         else return sendFeedback(gameServer, player, `❌ ไม่พบผู้เล่น ${args[2]}`);
       }
 
-      const maxSlots = targetPlayer.inventory.maxSlots || 30;
+      const maxSlots = targetPlayer.inventory.maxSlots || 150;
       if (targetPlayer.inventory.items.length >= maxSlots) {
         return sendFeedback(gameServer, player, `❌ กระเป๋าของ ${targetPlayer.name} เต็มแล้ว (${maxSlots}/${maxSlots} ช่อง)`);
       }
@@ -344,6 +344,7 @@ const COMMANDS: Record<string, AdminCommandDef> = {
       target.level = lvl;
       target.exp = 0;
       target.skillPoints = Math.max(0, lvl - 1);
+      target.skills = {};
       gameServer.recalculatePlayerStats(target);
       target.hp = target.maxHp;
       target.mp = target.maxMp;
