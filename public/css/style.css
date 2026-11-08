@@ -576,6 +576,21 @@ body, html {
   pointer-events: none;
 }
 
+/* Seconds left on a potion cooldown, centred over the slot */
+.slot-cd-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 15px;
+  color: #fff;
+  text-shadow: 0 0 3px #000, 0 0 3px #000;
+  pointer-events: none;
+  z-index: 3;
+}
+
 /* Quick Menu Buttons (Bottom-Right) */
 .quick-menu-group {
   display: flex;
@@ -3334,7 +3349,17 @@ body, html {
   background: radial-gradient(circle, rgba(14, 116, 144, 0.6) 0%, rgba(15, 23, 42, 0.9) 80%);
 }
 
+/* Round clip for the potion cooldown fill (the badge still overhangs the button) */
+.m-potion-cd {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  overflow: hidden;
+  pointer-events: none;
+}
+
 .m-potion-badge {
+  z-index: 4;
   position: absolute;
   bottom: -4px;
   right: -4px;

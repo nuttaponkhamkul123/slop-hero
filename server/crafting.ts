@@ -83,7 +83,7 @@ export function craft(gs: any, player: any, recipeId: string, times = 1) {
   if (!out) return { ok: false, message: 'Recipe output is missing.' };
   const needsSlot = r.output.gear || (out.id !== 'health_potion' && out.id !== 'mana_potion' && countItem(player, out.id) === 0);
   const freed = r.inputs.some((inp: any) => countItem(player, inp.id) === inp.n * times) ? 1 : 0;
-  if (needsSlot && player.inventory.items.length - freed >= (player.inventory.maxSlots || 30)) return { ok: false, message: 'Your bag is full.' };
+  if (needsSlot && player.inventory.items.length - freed >= (player.inventory.maxSlots || 150)) return { ok: false, message: 'Your bag is full.' };
 
   for (const inp of r.inputs) takeItem(player, inp.id, inp.n * times);
   player.gold -= gold;

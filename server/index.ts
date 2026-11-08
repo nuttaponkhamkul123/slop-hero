@@ -209,6 +209,10 @@ io.on('connection', (socket: Socket) => {
     gameServer.handleSellItem(socket.id, data.itemIndex, data.quantity);
   });
 
+  socket.on('toggle_favorite', (data: any) => {
+    gameServer.handleToggleFavorite(socket.id, data);
+  });
+
   socket.on('sell_items', (data: any) => {
     gameServer.handleSellItems(socket.id, data && data.entries);
   });
@@ -240,6 +244,10 @@ io.on('connection', (socket: Socket) => {
   socket.on('reforge_item', (data: any) => {
     gameServer.handleReforgeItem(socket.id, data);
   });
+  socket.on('item_attributes', (data: any) => {
+    gameServer.handleAttributes(socket.id, data);
+  });
+
   socket.on('socket_rune', (data: any) => {
     gameServer.handleSocketRune(socket.id, data);
   });
@@ -310,6 +318,14 @@ io.on('connection', (socket: Socket) => {
 
   socket.on('allocate_skill_point', (data: any) => {
     gameServer.handleAllocateSkillPoint(socket.id, data ? data.skillId : null);
+  });
+
+  socket.on('allocate_passive_path', (data: any) => {
+    gameServer.handleAllocatePassives(socket.id, data && Array.isArray(data.ids) ? data.ids : []);
+  });
+
+  socket.on('refund_passive', (data: any) => {
+    gameServer.handleRefundPassive(socket.id, data ? data.id : null);
   });
 
   socket.on('reset_skill_points', () => {

@@ -42,6 +42,7 @@ import * as adminCommands from './adminCommands';
 import * as RIFT from './eternalRift';
 import * as CRAFT from './crafting';
 import * as DMODS from './dungeonMods';
+import * as ATTR from './itemAttributes';
 const SP_TRANSFORM_COOLDOWN = 3.2; // 8s reduced by 60% (* 0.4)
 
 // Global tuning knob for every skill's damage against monsters
@@ -66,6 +67,16 @@ const MANA_COST_SCALE = 0.9;
 const MANA_COST_PER_LEVEL = 0.05;
 const MANA_REGEN_PCT = 0.035;
 const MANA_REGEN_FLAT = 3;
+// Bag size of a new hero, and the most backpack expanders can raise it to
+const DEFAULT_BAG_SLOTS = 150;
+const MAX_BAG_SLOTS = 240;
+// Dungeon boss portal: opens once this share of the run's monsters (weighted) are dead.
+// Minibosses are worth DUNGEON_MINIBOSS_WEIGHT ordinary monsters.
+const DUNGEON_PORTAL_SHARE = 0.5;
+const DUNGEON_MINIBOSS_WEIGHT = 8;
+const dungeonProgressWeight = (m: any) => (m.isMiniboss || m.mechanics === 'miniboss' ? DUNGEON_MINIBOSS_WEIGHT : 1);
+// Natural HP regen per second, as a share of max HP (gear and attributes add flat regen on top)
+const HP_REGEN_PCT = 0.015;
 // Melee basic-attack cleave: reach past the attack range (tiles) and the default
 // arc (degrees, cos 0.35 either side of the facing); sweep weapons add to both
 const SWEEP_EXTRA_REACH = 1.15;
@@ -80,6 +91,9 @@ const FROST_TO_FREEZE = 3, FROST_SECONDS = 5, FREEZE_SECONDS = 2, BOSS_FREEZE_SE
 // Tempest Caller: Conductor marks on enemies, arcs between marked enemies, delayed Thunderclap
 const CONDUCT_MAX = 3, CONDUCT_SECONDS = 7, CONDUCT_FORK_RANGE = 4.5, CONDUCT_FORK_MAX = 3, CONDUCT_FORK_SHARE = 0.4;
 const VOID_SOUL_MAX = 10, VOID_SOUL_SECONDS = 12, VOID_SOUL_BONUS = 0.04;
+// SP signature charge: per landed hit, per kill, per full max HP of damage taken;
+// at most ULT_MAX_GAIN_PER_SEC a second, none while a signature is still playing out
+const ULT_COOLDOWN = 1, ULT_CHARGE_MAX = 100, ULT_GAIN_HIT = 1, ULT_GAIN_KILL = 4, ULT_GAIN_HURT = 60, ULT_MAX_GAIN_PER_SEC = 10, ULT_LOCK_SECONDS = 4;
 const ECHO_DAMAGE = 0.6;
 // Check a hero's bag / gear / skills for changes this often (in ticks) when building snapshots
 const HEAVY_CHECK_TICKS = Number(process.env.HEAVY_CHECK_TICKS) || 5;
@@ -90,6 +104,18 @@ const HEAT_MAX = 100, HEAT_HOLD_MS = 3000, HEAT_DECAY = 10;                   //
 const OVERHEAT_SECONDS = 6, OVERHEAT_BONUS = 0.4, OVERHEAT_BURN = 0.015;     // Reaver Overheat
 const RUNE_MAX = 4, RUNE_POLL = 0.25, RUNE_ARM_MS = 400, RUNE_TRIGGER_R = 1.1; // Rune Knight glyphs
 const COMBO_MAX = 6, COMBO_SECONDS = 4, COMBO_BONUS = 0.1;                   // Warchief
+// Dragoon Lightning Rods (spCards: rod / rodArc / overload): at most DG_ROD_MAX planted at once,
+// each lasting DG_ROD_SECONDS; the sky strikes every rod every DG_ROD_EVERY s (DG_ROD_MULT x ATK
+// within DG_ROD_R), and a rod links to the next one planted within DG_FENCE_RANGE by an arc fence
+// (DG_FENCE_MULT x ATK to enemies within DG_FENCE_W of it, and a short slow)
+const DG_ROD_MAX = 3, DG_ROD_SECONDS = 8, DG_ROD_EVERY = 1.2, DG_ROD_R = 1.6, DG_ROD_MULT = 0.45;
+const DG_FENCE_RANGE = 7, DG_FENCE_W = 0.7, DG_FENCE_MULT = 0.3, DG_OVERLOAD_R = 2.4, DG_ARC_RANGE = 4.5;
+// Gravelord undead minions (Raise the Fallen): monsters' corpses stay raisable for
+// GRAVE_CORPSE_MS; minions chase the nearest enemy within MINION_AGGRO (staying within
+// MINION_LEASH of their lord), hit every MINION_ATTACK_EVERY s for `mult` x the lord's ATK
+const GRAVE_CORPSE_MS = 12000, GRAVE_CORPSE_MAX = 40, MINION_MAX = 5;
+const MINION_SPEED = 4.2, MINION_REACH = 1.1, MINION_ATTACK_EVERY = 0.9, MINION_AGGRO = 8, MINION_LEASH = 11;
+let minionSeq = 0;
 let spObjSeq = 0; // ids for placed card objects (glyphs, banners, lances) so the client can clear them
 // Skills a Nightblade shadow does not copy: tossing the shadow itself, and ones that only move or buff the hero
 const SHADOW_SKIPS_SHAPES = new Set(['shadow', 'aura', 'rewind', 'buff']);
@@ -380,7 +406,7 @@ const DEFAULT_EQUIPPED_SKILLS = {
 };
 
 // Slots a client may cast from
-const CLIENT_SKILL_SLOTS = new Set(['slot1', 'slot2', 'slot3', 'dash', 'weapon', 'skill1', 'skill2']);
+const CLIENT_SKILL_SLOTS = new Set(['slot1', 'slot2', 'slot3', 'dash', 'weapon', 'skill1', 'skill2', 'ult']);
 
 const DEFAULT_SKILL_FOR_SLOT = (player, slot) => {
   const defaults = DEFAULT_EQUIPPED_SKILLS[player.characterClass] || DEFAULT_EQUIPPED_SKILLS.warrior;
@@ -405,7 +431,8 @@ const CLASS_SKILLS = {
   }
 };
 
-const SKILL_TREES = require('./talents');
+const PASSIVES = require('./talents');
+const { createBossMechanics } = require('./bossMechanics');
 // How close a hero must stand to a portal to use it (client shows the button in range)
 const PORTAL_USE_RANGE = 2.5;
 // Where heroes come back out of the Eternal Rift (beside its town gate)
@@ -415,7 +442,9 @@ const RAID = require('./raidBosses');
 // killer, on the same map, split the kill's EXP; each extra member adds this bonus
 const PARTY_EXP_RANGE = 10;
 const PARTY_EXP_BONUS = 0.1;
-const TALENT_PROCS = SKILL_TREES.TALENT_PROCS;
+const TALENT_PROCS = PASSIVES.TALENT_PROCS;
+// Gold to refund one passive node (right-click in the tree)
+const PASSIVE_REFUND_COST = 25;
 
 
 const MAX_PLAYER_ELEMENT_RESIST = 0.6;
@@ -446,6 +475,8 @@ const POTIONS = {
   mana_potion: { kind: 'mana', pct: 0.5 },
   greater_mana_potion: { kind: 'mana', pct: 0.8 }
 };
+// Cooldown after drinking, shared by every potion of the same kind
+const POTION_COOLDOWN_MS = { health: 10000, mana: 5000 };
 // Equipment drop rates (kept low on purpose)
 const MOB_GEAR_DROP_CHANCE = 0.025;
 const BOSS_GEAR_DROP_CHANCE = 0.35;
@@ -516,6 +547,8 @@ class GameServer {
     this.nextEntityId = 1000;
 
     this.TICK_RATE = 25;
+    // Telegraphed boss attacks, phases and enrage (server/bossMechanics.ts)
+    this.bossMech = createBossMechanics(this);
     this.tickInterval = null;
     this._ftQueue = new Map<any, any>(); // socket room -> floating texts waiting for this tick's batch
 
@@ -616,7 +649,7 @@ class GameServer {
         healthPotions: 3,
         manaPotions: 2,
         kills: 0,
-        maxSlots: 30,
+        maxSlots: DEFAULT_BAG_SLOTS,
         items: [
           { ...ITEMS.ancient_ruby, count: 1 },
           { ...ITEMS.revival_stone, count: 1 }
@@ -736,7 +769,9 @@ class GameServer {
     const bossRoomIdx = dungeonMap && dungeonMap.rooms ? dungeonMap.rooms.length - 1 : -1;
     const trashMobs = (dungeonMap && dungeonMap.mobs) ? dungeonMap.mobs.filter(m => m.roomIdx !== bossRoomIdx) : [];
     const totalTrashMobs = trashMobs.length;
-    const requiredKills = Math.max(1, Math.round(totalTrashMobs * 0.85));
+    // the boss portal opens at DUNGEON_PORTAL_SHARE of the dungeon's monsters (by progress weight)
+    const totalWeight = trashMobs.reduce((t, m) => t + dungeonProgressWeight(m), 0);
+    const requiredKills = Math.max(1, Math.round(totalWeight * DUNGEON_PORTAL_SHARE));
 
     const inst: any = {
       id: instanceId,
@@ -812,7 +847,9 @@ class GameServer {
     const out = {};
     for (const slot of ['slot1', 'slot2', 'slot3', 'dash']) {
       const id = saved[slot];
-      const sk = id && card.arsenal.includes(id) && SP.SP_SKILLS[id];
+      // an extra still locked at this card level falls back to the slot's default
+      const lvl = (player.equipment && player.equipment.sp && player.equipment.sp.upgradeLevel) || 0;
+      const sk = id && card.arsenal.includes(id) && SP.skillUnlocked(card, id, lvl) && SP.SP_SKILLS[id];
       out[slot] = sk && sk.isDash === (slot === 'dash') ? id : card.skills[slot];
     }
     player.spLoadouts[card.id] = { ...out, kit: card.kit || 0 };
@@ -832,6 +869,8 @@ class GameServer {
     if (data.skillId) {
       const sk = SP.SP_SKILLS[data.skillId];
       if (!sk || !card.arsenal.includes(data.skillId)) return;
+      const need = card.unlocks && card.unlocks[data.skillId];
+      if (!SP.skillUnlocked(card, data.skillId, player.equipment.sp.upgradeLevel || 0)) return say(`🔒 Unlocks at card +${need}`);
       if (sk.isDash !== (data.slot === 'dash')) return say(sk.isDash ? 'Movement skills go in the [Shift] slot' : 'Only movement skills fit the [Shift] slot');
       // already in another slot: trade places
       for (const slot of slots) if (slot !== data.slot && loadout[slot] === data.skillId) loadout[slot] = loadout[data.slot];
@@ -936,7 +975,7 @@ class GameServer {
     if (!price) return fail('This card can only be found on the deepest bosses.');
     if (this.fragmentCount(player) < price.fragments) return fail(`Need ${price.fragments} Spirit Fragments!`);
     if (player.gold < price.gold) return fail(`Need ${price.gold.toLocaleString()} Gold!`);
-    const maxCap = player.inventory.maxSlots || 30;
+    const maxCap = player.inventory.maxSlots || DEFAULT_BAG_SLOTS;
     if (player.inventory.items.length >= maxCap) return fail('Inventory is full!');
     player.gold -= price.gold;
     this.spendFragments(player, price.fragments);
@@ -964,7 +1003,7 @@ class GameServer {
       this.recalculatePlayerStats(player);
       this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 1.7, text: `JOB LEVEL ${player.jobLevel}!`, color: '#c084fc', size: 20 });
       this.emitZone(player.zone, 'job_level_up', { playerId: player.id, jobLevel: player.jobLevel, x: player.x, y: player.y });
-      this.broadcastSystemMessage(`[${player.name}] reached Job Level ${player.jobLevel}!`);
+      this.sendDirectMessage(player.id, `[${player.name}] reached Job Level ${player.jobLevel}!`);
     }
   }
 
@@ -1087,6 +1126,7 @@ class GameServer {
     const until = inst.announce ? Date.now() + DUNGEON_SPAWN_MS : 0;
     return list.map(m => {
       m.spawnUntil = until;
+      m.dungeonInstanceId = inst.id;   // so a death with no killer (burn, poison) still finds its run
       inst.mobs.set(m.id, m);
       return { id: m.id, x: m.x, y: m.y, isBoss: !!m.isBoss, element: m.element || 'neutral' };
     });
@@ -1705,8 +1745,10 @@ class GameServer {
     const spawnX = 20 + (Math.random() - 0.5) * 2;
     const spawnY = 23 + (Math.random() - 0.5) * 1.5; // Spawn in open south plaza, away from fountain
 
-    if (savedChar && savedChar.inventory && !savedChar.inventory.maxSlots) {
-      savedChar.inventory.maxSlots = 30;
+    // the bag grew from 30 to DEFAULT_BAG_SLOTS: older characters get the difference on top of
+    // whatever they added with backpack expanders (runs once: afterwards they are at 150+)
+    if (savedChar && savedChar.inventory && (savedChar.inventory.maxSlots || 30) < DEFAULT_BAG_SLOTS) {
+      savedChar.inventory.maxSlots = Math.min(MAX_BAG_SLOTS, (savedChar.inventory.maxSlots || 30) + DEFAULT_BAG_SLOTS - 30);
     }
     const player = {
       id: socket.id,
@@ -1766,13 +1808,13 @@ class GameServer {
       gold: savedChar && savedChar.gold !== undefined ? savedChar.gold : 50,
       inventory: savedChar && savedChar.inventory ? {
         ...savedChar.inventory,
-        maxSlots: savedChar.inventory.maxSlots || 30,
+        maxSlots: savedChar.inventory.maxSlots || DEFAULT_BAG_SLOTS,
         items: Array.isArray(savedChar.inventory.items) ? savedChar.inventory.items : []
       } : {
         healthPotions: 3,
         manaPotions: 2,
         kills: 0,
-        maxSlots: 30,
+        maxSlots: DEFAULT_BAG_SLOTS,
         items: [
           { ...ITEMS.ancient_ruby, count: 1 },
           { ...ITEMS.revival_stone, count: 1 }
@@ -1858,7 +1900,7 @@ class GameServer {
       mobs: Array.from(this.townMobs.values()),
       groundItems: Array.from(this.townGroundItems.values()),
       shopItems: Object.values(ITEMS).filter(it => it.type === 'consumable' && it.buyPrice),
-      skillTrees: SKILL_TREES,
+      passiveTree: PASSIVES.CLIENT_TREE,
       allSkills: ALL_CLASS_SKILLS,
       allSkillsCatalog: CLASS_SKILLS_CATALOG,
       skillRunes: SKILL_RUNES,
@@ -1867,7 +1909,7 @@ class GameServer {
       armorSets: ARMOR_SETS,
       // every rune: what it does and which item kind it goes into (Rune Forge, tooltips)
       runeCatalog: Object.fromEntries((Object.values(ITEMS) as any[]).filter(it => it.type === 'rune').map(r => [r.id, {
-        id: r.id, name: r.name, icon: r.icon, color: r.color, socketFor: r.socketFor || 'weapon',
+        id: r.id, name: r.name, icon: r.icon, iconKey: r.iconKey, color: r.color, socketFor: r.socketFor || 'weapon',
         effect: r.effect || (RUNES_DEF[r.runeType] && RUNES_DEF[r.runeType].desc) || r.desc
       }])),
       socketMax: SOCKET_MAX,
@@ -1888,7 +1930,7 @@ class GameServer {
     socket.broadcast.emit('player_joined', player);
     this.broadcastSystemMessage(`⚔️ [${player.name} the ${player.characterClass.toUpperCase()}] entered the realm!`);
     if ((player as any).talentRefunded) {
-      socket.emit('chat_broadcast', { senderId: 'system', senderName: 'SYSTEM', senderClass: 'system', timestamp: Date.now(), text: `🌳 The talent web was redesigned: all ${(player as any).talentRefunded} of your talent points were refunded for free. Open Talents to pick your new path!` });
+      socket.emit('chat_broadcast', { senderId: 'system', senderName: 'SYSTEM', senderClass: 'system', timestamp: Date.now(), text: `🌳 The passive tree was redesigned: all ${(player as any).talentRefunded} of your passive points were refunded for free. Open the Passive Tree (K) to pick your new path!` });
       (player as any).talentRefunded = 0;
     }
   }
@@ -2001,7 +2043,7 @@ class GameServer {
       radius: 2.5,
       playerId: player.id
     });
-    this.broadcastSystemMessage(`🌟 [${player.name}] ได้ใช้หินชุบชีวิต ฟื้นคืนชีพขึ้นมา ณ จุดเดิม!`);
+    this.sendDirectMessage(player.id, `🌟 [${player.name}] ได้ใช้หินชุบชีวิต ฟื้นคืนชีพขึ้นมา ณ จุดเดิม!`);
     this.savePlayerAccount(socketId);
   }
 
@@ -2304,7 +2346,7 @@ class GameServer {
 
     const floorConfig = DUNGEON_FLOORS[inst.floor - 1] || { name: `Floor ${inst.floor}` };
     const diffName = (DIFFICULTIES[inst.difficulty] && DIFFICULTIES[inst.difficulty].name) || inst.difficulty;
-    this.broadcastSystemMessage(`🌀 [${player.name}] entered ${floorConfig.name} (B${inst.floor} - ${diffName})!`);
+    this.sendDirectMessage(player.id, `🌀 [${player.name}] entered ${floorConfig.name} (B${inst.floor} - ${diffName})!`);
   }
 
   // Move a player into a field zone, arriving at its south (from the previous
@@ -2340,7 +2382,7 @@ class GameServer {
       raid: this.raidInfo(zoneId)
     });
 
-    this.broadcastSystemMessage(`🧭 [${player.name}] ventured into ${zone.name} (Lv. ${zone.minLevel}-${zone.maxLevel})!`);
+    this.sendDirectMessage(player.id, `🧭 [${player.name}] ventured into ${zone.name} (Lv. ${zone.minLevel}-${zone.maxLevel})!`);
   }
 
   teleportPlayerToFrostfell(player, socket) {
@@ -2370,74 +2412,85 @@ class GameServer {
       groundItems: Array.from(this.townGroundItems.values())
     });
 
-    this.broadcastSystemMessage(`🏰 [${player.name}] returned safely to town.`);
+    this.sendDirectMessage(player.id, `🏰 [${player.name}] returned safely to town.`);
   }
 
   handleAllocateSkillPoint(socketId, skillId) {
-    const player = this.players.get(socketId);
-    if (!player || player.isDead) return;
-    if (!player.skillPoints || player.skillPoints <= 0) return;
-    if (!player.skills) player.skills = {};
-
-    const tree = SKILL_TREES[player.characterClass] || [];
-    const talent = tree.find(t => t.id === skillId);
-    if (!talent) return;
-
-    const curRank = player.skills[skillId] || 0;
-    if (curRank >= talent.maxRank) return;
-
-    // Free pathing (no specialization lock): a talent can be learned when it is a starting point
-    // of the web or touches a talent you already own (see the TALENT WEB in talents.ts).
-    const connected = talent.start || (talent.links || []).some(id => (player.skills[id] || 0) > 0);
-    if (!connected) {
-      const socket = this.io.sockets.sockets.get(socketId);
-      if (socket) {
-        socket.emit('floating_text', {
-          x: player.x,
-          y: player.y - 0.7,
-          text: '⚠️ Connect it to a talent you already have!',
-          color: '#ef4444'
-        });
-        // Resync the client in case it optimistically added the point
-        socket.emit('skill_tree_updated', { skillPoints: player.skillPoints, skills: player.skills });
-      }
-      return;
-    }
-
-    player.skillPoints--;
-    player.skills[skillId] = curRank + 1;
-    this.recalculatePlayerStats(player);
-
-    const socket = this.io.sockets.sockets.get(socketId);
-    if (socket) {
-      socket.emit('player_updated', player);
-      socket.emit('skill_tree_updated', {
-        skillPoints: player.skillPoints,
-        skills: player.skills
-      });
-      socket.emit('floating_text', {
-        x: player.x,
-        y: player.y - 0.7,
-        text: `✨ Learned [${talent.name}] (Rank ${player.skills[skillId]}/${talent.maxRank})`,
-        color: '#facc15'
-      });
-    }
-
-    this.broadcastSystemMessage(`🌳 [${player.name}] upgraded talent [${talent.name}]!`);
+    this.handleAllocatePassives(socketId, [skillId]);
   }
 
-  // Talents saved against a talent id that no longer exists (the web was redesigned) are refunded
-  // in full, for free: the hero gets every spent point back and re-picks their path.
+  // Allocate passive nodes in order (a path the client picked). Each node must touch the class
+  // start or a node already owned (including ones earlier in this same path); one point each.
+  handleAllocatePassives(socketId, ids) {
+    const player = this.players.get(socketId);
+    if (!player || player.isDead || !Array.isArray(ids)) return;
+    if (!player.skills) player.skills = {};
+    const socket = this.io.sockets.sockets.get(socketId);
+    const learned = [];
+    let error = '';
+    for (const id of ids.slice(0, 200)) {
+      if (!player.skillPoints || player.skillPoints <= 0) { error = '⚠️ Not enough passive points!'; break; }
+      const node = PASSIVES.BY_ID.get(String(id));
+      if (!node) break;
+      if (!PASSIVES.canAllocate(player.characterClass, player.skills, node.id)) {
+        error = (player.skills[node.id] || 0) > 0 ? '' : '⚠️ Connect it to a passive you already have!';
+        break;
+      }
+      player.skillPoints--;
+      player.skills[node.id] = 1;
+      learned.push(node);
+    }
+    if (learned.length) this.recalculatePlayerStats(player);
+    if (!socket) return;
+    if (learned.length) socket.emit('player_updated', player);
+    // always resync: the client may have optimistically added the points
+    socket.emit('skill_tree_updated', { skillPoints: player.skillPoints, skills: player.skills });
+    if (error) socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: error, color: '#ef4444' });
+    if (!learned.length) return;
+    const big = learned.filter(n => n.kind === 'notable' || n.kind === 'keystone');
+    const label = big.length ? big.map(n => n.name).join(', ') : learned[learned.length - 1].name;
+    socket.emit('floating_text', {
+      x: player.x,
+      y: player.y - 0.7,
+      text: `✨ ${learned.length > 1 ? `+${learned.length} passives: ` : ''}[${label}]`,
+      color: '#facc15'
+    });
+    if (big.length) this.sendDirectMessage(player.id, `🌳 [${player.name}] allocated [${big.map(n => n.name).join('], [')}]!`);
+  }
+
+  // Refund one passive node for a little gold, as long as the rest of the build stays connected
+  handleRefundPassive(socketId, id) {
+    const player = this.players.get(socketId);
+    if (!player || player.isDead || !player.skills) return;
+    const socket = this.io.sockets.sockets.get(socketId);
+    const node = PASSIVES.BY_ID.get(String(id));
+    const fail = (text) => {
+      if (!socket) return;
+      socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text, color: '#ef4444' });
+      socket.emit('skill_tree_updated', { skillPoints: player.skillPoints, skills: player.skills });
+    };
+    if (!node || !(player.skills[node.id] > 0)) return fail('⚠️ You do not own that passive.');
+    if (!PASSIVES.canRefund(player.characterClass, player.skills, node.id)) return fail('⚠️ Other passives depend on it: refund the far end of the path first.');
+    if ((player.gold || 0) < PASSIVE_REFUND_COST) return fail(`⚠️ Need ${PASSIVE_REFUND_COST.toLocaleString('en-US')} Gold to refund a passive!`);
+    player.gold -= PASSIVE_REFUND_COST;
+    delete player.skills[node.id];
+    player.skillPoints = (player.skillPoints || 0) + 1;
+    this.recalculatePlayerStats(player);
+    if (!socket) return;
+    socket.emit('player_updated', player);
+    socket.emit('skill_tree_updated', { skillPoints: player.skillPoints, skills: player.skills });
+    socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: `↩ Refunded [${node.name}] (-${PASSIVE_REFUND_COST.toLocaleString('en-US')} Gold)`, color: '#38bdf8' });
+  }
+
+  // A saved build that no longer fits the tree (it was redesigned, or the save is broken) is
+  // refunded in full, for free: the hero gets every spent point back and re-picks their path.
   refundStaleTalents(player) {
     if (!player || !player.skills) return;
-    const tree = SKILL_TREES[player.characterClass] || [];
-    const valid = new Set(tree.map(t => t.id));
-    const ids = Object.keys(player.skills);
-    if (!ids.some(id => !valid.has(id))) return;
-    const spent = ids.reduce((s, id) => s + Number(player.skills[id] || 0), 0);
+    if (PASSIVES.isValidAllocation(player.characterClass, player.skills)) return;
+    const spent = Object.keys(player.skills).reduce((s, id) => s + Number(player.skills[id] || 0), 0);
     player.skillPoints = (player.skillPoints || 0) + spent;
     player.skills = {};
-    player.talentRefunded = spent;
+    player.talentRefunded = (player.talentRefunded || 0) + spent;
   }
 
   handleResetSkillPoints(socketId) {
@@ -2459,7 +2512,7 @@ class GameServer {
         socket.emit('floating_text', {
           x: player.x,
           y: player.y - 0.7,
-          text: `⚠️ Need ${resetCost} Gold to respec talents!`,
+          text: `⚠️ Need ${resetCost.toLocaleString('en-US')} Gold to respec talents!`,
           color: '#ef4444'
         });
       }
@@ -2480,12 +2533,12 @@ class GameServer {
       socket.emit('floating_text', {
         x: player.x,
         y: player.y - 0.7,
-        text: `🔄 Talents Reset! Restored ${pointsSpent} points (-${resetCost} Gold)`,
+        text: `🔄 Talents Reset! Restored ${pointsSpent} points (-${resetCost.toLocaleString('en-US')} Gold)`,
         color: '#38bdf8'
       });
     }
 
-    this.broadcastSystemMessage(`🔄 [${player.name}] redistributed their talent points.`);
+    this.sendDirectMessage(player.id, `🔄 [${player.name}] redistributed their talent points.`);
   }
 
   // Handle Opening Treasure Chests in Dungeon
@@ -2598,10 +2651,7 @@ class GameServer {
     if (player.berserkTimer > 0) {
       attackDmg = Math.round(attackDmg * 1.35);
     }
-    if (player.spTransformed && player.spCardId === 'sp_dread_lord') {
-      const missingHp = Math.max(0, 1 - (player.hp / Math.max(1, player.maxHp)));
-      attackDmg = Math.round(attackDmg * (1 + 0.5 * missingHp));
-    }
+    // (Dread Lord's low-HP bonus is its card passive: passiveDamageMult)
     if (player.bloodlust) attackDmg = Math.round(attackDmg * this.bloodRage(player));
     // melee hits below add up what they took, for the SP card passive leech
     let meleeDealt = 0;
@@ -2801,7 +2851,7 @@ class GameServer {
       });
     }
 
-    this.broadcastSystemMessage(`⚡ [${player.name}] customized their active ability loadout.`);
+    this.sendDirectMessage(player.id, `⚡ [${player.name}] customized their active ability loadout.`);
   }
 
   // The skill definition used for a slot; a transformed hero uses the card's
@@ -2814,17 +2864,184 @@ class GameServer {
       if (!ability) return null;
       return Object.assign({}, ability, { dmgMult: ability.dmgMult * (1 + 0.05 * (weapon.upgradeLevel || 0)) });
     }
+    const card = this.spCard(player);
+    const lvl = (card && player.equipment.sp.upgradeLevel) || 0;
+    const k = 1 + SP.SP_SKILL_PER_LEVEL * lvl;
+    // Signature: its first stage, carrying every stage (scaled like card skills)
+    if (slot === 'ult') {
+      if (!card || !card.signature) return null;
+      const stages = card.signature.stages.map(st => Object.assign({}, st, { dmgMult: st.dmgMult * k }));
+      return Object.assign({}, stages[0], { cooldown: ULT_COOLDOWN, ultStages: stages });
+    }
     const base = ALL_CLASS_SKILLS[skillId] || DEFAULT_SKILL_FOR_SLOT(player, slot);
-    const card = player.spTransformed && player.equipment && player.equipment.sp && SP.CARD_BY_ID[player.equipment.sp.cardId];
-    const spSkill = card && card.arsenal.includes(skillId) && SP.SP_SKILLS[skillId];
+    const spSkill = card && card.arsenal.includes(skillId) && SP.skillUnlocked(card, skillId, lvl) && SP.SP_SKILLS[skillId];
     if (!spSkill) return base;
-    const k = 1 + SP.SP_SKILL_PER_LEVEL * (player.equipment.sp.upgradeLevel || 0);
     return Object.assign({}, spSkill, { dmgMult: spSkill.dmgMult * k });
   }
 
   // Damage multiplier from Bloodlust (Berserker buff)
   bloodRage(player) {
     return player.bloodlust ? 1 + (player.bloodlust.rage || 0) : 1;
+  }
+
+  // ------------------------------------------------ SP signatures & passives
+  // (data and field meanings: spSignatures.ts)
+
+  // The card a transformed hero is wearing, else null
+  spCard(player) {
+    return (player && player.spTransformed && player.equipment && player.equipment.sp && SP.CARD_BY_ID[player.equipment.sp.cardId]) || null;
+  }
+
+  // Signature charge (0..100). Gains are capped per second so a big pack hit
+  // by one wide skill can't fill it in a single cast.
+  gainUltCharge(player, amount) {
+    const card = this.spCard(player);
+    if (!card || !card.signature || !(amount > 0) || player.isDead) return;
+    const now = Date.now();
+    if (player.ultLockUntil > now) return;
+    if (!player.ultWindow || now - player.ultWindow.t >= 1000) player.ultWindow = { t: now, g: 0 };
+    const gain = Math.min(amount * (1 + ((card.passive && card.passive.ultGain) || 0)), ULT_MAX_GAIN_PER_SEC - player.ultWindow.g);
+    if (gain <= 0) return;
+    player.ultWindow.g += gain;
+    const before = player.ultCharge || 0;
+    player.ultCharge = Math.min(ULT_CHARGE_MAX, before + gain);
+    if (before < ULT_CHARGE_MAX && player.ultCharge >= ULT_CHARGE_MAX) {
+      const socket = this.io.sockets.sockets.get(player.id);
+      if (socket) socket.emit('floating_text', { x: player.x, y: player.y - 1.1, text: `✦ ${card.signature.name.toUpperCase()} READY [G]`, color: card.color || '#facc15', size: 17 });
+    }
+  }
+
+  // Passive damage bonus for a hit on `mob` (status, execute, opener, low HP)
+  passiveDamageMult(player, mob) {
+    const pv = this.spCard(player) && this.spCard(player).passive;
+    if (!pv) return 1;
+    let k = 1;
+    if (pv.vs) {
+      if (pv.vs.burn && mob.burnTimer > 0) k += pv.vs.burn;
+      if (pv.vs.poison && mob.poisonTimer > 0) k += pv.vs.poison;
+      if (pv.vs.chill && mob.chillTimer > 0) k += pv.vs.chill;
+      if (pv.vs.frozen && mob.frozenTimer > 0) k += pv.vs.frozen;
+    }
+    if (pv.execute && mob.maxHp && mob.hp <= mob.maxHp * pv.execute.below) k += pv.execute.dmg;
+    if (pv.opener && mob.maxHp && mob.hp >= mob.maxHp) k += pv.opener;
+    if (pv.lowHp && player.hp <= player.maxHp * pv.lowHp.below) k += pv.lowHp.dmg || 0;
+    return k;
+  }
+
+  // Passive on-hit procs; `damage` is what landed. Extra hits it deals are
+  // flagged as echoes so they never proc again.
+  passiveOnHit(player, mob, damage) {
+    const card = this.spCard(player);
+    const hp = card && card.passive && card.passive.hitProc;
+    if (!hp || Math.random() >= hp.chance || mob.state === 'dead' || mob.hp <= 0) return;
+    const zone = player.zone;
+    const inst = player.zone === 'dungeon' ? player.dungeonInstanceId : null;
+    if (hp.poison) {
+      mob.poisonStacks = Math.min(10, (mob.poisonStacks || 0) + hp.poison);
+      mob.poisonTimer = Math.max(mob.poisonTimer || 0, 6);
+      mob.poisonDmg = Math.max(mob.poisonDmg || 0, Math.round(player.dmg * 0.12 * mob.poisonStacks));
+    }
+    if (hp.burn) { mob.burnTimer = Math.max(mob.burnTimer || 0, hp.burn); mob.burnDmg = Math.max(mob.burnDmg || 0, Math.round(player.dmg * 0.2)); }
+    if (hp.chill) mob.chillTimer = Math.max(mob.chillTimer || 0, hp.chill);
+    if (hp.frost && !(mob.frozenTimer > 0)) {
+      mob.frostStacks = (mob.frostStacks || 0) + hp.frost;
+      mob.frostTimer = FROST_SECONDS;
+      mob.chillTimer = Math.max(mob.chillTimer || 0, 2);
+      if (mob.frostStacks >= FROST_TO_FREEZE) {
+        mob.frostStacks = 0;
+        mob.frozenTimer = mob.isBoss ? BOSS_FREEZE_SECONDS : FREEZE_SECONDS;
+        mob.frozenKind = 'ice';
+        this.emitZone(zone, 'floating_text', { x: mob.x, y: mob.y - 0.8, text: '❄️ FROZEN', color: '#67e8f9', size: 15 }, inst);
+      }
+    }
+    if (hp.stun) mob.attackCooldown = Math.max(mob.attackCooldown || 0, hp.stun);
+    if (hp.haste && player.skillCooldowns) {
+      for (const k of Object.keys(player.skillCooldowns)) if (player.skillCooldowns[k] > 0) player.skillCooldowns[k] = Math.max(0, player.skillCooldowns[k] - hp.haste);
+    }
+    if (hp.zap) {
+      const mobs = [...this.getMobsMap(zone).values()];
+      let best = null, bestD = 4;
+      for (const m of mobs) {
+        if (m === mob || m.state === 'dead' || m.hp <= 0) continue;
+        const d = Math.hypot(m.x - mob.x, m.y - mob.y);
+        if (d < bestD) { best = m; bestD = d; }
+      }
+      if (best) {
+        this.emitZone(zone, 'skill_fx', { type: 'sp_skill', shape: 'chain', element: card.element, color: card.color, cardId: card.id, skillId: 'passive_' + card.id, name: card.passive.name, x: best.x, y: best.y, startX: mob.x, startY: mob.y, points: [{ x: mob.x, y: mob.y }, { x: best.x, y: best.y }] }, inst);
+        this.applyDamageToMob(player, best, Math.max(1, Math.round(damage * hp.zap)), false, true);
+      }
+    }
+    // a bolt straight down out of the sky onto the target (Dragoon: Storm Rider)
+    if (hp.skyBolt) {
+      this.emitZone(zone, 'skill_fx', { type: 'sp_skill', shape: 'rodStrike', sky: true, element: card.element, color: card.color, cardId: card.id, skillId: 'passive_' + card.id, name: card.passive.name, x: mob.x, y: mob.y, radius: 0.8, duration: 0.45 }, inst);
+      this.applyDamageToMob(player, mob, Math.max(1, Math.round(damage * hp.skyBolt)), false, true);
+    }
+    if (hp.echoHit) {
+      const dmg = Math.max(1, Math.round(damage * hp.echoHit));
+      setTimeout(() => {
+        if (player.isDead || player.zone !== zone || mob.state === 'dead' || mob.hp <= 0) return;
+        this.emitZone(zone, 'floating_text', { x: mob.x, y: mob.y - 0.9, text: '᚛ ECHO', color: card.color, size: 13 }, inst);
+        this.emitZone(zone, 'skill_fx', { type: 'sp_skill', shape: 'echo', element: card.element, color: card.color, cardId: card.id, skillId: 'passive_' + card.id, name: card.passive.name, x: mob.x, y: mob.y, duration: 0.6 }, inst);
+        this.applyDamageToMob(player, mob, dmg, false, true);
+      }, 600);
+    }
+  }
+
+  // Passive on-kill effects
+  passiveOnKill(player, mob) {
+    const card = this.spCard(player);
+    const kill = card && card.passive && card.passive.kill;
+    this.gainUltCharge(player, ULT_GAIN_KILL);
+    if (!kill) return;
+    const zone = player.zone;
+    const inst = player.zone === 'dungeon' ? player.dungeonInstanceId : null;
+    if (kill.heal) player.hp = Math.min(player.maxHp, player.hp + Math.round(player.maxHp * kill.heal));
+    if (kill.mana) player.mp = Math.min(player.maxMp, player.mp + Math.round(player.maxMp * kill.mana));
+    if (kill.souls) { player.voidSouls = Math.min(VOID_SOUL_MAX, (player.voidSouls || 0) + kill.souls); player.voidSoulTimer = VOID_SOUL_SECONDS; }
+    if (kill.cdr && player.skillCooldowns) {
+      for (const k of Object.keys(player.skillCooldowns)) if (player.skillCooldowns[k] > 0) player.skillCooldowns[k] = Math.max(0, player.skillCooldowns[k] - kill.cdr);
+    }
+    const near = (r) => [...this.getMobsMap(zone).values()].filter(m => m !== mob && m.state !== 'dead' && m.hp > 0 && Math.hypot(m.x - mob.x, m.y - mob.y) <= r);
+    if (kill.spread && (mob.poisonTimer > 0 || mob.burnTimer > 0)) {
+      for (const m of near(kill.spread)) {
+        if (mob.poisonTimer > 0) {
+          m.poisonStacks = Math.min(10, Math.max(m.poisonStacks || 0, mob.poisonStacks || 1));
+          m.poisonTimer = Math.max(m.poisonTimer || 0, mob.poisonTimer);
+          m.poisonDmg = Math.max(m.poisonDmg || 0, mob.poisonDmg || 0);
+        }
+        if (mob.burnTimer > 0) { m.burnTimer = Math.max(m.burnTimer || 0, mob.burnTimer); m.burnDmg = Math.max(m.burnDmg || 0, mob.burnDmg || 0); }
+        m.lastHitBy = player.id;
+      }
+      this.emitZone(zone, 'skill_fx', { type: 'sp_skill', shape: 'nova', element: card.element, color: card.color, cardId: card.id, skillId: 'passive_' + card.id, name: card.passive.name, x: mob.x, y: mob.y, radius: kill.spread }, inst);
+    }
+    // a kill burst never chains into further bursts
+    if (kill.nova && !player.inKillNova) {
+      player.inKillNova = true;
+      try {
+        this.emitZone(zone, 'skill_fx', { type: 'sp_skill', shape: 'nova', element: card.element, color: card.color, cardId: card.id, skillId: 'passive_' + card.id, name: card.passive.name, x: mob.x, y: mob.y, radius: kill.nova.r }, inst);
+        const dmg = Math.max(1, Math.round(player.dmg * kill.nova.dmg));
+        for (const m of near(kill.nova.r)) this.applyDamageToMob(player, m, dmg, false, true);
+      } finally {
+        player.inKillNova = false;
+      }
+    }
+  }
+
+  // Passive effects on melee damage taken from `mob`; returns the damage after them
+  passiveOnHurt(player, mob, damage, zone) {
+    const pv = this.spCard(player) && this.spCard(player).passive;
+    if (damage > 0) this.gainUltCharge(player, (damage / Math.max(1, player.maxHp)) * ULT_GAIN_HURT);
+    if (!pv) return damage;
+    let k = pv.dmgTaken || 1;
+    if (pv.lowHp && pv.lowHp.def && player.hp <= player.maxHp * pv.lowHp.below) k *= 1 - pv.lowHp.def;
+    damage = Math.max(1, Math.round(damage * k));
+    if (pv.reflect && mob && mob.state !== 'dead') this.applyDamageToMob(player, mob, Math.max(1, Math.round(damage * pv.reflect)), false, true);
+    if (pv.hurtShield && Math.random() < pv.hurtShield.chance) {
+      const v = Math.round(player.maxHp * pv.hurtShield.share);
+      player.shieldHp = (player.shieldHp || 0) + v;
+      this.emitZone(zone, 'floating_text', { x: player.x, y: player.y - 1.0, text: `🛡️ ${pv.name} +${v}`, color: '#fde68a', size: 14 });
+    }
+    return damage;
   }
 
   // SP card passive leech (Berserker Bloodthirst) on `dealt` damage; Bloodlust multiplies it
@@ -3069,6 +3286,7 @@ class GameServer {
       scale: def.scale,
       isBoss: true,
       isRaidBoss: true,
+      mechanics: 'boss',
       isCommander: true,
       auraRadius: 0,
       hp: def.maxHp,
@@ -3252,7 +3470,7 @@ class GameServer {
     // a Nightblade shadow casts from where it stands
     const px = ctx.origin ? ctx.origin.x : player.x, py = ctx.origin ? ctx.origin.y : player.y;
     const fxBase = { type: 'sp_skill', shape: skill.spShape, element: skill.element, color: skill.color, cardId: skill.cardId, rune: runeId, skillId: skill.id, name: skill.name };
-    const emit = (data, first) => this.emitZone(zone, 'skill_fx', first && !isEcho && !isShadow
+    const emit = (data, first) => this.emitZone(zone, 'skill_fx', first && !isEcho && !isShadow && !ctx.quiet
       ? { ...fxBase, ...data, skillSlot: slot, cooldown, playerId: player.id }
       : { ...fxBase, ...data });
     const alive = () => [...mobsMap.values()].filter(m => m.state !== 'dead');
@@ -3523,6 +3741,12 @@ class GameServer {
       g.spent = true;
       const sk = g.skill;
       emit({ shape: 'rune', burst: true, kind: sk.kind, skillId: sk.id, x: g.x, y: g.y, radius: sk.r * (mult > 1 ? 1.15 : 1), clearObj: g.id }, false);
+      // the ground stays inscribed for a while, burning anything that walks in
+      if (sk.dot && sk.dot.linger) {
+        const sr = sk.r * 0.85;
+        emit({ shape: 'rune', scar: true, kind: sk.kind, skillId: sk.id, x: g.x, y: g.y, radius: sr, duration: sk.dot.linger }, false);
+        for (let k = 1; k * sk.dot.every <= sk.dot.linger + 0.01; k++) later(k * sk.dot.every, () => runeDot(sk, g.x, g.y, sr));
+      }
       for (const m of within(g.x, g.y, sk.r * (mult > 1 ? 1.15 : 1))) {
         if (sk.stun) m.attackCooldown = Math.max(m.attackCooldown || 0, sk.stun);
         if (sk.stun) m.chillTimer = Math.max(m.chillTimer || 0, sk.stun);
@@ -3530,6 +3754,18 @@ class GameServer {
         const before = m.hp;
         applySkillDamage(m, Math.round(player.dmg * sk.dmgMult * mult), true);
         dealt += Math.max(0, before - Math.max(0, m.hp));
+      }
+    };
+    // Glyph damage over time (sk.dot): a tick of rune damage on everything in the glyph's area.
+    // Scales with the card level like the burst does (dmgMult over the base dmg).
+    const runeDot = (sk, x, y, r) => {
+      const lvl = sk.dmg ? (sk.dmgMult || sk.dmg) / sk.dmg : 1;
+      const dmg = Math.max(1, Math.round(player.dmg * sk.dot.mult * lvl));
+      for (const m of within(x, y, r)) {
+        this.applyDamageToMob(player, m, dmg, false, true);
+        if (m.state === 'dead' || m.hp <= 0) continue;
+        if (sk.kind === 'frost') m.chillTimer = Math.max(m.chillTimer || 0, 1.0);
+        if (sk.kind === 'bind') m.chillTimer = Math.max(m.chillTimer || 0, 0.6);
       }
     };
     const placeRune = (sk, x, y, first) => {
@@ -3549,8 +3785,71 @@ class GameServer {
         later(i * RUNE_POLL, () => {
           if (g.spent) return;
           if (Date.now() >= g.until) { g.spent = true; return; }
+          // armed: everything walking into the glyph's area takes rune damage over time
+          if (sk.dot && Date.now() >= g.armAt && i % Math.max(1, Math.round(sk.dot.every / RUNE_POLL)) === 0) runeDot(sk, g.x, g.y, sk.r);
           if (Date.now() >= g.armAt && within(g.x, g.y, RUNE_TRIGGER_R).length) burstRune(g, 1);
         });
+      }
+    };
+
+    // ---- Dragoon Lightning Rods: planted lances the sky keeps striking (player.dgRods)
+    const liveRods = () => {
+      const now = Date.now();
+      player.dgRods = (player.dgRods || []).filter(rd => rd.until > now && rd.zone === zone && rd.instanceId === instanceId);
+      return player.dgRods;
+    };
+    const rodDamage = (m, mult, stun = 0) => {
+      this.applyDamageToMob(player, m, Math.max(1, Math.round(player.dmg * mult)), false, true);
+      if (stun && m.state !== 'dead' && m.hp > 0) m.attackCooldown = Math.max(m.attackCooldown || 0, stun);
+    };
+    const clearRod = (rod) => emit({ shape: 'rod', clearObj: rod.objId, radius: 0 }, false);
+    const strikeRod = (rod) => {
+      const rods = liveRods();
+      const i = rods.indexOf(rod);
+      if (i < 0) return;
+      emit({ shape: 'rodStrike', x: rod.x, y: rod.y, radius: DG_ROD_R, duration: 0.5 }, false);
+      within(rod.x, rod.y, DG_ROD_R).forEach(m => rodDamage(m, DG_ROD_MULT));
+      // the arc fence to the next rod planted after this one
+      const next = rods[i + 1];
+      if (next && Math.hypot(next.x - rod.x, next.y - rod.y) <= DG_FENCE_RANGE) {
+        emit({ shape: 'fence', startX: rod.x, startY: rod.y, x: next.x, y: next.y, duration: 0.55 }, false);
+        for (const m of alive()) {
+          if (this.distToSegment(m.x, m.y, rod.x, rod.y, next.x, next.y) > DG_FENCE_W) continue;
+          rodDamage(m, DG_FENCE_MULT);
+          if (m.state !== 'dead') m.chillTimer = Math.max(m.chillTimer || 0, 0.8);
+        }
+      }
+    };
+    // thrown: the lance flew there (Storm Lance), so it does not drop out of the sky
+    const plantRod = (x, y, thrown = false) => {
+      if (isShadow) return;
+      const rods = liveRods();
+      while (rods.length >= DG_ROD_MAX) clearRod(rods.shift());
+      const rod = { objId: 'r' + (++spObjSeq), x, y, until: Date.now() + DG_ROD_SECONDS * 1000, zone, instanceId };
+      rods.push(rod);
+      emit({ shape: 'rod', x, y, objId: rod.objId, duration: DG_ROD_SECONDS, ownerId: player.id, thrown }, false);
+      for (let k = 1; k * DG_ROD_EVERY <= DG_ROD_SECONDS + 0.01; k++) later(k * DG_ROD_EVERY, () => strikeRod(rod));
+    };
+    // every rod picked is struck by a giant bolt at once and spent
+    const overloadRods = (mult, pick = (rd) => true) => {
+      const rods = liveRods();
+      const spent = rods.filter(pick);
+      if (!spent.length) return;
+      say(spent[0].x, spent[0].y, `⚡ OVERLOAD x${spent.length}`, '#fde047', 17);
+      for (const rod of spent) {
+        emit({ shape: 'overload', x: rod.x, y: rod.y, radius: DG_OVERLOAD_R, duration: 0.9 }, false);
+        clearRod(rod);
+        within(rod.x, rod.y, DG_OVERLOAD_R).forEach(m => rodDamage(m, mult, 0.5));
+      }
+      player.dgRods = rods.filter(rd => !spent.includes(rd));
+    };
+    // each rod throws a bolt at the enemy nearest to it
+    const rodArcs = (mult) => {
+      for (const rod of liveRods()) {
+        const m = nearest(rod.x, rod.y, DG_ARC_RANGE);
+        if (!m) continue;
+        emit({ shape: 'chain', x: m.x, y: m.y, startX: rod.x, startY: rod.y, points: [{ x: rod.x, y: rod.y }, { x: m.x, y: m.y }], fromRod: true, duration: 0.45 }, false);
+        hit(m, mult, rod.x, rod.y);
       }
     };
 
@@ -3623,8 +3922,9 @@ class GameServer {
           player.targetX = null; player.targetY = null;
           player.facing = this.calculateFacing(px, py, sp.x, sp.y);
           emit({ dive: true, ownerId: player.id, startX: px, startY: py, x: sp.x, y: sp.y, radius: skill.diveR, clearObj: sp.objId }, false);
-          say(sp.x, sp.y, '🐉 LANCE DIVE!', '#facc15', 17);
+          say(sp.x, sp.y, skill.rod ? '⚡ LIGHTNING DIVE!' : '🐉 LANCE DIVE!', '#facc15', 17);
           within(sp.x, sp.y, skill.diveR).forEach(m => hit(m, skill.dive / (skill.dmgMult || 1), sp.x, sp.y));
+          if (skill.rod) overloadRods(skill.dive * 0.6, (rd) => Math.hypot(rd.x - sp.x, rd.y - sp.y) < 1);
           const socket = this.io.sockets.sockets.get(player.id);
           if (socket) socket.emit('player_updated', player);
           break;
@@ -3636,6 +3936,7 @@ class GameServer {
           if (this.distToSegment(m.x, m.y, px, py, end.x, end.y) <= skill.width) hit(m);
         }
         if (!isShadow) player.dgSpear = { slot, skillId: skill.id, x: end.x, y: end.y, objId, until: Date.now() + skill.hold * 1000, zone, instanceId };
+        if (skill.rod) plantRod(end.x, end.y, true);
         break;
       }
       case 'jump': {
@@ -3653,6 +3954,8 @@ class GameServer {
           }
           emit({ landed: true, x: land.x, y: land.y, radius: skill.r }, false);
           within(land.x, land.y, skill.r).forEach(m => hit(m, 1, land.x, land.y));
+          if (skill.overload) overloadRods(skill.overload);
+          if (skill.rod) plantRod(land.x, land.y);
         });
         break;
       }
@@ -3669,6 +3972,42 @@ class GameServer {
       case 'rune': {
         const at = ray(px, py, dir.normX, dir.normY, Math.hypot(aimX - px, aimY - py), 0.3);
         placeRune(skill, at.x, at.y, true);
+        break;
+      }
+      case 'rage': {
+        // Grave Frenzy: the minions (and any raised while it lasts) fight in a killing rage
+        const R = skill.rage;
+        if (!isShadow) player.minionRage = { until: Date.now() + R.dur * 1000, dmg: R.dmg, aspd: R.aspd, crit: R.crit, critMult: R.critMult };
+        const mins = (player.minions || []).filter(m => m.until > Date.now());
+        emit({ x: px, y: py, radius: skill.r || 3, points: mins.map(m => ({ x: m.x, y: m.y })) }, true);
+        say(px, py, mins.length ? `☠️ GRAVE FRENZY x${mins.length}` : '☠️ GRAVE FRENZY', '#a3e635', 17);
+        break;
+      }
+      case 'gravebomb': {
+        // Corpse Detonation: every minion goes up in grave fire and is spent
+        const nowB = Date.now();
+        const mins = (player.minions || []).filter(m => m.until > nowB && m.zone === zone && m.instanceId === instanceId);
+        emit({ x: px, y: py, radius: skill.r, points: mins.map(m => ({ x: m.x, y: m.y })) }, true);
+        if (!mins.length) { say(px, py, 'No minions to detonate', '#94a3b8', 14); break; }
+        say(px, py, `💥 CORPSE DETONATION x${mins.length}`, '#4ade80', 17);
+        if (!isShadow) player.minions = player.minions.filter(m => !mins.includes(m));
+        mins.forEach((m, i) => {
+          const bx = m.x, by = m.y;
+          later(0.08 + i * 0.07, () => {
+            emit({ shape: 'gravebomb', burst: true, x: bx, y: by, radius: skill.r }, false);
+            within(bx, by, skill.r).forEach(o => hit(o, 1, bx, by));
+          });
+        });
+        break;
+      }
+      case 'raise': {
+        // Raise the Fallen: the dead near the cursor climb back up as the Gravelord's minions
+        const picks = this.takeCorpses(zone, instanceId, aimX, aimY, skill.r, skill.n);
+        const risen = picks.length ? picks : [{ x: aimX, y: aimY, type: 'skeleton', hue: 0, scale: 1, thrall: true }];
+        emit({ x: aimX, y: aimY, radius: skill.r, points: risen.map(c => ({ x: c.x, y: c.y })), thrall: !picks.length }, true);
+        say(aimX, aimY, picks.length ? `☠️ RISE! x${picks.length}` : '☠️ GRAVE THRALL', '#4ade80', 16);
+        if (!isShadow) for (const c of risen) this.raiseMinion(player, c, skill);
+        for (const c of risen) within(c.x, c.y, 1.3).forEach(m => hit(m, 1, c.x, c.y));
         break;
       }
       case 'invoke': {
@@ -3945,6 +4284,7 @@ class GameServer {
         spot = { x: aimX, y: aimY };
         emit({ x: aimX, y: aimY, startX: px, startY: py, radius: skill.r }, true);
         within(aimX, aimY, skill.r).forEach(m => hit(m, 1, aimX, aimY));
+        if (skill.rod) plantRod(aimX, aimY);
         break;
       }
       case 'pull': {
@@ -4208,6 +4548,8 @@ class GameServer {
       }
     }
 
+    // Dragoon: every Lightning Rod answers the cast with a bolt
+    if (skill.rodArc) rodArcs(skill.rodArc);
     // Lingering ground: burning crater / fire trail / gravity well, ticking on its own
     if (skill.field && spot) {
       const F = skill.field;
@@ -4359,11 +4701,16 @@ class GameServer {
     if (!recall && (player.skillCooldowns[slot] > 0 || (player.skillCooldowns[rawSlot] > 0))) return;
 
     const socket0 = this.io.sockets.sockets.get(socketId);
-    const skillId = slot === 'weapon' ? 'weapon'
+    const skillId = slot === 'weapon' ? 'weapon' : slot === 'ult' ? 'ult'
       : player.equippedSkills[slot] || (DEFAULT_EQUIPPED_SKILLS[player.characterClass] && DEFAULT_EQUIPPED_SKILLS[player.characterClass][slot]) || 'whirlwind';
     const skill = this.resolvePlayerSkill(player, slot, skillId);
     if (!skill) {
-      if (socket0) socket0.emit('floating_text', { x: player.x, y: player.y - 0.7, text: 'This weapon has no ability', color: '#94a3b8' });
+      if (socket0) socket0.emit('floating_text', { x: player.x, y: player.y - 0.7, text: slot === 'ult' ? 'Transform with an SP card to use its Signature' : 'This weapon has no ability', color: '#94a3b8' });
+      return;
+    }
+    // Signature: needs a full charge instead of mana
+    if (slot === 'ult' && (player.ultCharge || 0) < ULT_CHARGE_MAX) {
+      if (socket0) socket0.emit('floating_text', { x: player.x, y: player.y - 0.7, text: `✦ Signature charging ... ${Math.floor(player.ultCharge || 0)}%`, color: '#94a3b8' });
       return;
     }
     const runeId = (player.equippedSkills.runes && player.equippedSkills.runes[slot]) || 'none';
@@ -4391,7 +4738,7 @@ class GameServer {
 
     let mpCost = Math.round(skill.mpCost * (player.manaCostMult || 1));
     if (playerTalents.mana_flow) {
-      mpCost = Math.max(2, Math.round(mpCost * (1 - playerTalents.mana_flow * 0.15)));
+      mpCost = Math.max(2, Math.round(mpCost * (1 - playerTalents.mana_flow * 0.30)));
     }
 
     if (skill.cardId === 'sp_reaver' && player.overheatUntil > Date.now()) mpCost = 0;
@@ -4414,6 +4761,8 @@ class GameServer {
       // (the 0.4s floor never lengthens a cooldown that is already shorter, e.g. Rift Step's 0.1s)
       cooldown = Math.max(Math.min(0.4, cooldown), Number((cooldown * Math.pow(0.8, runeCounts.tempest)).toFixed(2)));
     }
+    // Cooldown reduction from gear and attributes
+    if (player.cdr > 0) cooldown = Number((cooldown * (1 - player.cdr)).toFixed(2));
     // Stormcaller 2-piece: shorter cooldowns
     if (player.set2 && player.set2.stormcaller) cooldown = Number((cooldown * (1 - player.set2.stormcaller.cdr)).toFixed(2));
     // Exhausting dungeon modifier: longer cooldowns for the whole run
@@ -4422,9 +4771,9 @@ class GameServer {
       if (dInst && dInst.mods && dInst.mods.includes('exhausting')) cooldown = Number((cooldown * 1.25).toFixed(2));
     }
     if (slot === 'dash') {
-      if (playerTalents.sundering_dash) cooldown = Math.max(0.4, cooldown - playerTalents.sundering_dash * 0.2);
-      if (playerTalents.arcane_haste) cooldown = Math.max(0.4, cooldown - playerTalents.arcane_haste * 0.25);
-      if (playerTalents.shadow_sprint) cooldown = Math.max(0.4, cooldown - playerTalents.shadow_sprint * 0.2);
+      if (playerTalents.sundering_dash) cooldown = Math.max(0.4, cooldown - playerTalents.sundering_dash * 0.4);
+      if (playerTalents.arcane_haste) cooldown = Math.max(0.4, cooldown - playerTalents.arcane_haste * 0.5);
+      if (playerTalents.shadow_sprint) cooldown = Math.max(0.4, cooldown - playerTalents.shadow_sprint * 0.4);
     }
 
     if (!recall) {
@@ -4432,6 +4781,11 @@ class GameServer {
       player.skillCooldowns[slot] = cooldown;
       player.skillCooldowns[rawSlot] = cooldown;
       if (slot === 'slot1') player.skillCooldown = cooldown;
+      if (slot === 'ult') {
+        player.ultCharge = 0;
+        player.ultLockUntil = Date.now() + ULT_LOCK_SECONDS * 1000;
+        this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 1.6, text: `✦ ${skill.name.toUpperCase()} ✦`, color: skill.color || '#facc15', size: 26 });
+      }
       this.applySetOnSkillCast(player, skill.cooldown);
       if (socket) socket.emit('player_updated', player);
     }
@@ -4509,6 +4863,20 @@ class GameServer {
     switch (skill.spShape ? 'sp_skill' : skill.id) {
       case 'sp_skill': {
         const spCtx = { slot, cooldown, runeId, skillData, mobsMap, applySkillDamage, computeDashVector, recall };
+        if (skill.ultStages) {
+          // Signature: every stage after the first lands on its delay, from
+          // wherever the hero is by then (the first may have moved them)
+          const zone0 = player.zone, inst0 = player.dungeonInstanceId || null;
+          skill.ultStages.forEach((stage, i) => {
+            const run = () => {
+              if (player.isDead || player.zone !== zone0 || (player.dungeonInstanceId || null) !== inst0) return;
+              this.castSpSkill(player, stage, i === 0 ? spCtx : Object.assign({}, spCtx, { quiet: true }));
+            };
+            if (i === 0 || !(stage.delay > 0)) run(); else setTimeout(run, stage.delay * 1000);
+          });
+          if (socket) socket.emit('player_updated', player);
+          break;
+        }
         this.castSpSkill(player, skill, spCtx);
         // Nightblade's tossed shadow casts the same skill from where it stands
         const shadow = player.nbShadow;
@@ -4522,8 +4890,8 @@ class GameServer {
 
       // === WARRIOR SKILLS ===
       case 'whirlwind': {
-        const wwRadius = skill.radius + (playerTalents.cyclone_cleave ? playerTalents.cyclone_cleave * 0.6 : 0);
-        const wwDmgMult = skill.dmgMult + (playerTalents.cyclone_cleave ? playerTalents.cyclone_cleave * 0.25 : 0);
+        const wwRadius = skill.radius + (playerTalents.cyclone_cleave ? playerTalents.cyclone_cleave * 1.2 : 0);
+        const wwDmgMult = skill.dmgMult + (playerTalents.cyclone_cleave ? playerTalents.cyclone_cleave * 0.5 : 0);
         this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'whirlwind', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: wwRadius, playerId: player.id });
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
@@ -4535,8 +4903,8 @@ class GameServer {
       }
 
       case 'earthshaker': {
-        const slamDmgMult = skill.dmgMult + (playerTalents.seismic_shatter ? playerTalents.seismic_shatter * 0.30 : 0);
-        const slowDur = (skill.slowDuration || 2.5) + (playerTalents.seismic_shatter ? playerTalents.seismic_shatter * 1.5 : 0);
+        const slamDmgMult = skill.dmgMult + (playerTalents.seismic_shatter ? playerTalents.seismic_shatter * 0.60 : 0);
+        const slowDur = (skill.slowDuration || 2.5) + (playerTalents.seismic_shatter ? playerTalents.seismic_shatter * 3 : 0);
         this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'earthshaker', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
@@ -4563,7 +4931,7 @@ class GameServer {
         player.x = newX; player.y = newY;
         player.targetX = null; player.targetY = null;
         player.facing = this.calculateFacing(startX, startY, newX, newY);
-        const chargeDmgMult = skill.dmgMult + (playerTalents.sundering_dash ? playerTalents.sundering_dash * 0.25 : 0);
+        const chargeDmgMult = skill.dmgMult + (playerTalents.sundering_dash ? playerTalents.sundering_dash * 0.5 : 0);
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
           const dist = this.distToSegment(mob.x, mob.y, startX, startY, newX, newY);
@@ -4726,23 +5094,23 @@ class GameServer {
       case 'firestorm': {
         const tx = skillData.targetX !== undefined ? skillData.targetX : player.x;
         const ty = skillData.targetY !== undefined ? skillData.targetY : player.y;
-        const meteorRadius = skill.radius + (playerTalents.infernal_cataclysm ? playerTalents.infernal_cataclysm * 1.0 : 0);
-        const meteorDmgMult = skill.dmgMult + (playerTalents.infernal_cataclysm ? playerTalents.infernal_cataclysm * 0.30 : 0);
+        const meteorRadius = skill.radius + (playerTalents.infernal_cataclysm ? playerTalents.infernal_cataclysm * 2.0 : 0);
+        const meteorDmgMult = skill.dmgMult + (playerTalents.infernal_cataclysm ? playerTalents.infernal_cataclysm * 0.60 : 0);
         this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'firestorm', skillSlot: slot, cooldown, x: tx, y: ty, radius: meteorRadius, playerId: player.id });
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
           if (Math.hypot(mob.x - tx, mob.y - ty) <= meteorRadius) {
             applySkillDamage(mob, Math.round(player.dmg * meteorDmgMult), true);
             mob.burnTimer = skill.burnDuration || 3.0;
-            mob.burnDmg = (skill.burnDmg || 12) + (playerTalents.infernal_cataclysm ? playerTalents.infernal_cataclysm * 5 : 0);
+            mob.burnDmg = (skill.burnDmg || 12) + (playerTalents.infernal_cataclysm ? playerTalents.infernal_cataclysm * 10 : 0);
           }
         }
         break;
       }
 
       case 'frost_nova': {
-        const novaDmgMult = skill.dmgMult + (playerTalents.glacial_tomb ? playerTalents.glacial_tomb * 0.25 : 0);
-        const chillDur = (skill.chillDuration || 3.5) + (playerTalents.glacial_tomb ? playerTalents.glacial_tomb * 1.5 : 0);
+        const novaDmgMult = skill.dmgMult + (playerTalents.glacial_tomb ? playerTalents.glacial_tomb * 0.5 : 0);
+        const chillDur = (skill.chillDuration || 3.5) + (playerTalents.glacial_tomb ? playerTalents.glacial_tomb * 3 : 0);
         this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'frost_nova', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
@@ -4758,7 +5126,7 @@ class GameServer {
         const { normX, normY } = computeDashVector();
         const startX = player.x, startY = player.y;
         let dashDist = skill.distance || 5.2;
-        if (playerTalents.arcane_haste) dashDist += playerTalents.arcane_haste * 1.5;
+        if (playerTalents.arcane_haste) dashDist += playerTalents.arcane_haste * 3;
         let newX = startX, newY = startY;
         const steps = Math.floor(dashDist / 0.25);
         for (let s = steps; s >= 1; s--) {
@@ -4952,7 +5320,7 @@ class GameServer {
 
       // === ROGUE SKILLS ===
       case 'fan_of_knives': {
-        const knifeDmgMult = skill.dmgMult + (playerTalents.venomous_knives ? playerTalents.venomous_knives * 0.30 : 0);
+        const knifeDmgMult = skill.dmgMult + (playerTalents.venomous_knives ? playerTalents.venomous_knives * 0.60 : 0);
         this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'fan_of_knives', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
@@ -4960,7 +5328,7 @@ class GameServer {
             applySkillDamage(mob, Math.round(player.dmg * knifeDmgMult), true);
             if (playerTalents.venomous_knives) {
               mob.poisonTimer = 4.0;
-              mob.poisonDmg = 8 * playerTalents.venomous_knives;
+              mob.poisonDmg = 16 * playerTalents.venomous_knives;
             }
           }
         }
@@ -4970,8 +5338,8 @@ class GameServer {
       case 'toxic_bomb': {
         const tx = skillData.targetX !== undefined ? skillData.targetX : player.x;
         const ty = skillData.targetY !== undefined ? skillData.targetY : player.y;
-        const smokeRad = skill.radius + (playerTalents.noxious_cloud ? playerTalents.noxious_cloud * 0.8 : 0);
-        const smokeDmg = (skill.poisonDmg || 9) + (playerTalents.noxious_cloud ? playerTalents.noxious_cloud * 4 : 0);
+        const smokeRad = skill.radius + (playerTalents.noxious_cloud ? playerTalents.noxious_cloud * 1.6 : 0);
+        const smokeDmg = (skill.poisonDmg || 9) + (playerTalents.noxious_cloud ? playerTalents.noxious_cloud * 8 : 0);
         this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'toxic_bomb', skillSlot: slot, cooldown, x: tx, y: ty, radius: smokeRad, playerId: player.id });
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
@@ -4999,7 +5367,7 @@ class GameServer {
         player.x = newX; player.y = newY;
         player.targetX = null; player.targetY = null;
         player.facing = this.calculateFacing(startX, startY, newX, newY);
-        player.sprintTimer = (skill.sprintDuration || 2.0) + (playerTalents.shadow_sprint ? playerTalents.shadow_sprint * 1.0 : 0);
+        player.sprintTimer = (skill.sprintDuration || 2.0) + (playerTalents.shadow_sprint ? playerTalents.shadow_sprint * 2.0 : 0);
         for (const mob of mobsMap.values()) {
           if (mob.state === 'dead') continue;
           const dist = this.distToSegment(mob.x, mob.y, startX, startY, newX, newY);
@@ -5217,6 +5585,12 @@ class GameServer {
 
   }
 
+  // Multiplier on natural HP regen: Wayfarer 2-piece and Renewal runes
+  hpRegenMult(player) {
+    return ((player.set2 && player.set2.wayfarer && player.set2.wayfarer.regenMult) || 1)
+      * (1 + 0.35 * ((player.armorRunes && player.armorRunes.renewal) || 0));
+  }
+
   recalculatePlayerStats(player) {
     if (!player || !player.baseStats) return;
 
@@ -5285,13 +5659,34 @@ class GameServer {
     }
     player.armorRunes = armorRunes;
 
-    // Talent tree passive bonuses
+    // Item attributes (Jerry) plus HP / MP regen and cooldown reduction written on gear
+    const attrs = ATTR.sumAttrs(player.equipment);
+    let hpRegenFlat = attrs.hpRegen, mpRegenFlat = attrs.mpRegen, cdrPct = attrs.cdr;
+    for (const eq of Object.values(player.equipment || {}) as any[]) {
+      if (!eq) continue;
+      hpRegenFlat += eq.hpRegen || 0;
+      mpRegenFlat += eq.mpRegen || 0;
+      cdrPct += eq.cdr || 0;
+    }
+    totalBonusDmg += attrs.dmg;
+    totalBonusDef += attrs.def;
+    totalBonusHp += attrs.hp;
+    totalBonusMp += attrs.mp;
+    totalCritChanceBonus += attrs.critChance / 100;
+    totalCritDmgBonus += attrs.critDmg / 100;
+    totalBonusAttackSpeed += attrs.atkSpeed / 100;
+    totalBonusSpeed += attrs.moveSpeed;
+
+    // Passive tree bonuses (every node has one rank)
     const procs = {};
+    let killHeal = 0, killMana = 0;
     if (player.skills) {
-      const tree = SKILL_TREES[player.characterClass] || [];
-      for (const talent of tree) {
-        const rank = player.skills[talent.id] || 0;
-        if (rank > 0 && talent.effects) {
+      for (const [id, owned] of Object.entries(player.skills)) {
+        const talent = PASSIVES.BY_ID.get(id);
+        const rank = Number(owned) || 0;
+        if (talent && rank > 0 && talent.effects) {
+          killHeal += (talent.effects.killHealPercent || 0) * rank;
+          killMana += (talent.effects.killManaPercent || 0) * rank;
           for (const stat of Object.keys(TALENT_PROCS.base)) {
             if (talent.effects[stat]) procs[stat] = (procs[stat] || 0) + talent.effects[stat] * rank;
           }
@@ -5374,6 +5769,7 @@ class GameServer {
     player.dodgeChance = Math.min(0.50, Number(totalDodgeChance.toFixed(3)));
     player.lifeSteal = Math.min(0.08, Number(totalLifeSteal.toFixed(3)));
     // Branch mechanics (burn, chill, echo, venom): the first rank unlocks the base strength
+    player.talentKill = { hp: Number(killHeal.toFixed(4)), mp: Number(killMana.toFixed(4)) };
     player.talentProcs = {};
     for (const [stat, v] of Object.entries(procs)) {
       player.talentProcs[stat] = Number((TALENT_PROCS.base[stat] + v).toFixed(4));
@@ -5386,6 +5782,13 @@ class GameServer {
 
     player.hp = Math.min(player.hp, player.maxHp);
     player.mp = Math.min(player.mp, player.maxMp);
+
+    // Regeneration per second (natural + gear) and cooldown reduction, read by the tick and skill casts
+    player.hpRegenFlat = Number(hpRegenFlat.toFixed(1));
+    player.mpRegenFlat = Number(mpRegenFlat.toFixed(1));
+    player.hpRegen = Number((player.maxHp * HP_REGEN_PCT * this.hpRegenMult(player) + player.hpRegenFlat).toFixed(1));
+    player.mpRegen = Number((player.maxMp * MANA_REGEN_PCT + MANA_REGEN_FLAT + player.mpRegenFlat).toFixed(1));
+    player.cdr = Number(Math.min(ATTR.MAX_CDR, cdrPct / 100).toFixed(3));
 
     // Mage Energy Shield: a passive barrier that soaks hits before HP and
     // recharges after a moment without taking damage (see tickEnergyShield)
@@ -5450,7 +5853,7 @@ class GameServer {
       });
     }
 
-    this.broadcastSystemMessage(`🛡️ [${player.name}] equipped [${item.name}]!`);
+    this.sendDirectMessage(player.id, `🛡️ [${player.name}] equipped [${item.name}]!`);
   }
 
   handleUnequipItem(socketId, slot) {
@@ -5462,7 +5865,7 @@ class GameServer {
     const item = player.equipment[slot];
 
     // Check bag capacity
-    const maxUnequipCap = player.inventory.maxSlots || 30;
+    const maxUnequipCap = player.inventory.maxSlots || DEFAULT_BAG_SLOTS;
     if (player.inventory.items.length >= maxUnequipCap) {
       const socket = this.io.sockets.sockets.get(socketId);
       if (socket) {
@@ -5509,7 +5912,7 @@ class GameServer {
         socket.emit('floating_text', {
           x: player.x,
           y: player.y - 0.6,
-          text: `⚠️ Need ${totalPrice} Gold! (Have ${player.gold})`,
+          text: `⚠️ Need ${totalPrice.toLocaleString('en-US')} Gold! (Have ${(player.gold || 0).toLocaleString('en-US')})`,
           color: '#ef4444'
         });
       }
@@ -5536,10 +5939,25 @@ class GameServer {
       socket.emit('floating_text', {
         x: player.x,
         y: player.y - 0.6,
-        text: `Bought ${itemDef.name} x${qty}! (-${totalPrice}g)`,
+        text: `Bought ${itemDef.name} x${qty}! (-${totalPrice.toLocaleString('en-US')}g)`,
         color: '#facc15'
       });
     }
+  }
+
+  // Favorite items: a flag on the item; favorites can never be sold (unfavorite first)
+  handleToggleFavorite(socketId, data) {
+    const player = this.players.get(socketId);
+    if (!player || !data) return;
+    const item = data.target === 'equipped'
+      ? player.equipment && player.equipment[data.slot]
+      : Number.isInteger(data.itemIndex) ? player.inventory.items[data.itemIndex] : null;
+    if (!item || item.type === 'gold') return;
+    if (item.favorite) delete item.favorite;
+    else item.favorite = true;
+    this.savePlayerAccount(socketId);
+    const socket = this.io.sockets.sockets.get(socketId);
+    if (socket) socket.emit('player_updated', player);
   }
 
   handleSellItem(socketId, itemIndex, quantity = 1) {
@@ -5549,6 +5967,11 @@ class GameServer {
     if (!Number.isInteger(itemIndex) || itemIndex < 0 || itemIndex >= player.inventory.items.length) return;
 
     const item = player.inventory.items[itemIndex];
+    if (item.favorite) {
+      const socket = this.io.sockets.sockets.get(socketId);
+      if (socket) socket.emit('floating_text', { x: player.x, y: player.y - 0.6, text: 'Favorite items can\'t be sold', color: '#ef4444' });
+      return;
+    }
     const stackCount = item.count || 1;
     const sellCount = Math.max(1, Math.min(stackCount, parseInt(String(quantity), 10) || 1));
     const sellPrice = (item.sellPrice || 10) * sellCount;
@@ -5567,7 +5990,7 @@ class GameServer {
       socket.emit('floating_text', {
         x: player.x,
         y: player.y - 0.6,
-        text: `+${sellPrice} Gold (Sold ${sellCount > 1 ? `${sellCount}x ` : ''}${item.name})`,
+        text: `+${sellPrice.toLocaleString('en-US')} Gold (Sold ${sellCount > 1 ? `${sellCount}x ` : ''}${item.name})`,
         color: '#facc15'
       });
     }
@@ -5584,8 +6007,9 @@ class GameServer {
     for (const e of entries.slice(0, items.length)) {
       if (!e || !Number.isInteger(e.itemIndex) || e.itemIndex < 0 || e.itemIndex >= items.length) continue;
       const item = items[e.itemIndex];
-      // Special Cards are protected and will never be sold via Sell All / bulk selling
+      // Special Cards and favorites are protected and will never be sold via Sell All / bulk selling
       if (item && (item.type === 'sp_card' || (item.id && item.id.startsWith('sp_card_')))) continue;
+      if (item && item.favorite) continue;
       qtyByIndex.set(e.itemIndex, e.quantity);
     }
     if (qtyByIndex.size === 0) return;
@@ -5610,7 +6034,7 @@ class GameServer {
       socket.emit('floating_text', {
         x: player.x,
         y: player.y - 0.6,
-        text: `+${total} Gold (Sold ${soldCount} item${soldCount > 1 ? 's' : ''})`,
+        text: `+${total.toLocaleString('en-US')} Gold (Sold ${soldCount} item${soldCount > 1 ? 's' : ''})`,
         color: '#facc15'
       });
     }
@@ -5646,7 +6070,7 @@ class GameServer {
         socket.emit('floating_text', {
           x: player.x,
           y: player.y - 0.7,
-          text: `⚠️ ต้องการ ${reforgeCost} Gold!`,
+          text: `⚠️ ต้องการ ${reforgeCost.toLocaleString('en-US')} Gold!`,
           color: '#ef4444'
         });
       }
@@ -5698,7 +6122,7 @@ class GameServer {
       playerId: player.id
     });
 
-    if (targetItem.rarity === 'legendary' || targetItem.rarity === 'epic') {
+    if (targetItem.rarity === 'legendary' || targetItem.rarity === 'epic' || targetItem.rarity === 'divine') {
       this.broadcastSystemMessage(`🌟 [${player.name}] reforged [${targetItem.name}] with [${rolledReforge}] at Brom's Anvil!`);
     }
   }
@@ -5769,6 +6193,72 @@ class GameServer {
       }
     }
     return counts;
+  }
+
+  // ---- Jerry the Attribute Smith (itemAttributes.ts) ----
+  // data: { action: 'socket' | 'roll' | 'reset', target: 'equipped' | 'inventory', slot?, itemIndex?, locks?: number[] }
+  handleAttributes(socketId: string, data: any) {
+    const player = this.players.get(socketId);
+    const socket = this.io.sockets.sockets.get(socketId);
+    if (!player || !socket || player.isDead || !data) return;
+    const reply = (ok: boolean, message: string, extra: any = {}) => socket.emit('attr_result', { ok, message, action: data.action, ...extra });
+    const jerry = player.zone === 'town' && this.townMap.obstacles.find((o: any) => o.id === 'npc_jerry');
+    if (!jerry || Math.hypot(jerry.x - player.x, jerry.y - player.y) > 4.5) return reply(false, 'Walk up to Jerry first');
+
+    let item: any = null;
+    const isEquipped = data.target === 'equipped';
+    if (isEquipped) item = player.equipment && player.equipment[data.slot];
+    else if (Number.isInteger(data.itemIndex)) item = player.inventory.items[data.itemIndex];
+    if (!ATTR.canHoldAttributes(item)) return reply(false, 'Pick a piece of gear');
+    ATTR.ensureAttrs(item);
+    const cap = ATTR.attrSlotCap(item);
+    if (cap <= 0) return reply(false, 'Common gear has no attribute slots');
+
+    const stackOf = (id: string) => player.inventory.items.find((i: any) => i && i.id === id);
+    const have = (id: string) => { const st = stackOf(id); return st ? (st.count || 1) : 0; };
+    const spend = (id: string, n: number) => {
+      const st = stackOf(id);
+      if ((st.count || 1) > n) st.count -= n;
+      else player.inventory.items.splice(player.inventory.items.indexOf(st), 1);
+    };
+    // locked slots: only filled ones count
+    const locks = new Set<number>((Array.isArray(data.locks) ? data.locks : [])
+      .map(Number).filter((i: number) => Number.isInteger(i) && i >= 0 && i < item.attrSlots && item.attrs[i]));
+
+    let changed: number[] = [];
+    let message = '';
+    if (data.action === 'socket') {
+      if (item.attrSlots >= cap) return reply(false, `All ${cap} slots are open already`);
+      if (have('attr_socketer') < 1) return reply(false, 'You need an Attribute Socketer');
+      spend('attr_socketer', 1);
+      item.attrSlots += 1;
+      item.attrs.push(null);
+      changed = [item.attrSlots - 1];
+      message = `Slot ${item.attrSlots} opened`;
+    } else if (data.action === 'roll') {
+      if (item.attrSlots <= 0) return reply(false, 'No open slots: open one with a Socketer first');
+      if (locks.size >= item.attrSlots) return reply(false, 'Unlock at least one slot to roll');
+      const cost = Math.max(1, locks.size);
+      if (have('attr_roller') < cost) return reply(false, `This roll needs ${cost} Attribute Roller${cost > 1 ? 's' : ''}`);
+      spend('attr_roller', cost);
+      changed = ATTR.rerollAttrs(item, locks);
+      message = 'Attributes rolled';
+    } else if (data.action === 'reset') {
+      const open = item.attrs.filter((a: any, i: number) => a && !locks.has(i)).length;
+      if (!open) return reply(false, 'No unlocked attributes to reset');
+      if (have('attr_reseter') < 1) return reply(false, 'You need an Attribute Reseter');
+      spend('attr_reseter', 1);
+      changed = ATTR.rerollAttrValues(item, locks);
+      message = 'Values rolled again';
+    } else {
+      return;
+    }
+
+    if (isEquipped) this.recalculatePlayerStats(player);
+    this.savePlayerAccount(socketId);
+    // (a material stack that ran out shifts the bag: send the item's index as it is now)
+    reply(true, message, { changed, target: data.target, slot: data.slot, itemIndex: isEquipped ? undefined : player.inventory.items.indexOf(item) });
+    socket.emit('player_updated', player);
   }
 
   handleSocketRune(socketId: string, data: any) {
@@ -5888,7 +6378,7 @@ class GameServer {
     if (!runeDef) return;
 
     // Check inventory capacity
-    const maxUnsocketCap = player.inventory.maxSlots || 30;
+    const maxUnsocketCap = player.inventory.maxSlots || DEFAULT_BAG_SLOTS;
     if (player.inventory.items.length >= maxUnsocketCap && !player.inventory.items.some((i: any) => i.id === runeDef.id)) {
       socket.emit('socket_result', { ok: false, message: 'Inventory is full!' });
       return;
@@ -6076,10 +6566,10 @@ class GameServer {
       return;
     }
 
-    const curSlots = player.inventory.maxSlots || 30;
-    const MAX_BAG_CAPACITY = 120;
+    const curSlots = player.inventory.maxSlots || DEFAULT_BAG_SLOTS;
+    const MAX_BAG_CAPACITY = MAX_BAG_SLOTS;
     if (curSlots >= MAX_BAG_CAPACITY) {
-      socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: 'Backpack is already at maximum capacity (120 slots)!', color: '#ef4444' });
+      socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: `Backpack is already at maximum capacity (${MAX_BAG_SLOTS} slots)!`, color: '#ef4444' });
       return;
     }
 
@@ -6259,7 +6749,7 @@ class GameServer {
 
     player.storage = player.storage || { maxSlots: 50, items: [] };
     if (!Array.isArray(player.storage.items)) player.storage.items = [];
-    const maxBag = player.inventory.maxSlots || 30;
+    const maxBag = player.inventory.maxSlots || DEFAULT_BAG_SLOTS;
 
     const itemIndex = Number(data.itemIndex);
     if (!Number.isInteger(itemIndex) || itemIndex < 0 || itemIndex >= player.storage.items.length) {
@@ -6508,6 +6998,13 @@ class GameServer {
     if (!potion) return;
 
     const socket = this.io.sockets.sockets.get(socketId);
+    const now = Date.now();
+    if (!player.potionCdUntil) player.potionCdUntil = { health: 0, mana: 0 };
+    const cdLeft = (player.potionCdUntil[potion.kind] || 0) - now;
+    if (cdLeft > 0) {
+      if (socket) socket.emit('potion_cooldown', { kind: potion.kind, remainingMs: cdLeft, totalMs: POTION_COOLDOWN_MS[potion.kind] });
+      return;
+    }
     if (this.getPotionCount(player, itemId) <= 0) {
       if (socket) socket.emit('floating_text', { x: player.x, y: player.y - 0.6, text: `⚠️ Out of ${ITEMS[itemId].name}!`, color: '#ef4444' });
       return;
@@ -6530,6 +7027,10 @@ class GameServer {
       this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.5, text: `+${manaAmount} MP`, color: '#38bdf8' });
       this.emitZone(player.zone, 'heal_fx', { targetId: player.id, type: 'mana' });
     }
+    // Both sizes of a kind share one cooldown
+    const cdMs = POTION_COOLDOWN_MS[potion.kind];
+    player.potionCdUntil[potion.kind] = now + cdMs;
+    if (socket) socket.emit('potion_cooldown', { kind: potion.kind, remainingMs: cdMs, totalMs: cdMs });
     if (socket) socket.emit('player_updated', player);
   }
 
@@ -6580,7 +7081,7 @@ class GameServer {
     };
     if (entry.type === 'gold') {
       player.gold += entry.amount;
-      text(`+${entry.amount} Gold`, '#facc15');
+      text(`+${entry.amount.toLocaleString('en-US')} Gold`, '#facc15');
     } else if (entry.itemId === 'health_potion') {
       player.inventory.healthPotions += (entry.amount || 1);
       text(`+${entry.amount || 1} Health Potion`, '#f87171');
@@ -6596,7 +7097,7 @@ class GameServer {
         if (existing && def.type !== 'equipment') {
           existing.count = (existing.count || 1) + n;
         } else {
-          const maxLootCap = player.inventory.maxSlots || 30;
+          const maxLootCap = player.inventory.maxSlots || DEFAULT_BAG_SLOTS;
           if (player.inventory.items.length >= maxLootCap) {
             text('⚠️ Inventory full!', '#ef4444');
             return;
@@ -6609,7 +7110,7 @@ class GameServer {
   }
 
   lootEntryName(entry) {
-    if (entry.type === 'gold') return `${entry.amount} Gold`;
+    if (entry.type === 'gold') return `${entry.amount.toLocaleString('en-US')} Gold`;
     const def = entry.customItemData || ITEMS[entry.itemId];
     const name = def ? def.name : entry.itemId;
     return (entry.amount || 1) > 1 ? `${name} x${entry.amount}` : name;
@@ -6618,7 +7119,7 @@ class GameServer {
   lootEntryToItem(entry) {
     if (!entry) return null;
     if (entry.type === 'gold') {
-      return { id: 'gold', name: `${entry.amount} Gold`, count: entry.amount, type: 'gold', rarity: 'common' };
+      return { id: 'gold', name: `${entry.amount.toLocaleString('en-US')} Gold`, count: entry.amount, type: 'gold', rarity: 'common' };
     }
     if (entry.itemId === 'health_potion') {
       return { id: 'health_potion', name: 'Health Potion', count: entry.amount || 1, type: 'consumable', rarity: 'common', desc: 'Restores 60 Health instantly.' };
@@ -6674,8 +7175,8 @@ class GameServer {
     const securedItems = [];
     if (run.gold > 0) {
       this.giveLootToPlayer(player, { type: 'gold', amount: run.gold }, false);
-      secured.push(`${run.gold} Gold`);
-      securedItems.push({ id: 'gold', name: `${run.gold} Gold`, count: run.gold, type: 'gold', rarity: 'common' });
+      secured.push(`${run.gold.toLocaleString('en-US')} Gold`);
+      securedItems.push({ id: 'gold', name: `${run.gold.toLocaleString('en-US')} Gold`, count: run.gold, type: 'gold', rarity: 'common' });
     }
     run.items.forEach(it => {
       this.giveLootToPlayer(player, it, false);
@@ -6735,13 +7236,13 @@ class GameServer {
     const keptGold = Math.floor(run.gold * FAILED_RUN_LOOT_KEEP);
     if (keptGold > 0) {
       this.giveLootToPlayer(player, { type: 'gold', amount: keptGold }, false);
-      kept.push(`${keptGold} Gold`);
-      keptItems.push({ id: 'gold', name: `${keptGold} Gold`, count: keptGold, type: 'gold', rarity: 'common' });
+      kept.push(`${keptGold.toLocaleString('en-US')} Gold`);
+      keptItems.push({ id: 'gold', name: `${keptGold.toLocaleString('en-US')} Gold`, count: keptGold, type: 'gold', rarity: 'common' });
     }
     if (run.gold - keptGold > 0) {
       const lostGold = run.gold - keptGold;
-      lost.push(`${lostGold} Gold`);
-      lostItems.push({ id: 'gold', name: `${lostGold} Gold`, count: lostGold, type: 'gold', rarity: 'common' });
+      lost.push(`${lostGold.toLocaleString('en-US')} Gold`);
+      lostItems.push({ id: 'gold', name: `${lostGold.toLocaleString('en-US')} Gold`, count: lostGold, type: 'gold', rarity: 'common' });
     }
 
     const shuffled = [...run.items].sort(() => Math.random() - 0.5);
@@ -6910,6 +7411,8 @@ class GameServer {
     }
     // Armor sets: Emberheart (vs burning), Eclipse Dusk
     if (player && (player.set2 || player.set4)) rawDamage = Math.round(rawDamage * this.setDamageMult(player, mob));
+    // SP card passive: bonus vs statuses, executes, openers, fighting wounded
+    if (player && player.spTransformed) rawDamage = Math.round(rawDamage * this.passiveDamageMult(player, mob));
 
     // Level Gap Mitigation & Deflection
     let isGlancing = false;
@@ -7059,10 +7562,12 @@ class GameServer {
 
     if (player && player.set4 && !isDeflected) this.applySetOnHit(player, mob, damage);
 
+    if (player && player.spTransformed && !isEcho && !isDeflected && damage > 0) this.gainUltCharge(player, ULT_GAIN_HIT);
     if (mob.hp <= 0) {
       this.handleMobDeath(mob, player);
     } else if (player && !isDeflected && !isEcho) {
       this.applyTalentProcs(player, mob, baseDamage, damage);
+      if (player.spTransformed) this.passiveOnHit(player, mob, damage);
     }
   }
 
@@ -7092,7 +7597,135 @@ class GameServer {
     }
   }
 
+  // ---- Gravelord: corpses and undead minions ----
+  corpseKey(zone, instId) { return zone === 'dungeon' ? 'dungeon:' + (instId || '') : zone; }
+  addCorpse(mob, zone, instId) {
+    if (!this.corpses) this.corpses = new Map();
+    const key = this.corpseKey(zone, instId);
+    const now = Date.now();
+    const list = (this.corpses.get(key) || []).filter(c => now - c.at < GRAVE_CORPSE_MS);
+    list.push({ x: mob.x, y: mob.y, type: mob.type, hue: mob.hue || 0, scale: mob.scale || 1, name: mob.name, at: now });
+    while (list.length > GRAVE_CORPSE_MAX) list.shift();
+    this.corpses.set(key, list);
+  }
+  // corpses within r of (x, y), nearest first (up to n), taken off the ground
+  takeCorpses(zone, instId, x, y, r, n) {
+    if (!this.corpses) return [];
+    const key = this.corpseKey(zone, instId);
+    const now = Date.now();
+    const list = (this.corpses.get(key) || []).filter(c => now - c.at < GRAVE_CORPSE_MS);
+    const picks = list.filter(c => Math.hypot(c.x - x, c.y - y) <= r)
+      .sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y)).slice(0, n);
+    this.corpses.set(key, list.filter(c => !picks.includes(c)));
+    return picks;
+  }
+  raiseMinion(player, corpse, skill) {
+    const now = Date.now();
+    const lvl = skill.dmg ? (skill.dmgMult || skill.dmg) / skill.dmg : 1;
+    player.minions = (player.minions || []).filter(m => m.until > now);
+    while (player.minions.length >= MINION_MAX) this.crumbleMinion(player, player.minions.shift());
+    player.minions.push({
+      id: 'minion_' + (++minionSeq), type: corpse.type, hue: corpse.hue || 0, scale: Math.min(1.15, (corpse.scale || 1) * 0.95),
+      name: corpse.thrall ? 'Grave Thrall' : `Risen ${corpse.name || 'Dead'}`,
+      x: corpse.x, y: corpse.y, facing: 'S', born: now, until: now + skill.dur * 1000, dur: skill.dur * 1000,
+      mult: skill.minion * lvl, nextAtk: now + 500, atkAt: 0, targetId: null,
+      zone: player.zone, instanceId: player.dungeonInstanceId || null
+    });
+  }
+  crumbleMinion(player, m) {
+    if (!m) return;
+    this.emitZone(m.zone, 'skill_fx', { type: 'sp_skill', shape: 'crumble', element: 'earth', color: '#4ade80', cardId: 'sp_gravelord', skillId: 'sp_gravelord_raise', x: m.x, y: m.y, duration: 0.7 }, m.instanceId);
+  }
+  dismissMinions(player) {
+    for (const m of player.minions || []) this.crumbleMinion(player, m);
+    player.minions = [];
+  }
+  // each tick: walk to the nearest enemy and strike it, or follow the lord
+  tickMinions(player, dt) {
+    const now = Date.now();
+    const zone = player.zone, inst = player.dungeonInstanceId || null;
+    const keep = [];
+    for (const m of player.minions) {
+      if (now >= m.until || m.zone !== zone || m.instanceId !== inst) this.crumbleMinion(player, m);
+      else keep.push(m);
+    }
+    player.minions = keep;
+    if (!keep.length) return;
+    const mobs = ([...this.getMobsMap(zone).values()] as any[]).filter(o => o.state !== 'dead' && o.hp > 0 && !o.isDummy);
+    const rage = player.minionRage && player.minionRage.until > now ? player.minionRage : null;
+    const step = (m, tx, ty, speed) => {
+      const d = Math.hypot(tx - m.x, ty - m.y);
+      if (d < 0.05) return;
+      const k = Math.min(1, (speed * dt) / d);
+      const nx = m.x + (tx - m.x) * k, ny = m.y + (ty - m.y) * k;
+      if (!this.isColliding(nx, ny, zone)) { m.x = nx; m.y = ny; }
+      else if (!this.isColliding(nx, m.y, zone)) m.x = nx;
+      else if (!this.isColliding(m.x, ny, zone)) m.y = ny;
+      m.facing = this.calculateFacing(m.x, m.y, tx, ty);
+    };
+    keep.forEach((m, i) => {
+      let tgt = m.targetId ? mobs.find(o => o.id === m.targetId) : null;
+      if (tgt && (Math.hypot(tgt.x - player.x, tgt.y - player.y) > MINION_LEASH)) tgt = null;
+      if (!tgt) {
+        let best = null, bestD = MINION_AGGRO;
+        for (const o of mobs) {
+          if (Math.hypot(o.x - player.x, o.y - player.y) > MINION_LEASH) continue;
+          const d = Math.hypot(o.x - m.x, o.y - m.y);
+          if (d < bestD) { best = o; bestD = d; }
+        }
+        tgt = best;
+        m.targetId = tgt ? tgt.id : null;
+      }
+      if (tgt) {
+        const d = Math.hypot(tgt.x - m.x, tgt.y - m.y);
+        if (d > MINION_REACH) step(m, tgt.x, tgt.y, MINION_SPEED * (rage ? 1.25 : 1));
+        else {
+          m.facing = this.calculateFacing(m.x, m.y, tgt.x, tgt.y);
+          if (now >= m.nextAtk) {
+            // Grave Frenzy: harder, faster, and now and then a crit
+            m.nextAtk = now + (MINION_ATTACK_EVERY / (rage ? 1 + rage.aspd : 1)) * 1000;
+            m.atkAt = now;
+            let dmg = player.dmg * m.mult * (rage ? 1 + rage.dmg : 1);
+            const crit = !!rage && Math.random() < rage.crit;
+            if (crit) dmg *= rage.critMult;
+            this.applyDamageToMob(player, tgt, Math.max(1, Math.round(dmg)), crit, true);
+          }
+        }
+      } else {
+        // no prey: fall in behind the lord, spread round him
+        const a = (i / keep.length) * Math.PI * 2 + 0.6;
+        const fx = player.x + Math.cos(a) * 1.6, fy = player.y + Math.sin(a) * 1.6;
+        if (Math.hypot(fx - m.x, fy - m.y) > 0.6) step(m, fx, fy, MINION_SPEED * (Math.hypot(player.x - m.x, player.y - m.y) > 5 ? 1.6 : 1));
+      }
+    });
+  }
+
+  // Dungeon progress toward the boss portal: a weighted kill count (dungeonProgressWeight)
+  countDungeonProgress(mob, instId, killerPlayer) {
+    const inst = instId ? this.dungeonInstances.get(instId) : null;
+    if (!inst || inst.cleared || mob.progressCounted || mob.isBoss || mob.roomIdx === undefined || mob.roomIdx === inst.bossRoomIdx) return;
+    mob.progressCounted = true;
+    inst.killedTrashCount = (inst.killedTrashCount || 0) + dungeonProgressWeight(mob);
+    const req = Math.max(1, inst.requiredKills || 1);
+    inst.killPercent = Math.min(100, Math.floor((inst.killedTrashCount / req) * 100));
+
+    if (inst.killPercent >= 100 && !inst.bossPortalReady) {
+      inst.bossPortalReady = true;
+      this.emitZone('dungeon', 'floating_text', {
+        x: killerPlayer ? killerPlayer.x : mob.x,
+        y: (killerPlayer ? killerPlayer.y : mob.y) - 1.2,
+        text: '🌀 BOSS PORTAL READY (100%)!',
+        color: '#c084fc',
+        size: 24
+      }, instId);
+    }
+    for (const p of this.players.values()) {
+      if (p.zone === 'dungeon' && p.dungeonInstanceId === instId) this.emitDungeonRunUpdate(p);
+    }
+  }
+
   handleMobDeath(mob, killerPlayer) {
+    if (killerPlayer && killerPlayer.spTransformed) this.passiveOnKill(killerPlayer, mob);
     // Field raid bosses are paid out by participation rank, not ground loot:
     // give everyone their bounty, broadcast the kill, and let the schedule reset.
     if (mob.isRaidBoss) {
@@ -7108,6 +7741,11 @@ class GameServer {
     const isBoss = !!mob.isBoss;
     const isMiniboss = !!mob.isMiniboss;
     const instId = (killerPlayer && killerPlayer.zone === 'dungeon' ? killerPlayer.dungeonInstanceId : null) || (mob && (mob as any).dungeonInstanceId) || (this as any).ctxInstanceId || null;
+    if (mob.mechanics) this.bossMech.onDeath(mob, mob.fieldZone || (instId ? 'dungeon' : zone), instId);
+    // every monster of the run counts toward the boss portal, whatever killed it (burns, poison, blasts...)
+    this.countDungeonProgress(mob, instId, killerPlayer);
+    // its body lies where it fell for a while: the Gravelord can raise it
+    if (!isBoss) this.addCorpse(mob, zone, instId);
     // Item drops fade out when the killer is far above the monster's level
     // (gold still drops); `lucky` scales every item roll below
     const lootMult = killerPlayer ? lootGapMult(killerPlayer.level, mob.level) : 1;
@@ -7146,30 +7784,6 @@ class GameServer {
       killerPlayer.inventory.kills++;
       if (killerPlayer.dungeonRun) killerPlayer.dungeonRun.kills = (killerPlayer.dungeonRun.kills || 0) + 1;
 
-      // Dungeon Monster Kill % Progress
-      const dungeonInst = instId ? this.dungeonInstances.get(instId) : null;
-      if (dungeonInst && !dungeonInst.cleared && mob.roomIdx !== undefined && mob.roomIdx !== dungeonInst.bossRoomIdx && !mob.isBoss) {
-        dungeonInst.killedTrashCount = (dungeonInst.killedTrashCount || 0) + 1;
-        const req = Math.max(1, dungeonInst.requiredKills || 1);
-        dungeonInst.killPercent = Math.min(100, Math.floor((dungeonInst.killedTrashCount / req) * 100));
-
-        if (dungeonInst.killPercent >= 100 && !dungeonInst.bossPortalReady) {
-          dungeonInst.bossPortalReady = true;
-          this.emitZone('dungeon', 'floating_text', {
-            x: killerPlayer ? killerPlayer.x : mob.x,
-            y: (killerPlayer ? killerPlayer.y : mob.y) - 1.2,
-            text: '🌀 BOSS PORTAL READY (100%)!',
-            color: '#c084fc',
-            size: 24
-          }, instId);
-        }
-
-        for (const p of this.players.values()) {
-          if (p.zone === 'dungeon' && p.dungeonInstanceId === instId) {
-            this.emitDungeonRunUpdate(p);
-          }
-        }
-      }
       // full EXP near your level, much less for monsters far below you; party
       // members nearby on the same map split it (see partyExpSharers)
       const sharers = this.partyExpSharers(killerPlayer);
@@ -7184,34 +7798,17 @@ class GameServer {
         }
       }
 
-      // Talent on-kill effects (Juggernaut, Astral Overload, Vampiric Edge)
-      if (killerPlayer.skills) {
-        const tree = SKILL_TREES[killerPlayer.characterClass] || [];
-        for (const t of tree) {
-          const rank = killerPlayer.skills[t.id] || 0;
-          if (rank > 0 && t.effects) {
-            if (t.effects.killHealPercent) {
-              const heal = Math.round(killerPlayer.maxHp * t.effects.killHealPercent * rank);
-              killerPlayer.hp = Math.min(killerPlayer.maxHp, killerPlayer.hp + heal);
-              this.emitZone(zone, 'floating_text', { x: killerPlayer.x, y: killerPlayer.y - 0.5, text: `+${heal} HP (${t.name})`, color: '#4ade80' });
-            }
-            if (t.effects.killManaPercent) {
-              const mana = Math.round(killerPlayer.maxMp * t.effects.killManaPercent * rank);
-              killerPlayer.mp = Math.min(killerPlayer.maxMp, killerPlayer.mp + mana);
-              this.emitZone(zone, 'floating_text', { x: killerPlayer.x, y: killerPlayer.y - 0.5, text: `+${mana} MP (${t.name})`, color: '#38bdf8' });
-            }
-            if (t.effects.killHealFlat) {
-              const heal = t.effects.killHealFlat * rank;
-              killerPlayer.hp = Math.min(killerPlayer.maxHp, killerPlayer.hp + heal);
-              this.emitZone(zone, 'floating_text', { x: killerPlayer.x, y: killerPlayer.y - 0.5, text: `+${heal} HP (Vampiric)`, color: '#4ade80' });
-            }
-            if (t.effects.killManaRestore) {
-              const mana = t.effects.killManaRestore * rank;
-              killerPlayer.mp = Math.min(killerPlayer.maxMp, killerPlayer.mp + mana);
-              this.emitZone(zone, 'floating_text', { x: killerPlayer.x, y: killerPlayer.y - 0.5, text: `+${mana} MP (Astral)`, color: '#38bdf8' });
-            }
-          }
-        }
+      // Passive on-kill effects: restore a share of max HP / MP (summed over the tree in recalc)
+      const tk = killerPlayer.talentKill;
+      if (tk && tk.hp > 0 && killerPlayer.hp < killerPlayer.maxHp) {
+        const heal = Math.round(killerPlayer.maxHp * tk.hp);
+        killerPlayer.hp = Math.min(killerPlayer.maxHp, killerPlayer.hp + heal);
+        if (heal > 0) this.emitZone(zone, 'floating_text', { x: killerPlayer.x, y: killerPlayer.y - 0.5, text: `+${heal} HP`, color: '#4ade80' });
+      }
+      if (tk && tk.mp > 0 && killerPlayer.mp < killerPlayer.maxMp) {
+        const mana = Math.round(killerPlayer.maxMp * tk.mp);
+        killerPlayer.mp = Math.min(killerPlayer.maxMp, killerPlayer.mp + mana);
+        if (mana > 0) this.emitZone(zone, 'floating_text', { x: killerPlayer.x, y: killerPlayer.y - 0.5, text: `+${mana} MP`, color: '#38bdf8' });
       }
 
       if (mob.riftMob) {
@@ -7330,6 +7927,11 @@ class GameServer {
       this.broadcastSystemMessage(`✨ MYTHICAL DROP! [${killerPlayer ? killerPlayer.name : 'A hero'}] uncovered a rare [${ITEMS[chosenRune]?.name || chosenRune}]!`);
     }
 
+    // Attribute materials for Jerry: each has its own small chance on any monster
+    for (const [matId, chance] of Object.entries(ATTR.ATTR_MATERIAL_DROP)) {
+      if (Math.random() < chance) this.spawnGroundItem(zone, 'item', matId, mob.x + (Math.random() - 0.5) * 0.8, mob.y + (Math.random() - 0.5) * 0.8, 1, null, instId);
+    }
+
     // Armor set fragments (crafting.ts): bosses usually, other monsters rarely
     const frag = CRAFT.rollFragmentDrop(mob);
     if (frag) this.spawnGroundItem(zone, 'item', frag.itemId, mob.x + (Math.random() - 0.5) * 0.8, mob.y + (Math.random() - 0.5) * 0.8, frag.n, null, instId);
@@ -7423,7 +8025,7 @@ class GameServer {
         color: '#4ade80',
         size: 18
       });
-      this.broadcastSystemMessage(`✨ [${player.name}] reached Level ${player.level}! Earned 1 Skill Point.`);
+      this.sendDirectMessage(player.id, `✨ [${player.name}] reached Level ${player.level}! Earned 1 Skill Point.`);
     }
 
     if (player.level >= 150) {
@@ -7441,7 +8043,7 @@ class GameServer {
       zone,
       type,
       itemId: type === 'item' ? itemIdOrName : null,
-      name: type === 'gold' ? `${amount} Gold` : (customItemData && customItemData.name ? customItemData.name : (baseDef ? baseDef.name : itemIdOrName)),
+      name: type === 'gold' ? `${Number(amount).toLocaleString('en-US')} Gold` : (customItemData && customItemData.name ? customItemData.name : (baseDef ? baseDef.name : itemIdOrName)),
       x,
       y,
       amount,
@@ -7557,6 +8159,7 @@ class GameServer {
       const socket = this.io.sockets.sockets.get(player.id);
       this.ctxInstanceId = player.dungeonInstanceId || null;
       if (player.isDead) {
+        if (player.minions && player.minions.length) this.dismissMinions(player);
         if (player.spToggles) {
           for (const id of Object.keys(player.spToggles)) this.endSpToggle(player, id, true);
         }
@@ -7590,7 +8193,7 @@ class GameServer {
           player.x = 20 + (Math.random() - 0.5) * 2;
           player.y = 23 + (Math.random() - 0.5) * 1.5;
           this.io.emit('player_respawned', { playerId: player.id, x: player.x, y: player.y });
-          this.broadcastSystemMessage(`❤️ [${player.name}] has revived in town.`);
+          this.sendDirectMessage(player.id, `❤️ [${player.name}] has revived in town.`);
           if (socket) {
             socket.emit('zone_change', {
               zone: 'town',
@@ -7650,10 +8253,9 @@ class GameServer {
 
       // an HP-draining toggle (Crimson Aura) stops natural HP regen
       const bleeding = player.spToggles && Object.keys(player.spToggles).length && this.tickSpToggles(player, dt);
-      const regenMult = ((player.set2 && player.set2.wayfarer && player.set2.wayfarer.regenMult) || 1)
-        * (1 + 0.35 * ((player.armorRunes && player.armorRunes.renewal) || 0));   // Renewal runes
-      if (!bleeding) player.hp = Math.min(player.maxHp, player.hp + (player.maxHp * 0.015 * regenMult * dt));
+      if (!bleeding) player.hp = Math.min(player.maxHp, player.hp + (player.maxHp * HP_REGEN_PCT * this.hpRegenMult(player) + (player.hpRegenFlat || 0)) * dt);
       this.tickPlayerShields(player, dt);
+      if (player.minions && player.minions.length) this.tickMinions(player, dt);
       if (player.bloodlust) {
         player.bloodlust.timer -= dt;
         if (player.bloodlust.timer <= 0) {
@@ -7661,7 +8263,7 @@ class GameServer {
           this.recalculatePlayerStats(player);
         }
       }
-      player.mp = Math.min(player.maxMp, player.mp + (player.maxMp * MANA_REGEN_PCT * dt) + (MANA_REGEN_FLAT * dt));
+      player.mp = Math.min(player.maxMp, player.mp + (player.maxMp * MANA_REGEN_PCT * dt) + ((MANA_REGEN_FLAT + (player.mpRegenFlat || 0)) * dt));
 
       if (player.zone === 'dungeon') this.applyDungeonHazard(player);
 
@@ -7947,6 +8549,10 @@ class GameServer {
       if (mob.conductTimer > 0) { mob.conductTimer -= dt; if (mob.conductTimer <= 0) mob.conduct = 0; }
       if (mob.scorchTimer > 0) { mob.scorchTimer -= dt; if (mob.scorchTimer <= 0) mob.scorchStacks = 0; }
       if (mob.frostTimer > 0) { mob.frostTimer -= dt; if (mob.frostTimer <= 0) mob.frostStacks = 0; }
+      // Bosses run their telegraphed moveset; while one winds up, charges or roars it skips
+      // the plain chase / melee below (bossMechanics.ts)
+      if (mob.mechanics && this.bossMech.update(mob, zone, dt, instanceId)) continue;
+
       // Frozen solid (Cryo) or stopped in time (Chrono): no moving, no attacking
       if (mob.frozenTimer > 0) {
         mob.frozenTimer = Math.max(0, mob.frozenTimer - dt);
@@ -7963,7 +8569,8 @@ class GameServer {
 
       if (mob.state === 'idle') {
         let closestPlayer = null;
-        let closestDist = 5.0;
+        // a boss notices anyone who steps into its arena
+        let closestDist = mob.mechanics === 'boss' ? 16.0 : 5.0;
 
         for (const p of this.players.values()) {
           if (p.isDead || p.zone !== zone || (instanceId && p.dungeonInstanceId !== instanceId)) continue;
@@ -8019,7 +8626,8 @@ class GameServer {
         const distToPlayer = Math.hypot(targetPlayer.x - mob.x, targetPlayer.y - mob.y);
         const distToSpawn = Math.hypot(mob.spawnX - mob.x, mob.spawnY - mob.y);
 
-        if (distToPlayer > 10.0 || distToSpawn > 14.0) {
+        // bosses fight across their whole arena; everything else gives up a short way from home
+        if (distToPlayer > (mob.mechanics === 'boss' ? 30 : 10.0) || distToSpawn > (mob.mechanics === 'boss' ? 40 : 14.0)) {
           mob.state = 'return';
           mob.targetPlayerId = null;
           continue;
@@ -8066,6 +8674,7 @@ class GameServer {
         } else {
           mob.state = 'idle';
           mob.hp = mob.maxHp;
+          if (mob.mechanics) this.bossMech.reset(mob);
         }
       }
     }
@@ -8366,7 +8975,7 @@ class GameServer {
     if (bank.essence > 0) {
       const stack = player.inventory.items.find(i => i && i.id === RIFT.RIFT_ESSENCE_ID);
       if (stack) stack.count = (stack.count || 1) + bank.essence;
-      else if (player.inventory.items.length < (player.inventory.maxSlots || 30)) player.inventory.items.push({ ...ITEMS[RIFT.RIFT_ESSENCE_ID], count: bank.essence });
+      else if (player.inventory.items.length < (player.inventory.maxSlots || DEFAULT_BAG_SLOTS)) player.inventory.items.push({ ...ITEMS[RIFT.RIFT_ESSENCE_ID], count: bank.essence });
       else {
         // a full bag never eats essence: it goes to the personal chest instead
         if (!player.storage) player.storage = { maxSlots: 50, items: [] };
@@ -8662,7 +9271,7 @@ class GameServer {
     if ((player.gold || 0) < recipe.gold) return say(`Need ${recipe.gold.toLocaleString()} gold`);
     if (recipe.fragments && this.fragmentCount(player) < recipe.fragments) return say(`Need ${recipe.fragments} Spirit Fragments`);
     // a slot for the new piece (spending the whole essence stack frees one)
-    if (items.length >= (player.inventory.maxSlots || 30) && essence > recipe.essence) return say('⚠️ Inventory full!');
+    if (items.length >= (player.inventory.maxSlots || DEFAULT_BAG_SLOTS) && essence > recipe.essence) return say('⚠️ Inventory full!');
 
     essenceStack.count = essence - recipe.essence;
     if (essenceStack.count <= 0) items.splice(items.indexOf(essenceStack), 1);
@@ -8843,12 +9452,19 @@ class GameServer {
 
   // One monster blow landing on a hero: immunities, dodges, shields, thorns,
   // elemental resistance and on-hit affixes. The caller handles reach and cooldown.
-  mobStrikePlayer(mob, targetPlayer, zone) {
+  // opts.mechanic: a telegraphed boss attack (bossMechanics.ts). It can't be dodged, smoked or
+  // parried (you dodge it by moving), armor counts half, it reflects no thorns, and opts.mult
+  // scales the boss's damage.
+  mobStrikePlayer(mob, targetPlayer, zone, opts: any = {}) {
     const now = Date.now();
+    const mech = !!opts.mechanic;
     if (targetPlayer.godMode) {
       this.emitZone(zone, 'floating_text', { x: targetPlayer.x, y: targetPlayer.y - 0.7, text: '🛡️ IMMUNE (God Mode)', color: '#facc15' });
       return;
     }
+    // Dragoon in the air: nothing on the ground can reach him
+    if (mech && targetPlayer.airborneUntil > now) return;
+    if (mech) return this.landMobDamage(mob, targetPlayer, zone, Math.round((mob.dmg || 0) * (opts.mult || 1)), 0.25, true);
 
     if (targetPlayer.smokeScreenTimer > 0) {
       this.emitZone(zone, 'floating_text', { x: targetPlayer.x, y: targetPlayer.y - 0.7, text: '💨 MISS! (Stealth)', color: '#94a3b8' });
@@ -8877,7 +9493,13 @@ class GameServer {
     }
 
     const effectiveDmg = mob.hasCommanderBuff ? Math.round(mob.dmg * 1.35) : mob.dmg;
-    let damageDealt = Math.max(1, Math.round(effectiveDmg - (targetPlayer.def * 0.5)));
+    this.landMobDamage(mob, targetPlayer, zone, effectiveDmg, 0.5, false);
+  }
+
+  // The shared tail of a monster hit: armor (armorShare of Defense is subtracted), element,
+  // crushing blows, thorns (not for mechanics), shields, death
+  landMobDamage(mob, targetPlayer, zone, effectiveDmg, armorShare, mech) {
+    let damageDealt = Math.max(1, Math.round(effectiveDmg - (targetPlayer.def * armorShare)));
 
     // Monster element vs the player's elemental resistance from gear
     const elemResistMult = calculateElementalMultiplier(mob.element || 'neutral', 'neutral', targetPlayer.elementResist || {});
@@ -8894,7 +9516,7 @@ class GameServer {
 
     // Thorns reflection (Iron Fortress + passive Unyielding Spikes/Colossus Avatar)
     const runeThorns = targetPlayer.armorRunes && targetPlayer.armorRunes.thorns ? Math.round(targetPlayer.maxHp * 0.03 * targetPlayer.armorRunes.thorns) : 0;
-    const thornsDmg = (targetPlayer.ironFortressTimer > 0 ? 25 : 0) + (targetPlayer.thorns || 0) + runeThorns;
+    const thornsDmg = mech ? 0 : (targetPlayer.ironFortressTimer > 0 ? 25 : 0) + (targetPlayer.thorns || 0) + runeThorns;
     if (thornsDmg > 0) {
       this.applyDamageToMob(targetPlayer, mob, thornsDmg, false);
       this.emitZone(zone, 'floating_text', { x: mob.x, y: mob.y - 0.7, text: `🌵 ${thornsDmg} Thorns!`, color: '#e2e8f0' });
@@ -8904,6 +9526,9 @@ class GameServer {
     if (targetPlayer.ironFortressTimer > 0) {
       damageDealt = Math.max(1, Math.round(damageDealt * 0.40));
     }
+
+    // SP card passive (damage reduction, reflect, shields) and signature charge
+    if (targetPlayer.spTransformed) damageDealt = this.passiveOnHurt(targetPlayer, mob, damageDealt, zone);
 
     // Shield Barrier absorption, then the mage's Energy Shield
     damageDealt = this.absorbIncomingDamage(targetPlayer, damageDealt, zone);
@@ -8936,7 +9561,7 @@ class GameServer {
     } else {
       this.emitZone(zone, 'floating_text', { x: targetPlayer.x, y: targetPlayer.y - 0.7, text: `-${damageDealt}`, color: '#ef4444' });
     }
-    this.emitZone(zone, 'entity_attack_fx', { attackerId: mob.id, attackerType: 'mob', targetId: targetPlayer.id, x: mob.x, y: mob.y });
+    if (!mech) this.emitZone(zone, 'entity_attack_fx', { attackerId: mob.id, attackerType: 'mob', targetId: targetPlayer.id, x: mob.x, y: mob.y });
 
     if (targetPlayer.hp <= 0) {
       targetPlayer.hp = 0;
@@ -8945,7 +9570,11 @@ class GameServer {
       targetPlayer.respawnTimer = 5.0;
       this.emitZone(zone, 'player_died', { playerId: targetPlayer.id, killerName: mob.name });
       this.broadcastSystemMessage(`☠️ [${targetPlayer.name}] was slain by [${mob.name}]!`);
-      mob.state = 'return';
+      // a boss turns on the next hero still fighting it instead of walking home to heal
+      const next = mob.isBoss ? (Array.from(this.players.values()) as any[]).find(p => !p.isDead && p.zone === zone
+        && p.dungeonInstanceId === targetPlayer.dungeonInstanceId && Math.hypot(p.x - mob.x, p.y - mob.y) < 30) : null;
+      if (next) { mob.state = 'chase'; mob.targetPlayerId = next.id; }
+      else mob.state = 'return';
     }
   }
 
@@ -8994,6 +9623,7 @@ class GameServer {
       spTransformed: !!p.spTransformed,
       spCardId: p.spTransformed && p.equipment && p.equipment.sp ? p.equipment.sp.cardId : null,
       spLevel: p.spTransformed && p.equipment && p.equipment.sp ? (p.equipment.sp.upgradeLevel || 0) : 0,
+      ultCharge: p.spTransformed ? Math.floor(p.ultCharge || 0) : 0,
       shieldHp: Math.round(p.shieldHp || 0),
       es: Math.round(p.es || 0),
       esMax: p.esMax || 0,
@@ -9004,7 +9634,9 @@ class GameServer {
       mastery: p.mastery || 1,
       ironFortressTimer: Number((p.ironFortressTimer || 0).toFixed(1)),
       smokeScreenTimer: Number((p.smokeScreenTimer || 0).toFixed(1)),
-      trail: (p.effects && p.effects.trail) || null
+      trail: (p.effects && p.effects.trail) || null,
+      // Gravelord undead minions (drawn by the client like monsters, in grave colours)
+      minions: p.minions && p.minions.length ? p.minions.map(m => ({ id: m.id, type: m.type, hue: m.hue, scale: m.scale, x: round2(m.x), y: round2(m.y), facing: m.facing, atk: m.atkAt, life: round2(Math.max(0, (m.until - Date.now()) / m.dur)), name: m.name, rage: !!(p.minionRage && p.minionRage.until > Date.now()) })) : undefined
       };
       const heavy = {
         inventory: p.inventory, equipment: p.equipment, baseStats: p.baseStats,

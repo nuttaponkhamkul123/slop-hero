@@ -805,6 +805,37 @@
         });
       }
     },
+    // Jerry the Attribute Smith: a young tinkerer with brass goggles up on his brow and a
+    // leather apron, tossing a glowing rune die and catching it again
+    jerry: {
+      W: 56, H: 80, AX: 28, AY: 70, view: 'front', period: 2.4, frames: 16,
+      draw(S, t) {
+        const toss = t < 0.5 ? Math.sin((t / 0.5) * Math.PI) : 0;
+        const die = ramp('#a7f070');
+        human(S, {
+          skin: ramp('#e6b08a'), hair: ramp('#2b1d14'), brow: ramp('#2b1d14').d, hairBack: true, hairTop: true,
+          torso: ramp('#1f6f78'), sleeve: ramp('#1f6f78'), apron: M.leather, pants: ramp('#3b3b48'),
+          boots: ramp('#22222a'), belt: M.leather, buckle: M.gold.l,
+          hat: (S2, head) => {
+            S2.ball(V3(head, [0.3, -3.8, 0], 1), 8.4, ramp('#5a3b22'), { sy: 0.16, bias: 0.6 });
+            for (const sz of [-1, 1]) {
+              S2.ball(V3(head, [4.6, -4.4, 2.4 * sz], 1), 2, M.gold, { spec: true, bias: 3.2 });
+              S2.px(V3(head, [5.6, -4.4, 2.4 * sz], 1), C.cyan, { bias: 3.4 });
+            }
+          },
+          tool: (S2, hand) => {
+            const c = V3(hand, [0.5, -3 - toss * 10, 0], 1);
+            S2.ball(c, 2.3, die, { spec: true, bias: 0.6 });
+            S2.px(V3(c, [0.8, -0.6, 0], 1), C.white, { bias: 0.8 });
+            if (toss > 0.4) S2.px(V3(c, [-2.5, -3, 1], 1), C.yellow, { bias: 0.9 });
+          }
+        }, {
+          bob: Math.sin(t * Math.PI * 2) * 0.4,
+          near: mix3([8, -22, 6], [7, -27, 8], toss),
+          far: [8, -21, -6]
+        });
+      }
+    },
     // Olaf: green cap with a feather, ginger moustache; waves every 6 seconds
     merchant: {
       W: 56, H: 72, AX: 28, AY: 66, view: 'front', period: 6, frames: 24,
@@ -984,6 +1015,18 @@
 
   // ---------------------------------------------------------------- colour
   // CSS hue-rotate + saturate, applied to the finished sprite once
+  // Gravelord minions: the monster drained to bone and grave light (outlines stay dark)
+  function undeadTint(data) {
+    for (let i = 0; i < data.length; i += 4) {
+      if (!data[i + 3]) continue;
+      const l = data[i] * 0.3 + data[i + 1] * 0.59 + data[i + 2] * 0.11;
+      if (l < 34) { data[i] = l * 0.4; data[i + 1] = l * 0.7; data[i + 2] = l * 0.55; continue; }
+      data[i] = Math.min(255, l * 0.62);
+      data[i + 1] = Math.min(255, l * 1.08 + 26);
+      data[i + 2] = Math.min(255, l * 0.78 + 18);
+    }
+  }
+
   function hueRotate(data, deg, sat) {
     const a = deg * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
     const h = [
@@ -1032,7 +1075,8 @@
     const S = new Scene(f, VIEW_PHI[view] || 0);
     def.draw(S, { action, t: n > 1 ? k / n : 0, k });
     S.draw();
-    if (hue) hueRotate(f.data, hue, 1.15);
+    if (hue === 'undead') undeadTint(f.data);
+    else if (hue) hueRotate(f.data, hue, 1.15);
     if (action === 'hurt') whiten(f.data, 0.45);
     return f;
   }

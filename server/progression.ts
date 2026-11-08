@@ -94,18 +94,44 @@ export function lootGapMult(playerLevel?: number, mobLevel?: number): number {
 export const HIGH_LEVEL_HP_FROM = 20;
 export const HIGH_LEVEL_HP_FULL = 100;
 export const HIGH_LEVEL_HP_MULT = 10;
-export function mobHpMult(level?: number): number {
+function baseHpCurve(level?: number): number {
   const lv = Math.min(level || 1, HIGH_LEVEL_HP_FULL);
   if (lv <= HIGH_LEVEL_HP_FROM) return 1;
   return Math.pow(HIGH_LEVEL_HP_MULT, (lv - HIGH_LEVEL_HP_FROM) / (HIGH_LEVEL_HP_FULL - HIGH_LEVEL_HP_FROM));
 }
 
-// Combat Mastery: a hero's damage is multiplied along the same curve, a little
+// End-game monsters are extra tanky: on top of the curve above, their HP and
+// defense ramp linearly from x1 at ENDGAME_FROM to their full multiplier at
+// ENDGAME_FULL. Hero mastery does not follow this, so end-game fights
+// genuinely take longer.
+export const ENDGAME_FROM = 70;
+export const ENDGAME_FULL = 90;
+export const ENDGAME_HP_MULT = 5;
+export const ENDGAME_DEF_MULT = 2;
+function endgameRamp(level: number | undefined, mult: number): number {
+  const lv = level || 1;
+  if (lv <= ENDGAME_FROM) return 1;
+  const t = Math.min(1, (lv - ENDGAME_FROM) / (ENDGAME_FULL - ENDGAME_FROM));
+  return 1 + (mult - 1) * t;
+}
+function endgameHpMult(level?: number): number {
+  return endgameRamp(level, ENDGAME_HP_MULT);
+}
+// Applied to a field or dungeon monster's def where it is created
+export function mobDefMult(level?: number): number {
+  return endgameRamp(level, ENDGAME_DEF_MULT);
+}
+
+export function mobHpMult(level?: number): number {
+  return baseHpCurve(level) * endgameHpMult(level);
+}
+
+// Combat Mastery: a hero's damage is multiplied along the base curve, a little
 // slower (x7.6 at level 100 against x10 monster HP), so high-level fights take
 // only gently longer than low-level ones
 export const MASTERY_EXP = 0.88;
 export function masteryMult(level: number): number {
-  return Math.pow(mobHpMult(level), MASTERY_EXP);
+  return Math.pow(baseHpCurve(level), MASTERY_EXP);
 }
 
 // Monster defense cuts every hit by the share def / (def + MOB_DEF_K): about
@@ -117,6 +143,7 @@ module.exports = {
   baseExpCurve,
   LEVEL_KILLS,
   mobHpMult,
+  mobDefMult,
   masteryMult,
   MOB_DEF_K,
   killsPerLevel,

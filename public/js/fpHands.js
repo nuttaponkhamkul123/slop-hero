@@ -45,9 +45,9 @@
   // ---- SP card looks
   // weapon each warrior card holds (matches its pixelHeroes costume)
   const SP_WEAPON = {
-    sp_crusader: 'mace', sp_sentinel: 'mace', sp_storm_herald: 'hammer', sp_gravelord: 'hammer', sp_titan: 'hammer',
+    sp_crusader: 'mace', sp_sentinel: 'mace', sp_storm_herald: 'hammer', sp_gravelord: 'hammer', sp_titan: 'hammer', sp_frost_templar: 'hammer',
     sp_dread_lord: 'axe', sp_warchief: 'axe', sp_dragoon: 'lance', sp_bannerman: 'lance',
-    sp_berserker: 'sword', sp_frost_templar: 'sword', sp_reaver: 'sword', sp_runeknight: 'sword', sp_duskblade: 'sword', sp_phoenix_oath: 'sword'
+    sp_berserker: 'sword', sp_reaver: 'sword', sp_runeknight: 'sword', sp_duskblade: 'sword', sp_phoenix_oath: 'sword'
   };
   const SP_FLAME = new Set(['sp_reaver', 'sp_phoenix_oath', 'sp_berserker']);
 

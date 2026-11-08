@@ -2,7 +2,7 @@
 // Each zone is a 42x42 map entered from the south (portal back to the previous
 // zone) with a portal to the next zone on its far north side.
 import { generateFrostfellMap } from './mapData';
-import { mobExp, mobHpMult } from './progression';
+import { mobExp, mobHpMult, mobDefMult } from './progression';
 
 // Themed ground tiles (13+). The renderer has a matching palette.
 const FIELD_TILES = {
@@ -171,9 +171,9 @@ const DECOR_RADIUS = {
 };
 
 // Field zones are big open maps (160x160, about 15x the city's area) holding
-// 15x each species' base count, so they are about as busy per tile as the city
+// 45x each species' base count, so they are busy with monsters
 const FIELD_SIZE = 160;
-const FIELD_MOB_MULT = 15;
+const FIELD_MOB_MULT = 45;
 // The road winds across the map; lakes are scattered on a jittered grid
 const ROAD_SWAY = Math.round(FIELD_SIZE / 9);
 const ROAD_FREQ = 0.15 * 72 / FIELD_SIZE;
@@ -364,6 +364,7 @@ function buildFieldMobs(zone, map) {
     ...(b.stats && b.stats.maxHp ? { maxHp: Math.round(b.stats.maxHp * mobHpMult(b.level)) } : {}),
     zone: { minX: FIELD_MID - 3, maxX: FIELD_MID + 3, minY: 9, maxY: 13 }, spawn: { x: FIELD_MID, y: 11 }
   });
+  for (const d of defs) d.def = Math.round((d.def || 0) * mobDefMult(d.level));
   return defs;
 }
 

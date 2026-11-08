@@ -456,7 +456,6 @@
   const spKit = (palette, cls, kit) => Object.entries(kit).forEach(([id, shape]) => { SP_ICONS[id] = [palette, shape, cls]; });
   spKit('gold', 'warrior', { sp_holy_cleave: 'cone', sp_judgement: 'blast', sp_sanctuary: 'buff', sp_divine_charge: 'dash' });
   spKit('blood', 'warrior', { sp_crimson_aura: 'aura', sp_bloodlust: 'buff', sp_blade_whirl: 'whirl', sp_crimson_rush: 'dash' });
-  spKit('ice', 'warrior', { sp_glacier_strike: 'strike', sp_winter_ward: 'buff', sp_avalanche: 'rain', sp_ice_glide: 'dash' });
   spKit('bolt', 'warrior', { sp_thunderhead: 'cloud', sp_arc_conduit: 'chain', sp_storm_orbs: 'orbs', sp_lightning_rush: 'blink' });
   spKit('shadow', 'warrior', { sp_abyss_cleave: 'line', sp_void_grasp: 'pull', sp_soul_bastion: 'pulse', sp_shadow_charge: 'dash' });
   spKit('fire', 'mage', { sp_flame_wave: 'cone', sp_ember_volley: 'volley', sp_sunburst: 'pulse', sp_flame_step: 'dash' });
@@ -472,7 +471,6 @@
   // arsenal extras
   spKit('gold', 'warrior', { sp_radiant_lance: 'line', sp_consecration: 'pulse', sp_halo_burst: 'nova', sp_angel_step: 'blink' });
   spKit('blood', 'warrior', { sp_twin_rend: 'cone', sp_exsanguinate: 'nova', sp_crimson_cross: 'line', sp_blood_leap: 'blink' });
-  spKit('ice', 'warrior', { sp_frost_lance: 'line', sp_hail_shards: 'volley', sp_glacial_prison: 'pull', sp_frost_vault: 'blink' });
   spKit('bolt', 'warrior', { sp_thunder_spear: 'line', sp_static_cleave: 'cone', sp_storm_aegis: 'buff', sp_storm_dash: 'dash' });
   spKit('shadow', 'warrior', { sp_soul_rend: 'strike', sp_dread_wave: 'cone', sp_grave_rain: 'rain', sp_void_step: 'blink' });
   spKit('fire', 'mage', { sp_meteor_call: 'blast', sp_fire_chain: 'chain', sp_cinder_rain: 'rain', sp_phoenix_blink: 'blink' });
@@ -574,20 +572,71 @@
       <circle cx="12" cy="48" r="7" fill="${p.acc}" stroke="#ffffff" stroke-width="2.5"/>`]
   });
 
+  // ---- Frost Templar: the glacier warhammer kit ----
+  // an ice hammer: haft from (x0, y0) toward angle deg, a faceted glacier head at the end
+  // a lance from (x1,y1) (butt) to (x2,y2) (point): gilded shaft and a steel head
+  const dgLance = (p, x1, y1, x2, y2) => {
+    const dx = x2 - x1, dy = y2 - y1, L = Math.hypot(dx, dy) || 1, ux = dx / L, uy = dy / L;
+    const bx = x2 - ux * 9, by = y2 - uy * 9;
+    return `<line x1="${x1}" y1="${y1}" x2="${bx}" y2="${by}" stroke="${p.fg}" stroke-width="3.5" stroke-linecap="round"/>` +
+      `<path d="M${x2} ${y2} L${bx - uy * 4} ${by + ux * 4} L${bx + uy * 4} ${by - ux * 4} Z" fill="${p.hot}"/>` +
+      `<line x1="${bx - uy * 5}" y1="${by + ux * 5}" x2="${bx + uy * 5}" y2="${by - ux * 5}" stroke="${p.acc}" stroke-width="2.5"/>`;
+  };
+  const iceHammer = (p, x, y, deg, s = 1) => `<g transform="translate(${x} ${y}) rotate(${deg}) scale(${s})">
+      <rect x="-3" y="-2" width="30" height="5" rx="2" fill="#475569" stroke="#0f172a" stroke-width="1.5"/>
+      <rect x="2" y="-2.6" width="7" height="6.2" rx="1.5" fill="#7c4a2a"/>
+      <path d="M26 -13 L38 -14 L40 0 L38 14 L26 13 L24 0 Z" fill="${p.fg}" stroke="${p.acc}" stroke-width="2.5"/>
+      <path d="M31 -12 L32 12" stroke="${p.hot}" stroke-width="2"/>
+      <path d="M24 -6 H40 M24 6 H40" stroke="#94a3b8" stroke-width="2"/>
+    </g>`;
+  const iceSpikes = (p, cx, cy, n, w, h) => Array.from({ length: n }, (_, i) => {
+    const x = cx + (i - (n - 1) / 2) * w, hh = h * (i % 2 ? 0.7 : 1);
+    return `<path d="M${x - w * 0.42} ${cy} L${x} ${cy - hh} L${x + w * 0.42} ${cy} Z" fill="${p.fg}" stroke="${p.acc}" stroke-width="1.5"/>`;
+  }).join('');
+  Object.assign(GLYPHS, {
+    // Glacier Smash: the hammer comes down on a burst of ice
+    sp_ft_glacier_smash: ['ice', p => `${rays(36, 46, 10, 20, 9, p.acc, 2.5)}${iceSpikes(p, 36, 56, 5, 8, 16)}${iceHammer(p, 8, 14, 38, 0.95)}`],
+    // Rime Quake: a line of spikes bursting out of a crack
+    sp_ft_rime_quake: ['ice', p => `<path d="M6 54 L20 48 L32 52 L46 44 L58 46" fill="none" stroke="${p.acc}" stroke-width="3"/>
+      ${iceSpikes(p, 32, 50, 6, 9, 30)}`],
+    // Hammerfall: a leap arc ending in a crater of spikes
+    sp_ft_hammerfall: ['ice', p => `<path d="M8 44 C14 6 40 4 46 30" fill="none" stroke="${p.hot}" stroke-width="3.5" stroke-dasharray="5 4"/>
+      <ellipse cx="44" cy="52" rx="16" ry="6" fill="${p.acc}" opacity="0.6"/>${iceSpikes(p, 44, 54, 5, 7, 14)}${iceHammer(p, 30, 14, 70, 0.8)}`],
+    // Glacial Charge: a dash over a frozen trail
+    sp_ft_glacial_charge: ['ice', p => `<path d="M6 40 H40" stroke="${p.acc}" stroke-width="5" stroke-linecap="round"/>
+      <path d="M10 30 H34 M14 50 H36" stroke="${p.fg}" stroke-width="3" stroke-linecap="round"/>
+      ${iceSpikes(p, 22, 44, 3, 8, 10)}<path d="M40 22 L58 40 L40 58 Z" fill="${p.fg}" stroke="${p.acc}" stroke-width="2.5"/>`],
+    // Frost Hammer Throw: a spinning hammer with a return arrow
+    sp_ft_hammer_throw: ['ice', p => `<path d="M10 50 A24 24 0 1 1 52 46" fill="none" stroke="${p.acc}" stroke-width="3" stroke-dasharray="6 4"/>
+      <path d="M46 40 L54 48 L58 38" fill="none" stroke="${p.hot}" stroke-width="3"/>${iceHammer(p, 18, 40, -40, 0.9)}`],
+    // Frozen Bulwark: an ice shield ringed by pillars
+    sp_ft_frozen_bulwark: ['ice', p => `${iceSpikes(p, 32, 58, 6, 10, 14)}${shield(p)}<path d="M32 18 V44 M22 30 H42" stroke="${p.hot}" stroke-width="3"/>`],
+    // Hailstorm: blocks of ice falling out of a cloud
+    sp_ft_hailstorm: ['ice', p => `<ellipse cx="32" cy="14" rx="24" ry="8" fill="${p.acc}" opacity="0.7"/>
+      <rect x="12" y="26" width="10" height="10" transform="rotate(20 17 31)" fill="${p.fg}" stroke="${p.acc}" stroke-width="2"/>
+      <rect x="28" y="34" width="12" height="12" transform="rotate(-15 34 40)" fill="${p.fg}" stroke="${p.acc}" stroke-width="2"/>
+      <rect x="44" y="24" width="9" height="9" transform="rotate(30 48 28)" fill="${p.fg}" stroke="${p.acc}" stroke-width="2"/>
+      ${iceSpikes(p, 32, 60, 5, 9, 8)}`],
+    // Ice Prison: pillars closing round a frozen core
+    sp_ft_ice_prison: ['ice', p => `<ellipse cx="32" cy="48" rx="24" ry="9" fill="none" stroke="${p.acc}" stroke-width="3"/>
+      ${iceSpikes(p, 32, 50, 7, 7.5, 26)}${star(32, 30, 8, 3, 6, p.hot)}`]
+  });
+
   // ---- 10 new variant warrior cards (gravelord / dragoon / reaver / rune knight / sentinel /
   // duskblade / titan / bannerman / warchief / phoenix oath) ----
   Object.assign(GLYPHS, {
     // Gravelord: seismic hammer & charge bursts
-    sp_gravelord_slam: alias('earthshaker', 'earth'),
+    // Raise the Fallen: a skeletal hand clawing up out of an open grave
+    sp_gravelord_raise: ['earth', p => `<ellipse cx="32" cy="52" rx="24" ry="8" fill="${p.fg}"/><ellipse cx="32" cy="51" rx="15" ry="4.5" fill="#0b2a17"/>
+      <path d="M28 50 V30 M28 34 L22 22 M30 32 L28 16 M33 32 L35 15 M36 34 L41 20 M36 38 L44 32" stroke="${p.hot}" stroke-width="3.4" stroke-linecap="round"/>
+      <path d="M26 50 Q32 40 38 50" fill="none" stroke="${p.acc}" stroke-width="2.5"/>`],
     sp_gravelord_momentum: ['earth', p => `${rays(32, 32, 14, 22, 10, p.acc, 2)}${star(32, 32, 13, 5, 4, p.hot)}`],
-    sp_gravelord_cataclysm: alias('meteor_dive', 'earth'),
+    // Grave Frenzy: a raging skull wreathed in grave fire
+    sp_gravelord_frenzy: ['earth', p => `<path d="M14 40 Q10 22 20 26 Q16 10 28 18 Q30 4 36 16 Q46 8 44 24 Q54 20 50 40 Z" fill="${p.acc}"/>
+      <path d="M20 30 Q20 18 32 18 Q44 18 44 30 Q44 38 40 40 V48 H24 V40 Q20 38 20 30 Z" fill="${p.fg}"/><circle cx="27" cy="31" r="4" fill="#ef4444"/><circle cx="37" cy="31" r="4" fill="#ef4444"/>
+      <path d="M27 48 V44 M32 48 V44 M37 48 V44" stroke="${p.bg || '#0b2a17'}" stroke-width="2"/>`],
     sp_gravelord_siege: alias('blade_charge', 'earth'),
     // Dragoon: storm lance, leaps & skyfall
-    sp_dragoon_impale: ['bolt', p => `${sword(p, 'rotate(90 32 32) translate(32 34) scale(0.75) translate(-32 -32)')}\n
-      <path d="M20 18 L44 18" stroke="${p.acc}" stroke-width="4" stroke-linecap="round"/>`],
-    sp_dragoon_leap: alias('meteor_dive', 'bolt'),
-    sp_dragoon_barrage: alias('blizzard', 'bolt'),
-    sp_dragoon_wind: alias('blade_charge', 'bolt'),
     // Reaver: flame greatsword & executions
     sp_reaver_slash: alias('sundering_cleave', 'fire'),
     sp_reaver_sear: alias('firestorm', 'fire'),
@@ -640,9 +689,9 @@
     sp_warchief_warcry: alias('earthshaker', 'blood'),
     sp_phoenix_rebirth: ['fire', p => `${heart(p.hot)}${rays(32, 34, 18, 26, 12, p.acc, 2)}`],
     // ---- reworked kits (extra distinct iteration) ----
-    sp_gravelord_aftershock: ['earth', p => `${rays(32, 32, 10, 21, 8, p.acc, 2)}${heart(p.fg)}`],
-    sp_dragoon_impact: alias('meteor_dive', 'bolt'),
-    sp_dragoon_vantage: alias('colossus_strike', 'bolt'),
+    // Corpse Detonation: a skull bursting apart in grave fire
+    sp_gravelord_corpse_bomb: ['earth', p => `${rays(32, 34, 12, 27, 10, p.acc, 3)}<path d="M22 34 Q22 22 32 22 Q42 22 42 34 Q42 40 39 41 V46 H25 V41 Q22 40 22 34 Z" fill="${p.fg}"/>
+      <circle cx="28" cy="34" r="3" fill="${p.hot}"/><circle cx="36" cy="34" r="3" fill="${p.hot}"/>`],
     sp_reaver_stance: ['fire', p => `${rays(32, 32, 14, 22, 12, p.acc, 2)}${drop(p.fg, 'translate(32 40) scale(0.7) translate(-32 -32)')}`],
     sp_reaver_firebrand: alias('chain_lightning', 'fire'),
     sp_runeknight_storm: alias('meteor_dive', 'earth'),
@@ -661,13 +710,20 @@
       <path d="M14 50 L18 36 L24 46 Z M28 40 L32 24 L38 36 Z M42 28 L46 12 L52 24 Z" fill="${p.fg}"/>`],
     sp_gravelord_rupture: ['earth', p => `${rays(32, 34, 8, 26, 8, p.acc, 3)}<path d="M22 44 L26 26 L32 40 L38 22 L42 44 Z" fill="${p.fg}"/>`],
     sp_gravelord_bastion: alias('iron_fortress', 'earth'),
-    // Dragoon: planted lance / dive from the sky
-    sp_dragoon_impale: ['bolt', p => `<line x1="12" y1="10" x2="46" y2="50" stroke="${p.fg}" stroke-width="4"/>
-      <path d="M46 50 L40 38 L54 44 Z" fill="${p.hot}"/><path d="M10 58 Q32 50 56 58" fill="none" stroke="${p.acc}" stroke-width="3"/>${bolt(p.acc, 'translate(14 18) scale(0.35)')}`],
-    sp_dragoon_leap: ['bolt', p => `<path d="M14 54 Q20 6 32 8 Q44 10 48 50" fill="none" stroke="${p.acc}" stroke-width="4" stroke-dasharray="5 4"/>
-      <path d="M48 52 L42 40 L54 40 Z" fill="${p.hot}"/><ellipse cx="48" cy="56" rx="12" ry="4" fill="none" stroke="${p.fg}" stroke-width="2.5"/>`],
-    sp_dragoon_updraft: ['bolt', p => `${cloud(p, p.acc)}<path d="M24 54 V36 M32 58 V30 M40 54 V36" stroke="${p.hot}" stroke-width="3.5" stroke-linecap="round"/>
-      <path d="M20 40 L24 32 L28 40 M28 34 L32 26 L36 34 M36 40 L40 32 L44 40" fill="none" stroke="${p.hot}" stroke-width="3"/>`],
+    // Dragoon: storm lances that become Lightning Rods
+    sp_dragoon_storm_lance: ['bolt', p => `${dgLance(p, 14, 12, 44, 50)}${bolt(p.hot, 'translate(30 2) scale(0.42)')}<ellipse cx="44" cy="54" rx="12" ry="4" fill="none" stroke="${p.acc}" stroke-width="2.5"/>`],
+    sp_dragoon_thunderwing: ['bolt', p => `<path d="M10 50 Q14 14 54 10" fill="none" stroke="${p.acc}" stroke-width="4"/>
+      <path d="M14 46 L24 40 M18 36 L30 32 M24 26 L36 24 M32 18 L44 18" stroke="${p.hot}" stroke-width="3" stroke-linecap="round"/>${bolt(p.fg, 'translate(30 30) scale(0.42)')}`],
+    sp_dragoon_skyfall: ['bolt', p => `<path d="M10 54 Q18 4 34 6" fill="none" stroke="${p.acc}" stroke-width="3.5" stroke-dasharray="5 4"/>
+      ${bolt(p.hot, 'translate(26 6) scale(0.55)')}<ellipse cx="44" cy="54" rx="16" ry="5" fill="none" stroke="${p.fg}" stroke-width="2.5"/><path d="M30 54 L44 48 L58 54" fill="none" stroke="${p.acc}" stroke-width="2"/>`],
+    sp_dragoon_volt_step: ['bolt', p => `<circle cx="12" cy="46" r="6" fill="none" stroke="${p.acc}" stroke-width="2.5"/><circle cx="52" cy="18" r="7" fill="${p.acc}"/>
+      <path d="M14 44 L26 36 L22 30 L36 26 L32 20 L50 18" fill="none" stroke="${p.hot}" stroke-width="4" stroke-linejoin="round"/>`],
+    sp_dragoon_arc_lance: ['bolt', p => `<circle cx="12" cy="44" r="5" fill="${p.fg}"/><circle cx="32" cy="18" r="5" fill="${p.fg}"/><circle cx="52" cy="40" r="5" fill="${p.fg}"/>
+      <path d="M12 44 L20 30 L18 26 L32 18 L38 30 L42 28 L52 40" fill="none" stroke="${p.hot}" stroke-width="3.5" stroke-linejoin="round"/>`],
+    sp_dragoon_stormcall: ['bolt', p => `${cloud(p, p.acc)}${dgLance(p, 32, 30, 32, 58)}<path d="M32 30 L28 38 L34 38 L30 46" fill="none" stroke="${p.hot}" stroke-width="3"/><ellipse cx="32" cy="58" rx="14" ry="4" fill="none" stroke="${p.fg}" stroke-width="2.5"/>`],
+    sp_dragoon_lance_storm: ['bolt', p => `${cloud(p, p.acc)}${dgLance(p, 18, 34, 14, 58)}${dgLance(p, 34, 30, 30, 56)}${dgLance(p, 50, 34, 46, 58)}`],
+    sp_dragoon_tempest_wings: ['bolt', p => `<path d="M32 40 Q14 36 6 12 Q20 22 32 30 M32 40 Q50 36 58 12 Q44 22 32 30" fill="${p.acc}" stroke="${p.hot}" stroke-width="2"/>
+      ${bolt(p.hot, 'translate(22 26) scale(0.45)')}<ellipse cx="32" cy="54" rx="20" ry="6" fill="none" stroke="${p.fg}" stroke-width="2.5"/>`],
     // Reaver: heat gauge, wall, meltdown
     sp_reaver_slash: alias('firestorm', 'fire'),
     sp_reaver_wall: ['fire', p => `${[12, 22, 32, 42, 52].map((x, i) => drop(i % 2 ? p.acc : p.fg, `translate(${x} ${i % 2 ? 36 : 32}) scale(0.32) translate(-32 -32)`)).join('')}
@@ -773,6 +829,12 @@
     if (skillId.startsWith('rog_wind')) {
       const list = [GLYPHS.fleet_footwork, GLYPHS.wind_flurry, GLYPHS.evasive_reflexes, GLYPHS.phantom_duelist];
       return list[h % list.length] || GLYPHS.fleet_footwork;
+    }
+    // SP card Signatures (ultimates): the most dramatic glyphs
+    if (skillId.startsWith('ult_')) {
+      const list = [GLYPHS.ragnarok_slash, GLYPHS.meteor_dive, GLYPHS.black_hole, GLYPHS.dragon_roar, GLYPHS.titan_bastion,
+        GLYPHS.blizzard, GLYPHS.chain_lightning, GLYPHS.bladestorm_frenzy, GLYPHS.pyroblast];
+      return list[h % list.length] || GLYPHS.ragnarok_slash;
     }
     // Generic SP cards: any skill without a bespoke icon picks from a broad pool
     if (skillId.startsWith('sp_')) {
