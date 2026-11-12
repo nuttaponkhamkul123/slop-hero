@@ -2,6 +2,7 @@
 // Moved verbatim out of GameServer (Phase C of docs/REFACTOR_PLAN.md): `this` is the server, reached as this.gs;
 // GameServer keeps one-line forwarding methods, so no call site changed.
 import type { GameServer } from '../gameServer';
+import { MOB_EFFECTS } from '../effects/mobEffects';
 import { calculateElementalMultiplier } from '../elements';
 import * as SP from '../spCards';
 import { SKILL_DAMAGE_SCALE } from '../config/constants';
@@ -41,45 +42,13 @@ export class MobAISystem {
         const p = mob.lastHitBy && this.gs.players.get(mob.lastHitBy);
         return p && p.zone === zone && !p.isDead && (!instanceId || p.dungeonInstanceId === instanceId) ? p : null;
       };
-      if (mob.chillTimer > 0) {
-        mob.chillTimer = Math.max(0, mob.chillTimer - dt);
+      // the effects tick in MOB_EFFECTS order; a damage-over-time kill ends this monster's update
+      const effectCtx = { gs: this.gs, zone, instanceId, dotOwner };
+      let diedOfEffect = false;
+      for (const fx of MOB_EFFECTS) {
+        if (fx.tick(mob, dt, effectCtx) === 'dead') { diedOfEffect = true; break; }
       }
-      if (mob.burnTimer > 0) {
-        mob.burnTimer = Math.max(0, mob.burnTimer - dt);
-        mob.burnTickTimer = (mob.burnTickTimer || 0) - dt;
-        if (mob.burnTickTimer <= 0) {
-          mob.burnTickTimer = 0.6;
-          const dotDmg = Math.max(1, Math.round(mob.burnDmg || 8));
-          mob.hp -= dotDmg;
-          this.gs.emitZone(zone, 'floating_text', { x: mob.x, y: mob.y - 0.7, text: `🔥 -${dotDmg}`, color: '#f97316', size: 14 }, instanceId);
-          if (mob.hp <= 0) {
-            this.gs.handleMobDeath(mob, dotOwner());
-            continue;
-          }
-        }
-        if (mob.burnTimer <= 0) mob.burnDmg = 0; // next ignite starts fresh
-      }
-      if (mob.poisonTimer > 0) {
-        mob.poisonTimer = Math.max(0, mob.poisonTimer - dt);
-        mob.poisonTickTimer = (mob.poisonTickTimer || 0) - dt;
-        if (mob.poisonTickTimer <= 0) {
-          mob.poisonTickTimer = 0.8;
-          const dotDmg = Math.max(1, Math.round(mob.poisonDmg || 6));
-          mob.hp -= dotDmg;
-          const stackTag = mob.poisonStacks > 1 ? ` x${mob.poisonStacks}` : '';
-          this.gs.emitZone(zone, 'floating_text', { x: mob.x, y: mob.y - 0.7, text: `☠️ -${dotDmg}${stackTag}`, color: '#22c55e', size: 14 }, instanceId);
-          if (mob.hp <= 0) {
-            this.gs.handleMobDeath(mob, dotOwner());
-            continue;
-          }
-        }
-        if (mob.poisonTimer <= 0) { mob.poisonDmg = 0; mob.poisonStacks = 0; }
-      }
-      if (mob.shadowMarkTimer > 0) mob.shadowMarkTimer = Math.max(0, mob.shadowMarkTimer - dt);
-      if (mob.staticCharge > 0) mob.staticCharge = Math.max(0, mob.staticCharge - dt);
-      if (mob.conductTimer > 0) { mob.conductTimer -= dt; if (mob.conductTimer <= 0) mob.conduct = 0; }
-      if (mob.scorchTimer > 0) { mob.scorchTimer -= dt; if (mob.scorchTimer <= 0) mob.scorchStacks = 0; }
-      if (mob.frostTimer > 0) { mob.frostTimer -= dt; if (mob.frostTimer <= 0) mob.frostStacks = 0; }
+      if (diedOfEffect) continue;
       // Bosses run their telegraphed moveset; while one winds up, charges or roars it skips
       // the plain chase / melee below (bossMechanics.ts)
       if (mob.mechanics && this.gs.bossMech.update(mob, zone, dt, instanceId)) continue;
