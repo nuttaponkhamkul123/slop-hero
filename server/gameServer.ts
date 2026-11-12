@@ -159,6 +159,7 @@ import { POTIONS, POTION_COOLDOWN_MS } from './data/potions';
 import { HERO_CLASSES, isHeroClass, starterEquipment } from './data/heroClasses';
 import { createStarterCharacter, createLivePlayer } from './entities/player';
 import { ItemFactory } from './entities/item';
+import { MobFactory } from './entities/mob';
 let minionSeq = 0;
 let spObjSeq = 0; // ids for placed card objects (glyphs, banners, lances) so the client can clear them
 
@@ -394,14 +395,7 @@ class GameServer {
     if (dungeonMap && dungeonMap.mobs) {
       dungeonMap.mobs.forEach(mob => {
         if (!pendingMobs.has(mob.roomIdx)) pendingMobs.set(mob.roomIdx, []);
-        pendingMobs.get(mob.roomIdx).push(DMODS.applyModsToMob({
-          ...mob,
-          def: mob.def || 10,
-          buffs: mob.buffs || [],
-          isCommander: !!mob.isCommander,
-          auraRadius: mob.auraRadius || 0,
-          hasCommanderBuff: false
-        }, mods));
+        pendingMobs.get(mob.roomIdx).push(DMODS.applyModsToMob(MobFactory.dungeonMob(mob, 10), mods));
       });
     }
 
@@ -1094,40 +1088,7 @@ class GameServer {
       field.mobs.clear();
       defs.forEach(def => {
         const id = `${field.zone.id}_mob_${this.nextEntityId++}`;
-        field.mobs.set(id, {
-          id,
-          type: def.type,
-          name: def.name,
-          level: def.level,
-          x: def.spawn.x,
-          y: def.spawn.y,
-          spawnX: def.spawn.x,
-          spawnY: def.spawn.y,
-          zone: def.zone,
-          fieldZone: field.zone.id,
-          hue: def.hue || 0,
-          scale: def.scale || 1,
-          isBoss: !!def.isBoss,
-          hp: def.maxHp,
-          maxHp: def.maxHp,
-          dmg: def.dmg,
-          def: def.def,
-          speed: def.speed,
-          exp: mobExp(def.level, def.isBoss ? 'boss' : 'normal'),
-          gold: def.gold,
-          element: def.element || "ice",
-          elementResist: def.elementResist || { fire: -0.5, ice: 0.5 },
-          buffs: [...(def.buffs || [])],
-          isCommander: false,
-          auraRadius: 0,
-          targetPlayerId: null,
-          state: 'idle',
-          nextWanderTime: Date.now() + Math.random() * 3000,
-          wanderTarget: null,
-          attackCooldown: 0,
-          respawnTimer: 0,
-          facing: 'SE'
-        });
+        field.mobs.set(id, MobFactory.field(def, field.zone.id, id));
       });
     }
   }
@@ -1136,14 +1097,7 @@ class GameServer {
     this.dungeonMobs.clear();
     if (this.dungeon && this.dungeon.mobs) {
       this.dungeon.mobs.forEach(mob => {
-        this.dungeonMobs.set(mob.id, {
-          ...mob,
-          def: mob.def || 12,
-          buffs: mob.buffs || [],
-          isCommander: !!mob.isCommander,
-          auraRadius: mob.auraRadius || 0,
-          hasCommanderBuff: false
-        });
+        this.dungeonMobs.set(mob.id, MobFactory.dungeonMob(mob, 12));
       });
     }
   }
@@ -2749,43 +2703,7 @@ class GameServer {
     const def = RAID.buildRaidMobDef(zoneId);
     if (!def) return;
     const id = `${zoneId}_raid_${this.nextEntityId++}`;
-    const mob: any = {
-      id,
-      type: def.type,
-      name: def.name,
-      level: def.level,
-      x: def.spawn.x,
-      y: def.spawn.y,
-      spawnX: def.spawn.x,
-      spawnY: def.spawn.y,
-      zone: def.zone,
-      fieldZone: zoneId,
-      hue: def.hue,
-      scale: def.scale,
-      isBoss: true,
-      isRaidBoss: true,
-      mechanics: 'boss',
-      isCommander: true,
-      auraRadius: 0,
-      hp: def.maxHp,
-      maxHp: def.maxHp,
-      dmg: def.dmg,
-      def: def.def,
-      speed: def.speed,
-      exp: def.exp,
-      gold: def.gold,
-      element: def.element,
-      elementResist: def.elementResist,
-      buffs: [...def.buffs],
-      targetPlayerId: null,
-      state: 'idle',
-      nextWanderTime: Date.now() + 600,
-      wanderTarget: null,
-      attackCooldown: 0,
-      respawnTimer: Infinity,          // raid respawn is handled by the schedule, not the normal mob timer
-      facing: 'SE',
-      spawnUntil: Date.now() + 900     // brief rise-in before it can be hit
-    };
+    const mob: any = MobFactory.raidBoss(def, zoneId, id);
     field.mobs.set(id, mob);
     const now = Date.now();
     this.raidStates.set(zoneId, {
@@ -8361,13 +8279,7 @@ class GameServer {
     const x = gate.x + (Math.random() - 0.5) * 1.6;
     const y = gate.y + (Math.random() - 0.5) * 1.6;
     const id = `rift_mob_${this.nextEntityId++}`;
-    const mob = {
-      ...def, id, x, y, spawnX: x, spawnY: y, hp: def.maxHp, state: 'chase', facing: 'S',
-      attackCooldown: 0.8 + Math.random() * 0.6, targetPlayerId: null, structTargetId: null,
-      isCommander: false, auraRadius: 0, hasCommanderBuff: false,
-      riftMob: true, riftInstanceId: inst.id, noLevelGap: true, zone: 'dungeon',
-      spawnUntil: Date.now() + 700
-    };
+    const mob = MobFactory.riftMob(def, inst.id, id, x, y);
     inst.mobs.set(id, mob);
     this.emitZone('dungeon', 'dungeon_mobs_spawned', { mobs: [{ id, x, y, isBoss: !!mob.isBoss, element: mob.element || 'neutral' }] }, inst.id);
   }

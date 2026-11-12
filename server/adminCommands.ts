@@ -7,6 +7,7 @@ import { mobStats, FIELD_ZONES } from './fieldZones';
 import accountManager from './accountManager';
 import { UserRole } from './types';
 import { ItemFactory } from './entities/item';
+import { MobFactory } from './entities/mob';
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'slopadmin';
 
@@ -562,32 +563,7 @@ const COMMANDS: Record<string, AdminCommandDef> = {
         const id = `admin_mob_${gameServer.nextEntityId++}`;
         const jitterX = (Math.random() - 0.5) * 1.5;
         const jitterY = (Math.random() - 0.5) * 1.5;
-        const mob = {
-          id,
-          type: mobType,
-          name: (isBoss ? '👑 Boss ' : '') + mobType.charAt(0).toUpperCase() + mobType.slice(1),
-          level: lvl,
-          x: player.x + jitterX,
-          y: player.y + jitterY,
-          spawnX: player.x + jitterX,
-          spawnY: player.y + jitterY,
-          zone: player.zone,
-          fieldZone: player.zone,
-          isBoss,
-          hp: stats.maxHp,
-          maxHp: stats.maxHp,
-          dmg: stats.dmg,
-          def: stats.def,
-          speed: isBoss ? 2.8 : 2.5,
-          exp: stats.exp,
-          gold: stats.gold,
-          state: 'idle',
-          facing: 'S',
-          attackCooldown: 1.0,
-          buffs: [],
-          targetPlayerId: null,
-          respawnTimer: 0
-        };
+        const mob = MobFactory.adminSpawn({ id, mobType, isBoss, level: lvl, stats, x: player.x + jitterX, y: player.y + jitterY, zone: player.zone });
         mobsMap.set(id, mob);
       }
 
