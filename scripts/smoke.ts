@@ -101,6 +101,12 @@ function seedAccounts() {
       name: 'Zero Rogue', characterClass: 'rogue', level: 12, skillPoints: 0, gold: 0,
       inventory: { healthPotions: 1, manaPotions: 0 }, storage: { maxSlots: 0 },
     },
+    { // 3: used by the item-actions scenario (buy, equip with swap, unequip)
+      name: 'Item Tester', characterClass: 'warrior', level: 5, gold: 5000,
+      equipment: { weapon: item('iron_blade'), armor: null, helmet: item('iron_helm'), boots: null, gloves: null, cape: null, ring: null },
+      inventory: { healthPotions: 3, manaPotions: 2, kills: 0, maxSlots: 150, items: [item('iron_helm'), item('ancient_ruby', 2)] },
+      storage: { maxSlots: 50, items: [] },
+    },
   ];
   const account = { username: SEED_USER, salt, passwordHash, createdAt: 1700000000000, lastLogin: 1700000000000, role: 'player', characters };
   fs.writeFileSync(path.join(dataDir, 'accounts.json'), JSON.stringify({ [SEED_USER]: account }, null, 2), 'utf8');
@@ -115,6 +121,38 @@ async function checkSavedFixture() {
   const got: Record<string, any> = {};
   for (const slot of [0, 1, 2]) got['slot' + slot] = normalizePlayer((await joinGame({ token: login.token, slot })).player);
   writeOrAssert('saved-join', got);
+}
+
+// ---- item actions: buy, equip (with swap), unequip on the 4th seeded character ----
+async function checkItemActionsFixture() {
+  const s = io(URL, { transports: ['websocket'] });
+  await new Promise<void>((res, rej) => { s.on('connect', () => res()); setTimeout(() => rej(new Error('connect timeout')), 10000); });
+  const login: any = await new Promise(res => { s.once('account_login_response', res); s.emit('account_login', { username: SEED_USER, password: SEED_PASSWORD }); });
+  if (!login || !login.success) { fail('seed login failed (item actions)'); s.disconnect(); return; }
+  let last: any = null;
+  s.on('player_updated', (p: any) => { last = JSON.parse(JSON.stringify(p)); });
+  const init: any = await new Promise((res, rej) => {
+    s.once('init_game', res);
+    s.emit('join_game', { token: login.token, slot: 3 });
+    setTimeout(() => rej(new Error('no init_game (item actions)')), 10000);
+  });
+  const view = (p: any) => p && ({
+    gold: p.gold, healthPotions: p.inventory.healthPotions, manaPotions: p.inventory.manaPotions,
+    bag: p.inventory.items.map((i: any) => `${i.id} x${i.count}`),
+    equipment: Object.fromEntries(Object.entries(p.equipment).map(([k, v]: any) => [k, v ? v.id : null])),
+  });
+  const steps: Record<string, any> = { start: view(init.player) };
+  const act = async (name: string, event: string, data: any) => { last = null; s.emit(event, data); await sleep(400); steps[name] = view(last); };
+
+  const shopItem = (init.shopItems || []).find((i: any) => i.id !== 'health_potion' && i.id !== 'mana_potion' && i.buyPrice && i.buyPrice <= 1000);
+  if (!shopItem) fail('no suitable shop item found for the buy step');
+  else await act('buy_x2_' + shopItem.id, 'buy_item', { itemId: shopItem.id, count: 2 });
+  const helmIdx = (last ? last.inventory.items : init.player.inventory.items).findIndex((i: any) => i.id === 'iron_helm');
+  await act('equip_spare_helm', 'equip_item', { itemIndex: helmIdx });
+  await act('unequip_helmet', 'unequip_item', { slot: 'helmet' });
+  s.disconnect();
+  await sleep(150);
+  writeOrAssert('item-actions', steps);
 }
 
 async function main() {
@@ -160,6 +198,7 @@ async function main() {
     socket.disconnect();
     await checkClassFixture();
     await checkSavedFixture();
+    await checkItemActionsFixture();
   } finally {
     if (!exited) child.kill(); // only the child we spawned
     await sleep(300);

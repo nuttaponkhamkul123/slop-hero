@@ -1,0 +1,78 @@
+{
+  "start": {
+    "gold": 5000,
+    "healthPotions": 3,
+    "manaPotions": 2,
+    "bag": [
+      "iron_helm x1",
+      "ancient_ruby x2"
+    ],
+    "equipment": {
+      "weapon": "iron_blade",
+      "armor": null,
+      "helmet": "iron_helm",
+      "boots": null,
+      "gloves": null,
+      "cape": null,
+      "ring": null
+    }
+  },
+  "buy_x2_greater_health_potion": {
+    "gold": 4860,
+    "healthPotions": 3,
+    "manaPotions": 2,
+    "bag": [
+      "iron_helm x1",
+      "ancient_ruby x2",
+      "greater_health_potion x2"
+    ],
+    "equipment": {
+      "weapon": "iron_blade",
+      "armor": null,
+      "helmet": "iron_helm",
+      "boots": null,
+      "gloves": null,
+      "cape": null,
+      "ring": null
+    }
+  },
+  "equip_spare_helm": {
+    "gold": 4860,
+    "healthPotions": 3,
+    "manaPotions": 2,
+    "bag": [
+      "ancient_ruby x2",
+      "greater_health_potion x2",
+      "iron_helm x1"
+    ],
+    "equipment": {
+      "weapon": "iron_blade",
+      "armor": null,
+      "helmet": "iron_helm",
+      "boots": null,
+      "gloves": null,
+      "cape": null,
+      "ring": null
+    }
+  },
+  "unequip_helmet": {
+    "gold": 4860,
+    "healthPotions": 3,
+    "manaPotions": 2,
+    "bag": [
+      "ancient_ruby x2",
+      "greater_health_potion x2",
+      "iron_helm x1",
+      "iron_helm x1"
+    ],
+    "equipment": {
+      "weapon": "iron_blade",
+      "armor": null,
+      "helmet": null,
+      "boots": null,
+      "gloves": null,
+      "cape": null,
+      "ring": null
+    }
+  }
+}
