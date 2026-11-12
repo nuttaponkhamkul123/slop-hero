@@ -458,7 +458,7 @@ class GameServer {
     player.inventory.items.splice(itemIndex, 1);
     const old = player.equipment.sp;
     if (old) player.inventory.items.push(old);
-    player.equipment.sp = { ...item, count: 1 };
+    player.equipment.sp = ItemFactory.stack(item);
     this.recalculatePlayerStats(player);
     say(`Equipped SP Card: ${card.name}. Press T to transform!`, '#c084fc');
     if (socket) socket.emit('player_updated', player);
@@ -1356,7 +1356,7 @@ class GameServer {
     const heldWeapon = player.equipment.weapon;
     const heldCls = requiredClass(heldWeapon);
     if (heldCls && heldCls !== player.characterClass) {
-      player.inventory.items.push({ ...heldWeapon, count: 1 });
+      player.inventory.items.push(ItemFactory.stack(heldWeapon));
       player.equipment.weapon = null;
     }
 
@@ -5312,12 +5312,12 @@ class GameServer {
       if (existing && existing.type !== 'equipment') {
         existing.count = (existing.count || 1) + 1;
       } else {
-        player.inventory.items.push({ ...oldEquipped, count: 1 });
+        player.inventory.items.push(ItemFactory.stack(oldEquipped));
       }
     }
 
     // Equip the new item
-    player.equipment[slot] = { ...item, count: 1 };
+    player.equipment[slot] = ItemFactory.stack(item);
     this.recalculatePlayerStats(player);
 
     const socket = this.io.sockets.sockets.get(socketId);
@@ -5358,7 +5358,7 @@ class GameServer {
     }
 
     player.equipment[slot] = null;
-    player.inventory.items.push({ ...item, count: 1 });
+    player.inventory.items.push(ItemFactory.stack(item));
     this.recalculatePlayerStats(player);
 
     const socket = this.io.sockets.sockets.get(socketId);
@@ -5408,7 +5408,7 @@ class GameServer {
       if (existing) {
         existing.count = (existing.count || 1) + qty;
       } else {
-        player.inventory.items.push({ ...itemDef, count: qty });
+        player.inventory.items.push(ItemFactory.stack(itemDef, qty));
       }
     }
 
@@ -5789,7 +5789,7 @@ class GameServer {
         if (stack) {
           stack.count = (stack.count || 1) + 1;
         } else {
-          player.inventory.items.push({ ...existingDef, count: 1 });
+          player.inventory.items.push(ItemFactory.stack(existingDef));
         }
       }
     }
@@ -5868,7 +5868,7 @@ class GameServer {
     if (stack) {
       stack.count = (stack.count || 1) + 1;
     } else {
-      player.inventory.items.push({ ...runeDef, count: 1 });
+      player.inventory.items.push(ItemFactory.stack(runeDef));
     }
 
     if (isEquipped) {
@@ -6580,7 +6580,7 @@ class GameServer {
             text('⚠️ Inventory full!', '#ef4444');
             return;
           }
-          player.inventory.items.push({ ...def, count: def.type === 'equipment' ? 1 : n });
+          player.inventory.items.push(ItemFactory.stack(def, def.type === 'equipment' ? 1 : n));
         }
         text(`+${def.name}`, def.rarity === 'legendary' ? '#f59e0b' : def.rarity === 'epic' ? '#a855f7' : def.rarity === 'rare' ? '#38bdf8' : '#4ade80');
       }
@@ -8436,13 +8436,13 @@ class GameServer {
     if (bank.essence > 0) {
       const stack = player.inventory.items.find(i => i && i.id === RIFT.RIFT_ESSENCE_ID);
       if (stack) stack.count = (stack.count || 1) + bank.essence;
-      else if (player.inventory.items.length < (player.inventory.maxSlots || DEFAULT_BAG_SLOTS)) player.inventory.items.push({ ...ITEMS[RIFT.RIFT_ESSENCE_ID], count: bank.essence });
+      else if (player.inventory.items.length < (player.inventory.maxSlots || DEFAULT_BAG_SLOTS)) player.inventory.items.push(ItemFactory.stack(ITEMS[RIFT.RIFT_ESSENCE_ID], bank.essence));
       else {
         // a full bag never eats essence: it goes to the personal chest instead
         if (!player.storage) player.storage = { maxSlots: 50, items: [] };
         const stored = player.storage.items.find(i => i && i.id === RIFT.RIFT_ESSENCE_ID);
         if (stored) stored.count = (stored.count || 1) + bank.essence;
-        else player.storage.items.push({ ...ITEMS[RIFT.RIFT_ESSENCE_ID], count: bank.essence });
+        else player.storage.items.push(ItemFactory.stack(ITEMS[RIFT.RIFT_ESSENCE_ID], bank.essence));
         const socket = this.io.sockets.sockets.get(player.id);
         if (socket) socket.emit('chat_message', { sender: 'System', text: `📦 Your bag was full: ${bank.essence} Rift Essence went to your Personal Storage Chest.`, color: '#c084fc' });
       }
@@ -8738,7 +8738,7 @@ class GameServer {
     if (essenceStack.count <= 0) items.splice(items.indexOf(essenceStack), 1);
     player.gold -= recipe.gold;
     if (recipe.fragments) this.spendFragments(player, recipe.fragments);
-    const item = { ...def, count: 1, uniqueId: `${def.id}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}` };
+    const item = ItemFactory.forged(def);
     items.push(item);
 
     socket.emit('player_updated', player);
