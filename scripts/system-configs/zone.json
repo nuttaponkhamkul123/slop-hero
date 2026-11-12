@@ -1,0 +1,6 @@
+{
+  "className": "ZoneSystem",
+  "field": "zones",
+  "description": "Moving between zones: portals, teleports to town, fields and dungeons, entering and leaving a dungeon, the boss portal, and the monster set-up of fields and the legacy dungeon.",
+  "methods": ["initFieldMonsters", "initDungeonMonsters", "regenerateDungeon", "handleUsePortal", "checkPortalAndInteractions", "handleSpawnBossPortal", "teleportPlayerToBossRoom", "teleportPlayerFromBossRoom", "handleEnterDungeon", "handleLeaveDungeon", "teleportPlayerToDungeon", "teleportPlayerToField", "teleportPlayerToFrostfell", "teleportPlayerToTown"]
+}

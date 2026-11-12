@@ -52,8 +52,11 @@ test('monster creation sites match the pre-refactor fixture', async () => {
       const zone = FZ.FIELD_ZONES.find((z: any) => z.id === zid);
       seeded(11, () => {
         const field = { zone, map: FZ.generateFieldMap(zone), mobs: new Map() };
-        const fake: any = loose({ fields: new Map([[zid, field]]), nextEntityId: 1000 });
-        GS.prototype.initFieldMonsters.call(fake);
+        // a server without its constructor; its systems are wired when GameServer has initSystems()
+        const fake: any = Object.create(GS.prototype);
+        Object.assign(fake, { fields: new Map([[zid, field]]), nextEntityId: 1000 });
+        if (typeof fake.initSystems === 'function') fake.initSystems();
+        fake.initFieldMonsters();
         got.field[zid] = { nextEntityId: fake.nextEntityId, ...sample(Array.from(field.mobs.values())) };
       });
     }
@@ -108,8 +111,10 @@ test('monster creation sites match the pre-refactor fixture', async () => {
       got.dungeonInstance = { rooms: Object.keys(rooms).length, ...sample(([] as any[]).concat(...Object.values(rooms)), 6), totals: [inst.totalTrashMobs, inst.requiredKills] };
     });
     seeded(66, () => {
-      const fake: any = loose({ dungeonMobs: new Map(), dungeon: GEN.generateProceduralDungeon(1, 'normal') });
-      GS.prototype.initDungeonMonsters.call(fake);
+      const fake: any = Object.create(GS.prototype);
+      Object.assign(fake, { dungeonMobs: new Map(), dungeon: GEN.generateProceduralDungeon(1, 'normal') });
+      if (typeof fake.initSystems === 'function') fake.initSystems();
+      fake.initDungeonMonsters();
       got.dungeonLegacy = sample(Array.from(fake.dungeonMobs.values()), 4);
     });
 
