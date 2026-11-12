@@ -43,103 +43,119 @@ import * as RIFT from './eternalRift';
 import * as CRAFT from './crafting';
 import * as DMODS from './dungeonMods';
 import * as ATTR from './itemAttributes';
-const SP_TRANSFORM_COOLDOWN = 3.2; // 8s reduced by 60% (* 0.4)
-
-// Global tuning knob for every skill's damage against monsters
-// (multiplies player.dmg * skill.dmgMult before rune/berserk/crit).
-const SKILL_DAMAGE_SCALE = 0.9;
-// Cosmetic player effects (Effects dialog): the trail ids a hero may wear (the look is in public/js/trails.js)
-const TRAIL_IDS = new Set(['afterimage', 'ember', 'frost', 'shadow', 'sakura', 'lightning', 'stardust', 'toxic', 'rainbow']);
-// Field props break after a few hits and grow back after PROP_RESPAWN_S seconds
-const PROP_RESPAWN_S = 20;
-const PROP_HITS: Record<string, number> = {
-  cactus: 2, dead_tree: 3, ice_crystal: 3, giant_mushroom: 3, oak_tree: 4, pine_tree: 4, snow_pine: 4,
-  boulder: 5, stone_pillar: 5, frost_monolith: 6
-};
-// Berserker blood auras (SP 'aura' skills): need this share of max HP to switch
-// one on, and all of them fade once HP is drained down to BLOOD_AURA_MIN_HP
-const BLOOD_AURA_START_HP = 0.2;
-const BLOOD_AURA_MIN_HP = 0.1;
-// Mana tuning. Skill costs grow with level so they keep pace with max MP
-// (+15 per level): cost = base * MANA_COST_SCALE * (1 + MANA_COST_PER_LEVEL * (level - 1)).
-// Regen per second = MANA_REGEN_PCT of max MP + MANA_REGEN_FLAT.
-const MANA_COST_SCALE = 0.9;
-const MANA_COST_PER_LEVEL = 0.05;
-const MANA_REGEN_PCT = 0.035;
-const MANA_REGEN_FLAT = 3;
-// Bag size of a new hero, and the most backpack expanders can raise it to
-const DEFAULT_BAG_SLOTS = 150;
-const MAX_BAG_SLOTS = 240;
-// Dungeon boss portal: opens once this share of the run's monsters (weighted) are dead.
-// Minibosses are worth DUNGEON_MINIBOSS_WEIGHT ordinary monsters.
-const DUNGEON_PORTAL_SHARE = 0.5;
-const DUNGEON_MINIBOSS_WEIGHT = 8;
-const dungeonProgressWeight = (m: any) => (m.isMiniboss || m.mechanics === 'miniboss' ? DUNGEON_MINIBOSS_WEIGHT : 1);
-// Natural HP regen per second, as a share of max HP (gear and attributes add flat regen on top)
-const HP_REGEN_PCT = 0.015;
-// Melee basic-attack cleave: reach past the attack range (tiles) and the default
-// arc (degrees, cos 0.35 either side of the facing); sweep weapons add to both
-const SWEEP_EXTRA_REACH = 1.15;
-// A swing that arrives this close to the end of the attack cooldown (25 Hz tick steps
-// plus network jitter) still lands: the client has already played it. The leftover is
-// carried into the next cooldown, so the attack rate itself never goes up.
-const ATTACK_GRACE_S = 0.15;
-const SWEEP_ARC_DEG = Math.round((Math.acos(0.35) * 360) / Math.PI);
-// Mage card mechanics (see spCards.js): caps and timers
-const SCORCH_MAX = 5, SCORCH_SECONDS = 6;
-const FROST_TO_FREEZE = 3, FROST_SECONDS = 5, FREEZE_SECONDS = 2, BOSS_FREEZE_SECONDS = 0.8;
-// Tempest Caller: Conductor marks on enemies, arcs between marked enemies, delayed Thunderclap
-const CONDUCT_MAX = 3, CONDUCT_SECONDS = 7, CONDUCT_FORK_RANGE = 4.5, CONDUCT_FORK_MAX = 3, CONDUCT_FORK_SHARE = 0.4;
-const VOID_SOUL_MAX = 10, VOID_SOUL_SECONDS = 12, VOID_SOUL_BONUS = 0.04;
-// SP signature charge: per landed hit, per kill, per full max HP of damage taken;
-// at most ULT_MAX_GAIN_PER_SEC a second, none while a signature is still playing out
-const ULT_COOLDOWN = 1, ULT_CHARGE_MAX = 100, ULT_GAIN_HIT = 1, ULT_GAIN_KILL = 4, ULT_GAIN_HURT = 60, ULT_MAX_GAIN_PER_SEC = 10, ULT_LOCK_SECONDS = 4;
-const ECHO_DAMAGE = 0.6;
-// Check a hero's bag / gear / skills for changes this often (in ticks) when building snapshots
-const HEAVY_CHECK_TICKS = Number(process.env.HEAVY_CHECK_TICKS) || 5;
-
-// Variant warrior card mechanics (see spCards.ts)
-const FRACTURE_MAX = 5, FRACTURE_SECONDS = 6, FRACTURE_STUN = 0.35;         // Gravelord
-const HEAT_MAX = 100, HEAT_HOLD_MS = 3000, HEAT_DECAY = 10;                   // Reaver: Heat fades 10/s after 3s idle
-const OVERHEAT_SECONDS = 6, OVERHEAT_BONUS = 0.4, OVERHEAT_BURN = 0.015;     // Reaver Overheat
-const RUNE_MAX = 4, RUNE_POLL = 0.25, RUNE_ARM_MS = 400, RUNE_TRIGGER_R = 1.1; // Rune Knight glyphs
-const COMBO_MAX = 6, COMBO_SECONDS = 4, COMBO_BONUS = 0.1;                   // Warchief
-// Dragoon Lightning Rods (spCards: rod / rodArc / overload): at most DG_ROD_MAX planted at once,
-// each lasting DG_ROD_SECONDS; the sky strikes every rod every DG_ROD_EVERY s (DG_ROD_MULT x ATK
-// within DG_ROD_R), and a rod links to the next one planted within DG_FENCE_RANGE by an arc fence
-// (DG_FENCE_MULT x ATK to enemies within DG_FENCE_W of it, and a short slow)
-const DG_ROD_MAX = 3, DG_ROD_SECONDS = 8, DG_ROD_EVERY = 1.2, DG_ROD_R = 1.6, DG_ROD_MULT = 0.45;
-const DG_FENCE_RANGE = 7, DG_FENCE_W = 0.7, DG_FENCE_MULT = 0.3, DG_OVERLOAD_R = 2.4, DG_ARC_RANGE = 4.5;
-// Gravelord undead minions (Raise the Fallen): monsters' corpses stay raisable for
-// GRAVE_CORPSE_MS; minions chase the nearest enemy within MINION_AGGRO (staying within
-// MINION_LEASH of their lord), hit every MINION_ATTACK_EVERY s for `mult` x the lord's ATK
-const GRAVE_CORPSE_MS = 12000, GRAVE_CORPSE_MAX = 40, MINION_MAX = 5;
-const MINION_SPEED = 4.2, MINION_REACH = 1.1, MINION_ATTACK_EVERY = 0.9, MINION_AGGRO = 8, MINION_LEASH = 11;
+import {
+  SP_TRANSFORM_COOLDOWN,
+  SKILL_DAMAGE_SCALE,
+  TRAIL_IDS,
+  PROP_RESPAWN_S,
+  PROP_HITS,
+  BLOOD_AURA_START_HP,
+  BLOOD_AURA_MIN_HP,
+  MANA_COST_SCALE,
+  MANA_COST_PER_LEVEL,
+  MANA_REGEN_PCT,
+  MANA_REGEN_FLAT,
+  DEFAULT_BAG_SLOTS,
+  MAX_BAG_SLOTS,
+  DUNGEON_PORTAL_SHARE,
+  DUNGEON_MINIBOSS_WEIGHT,
+  dungeonProgressWeight,
+  HP_REGEN_PCT,
+  SWEEP_EXTRA_REACH,
+  ATTACK_GRACE_S,
+  SWEEP_ARC_DEG,
+  SCORCH_MAX,
+  SCORCH_SECONDS,
+  FROST_TO_FREEZE,
+  FROST_SECONDS,
+  FREEZE_SECONDS,
+  BOSS_FREEZE_SECONDS,
+  CONDUCT_MAX,
+  CONDUCT_SECONDS,
+  CONDUCT_FORK_RANGE,
+  CONDUCT_FORK_MAX,
+  CONDUCT_FORK_SHARE,
+  VOID_SOUL_MAX,
+  VOID_SOUL_SECONDS,
+  VOID_SOUL_BONUS,
+  ULT_COOLDOWN,
+  ULT_CHARGE_MAX,
+  ULT_GAIN_HIT,
+  ULT_GAIN_KILL,
+  ULT_GAIN_HURT,
+  ULT_MAX_GAIN_PER_SEC,
+  ULT_LOCK_SECONDS,
+  ECHO_DAMAGE,
+  HEAVY_CHECK_TICKS,
+  FRACTURE_MAX,
+  FRACTURE_SECONDS,
+  FRACTURE_STUN,
+  HEAT_MAX,
+  HEAT_HOLD_MS,
+  HEAT_DECAY,
+  OVERHEAT_SECONDS,
+  OVERHEAT_BONUS,
+  OVERHEAT_BURN,
+  RUNE_MAX,
+  RUNE_POLL,
+  RUNE_ARM_MS,
+  RUNE_TRIGGER_R,
+  COMBO_MAX,
+  COMBO_SECONDS,
+  COMBO_BONUS,
+  DG_ROD_MAX,
+  DG_ROD_SECONDS,
+  DG_ROD_EVERY,
+  DG_ROD_R,
+  DG_ROD_MULT,
+  DG_FENCE_RANGE,
+  DG_FENCE_W,
+  DG_FENCE_MULT,
+  DG_OVERLOAD_R,
+  DG_ARC_RANGE,
+  GRAVE_CORPSE_MS,
+  GRAVE_CORPSE_MAX,
+  MINION_MAX,
+  MINION_SPEED,
+  MINION_REACH,
+  MINION_ATTACK_EVERY,
+  MINION_AGGRO,
+  MINION_LEASH,
+  SHADOW_SKIPS_SHAPES,
+  REWIND_SAMPLE_S,
+  REWIND_KEEP_S,
+  MOB_VIEW_ISO_X,
+  MOB_VIEW_ISO_Y,
+  MOB_FULL_REFRESH_S,
+  DUNGEON_SPAWN_MS,
+  FLOATING_TEXT_BATCH_MAX,
+  mobInView,
+  FAILED_RUN_LOOT_KEEP,
+  PORTAL_USE_RANGE,
+  RIFT_TOWN_ARRIVAL,
+  PARTY_EXP_RANGE,
+  PARTY_EXP_BONUS,
+  PASSIVE_REFUND_COST,
+  MAX_PLAYER_ELEMENT_RESIST,
+  ENERGY_SHIELD,
+  ARMOR_RUNE_DROP,
+  PARTY_SUMMON_TTL_MS,
+  ITEM_DESPAWN_MS,
+  ITEM_SWEEP_INTERVAL_MS,
+  FACINGS,
+  AIM_FACE_LOCK_SEC,
+  MAGE_SPLASH_SHARE,
+  MAGE_SPLASH_RADIUS,
+  RUN_PAR_BASE_SEC,
+  RUN_PAR_PER_ROOM_SEC,
+  RUN_RANK_MULT,
+  MOB_GEAR_DROP_CHANCE,
+  BOSS_GEAR_DROP_CHANCE,
+  BOSS_BONUS_GEAR_DROP_CHANCE,
+  BOSS_REVIVAL_STONE_CHANCE
+} from './config/constants';
 let minionSeq = 0;
 let spObjSeq = 0; // ids for placed card objects (glyphs, banners, lances) so the client can clear them
-// Skills a Nightblade shadow does not copy: tossing the shadow itself, and ones that only move or buff the hero
-const SHADOW_SKIPS_SHAPES = new Set(['shadow', 'aura', 'rewind', 'buff']);
-const REWIND_SAMPLE_S = 0.25, REWIND_KEEP_S = 4;
-// Dungeon snapshots carry only mobs a hero in the instance could see: the iso
-// screen is a diamond in world space, |dx - dy| and |dx + dy| bounded (sized
-// for a 1920x1080 view at the furthest zoom-out, 0.65)
-const MOB_VIEW_ISO_X = 50;
-const MOB_VIEW_ISO_Y = 56;
-// Dungeon ticks are diffs; the full mob + chest list goes out this often (s)
-const MOB_FULL_REFRESH_S = 5;
-// Dungeon monsters rise this long when their room opens (no AI meanwhile)
-const DUNGEON_SPAWN_MS = 1000;
-// Most floating texts (damage numbers...) one room receives per tick; the
-// rest of a huge AoE burst is dropped rather than flooding the clients
-const FLOATING_TEXT_BATCH_MAX = 40;
-const mobInView = (m, p) => {
-  const dx = m.x - p.x, dy = m.y - p.y;
-  return Math.abs(dx - dy) <= MOB_VIEW_ISO_X && Math.abs(dx + dy) <= MOB_VIEW_ISO_Y;
-};
-
-// Share of the escrowed chest loot a player keeps when a dungeon run fails
-// (leaving, dying or disconnecting before the boss is defeated).
-const FAILED_RUN_LOOT_KEEP = 0.3;
 
 // ================= MASSIVE CLASS SKILL ARSENAL (24 SKILLS) =================
 const ALL_CLASS_SKILLS = {
@@ -433,41 +449,8 @@ const CLASS_SKILLS = {
 
 const PASSIVES = require('./talents');
 const { createBossMechanics } = require('./bossMechanics');
-// How close a hero must stand to a portal to use it (client shows the button in range)
-const PORTAL_USE_RANGE = 2.5;
-// Where heroes come back out of the Eternal Rift (beside its town gate)
-const RIFT_TOWN_ARRIVAL = { x: 27.0, y: 21.4 };
 const RAID = require('./raidBosses');
-// Party EXP sharing: members within this many tiles (1 tile = 1 metre) of the
-// killer, on the same map, split the kill's EXP; each extra member adds this bonus
-const PARTY_EXP_RANGE = 10;
-const PARTY_EXP_BONUS = 0.1;
 const TALENT_PROCS = PASSIVES.TALENT_PROCS;
-// Gold to refund one passive node (right-click in the tree)
-const PASSIVE_REFUND_COST = 25;
-
-
-const MAX_PLAYER_ELEMENT_RESIST = 0.6;
-// Mage passive Energy Shield: size from Max HP and Max MP; recharges once the
-// mage has gone `delay` seconds without being hit
-const ENERGY_SHIELD = { hpShare: 0.12, mpShare: 0.3, delay: 3, rechargePerSec: 0.15 };
-// Chance a kill drops a defensive armor rune (crafting makes them too)
-const ARMOR_RUNE_DROP = { normal: 0.0015, boss: 0.08 };
-const PARTY_SUMMON_TTL_MS = 30000;
-// Loot left on the ground disappears after this long
-const ITEM_DESPAWN_MS = 5 * 60 * 1000;
-const ITEM_SWEEP_INTERVAL_MS = 1000;
-// "Face the cursor" setting: the 8 facings a client may send, and how long a
-// swing keeps the hero turned toward its target before it follows the mouse again
-const FACINGS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
-const AIM_FACE_LOCK_SEC = 0.7;
-// Mage basic attacks burst on impact: nearby monsters take this share of the hit
-const MAGE_SPLASH_SHARE = 0.3;
-const MAGE_SPLASH_RADIUS = 1.9;
-// Dungeon completion grade: par time grows with the number of rooms
-const RUN_PAR_BASE_SEC = 90;
-const RUN_PAR_PER_ROOM_SEC = 25;
-const RUN_RANK_MULT = { S: 2, A: 1.5, B: 1.2, C: 1 };
 // Potions usable from the quick slots: share of max HP / MP restored
 const POTIONS = {
   health_potion: { kind: 'health', pct: 0.45 },
@@ -477,11 +460,6 @@ const POTIONS = {
 };
 // Cooldown after drinking, shared by every potion of the same kind
 const POTION_COOLDOWN_MS = { health: 10000, mana: 5000 };
-// Equipment drop rates (kept low on purpose)
-const MOB_GEAR_DROP_CHANCE = 0.025;
-const BOSS_GEAR_DROP_CHANCE = 0.35;
-const BOSS_BONUS_GEAR_DROP_CHANCE = 0.06;
-const BOSS_REVIVAL_STONE_CHANCE = 0.4;
 
 class GameServer {
   [key: string]: any;
