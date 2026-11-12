@@ -29,8 +29,10 @@ async function load() {
   process.env.DATA_DIR = dir; // the server module imports the accountManager singleton
   const mod: any = await import('../gameServer');
   const GS = mod.default || mod.GameServer;
-  const fake: any = { lootEntryName: GS.prototype.lootEntryName };
-  return { dir, toItem: (e: any) => GS.prototype.lootEntryToItem.call(fake, e), name: (e: any) => GS.prototype.lootEntryName.call(fake, e) };
+  // a server without its constructor; its systems are wired when GameServer has initSystems()
+  const fake: any = Object.create(GS.prototype);
+  if (typeof fake.initSystems === 'function') fake.initSystems();
+  return { dir, toItem: (e: any) => fake.lootEntryToItem(e), name: (e: any) => fake.lootEntryName(e) };
 }
 
 test('lootEntryToItem / lootEntryName match the pre-refactor fixture', async () => {

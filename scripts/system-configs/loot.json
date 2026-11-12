@@ -1,0 +1,7 @@
+{
+  "className": "LootSystem",
+  "field": "loot",
+  "description": "Loot and ground items: handing loot to a hero, loot entry names and items, finding a zone's ground-item map, spawning drops and sweeping expired ones.",
+  "methods": ["giveLootToPlayer", "lootEntryName", "lootEntryToItem", "getGroundItemsMap", "spawnGroundItem", "sweepGroundItems"],
+  "privateFields": ["private _lastItemSweep = 0; // time of the last expired-drop sweep"]
+}

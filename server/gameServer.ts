@@ -170,6 +170,7 @@ import { SpCardSystem } from './systems/SpCardSystem';
 import { InventorySystem } from './systems/InventorySystem';
 import { ItemUpgradeSystem } from './systems/ItemUpgradeSystem';
 import { LevelSystem } from './systems/LevelSystem';
+import { LootSystem } from './systems/LootSystem';
 let spObjSeq = 0; // ids for placed card objects (glyphs, banners, lances) so the client can clear them
 
 const PASSIVES = require('./talents');
@@ -265,6 +266,7 @@ class GameServer {
 
   // Game systems: classes that own one area of the rules (see server/systems). Each reaches the server through `gs`.
   initSystems() {
+    this.loot = new LootSystem(this);
     this.level = new LevelSystem(this);
     this.itemUpgrade = new ItemUpgradeSystem(this);
     this.inventory = new InventorySystem(this);
@@ -628,18 +630,7 @@ class GameServer {
   }
 
   getGroundItemsMap(zone, playerOrInstId = null) {
-    if (zone === 'town') return this.townGroundItems;
-    if (this.fields && this.fields.has(zone)) return this.fields.get(zone).groundItems;
-    if (zone === 'dungeon') {
-      let instId = null;
-      if (typeof playerOrInstId === 'string') instId = playerOrInstId;
-      else if (playerOrInstId && playerOrInstId.dungeonInstanceId) instId = playerOrInstId.dungeonInstanceId;
-      if (!instId) instId = this.ctxInstanceId;
-      if (instId && this.dungeonInstances.has(instId)) {
-        return this.dungeonInstances.get(instId).groundItems;
-      }
-    }
-    return this.dungeonGroundItems;
+    return this.loot.getGroundItemsMap(zone, playerOrInstId);
   }
 
   getPartyData(partyId) {
@@ -4637,48 +4628,16 @@ class GameServer {
     return this.statusFx.applyStatusEffect(player, type, duration, value);
   }
 
-  // Add one loot entry ({ type: 'gold', amount } or { itemId, amount, customItemData })
-  // to the player's purse / inventory, with a floating pickup label.
   giveLootToPlayer(player, entry, showText = true) {
-    const text = (label, color) => {
-      if (showText) this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.6, text: label, color });
-    };
-    if (entry.type === 'gold') {
-      player.gold += entry.amount;
-      text(`+${entry.amount.toLocaleString('en-US')} Gold`, '#facc15');
-    } else if (entry.itemId === 'health_potion') {
-      player.inventory.healthPotions += (entry.amount || 1);
-      text(`+${entry.amount || 1} Health Potion`, '#f87171');
-    } else if (entry.itemId === 'mana_potion') {
-      player.inventory.manaPotions += (entry.amount || 1);
-      text(`+${entry.amount || 1} Mana Potion`, '#60a5fa');
-    } else {
-      // Collectible Relic / Equipment / Consumables
-      const def = entry.customItemData || ITEMS[entry.itemId];
-      if (def) {
-        const n = entry.amount || 1;
-        const existing = player.inventory.items.find(i => i.id === def.id && !def.custom);
-        if (existing && def.type !== 'equipment') {
-          existing.count = (existing.count || 1) + n;
-        } else {
-          const maxLootCap = player.inventory.maxSlots || DEFAULT_BAG_SLOTS;
-          if (player.inventory.items.length >= maxLootCap) {
-            text('⚠️ Inventory full!', '#ef4444');
-            return;
-          }
-          player.inventory.items.push(ItemFactory.stack(def, def.type === 'equipment' ? 1 : n));
-        }
-        text(`+${def.name}`, def.rarity === 'legendary' ? '#f59e0b' : def.rarity === 'epic' ? '#a855f7' : def.rarity === 'rare' ? '#38bdf8' : '#4ade80');
-      }
-    }
+    return this.loot.giveLootToPlayer(player, entry, showText);
   }
 
   lootEntryName(entry) {
-    return ItemFactory.lootEntryName(entry);
+    return this.loot.lootEntryName(entry);
   }
 
   lootEntryToItem(entry) {
-    return ItemFactory.fromLootEntry(entry);
+    return this.loot.lootEntryToItem(entry);
   }
 
   emitDungeonRunUpdate(player: any, socket?: any) {
@@ -5403,13 +5362,7 @@ class GameServer {
   }
 
   spawnGroundItem(zone, type, itemIdOrName, x, y, amount, customItemData = null, instanceId = null) {
-    const id = `item_${this.nextEntityId++}`;
-    const itemsMap = this.getGroundItemsMap(zone, instanceId);
-
-    const item = createGroundItem({ id, zone, type, itemIdOrName, x, y, amount, customItemData });
-
-    itemsMap.set(id, item);
-    this.emitZone(zone, 'item_dropped', item, instanceId);
+    return this.loot.spawnGroundItem(zone, type, itemIdOrName, x, y, amount, customItemData, instanceId);
   }
 
   calculateFacing(fromX, fromY, toX, toY) {
@@ -5489,22 +5442,8 @@ class GameServer {
     }, 1000 / this.TICK_RATE);
   }
 
-  // Remove ground loot older than ITEM_DESPAWN_MS in every zone and instance
   sweepGroundItems() {
-    const now = Date.now();
-    if (this._lastItemSweep && now - this._lastItemSweep < ITEM_SWEEP_INTERVAL_MS) return;
-    this._lastItemSweep = now;
-    const sweep = (map: any, zone: string, instanceId: any = null) => {
-      for (const [id, item] of map) {
-        if (item.expiresAt && item.expiresAt <= now) {
-          map.delete(id);
-          this.emitZone(zone, 'item_despawned', { itemId: id, x: item.x, y: item.y }, instanceId);
-        }
-      }
-    };
-    sweep(this.townGroundItems, 'town');
-    for (const [fieldId, field] of this.fields) sweep(field.groundItems, fieldId);
-    for (const inst of this.dungeonInstances.values()) sweep(inst.groundItems, 'dungeon', inst.id);
+    return this.loot.sweepGroundItems();
   }
 
   update(dt) {

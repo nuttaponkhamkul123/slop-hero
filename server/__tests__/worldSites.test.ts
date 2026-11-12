@@ -80,8 +80,11 @@ test('world object creation sites match the pre-refactor fixture', async () => {
     ];
     for (const args of drops) {
       const map = new Map(); const emitted: any[] = [];
-      const fake: any = loose({ nextEntityId: 8000, getGroundItemsMap: () => map, emitZone: (...a: any[]) => emitted.push(a) });
-      seeded(3, () => GS.prototype.spawnGroundItem.call(fake, ...args));
+      // a server without its constructor; its systems are wired when GameServer has initSystems()
+      const fake: any = Object.create(GS.prototype);
+      Object.assign(fake, { nextEntityId: 8000, getGroundItemsMap: () => map, emitZone: (...a: any[]) => emitted.push(a) });
+      if (typeof fake.initSystems === 'function') fake.initSystems();
+      seeded(3, () => fake.spawnGroundItem(...args));
       got.groundItems.push({ stored: plain(Array.from(map.values())), emitted: plain(emitted), nextEntityId: fake.nextEntityId });
     }
 
