@@ -56,6 +56,10 @@ export class AccountManager {
 
   // true when accounts.json existed but could not be loaded; saving is then refused
   public loadFailed = false;
+  private writing = false;
+  private pendingSave = false;
+  private syncEpoch = 0;
+  private idle: Promise<void> = Promise.resolve();
   private dataDir: string;
   private accountsFile: string;
   private sessionsFile: string;
@@ -119,7 +123,9 @@ export class AccountManager {
     try {
       const now = Date.now();
       for (const [token, s] of this.sessions) if (now > s.expiresAt) this.sessions.delete(token);
-      fs.writeFileSync(this.sessionsFile, JSON.stringify(Object.fromEntries(this.sessions)), 'utf-8');
+      const tmp = this.sessionsFile + '.tmp';
+      fs.writeFileSync(tmp, JSON.stringify(Object.fromEntries(this.sessions)), 'utf-8');
+      fs.renameSync(tmp, this.sessionsFile); // atomic replace
     } catch (err) {
       console.error('[AccountManager] Error saving sessions:', err);
     }
@@ -224,18 +230,70 @@ export class AccountManager {
     }
   }
 
+  // Async save: the game loop is not blocked by the disk write. The file is written to
+  // <file>.tmp and renamed over the real one, so a crash can never leave a half-written file.
+  // Calls made while a write is running are coalesced into one follow-up write.
   saveAccounts(): void {
     if (this.loadFailed) {
       console.error('[AccountManager] Save skipped: accounts file failed to load earlier (see accounts.corrupt-*.json).');
       return;
     }
+    if (this.writing) { this.pendingSave = true; return; }
+    this.writing = true;
+    this.idle = this.writeLoop();
+  }
+
+  // Resolves once every requested save has reached the disk (used by tests / graceful shutdown)
+  flush(): Promise<void> {
+    return this.idle;
+  }
+
+  // Blocking save with the same atomic tmp+rename; use it only on the shutdown path.
+  saveAccountsSync(): void {
+    if (this.loadFailed) return;
     try {
-      if (!fs.existsSync(this.dataDir)) {
-        fs.mkdirSync(this.dataDir, { recursive: true });
-      }
-      fs.writeFileSync(this.accountsFile, JSON.stringify(this.accounts, null, 2), 'utf-8');
+      this.syncEpoch++; // makes any in-flight async write discard its stale snapshot
+      this.pendingSave = false;
+      if (!fs.existsSync(this.dataDir)) fs.mkdirSync(this.dataDir, { recursive: true });
+      const tmp = this.accountsFile + '.tmp';
+      fs.writeFileSync(tmp, JSON.stringify(this.accounts, null, 2), 'utf-8');
+      fs.renameSync(tmp, this.accountsFile);
     } catch (err) {
-      console.error('[AccountManager] Error saving accounts:', err);
+      console.error('[AccountManager] Error saving accounts (sync):', err);
+    }
+  }
+
+  private async writeLoop(): Promise<void> {
+    try {
+      do {
+        this.pendingSave = false;
+        try {
+          const epoch = this.syncEpoch;
+          const json = JSON.stringify(this.accounts, null, 2);
+          await fs.promises.mkdir(this.dataDir, { recursive: true });
+          const tmp = this.accountsFile + '.tmp';
+          await fs.promises.writeFile(tmp, json, 'utf-8');
+          if (epoch !== this.syncEpoch) { await fs.promises.rm(tmp, { force: true }); continue; }
+          await this.renameWithRetry(tmp, this.accountsFile);
+        } catch (err) {
+          console.error('[AccountManager] Error saving accounts:', err);
+        }
+      } while (this.pendingSave);
+    } finally {
+      this.writing = false;
+    }
+  }
+
+  // Windows can briefly refuse to replace a file that antivirus/indexers have open
+  private async renameWithRetry(from: string, to: string): Promise<void> {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        await fs.promises.rename(from, to);
+        return;
+      } catch (err: any) {
+        if (attempt >= 4 || (err.code !== 'EPERM' && err.code !== 'EBUSY' && err.code !== 'EACCES')) throw err;
+        await new Promise(r => setTimeout(r, 50 * (attempt + 1)));
+      }
     }
   }
 

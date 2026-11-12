@@ -19,6 +19,7 @@ test('accountManager: register + saveCharacter round-trips through disk', async 
       zone: 'town', x: 11, y: 12,
     }, 0);
     assert.equal(ok, true);
+    await am.flush();
     const onDisk = JSON.parse(fs.readFileSync(path.join(dir, 'accounts.json'), 'utf-8'));
     const ch = onDisk.roundtrip.characters[0];
     assert.equal(ch.level, 7);
@@ -61,6 +62,7 @@ test('accountManager: saveCharacter(flush=false) defers the disk write', async (
     assert.equal(am.accounts.batcher.characters[0].level, 5); // memory updated
     am.saveCharacter('batcher', { name: 'B', characterClass: 'warrior', level: 6 }, 0);
     assert.equal(writes, 1); // default still flushes
+    await am.flush();
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
