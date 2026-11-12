@@ -578,11 +578,15 @@ class GameServer {
   }
 
   saveAllOnlinePlayers() {
+    // update every character in memory, then write the accounts file once
+    let any = false;
     for (const player of this.players.values()) {
       if (player.accountUsername) {
-        accountManager.saveCharacter(player.accountUsername, player, player.accountSlot || 0);
+        accountManager.saveCharacter(player.accountUsername, player, player.accountSlot || 0, false);
+        any = true;
       }
     }
+    if (any) accountManager.saveAccounts();
   }
 
   handleAccountRegister(socket, data) {

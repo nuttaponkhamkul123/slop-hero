@@ -335,7 +335,8 @@ export class AccountManager {
     return acc ? (this.normalize(acc).characters[slot] || null) : null;
   }
 
-  saveCharacter(username: string, characterData: any, slot: number = 0): boolean {
+  // flush=false updates memory only; the caller must call saveAccounts() afterwards (used to batch autosaves)
+  saveCharacter(username: string, characterData: any, slot: number = 0, flush: boolean = true): boolean {
     if (!username || !characterData) return false;
     const key = username.trim().toLowerCase();
     if (!this.accounts[key]) return false;
@@ -366,7 +367,7 @@ export class AccountManager {
       savedAt: Date.now()
     };
 
-    this.saveAccounts();
+    if (flush) this.saveAccounts();
     return true;
   }
 }

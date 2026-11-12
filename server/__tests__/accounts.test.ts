@@ -46,3 +46,22 @@ test('accountManager: a corrupt accounts.json is backed up and never overwritten
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('accountManager: saveCharacter(flush=false) defers the disk write', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'slop-test-'));
+  try {
+    const { default: shared } = await import('../accountManager');
+    const am: any = new (shared.constructor as any)(dir);
+    am.register('batcher', 'secret1', { name: 'B', characterClass: 'warrior', level: 1 });
+    let writes = 0;
+    const orig = am.saveAccounts.bind(am);
+    am.saveAccounts = () => { writes++; orig(); };
+    am.saveCharacter('batcher', { name: 'B', characterClass: 'warrior', level: 5 }, 0, false);
+    assert.equal(writes, 0);
+    assert.equal(am.accounts.batcher.characters[0].level, 5); // memory updated
+    am.saveCharacter('batcher', { name: 'B', characterClass: 'warrior', level: 6 }, 0);
+    assert.equal(writes, 1); // default still flushes
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
