@@ -1,0 +1,234 @@
+{
+  "applyStatusEffect": {
+    "hero": {
+      "id": "h",
+      "zone": "town",
+      "x": 4,
+      "y": 5,
+      "statusEffects": [
+        {
+          "type": "poison",
+          "duration": 5,
+          "value": 20,
+          "tickTimer": 0.8
+        },
+        {
+          "type": "burn",
+          "duration": 2,
+          "value": 6,
+          "tickTimer": 0.8
+        },
+        {
+          "type": "chill",
+          "duration": 2.5,
+          "value": 0.45,
+          "tickTimer": 0.8
+        }
+      ]
+    },
+    "emitted": [
+      [
+        "town",
+        "floating_text",
+        {
+          "x": 4,
+          "y": 4.3,
+          "text": "☠️ POISON!",
+          "color": "#22c55e",
+          "size": 15
+        }
+      ],
+      [
+        "town",
+        "floating_text",
+        {
+          "x": 4,
+          "y": 4.3,
+          "text": "🔥 BURN!",
+          "color": "#f97316",
+          "size": 15
+        }
+      ],
+      [
+        "town",
+        "floating_text",
+        {
+          "x": 4,
+          "y": 4.3,
+          "text": "❄️ CHILL!",
+          "color": "#38bdf8",
+          "size": 15
+        }
+      ]
+    ]
+  },
+  "smokeMissChance": {
+    "miss": 0.6,
+    "remaining": 5,
+    "empty": 0,
+    "noInstance": 0,
+    "edge": 0.6
+  },
+  "applyTalentProcs": {
+    "noProcs": {
+      "player": {
+        "dmg": 50,
+        "mp": 10,
+        "maxMp": 100
+      },
+      "mob": {
+        "poisonTimer": 1,
+        "poisonStacks": 2,
+        "burnTimer": 0
+      },
+      "echoCalls": []
+    },
+    "manaLeech": {
+      "player": {
+        "dmg": 50,
+        "mp": 13,
+        "maxMp": 100,
+        "talentProcs": {
+          "manaLeech": 0.1
+        }
+      },
+      "mob": {
+        "poisonTimer": 1,
+        "poisonStacks": 2,
+        "burnTimer": 0
+      },
+      "echoCalls": []
+    },
+    "burn": {
+      "player": {
+        "dmg": 50,
+        "mp": 10,
+        "maxMp": 100,
+        "talentProcs": {
+          "burnPower": 0.5
+        }
+      },
+      "mob": {
+        "poisonTimer": 1,
+        "poisonStacks": 2,
+        "burnTimer": 3,
+        "burnDmg": 25
+      },
+      "echoCalls": []
+    },
+    "poisonFirst": {
+      "player": {
+        "dmg": 50,
+        "mp": 10,
+        "maxMp": 100,
+        "talentProcs": {
+          "poisonPower": 0.4
+        }
+      },
+      "mob": {
+        "poisonTimer": 4,
+        "poisonStacks": 3,
+        "burnTimer": 0,
+        "poisonDmg": 60
+      },
+      "echoCalls": []
+    },
+    "chillSure": {
+      "player": {
+        "dmg": 50,
+        "mp": 10,
+        "maxMp": 100,
+        "talentProcs": {
+          "chillChance": 1
+        }
+      },
+      "mob": {
+        "poisonTimer": 1,
+        "poisonStacks": 2,
+        "burnTimer": 0,
+        "chillTimer": 2.5
+      },
+      "echoCalls": []
+    },
+    "echoSure": {
+      "player": {
+        "dmg": 50,
+        "mp": 10,
+        "maxMp": 100,
+        "talentProcs": {
+          "echoChance": 1
+        }
+      },
+      "mob": {
+        "poisonTimer": 1,
+        "poisonStacks": 2,
+        "burnTimer": 0
+      },
+      "echoCalls": [
+        [
+          48,
+          false,
+          true
+        ]
+      ]
+    },
+    "everything": {
+      "player": {
+        "dmg": 50,
+        "mp": 12,
+        "maxMp": 100,
+        "talentProcs": {
+          "manaLeech": 0.05,
+          "burnPower": 0.3,
+          "poisonPower": 0.2,
+          "chillChance": 1,
+          "echoChance": 1
+        }
+      },
+      "mob": {
+        "poisonTimer": 4,
+        "poisonStacks": 3,
+        "burnTimer": 3,
+        "burnDmg": 15,
+        "poisonDmg": 30,
+        "chillTimer": 2.5
+      },
+      "echoCalls": [
+        [
+          48,
+          false,
+          true
+        ]
+      ]
+    },
+    "neverProcs": {
+      "player": {
+        "dmg": 50,
+        "mp": 10,
+        "maxMp": 100,
+        "talentProcs": {
+          "chillChance": 0,
+          "echoChance": 0
+        }
+      },
+      "mob": {
+        "poisonTimer": 1,
+        "poisonStacks": 2,
+        "burnTimer": 0
+      },
+      "echoCalls": []
+    }
+  },
+  "poisonStacks": {
+    "expired": {
+      "poisonTimer": 4,
+      "poisonStacks": 1,
+      "poisonDmg": 10
+    },
+    "cappedRunning": {
+      "poisonTimer": 4,
+      "poisonStacks": 5,
+      "poisonDmg": 50
+    }
+  }
+}
