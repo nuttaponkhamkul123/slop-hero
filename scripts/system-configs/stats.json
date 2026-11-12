@@ -1,0 +1,7 @@
+{
+  "className": "StatsSystem",
+  "field": "stats",
+  "description": "Derived hero stats: recalculating everything from base stats, gear, runes, sets, passives and cards; the regen multiplier; rune counts; the cosmetic trail.",
+  "methods": ["handleSetEffects", "hpRegenMult", "recalculatePlayerStats", "getArmorRuneCounts", "getWeaponRuneCounts"],
+  "extraTop": ["const PASSIVES = require('../talents');", "const TALENT_PROCS = PASSIVES.TALENT_PROCS;"]
+}
