@@ -10,9 +10,7 @@ const DATA_DIR = process.env.DATA_DIR || (
     ? path.join(__dirname, 'data') 
     : path.join(process.cwd(), 'server', 'data')
 );
-const ACCOUNTS_FILE = path.join(DATA_DIR, 'accounts.json');
-// Login sessions survive a server restart, so connected players rejoin by themselves
-const SESSIONS_FILE = path.join(DATA_DIR, 'sessions.json');
+// (login sessions survive a server restart, so connected players rejoin by themselves: sessions.json)
 const MAX_CHARACTERS = 10;
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 const ROLES: UserRole[] = ['player', 'admin'];
