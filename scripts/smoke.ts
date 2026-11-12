@@ -7,12 +7,13 @@ import path from 'path';
 import crypto from 'crypto';
 import assert from 'assert';
 import { io } from 'socket.io-client';
+import { ITEMS } from '../server/items';
 
 const PORT = Number(process.env.SMOKE_PORT) || 3917;
 const URL = `http://localhost:${PORT}`;
 const root = path.resolve(__dirname, '..');
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'slop-smoke-'));
-const FIXTURE = path.join(root, 'scripts/fixtures/class-join.json');
+const FIXTURE_DIR = path.join(root, 'scripts/fixtures');
 const UPDATE_FIXTURES = process.env.SMOKE_UPDATE_FIXTURES === '1';
 const failures: string[] = [];
 const fail = (m: string) => { failures.push(m); console.error('FAIL:', m); };
@@ -27,43 +28,97 @@ async function waitForServer(ms: number) {
   return false;
 }
 
-// Join as a guest with the given class and return the fields of the starting player that must never change
-// during the refactor (random spawn position and socket id are removed).
-async function joinGuest(cls: string) {
-  const s = io(URL, { transports: ['websocket'] });
-  await new Promise<void>((res, rej) => { s.on('connect', () => res()); setTimeout(() => rej(new Error('guest connect timeout')), 10000); });
-  const init: any = await new Promise((res, rej) => {
-    s.once('init_game', res);
-    s.emit('join_game', { name: 'Fixture', characterClass: cls });
-    setTimeout(() => rej(new Error('no init_game for ' + cls)), 10000);
-  });
-  s.disconnect();
-  const player = JSON.parse(JSON.stringify(init.player));
-  for (const k of ['id', 'x', 'y']) delete player[k];
-  // item instances get randomly rolled sockets: not part of the deterministic starting state
-  for (const it of [...(player.inventory?.items || []), ...Object.values(player.equipment || {})] as any[]) {
+// Remove what is random per run (socket id, spawn position, item socket rolls) from an init_game player.
+function normalizePlayer(player: any) {
+  const p = JSON.parse(JSON.stringify(player));
+  for (const k of ['id', 'x', 'y']) delete p[k];
+  for (const it of [...(p.inventory?.items || []), ...Object.values(p.equipment || {})] as any[]) {
     if (it && typeof it === 'object') { delete it.maxSockets; delete it.sockets; delete it.brokenSockets; }
   }
-  const payloadHash = crypto.createHash('sha1').update(JSON.stringify([init.allSkills, init.allSkillsCatalog, init.skillRunes])).digest('hex');
-  return { player, payloadHash };
+  return p;
+}
+
+// Join (as a guest, or with an account token + slot) and return the init_game payload.
+async function joinGame(payload: any): Promise<any> {
+  const s = io(URL, { transports: ['websocket'] });
+  await new Promise<void>((res, rej) => { s.on('connect', () => res()); setTimeout(() => rej(new Error('connect timeout')), 10000); });
+  const init: any = await new Promise((res, rej) => {
+    s.once('init_game', res);
+    s.emit('join_game', payload);
+    setTimeout(() => rej(new Error('no init_game for ' + JSON.stringify(payload).slice(0, 80))), 10000);
+  });
+  s.disconnect();
+  await sleep(150); // let the server process the disconnect (and save) before the next join
+  return init;
+}
+
+// Compare with scripts/fixtures/<name>.json, or (SMOKE_UPDATE_FIXTURES=1) write it from the current behavior.
+function writeOrAssert(name: string, data: any) {
+  const file = path.join(FIXTURE_DIR, name + '.json');
+  const normalized = JSON.parse(JSON.stringify(data));
+  if (UPDATE_FIXTURES) {
+    fs.mkdirSync(FIXTURE_DIR, { recursive: true });
+    fs.writeFileSync(file, JSON.stringify(normalized, null, 2) + '\n', 'utf8');
+    console.log('smoke: fixture WRITTEN:', file);
+    return;
+  }
+  const want = JSON.parse(fs.readFileSync(file, 'utf8'));
+  try { assert.deepStrictEqual(normalized, want); console.log('smoke: fixture matches:', name); }
+  catch (e: any) { fail(`${name}: start player differs from scripts/fixtures/${name}.json:\n` + String(e.message).slice(0, 1500)); }
 }
 
 async function checkClassFixture() {
   const got: Record<string, any> = {};
-  for (const cls of ['warrior', 'mage', 'rogue', 'banana']) got[cls] = await joinGuest(cls); // 'banana' = invalid class -> warrior
-  const normalized = JSON.parse(JSON.stringify(got));
-  if (UPDATE_FIXTURES) {
-    fs.mkdirSync(path.dirname(FIXTURE), { recursive: true });
-    fs.writeFileSync(FIXTURE, JSON.stringify(normalized, null, 2) + '\n', 'utf8');
-    console.log('smoke: class fixture WRITTEN to', FIXTURE);
-    return;
+  for (const cls of ['warrior', 'mage', 'rogue', 'banana']) { // 'banana' = invalid class -> warrior
+    const init = await joinGame({ name: 'Fixture', characterClass: cls });
+    const payloadHash = crypto.createHash('sha1').update(JSON.stringify([init.allSkills, init.allSkillsCatalog, init.skillRunes])).digest('hex');
+    got[cls] = { player: normalizePlayer(init.player), payloadHash };
   }
-  const want = JSON.parse(fs.readFileSync(FIXTURE, 'utf8'));
-  try { assert.deepStrictEqual(normalized, want); console.log('smoke: class fixture matches'); }
-  catch (e: any) { fail('guest start player differs from scripts/fixtures/class-join.json:\n' + String(e.message).slice(0, 1500)); }
+  writeOrAssert('class-join', got);
+}
+
+// ---- saved characters: seeded into the temp accounts.json BEFORE the server starts ----
+const SEED_USER = 'seeduser', SEED_PASSWORD = 'seedpw1';
+const item = (id: string, count = 1) => ({ ...(ITEMS as any)[id], count });
+
+function seedAccounts() {
+  const salt = 'seed-salt-0123456789abcdef';
+  const passwordHash = crypto.pbkdf2Sync(SEED_PASSWORD, salt, 1000, 64, 'sha512').toString('hex');
+  const characters = [
+    { // 0: a rich mage with everything set, an old 30-slot bag and a warrior weapon equipped (moved back to the bag on join)
+      name: 'Seeded Mage', characterClass: 'mage', level: 7, exp: 123, expNext: 999, skillPoints: 3,
+      skills: { firestorm: 2, frost_nova: 1 },
+      equippedSkills: { slot1: 'frost_nova', slot2: 'firestorm', slot3: 'black_hole', dash: 'arcane_blink', runes: { slot1: 'flame', slot2: 'none', slot3: 'none', dash: 'none' } },
+      jobLevel: 3, jobExp: 40, spLoadouts: {},
+      equipment: { weapon: item('iron_blade'), armor: item('mystic_robe'), helmet: item('iron_helm'), boots: null, gloves: null, cape: null, ring: null },
+      gold: 4321,
+      inventory: { healthPotions: 5, manaPotions: 1, kills: 12, maxSlots: 30, items: [item('ancient_ruby', 2), item('revival_stone')] },
+      storage: { maxSlots: 60, items: [item('revival_stone', 3)] },
+      zone: 'town', x: 5, y: 6,
+    },
+    { name: 'Bare Warrior', characterClass: 'warrior', level: 3 }, // 1: almost nothing saved: every default applies
+    { // 2: zero values that must NOT fall back to defaults, and malformed containers that must
+      name: 'Zero Rogue', characterClass: 'rogue', level: 12, skillPoints: 0, gold: 0,
+      inventory: { healthPotions: 1, manaPotions: 0 }, storage: { maxSlots: 0 },
+    },
+  ];
+  const account = { username: SEED_USER, salt, passwordHash, createdAt: 1700000000000, lastLogin: 1700000000000, role: 'player', characters };
+  fs.writeFileSync(path.join(dataDir, 'accounts.json'), JSON.stringify({ [SEED_USER]: account }, null, 2), 'utf8');
+}
+
+async function checkSavedFixture() {
+  const s = io(URL, { transports: ['websocket'] });
+  await new Promise<void>((res, rej) => { s.on('connect', () => res()); setTimeout(() => rej(new Error('connect timeout')), 10000); });
+  const login: any = await new Promise(res => { s.once('account_login_response', res); s.emit('account_login', { username: SEED_USER, password: SEED_PASSWORD }); });
+  s.disconnect();
+  if (!login || !login.success || !login.token) { fail('seed login failed: ' + JSON.stringify(login)); return; }
+  const got: Record<string, any> = {};
+  for (const slot of [0, 1, 2]) got['slot' + slot] = normalizePlayer((await joinGame({ token: login.token, slot })).player);
+  writeOrAssert('saved-join', got);
 }
 
 async function main() {
+  seedAccounts();
   const child = spawn(process.execPath, [path.join(root, 'node_modules/tsx/dist/cli.mjs'), 'server/index.ts'], {
     cwd: root, env: { ...process.env, PORT: String(PORT), DATA_DIR: dataDir }, stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -104,6 +159,7 @@ async function main() {
     console.log(`smoke: init_game=${inited} game_ticks=${ticks}`);
     socket.disconnect();
     await checkClassFixture();
+    await checkSavedFixture();
   } finally {
     if (!exited) child.kill(); // only the child we spawned
     await sleep(300);
