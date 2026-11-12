@@ -162,6 +162,7 @@ import { ItemFactory } from './entities/item';
 import { MobFactory } from './entities/mob';
 import { createProjectile, createGroundItem, createDungeonInstance, createRiftInstance, createParty } from './entities/world';
 import { StatusEffectSystem } from './systems/StatusEffectSystem';
+import { PotionSystem } from './systems/PotionSystem';
 let minionSeq = 0;
 let spObjSeq = 0; // ids for placed card objects (glyphs, banners, lances) so the client can clear them
 
@@ -258,6 +259,7 @@ class GameServer {
 
   // Game systems: classes that own one area of the rules (see server/systems). Each reaches the server through `gs`.
   initSystems() {
+    this.potions = new PotionSystem(this);
     this.statusFx = new StatusEffectSystem(this);
   }
 
@@ -6344,88 +6346,23 @@ class GameServer {
   }
 
   getPotionSlots(player) {
-    if (!player.inventory.potionSlots) {
-      player.inventory.potionSlots = { health: 'health_potion', mana: 'mana_potion' };
-    }
-    return player.inventory.potionSlots;
+    return this.potions.getPotionSlots(player);
   }
 
   getPotionCount(player, itemId) {
-    if (itemId === 'health_potion') return player.inventory.healthPotions || 0;
-    if (itemId === 'mana_potion') return player.inventory.manaPotions || 0;
-    const stack = player.inventory.items.find(i => i.id === itemId);
-    return stack ? (stack.count || 1) : 0;
+    return this.potions.getPotionCount(player, itemId);
   }
 
   consumePotion(player, itemId) {
-    if (itemId === 'health_potion') { player.inventory.healthPotions--; return; }
-    if (itemId === 'mana_potion') { player.inventory.manaPotions--; return; }
-    const idx = player.inventory.items.findIndex(i => i.id === itemId);
-    if (idx === -1) return;
-    const stack = player.inventory.items[idx];
-    if ((stack.count || 1) > 1) stack.count--;
-    else player.inventory.items.splice(idx, 1);
+    return this.potions.consumePotion(player, itemId);
   }
 
-  // potionType: 'health' | 'mana' drinks the potion assigned to that quick slot;
-  // { itemId } drinks that specific potion (clicked in the bag).
   handleUsePotion(socketId, potionType) {
-    const player = this.players.get(socketId);
-    if (!player || player.isDead) return;
-
-    const slots = this.getPotionSlots(player);
-    let itemId = null;
-    if (potionType === 'health' || potionType === 'mana') itemId = slots[potionType];
-    else if (potionType && typeof potionType.itemId === 'string') itemId = potionType.itemId;
-    const potion = POTIONS[itemId];
-    if (!potion) return;
-
-    const socket = this.io.sockets.sockets.get(socketId);
-    const now = Date.now();
-    if (!player.potionCdUntil) player.potionCdUntil = { health: 0, mana: 0 };
-    const cdLeft = (player.potionCdUntil[potion.kind] || 0) - now;
-    if (cdLeft > 0) {
-      if (socket) socket.emit('potion_cooldown', { kind: potion.kind, remainingMs: cdLeft, totalMs: POTION_COOLDOWN_MS[potion.kind] });
-      return;
-    }
-    if (this.getPotionCount(player, itemId) <= 0) {
-      if (socket) socket.emit('floating_text', { x: player.x, y: player.y - 0.6, text: `⚠️ Out of ${ITEMS[itemId].name}!`, color: '#ef4444' });
-      return;
-    }
-
-    if (potion.kind === 'health') {
-      if (player.hp >= player.maxHp) return;
-      this.consumePotion(player, itemId);
-      const healAmount = Math.round(player.maxHp * potion.pct);
-      player.hp = Math.min(player.maxHp, player.hp + healAmount);
-
-      this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.5, text: `+${healAmount} HP`, color: '#4ade80' });
-      this.emitZone(player.zone, 'heal_fx', { targetId: player.id, type: 'health' });
-    } else {
-      if (player.mp >= player.maxMp) return;
-      this.consumePotion(player, itemId);
-      const manaAmount = Math.round(player.maxMp * potion.pct);
-      player.mp = Math.min(player.maxMp, player.mp + manaAmount);
-
-      this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.5, text: `+${manaAmount} MP`, color: '#38bdf8' });
-      this.emitZone(player.zone, 'heal_fx', { targetId: player.id, type: 'mana' });
-    }
-    // Both sizes of a kind share one cooldown
-    const cdMs = POTION_COOLDOWN_MS[potion.kind];
-    player.potionCdUntil[potion.kind] = now + cdMs;
-    if (socket) socket.emit('potion_cooldown', { kind: potion.kind, remainingMs: cdMs, totalMs: cdMs });
-    if (socket) socket.emit('player_updated', player);
+    return this.potions.handleUsePotion(socketId, potionType);
   }
 
-  // Choose which potion the HP / MP quick slot drinks
   handleSetPotionSlot(socketId, data) {
-    const player = this.players.get(socketId);
-    if (!player || !data) return;
-    const potion = POTIONS[data.itemId];
-    if (!potion || potion.kind !== data.kind) return;
-    this.getPotionSlots(player)[data.kind] = data.itemId;
-    const socket = this.io.sockets.sockets.get(socketId);
-    if (socket) socket.emit('player_updated', player);
+    return this.potions.handleSetPotionSlot(socketId, data);
   }
 
   applyStatusEffect(player, type, duration, value) {
