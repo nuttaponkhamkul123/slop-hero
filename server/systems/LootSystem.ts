@@ -6,12 +6,13 @@ import { ITEMS } from '../items';
 import { DEFAULT_BAG_SLOTS, ITEM_DESPAWN_MS, ITEM_SWEEP_INTERVAL_MS } from '../config/constants';
 import { ItemFactory } from '../entities/item';
 import { createGroundItem } from '../entities/world';
+import type { Player } from '../entities/types';
 
 export class LootSystem {
   private _lastItemSweep = 0; // time of the last expired-drop sweep
   constructor(private readonly gs: GameServer) {}
 
-  getGroundItemsMap(zone, playerOrInstId = null) {
+  getGroundItemsMap(zone: any, playerOrInstId: any = null) {
     if (zone === 'town') return this.gs.townGroundItems;
     if (this.gs.fields && this.gs.fields.has(zone)) return this.gs.fields.get(zone).groundItems;
     if (zone === 'dungeon') {
@@ -28,8 +29,8 @@ export class LootSystem {
 
   // Add one loot entry ({ type: 'gold', amount } or { itemId, amount, customItemData })
   // to the player's purse / inventory, with a floating pickup label.
-  giveLootToPlayer(player, entry, showText = true) {
-    const text = (label, color) => {
+  giveLootToPlayer(player: Player, entry: any, showText = true) {
+    const text = (label: any, color: any) => {
       if (showText) this.gs.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.6, text: label, color });
     };
     if (entry.type === 'gold') {
@@ -46,7 +47,7 @@ export class LootSystem {
       const def = entry.customItemData || ITEMS[entry.itemId];
       if (def) {
         const n = entry.amount || 1;
-        const existing = player.inventory.items.find(i => i.id === def.id && !def.custom);
+        const existing = player.inventory.items.find((i: any) => i.id === def.id && !def.custom);
         if (existing && def.type !== 'equipment') {
           existing.count = (existing.count || 1) + n;
         } else {
@@ -62,15 +63,15 @@ export class LootSystem {
     }
   }
 
-  lootEntryName(entry) {
+  lootEntryName(entry: any) {
     return ItemFactory.lootEntryName(entry);
   }
 
-  lootEntryToItem(entry) {
+  lootEntryToItem(entry: any) {
     return ItemFactory.fromLootEntry(entry);
   }
 
-  spawnGroundItem(zone, type, itemIdOrName, x, y, amount, customItemData = null, instanceId = null) {
+  spawnGroundItem(zone: any, type: any, itemIdOrName: any, x: any, y: any, amount: any, customItemData: any = null, instanceId: any = null) {
     const id = `item_${this.gs.nextEntityId++}`;
     const itemsMap = this.gs.getGroundItemsMap(zone, instanceId);
 

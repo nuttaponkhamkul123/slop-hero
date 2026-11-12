@@ -9,7 +9,7 @@ import { ItemFactory } from '../entities/item';
 export class InventorySystem {
   constructor(private readonly gs: GameServer) {}
 
-  handleEquipItem(socketId, itemIndex) {
+  handleEquipItem(socketId: any, itemIndex: any) {
     const player = this.gs.players.get(socketId);
     if (!player || player.isDead) return;
 
@@ -37,7 +37,7 @@ export class InventorySystem {
 
     // If an item was previously equipped in this slot, return it to inventory
     if (oldEquipped) {
-      const existing = player.inventory.items.find(i => i.id === oldEquipped.id);
+      const existing = player.inventory.items.find((i: any) => i.id === oldEquipped.id);
       if (existing && existing.type !== 'equipment') {
         existing.count = (existing.count || 1) + 1;
       } else {
@@ -63,7 +63,7 @@ export class InventorySystem {
     this.gs.sendDirectMessage(player.id, `🛡️ [${player.name}] equipped [${item.name}]!`);
   }
 
-  handleUnequipItem(socketId, slot) {
+  handleUnequipItem(socketId: any, slot: any) {
     const player = this.gs.players.get(socketId);
     if (!player || player.isDead) return;
     if (slot === 'sp' && player.spTransformed) this.gs.setTransformed(player, false);
@@ -103,7 +103,7 @@ export class InventorySystem {
   }
 
   // Merchant Shop Actions: Buy & Sell
-  handleBuyItem(socketId, itemId, count = 1) {
+  handleBuyItem(socketId: any, itemId: any, count = 1) {
     const player = this.gs.players.get(socketId);
     if (!player || player.isDead) return;
 
@@ -133,7 +133,7 @@ export class InventorySystem {
     } else if (itemDef.id === 'mana_potion') {
       player.inventory.manaPotions = (player.inventory.manaPotions || 0) + qty;
     } else {
-      const existing = player.inventory.items.find(i => i.id === itemDef.id);
+      const existing = player.inventory.items.find((i: any) => i.id === itemDef.id);
       if (existing) {
         existing.count = (existing.count || 1) + qty;
       } else {
@@ -153,7 +153,7 @@ export class InventorySystem {
   }
 
   // Favorite items: a flag on the item; favorites can never be sold (unfavorite first)
-  handleToggleFavorite(socketId, data) {
+  handleToggleFavorite(socketId: any, data: any) {
     const player = this.gs.players.get(socketId);
     if (!player || !data) return;
     const item = data.target === 'equipped'
@@ -167,7 +167,7 @@ export class InventorySystem {
     if (socket) socket.emit('player_updated', player);
   }
 
-  handleSellItem(socketId, itemIndex, quantity = 1) {
+  handleSellItem(socketId: any, itemIndex: any, quantity = 1) {
     const player = this.gs.players.get(socketId);
     if (!player || player.isDead || player.zone !== 'town') return;
 
@@ -204,7 +204,7 @@ export class InventorySystem {
   }
 
   // Sell several bag slots at once: entries = [{ itemIndex, quantity }]
-  handleSellItems(socketId, entries) {
+  handleSellItems(socketId: any, entries: any) {
     const player = this.gs.players.get(socketId);
     if (!player || player.isDead || player.zone !== 'town') return;
     if (!Array.isArray(entries) || entries.length === 0) return;
@@ -574,7 +574,7 @@ export class InventorySystem {
     });
   }
 
-  handlePickupItem(socketId, itemId) {
+  handlePickupItem(socketId: any, itemId: any) {
     const player = this.gs.players.get(socketId);
     if (!player || player.isDead) return;
 

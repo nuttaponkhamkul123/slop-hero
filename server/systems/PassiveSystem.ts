@@ -4,23 +4,24 @@
 import type { GameServer } from '../gameServer';
 import * as SP from '../spCards';
 import { SKILL_DAMAGE_SCALE, FROST_TO_FREEZE, FROST_SECONDS, FREEZE_SECONDS, BOSS_FREEZE_SECONDS, VOID_SOUL_MAX, VOID_SOUL_SECONDS, ULT_CHARGE_MAX, ULT_GAIN_KILL, ULT_GAIN_HURT, ULT_MAX_GAIN_PER_SEC } from '../config/constants';
+import type { Player, Mob } from '../entities/types';
 
 export class PassiveSystem {
   constructor(private readonly gs: GameServer) {}
 
   // Damage multiplier from Bloodlust (Berserker buff)
-  bloodRage(player) {
+  bloodRage(player: Player) {
     return player.bloodlust ? 1 + (player.bloodlust.rage || 0) : 1;
   }
 
   // The card a transformed hero is wearing, else null
-  spCard(player) {
-    return (player && player.spTransformed && player.equipment && player.equipment.sp && SP.CARD_BY_ID[player.equipment.sp.cardId]) || null;
+  spCard(player: Player) {
+    return (player && player.spTransformed && player.equipment && player.equipment.sp && (SP.CARD_BY_ID as any)[player.equipment.sp.cardId]) || null;
   }
 
   // Signature charge (0..100). Gains are capped per second so a big pack hit
   // by one wide skill can't fill it in a single cast.
-  gainUltCharge(player, amount) {
+  gainUltCharge(player: Player, amount: any) {
     const card = this.gs.spCard(player);
     if (!card || !card.signature || !(amount > 0) || player.isDead) return;
     const now = Date.now();
@@ -38,7 +39,7 @@ export class PassiveSystem {
   }
 
   // Passive damage bonus for a hit on `mob` (status, execute, opener, low HP)
-  passiveDamageMult(player, mob) {
+  passiveDamageMult(player: Player, mob: Mob) {
     const pv = this.gs.spCard(player) && this.gs.spCard(player).passive;
     if (!pv) return 1;
     let k = 1;
@@ -56,7 +57,7 @@ export class PassiveSystem {
 
   // Passive on-hit procs; `damage` is what landed. Extra hits it deals are
   // flagged as echoes so they never proc again.
-  passiveOnHit(player, mob, damage) {
+  passiveOnHit(player: Player, mob: Mob, damage: any) {
     const card = this.gs.spCard(player);
     const hp = card && card.passive && card.passive.hitProc;
     if (!hp || Math.random() >= hp.chance || mob.state === 'dead' || mob.hp <= 0) return;
@@ -114,7 +115,7 @@ export class PassiveSystem {
   }
 
   // Passive on-kill effects
-  passiveOnKill(player, mob) {
+  passiveOnKill(player: Player, mob: Mob) {
     const card = this.gs.spCard(player);
     const kill = card && card.passive && card.passive.kill;
     this.gs.gainUltCharge(player, ULT_GAIN_KILL);
@@ -127,7 +128,7 @@ export class PassiveSystem {
     if (kill.cdr && player.skillCooldowns) {
       for (const k of Object.keys(player.skillCooldowns)) if (player.skillCooldowns[k] > 0) player.skillCooldowns[k] = Math.max(0, player.skillCooldowns[k] - kill.cdr);
     }
-    const near = (r) => [...this.gs.getMobsMap(zone).values()].filter(m => m !== mob && m.state !== 'dead' && m.hp > 0 && Math.hypot(m.x - mob.x, m.y - mob.y) <= r);
+    const near = (r: any) => [...this.gs.getMobsMap(zone).values()].filter(m => m !== mob && m.state !== 'dead' && m.hp > 0 && Math.hypot(m.x - mob.x, m.y - mob.y) <= r);
     if (kill.spread && (mob.poisonTimer > 0 || mob.burnTimer > 0)) {
       for (const m of near(kill.spread)) {
         if (mob.poisonTimer > 0) {
@@ -154,7 +155,7 @@ export class PassiveSystem {
   }
 
   // Passive effects on melee damage taken from `mob`; returns the damage after them
-  passiveOnHurt(player, mob, damage, zone) {
+  passiveOnHurt(player: Player, mob: Mob, damage: any, zone: any) {
     const pv = this.gs.spCard(player) && this.gs.spCard(player).passive;
     if (damage > 0) this.gs.gainUltCharge(player, (damage / Math.max(1, player.maxHp)) * ULT_GAIN_HURT);
     if (!pv) return damage;
@@ -171,8 +172,8 @@ export class PassiveSystem {
   }
 
   // SP card passive leech (Berserker Bloodthirst) on `dealt` damage; Bloodlust multiplies it
-  cardPassiveLeech(player, dealt) {
-    const card = player.spTransformed && player.equipment && player.equipment.sp && SP.CARD_BY_ID[player.equipment.sp.cardId];
+  cardPassiveLeech(player: Player, dealt: any) {
+    const card = player.spTransformed && player.equipment && player.equipment.sp && (SP.CARD_BY_ID as any)[player.equipment.sp.cardId];
     const passive = card && card.passive;
     if (!passive || !passive.leech || dealt <= 0) return;
     const thirst = player.bloodlust ? player.bloodlust.thirst || 1 : 1;
@@ -182,15 +183,15 @@ export class PassiveSystem {
   }
 
   // Bannerman: the War Standard this hero planted, if it still stands where they are
-  ownBanner(player) {
+  ownBanner(player: Player) {
     const b = player.banner;
     if (!b || Date.now() >= b.until || b.zone !== player.zone || b.instanceId !== (player.dungeonInstanceId || null)) return null;
     return b;
   }
 
   // Phoenix Oath passive: a lethal blow sets the hero alight instead (once per cd)
-  phoenixRebirth(player) {
-    const card = player.spTransformed && player.equipment && player.equipment.sp && SP.CARD_BY_ID[player.equipment.sp.cardId];
+  phoenixRebirth(player: Player) {
+    const card = player.spTransformed && player.equipment && player.equipment.sp && (SP.CARD_BY_ID as any)[player.equipment.sp.cardId];
     const rb = card && card.passive && card.passive.rebirth;
     if (!rb || Date.now() < (player.rebirthReadyAt || 0)) return false;
     player.rebirthReadyAt = Date.now() + rb.cd * 1000;
@@ -211,9 +212,9 @@ export class PassiveSystem {
 
   // Buffs and debuffs on a hero, for the HUD tray: [{ k, n, i, t?, v?, d? }]
   // (k key, n name, i icon, t seconds left, v stacks / amount, d = debuff)
-  heroBuffs(p) {
+  heroBuffs(p: any) {
     const out = [];
-    const timed = (k, n, i, t) => { if (t > 0) out.push({ k, n, i, t: Math.ceil(t) }); };
+    const timed = (k: any, n: any, i: any, t: any) => { if (t > 0) out.push({ k, n, i, t: Math.ceil(t) }); };
     for (const a of (Object.values(p.spToggles || {}) as any[])) out.push({ k: a.skill.id, n: a.skill.name, i: a.skill.icon || '✨' });
     if (p.bloodlust) timed('bloodlust', 'Bloodlust', '🔥', p.bloodlust.timer);
     timed('rage', 'Rage', '💢', p.berserkTimer);
@@ -242,7 +243,7 @@ export class PassiveSystem {
     if (p.voidSouls > 0) out.push({ k: 'souls', n: 'Souls', i: '👻', v: p.voidSouls, t: Math.ceil(p.voidSoulTimer || 0) });
     // variant warrior card states
     const now = Date.now();
-    const left = (until) => (until || 0) > now ? (until - now) / 1000 : 0;
+    const left = (until: any) => (until || 0) > now ? (until - now) / 1000 : 0;
     if (p.heat > 0) out.push({ k: 'heat', n: 'Heat', i: '🌡️', v: Math.round(p.heat) });
     timed('overheat', 'Overheat', '🔥', left(p.overheatUntil));
     if (p.combo && p.combo.n > 0 && p.combo.until > now) out.push({ k: 'combo', n: 'Combo', i: '🪓', v: p.combo.n, t: Math.ceil(left(p.combo.until)) });
@@ -254,7 +255,7 @@ export class PassiveSystem {
     }
     const DEBUFFS = { poison: ['Poison', '☠️'], burn: ['Burn', '🔥'], chill: ['Chill', '❄️'] };
     for (const e of p.statusEffects || []) {
-      const [n, i] = DEBUFFS[e.type] || [e.type, '⚠️'];
+      const [n, i] = (DEBUFFS as any)[e.type] || [e.type, '⚠️'];
       out.push({ k: 'd_' + e.type, n, i, t: Math.ceil(e.duration), d: 1 });
     }
     return out;
@@ -262,7 +263,7 @@ export class PassiveSystem {
 
   // Absorption layers on a hero, outermost first: shields (skills, set
   // effects) then the mage's Energy Shield. Returns the damage left for HP.
-  absorbIncomingDamage(player, damage, zone) {
+  absorbIncomingDamage(player: Player, damage: any, zone: any) {
     player.lastHitAt = Date.now();   // pauses the Energy Shield recharge
     if (player.shieldHp > 0 && damage > 0) {
       const absorbed = Math.min(player.shieldHp, damage);

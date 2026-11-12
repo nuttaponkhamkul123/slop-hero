@@ -4,28 +4,29 @@
 import type { GameServer } from '../gameServer';
 import { ITEMS } from '../items';
 import { POTIONS, POTION_COOLDOWN_MS } from '../data/potions';
+import type { Player } from '../entities/types';
 
 export class PotionSystem {
   constructor(private readonly gs: GameServer) {}
 
-  getPotionSlots(player) {
+  getPotionSlots(player: Player) {
     if (!player.inventory.potionSlots) {
       player.inventory.potionSlots = { health: 'health_potion', mana: 'mana_potion' };
     }
     return player.inventory.potionSlots;
   }
 
-  getPotionCount(player, itemId) {
+  getPotionCount(player: Player, itemId: any) {
     if (itemId === 'health_potion') return player.inventory.healthPotions || 0;
     if (itemId === 'mana_potion') return player.inventory.manaPotions || 0;
-    const stack = player.inventory.items.find(i => i.id === itemId);
+    const stack = player.inventory.items.find((i: any) => i.id === itemId);
     return stack ? (stack.count || 1) : 0;
   }
 
-  consumePotion(player, itemId) {
+  consumePotion(player: Player, itemId: any) {
     if (itemId === 'health_potion') { player.inventory.healthPotions--; return; }
     if (itemId === 'mana_potion') { player.inventory.manaPotions--; return; }
-    const idx = player.inventory.items.findIndex(i => i.id === itemId);
+    const idx = player.inventory.items.findIndex((i: any) => i.id === itemId);
     if (idx === -1) return;
     const stack = player.inventory.items[idx];
     if ((stack.count || 1) > 1) stack.count--;
@@ -34,7 +35,7 @@ export class PotionSystem {
 
   // potionType: 'health' | 'mana' drinks the potion assigned to that quick slot;
   // { itemId } drinks that specific potion (clicked in the bag).
-  handleUsePotion(socketId, potionType) {
+  handleUsePotion(socketId: any, potionType: any) {
     const player = this.gs.players.get(socketId);
     if (!player || player.isDead) return;
 
@@ -42,7 +43,7 @@ export class PotionSystem {
     let itemId = null;
     if (potionType === 'health' || potionType === 'mana') itemId = slots[potionType];
     else if (potionType && typeof potionType.itemId === 'string') itemId = potionType.itemId;
-    const potion = POTIONS[itemId];
+    const potion = (POTIONS as any)[itemId];
     if (!potion) return;
 
     const socket = this.gs.io.sockets.sockets.get(socketId);
@@ -50,7 +51,7 @@ export class PotionSystem {
     if (!player.potionCdUntil) player.potionCdUntil = { health: 0, mana: 0 };
     const cdLeft = (player.potionCdUntil[potion.kind] || 0) - now;
     if (cdLeft > 0) {
-      if (socket) socket.emit('potion_cooldown', { kind: potion.kind, remainingMs: cdLeft, totalMs: POTION_COOLDOWN_MS[potion.kind] });
+      if (socket) socket.emit('potion_cooldown', { kind: potion.kind, remainingMs: cdLeft, totalMs: (POTION_COOLDOWN_MS as any)[potion.kind] });
       return;
     }
     if (this.gs.getPotionCount(player, itemId) <= 0) {
@@ -76,17 +77,17 @@ export class PotionSystem {
       this.gs.emitZone(player.zone, 'heal_fx', { targetId: player.id, type: 'mana' });
     }
     // Both sizes of a kind share one cooldown
-    const cdMs = POTION_COOLDOWN_MS[potion.kind];
+    const cdMs = (POTION_COOLDOWN_MS as any)[potion.kind];
     player.potionCdUntil[potion.kind] = now + cdMs;
     if (socket) socket.emit('potion_cooldown', { kind: potion.kind, remainingMs: cdMs, totalMs: cdMs });
     if (socket) socket.emit('player_updated', player);
   }
 
   // Choose which potion the HP / MP quick slot drinks
-  handleSetPotionSlot(socketId, data) {
+  handleSetPotionSlot(socketId: any, data: any) {
     const player = this.gs.players.get(socketId);
     if (!player || !data) return;
-    const potion = POTIONS[data.itemId];
+    const potion = (POTIONS as any)[data.itemId];
     if (!potion || potion.kind !== data.kind) return;
     this.gs.getPotionSlots(player)[data.kind] = data.itemId;
     const socket = this.gs.io.sockets.sockets.get(socketId);

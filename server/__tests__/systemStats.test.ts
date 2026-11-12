@@ -30,7 +30,7 @@ test('stats methods match the pre-refactor fixture', async () => {
   try {
     const got: any = {};
     const ITEMS: any = I.ITEMS;
-    const server = () => { const f: any = Object.create(GS.prototype); Object.assign(f, { emitZone: () => undefined }); if (typeof f.initSystems === 'function') f.initSystems(); return f; };
+    const server = () => { const f: any = Object.create(GS.prototype); Object.assign(f, { emitZone: (): void => undefined }); if (typeof f.initSystems === 'function') f.initSystems(); return f; };
     const base = (cls = 'warrior', level = 1) => ({
       id: 'h1', characterClass: cls, level, hp: 9999, mp: 9999, equipment: {}, skills: {}, skillPoints: 0,
       baseStats: { maxHp: 200 + level * 20, maxMp: 100 + level * 15, dmg: 20 + level * 4, def: 5 + level * 2, speed: 4, attackSpeed: 1, swipe: 0, attackRange: 5 },

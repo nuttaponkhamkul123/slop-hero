@@ -18,7 +18,7 @@ export const BASE_SKILL_HANDLERS: Record<string, SkillHandler> = {
       // Signature: every stage after the first lands on its delay, from
       // wherever the hero is by then (the first may have moved them)
       const zone0 = player.zone, inst0 = player.dungeonInstanceId || null;
-      skill.ultStages.forEach((stage, i) => {
+      skill.ultStages.forEach((stage: any, i: any) => {
         const run = () => {
           if (player.isDead || player.zone !== zone0 || (player.dungeonInstanceId || null) !== inst0) return;
           gs.castSpSkill(player, stage, i === 0 ? spCtx : Object.assign({}, spCtx, { quiet: true }));

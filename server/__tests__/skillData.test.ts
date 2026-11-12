@@ -21,8 +21,8 @@ test('skills: catalog and class tables share the same skill objects', () => {
 });
 
 test('skills: default skill lookup falls back to whirlwind', () => {
-  assert.equal(DEFAULT_SKILL_FOR_SLOT({ characterClass: 'mage' }, 'slot1'), (ALL_CLASS_SKILLS as any).firestorm);
-  assert.equal(DEFAULT_SKILL_FOR_SLOT({ characterClass: 'mage' }, 'nope'), (ALL_CLASS_SKILLS as any).whirlwind);
+  assert.equal(DEFAULT_SKILL_FOR_SLOT({ characterClass: 'mage' } as any, 'slot1'), (ALL_CLASS_SKILLS as any).firestorm);
+  assert.equal(DEFAULT_SKILL_FOR_SLOT({ characterClass: 'mage' } as any, 'nope'), (ALL_CLASS_SKILLS as any).whirlwind);
 });
 
 test('potions: tuning values', () => {

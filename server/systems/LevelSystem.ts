@@ -4,18 +4,19 @@
 import type { GameServer } from '../gameServer';
 import { expToNext } from '../progression';
 import { PASSIVE_REFUND_COST } from '../config/constants';
+import type { Player } from '../entities/types';
 const PASSIVES = require('../talents');
 
 export class LevelSystem {
   constructor(private readonly gs: GameServer) {}
 
-  handleAllocateSkillPoint(socketId, skillId) {
+  handleAllocateSkillPoint(socketId: any, skillId: any) {
     this.gs.handleAllocatePassives(socketId, [skillId]);
   }
 
   // Allocate passive nodes in order (a path the client picked). Each node must touch the class
   // start or a node already owned (including ones earlier in this same path); one point each.
-  handleAllocatePassives(socketId, ids) {
+  handleAllocatePassives(socketId: any, ids: any) {
     const player = this.gs.players.get(socketId);
     if (!player || player.isDead || !Array.isArray(ids)) return;
     if (!player.skills) player.skills = {};
@@ -53,12 +54,12 @@ export class LevelSystem {
   }
 
   // Refund one passive node for a little gold, as long as the rest of the build stays connected
-  handleRefundPassive(socketId, id) {
+  handleRefundPassive(socketId: any, id: any) {
     const player = this.gs.players.get(socketId);
     if (!player || player.isDead || !player.skills) return;
     const socket = this.gs.io.sockets.sockets.get(socketId);
     const node = PASSIVES.BY_ID.get(String(id));
-    const fail = (text) => {
+    const fail = (text: any) => {
       if (!socket) return;
       socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text, color: '#ef4444' });
       socket.emit('skill_tree_updated', { skillPoints: player.skillPoints, skills: player.skills });
@@ -78,7 +79,7 @@ export class LevelSystem {
 
   // A saved build that no longer fits the tree (it was redesigned, or the save is broken) is
   // refunded in full, for free: the hero gets every spent point back and re-picks their path.
-  refundStaleTalents(player) {
+  refundStaleTalents(player: Player) {
     if (!player || !player.skills) return;
     if (PASSIVES.isValidAllocation(player.characterClass, player.skills)) return;
     const spent = Object.keys(player.skills).reduce((s, id) => s + Number(player.skills[id] || 0), 0);
@@ -87,7 +88,7 @@ export class LevelSystem {
     player.talentRefunded = (player.talentRefunded || 0) + spent;
   }
 
-  handleResetSkillPoints(socketId) {
+  handleResetSkillPoints(socketId: any) {
     const player = this.gs.players.get(socketId);
     if (!player || player.isDead) return;
     if (!player.skills) return;
@@ -135,7 +136,7 @@ export class LevelSystem {
     this.gs.sendDirectMessage(player.id, `🔄 [${player.name}] redistributed their talent points.`);
   }
 
-  awardExp(player, amount) {
+  awardExp(player: Player, amount: any) {
     if (player.level >= 150) return;
     if (player.dungeonRun && !player.dungeonRun.cleared) player.dungeonRun.exp = (player.dungeonRun.exp || 0) + amount;
     player.exp += amount;

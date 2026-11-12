@@ -12,7 +12,7 @@ export class PartySystem {
   // ==========================================
   // PARTY SYSTEM (Invites, Members, Sharing)
   // ==========================================
-  getPartyData(partyId) {
+  getPartyData(partyId: any) {
     if (!partyId || !this.gs.parties.has(partyId)) return null;
     const party = this.gs.parties.get(partyId);
     const members = [];
@@ -40,7 +40,7 @@ export class PartySystem {
     };
   }
 
-  broadcastPartyUpdate(partyId) {
+  broadcastPartyUpdate(partyId: any) {
     const data = this.gs.getPartyData(partyId);
     if (!data) return;
     const party = this.gs.parties.get(partyId);
@@ -53,7 +53,7 @@ export class PartySystem {
     }
   }
 
-  handlePartyInvite(socketId, data) {
+  handlePartyInvite(socketId: any, data: any) {
     const player = this.gs.players.get(socketId);
     if (!player || !data) return;
     const socket = this.gs.io.sockets.sockets.get(socketId);
@@ -110,7 +110,7 @@ export class PartySystem {
     }
   }
 
-  handlePartyAccept(socketId, data) {
+  handlePartyAccept(socketId: any, data: any) {
     const player = this.gs.players.get(socketId);
     if (!player || !data || !data.partyId) return;
     const party = this.gs.parties.get(data.partyId);
@@ -136,7 +136,7 @@ export class PartySystem {
     this.gs.broadcastSystemMessage(`⚔️ [${player.name}] joined the party!`);
   }
 
-  handlePartyDecline(socketId, data) {
+  handlePartyDecline(socketId: any, data: any) {
     const player = this.gs.players.get(socketId);
     if (!player || !data || !data.inviterId) return;
     const inviterSocket = this.gs.io.sockets.sockets.get(data.inviterId);
@@ -146,7 +146,7 @@ export class PartySystem {
   }
 
   // Ask every other party member to teleport to this player's map (or dungeon)
-  handlePartySummon(socketId) {
+  handlePartySummon(socketId: any) {
     const player = this.gs.players.get(socketId);
     if (!player || player.isDead || !player.partyId) return;
     const party = this.gs.parties.get(player.partyId);
@@ -180,13 +180,13 @@ export class PartySystem {
     }
   }
 
-  handlePartySummonAccept(socketId, data) {
+  handlePartySummonAccept(socketId: any, data: any) {
     const player = this.gs.players.get(socketId);
     const socket = this.gs.io.sockets.sockets.get(socketId);
     if (!player || !socket || !data) return;
     const pending = player.pendingSummon;
     player.pendingSummon = null;
-    const fail = (text) => socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text, color: '#ef4444' });
+    const fail = (text: any) => socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text, color: '#ef4444' });
     if (!pending || pending.fromId !== data.fromId || Date.now() > pending.expiresAt) return fail('⚠️ The summon has expired.');
     const summoner = this.gs.players.get(pending.fromId);
     if (!summoner || summoner.isDead || !player.partyId || summoner.partyId !== player.partyId) return fail('⚠️ The summoner is no longer available.');
@@ -225,7 +225,7 @@ export class PartySystem {
   }
 
   // Online players who can be invited (not in a party yet)
-  handlePartyListCandidates(socketId) {
+  handlePartyListCandidates(socketId: any) {
     const socket = this.gs.io.sockets.sockets.get(socketId);
     if (!socket) return;
     const candidates = Array.from(this.gs.players.values())
@@ -234,11 +234,11 @@ export class PartySystem {
     socket.emit('party_candidates', candidates);
   }
 
-  handlePartyLeave(socketId) {
+  handlePartyLeave(socketId: any) {
     this.gs.removePlayerFromParty(socketId);
   }
 
-  handlePartyKick(socketId, data) {
+  handlePartyKick(socketId: any, data: any) {
     const player = this.gs.players.get(socketId);
     if (!player || !player.partyId || !data || !data.targetId) return;
     const party = this.gs.parties.get(player.partyId);
@@ -253,7 +253,7 @@ export class PartySystem {
     this.gs.removePlayerFromParty(data.targetId);
   }
 
-  removePlayerFromParty(socketId) {
+  removePlayerFromParty(socketId: any) {
     const player = this.gs.players.get(socketId);
     if (!player || !player.partyId) return;
     const partyId = player.partyId;
@@ -285,7 +285,7 @@ export class PartySystem {
   // Who shares the EXP of a kill: the killer plus party members who are alive,
   // on the same map (same field zone, or the same dungeon run) and within
   // PARTY_EXP_RANGE tiles of the killer
-  partyExpSharers(killer) {
+  partyExpSharers(killer: any) {
     const party = killer.partyId && this.gs.parties.get(killer.partyId);
     if (!party) return [killer];
     const out = [killer];

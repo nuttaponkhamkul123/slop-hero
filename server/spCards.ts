@@ -4,13 +4,14 @@
 // rarer to obtain and cost more to enhance (+0 .. +100).
 import { baseExpCurve } from './progression';
 import { SIGNATURES, PASSIVES, EXTRA_UNLOCK_LEVELS } from './spSignatures';
+import type { Item } from './entities/types';
 
 // ---------------------------------------------------------------- job level
 // Job EXP comes from the same kills as base EXP but runs on the reference
 // curve (not the stretched hard-grind base bar), 30% steeper.
 const JOB_MAX_LEVEL = 60;
 const JOB_EXP_FACTOR = 1.3;
-const jobExpToNext = (jobLevel) => Math.round(baseExpCurve(jobLevel) * JOB_EXP_FACTOR);
+const jobExpToNext = (jobLevel: any) => Math.round(baseExpCurve(jobLevel) * JOB_EXP_FACTOR);
 // Small permanent bonuses per job level above 1
 const JOB_LEVEL_BONUS = { bonusDmg: 1, bonusHp: 5, bonusMp: 3 };
 
@@ -36,7 +37,7 @@ const SP_DROP_TABLE = {
 // Spirit fragments: the exchange / enhancement material. Every boss kill
 // pays out (bossFragments), elites and normal dungeon monsters sometimes do.
 const FRAGMENT_DROP = { boss: 1, commander: 0.15, mob: 0.02 };
-const bossFragments = floor => 2 + Math.floor(floor / 2) + Math.floor(Math.random() * 3);
+const bossFragments = (floor: any) => 2 + Math.floor(floor / 2) + Math.floor(Math.random() * 3);
 
 // ---------------------------------------------------------------- enhancement
 // Cards go to +100 in small steps: SP_LEVEL_STEP levels now give what one
@@ -512,54 +513,54 @@ const SP_CARD_EXTRAS = {
 };
 
 const SP_SHAPE_TEXT = {
-  nova: s => `Burst around you (radius ${s.r})`,
-  blast: s => `Strike the target area (radius ${s.r})`,
-  pull: s => `Drag enemies within ${s.r} to the target and crush them`,
-  rain: s => `${s.n} strikes rain on the target area`,
-  cone: s => `Sweep a ${s.arc}° cone in front (${s.range} range)`,
-  line: s => `Piercing line ${s.len} long`,
+  nova: (s: any) => `Burst around you (radius ${s.r})`,
+  blast: (s: any) => `Strike the target area (radius ${s.r})`,
+  pull: (s: any) => `Drag enemies within ${s.r} to the target and crush them`,
+  rain: (s: any) => `${s.n} strikes rain on the target area`,
+  cone: (s: any) => `Sweep a ${s.arc}° cone in front (${s.range} range)`,
+  line: (s: any) => `Piercing line ${s.len} long`,
   strike: () => 'Single-target strike',
-  volley: s => `Hits the ${s.n} nearest enemies`,
-  chain: s => `Chains through ${s.n} enemies`,
-  pulse: s => `${s.n} pulses ${s.at === 'target' ? 'on the target' : 'around you'} (radius ${s.r})`,
-  dash: s => `Dash ${s.len} tiles through enemies`,
-  blink: s => `Teleport ${s.len} tiles${s.dmg ? (s.originOnly ? ', bursting where you left' : s.origin ? ', bursting at both ends' : ', bursting on landing') : ''}`,
-  alpha: s => `Blink between the ${s.n} nearest enemies, striking each (untouchable while it lasts)`,
-  buff: s => (s.dmg ? `Burst around you (radius ${s.r})` : 'Empower yourself'),
-  shuriken: s => `Throw ${s.n} shuriken at the cursor; cast again within ${s.hold}s to call them back, cutting through enemies on the way (${s.back}x)`,
-  smoke: s => `Drop a smoke bomb (radius ${s.r}) for ${s.dur}s: enemies attacking anyone inside miss ${Math.round(s.miss * 100)}% of the time`,
-  shadow: s => `Toss your shadow at the cursor for ${s.dur}s; it copies every skill you cast at ${Math.round(s.mirror * 100)}% damage`,
-  orbit: s => `Shuriken spin around you for ${s.dur}s (radius ${s.r})`,
-  backstep: s => `Shadowstep behind the nearest enemy with +50% Crit Chance`,
-  detonate: s => `Detonate all poison stacks on nearby enemies for massive burst damage`,
-  rewind: s => `Rewind yourself ${s.back}s: back to where you stood, with the HP you had then (if higher)`,
-  aura: s => (s.spin ? `Toggle: spin your blades, cutting everything within ${s.r}`
+  volley: (s: any) => `Hits the ${s.n} nearest enemies`,
+  chain: (s: any) => `Chains through ${s.n} enemies`,
+  pulse: (s: any) => `${s.n} pulses ${s.at === 'target' ? 'on the target' : 'around you'} (radius ${s.r})`,
+  dash: (s: any) => `Dash ${s.len} tiles through enemies`,
+  blink: (s: any) => `Teleport ${s.len} tiles${s.dmg ? (s.originOnly ? ', bursting where you left' : s.origin ? ', bursting at both ends' : ', bursting on landing') : ''}`,
+  alpha: (s: any) => `Blink between the ${s.n} nearest enemies, striking each (untouchable while it lasts)`,
+  buff: (s: any) => (s.dmg ? `Burst around you (radius ${s.r})` : 'Empower yourself'),
+  shuriken: (s: any) => `Throw ${s.n} shuriken at the cursor; cast again within ${s.hold}s to call them back, cutting through enemies on the way (${s.back}x)`,
+  smoke: (s: any) => `Drop a smoke bomb (radius ${s.r}) for ${s.dur}s: enemies attacking anyone inside miss ${Math.round(s.miss * 100)}% of the time`,
+  shadow: (s: any) => `Toss your shadow at the cursor for ${s.dur}s; it copies every skill you cast at ${Math.round(s.mirror * 100)}% damage`,
+  orbit: (s: any) => `Shuriken spin around you for ${s.dur}s (radius ${s.r})`,
+  backstep: (s: any) => `Shadowstep behind the nearest enemy with +50% Crit Chance`,
+  detonate: (s: any) => `Detonate all poison stacks on nearby enemies for massive burst damage`,
+  rewind: (s: any) => `Rewind yourself ${s.back}s: back to where you stood, with the HP you had then (if higher)`,
+  aura: (s: any) => (s.spin ? `Toggle: spin your blades, cutting everything within ${s.r}`
     : s.skyStrike ? `Toggle: lightning strikes from the sky on up to ${s.skyStrike} enemies within ${s.r} of you`
     : s.chainAttack ? `Toggle: basic attacks arc through up to ${s.chainAttack.n} enemies (each jump x${s.chainAttack.decay})`
     : `Toggle: blood aura around you (radius ${s.r})`),
-  orbs: s => `Launch ${s.n} storm orbs ${s.len} tiles ahead over ${s.dur}s, shocking everything within ${s.r} of each`,
+  orbs: (s: any) => `Launch ${s.n} storm orbs ${s.len} tiles ahead over ${s.dur}s, shocking everything within ${s.r} of each`,
   // variant warrior shapes
-  raise: s => `Raise up to ${s.n} monsters that died within ${s.r} tiles of the cursor as undead minions for ${s.dur}s (5 at most); each strikes for ${Math.round(s.minion * 100)}% of your Attack. With no corpse near, a Grave Thrall claws out of the earth. The ground bursts where they rise`,
-  rage: s => `Drive every minion into a frenzy for ${s.rage.dur}s: +${Math.round(s.rage.dmg * 100)}% damage, +${Math.round(s.rage.aspd * 100)}% attack speed and a ${Math.round(s.rage.crit * 100)}% chance to crit for ${s.rage.critMult}x (also minions raised while it lasts)`,
-  gravebomb: s => `Detonate every minion: each explodes in grave fire (radius ${s.r}) and is spent`,
-  fault: s => `A crack crawls ${Math.round(s.n * s.step)} tiles through the ground, erupting ${s.n} times`,
-  spear: s => `Hurl a lance ${s.len} tiles; cast again within ${s.hold}s to dive onto it (${s.dive}x around the landing)`,
-  jump: s => `Leap into the sky for ${s.air}s (untouchable), then crash down on the cursor (radius ${s.r})`,
-  wall: s => `Raise a ${s.len}-tile wall of fire across the target point`,
-  rune: s => `Carve a glyph at the cursor for ${s.dur}s (4 at most); it bursts (radius ${s.r}) when an enemy steps on it`,
-  invoke: s => `Set off every glyph you have carved at once (radius ${s.r})`,
-  ricochet: s => `Throw your shield: it bounces through ${s.n} enemies and flies back to you`,
-  phantom: s => `A phantom blade slashes ${s.n} times, leaping to a new enemy each time`,
-  hurl: s => `Grab the nearest enemy and throw it up to ${s.throw} tiles at the cursor; where it lands takes ${s.land.mult}x (radius ${s.land.r})`,
-  banner: s => `Plant a War Standard for ${s.dur}s (radius ${s.r}): inside it you deal +${Math.round(s.bonus * 100)}% damage and heal ${Math.round(s.regen * 100)}% max HP/s, and it burns enemies around it`,
-  rally: s => `Leap to your War Standard and burst there (radius ${s.r}); without one, burst where you stand`,
-  boomerang: s => `Throw ${s.n} axes ${s.len} tiles out; they cut on the way out and again on the way back`,
-  firebird: s => `Release a Firebird that loops ${s.len} tiles out and back over ${s.dur}s, burning everything within ${s.r} of it`,
-  sacrifice: s => `Burn ${Math.round(s.burnHp * 100)}% of your current HP into a blast (radius ${s.r}) that grows with the HP spent`
+  raise: (s: any) => `Raise up to ${s.n} monsters that died within ${s.r} tiles of the cursor as undead minions for ${s.dur}s (5 at most); each strikes for ${Math.round(s.minion * 100)}% of your Attack. With no corpse near, a Grave Thrall claws out of the earth. The ground bursts where they rise`,
+  rage: (s: any) => `Drive every minion into a frenzy for ${s.rage.dur}s: +${Math.round(s.rage.dmg * 100)}% damage, +${Math.round(s.rage.aspd * 100)}% attack speed and a ${Math.round(s.rage.crit * 100)}% chance to crit for ${s.rage.critMult}x (also minions raised while it lasts)`,
+  gravebomb: (s: any) => `Detonate every minion: each explodes in grave fire (radius ${s.r}) and is spent`,
+  fault: (s: any) => `A crack crawls ${Math.round(s.n * s.step)} tiles through the ground, erupting ${s.n} times`,
+  spear: (s: any) => `Hurl a lance ${s.len} tiles; cast again within ${s.hold}s to dive onto it (${s.dive}x around the landing)`,
+  jump: (s: any) => `Leap into the sky for ${s.air}s (untouchable), then crash down on the cursor (radius ${s.r})`,
+  wall: (s: any) => `Raise a ${s.len}-tile wall of fire across the target point`,
+  rune: (s: any) => `Carve a glyph at the cursor for ${s.dur}s (4 at most); it bursts (radius ${s.r}) when an enemy steps on it`,
+  invoke: (s: any) => `Set off every glyph you have carved at once (radius ${s.r})`,
+  ricochet: (s: any) => `Throw your shield: it bounces through ${s.n} enemies and flies back to you`,
+  phantom: (s: any) => `A phantom blade slashes ${s.n} times, leaping to a new enemy each time`,
+  hurl: (s: any) => `Grab the nearest enemy and throw it up to ${s.throw} tiles at the cursor; where it lands takes ${s.land.mult}x (radius ${s.land.r})`,
+  banner: (s: any) => `Plant a War Standard for ${s.dur}s (radius ${s.r}): inside it you deal +${Math.round(s.bonus * 100)}% damage and heal ${Math.round(s.regen * 100)}% max HP/s, and it burns enemies around it`,
+  rally: (s: any) => `Leap to your War Standard and burst there (radius ${s.r}); without one, burst where you stand`,
+  boomerang: (s: any) => `Throw ${s.n} axes ${s.len} tiles out; they cut on the way out and again on the way back`,
+  firebird: (s: any) => `Release a Firebird that loops ${s.len} tiles out and back over ${s.dur}s, burning everything within ${s.r} of it`,
+  sacrifice: (s: any) => `Burn ${Math.round(s.burnHp * 100)}% of your current HP into a blast (radius ${s.r}) that grows with the HP spent`
 };
 
-function spSkillDesc(s) {
-  const parts = [(SP_SHAPE_TEXT[s.shape] || (() => 'Special ability'))(s)];
+function spSkillDesc(s: any) {
+  const parts = [((SP_SHAPE_TEXT as any)[s.shape] || (() => 'Special ability'))(s)];
   if (s.dmg) parts.push(`${s.dmg}x damage${s.shape === 'aura' || s.shape === 'orbit' || s.shape === 'orbs' ? ` every ${s.every}s` : s.n && (s.shape === 'pulse' || s.shape === 'rain' || s.shape === 'shuriken') ? ' each' : ''}`);
   if (s.bloodlust) {
     const b = s.bloodlust;
@@ -641,7 +642,7 @@ function spSkillDesc(s) {
 // Normalise into the same shape as base skills (id, mpCost, cooldown, dmgMult...).
 // Also used for weapon abilities (items.js), which run on the same engine.
 // All skill cooldowns are reduced by 60% (* 0.40).
-function normalizeSpSkill(id, s) {
+function normalizeSpSkill(id: any, s: any) {
   const rawCd = typeof s.cd === 'number' ? s.cd : 1.0;
   const cd = Math.max(0.1, Number((rawCd * 0.4).toFixed(2)));
   return Object.assign(s, {
@@ -654,8 +655,8 @@ for (const [id, s] of Object.entries(SP_SKILLS)) normalizeSpSkill(id, s);
 const CARD_BY_ID = {};
 for (const cls of Object.keys(SP_CARDS)) {
   for (const c of SP_CARDS[cls]) {
-    const arsenal = [...Object.values(c.skills), ...SP_CARD_EXTRAS[c.id]];
-    CARD_BY_ID[c.id] = Object.assign(c, { cls, arsenal, jobReq: SP_TIERS[c.tier].jobReq, rarity: SP_TIERS[c.tier].rarity });
+    const arsenal = [...Object.values(c.skills), ...(SP_CARD_EXTRAS as any)[c.id]];
+    (CARD_BY_ID as any)[c.id] = Object.assign(c, { cls, arsenal, jobReq: (SP_TIERS as any)[c.tier].jobReq, rarity: (SP_TIERS as any)[c.tier].rarity });
     for (const skillId of arsenal) Object.assign(SP_SKILLS[skillId], { element: c.element, color: c.color, cardId: c.id });
   }
 }
@@ -664,15 +665,15 @@ for (const cls of Object.keys(SP_CARDS)) {
 // default skills are always open; the extras open at EXTRA_UNLOCK_LEVELS.
 for (const c of Object.values(CARD_BY_ID) as any[]) {
   // the older data passives (Berserker leech, Phoenix rebirth) keep their fields
-  c.passive = Object.assign({}, c.passive || {}, PASSIVES[c.id] || {});
+  c.passive = Object.assign({}, c.passive || {}, (PASSIVES as any)[c.id] || {});
   c.unlocks = {};
-  SP_CARD_EXTRAS[c.id].forEach((skillId, i) => { c.unlocks[skillId] = EXTRA_UNLOCK_LEVELS[i] || 0; });
-  const sig = SIGNATURES[c.id];
+  (SP_CARD_EXTRAS as any)[c.id].forEach((skillId: any, i: any) => { c.unlocks[skillId] = EXTRA_UNLOCK_LEVELS[i] || 0; });
+  const sig = (SIGNATURES as any)[c.id];
   if (sig) {
     const id = 'ult_' + c.id;
     c.signature = {
       id, name: sig.name, desc: sig.desc,
-      stages: sig.stages.map(st => Object.assign(normalizeSpSkill(id, Object.assign({}, st, { mp: 0, cd: 0 })), {
+      stages: sig.stages.map((st: any) => Object.assign(normalizeSpSkill(id, Object.assign({}, st, { mp: 0, cd: 0 })), {
         name: sig.name, element: c.element, color: c.color, cardId: c.id, delay: st.delay || 0
       }))
     };
@@ -680,15 +681,15 @@ for (const c of Object.values(CARD_BY_ID) as any[]) {
 }
 
 // Can this hero use this card skill at this card level?
-function skillUnlocked(card, skillId, upgradeLevel = 0) {
+function skillUnlocked(card: any, skillId: any, upgradeLevel = 0) {
   if (!card) return false;
   const need = card.unlocks && card.unlocks[skillId];
   return !need || (upgradeLevel || 0) >= need;
 }
 
 // Inventory item for a card
-function makeCardItem(cardId, upgradeLevel = 0) {
-  const c = CARD_BY_ID[cardId];
+function makeCardItem(cardId: any, upgradeLevel = 0) {
+  const c = (CARD_BY_ID as any)[cardId];
   if (!c) return null;
   return {
     id: 'sp_card_' + cardId,
@@ -705,18 +706,18 @@ function makeCardItem(cardId, upgradeLevel = 0) {
   };
 }
 
-function cardStats(cardId, upgradeLevel = 0) {
-  const c = CARD_BY_ID[cardId];
+function cardStats(cardId: any, upgradeLevel = 0) {
+  const c = (CARD_BY_ID as any)[cardId];
   if (!c) return {};
   const k = 1 + SP_STAT_PER_LEVEL * upgradeLevel;
   const out = {};
-  for (const [stat, rawV] of Object.entries(c.stats)) { const v = rawV as number; out[stat] = stat === 'bonusAttackSpeed' || stat === 'bonusSpeed' ? Number((v * k).toFixed(2)) : Math.round(v * k); }
+  for (const [stat, rawV] of Object.entries(c.stats)) { const v = rawV as number; (out as any)[stat] = stat === 'bonusAttackSpeed' || stat === 'bonusSpeed' ? Number((v * k).toFixed(2)) : Math.round(v * k); }
   return out;
 }
 
-function cardEnhanceCost(cardId, upgradeLevel) {
-  const c = CARD_BY_ID[cardId];
-  const tier = SP_TIERS[c ? c.tier : 1];
+function cardEnhanceCost(cardId: any, upgradeLevel: any) {
+  const c = (CARD_BY_ID as any)[cardId];
+  const tier = (SP_TIERS as any)[c ? c.tier : 1];
   const stage = upgradeLevel / SP_LEVEL_STEP;
   return {
     gold: Math.round((tier.enhanceBase * Math.pow(SP_ENHANCE_GROWTH, stage)) / SP_LEVEL_STEP),
@@ -725,20 +726,20 @@ function cardEnhanceCost(cardId, upgradeLevel) {
 }
 
 // Cards saved before the +100 scale keep their strength: old +N becomes +N*10
-function upgradeCardScale(item) {
+function upgradeCardScale(item: Item) {
   if (!item || item.type !== 'sp_card' || item.spScale === SP_LEVEL_STEP) return;
   item.upgradeLevel = Math.min(SP_MAX_LEVEL, Math.round((item.upgradeLevel || 0) * SP_LEVEL_STEP));
   item.spScale = SP_LEVEL_STEP;
-  const c = CARD_BY_ID[item.cardId];
+  const c = (CARD_BY_ID as any)[item.cardId];
   if (c) item.name = `SP Card: ${c.name}${item.upgradeLevel ? ' +' + item.upgradeLevel : ''}`;
 }
 
 // Roll at most one card (the highest tier that hits) for a boss kill. Several
 // cards share a tier now, so a hit rolls a random variant from that tier's pool.
-function rollCardDrop(cls, floor, difficulty) {
+function rollCardDrop(cls: any, floor: any, difficulty: any) {
   const cards = SP_CARDS[cls] || [];
   for (let tier = 5; tier >= 1; tier--) {
-    const [minFloor, chances] = SP_DROP_TABLE[tier];
+    const [minFloor, chances] = (SP_DROP_TABLE as any)[tier];
     const chance = chances[difficulty] || 0;
     if (floor >= minFloor && chance > 0 && Math.random() < chance) {
       const pool = cards.filter(c => c.tier === tier);
@@ -753,19 +754,19 @@ function rollCardDrop(cls, floor, difficulty) {
 function clientCatalog() {
   const out = {};
   for (const cls of Object.keys(SP_CARDS)) {
-    out[cls] = SP_CARDS[cls].map(c => ({
+    (out as any)[cls] = SP_CARDS[cls].map(c => ({
       id: c.id, tier: c.tier, name: c.name, element: c.element, color: c.color, jobReq: c.jobReq, rarity: c.rarity,
       stats: c.stats, palette: c.palette, desc: c.desc,
       passive: c.passive && c.passive.name ? { name: c.passive.name, desc: c.passive.desc } : null,
       signature: c.signature ? { id: c.signature.id, name: c.signature.name, desc: c.signature.desc } : null,
       skills: c.skills, arsenal: c.arsenal, unlocks: c.unlocks,
-      exchange: SP_TIERS[c.tier].exchange,
-      drop: { minFloor: SP_DROP_TABLE[c.tier][0], chances: SP_DROP_TABLE[c.tier][1] }
+      exchange: (SP_TIERS as any)[c.tier].exchange,
+      drop: { minFloor: ((SP_DROP_TABLE as any)[c.tier] as any)[0], chances: ((SP_DROP_TABLE as any)[c.tier] as any)[1] }
     }));
   }
   const skills = {};
   for (const [id, sk] of Object.entries(SP_SKILLS)) {
-    skills[id] = { id, name: sk.name, desc: sk.desc, mpCost: sk.mpCost, cooldown: sk.cooldown, isDash: sk.isDash, shape: sk.shape, element: sk.element, color: sk.color };
+    (skills as any)[id] = { id, name: sk.name, desc: sk.desc, mpCost: sk.mpCost, cooldown: sk.cooldown, isDash: sk.isDash, shape: sk.shape, element: sk.element, color: sk.color };
   }
   return {
     cards: out,

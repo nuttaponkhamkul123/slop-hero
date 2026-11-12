@@ -51,7 +51,7 @@ export const RAID_BOSSES: Record<string, any> = {
 
 // Full mob definition for the raid spawn (same stat language the field zone
 // builder uses, so the game server can drop it straight into the field mob map).
-export function buildRaidMobDef(zoneId) {
+export function buildRaidMobDef(zoneId: any) {
   const c = RAID_BOSSES[zoneId];
   if (!c) return null;
   const base = mobStats(c.level, true); // already field-boss scaled
@@ -85,7 +85,7 @@ export const RAID_REWARD_BUCKETS: Record<string, any> = {
   part:  { label: 'Participant', gold: 0.7, exp: 1, frag: [1, 3], gear: 0.12, gearBoss: false, card: 0.02, mythic: false }
 };
 
-export function raidBucketFor(rank) {
+export function raidBucketFor(rank: any) {
   if (rank === 1) return RAID_REWARD_BUCKETS.top1;
   if (rank <= 3) return RAID_REWARD_BUCKETS.top3;
   if (rank <= 10) return RAID_REWARD_BUCKETS.top10;

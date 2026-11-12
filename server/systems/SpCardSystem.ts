@@ -7,16 +7,17 @@ import * as SP from '../spCards';
 import { SP_TRANSFORM_COOLDOWN, SKILL_DAMAGE_SCALE, BLOOD_AURA_MIN_HP, DEFAULT_BAG_SLOTS } from '../config/constants';
 import { SKILL_RUNES, DEFAULT_EQUIPPED_SKILLS } from '../data/skills';
 import { ItemFactory } from '../entities/item';
+import type { Player, DungeonInstance } from '../entities/types';
 
 export class SpCardSystem {
   constructor(private readonly gs: GameServer) {}
 
   // ---------------------------------------------------------------- SP cards
-  equipSpCard(player, itemIndex) {
+  equipSpCard(player: Player, itemIndex: any) {
     const socket = this.gs.io.sockets.sockets.get(player.id);
-    const say = (text, color = '#ef4444') => socket && socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text, color });
+    const say = (text: any, color = '#ef4444') => socket && socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text, color });
     const item = player.inventory.items[itemIndex];
-    const card = item && SP.CARD_BY_ID[item.cardId];
+    const card = item && (SP.CARD_BY_ID as any)[item.cardId];
     if (!card) return;
     if (card.cls !== player.characterClass) return say(`Only a ${card.cls} can wear this card!`);
     if ((player.jobLevel || 1) < card.jobReq) return say(`Requires Job Lv. ${card.jobReq}!`);
@@ -30,13 +31,13 @@ export class SpCardSystem {
     if (socket) socket.emit('player_updated', player);
   }
 
-  handleSpTransform(socketId) {
+  handleSpTransform(socketId: any) {
     const player = this.gs.players.get(socketId);
     const socket = this.gs.io.sockets.sockets.get(socketId);
     if (!player || !socket || player.isDead) return;
-    const say = (text, color = '#ef4444') => socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text, color });
+    const say = (text: any, color = '#ef4444') => socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text, color });
     const cardItem = player.equipment && player.equipment.sp;
-    const card = cardItem && SP.CARD_BY_ID[cardItem.cardId];
+    const card = cardItem && (SP.CARD_BY_ID as any)[cardItem.cardId];
     if (!card) return say('No SP card equipped!');
     if (player.spCooldown > 0) return say(`Transform ready in ${Math.ceil(player.spCooldown)}s`);
     if (!player.spTransformed && (player.jobLevel || 1) < card.jobReq) return say(`Requires Job Lv. ${card.jobReq}!`);
@@ -44,7 +45,7 @@ export class SpCardSystem {
   }
 
   // The card's four equipped skills for this hero (their picks from its arsenal)
-  spLoadout(player, card) {
+  spLoadout(player: Player, card: any) {
     if (!player.spLoadouts) player.spLoadouts = {};
     // a reworked kit (card.kit bumped) starts over from the card's new defaults
     const stored = player.spLoadouts[card.id];
@@ -55,17 +56,17 @@ export class SpCardSystem {
       // an extra still locked at this card level falls back to the slot's default
       const lvl = (player.equipment && player.equipment.sp && player.equipment.sp.upgradeLevel) || 0;
       const sk = id && card.arsenal.includes(id) && SP.skillUnlocked(card, id, lvl) && SP.SP_SKILLS[id];
-      out[slot] = sk && sk.isDash === (slot === 'dash') ? id : card.skills[slot];
+      (out as any)[slot] = sk && sk.isDash === (slot === 'dash') ? id : card.skills[slot];
     }
     player.spLoadouts[card.id] = { ...out, kit: card.kit || 0 };
     return { ...out };
   }
 
   // Spellbook while transformed: swap skills from the card's arsenal
-  customizeSpSkill(player, data) {
+  customizeSpSkill(player: Player, data: any) {
     const socket = this.gs.io.sockets.sockets.get(player.id);
-    const say = (text, color = '#ef4444') => socket && socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text, color });
-    const card = player.equipment && player.equipment.sp && SP.CARD_BY_ID[player.equipment.sp.cardId];
+    const say = (text: any, color = '#ef4444') => socket && socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text, color });
+    const card = player.equipment && player.equipment.sp && (SP.CARD_BY_ID as any)[player.equipment.sp.cardId];
     const slots = ['slot1', 'slot2', 'slot3', 'dash'];
     if (!card || !data || !slots.includes(data.slot)) return;
     const loadout = this.gs.spLoadout(player, card);
@@ -84,10 +85,10 @@ export class SpCardSystem {
       Object.assign(player.equippedSkills, loadout);
       notice = `Set [${sk.name}]`;
     }
-    if (data.rune !== undefined && SKILL_RUNES[data.rune]) {
+    if (data.rune !== undefined && (SKILL_RUNES as any)[data.rune]) {
       player.equippedSkills.runes[data.slot] = data.rune;
       if (player.baseEquippedSkills && player.baseEquippedSkills.runes) player.baseEquippedSkills.runes[data.slot] = data.rune;
-      notice = `Inscribed [${SKILL_RUNES[data.rune].name}]`;
+      notice = `Inscribed [${(SKILL_RUNES as any)[data.rune].name}]`;
     }
     if (socket) {
       socket.emit('player_updated', player);
@@ -96,14 +97,14 @@ export class SpCardSystem {
     }
   }
 
-  setTransformed(player, on) {
+  setTransformed(player: Player, on: any) {
     const socket = this.gs.io.sockets.sockets.get(player.id);
     const cardItem = player.equipment && player.equipment.sp;
-    const card = cardItem && SP.CARD_BY_ID[cardItem.cardId];
+    const card = cardItem && (SP.CARD_BY_ID as any)[cardItem.cardId];
     if (on && !card) return;
     if (on === !!player.spTransformed) return;
     if (on) {
-      player.baseEquippedSkills = JSON.parse(JSON.stringify(player.equippedSkills || DEFAULT_EQUIPPED_SKILLS[player.characterClass]));
+      player.baseEquippedSkills = JSON.parse(JSON.stringify(player.equippedSkills || (DEFAULT_EQUIPPED_SKILLS as any)[player.characterClass]));
       player.equippedSkills = {
         ...this.gs.spLoadout(player, card),
         runes: player.baseEquippedSkills.runes || { slot1: 'none', slot2: 'none', slot3: 'none', dash: 'none' }
@@ -123,13 +124,13 @@ export class SpCardSystem {
     if (socket) socket.emit('player_updated', player);
   }
 
-  fragmentCount(player) {
-    const stack = player.inventory.items.find(i => i.id === 'spirit_fragment');
+  fragmentCount(player: Player) {
+    const stack = player.inventory.items.find((i: any) => i.id === 'spirit_fragment');
     return stack ? (stack.count || 1) : 0;
   }
 
-  spendFragments(player, n) {
-    const idx = player.inventory.items.findIndex(i => i.id === 'spirit_fragment');
+  spendFragments(player: Player, n: any) {
+    const idx = player.inventory.items.findIndex((i: any) => i.id === 'spirit_fragment');
     if (idx < 0) return;
     const stack = player.inventory.items[idx];
     stack.count = (stack.count || 1) - n;
@@ -137,13 +138,13 @@ export class SpCardSystem {
   }
 
   // Enchanter: +1 an SP card (equipped or in the bag) for gold and fragments
-  handleSpCardEnhance(socketId, data) {
+  handleSpCardEnhance(socketId: any, data: any) {
     const player = this.gs.players.get(socketId);
     const socket = this.gs.io.sockets.sockets.get(socketId);
     if (!player || !socket || player.isDead || player.zone !== 'town' || !data) return;
     const item = data.target === 'equipped' ? player.equipment.sp : player.inventory.items[data.itemIndex];
     if (!item || item.type !== 'sp_card') return;
-    const fail = (message) => socket.emit('sp_enhance_result', { ok: false, message });
+    const fail = (message: any) => socket.emit('sp_enhance_result', { ok: false, message });
     const lvl = item.upgradeLevel || 0;
     if (lvl >= SP.SP_MAX_LEVEL) return fail(`Card is already +${SP.SP_MAX_LEVEL}!`);
     const cost = SP.cardEnhanceCost(item.cardId, lvl);
@@ -156,7 +157,7 @@ export class SpCardSystem {
     let downgraded = false;
     if (success) item.upgradeLevel = lvl + 1;
     else if (lvl >= SP.SP_SAFE_LEVEL) { item.upgradeLevel = lvl - 1; downgraded = true; }
-    const card = SP.CARD_BY_ID[item.cardId];
+    const card = (SP.CARD_BY_ID as any)[item.cardId];
     item.name = `SP Card: ${card.name}${item.upgradeLevel ? ' +' + item.upgradeLevel : ''}`;
     if (data.target === 'equipped') this.gs.recalculatePlayerStats(player);
     this.gs.savePlayerAccount(socketId);
@@ -169,14 +170,14 @@ export class SpCardSystem {
   }
 
   // Enchanter: trade fragments + gold for a card of your class (any tier)
-  handleSpCardExchange(socketId, data) {
+  handleSpCardExchange(socketId: any, data: any) {
     const player = this.gs.players.get(socketId);
     const socket = this.gs.io.sockets.sockets.get(socketId);
     if (!player || !socket || player.isDead || player.zone !== 'town' || !data) return;
-    const card = SP.CARD_BY_ID[data.cardId];
-    const fail = (message) => socket.emit('sp_exchange_result', { ok: false, message });
+    const card = (SP.CARD_BY_ID as any)[data.cardId];
+    const fail = (message: any) => socket.emit('sp_exchange_result', { ok: false, message });
     if (!card || card.cls !== player.characterClass) return fail('That card is not for your class.');
-    const price = SP.SP_TIERS[card.tier].exchange;
+    const price = (SP.SP_TIERS as any)[card.tier].exchange;
     if (!price) return fail('This card can only be found on the deepest bosses.');
     if (this.gs.fragmentCount(player) < price.fragments) return fail(`Need ${price.fragments} Spirit Fragments!`);
     if (player.gold < price.gold) return fail(`Need ${price.gold.toLocaleString()} Gold!`);
@@ -191,7 +192,7 @@ export class SpCardSystem {
     this.gs.broadcastSystemMessage(`[${player.name}] obtained the SP Card [${card.name}] from Valka!`);
   }
 
-  awardJobExp(player, amount) {
+  awardJobExp(player: Player, amount: any) {
     if (!amount || (player.jobLevel || 1) >= SP.JOB_MAX_LEVEL) return;
     player.jobLevel = player.jobLevel || 1;
     player.jobExp = (player.jobExp || 0) + amount;
@@ -213,7 +214,7 @@ export class SpCardSystem {
   }
 
   // Boss loot for every hero in the instance: a rare card roll and fragments
-  rollBossSpLoot(inst, bossLevel) {
+  rollBossSpLoot(inst: DungeonInstance, bossLevel: any) {
     for (const p of this.gs.players.values()) {
       if (p.zone !== 'dungeon' || p.dungeonInstanceId !== inst.id) continue;
       // heroes far above the boss's level get no card or fragments
@@ -221,7 +222,7 @@ export class SpCardSystem {
       const cardId = SP.rollCardDrop(p.characterClass, inst.floor, inst.difficulty);
       if (cardId) {
         this.gs.giveLootToPlayer(p, { type: 'item', itemId: 'sp_card', customItemData: ItemFactory.cardLootData(cardId), amount: 1 });
-        this.gs.broadcastSystemMessage(`[${p.name}] found the SP Card [${SP.CARD_BY_ID[cardId].name}] on B${inst.floor}!`);
+        this.gs.broadcastSystemMessage(`[${p.name}] found the SP Card [${(SP.CARD_BY_ID as any)[cardId].name}] on B${inst.floor}!`);
       }
       if (Math.random() < SP.FRAGMENT_DROP.boss) {
         this.gs.giveLootToPlayer(p, { type: 'item', itemId: 'spirit_fragment', amount: SP.bossFragments(inst.floor) });
@@ -231,7 +232,7 @@ export class SpCardSystem {
     }
   }
 
-  endSpToggle(player, skillId, quiet = false) {
+  endSpToggle(player: Player, skillId: any, quiet = false) {
     const toggle = player.spToggles && player.spToggles[skillId];
     if (!toggle) return;
     delete player.spToggles[skillId];
@@ -241,20 +242,20 @@ export class SpCardSystem {
   // Every frame: toggled SP skills pay their upkeep (HP `drain` - natural HP
   // regen is off meanwhile - or MP `mpDrain`) and strike everything within r
   // every `every` seconds. Out of blood or mana, the toggles paying it end.
-  tickSpToggles(player, dt) {
+  tickSpToggles(player: Player, dt: any) {
     const loadout = Object.values(player.equippedSkills || {});
     for (const id of Object.keys(player.spToggles)) {
       if (!player.spTransformed || !loadout.includes(id)) this.gs.endSpToggle(player, id);
     }
     const all: any[] = Object.values(player.spToggles);
     if (!all.length) return false;
-    const sum = (k) => all.reduce((s, a) => s + (a.skill[k] || 0), 0);
+    const sum = (k: any) => all.reduce((s, a) => s + (a.skill[k] || 0), 0);
     const hpDrain = sum('drain'), mpDrain = sum('mpDrain');
     if (!player.godMode) {
       player.hp = Math.max(1, player.hp - player.maxHp * hpDrain * dt);
       player.mp = Math.max(0, player.mp - player.maxMp * mpDrain * dt);
     }
-    const say = (text) => this.gs.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.8, text, color: '#ef4444', size: 16 });
+    const say = (text: any) => this.gs.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.8, text, color: '#ef4444', size: 16 });
     if (hpDrain && player.hp <= player.maxHp * BLOOD_AURA_MIN_HP) {
       for (const a of all) if (a.skill.drain) this.gs.endSpToggle(player, a.skill.id, true);
       say('🩸 OUT OF BLOOD - aura fades');

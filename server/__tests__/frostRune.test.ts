@@ -19,7 +19,7 @@ async function loadApplyDamage() {
 
 // `this` stand-in: frost rune x4, everything else a harmless no-op
 const fakeServer = () => new Proxy({ getWeaponRuneCounts: () => ({ frost: 4, flame: 0, tempest: 0, vampiric: 0 }), players: new Map() } as any, {
-  get: (t, k) => (k in t ? t[k] : () => undefined),
+  get: (t, k) => (k in t ? t[k] : (): void => undefined),
 });
 const player = () => ({ id: 'p1', zone: 'town', level: 10, x: 0, y: 0, equipment: {}, dmg: 10 });
 const mob = (extra: any = {}) => ({ id: 'm1', level: 10, hp: 1e9, maxHp: 1e9, def: 0, x: 1, y: 1, state: 'idle', buffs: [], ...extra });

@@ -13,11 +13,12 @@ import * as ATTR from '../itemAttributes';
 import { SKILL_DAMAGE_SCALE, SWEEP_EXTRA_REACH, ATTACK_GRACE_S, SWEEP_ARC_DEG, FREEZE_SECONDS, BOSS_FREEZE_SECONDS, ULT_GAIN_HIT, PARTY_EXP_BONUS, ARMOR_RUNE_DROP, AIM_FACE_LOCK_SEC, MAGE_SPLASH_SHARE, MAGE_SPLASH_RADIUS, MOB_GEAR_DROP_CHANCE, BOSS_GEAR_DROP_CHANCE, BOSS_BONUS_GEAR_DROP_CHANCE, BOSS_REVIVAL_STONE_CHANCE } from '../config/constants';
 import { ItemFactory } from '../entities/item';
 import { createProjectile } from '../entities/world';
+import type { Mob, Player } from '../entities/types';
 
 export class CombatSystem {
   constructor(private readonly gs: GameServer) {}
 
-  handlePlayerAttack(socketId, targetInfo) {
+  handlePlayerAttack(socketId: any, targetInfo: any) {
     const player = this.gs.players.get(socketId);
     if (!player || player.isDead || player.attackCooldown > ATTACK_GRACE_S) return;
 
@@ -57,7 +58,7 @@ export class CombatSystem {
       let ax = targetMob ? targetMob.x - player.x : targetInfo && targetInfo.worldX !== undefined ? targetInfo.worldX - player.x : NaN;
       let ay = targetMob ? targetMob.y - player.y : targetInfo && targetInfo.worldY !== undefined ? targetInfo.worldY - player.y : NaN;
       if (!Number.isFinite(ax) || !Number.isFinite(ay) || Math.hypot(ax, ay) < 0.01) {
-        const fv: any = { E: [1, 0], SE: [0.707, 0.707], S: [0, 1], SW: [-0.707, 0.707], W: [-1, 0], NW: [-0.707, -0.707], N: [0, -1], NE: [0.707, -0.707] }[player.facing] || [1, 0];
+        const fv: any = ({ E: [1, 0], SE: [0.707, 0.707], S: [0, 1], SW: [-0.707, 0.707], W: [-1, 0], NW: [-0.707, -0.707], N: [0, -1], NE: [0.707, -0.707] } as any)[player.facing] || [1, 0];
         ax = fv[0]; ay = fv[1];
       }
       const al = Math.hypot(ax, ay) || 1;
@@ -83,7 +84,7 @@ export class CombatSystem {
     let meleeDealt = 0;
     // where each blow landed, so the client can burst particles on what was hit
     const hits: any[] = [];
-    const strike = (mob, dmg, crit) => {
+    const strike = (mob: Mob, dmg: any, crit: any) => {
       const before = mob.hp;
       this.gs.applyDamageToMob(player, mob, dmg, crit);
       meleeDealt += Math.max(0, before - Math.max(0, mob.hp));
@@ -120,7 +121,7 @@ export class CombatSystem {
           E: { x: 1, y: 0 }, SE: { x: 0.707, y: 0.707 }, S: { x: 0, y: 1 }, SW: { x: -0.707, y: 0.707 },
           W: { x: -1, y: 0 }, NW: { x: -0.707, y: -0.707 }, N: { x: 0, y: -1 }, NE: { x: 0.707, y: -0.707 }
         };
-        const fv = facingVectors[player.facing] || { x: 1, y: 0 };
+        const fv = (facingVectors as any)[player.facing] || { x: 1, y: 0 };
         this.gs.spawnProjectile(player, player.x + fv.x * 6, player.y + fv.y * 6, null, 'point', attackDmg, { splash: MAGE_SPLASH_SHARE, crit: isCrit });
       }
     } else {
@@ -159,7 +160,7 @@ export class CombatSystem {
           N: { x: -0.707, y: -0.707 },
           NE: { x: 0.0, y: -1.0 }
         };
-        const fv = facingVectors[player.facing] || { x: 1.0, y: 0.0 };
+        const fv = (facingVectors as any)[player.facing] || { x: 1.0, y: 0.0 };
         const { reach: sweepRange, arc } = this.gs.meleeSweep(player);
         sweepRangeHit = sweepRange;
         const minDot = Math.cos((arc * Math.PI) / 360);
@@ -205,7 +206,7 @@ export class CombatSystem {
   }
 
   // How far (tiles) and how wide (degrees) a melee hero's basic-attack cleave reaches
-  meleeSweep(player) {
+  meleeSweep(player: Player) {
     const power = player.weaponPower;
     return {
       reach: (player.attackRange || 1.6) + SWEEP_EXTRA_REACH + ((power && power.sweepReach) || 0),
@@ -216,7 +217,7 @@ export class CombatSystem {
   // Storm Herald Arc Conduit (a toggled chainAttack): a basic attack that lands
   // arcs on to the nearest enemies, each jump weaker; every swing costs MP and
   // the conduit fades when there is not enough
-  chainBasicAttack(player, first, attackDmg, mobsMap, strike) {
+  chainBasicAttack(player: Player, first: any, attackDmg: any, mobsMap: any, strike: any) {
     const toggle = (Object.values(player.spToggles || {}) as any[]).find(a => a.skill.chainAttack);
     if (!toggle) return;
     const sk = toggle.skill, C = sk.chainAttack;
@@ -252,7 +253,7 @@ export class CombatSystem {
     }
   }
 
-  spawnProjectile(caster, targetX, targetY, targetId, targetType, damage, opts: any = {}) {
+  spawnProjectile(caster: Player, targetX: any, targetY: any, targetId: any, targetType: any, damage: any, opts: any = {}) {
     const element = (caster.equipment && caster.equipment.weapon && caster.equipment.weapon.element) || 'neutral';
     const id = `proj_${this.gs.nextEntityId++}`;
     let dx = (targetX !== undefined ? targetX : caster.x) - caster.x;
@@ -260,7 +261,7 @@ export class CombatSystem {
     let angle = Math.atan2(dy, dx);
     if (Math.hypot(dx, dy) < 0.001) {
       const facingAngles = { E: 0, SE: Math.PI / 4, S: Math.PI / 2, SW: 3 * Math.PI / 4, W: Math.PI, NW: -3 * Math.PI / 4, N: -Math.PI / 2, NE: -Math.PI / 4 };
-      angle = facingAngles[caster.facing] !== undefined ? facingAngles[caster.facing] : 0;
+      angle = (facingAngles as any)[caster.facing] !== undefined ? (facingAngles as any)[caster.facing] : 0;
     }
     const speed = 9.0;
     // a transformed mage throws its card's own bolt (drawn per card on the client)
@@ -304,7 +305,7 @@ export class CombatSystem {
   }
 
   // Area burst around a projectile's impact (mage basic attack)
-  applyProjectileSplash(caster, proj, primary, mobsMap) {
+  applyProjectileSplash(caster: Player, proj: any, primary: Mob, mobsMap: any) {
     const splashDmg = Math.max(1, Math.round(proj.damage * proj.splash));
     for (const other of mobsMap.values()) {
       if (other === primary || other.state === 'dead') continue;
@@ -314,13 +315,13 @@ export class CombatSystem {
   }
 
   // isEcho: a Void Echo repeat hit, which must not trigger talent procs again
-  applyDamageToMob(player, mob, baseDamage, isCritical = false, isEcho = false) {
+  applyDamageToMob(player: Player, mob: Mob, baseDamage: any, isCritical = false, isEcho = false) {
     if (mob.spawnUntil && Date.now() < mob.spawnUntil) return; // still rising: untouchable
     const variation = (Math.random() * 0.4) - 0.2;
     let rawDamage = Math.round(baseDamage * (1 + variation));
 
     // Weapon Element vs Monster Element / Resist
-    const spEl = player && player.spTransformed && player.equipment && player.equipment.sp && SP.CARD_BY_ID[player.equipment.sp.cardId];
+    const spEl = player && player.spTransformed && player.equipment && player.equipment.sp && (SP.CARD_BY_ID as any)[player.equipment.sp.cardId];
     const atkElement = spEl ? spEl.element
       : (player && player.equipment && player.equipment.weapon && player.equipment.weapon.element)
         ? player.equipment.weapon.element
@@ -512,7 +513,7 @@ export class CombatSystem {
     }
   }
 
-  handleMobDeath(mob, killerPlayer) {
+  handleMobDeath(mob: Mob, killerPlayer: Player) {
     if (killerPlayer && killerPlayer.spTransformed) this.gs.passiveOnKill(killerPlayer, mob);
     // Field raid bosses are paid out by participation rank, not ground loot:
     // give everyone their bounty, broadcast the kill, and let the schedule reset.
@@ -537,7 +538,7 @@ export class CombatSystem {
     // Item drops fade out when the killer is far above the monster's level
     // (gold still drops); `lucky` scales every item roll below
     const lootMult = killerPlayer ? lootGapMult(killerPlayer.level, mob.level) : 1;
-    const lucky = chance => Math.random() < chance * lootMult;
+    const lucky = (chance: any) => Math.random() < chance * lootMult;
 
     if (killerPlayer) {
       // Venom Lord Epidemic Spread on Kill
@@ -755,7 +756,7 @@ export class CombatSystem {
   }
 
   // Wayfarer's Resolve: Second Wind when HP falls under the threshold
-  checkSecondWind(player, zone) {
+  checkSecondWind(player: Player, zone: any) {
     const sw = player.set4 && player.set4.wayfarer;
     const now = Date.now();
     if (!sw || player.isDead || player.hp <= 0 || player.hp > player.maxHp * sw.hpThreshold) return;
@@ -764,14 +765,14 @@ export class CombatSystem {
     const shield = Math.round(player.maxHp * sw.shieldPct);
     player.shieldHp = (player.shieldHp || 0) + shield;
     player.sprintTimer = Math.max(player.sprintTimer || 0, sw.hasteSec);
-    if (player.statusEffects) player.statusEffects = player.statusEffects.filter(e => e.type !== 'chill');
+    if (player.statusEffects) player.statusEffects = player.statusEffects.filter((e: any) => e.type !== 'chill');
     player.speedFactor = 1.0;
     this.gs.emitZone(zone, 'floating_text', { x: player.x, y: player.y - 1.0, text: `🌿 SECOND WIND! +${shield} Shield`, color: '#4ade80', size: 18 });
     this.gs.emitZone(zone, 'skill_fx', { type: 'set_proc', set: 'wayfarer', x: player.x, y: player.y, radius: 1.6, color: '#4ade80', playerId: player.id });
   }
 
   // Damage multiplier from set bonuses for one hit on `mob`
-  setDamageMult(player, mob) {
+  setDamageMult(player: Player, mob: Mob) {
     let m = 1;
     if (player.set2 && player.set2.emberheart && mob.burnTimer > 0) m += player.set2.emberheart.dmgVsBurning;
     if (player.eclipsePhase === 'dusk' && player.set4 && player.set4.eclipse) m += player.set4.eclipse.duskDmg;
@@ -780,7 +781,7 @@ export class CombatSystem {
 
   // On-hit set effects after a hit of `damage` landed on a living or dead mob.
   // Hits made by these procs pass player._inSetProc so they never chain again.
-  applySetOnHit(player, mob, damage) {
+  applySetOnHit(player: Player, mob: Mob, damage: any) {
     if (!player.set4 || player._inSetProc) return;
     const zone = player.zone;
     const instId = player.zone === 'dungeon' ? player.dungeonInstanceId : null;

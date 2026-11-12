@@ -17,7 +17,7 @@ const FIELD_TILES = {
 
 // Mob stats scale with level so every zone feels the same at its own level.
 // EXP comes from progression.js (kills-per-level curve).
-function mobStats(level, isBoss) {
+function mobStats(level: any, isBoss: any) {
   const base = {
     maxHp: Math.round((140 + level * 55 + Math.pow(level, 1.35) * 6) * mobHpMult(level)),
     dmg: Math.round(14 + level * 3.0),
@@ -184,7 +184,7 @@ const SOUTH_ARRIVAL = { x: FIELD_MID, y: FIELD_SIZE - 9 };
 const NORTH_PORTAL = { x: FIELD_MID, y: 4 };                // on to the next zone
 const NORTH_ARRIVAL = { x: FIELD_MID, y: 7 };
 
-function seededRandom(seed) {
+function seededRandom(seed: any) {
   let s = seed;
   return () => {
     const x = Math.sin(s++) * 10000;
@@ -192,7 +192,7 @@ function seededRandom(seed) {
   };
 }
 
-function portalObstacles(zone) {
+function portalObstacles(zone: any) {
   const obstacles = [];
   const prevName = zone.prev === 'town' ? 'Town of Slop Hero' : FIELD_ZONE_BY_ID[zone.prev].name;
   obstacles.push({
@@ -211,7 +211,7 @@ function portalObstacles(zone) {
   return obstacles;
 }
 
-function generateFieldMap(zone) {
+function generateFieldMap(zone: any) {
   if (zone.custom) {
     // A hand-made zone keeps the old Frostfell layout; only the portals are swapped in
     const map = generateFrostfellMap();
@@ -229,10 +229,10 @@ function generateFieldMap(zone) {
   const T = zone.tiles;
   const rand = seededRandom(1000 + zone.index * 97);
   const width = FIELD_SIZE, height = FIELD_SIZE;
-  const tiles = [];
+  const tiles: any[][] = [];
 
   // a winding road from the south portal up to the north portal
-  const roadX = y => FIELD_MID + Math.round(Math.sin(y * ROAD_FREQ + zone.index) * ROAD_SWAY);
+  const roadX = (y: any) => FIELD_MID + Math.round(Math.sin(y * ROAD_FREQ + zone.index) * ROAD_SWAY);
   // liquid features (lake / lava / void): one per cell of a jittered grid
   const lakes = [];
   const cell = width / LAKE_GRID;
@@ -264,8 +264,8 @@ function generateFieldMap(zone) {
     }
   }
 
-  const obstacles = portalObstacles(zone);
-  const totalWeight = zone.decor.reduce((s, d) => s + d.weight, 0);
+  const obstacles: any[] = portalObstacles(zone);
+  const totalWeight = zone.decor.reduce((s: any, d: any) => s + d.weight, 0);
   const DECOR_TRIES = Math.round(110 * (width * height) / (42 * 42));
   for (let i = 0; i < DECOR_TRIES; i++) {
     const tx = Math.floor(rand() * (width - 6)) + 3;
@@ -275,10 +275,10 @@ function generateFieldMap(zone) {
     if (Math.hypot(tx - FIELD_MID, ty - SOUTH_PORTAL.y) < 4.5 || Math.hypot(tx - FIELD_MID, ty - NORTH_PORTAL.y) < 4.5) continue;
     if (obstacles.some(o => Math.hypot(o.x - tx, o.y - ty) < 2.0)) continue;
     let pick = rand() * totalWeight;
-    const deco = zone.decor.find(d => (pick -= d.weight) < 0) || zone.decor[0];
+    const deco = zone.decor.find((d: any) => (pick -= d.weight) < 0) || zone.decor[0];
     obstacles.push({
       id: `${zone.id}_deco_${tx}_${ty}`, x: tx, y: ty, type: deco.type,
-      hue: deco.hue, collidable: true, radius: DECOR_RADIUS[deco.type] || 0.6
+      hue: deco.hue, collidable: true, radius: (DECOR_RADIUS as any)[deco.type] || 0.6
     });
   }
 
@@ -295,7 +295,7 @@ function generateFieldMap(zone) {
 
 // Collidable props bucketed per tile (built once per map and cached on it), so
 // collision checks on a big field only look at the props around a point
-function fieldObstacleGrid(map) {
+function fieldObstacleGrid(map: any) {
   if (map._obsGrid) return map._obsGrid;
   const grid = new Map();
   for (const o of map.obstacles) {
@@ -309,7 +309,7 @@ function fieldObstacleGrid(map) {
 }
 
 // Props in the 5x5 tiles around (x, y): covers any collision reach under 2 tiles
-function nearObstacles(grid, x, y) {
+function nearObstacles(grid: any, x: any, y: any) {
   const out = [];
   const tx = Math.floor(x), ty = Math.floor(y);
   for (let dy = -2; dy <= 2; dy++) {
@@ -322,11 +322,11 @@ function nearObstacles(grid, x, y) {
 }
 
 // Mob roster for a zone, spread over open ground away from the portals
-function buildFieldMobs(zone, map) {
+function buildFieldMobs(zone: any, map: any) {
   if (zone.custom) return null; // a hand-made zone (custom: true) keeps its own roster
   const rand = seededRandom(5000 + zone.index * 131);
   const blocking = new Set(map.blockingTiles);
-  const spots = [];
+  const spots: any = [];
   const yMin = 9, yMax = map.height - 11;
   const grid = fieldObstacleGrid(map);
   for (let y = yMin; y <= yMax; y++) {
@@ -338,10 +338,10 @@ function buildFieldMobs(zone, map) {
     }
   }
   const defs = [];
-  zone.mobs.forEach((m, mi) => {
+  zone.mobs.forEach((m: any, mi: any) => {
     // each species keeps to its own band of the map (south -> north = weaker -> stronger)
     const bandH = (yMax - yMin) / zone.mobs.length;
-    const band = spots.filter(s => s.y >= yMax - (mi + 1) * bandH && s.y <= yMax - mi * bandH);
+    const band = spots.filter((s: any) => s.y >= yMax - (mi + 1) * bandH && s.y <= yMax - mi * bandH);
     for (let i = 0; i < m.count * FIELD_MOB_MULT; i++) {
       const s = band[Math.floor(rand() * band.length)] || spots[Math.floor(rand() * spots.length)];
       const level = m.level + Math.floor(rand() * 3);

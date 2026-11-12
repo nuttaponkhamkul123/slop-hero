@@ -52,10 +52,10 @@ test('elements: resists and clamping', () => {
 
 test('items: enhance cost and chance', () => {
   const lv = [0, 1, 5, 10, 14];
-  assert.deepEqual(lv.map(l => enhanceCost({ rarity: 'common', upgradeLevel: l })), [400, 620, 3579, 32017, 184801]);
-  assert.deepEqual(lv.map(l => enhanceCost({ rarity: 'epic', upgradeLevel: l })), [2000, 3100, 17893, 160084, 924004]);
-  assert.deepEqual(lv.map(l => enhanceCost({ rarity: 'divine', upgradeLevel: l })), [8000, 12400, 71573, 640335, 3696015]);
-  assert.deepEqual([0, 3, 7, 14, 15, 20].map(l => enhanceChance({ upgradeLevel: l })), [1, 0.9, 0.5, 0.1, 0, 0]);
+  assert.deepEqual(lv.map(l => enhanceCost({ rarity: 'common', upgradeLevel: l } as any)), [400, 620, 3579, 32017, 184801]);
+  assert.deepEqual(lv.map(l => enhanceCost({ rarity: 'epic', upgradeLevel: l } as any)), [2000, 3100, 17893, 160084, 924004]);
+  assert.deepEqual(lv.map(l => enhanceCost({ rarity: 'divine', upgradeLevel: l } as any)), [8000, 12400, 71573, 640335, 3696015]);
+  assert.deepEqual([0, 3, 7, 14, 15, 20].map(l => enhanceChance({ upgradeLevel: l } as any)), [1, 0.9, 0.5, 0.1, 0, 0]);
 });
 
 test('items: randomized gear has the expected shape (random values not asserted)', () => {

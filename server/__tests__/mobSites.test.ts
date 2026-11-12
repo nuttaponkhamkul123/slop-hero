@@ -22,7 +22,7 @@ function seeded<T>(seed: number, fn: () => T): T {
   Date.now = () => NOW;
   try { return fn(); } finally { Math.random = realRandom; Date.now = realNow; }
 }
-const noop = () => undefined;
+const noop = (): void => undefined;
 const loose = (props: any) => new Proxy(props, { get: (t, k) => (k in t ? t[k] : noop) });
 
 async function load() {

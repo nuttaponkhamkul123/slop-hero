@@ -64,8 +64,8 @@ test('skill methods match the pre-refactor fixture', async () => {
       Math.random = mulberry32(hashName(name)); now = NOW; timeouts = []; intervals = [];
       const log: any[] = [];
       const players = new Map<string, any>([['h1', p]]);
-      const ally = { id: 'h2', name: 'Ally', zone: 'frostfell', x: 11, y: 11, hp: 20, maxHp: 300, mp: 5, maxMp: 100, isDead: false, partyId: null, level: 40 };
-      const far = { id: 'h3', name: 'Far', zone: 'frostfell', x: 50, y: 50, hp: 20, maxHp: 300, isDead: false, partyId: null };
+      const ally = { id: 'h2', name: 'Ally', zone: 'frostfell', x: 11, y: 11, hp: 20, maxHp: 300, mp: 5, maxMp: 100, isDead: false, partyId: null as any, level: 40 };
+      const far = { id: 'h3', name: 'Far', zone: 'frostfell', x: 50, y: 50, hp: 20, maxHp: 300, isDead: false, partyId: null as any };
       if (!opts.alone) { players.set('h2', ally); players.set('h3', far); }
       const mobsMap = new Map<string, any>(); for (const m of opts.mobs || mobs()) mobsMap.set(m.id, m);
       const socket = { emit: (ev: string, data: any) => log.push(['socket', ev, plain(data)]) };

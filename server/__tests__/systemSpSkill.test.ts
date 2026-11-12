@@ -62,7 +62,7 @@ test('SP skill casting matches the pre-refactor fixture', async () => {
       const log: any[] = [];
       const players = new Map<string, any>([['h1', p]]);
       const ally = { id: 'h2', name: 'Ally', zone: 'frostfell', x: 11, y: 11, hp: 20, maxHp: 300, mp: 5, maxMp: 100, isDead: false, partyId: opts.party ? 'p1' : null, level: 40 };
-      const far = { id: 'h3', name: 'Far', zone: 'frostfell', x: 50, y: 50, hp: 20, maxHp: 300, isDead: false, partyId: null };
+      const far = { id: 'h3', name: 'Far', zone: 'frostfell', x: 50, y: 50, hp: 20, maxHp: 300, isDead: false, partyId: null as any };
       players.set('h2', ally); players.set('h3', far);
       const mobsMap = new Map<string, any>(); for (const m of mobs()) mobsMap.set(m.id, m);
       const socket = { emit: (ev: string, data: any) => log.push(['socket', ev, plain(data)]) };

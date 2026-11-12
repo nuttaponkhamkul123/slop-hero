@@ -1,4 +1,5 @@
-// Class skill data (moved verbatim from gameServer.ts; values unchanged).
+
+import type { Player } from '../entities/types';// Class skill data (moved verbatim from gameServer.ts; values unchanged).
 // The cooldown scaling loop below runs once, when this module is first loaded.
 
 // ================= MASSIVE CLASS SKILL ARSENAL (24 SKILLS) =================
@@ -268,9 +269,9 @@ export const DEFAULT_EQUIPPED_SKILLS = {
 // Slots a client may cast from
 export const CLIENT_SKILL_SLOTS = new Set(['slot1', 'slot2', 'slot3', 'dash', 'weapon', 'skill1', 'skill2', 'ult']);
 
-export const DEFAULT_SKILL_FOR_SLOT = (player, slot) => {
-  const defaults = DEFAULT_EQUIPPED_SKILLS[player.characterClass] || DEFAULT_EQUIPPED_SKILLS.warrior;
-  return ALL_CLASS_SKILLS[defaults[slot]] || ALL_CLASS_SKILLS.whirlwind;
+export const DEFAULT_SKILL_FOR_SLOT = (player: Player, slot: any) => {
+  const defaults = (DEFAULT_EQUIPPED_SKILLS as any)[player.characterClass] || DEFAULT_EQUIPPED_SKILLS.warrior;
+  return (ALL_CLASS_SKILLS as any)[defaults[slot]] || ALL_CLASS_SKILLS.whirlwind;
 };
 
 export const CLASS_SKILLS = {

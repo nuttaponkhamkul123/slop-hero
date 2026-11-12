@@ -26,7 +26,7 @@ export const SP_SHAPE_HANDLERS: Record<string, SpShapeHandler> = {
     const { player, skill, gs, emit, px, py, say, zone } = c;
     const trail = player.timeTrail || [];
     const want = Date.now() - (skill.back || 3) * 1000;
-    const past = trail.find(t => t.t >= want) || trail[0];
+    const past = trail.find((t: any) => t.t >= want) || trail[0];
     if (past && !gs.isColliding(past.x, past.y, zone)) {
       player.x = past.x; player.y = past.y;
       player.targetX = null; player.targetY = null;
@@ -49,7 +49,7 @@ export const SP_SHAPE_HANDLERS: Record<string, SpShapeHandler> = {
       }
       say(px, py, '📯 CHALLENGE!', '#fde68a', 17);
     }
-    if (skill.dmg) within(px, py, skill.r).forEach(m => hit(m));
+    if (skill.dmg) within(px, py, skill.r).forEach((m: any) => hit(m));
     if (skill.reap) {
       // Devour: every Doom brand of this hero bursts now
       for (const m of alive()) if (m.doom && m.doom.owner === player.id) burstDoom(m, m.doom);
@@ -85,8 +85,8 @@ export const SP_SHAPE_HANDLERS: Record<string, SpShapeHandler> = {
       player.facing = gs.calculateFacing(px, py, sp.x, sp.y);
       emit({ dive: true, ownerId: player.id, startX: px, startY: py, x: sp.x, y: sp.y, radius: skill.diveR, clearObj: sp.objId }, false);
       say(sp.x, sp.y, skill.rod ? '⚡ LIGHTNING DIVE!' : '🐉 LANCE DIVE!', '#facc15', 17);
-      within(sp.x, sp.y, skill.diveR).forEach(m => hit(m, skill.dive / (skill.dmgMult || 1), sp.x, sp.y));
-      if (skill.rod) overloadRods(skill.dive * 0.6, (rd) => Math.hypot(rd.x - sp.x, rd.y - sp.y) < 1);
+      within(sp.x, sp.y, skill.diveR).forEach((m: any) => hit(m, skill.dive / (skill.dmgMult || 1), sp.x, sp.y));
+      if (skill.rod) overloadRods(skill.dive * 0.6, (rd: any) => Math.hypot(rd.x - sp.x, rd.y - sp.y) < 1);
       const socket = gs.io.sockets.sockets.get(player.id);
       if (socket) socket.emit('player_updated', player);
       return;
@@ -115,7 +115,7 @@ export const SP_SHAPE_HANDLERS: Record<string, SpShapeHandler> = {
         if (socket) socket.emit('player_updated', player);
       }
       emit({ landed: true, x: land.x, y: land.y, radius: skill.r }, false);
-      within(land.x, land.y, skill.r).forEach(m => hit(m, 1, land.x, land.y));
+      within(land.x, land.y, skill.r).forEach((m: any) => hit(m, 1, land.x, land.y));
       if (skill.overload) overloadRods(skill.overload);
       if (skill.rod) plantRod(land.x, land.y);
     });
@@ -141,24 +141,24 @@ export const SP_SHAPE_HANDLERS: Record<string, SpShapeHandler> = {
     const { player, skill, gs, emit, isShadow, px, py, say } = c;
     const R = skill.rage;
     if (!isShadow) player.minionRage = { until: Date.now() + R.dur * 1000, dmg: R.dmg, aspd: R.aspd, crit: R.crit, critMult: R.critMult };
-    const mins = (player.minions || []).filter(m => m.until > Date.now());
-    emit({ x: px, y: py, radius: skill.r || 3, points: mins.map(m => ({ x: m.x, y: m.y })) }, true);
+    const mins = (player.minions || []).filter((m: any) => m.until > Date.now());
+    emit({ x: px, y: py, radius: skill.r || 3, points: mins.map((m: any) => ({ x: m.x, y: m.y })) }, true);
     say(px, py, mins.length ? `☠️ GRAVE FRENZY x${mins.length}` : '☠️ GRAVE FRENZY', '#a3e635', 17);
   },
 
   gravebomb: (c) => {
     const { player, skill, gs, emit, hit, instanceId, isShadow, later, px, py, say, within, zone } = c;
     const nowB = Date.now();
-    const mins = (player.minions || []).filter(m => m.until > nowB && m.zone === zone && m.instanceId === instanceId);
-    emit({ x: px, y: py, radius: skill.r, points: mins.map(m => ({ x: m.x, y: m.y })) }, true);
+    const mins = (player.minions || []).filter((m: any) => m.until > nowB && m.zone === zone && m.instanceId === instanceId);
+    emit({ x: px, y: py, radius: skill.r, points: mins.map((m: any) => ({ x: m.x, y: m.y })) }, true);
     if (!mins.length) { say(px, py, 'No minions to detonate', '#94a3b8', 14); return; }
     say(px, py, `💥 CORPSE DETONATION x${mins.length}`, '#4ade80', 17);
-    if (!isShadow) player.minions = player.minions.filter(m => !mins.includes(m));
-    mins.forEach((m, i) => {
+    if (!isShadow) player.minions = player.minions.filter((m: any) => !mins.includes(m));
+    mins.forEach((m: any, i: any) => {
       const bx = m.x, by = m.y;
       later(0.08 + i * 0.07, () => {
         emit({ shape: 'gravebomb', burst: true, x: bx, y: by, radius: skill.r }, false);
-        within(bx, by, skill.r).forEach(o => hit(o, 1, bx, by));
+        within(bx, by, skill.r).forEach((o: any) => hit(o, 1, bx, by));
       });
     });
   },
@@ -167,24 +167,24 @@ export const SP_SHAPE_HANDLERS: Record<string, SpShapeHandler> = {
     const { player, skill, gs, aimX, aimY, emit, hit, instanceId, isShadow, say, within, zone } = c;
     const picks = gs.takeCorpses(zone, instanceId, aimX, aimY, skill.r, skill.n);
     const risen = picks.length ? picks : [{ x: aimX, y: aimY, type: 'skeleton', hue: 0, scale: 1, thrall: true }];
-    emit({ x: aimX, y: aimY, radius: skill.r, points: risen.map(c => ({ x: c.x, y: c.y })), thrall: !picks.length }, true);
+    emit({ x: aimX, y: aimY, radius: skill.r, points: risen.map((c: any) => ({ x: c.x, y: c.y })), thrall: !picks.length }, true);
     say(aimX, aimY, picks.length ? `☠️ RISE! x${picks.length}` : '☠️ GRAVE THRALL', '#4ade80', 16);
     if (!isShadow) for (const c of risen) gs.raiseMinion(player, c, skill);
-    for (const c of risen) within(c.x, c.y, 1.3).forEach(m => hit(m, 1, c.x, c.y));
+    for (const c of risen) within(c.x, c.y, 1.3).forEach((m: any) => hit(m, 1, c.x, c.y));
   },
 
   invoke: (c) => {
     const { player, skill, gs, burstRune, emit, hit, instanceId, later, px, py, say, within, zone } = c;
     const nowI = Date.now();
-    const glyphs = (player.runeGlyphs || []).filter(g => !g.spent && g.until > nowI && g.zone === zone && g.instanceId === instanceId);
-    emit({ x: px, y: py, radius: skill.r, points: glyphs.map(g => ({ x: g.x, y: g.y })) }, true);
+    const glyphs = (player.runeGlyphs || []).filter((g: any) => !g.spent && g.until > nowI && g.zone === zone && g.instanceId === instanceId);
+    emit({ x: px, y: py, radius: skill.r, points: glyphs.map((g: any) => ({ x: g.x, y: g.y })) }, true);
     if (!glyphs.length) {
       say(px, py, 'No glyphs carved', '#94a3b8', 14);
-      within(px, py, 2).forEach(m => hit(m, 0.6));
+      within(px, py, 2).forEach((m: any) => hit(m, 0.6));
       return;
     }
     say(px, py, `✴️ INVOCATION x${glyphs.length}`, '#a3e635', 17);
-    glyphs.forEach((g, i) => later(i * 0.08, () => burstRune(g, skill.dmgMult)));
+    glyphs.forEach((g: any, i: any) => later(i * 0.08, () => burstRune(g, skill.dmgMult)));
   },
 
   ricochet: (c) => {
@@ -211,7 +211,7 @@ export const SP_SHAPE_HANDLERS: Record<string, SpShapeHandler> = {
   phantom: (c) => {
     const { player, skill, gs, emit, hit, later, nearest, px, py } = c;
     emit({ x: px, y: py, radius: 1.2, duration: skill.n * skill.every + 0.5 }, true);
-    let cx = px, cy = py, last = null;
+    let cx = px, cy = py, last: any = null;
     for (let i = 0; i < skill.n; i++) {
       later(0.1 + i * skill.every, () => {
         const prey = nearest(cx, cy, skill.range, last ? new Set([last]) : null) || (last && last.state !== 'dead' ? last : null);
@@ -240,7 +240,7 @@ export const SP_SHAPE_HANDLERS: Record<string, SpShapeHandler> = {
     victim.attackCooldown = Math.max(victim.attackCooldown || 0, 0.5);
     later(0.35, () => {
       hit(victim, 1, px, py);
-      within(land.x, land.y, skill.land.r).filter(m => m !== victim).forEach(m => hit(m, skill.land.mult, land.x, land.y));
+      within(land.x, land.y, skill.land.r).filter((m: any) => m !== victim).forEach((m: any) => hit(m, skill.land.mult, land.x, land.y));
     });
   },
 
@@ -252,12 +252,12 @@ export const SP_SHAPE_HANDLERS: Record<string, SpShapeHandler> = {
     const b = { id: 'b' + nextSpObjId(), x: at.x, y: at.y, r: skill.r, bonus: skill.bonus, until: Date.now() + skill.dur * 1000, zone, instanceId };
     player.banner = b;
     emit({ x: b.x, y: b.y, radius: b.r, duration: skill.dur, objId: b.id }, true);
-    within(b.x, b.y, b.r).forEach(m => hit(m, 1, b.x, b.y));
+    within(b.x, b.y, b.r).forEach((m: any) => hit(m, 1, b.x, b.y));
     const ticks = Math.floor(skill.dur / skill.every);
     for (let i = 1; i <= ticks; i++) {
       later(i * skill.every, () => {
         if (player.banner !== b) return;
-        within(b.x, b.y, b.r).forEach(m => hit(m, skill.tick, b.x, b.y));
+        within(b.x, b.y, b.r).forEach((m: any) => hit(m, skill.tick, b.x, b.y));
         if (Math.hypot(player.x - b.x, player.y - b.y) <= b.r) player.hp = Math.min(player.maxHp, player.hp + player.maxHp * skill.regen * skill.every);
       });
     }
@@ -277,20 +277,20 @@ export const SP_SHAPE_HANDLERS: Record<string, SpShapeHandler> = {
     }
     emit({ startX: px, startY: py, x: cx, y: cy, radius: skill.r, leap: !!b }, true);
     if (b) say(cx, cy, '🚩 RALLY!', '#fbbf24', 17);
-    within(cx, cy, skill.r).forEach(m => hit(m, 1, cx, cy));
+    within(cx, cy, skill.r).forEach((m: any) => hit(m, 1, cx, cy));
   },
 
   boomerang: (c) => {
     const { player, skill, gs, alive, dir, emit, hit, later, px, py, ray } = c;
     const n = skill.n || 2, base = Math.atan2(dir.normY, dir.normX), w = skill.width || 1;
-    const axes = [];
+    const axes: any = [];
     for (let i = 0; i < n; i++) {
       const ang = base + (n > 1 ? (i / (n - 1) * 2 - 1) * skill.spread : 0);
       const end = ray(px, py, Math.cos(ang), Math.sin(ang), skill.len, 0.3);
       axes.push({ ex: end.x, ey: end.y });
     }
     emit({ x: px, y: py, startX: px, startY: py, axes, width: w, duration: skill.dur, followId: player.id }, true);
-    const pass = (back) => {
+    const pass = (back: any) => {
       const hx = player.x, hy = player.y;
       const struck = new Set();
       for (const a of axes) {
@@ -307,7 +307,7 @@ export const SP_SHAPE_HANDLERS: Record<string, SpShapeHandler> = {
 
   firebird: (c) => {
     const { player, skill, gs, dir, emit, hit, later, px, py, within } = c;
-    const L = skill.len, N = 24, path = [];
+    const L = skill.len, N = 24, path: any = [];
     for (let i = 0; i <= N; i++) {
       const t = i / N, fwd = Math.sin(t * Math.PI) * L, lat = Math.sin(t * Math.PI * 2) * L * 0.35;
       path.push({ x: px + dir.normX * fwd - dir.normY * lat, y: py + dir.normY * fwd + dir.normX * lat });
@@ -317,7 +317,7 @@ export const SP_SHAPE_HANDLERS: Record<string, SpShapeHandler> = {
     for (let i = 1; i <= ticks; i++) {
       later(i * skill.every, () => {
         const p = path[Math.min(N, Math.round((i / ticks) * N))];
-        within(p.x, p.y, skill.r).forEach(m => hit(m, 1, p.x, p.y));
+        within(p.x, p.y, skill.r).forEach((m: any) => hit(m, 1, p.x, p.y));
       });
     }
   },
@@ -329,7 +329,7 @@ export const SP_SHAPE_HANDLERS: Record<string, SpShapeHandler> = {
     const boost = 1 + 4 * spent / Math.max(1, player.maxHp);
     emit({ x: px, y: py, radius: skill.r, spent }, true);
     if (spent) say(px, py, `🔥 SACRIFICE -${spent} HP`, '#f97316', 17);
-    within(px, py, skill.r).forEach(m => hit(m, boost));
+    within(px, py, skill.r).forEach((m: any) => hit(m, boost));
     if (skill.regrow && spent) {
       const per = spent * skill.regrow / 10;
       for (let i = 1; i <= 10; i++) later(i * 0.5, () => { player.hp = Math.min(player.maxHp, player.hp + per); });
@@ -379,7 +379,7 @@ export const SP_SHAPE_HANDLERS: Record<string, SpShapeHandler> = {
     const { player, skill, gs, emit, hit, instanceId, isShadow, px, py, say, within, zone } = c;
     gs.smokeClouds.push({ zone, instanceId, x: px, y: py, r: skill.r, miss: skill.miss, until: Date.now() + skill.dur * 1000 });
     emit({ x: px, y: py, radius: skill.r, duration: skill.dur }, true);
-    if (skill.dmg) within(px, py, skill.r).forEach(m => hit(m));
+    if (skill.dmg) within(px, py, skill.r).forEach((m: any) => hit(m));
     if (!isShadow) say(px, py, '💨 SMOKE BOMB', '#cbd5e1', 15);
   },
 
@@ -388,7 +388,7 @@ export const SP_SHAPE_HANDLERS: Record<string, SpShapeHandler> = {
     const spotAt = ray(px, py, dir.normX, dir.normY, Math.hypot(aimX - px, aimY - py), 0.3);
     player.nbShadow = { x: spotAt.x, y: spotAt.y, mirror: skill.mirror, until: Date.now() + skill.dur * 1000, zone, instanceId };
     emit({ startX: px, startY: py, x: spotAt.x, y: spotAt.y, radius: skill.r, duration: skill.dur }, true);
-    if (skill.dmg) within(spotAt.x, spotAt.y, skill.r).forEach(m => hit(m, 1, spotAt.x, spotAt.y));
+    if (skill.dmg) within(spotAt.x, spotAt.y, skill.r).forEach((m: any) => hit(m, 1, spotAt.x, spotAt.y));
     say(spotAt.x, spotAt.y, '👤 SHADOW', '#a855f7', 15);
   },
 
@@ -398,7 +398,7 @@ export const SP_SHAPE_HANDLERS: Record<string, SpShapeHandler> = {
     emit({ x: px, y: py, radius: skill.r, n: skill.n, duration: skill.dur, followId: isShadow ? null : player.id }, true);
     const spin = () => {
       const c = centre();
-      within(c.x, c.y, skill.r).forEach(m => hit(m, 1, c.x, c.y));
+      within(c.x, c.y, skill.r).forEach((m: any) => hit(m, 1, c.x, c.y));
     };
     spin();
     const ticks = Math.round(skill.dur / skill.every);
@@ -408,7 +408,7 @@ export const SP_SHAPE_HANDLERS: Record<string, SpShapeHandler> = {
   orbs: (c) => {
     const { player, skill, gs, dir, emit, hit, later, px, py, ray, within } = c;
     const n = skill.n || 2, base = Math.atan2(dir.normY, dir.normX);
-    const orbs = [];
+    const orbs: any = [];
     for (let i = 0; i < n; i++) {
       const ang = base + (n > 1 ? (i / (n - 1) * 2 - 1) * skill.spread : 0);
       const end = ray(px, py, Math.cos(ang), Math.sin(ang), skill.len, 0.3);
@@ -416,11 +416,11 @@ export const SP_SHAPE_HANDLERS: Record<string, SpShapeHandler> = {
     }
     emit({ x: px, y: py, orbs, radius: skill.r, duration: skill.dur }, true);
     const ticks = Math.round(skill.dur / skill.every);
-    const shock = (i) => {
+    const shock = (i: any) => {
       const k = i / ticks;
       for (const o of orbs) {
         const ox = o.sx + (o.ex - o.sx) * k, oy = o.sy + (o.ey - o.sy) * k;
-        within(ox, oy, skill.r).forEach(m => hit(m, 1, ox, oy));
+        within(ox, oy, skill.r).forEach((m: any) => hit(m, 1, ox, oy));
       }
     };
     for (let i = 1; i <= ticks; i++) later(i * skill.every, () => shock(i));
@@ -452,7 +452,7 @@ export const SP_SHAPE_HANDLERS: Record<string, SpShapeHandler> = {
     const { player, skill, gs, aimX, aimY, emit, hit, plantRod, px, py, within } = c;
     c.spot = { x: aimX, y: aimY };
     emit({ x: aimX, y: aimY, startX: px, startY: py, radius: skill.r }, true);
-    within(aimX, aimY, skill.r).forEach(m => hit(m, 1, aimX, aimY));
+    within(aimX, aimY, skill.r).forEach((m: any) => hit(m, 1, aimX, aimY));
     if (skill.rod) plantRod(aimX, aimY);
   },
 
@@ -533,10 +533,10 @@ export const SP_SHAPE_HANDLERS: Record<string, SpShapeHandler> = {
   volley: (c) => {
     const { player, skill, gs, emit, hit, px, py, within } = c;
     const targets = within(px, py, skill.range)
-      .sort((a, b) => Math.hypot(a.x - px, a.y - py) - Math.hypot(b.x - px, b.y - py))
+      .sort((a: any, b: any) => Math.hypot(a.x - px, a.y - py) - Math.hypot(b.x - px, b.y - py))
       .slice(0, skill.n);
-    emit({ x: px, y: py, startX: px, startY: py, points: targets.map(m => ({ x: m.x, y: m.y })) }, true);
-    targets.forEach(m => hit(m));
+    emit({ x: px, y: py, startX: px, startY: py, points: targets.map((m: any) => ({ x: m.x, y: m.y })) }, true);
+    targets.forEach((m: any) => hit(m));
   },
 
   chain: (c) => {
@@ -558,14 +558,14 @@ export const SP_SHAPE_HANDLERS: Record<string, SpShapeHandler> = {
   pulse: (c) => {
     const { player, skill, gs, aimX, aimY, emit, hit, later, nearest, px, py, say, within } = c;
     const onTarget = skill.at === 'target';
-    let seekX = aimX, seekY = aimY, lastPrey = null;
+    let seekX = aimX, seekY = aimY, lastPrey: any = null;
     if (skill.id === 'sp_soul_bastion') {
       const missingShare = Math.max(0, 1 - (player.hp / Math.max(1, player.maxHp)));
       const bloodlustHeal = Math.max(1, Math.round(player.maxHp * (0.12 + 0.18 * missingShare)));
       player.hp = Math.min(player.maxHp, player.hp + bloodlustHeal);
       say(px, py, `🔥 UNDYING RAGE! (+${bloodlustHeal} HP)`, '#f43f5e', 18);
     }
-    const wave = (i) => {
+    const wave = (i: any) => {
       let cx = onTarget ? seekX : player.x, cy = onTarget ? seekY : player.y;
       if (skill.seek) {
         // hop to a different enemy each pulse (stay put only if it is the last one)
@@ -573,7 +573,7 @@ export const SP_SHAPE_HANDLERS: Record<string, SpShapeHandler> = {
         if (prey) { lastPrey = prey; seekX = cx = prey.x; seekY = cy = prey.y; }
       }
       emit({ x: cx, y: cy, radius: skill.r, wave: i }, i === 0);
-      within(cx, cy, skill.r).forEach(m => hit(m, 1, cx, cy));
+      within(cx, cy, skill.r).forEach((m: any) => hit(m, 1, cx, cy));
     };
     wave(0);
     for (let i = 1; i < skill.n; i++) later(i * skill.every, () => wave(i));
@@ -582,15 +582,15 @@ export const SP_SHAPE_HANDLERS: Record<string, SpShapeHandler> = {
   rain: (c) => {
     const { player, skill, gs, aimX, aimY, emit, hit, later, say, within } = c;
     if (skill.id === 'sp_grave_rain') say(aimX, aimY, '🪓 GUILLOTINE SKYFALL!', '#c084fc', 17);
-    const strike = (i) => {
+    const strike = (i: any) => {
       const inArea = within(aimX, aimY, skill.r);
       const a = Math.random() * Math.PI * 2, d = Math.sqrt(Math.random()) * skill.r;
       const pick = inArea.length ? inArea[Math.floor(Math.random() * inArea.length)] : null;
       const sx = pick ? pick.x : aimX + Math.cos(a) * d, sy = pick ? pick.y : aimY + Math.sin(a) * d;
       emit({ x: sx, y: sy, radius: skill.hit, wave: i, areaX: aimX, areaY: aimY, areaR: skill.r }, i === 0);
-      within(sx, sy, skill.hit).forEach(m => hit(m, 1, sx, sy));
+      within(sx, sy, skill.hit).forEach((m: any) => hit(m, 1, sx, sy));
       if (skill.id === 'sp_grave_rain' && i === skill.n - 1) {
-        within(aimX, aimY, skill.r).forEach(m => hit(m, 0.75, aimX, aimY));
+        within(aimX, aimY, skill.r).forEach((m: any) => hit(m, 0.75, aimX, aimY));
       }
     };
     strike(0);
@@ -672,7 +672,7 @@ export const SP_SHAPE_HANDLERS: Record<string, SpShapeHandler> = {
     if (skill.id === 'sp_void_step') say(end.x, end.y, '🪓 OBLIVION SLAM!', '#c084fc', 17);
     if (skill.leaveRune && !isShadow && SP.SP_SKILLS[skill.leaveRune]) placeRune(SP.SP_SKILLS[skill.leaveRune], px, py, false);
     if (skill.riftPull) {
-      within(px, py, skill.riftPull).forEach((m, i) => {
+      within(px, py, skill.riftPull).forEach((m: any, i: any) => {
         const a = (i / 6) * Math.PI * 2;
         const nx = end.x + Math.cos(a) * 1.2, ny = end.y + Math.sin(a) * 1.2;
         if (!gs.isColliding(nx, ny, zone)) { m.x = nx; m.y = ny; }
@@ -688,8 +688,8 @@ export const SP_SHAPE_HANDLERS: Record<string, SpShapeHandler> = {
     }
     if (skill.dmg) {
       const struck = new Set();
-      if (skill.origin || skill.originOnly) within(px, py, skill.r).forEach(m => { struck.add(m); hit(m, 1, px, py); });
-      if (!skill.originOnly) within(end.x, end.y, skill.r).filter(m => !struck.has(m)).forEach(m => hit(m, 1, end.x, end.y));
+      if (skill.origin || skill.originOnly) within(px, py, skill.r).forEach((m: any) => { struck.add(m); hit(m, 1, px, py); });
+      if (!skill.originOnly) within(end.x, end.y, skill.r).filter((m: any) => !struck.has(m)).forEach((m: any) => hit(m, 1, end.x, end.y));
     }
   },
 

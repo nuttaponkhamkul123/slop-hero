@@ -7,12 +7,13 @@ import * as CRAFT from '../crafting';
 import * as ATTR from '../itemAttributes';
 import { DEFAULT_BAG_SLOTS } from '../config/constants';
 import { ItemFactory } from '../entities/item';
+import type { Item } from '../entities/types';
 
 export class ItemUpgradeSystem {
   constructor(private readonly gs: GameServer) {}
 
   // Hypixel Skyblock Reforge Anvil Actions (Brom the Master Smith)
-  handleReforgeItem(socketId, data) {
+  handleReforgeItem(socketId: any, data: any) {
     const player = this.gs.players.get(socketId);
     if (!player || player.isDead || player.zone !== 'town') return;
 
@@ -33,7 +34,7 @@ export class ItemUpgradeSystem {
     if (!targetItem || targetItem.type !== 'equipment') return;
 
     const rarity = targetItem.rarity || 'common';
-    const reforgeCost = REFORGE_COSTS[rarity] || 50;
+    const reforgeCost = (REFORGE_COSTS as any)[rarity] || 50;
     const socket = this.gs.io.sockets.sockets.get(socketId);
 
     if (player.gold < reforgeCost) {
@@ -444,7 +445,7 @@ export class ItemUpgradeSystem {
     }
   }
 
-  applyItemUpgradeStats(item) {
+  applyItemUpgradeStats(item: Item) {
     if (!item) return;
     const lvl = item.upgradeLevel || 0;
     if (item.baseBonusDmg === undefined) item.baseBonusDmg = item.bonusDmg || 0;
@@ -504,7 +505,7 @@ export class ItemUpgradeSystem {
 
   // Enchanter: try to raise an item's +level. Gold is spent either way; from
   // +${ENHANCE_SAFE_LEVEL} upward a failure also drops the item one level.
-  handleEnhanceItem(socketId, data) {
+  handleEnhanceItem(socketId: any, data: any) {
     const player = this.gs.players.get(socketId);
     const socket = this.gs.io.sockets.sockets.get(socketId);
     if (!player || !socket || player.isDead || player.zone !== 'town' || !data) return;
@@ -520,7 +521,7 @@ export class ItemUpgradeSystem {
     if (!item || item.type !== 'equipment') return;
 
     const lvl = item.upgradeLevel || 0;
-    const fail = (text) => socket.emit('enhance_result', { ok: false, message: text });
+    const fail = (text: any) => socket.emit('enhance_result', { ok: false, message: text });
     if (lvl >= ENHANCE_MAX) return fail(`Already at the maximum +${ENHANCE_MAX}!`);
     const cost = enhanceCost(item);
     if (player.gold < cost) return fail(`Need ${cost.toLocaleString()} Gold!`);

@@ -5,18 +5,19 @@ import type { GameServer } from '../gameServer';
 import { rollDungeonLoot, DUNGEON_FLOORS, DUNGEON_TILES } from '../dungeonGenerator';
 import { baseExpCurve } from '../progression';
 import { dungeonProgressWeight, DUNGEON_SPAWN_MS, FAILED_RUN_LOOT_KEEP, RUN_PAR_BASE_SEC, RUN_PAR_PER_ROOM_SEC, RUN_RANK_MULT } from '../config/constants';
+import type { Player, DungeonInstance, Mob } from '../entities/types';
 
 export class DungeonRunSystem {
   constructor(private readonly gs: GameServer) {}
 
-  getPlayerDungeonInstance(player) {
+  getPlayerDungeonInstance(player: Player) {
     if (!player || player.zone !== 'dungeon' || !player.dungeonInstanceId) return null;
     return this.gs.dungeonInstances.get(player.dungeonInstanceId) || null;
   }
 
-  newDungeonRun(inst, cleared = false) {
+  newDungeonRun(inst: DungeonInstance, cleared = false) {
     return {
-      floor: inst.floor, difficulty: inst.difficulty, cleared, gold: 0, items: [],
+      floor: inst.floor, difficulty: inst.difficulty, cleared, gold: 0, items: [] as any,
       startedAt: inst.startedAt || Date.now(), deaths: 0, kills: 0, exp: 0,
       revivalsUsed: 0, maxRevivals: 10
     };
@@ -26,7 +27,7 @@ export class DungeonRunSystem {
   // unlocks, the boss door included (side rooms don't have to be cleared).
   // A room's monsters spawn when a door into it opens, so a room is cleared
   // only once it has spawned and all its monsters are dead.
-  updateDungeonRooms(inst) {
+  updateDungeonRooms(inst: DungeonInstance) {
     const dung = inst.dungeon;
     if (!dung || !dung.doors || !dung.rooms) return;
     if (!inst.roomsCleared) inst.roomsCleared = new Set();
@@ -55,13 +56,13 @@ export class DungeonRunSystem {
         if (d.open || !inst.roomsCleared.has(d.from)) continue;
         d.open = true;
         for (const [x, y] of d.tiles) dung.tiles[y][x] = DUNGEON_TILES.FLOOR;
-        dung.obstacles = dung.obstacles.filter(o => o.id !== d.id);
+        dung.obstacles = dung.obstacles.filter((o: any) => o.id !== d.id);
         opened.push({ id: d.id, tiles: d.tiles, boss: d.boss, x: d.x, y: d.y });
         if (!inst.roomsSpawned.has(d.to)) {
           spawned.push(...this.gs.spawnDungeonRoom(inst, d.to));
           // Rush mode: the door opens onto ONE long hall, so every chamber of it fills at once
           if (dung.rooms[d.to] && dung.rooms[d.to].rush) {
-            dung.rooms.forEach((r, ri) => { if (r.rush && !inst.roomsSpawned.has(ri)) spawned.push(...this.gs.spawnDungeonRoom(inst, ri)); });
+            dung.rooms.forEach((r: any, ri: any) => { if (r.rush && !inst.roomsSpawned.has(ri)) spawned.push(...this.gs.spawnDungeonRoom(inst, ri)); });
           }
         }
         progress = true;
@@ -107,12 +108,12 @@ export class DungeonRunSystem {
   // Bring a room's waiting monsters into the instance. Once the run is live
   // they rise for DUNGEON_SPAWN_MS (no AI) while clients play the summon effect.
   // Returns what clients need for that effect.
-  spawnDungeonRoom(inst, roomIdx) {
+  spawnDungeonRoom(inst: DungeonInstance, roomIdx: any) {
     inst.roomsSpawned.add(roomIdx);
     const list = (inst.pendingMobs && inst.pendingMobs.get(roomIdx)) || [];
     if (inst.pendingMobs) inst.pendingMobs.delete(roomIdx);
     const until = inst.announce ? Date.now() + DUNGEON_SPAWN_MS : 0;
-    return list.map(m => {
+    return list.map((m: any) => {
       m.spawnUntil = until;
       m.dungeonInstanceId = inst.id;   // so a death with no killer (burn, poison) still finds its run
       inst.mobs.set(m.id, m);
@@ -120,7 +121,7 @@ export class DungeonRunSystem {
     });
   }
 
-  cleanupDungeonInstanceIfEmpty(instanceId) {
+  cleanupDungeonInstanceIfEmpty(instanceId: any) {
     if (!instanceId || !this.gs.dungeonInstances.has(instanceId)) return;
     const hasPlayers = Array.from(this.gs.players.values()).some(p => p.zone === 'dungeon' && p.dungeonInstanceId === instanceId);
     if (!hasPlayers) {
@@ -129,7 +130,7 @@ export class DungeonRunSystem {
   }
 
   // Handle Opening Treasure Chests in Dungeon
-  handleOpenChest(socketId, chestId) {
+  handleOpenChest(socketId: any, chestId: any) {
     const player = this.gs.players.get(socketId);
     if (!player || player.zone !== 'dungeon' || player.isDead) return;
 
@@ -137,7 +138,7 @@ export class DungeonRunSystem {
     const chests = inst ? inst.chests : this.gs.dungeon.chests;
     const chestFloor = inst ? inst.floor : this.gs.dungeonFloor;
     const chestDifficulty = inst ? inst.difficulty : this.gs.dungeonDifficulty;
-    const chest = chests.find(c => c.id === chestId);
+    const chest = chests.find((c: any) => c.id === chestId);
     // Every party member loots each chest once for themselves
     if (!chest) return;
     if (!chest.openedBy) chest.openedBy = [];
@@ -187,8 +188,8 @@ export class DungeonRunSystem {
       active: true,
       cleared: run.cleared,
       gold: run.gold,
-      items: run.items.map(it => this.gs.lootEntryName(it)),
-      lootItems: run.items.map(it => this.gs.lootEntryToItem(it)),
+      items: run.items.map((it: any) => this.gs.lootEntryName(it)),
+      lootItems: run.items.map((it: any) => this.gs.lootEntryToItem(it)),
       startedAt: run.startedAt,
       serverNow: Date.now(),
       clearedMs: run.clearedAt ? run.clearedAt - run.startedAt : null,
@@ -210,7 +211,7 @@ export class DungeonRunSystem {
   }
 
   // Boss defeated: everything in the loot bag is secured immediately.
-  completeDungeonRun(player) {
+  completeDungeonRun(player: Player) {
     const run = player.dungeonRun;
     if (!run || run.cleared) return;
     run.cleared = true;
@@ -222,7 +223,7 @@ export class DungeonRunSystem {
       secured.push(`${run.gold.toLocaleString('en-US')} Gold`);
       securedItems.push({ id: 'gold', name: `${run.gold.toLocaleString('en-US')} Gold`, count: run.gold, type: 'gold', rarity: 'common' });
     }
-    run.items.forEach(it => {
+    run.items.forEach((it: any) => {
       this.gs.giveLootToPlayer(player, it, false);
       secured.push(this.gs.lootEntryName(it));
       securedItems.push(this.gs.lootEntryToItem(it));
@@ -263,7 +264,7 @@ export class DungeonRunSystem {
 
   // Leaving the dungeon. Without a boss kill the run counts as failed and only
   // FAILED_RUN_LOOT_KEEP of the escrowed chest loot is kept.
-  endDungeonRun(player, socket) {
+  endDungeonRun(player: Player, socket: any) {
     const run = player.dungeonRun;
     player.dungeonRun = null;
     socket = socket || this.gs.io.sockets.sockets.get(player.id);
@@ -312,7 +313,7 @@ export class DungeonRunSystem {
   }
 
   // Dungeon progress toward the boss portal: a weighted kill count (dungeonProgressWeight)
-  countDungeonProgress(mob, instId, killerPlayer) {
+  countDungeonProgress(mob: Mob, instId: any, killerPlayer: Player) {
     const inst = instId ? this.gs.dungeonInstances.get(instId) : null;
     if (!inst || inst.cleared || mob.progressCounted || mob.isBoss || mob.roomIdx === undefined || mob.roomIdx === inst.bossRoomIdx) return;
     mob.progressCounted = true;

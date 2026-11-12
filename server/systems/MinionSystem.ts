@@ -3,40 +3,41 @@
 // GameServer keeps one-line forwarding methods, so no call site changed.
 import type { GameServer } from '../gameServer';
 import { GRAVE_CORPSE_MS, GRAVE_CORPSE_MAX, MINION_MAX, MINION_SPEED, MINION_REACH, MINION_ATTACK_EVERY, MINION_AGGRO, MINION_LEASH } from '../config/constants';
+import type { Mob, Player } from '../entities/types';
 
 export class MinionSystem {
   private minionSeq = 0; // ids of raised minions
   constructor(private readonly gs: GameServer) {}
 
   // ---- Gravelord: corpses and undead minions ----
-  corpseKey(zone, instId) { return zone === 'dungeon' ? 'dungeon:' + (instId || '') : zone; }
+  corpseKey(zone: any, instId: any) { return zone === 'dungeon' ? 'dungeon:' + (instId || '') : zone; }
 
-  addCorpse(mob, zone, instId) {
+  addCorpse(mob: Mob, zone: any, instId: any) {
     if (!this.gs.corpses) this.gs.corpses = new Map();
     const key = this.gs.corpseKey(zone, instId);
     const now = Date.now();
-    const list = (this.gs.corpses.get(key) || []).filter(c => now - c.at < GRAVE_CORPSE_MS);
+    const list = (this.gs.corpses.get(key) || []).filter((c: any) => now - c.at < GRAVE_CORPSE_MS);
     list.push({ x: mob.x, y: mob.y, type: mob.type, hue: mob.hue || 0, scale: mob.scale || 1, name: mob.name, at: now });
     while (list.length > GRAVE_CORPSE_MAX) list.shift();
     this.gs.corpses.set(key, list);
   }
 
   // corpses within r of (x, y), nearest first (up to n), taken off the ground
-  takeCorpses(zone, instId, x, y, r, n) {
+  takeCorpses(zone: any, instId: any, x: any, y: any, r: any, n: any) {
     if (!this.gs.corpses) return [];
     const key = this.gs.corpseKey(zone, instId);
     const now = Date.now();
-    const list = (this.gs.corpses.get(key) || []).filter(c => now - c.at < GRAVE_CORPSE_MS);
-    const picks = list.filter(c => Math.hypot(c.x - x, c.y - y) <= r)
-      .sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y)).slice(0, n);
-    this.gs.corpses.set(key, list.filter(c => !picks.includes(c)));
+    const list = (this.gs.corpses.get(key) || []).filter((c: any) => now - c.at < GRAVE_CORPSE_MS);
+    const picks = list.filter((c: any) => Math.hypot(c.x - x, c.y - y) <= r)
+      .sort((a: any, b: any) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y)).slice(0, n);
+    this.gs.corpses.set(key, list.filter((c: any) => !picks.includes(c)));
     return picks;
   }
 
-  raiseMinion(player, corpse, skill) {
+  raiseMinion(player: Player, corpse: any, skill: any) {
     const now = Date.now();
     const lvl = skill.dmg ? (skill.dmgMult || skill.dmg) / skill.dmg : 1;
-    player.minions = (player.minions || []).filter(m => m.until > now);
+    player.minions = (player.minions || []).filter((m: any) => m.until > now);
     while (player.minions.length >= MINION_MAX) this.gs.crumbleMinion(player, player.minions.shift());
     player.minions.push({
       id: 'minion_' + (++this.minionSeq), type: corpse.type, hue: corpse.hue || 0, scale: Math.min(1.15, (corpse.scale || 1) * 0.95),
@@ -47,18 +48,18 @@ export class MinionSystem {
     });
   }
 
-  crumbleMinion(player, m) {
+  crumbleMinion(player: Player, m: any) {
     if (!m) return;
     this.gs.emitZone(m.zone, 'skill_fx', { type: 'sp_skill', shape: 'crumble', element: 'earth', color: '#4ade80', cardId: 'sp_gravelord', skillId: 'sp_gravelord_raise', x: m.x, y: m.y, duration: 0.7 }, m.instanceId);
   }
 
-  dismissMinions(player) {
+  dismissMinions(player: Player) {
     for (const m of player.minions || []) this.gs.crumbleMinion(player, m);
     player.minions = [];
   }
 
   // each tick: walk to the nearest enemy and strike it, or follow the lord
-  tickMinions(player, dt) {
+  tickMinions(player: Player, dt: any) {
     const now = Date.now();
     const zone = player.zone, inst = player.dungeonInstanceId || null;
     const keep = [];
@@ -70,7 +71,7 @@ export class MinionSystem {
     if (!keep.length) return;
     const mobs = ([...this.gs.getMobsMap(zone).values()] as any[]).filter(o => o.state !== 'dead' && o.hp > 0 && !o.isDummy);
     const rage = player.minionRage && player.minionRage.until > now ? player.minionRage : null;
-    const step = (m, tx, ty, speed) => {
+    const step = (m: any, tx: any, ty: any, speed: any) => {
       const d = Math.hypot(tx - m.x, ty - m.y);
       if (d < 0.05) return;
       const k = Math.min(1, (speed * dt) / d);

@@ -53,7 +53,7 @@ test('mob AI methods match the pre-refactor fixture', async () => {
         bossMech: { update: (m: any, z: string, dt: number, i: any) => { log.push(['call', 'bossMech.update', m.id, z, dt, i]); return !!opts.bossBusy; }, reset: (m: any) => log.push(['call', 'bossMech.reset', m.id]) },
         updateRiftMob: (m: any, inst: any, dt: number) => log.push(['call', 'updateRiftMob', m.id, inst.id, dt]),
         isColliding: opts.colliding || ((x: number, y: number) => x > 30 || y > 30 || x < 0 || y < 0),
-        recalculatePlayerStats: () => undefined, getMobsMap: () => mobsMap,
+        recalculatePlayerStats: (): void => undefined, getMobsMap: () => mobsMap,
         ...(opts.props || {}),
       });
       if (typeof fake.initSystems === 'function') fake.initSystems();

@@ -7,6 +7,7 @@ import { buildFieldMobs } from '../fieldZones';
 import * as DMODS from '../dungeonMods';
 import { mobInView, PORTAL_USE_RANGE } from '../config/constants';
 import { MobFactory } from '../entities/mob';
+import type { Mob, Player, DungeonInstance } from '../entities/types';
 
 export class ZoneSystem {
   constructor(private readonly gs: GameServer) {}
@@ -26,7 +27,7 @@ export class ZoneSystem {
   initDungeonMonsters() {
     this.gs.dungeonMobs.clear();
     if (this.gs.dungeon && this.gs.dungeon.mobs) {
-      this.gs.dungeon.mobs.forEach(mob => {
+      this.gs.dungeon.mobs.forEach((mob: Mob) => {
         this.gs.dungeonMobs.set(mob.id, MobFactory.dungeonMob(mob, 12));
       });
     }
@@ -39,20 +40,20 @@ export class ZoneSystem {
     this.gs.dungeonGroundItems.clear();
     this.gs.initDungeonMonsters();
     const floorConfig = DUNGEON_FLOORS[floor - 1] || { name: `Floor ${floor}` };
-    const diffLabel = (DIFFICULTIES[difficulty] && DIFFICULTIES[difficulty].name) || difficulty;
+    const diffLabel = ((DIFFICULTIES as any)[difficulty] && (DIFFICULTIES as any)[difficulty].name) || difficulty;
     this.gs.broadcastSystemMessage(`🌀 Abyssal Portal re-aligned to ${floorConfig.name} (B${floor}) [${diffLabel.toUpperCase()}]!`);
   }
 
   // Portals no longer fire by walking onto them: the client shows a button
   // near one and sends 'use_portal' (handleUsePortal)
-  handleUsePortal(socketId) {
+  handleUsePortal(socketId: any) {
     const player = this.gs.players.get(socketId);
     const socket = this.gs.io.sockets.sockets.get(socketId);
     if (!player || !socket || player.isDead) return;
     this.gs.checkPortalAndInteractions(player, socket);
   }
 
-  checkPortalAndInteractions(player, socket) {
+  checkPortalAndInteractions(player: Player, socket: any) {
     if (player.portalCooldown > 0) return;
 
     if (player.zone === 'town') {
@@ -231,7 +232,7 @@ export class ZoneSystem {
     if (options.inviteParty) this.gs.handlePartySummon(socketId);
   }
 
-  handleLeaveDungeon(socketId) {
+  handleLeaveDungeon(socketId: any) {
     const player = this.gs.players.get(socketId);
     if (!player || player.zone !== 'dungeon' || player.isDead) return;
     const socket = this.gs.io.sockets.sockets.get(socketId);
@@ -271,7 +272,7 @@ export class ZoneSystem {
     this.gs.teleportPlayerToTown(player, socket);
   }
 
-  teleportPlayerToDungeon(player, socket, inst = null, at = null) {
+  teleportPlayerToDungeon(player: Player, socket: any, inst: DungeonInstance = null, at: any = null) {
     if (!inst) {
       inst = this.gs.getPlayerDungeonInstance(player) || this.gs.getOrCreateDungeonInstance(player);
     }
@@ -304,13 +305,13 @@ export class ZoneSystem {
     }
 
     const floorConfig = DUNGEON_FLOORS[inst.floor - 1] || { name: `Floor ${inst.floor}` };
-    const diffName = (DIFFICULTIES[inst.difficulty] && DIFFICULTIES[inst.difficulty].name) || inst.difficulty;
+    const diffName = ((DIFFICULTIES as any)[inst.difficulty] && (DIFFICULTIES as any)[inst.difficulty].name) || inst.difficulty;
     this.gs.sendDirectMessage(player.id, `🌀 [${player.name}] entered ${floorConfig.name} (B${inst.floor} - ${diffName})!`);
   }
 
   // Move a player into a field zone, arriving at its south (from the previous
   // zone) or north (coming back from the next zone) portal.
-  teleportPlayerToField(player, socket, zoneId, arrive = 'south', at = null) {
+  teleportPlayerToField(player: Player, socket: any, zoneId: any, arrive = 'south', at: any = null) {
     const field = this.gs.fields.get(zoneId);
     if (!field) return;
     const zone = field.zone;
@@ -344,11 +345,11 @@ export class ZoneSystem {
     this.gs.sendDirectMessage(player.id, `🧭 [${player.name}] ventured into ${zone.name} (Lv. ${zone.minLevel}-${zone.maxLevel})!`);
   }
 
-  teleportPlayerToFrostfell(player, socket) {
+  teleportPlayerToFrostfell(player: Player, socket: any) {
     this.gs.teleportPlayerToField(player, socket, 'frostfell', 'south');
   }
 
-  teleportPlayerToTown(player, socket, at = null) {
+  teleportPlayerToTown(player: Player, socket: any, at: any = null) {
     if (player.zone === 'dungeon') {
       const prevInstId = player.dungeonInstanceId;
       player.dungeonInstanceId = null;

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createLivePlayer } from '../entities/player';
 
-const base = { id: 'sock1', accountUsername: null, accountSlot: 0, role: 'player', saved: null, chosenClass: 'warrior', spawnX: 20, spawnY: 23 };
+const base = { id: 'sock1', accountUsername: null as any, accountSlot: 0, role: 'player', saved: null as any, chosenClass: 'warrior', spawnX: 20, spawnY: 23 };
 
 const KEYS = [
   'accountSlot', 'accountUsername', 'attackCooldown', 'attackRange', 'attackSpeed', 'baseStats', 'berserkTimer', 'characterClass',

@@ -88,7 +88,7 @@ export const DUNGEON_SPAWN_MS = 1000;
 // Most floating texts (damage numbers...) one room receives per tick; the
 // rest of a huge AoE burst is dropped rather than flooding the clients
 export const FLOATING_TEXT_BATCH_MAX = 40;
-export const mobInView = (m, p) => {
+export const mobInView = (m: any, p: any) => {
   const dx = m.x - p.x, dy = m.y - p.y;
   return Math.abs(dx - dy) <= MOB_VIEW_ISO_X && Math.abs(dx + dy) <= MOB_VIEW_ISO_Y;
 };

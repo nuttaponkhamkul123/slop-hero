@@ -8,6 +8,7 @@ import { masteryMult } from '../progression';
 import * as SP from '../spCards';
 import * as ATTR from '../itemAttributes';
 import { TRAIL_IDS, MANA_COST_SCALE, MANA_COST_PER_LEVEL, MANA_REGEN_PCT, MANA_REGEN_FLAT, HP_REGEN_PCT, MAX_PLAYER_ELEMENT_RESIST, ENERGY_SHIELD } from '../config/constants';
+import type { Player } from '../entities/types';
 const PASSIVES = require('../talents');
 const TALENT_PROCS = PASSIVES.TALENT_PROCS;
 
@@ -23,12 +24,12 @@ export class StatsSystem {
   }
 
   // Multiplier on natural HP regen: Wayfarer 2-piece and Renewal runes
-  hpRegenMult(player) {
+  hpRegenMult(player: Player) {
     return ((player.set2 && player.set2.wayfarer && player.set2.wayfarer.regenMult) || 1)
       * (1 + 0.35 * ((player.armorRunes && player.armorRunes.renewal) || 0));
   }
 
-  recalculatePlayerStats(player) {
+  recalculatePlayerStats(player: Player) {
     if (!player || !player.baseStats) return;
 
     let totalBonusDmg = 0;
@@ -125,7 +126,7 @@ export class StatsSystem {
           killHeal += (talent.effects.killHealPercent || 0) * rank;
           killMana += (talent.effects.killManaPercent || 0) * rank;
           for (const stat of Object.keys(TALENT_PROCS.base)) {
-            if (talent.effects[stat]) procs[stat] = (procs[stat] || 0) + talent.effects[stat] * rank;
+            if (talent.effects[stat]) (procs as any)[stat] = ((procs as any)[stat] || 0) + talent.effects[stat] * rank;
           }
           if (talent.effects.bonusDmg) totalBonusDmg += talent.effects.bonusDmg * rank;
           if (talent.effects.bonusDef) totalBonusDef += talent.effects.bonusDef * rank;
@@ -139,7 +140,7 @@ export class StatsSystem {
           if (talent.effects.thorns) totalThorns += talent.effects.thorns * rank;
           if (talent.effects.dodgeChance) totalDodgeChance += talent.effects.dodgeChance * rank;
           if (talent.effects.lifeSteal) totalLifeSteal += talent.effects.lifeSteal * rank;
-          for (const k of Object.keys(talentPct)) if (talent.effects[k]) talentPct[k] += talent.effects[k] * rank;
+          for (const k of Object.keys(talentPct)) if (talent.effects[k]) (talentPct as any)[k] += talent.effects[k] * rank;
         }
       }
     }
@@ -188,7 +189,7 @@ export class StatsSystem {
     // James the Gatekeeper's weapons: passive powers (Gatekeeper's Greatsword -30%, Sunfire Conduit +10%)
     const power = weaponPower(player.equipment && player.equipment.weapon);
     player.weaponPower = power;
-    const pctMult = (v) => Math.max(0.1, 1 + v);   // a keystone trade-off can lower a stat, never zero it
+    const pctMult = (v: any) => Math.max(0.1, 1 + v);   // a keystone trade-off can lower a stat, never zero it
     player.dmg = Math.round((player.baseStats.dmg + totalBonusDmg) * pctMult(talentPct.dmgPct) * player.mastery * ((power && power.dmgMult) || 1));
     // (Eclipse set, Dawn phase: +20% Defense)
     const dawnDef = player.eclipsePhase === 'dawn' && player.set4.eclipse ? player.set4.eclipse.dawnDef : 0;

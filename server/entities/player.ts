@@ -21,13 +21,13 @@ export function createStarterCharacter(heroName: any, characterClass: any): Save
     expNext: expToNext(1),
     skillPoints: 1,
     skills: {},
-    equippedSkills: JSON.parse(JSON.stringify(DEFAULT_EQUIPPED_SKILLS[chosenClass] || DEFAULT_EQUIPPED_SKILLS.warrior)),
+    equippedSkills: JSON.parse(JSON.stringify((DEFAULT_EQUIPPED_SKILLS as any)[chosenClass] || DEFAULT_EQUIPPED_SKILLS.warrior)),
     equipment: {
       ...starterEquipment(chosenClass), // weapon, armor, helmet
-      boots: null,
-      gloves: null,
-      cape: null,
-      ring: null
+      boots: null as any,
+      gloves: null as any,
+      cape: null as any,
+      ring: null as any
     },
     gold: 50,
     inventory: {
@@ -42,7 +42,7 @@ export function createStarterCharacter(heroName: any, characterClass: any): Save
     },
     storage: {
       maxSlots: 50,
-      items: []
+      items: [] as any
     },
     zone: 'town',
     x: 20,
@@ -162,7 +162,7 @@ export function createLivePlayer(a: LivePlayerArgs): Player {
     },
     attackCooldown: 0,
     skillCooldown: 0,
-    equippedSkills: savedChar && savedChar.equippedSkills ? savedChar.equippedSkills : JSON.parse(JSON.stringify(DEFAULT_EQUIPPED_SKILLS[chosenClass] || DEFAULT_EQUIPPED_SKILLS.warrior)),
+    equippedSkills: savedChar && savedChar.equippedSkills ? savedChar.equippedSkills : JSON.parse(JSON.stringify((DEFAULT_EQUIPPED_SKILLS as any)[chosenClass] || DEFAULT_EQUIPPED_SKILLS.warrior)),
     skillCooldowns: {
       slot1: 0,
       slot2: 0,

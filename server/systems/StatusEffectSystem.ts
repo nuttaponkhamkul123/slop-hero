@@ -2,13 +2,14 @@
 // Moved verbatim out of GameServer (Phase C of docs/REFACTOR_PLAN.md): `this` is the server, reached as this.gs;
 // GameServer keeps one-line forwarding methods, so no call site changed.
 import type { GameServer } from '../gameServer';
+import type { Player, Mob } from '../entities/types';
 const { TALENT_PROCS } = require('../talents');
 
 export class StatusEffectSystem {
   constructor(private readonly gs: GameServer) {}
 
   // Chance a monster's attack on this hero misses because they stand in a Smoke Bomb cloud
-  smokeMissChance(player) {
+  smokeMissChance(player: Player) {
     const now = Date.now();
     if (this.gs.smokeClouds.length) this.gs.smokeClouds = this.gs.smokeClouds.filter(c => c.until > now);
     const instanceId = player.dungeonInstanceId || null;
@@ -19,11 +20,11 @@ export class StatusEffectSystem {
     return miss;
   }
 
-  applyStatusEffect(player, type, duration, value) {
+  applyStatusEffect(player: Player, type: any, duration: any, value: any) {
     if (!player || player.isDead) return;
     if (!player.statusEffects) player.statusEffects = [];
 
-    const existing = player.statusEffects.find(e => e.type === type);
+    const existing = player.statusEffects.find((e: any) => e.type === type);
     if (existing) {
       existing.duration = Math.max(existing.duration, duration);
       existing.value = Math.max(existing.value, value);
@@ -49,7 +50,7 @@ export class StatusEffectSystem {
 
   // Talent branch mechanics (talents.js BRANCH_SIGNATURES), run on every hit
   // that lands and leaves the enemy alive
-  applyTalentProcs(player, mob, baseDamage, damage) {
+  applyTalentProcs(player: Player, mob: Mob, baseDamage: any, damage: any) {
     const tp = player.talentProcs;
     if (!tp) return;
     if (tp.manaLeech) {

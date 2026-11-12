@@ -179,6 +179,7 @@ import { CombatSystem } from './systems/CombatSystem';
 import { SkillSystem } from './systems/SkillSystem';
 import { SpSkillSystem } from './systems/SpSkillSystem';
 import { MobAISystem } from './systems/MobAISystem';
+import type { Player, DungeonInstance, Mob, Item } from './entities/types';
 
 const PASSIVES = require('./talents');
 const { createBossMechanics } = require('./bossMechanics');
@@ -211,7 +212,7 @@ class GameServer {
   TICK_RATE: number;
   tickInterval: any;
   _ftQueue: Map<string, any>;
-  constructor(io) {
+  constructor(io: any) {
     this.io = io;
     this.initSystems();
     this.townMap = generateMap();
@@ -293,7 +294,7 @@ class GameServer {
     this.statusFx = new StatusEffectSystem(this);
   }
 
-  savePlayerAccount(socketId) {
+  savePlayerAccount(socketId: any) {
     const player = this.players.get(socketId);
     if (!player || !player.accountUsername) return;
     accountManager.saveCharacter(player.accountUsername, player, player.accountSlot || 0);
@@ -311,7 +312,7 @@ class GameServer {
     if (any) accountManager.saveAccounts();
   }
 
-  handleAccountRegister(socket, data) {
+  handleAccountRegister(socket: any, data: any) {
     if (!data) return;
     const { username, password, heroName, characterClass } = data;
     const name = (heroName || username || 'Hero').substring(0, 15).trim() || 'Hero';
@@ -325,7 +326,7 @@ class GameServer {
   }
 
   // Create another character on a logged-in account
-  handleCreateCharacter(socket, data) {
+  handleCreateCharacter(socket: any, data: any) {
     const username = accountManager.usernameForToken(data && data.token);
     if (!username) return socket.emit('character_list_response', { success: false, message: 'Session expired - please log in again.' });
     const name = String(data.name || '').substring(0, 15).trim();
@@ -334,7 +335,7 @@ class GameServer {
     socket.emit('character_list_response', res);
   }
 
-  handleDeleteCharacter(socket, data) {
+  handleDeleteCharacter(socket: any, data: any) {
     const username = accountManager.usernameForToken(data && data.token);
     if (!username) return socket.emit('character_list_response', { success: false, message: 'Session expired - please log in again.' });
     const slot = Number(data.slot);
@@ -343,18 +344,18 @@ class GameServer {
     socket.emit('character_list_response', accountManager.deleteCharacter(username, slot));
   }
 
-  makeStarterCharacter(heroName, characterClass) {
+  makeStarterCharacter(heroName: any, characterClass: any) {
     return createStarterCharacter(heroName, characterClass);
   }
 
-  handleAccountLogin(socket, data) {
+  handleAccountLogin(socket: any, data: any) {
     if (!data) return;
     const res = accountManager.login(data.username, data.password);
     socket.emit('account_login_response', res);
   }
 
   // --- zone rooms: every socket sits in the room of the zone / dungeon instance it is in ---
-  emitZone(zone, event, data, instanceId = null) {
+  emitZone(zone: any, event: any, data: any, instanceId: any = null) {
     if (!zone) return this.io.emit(event, data);
     if (zone === 'dungeon' && !instanceId) instanceId = this.ctxInstanceId;
     const room = (zone === 'dungeon' && instanceId) ? `dungeon:${instanceId}` : `zone:${zone}`;
@@ -371,7 +372,7 @@ class GameServer {
 
   flushFloatingTexts() {
     for (const [room, list] of this._ftQueue) {
-      this.io.to(room).emit('floating_texts', list.map(t => ({
+      this.io.to(room).emit('floating_texts', list.map((t: any) => ({
         ...t, x: Math.round(t.x * 100) / 100, y: Math.round(t.y * 100) / 100
       })));
     }
@@ -379,7 +380,7 @@ class GameServer {
   }
 
   // Run fn with the given player's dungeon instance as the active context.
-  runAs(socketId, fn) {
+  runAs(socketId: any, fn: any) {
     const prev = this.ctxInstanceId;
     const player = this.players.get(socketId);
     this.ctxInstanceId = player ? (player.dungeonInstanceId || null) : null;
@@ -406,7 +407,7 @@ class GameServer {
 
   // --- dungeon instance helpers ---
   // Lava cracks, acid, frost and rifts afflict whoever stands on them
-  applyDungeonHazard(player) {
+  applyDungeonHazard(player: Player) {
     if (player.isDead || player.godMode) return;
     const inst = this.getPlayerDungeonInstance(player);
     const row = inst && inst.dungeon.tiles[Math.floor(player.y)];
@@ -416,11 +417,11 @@ class GameServer {
     this.applyStatusEffect(player, hazard.status, hazard.duration, value);
   }
 
-  getPlayerDungeonInstance(player) {
+  getPlayerDungeonInstance(player: Player) {
     return this.dungeonRun.getPlayerDungeonInstance(player);
   }
 
-  getOrCreateDungeonInstance(player, floor = 1, difficulty = 'normal', forceRegen = false, mode = 'classic', mods: string[] = []) {
+  getOrCreateDungeonInstance(player: Player, floor = 1, difficulty = 'normal', forceRegen = false, mode = 'classic', mods: string[] = []) {
     const instanceId = player.partyId ? `party_${player.partyId}` : `solo_${player.id}`;
     const existing = this.dungeonInstances.get(instanceId);
     // an unfinished run is resumed, unless the player now asks for the other mode or other modifiers (a fresh dungeon then)
@@ -432,17 +433,17 @@ class GameServer {
     // opens (see updateDungeonRooms / spawnDungeonRoom)
     const pendingMobs = new Map<any, any>(); // roomIdx -> mobs
     if (dungeonMap && dungeonMap.mobs) {
-      dungeonMap.mobs.forEach(mob => {
+      dungeonMap.mobs.forEach((mob: Mob) => {
         if (!pendingMobs.has(mob.roomIdx)) pendingMobs.set(mob.roomIdx, []);
         pendingMobs.get(mob.roomIdx).push(DMODS.applyModsToMob(MobFactory.dungeonMob(mob, 10), mods));
       });
     }
 
     const bossRoomIdx = dungeonMap && dungeonMap.rooms ? dungeonMap.rooms.length - 1 : -1;
-    const trashMobs = (dungeonMap && dungeonMap.mobs) ? dungeonMap.mobs.filter(m => m.roomIdx !== bossRoomIdx) : [];
+    const trashMobs = (dungeonMap && dungeonMap.mobs) ? dungeonMap.mobs.filter((m: any) => m.roomIdx !== bossRoomIdx) : [];
     const totalTrashMobs = trashMobs.length;
     // the boss portal opens at DUNGEON_PORTAL_SHARE of the dungeon's monsters (by progress weight)
-    const totalWeight = trashMobs.reduce((t, m) => t + dungeonProgressWeight(m), 0);
+    const totalWeight = trashMobs.reduce((t: any, m: any) => t + dungeonProgressWeight(m), 0);
     const requiredKills = Math.max(1, Math.round(totalWeight * DUNGEON_PORTAL_SHARE));
 
     const inst: any = createDungeonInstance({
@@ -469,68 +470,68 @@ class GameServer {
     return inst;
   }
 
-  equipSpCard(player, itemIndex) {
+  equipSpCard(player: Player, itemIndex: any) {
     return this.spCards.equipSpCard(player, itemIndex);
   }
 
-  handleSpTransform(socketId) {
+  handleSpTransform(socketId: any) {
     return this.spCards.handleSpTransform(socketId);
   }
 
-  spLoadout(player, card) {
+  spLoadout(player: Player, card: any) {
     return this.spCards.spLoadout(player, card);
   }
 
-  customizeSpSkill(player, data) {
+  customizeSpSkill(player: Player, data: any) {
     return this.spCards.customizeSpSkill(player, data);
   }
 
-  setTransformed(player, on) {
+  setTransformed(player: Player, on: any) {
     return this.spCards.setTransformed(player, on);
   }
 
-  fragmentCount(player) {
+  fragmentCount(player: Player) {
     return this.spCards.fragmentCount(player);
   }
 
-  spendFragments(player, n) {
+  spendFragments(player: Player, n: any) {
     return this.spCards.spendFragments(player, n);
   }
 
-  handleSpCardEnhance(socketId, data) {
+  handleSpCardEnhance(socketId: any, data: any) {
     return this.spCards.handleSpCardEnhance(socketId, data);
   }
 
-  handleSpCardExchange(socketId, data) {
+  handleSpCardExchange(socketId: any, data: any) {
     return this.spCards.handleSpCardExchange(socketId, data);
   }
 
-  awardJobExp(player, amount) {
+  awardJobExp(player: Player, amount: any) {
     return this.spCards.awardJobExp(player, amount);
   }
 
-  rollBossSpLoot(inst, bossLevel) {
+  rollBossSpLoot(inst: DungeonInstance, bossLevel: any) {
     return this.spCards.rollBossSpLoot(inst, bossLevel);
   }
 
-  newDungeonRun(inst, cleared = false) {
+  newDungeonRun(inst: DungeonInstance, cleared = false) {
     return this.dungeonRun.newDungeonRun(inst, cleared);
   }
 
-  updateDungeonRooms(inst) {
+  updateDungeonRooms(inst: DungeonInstance) {
     return this.dungeonRun.updateDungeonRooms(inst);
   }
 
-  spawnDungeonRoom(inst, roomIdx) {
+  spawnDungeonRoom(inst: DungeonInstance, roomIdx: any) {
     return this.dungeonRun.spawnDungeonRoom(inst, roomIdx);
   }
 
-  cleanupDungeonInstanceIfEmpty(instanceId) {
+  cleanupDungeonInstanceIfEmpty(instanceId: any) {
     return this.dungeonRun.cleanupDungeonInstanceIfEmpty(instanceId);
   }
 
   // --- zone lookups (town / field zones / per-instance dungeon) ---
-  getMobsMap(zone, playerOrInstId = null) {
+  getMobsMap(zone: any, playerOrInstId: any = null) {
     if (zone === 'town') return this.townMobs;
     if (this.fields && this.fields.has(zone)) return this.fields.get(zone).mobs;
     if (zone === 'dungeon') {
@@ -545,51 +546,51 @@ class GameServer {
     return this.dungeonMobs;
   }
 
-  getGroundItemsMap(zone, playerOrInstId = null) {
+  getGroundItemsMap(zone: any, playerOrInstId: any = null) {
     return this.loot.getGroundItemsMap(zone, playerOrInstId);
   }
 
-  getPartyData(partyId) {
+  getPartyData(partyId: any) {
     return this.party.getPartyData(partyId);
   }
 
-  broadcastPartyUpdate(partyId) {
+  broadcastPartyUpdate(partyId: any) {
     return this.party.broadcastPartyUpdate(partyId);
   }
 
-  handlePartyInvite(socketId, data) {
+  handlePartyInvite(socketId: any, data: any) {
     return this.party.handlePartyInvite(socketId, data);
   }
 
-  handlePartyAccept(socketId, data) {
+  handlePartyAccept(socketId: any, data: any) {
     return this.party.handlePartyAccept(socketId, data);
   }
 
-  handlePartyDecline(socketId, data) {
+  handlePartyDecline(socketId: any, data: any) {
     return this.party.handlePartyDecline(socketId, data);
   }
 
-  handlePartySummon(socketId) {
+  handlePartySummon(socketId: any) {
     return this.party.handlePartySummon(socketId);
   }
 
-  handlePartySummonAccept(socketId, data) {
+  handlePartySummonAccept(socketId: any, data: any) {
     return this.party.handlePartySummonAccept(socketId, data);
   }
 
-  handlePartyListCandidates(socketId) {
+  handlePartyListCandidates(socketId: any) {
     return this.party.handlePartyListCandidates(socketId);
   }
 
-  handlePartyLeave(socketId) {
+  handlePartyLeave(socketId: any) {
     return this.party.handlePartyLeave(socketId);
   }
 
-  handlePartyKick(socketId, data) {
+  handlePartyKick(socketId: any, data: any) {
     return this.party.handlePartyKick(socketId, data);
   }
 
-  removePlayerFromParty(socketId) {
+  removePlayerFromParty(socketId: any) {
     return this.party.removePlayerFromParty(socketId);
   }
 
@@ -612,7 +613,7 @@ class GameServer {
   // ---- destructible field props: every solid prop in a field zone breaks after a few hits (swings and
   // skills near it) and grows back PROP_RESPAWN_S seconds later. A broken prop is flagged `destroyed`
   // on the map obstacle itself, so it stops blocking movement and rides zone_change to late joiners.
-  damageFieldProps(player, cx, cy, radius, cone: { dx: number; dy: number; cos: number } | null = null) {
+  damageFieldProps(player: Player, cx: any, cy: any, radius: any, cone: { dx: number; dy: number; cos: number } | null = null) {
     const field = this.fields.get(player.zone);
     if (!field) return;
     const grid = fieldObstacleGrid(field.map);
@@ -650,7 +651,7 @@ class GameServer {
   }
 
   // Bring broken props back once their time is up (never on top of someone standing there)
-  updateFieldProps(field, zoneId) {
+  updateFieldProps(field: any, zoneId: any) {
     const list = field.destroyedProps;
     if (!list || !list.length) return;
     const now = Date.now();
@@ -665,7 +666,7 @@ class GameServer {
     }
   }
 
-  isColliding(x, y, zone = 'town', radius = 0.4) {
+  isColliding(x: any, y: any, zone = 'town', radius = 0.4) {
     if (zone === 'town') {
       if (x < 1 || x > MAP_WIDTH - 2 || y < 1 || y > MAP_HEIGHT - 2) return true;
       const tileX = Math.floor(x);
@@ -730,7 +731,7 @@ class GameServer {
     return false;
   }
 
-  distToSegment(px, py, x1, y1, x2, y2) {
+  distToSegment(px: any, py: any, x1: any, y1: any, x2: any, y2: any) {
     const dx = x2 - x1;
     const dy = y2 - y1;
     const lenSq = dx * dx + dy * dy;
@@ -741,7 +742,7 @@ class GameServer {
     return Math.hypot(px - projX, py - projY);
   }
 
-  addPlayer(socket, data) {
+  addPlayer(socket: any, data: any) {
     let savedChar = null;
     const accountUsername = accountManager.usernameForToken(data && data.token);
     const accountSlot = Math.max(0, parseInt(data && data.slot, 10) || 0);
@@ -792,7 +793,7 @@ class GameServer {
 
     // Weapons became class-locked; tag older saved items and move a wrong-class weapon back to the bag
     for (const it of [...player.inventory.items, ...Object.values(player.equipment)]) {
-      const c = it && it.type === 'sp_card' ? (SP.CARD_BY_ID[it.cardId] || {}).cls : requiredClass(it);
+      const c = it && it.type === 'sp_card' ? ((SP.CARD_BY_ID as any)[it.cardId] || {}).cls : requiredClass(it);
       if (c) it.cls = c;
     }
     const heldWeapon = player.equipment.weapon;
@@ -835,7 +836,7 @@ class GameServer {
       socketMax: SOCKET_MAX,
       crafting: CRAFT.craftingCatalog(),
       dungeonMods: DMODS.clientCatalog(),
-      itemNames: Object.fromEntries((Object.values(ARMOR_SETS) as any[]).flatMap(s => s.pieces.map(id => [id, ITEMS[id] && ITEMS[id].name]))),
+      itemNames: Object.fromEntries((Object.values(ARMOR_SETS) as any[]).flatMap(s => s.pieces.map((id: any) => [id, ITEMS[id] && ITEMS[id].name]))),
       enhanceRules: { max: ENHANCE_MAX, safeLevel: ENHANCE_SAFE_LEVEL, base: ENHANCE_BASE_COST, growth: ENHANCE_COST_GROWTH, chance: ENHANCE_CHANCE },
       riftCatalog: {
         structures: RIFT.RIFT_STRUCTURES,
@@ -855,7 +856,7 @@ class GameServer {
     }
   }
 
-  removePlayer(socketId) {
+  removePlayer(socketId: any) {
     const player = this.players.get(socketId);
     if (player) {
       if (player.accountUsername) {
@@ -875,12 +876,12 @@ class GameServer {
   }
 
   // Handle using Revival Stone (หินชุบชีวิต); superStone picks the Super Revival Stone
-  handleUseRevivalStone(socketId, superStone = false) {
+  handleUseRevivalStone(socketId: any, superStone = false) {
     const player = this.players.get(socketId);
     if (!player || !player.isDead) return;
 
     const stoneId = superStone ? 'super_revival_stone' : 'revival_stone';
-    const stoneIdx = player.inventory && player.inventory.items ? player.inventory.items.findIndex(it => it.id === stoneId) : -1;
+    const stoneIdx = player.inventory && player.inventory.items ? player.inventory.items.findIndex((it: any) => it.id === stoneId) : -1;
     if (stoneIdx === -1) {
       const socket = this.io.sockets.sockets.get(socketId);
       if (socket) {
@@ -967,7 +968,7 @@ class GameServer {
     this.savePlayerAccount(socketId);
   }
 
-  handlePlayerInput(socketId, input) {
+  handlePlayerInput(socketId: any, input: any) {
     const player = this.players.get(socketId);
     if (!player || player.isDead) return;
 
@@ -1004,11 +1005,11 @@ class GameServer {
     }
   }
 
-  handleUsePortal(socketId) {
+  handleUsePortal(socketId: any) {
     return this.zones.handleUsePortal(socketId);
   }
 
-  checkPortalAndInteractions(player, socket) {
+  checkPortalAndInteractions(player: Player, socket: any) {
     return this.zones.checkPortalAndInteractions(player, socket);
   }
 
@@ -1028,122 +1029,122 @@ class GameServer {
     return this.zones.handleEnterDungeon(socketId, options);
   }
 
-  handleLeaveDungeon(socketId) {
+  handleLeaveDungeon(socketId: any) {
     return this.zones.handleLeaveDungeon(socketId);
   }
 
-  teleportPlayerToDungeon(player, socket, inst = null, at = null) {
+  teleportPlayerToDungeon(player: Player, socket: any, inst: DungeonInstance = null, at: any = null) {
     return this.zones.teleportPlayerToDungeon(player, socket, inst, at);
   }
 
-  teleportPlayerToField(player, socket, zoneId, arrive = 'south', at = null) {
+  teleportPlayerToField(player: Player, socket: any, zoneId: any, arrive = 'south', at: any = null) {
     return this.zones.teleportPlayerToField(player, socket, zoneId, arrive, at);
   }
 
-  teleportPlayerToFrostfell(player, socket) {
+  teleportPlayerToFrostfell(player: Player, socket: any) {
     return this.zones.teleportPlayerToFrostfell(player, socket);
   }
 
-  teleportPlayerToTown(player, socket, at = null) {
+  teleportPlayerToTown(player: Player, socket: any, at: any = null) {
     return this.zones.teleportPlayerToTown(player, socket, at);
   }
 
-  handleAllocateSkillPoint(socketId, skillId) {
+  handleAllocateSkillPoint(socketId: any, skillId: any) {
     return this.level.handleAllocateSkillPoint(socketId, skillId);
   }
 
-  handleAllocatePassives(socketId, ids) {
+  handleAllocatePassives(socketId: any, ids: any) {
     return this.level.handleAllocatePassives(socketId, ids);
   }
 
-  handleRefundPassive(socketId, id) {
+  handleRefundPassive(socketId: any, id: any) {
     return this.level.handleRefundPassive(socketId, id);
   }
 
-  refundStaleTalents(player) {
+  refundStaleTalents(player: Player) {
     return this.level.refundStaleTalents(player);
   }
 
-  handleResetSkillPoints(socketId) {
+  handleResetSkillPoints(socketId: any) {
     return this.level.handleResetSkillPoints(socketId);
   }
 
-  handleOpenChest(socketId, chestId) {
+  handleOpenChest(socketId: any, chestId: any) {
     return this.dungeonRun.handleOpenChest(socketId, chestId);
   }
 
-  handlePlayerAttack(socketId, targetInfo) {
+  handlePlayerAttack(socketId: any, targetInfo: any) {
     return this.combat.handlePlayerAttack(socketId, targetInfo);
   }
 
-  meleeSweep(player) {
+  meleeSweep(player: Player) {
     return this.combat.meleeSweep(player);
   }
 
-  handleCustomizeSkill(socketId, data) {
+  handleCustomizeSkill(socketId: any, data: any) {
     return this.skills.handleCustomizeSkill(socketId, data);
   }
 
-  resolvePlayerSkill(player, slot, skillId) {
+  resolvePlayerSkill(player: Player, slot: any, skillId: any) {
     return this.skills.resolvePlayerSkill(player, slot, skillId);
   }
 
-  bloodRage(player) {
+  bloodRage(player: Player) {
     return this.passives.bloodRage(player);
   }
 
   // ------------------------------------------------ SP signatures & passives
   // (data and field meanings: spSignatures.ts)
 
-  spCard(player) {
+  spCard(player: Player) {
     return this.passives.spCard(player);
   }
 
-  gainUltCharge(player, amount) {
+  gainUltCharge(player: Player, amount: any) {
     return this.passives.gainUltCharge(player, amount);
   }
 
-  passiveDamageMult(player, mob) {
+  passiveDamageMult(player: Player, mob: Mob) {
     return this.passives.passiveDamageMult(player, mob);
   }
 
-  passiveOnHit(player, mob, damage) {
+  passiveOnHit(player: Player, mob: Mob, damage: any) {
     return this.passives.passiveOnHit(player, mob, damage);
   }
 
-  passiveOnKill(player, mob) {
+  passiveOnKill(player: Player, mob: Mob) {
     return this.passives.passiveOnKill(player, mob);
   }
 
-  passiveOnHurt(player, mob, damage, zone) {
+  passiveOnHurt(player: Player, mob: Mob, damage: any, zone: any) {
     return this.passives.passiveOnHurt(player, mob, damage, zone);
   }
 
-  cardPassiveLeech(player, dealt) {
+  cardPassiveLeech(player: Player, dealt: any) {
     return this.passives.cardPassiveLeech(player, dealt);
   }
 
-  chainBasicAttack(player, first, attackDmg, mobsMap, strike) {
+  chainBasicAttack(player: Player, first: any, attackDmg: any, mobsMap: any, strike: any) {
     return this.combat.chainBasicAttack(player, first, attackDmg, mobsMap, strike);
   }
 
-  endSpToggle(player, skillId, quiet = false) {
+  endSpToggle(player: Player, skillId: any, quiet = false) {
     return this.spCards.endSpToggle(player, skillId, quiet);
   }
 
-  tickSpToggles(player, dt) {
+  tickSpToggles(player: Player, dt: any) {
     return this.spCards.tickSpToggles(player, dt);
   }
 
-  ownBanner(player) {
+  ownBanner(player: Player) {
     return this.passives.ownBanner(player);
   }
 
-  phoenixRebirth(player) {
+  phoenixRebirth(player: Player) {
     return this.passives.phoenixRebirth(player);
   }
 
-  heroBuffs(p) {
+  heroBuffs(p: any) {
     return this.passives.heroBuffs(p);
   }
 
@@ -1151,43 +1152,43 @@ class GameServer {
     return this.raid.updateRaidEvents();
   }
 
-  spawnRaidBoss(zoneId) {
+  spawnRaidBoss(zoneId: any) {
     return this.raid.spawnRaidBoss(zoneId);
   }
 
-  despawnRaidBoss(zoneId, why = 'timeup') {
+  despawnRaidBoss(zoneId: any, why = 'timeup') {
     return this.raid.despawnRaidBoss(zoneId, why);
   }
 
-  recordRaidDamage(zoneId, playerId, amount) {
+  recordRaidDamage(zoneId: any, playerId: any, amount: any) {
     return this.raid.recordRaidDamage(zoneId, playerId, amount);
   }
 
-  raidStandings(st) {
+  raidStandings(st: any) {
     return this.raid.raidStandings(st);
   }
 
-  broadcastRaidLeaderboard(zoneId, st) {
+  broadcastRaidLeaderboard(zoneId: any, st: any) {
     return this.raid.broadcastRaidLeaderboard(zoneId, st);
   }
 
-  raidInfo(zoneId) {
+  raidInfo(zoneId: any) {
     return this.raid.raidInfo(zoneId);
   }
 
-  onRaidBossDeath(mob, killerPlayer) {
+  onRaidBossDeath(mob: Mob, killerPlayer: Player) {
     return this.raid.onRaidBossDeath(mob, killerPlayer);
   }
 
-  payRaidReward(player, def, bucket, rank, total) {
+  payRaidReward(player: Player, def: any, bucket: any, rank: any, total: any) {
     return this.raid.payRaidReward(player, def, bucket, rank, total);
   }
 
-  castSpSkill(player, skill, ctx) {
+  castSpSkill(player: Player, skill: any, ctx: any) {
     return this.spSkills.castSpSkill(player, skill, ctx);
   }
 
-  smokeMissChance(player) {
+  smokeMissChance(player: Player) {
     return this.statusFx.smokeMissChance(player);
   }
 
@@ -1195,45 +1196,45 @@ class GameServer {
     return this.skills.handlePlayerSkill(socketId, skillData);
   }
 
-  hpRegenMult(player) {
+  hpRegenMult(player: Player) {
     return this.stats.hpRegenMult(player);
   }
 
-  recalculatePlayerStats(player) {
+  recalculatePlayerStats(player: Player) {
     return this.stats.recalculatePlayerStats(player);
   }
 
-  handleEquipItem(socketId, itemIndex) {
+  handleEquipItem(socketId: any, itemIndex: any) {
     return this.inventory.handleEquipItem(socketId, itemIndex);
   }
 
-  handleUnequipItem(socketId, slot) {
+  handleUnequipItem(socketId: any, slot: any) {
     return this.inventory.handleUnequipItem(socketId, slot);
   }
 
-  handleBuyItem(socketId, itemId, count = 1) {
+  handleBuyItem(socketId: any, itemId: any, count = 1) {
     return this.inventory.handleBuyItem(socketId, itemId, count);
   }
 
-  handleToggleFavorite(socketId, data) {
+  handleToggleFavorite(socketId: any, data: any) {
     return this.inventory.handleToggleFavorite(socketId, data);
   }
 
-  handleSellItem(socketId, itemIndex, quantity = 1) {
+  handleSellItem(socketId: any, itemIndex: any, quantity = 1) {
     return this.inventory.handleSellItem(socketId, itemIndex, quantity);
   }
 
-  handleSellItems(socketId, entries) {
+  handleSellItems(socketId: any, entries: any) {
     return this.inventory.handleSellItems(socketId, entries);
   }
 
-  handleReforgeItem(socketId, data) {
+  handleReforgeItem(socketId: any, data: any) {
     return this.itemUpgrade.handleReforgeItem(socketId, data);
   }
 
   // Volatile dungeon modifier: a dead monster bursts after a short warning,
   // hurting every hero of the run standing close to it
-  scheduleVolatileBurst(inst, mob) {
+  scheduleVolatileBurst(inst: DungeonInstance, mob: Mob) {
     const V = DMODS.VOLATILE, x = mob.x, y = mob.y;
     this.emitZone('dungeon', 'skill_fx', { type: 'set_proc', set: 'emberheart', x, y, radius: V.radius * 0.6, color: '#f97316' }, inst.id);
     setTimeout(() => {
@@ -1307,47 +1308,47 @@ class GameServer {
     return this.inventory.handleUseChestExpander(socketId, data);
   }
 
-  applyItemUpgradeStats(item) {
+  applyItemUpgradeStats(item: Item) {
     return this.itemUpgrade.applyItemUpgradeStats(item);
   }
 
-  handleEnhanceItem(socketId, data) {
+  handleEnhanceItem(socketId: any, data: any) {
     return this.itemUpgrade.handleEnhanceItem(socketId, data);
   }
 
-  getPotionSlots(player) {
+  getPotionSlots(player: Player) {
     return this.potions.getPotionSlots(player);
   }
 
-  getPotionCount(player, itemId) {
+  getPotionCount(player: Player, itemId: any) {
     return this.potions.getPotionCount(player, itemId);
   }
 
-  consumePotion(player, itemId) {
+  consumePotion(player: Player, itemId: any) {
     return this.potions.consumePotion(player, itemId);
   }
 
-  handleUsePotion(socketId, potionType) {
+  handleUsePotion(socketId: any, potionType: any) {
     return this.potions.handleUsePotion(socketId, potionType);
   }
 
-  handleSetPotionSlot(socketId, data) {
+  handleSetPotionSlot(socketId: any, data: any) {
     return this.potions.handleSetPotionSlot(socketId, data);
   }
 
-  applyStatusEffect(player, type, duration, value) {
+  applyStatusEffect(player: Player, type: any, duration: any, value: any) {
     return this.statusFx.applyStatusEffect(player, type, duration, value);
   }
 
-  giveLootToPlayer(player, entry, showText = true) {
+  giveLootToPlayer(player: Player, entry: any, showText = true) {
     return this.loot.giveLootToPlayer(player, entry, showText);
   }
 
-  lootEntryName(entry) {
+  lootEntryName(entry: any) {
     return this.loot.lootEntryName(entry);
   }
 
-  lootEntryToItem(entry) {
+  lootEntryToItem(entry: any) {
     return this.loot.lootEntryToItem(entry);
   }
 
@@ -1355,19 +1356,19 @@ class GameServer {
     return this.dungeonRun.emitDungeonRunUpdate(player, socket);
   }
 
-  completeDungeonRun(player) {
+  completeDungeonRun(player: Player) {
     return this.dungeonRun.completeDungeonRun(player);
   }
 
-  endDungeonRun(player, socket) {
+  endDungeonRun(player: Player, socket: any) {
     return this.dungeonRun.endDungeonRun(player, socket);
   }
 
-  handlePickupItem(socketId, itemId) {
+  handlePickupItem(socketId: any, itemId: any) {
     return this.inventory.handlePickupItem(socketId, itemId);
   }
 
-  handleChatMessage(socketId, message) {
+  handleChatMessage(socketId: any, message: any) {
     const player = this.players.get(socketId);
     if (!player) return;
 
@@ -1391,65 +1392,65 @@ class GameServer {
     });
   }
 
-  spawnProjectile(caster, targetX, targetY, targetId, targetType, damage, opts: any = {}) {
+  spawnProjectile(caster: Player, targetX: any, targetY: any, targetId: any, targetType: any, damage: any, opts: any = {}) {
     return this.combat.spawnProjectile(caster, targetX, targetY, targetId, targetType, damage, opts);
   }
 
-  applyProjectileSplash(caster, proj, primary, mobsMap) {
+  applyProjectileSplash(caster: Player, proj: any, primary: Mob, mobsMap: any) {
     return this.combat.applyProjectileSplash(caster, proj, primary, mobsMap);
   }
 
-  applyDamageToMob(player, mob, baseDamage, isCritical = false, isEcho = false) {
+  applyDamageToMob(player: Player, mob: Mob, baseDamage: any, isCritical = false, isEcho = false) {
     return this.combat.applyDamageToMob(player, mob, baseDamage, isCritical, isEcho);
   }
 
-  applyTalentProcs(player, mob, baseDamage, damage) {
+  applyTalentProcs(player: Player, mob: Mob, baseDamage: any, damage: any) {
     return this.statusFx.applyTalentProcs(player, mob, baseDamage, damage);
   }
 
-  corpseKey(zone, instId) {
+  corpseKey(zone: any, instId: any) {
     return this.minions.corpseKey(zone, instId);
   }
-  addCorpse(mob, zone, instId) {
+  addCorpse(mob: Mob, zone: any, instId: any) {
     return this.minions.addCorpse(mob, zone, instId);
   }
-  takeCorpses(zone, instId, x, y, r, n) {
+  takeCorpses(zone: any, instId: any, x: any, y: any, r: any, n: any) {
     return this.minions.takeCorpses(zone, instId, x, y, r, n);
   }
-  raiseMinion(player, corpse, skill) {
+  raiseMinion(player: Player, corpse: any, skill: any) {
     return this.minions.raiseMinion(player, corpse, skill);
   }
-  crumbleMinion(player, m) {
+  crumbleMinion(player: Player, m: any) {
     return this.minions.crumbleMinion(player, m);
   }
-  dismissMinions(player) {
+  dismissMinions(player: Player) {
     return this.minions.dismissMinions(player);
   }
-  tickMinions(player, dt) {
+  tickMinions(player: Player, dt: any) {
     return this.minions.tickMinions(player, dt);
   }
 
-  countDungeonProgress(mob, instId, killerPlayer) {
+  countDungeonProgress(mob: Mob, instId: any, killerPlayer: Player) {
     return this.dungeonRun.countDungeonProgress(mob, instId, killerPlayer);
   }
 
-  handleMobDeath(mob, killerPlayer) {
+  handleMobDeath(mob: Mob, killerPlayer: Player) {
     return this.combat.handleMobDeath(mob, killerPlayer);
   }
 
-  partyExpSharers(killer) {
+  partyExpSharers(killer: any) {
     return this.party.partyExpSharers(killer);
   }
 
-  awardExp(player, amount) {
+  awardExp(player: Player, amount: any) {
     return this.level.awardExp(player, amount);
   }
 
-  spawnGroundItem(zone, type, itemIdOrName, x, y, amount, customItemData = null, instanceId = null) {
+  spawnGroundItem(zone: any, type: any, itemIdOrName: any, x: any, y: any, amount: any, customItemData: any = null, instanceId: any = null) {
     return this.loot.spawnGroundItem(zone, type, itemIdOrName, x, y, amount, customItemData, instanceId);
   }
 
-  calculateFacing(fromX, fromY, toX, toY) {
+  calculateFacing(fromX: any, fromY: any, toX: any, toY: any) {
     const dx = toX - fromX;
     const dy = toY - fromY;
     if (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001) return 'S';
@@ -1473,7 +1474,7 @@ class GameServer {
     return 'S';
   }
 
-  broadcastSystemMessage(text) {
+  broadcastSystemMessage(text: any) {
     this.io.emit('chat_broadcast', {
       senderId: 'system',
       senderName: 'SYSTEM',
@@ -1483,7 +1484,7 @@ class GameServer {
     });
   }
 
-  sendDirectMessage(socketId, text) {
+  sendDirectMessage(socketId: any, text: any) {
     const socket = this.io.sockets.sockets.get(socketId);
     if (socket) {
       socket.emit('chat_broadcast', {
@@ -1530,7 +1531,7 @@ class GameServer {
     return this.loot.sweepGroundItems();
   }
 
-  update(dt) {
+  update(dt: any) {
     this.syncZoneRooms();
     this.sweepGroundItems();
     // 1. Update Players
@@ -1615,7 +1616,7 @@ class GameServer {
       if (player.timeTrailClock >= REWIND_SAMPLE_S && !player.isDead) {
         player.timeTrailClock = 0;
         const now = Date.now();
-        player.timeTrail = (player.timeTrail || []).filter(t => now - t.t <= REWIND_KEEP_S * 1000);
+        player.timeTrail = (player.timeTrail || []).filter((t: any) => now - t.t <= REWIND_KEEP_S * 1000);
         player.timeTrail.push({ t: now, x: player.x, y: player.y, hp: player.hp });
       }
       if (player.flowTimer > 0) {
@@ -1857,7 +1858,7 @@ class GameServer {
     this.ctxInstanceId = null;
   }
 
-  updateMobsList(mobsMap, zone, dt, instanceId = null) {
+  updateMobsList(mobsMap: any, zone: any, dt: any, instanceId: any = null) {
     return this.mobAI.updateMobsList(mobsMap, zone, dt, instanceId);
   }
 
@@ -1866,27 +1867,27 @@ class GameServer {
   // A rift run is a dungeon instance with a `rift` state: the zone stays
   // 'dungeon', so rooms, snapshots, combat and parties all work unchanged.
   // ==========================================
-  getRiftInstance(player) {
+  getRiftInstance(player: Player) {
     const inst = this.getPlayerDungeonInstance(player);
     return inst && inst.rift ? inst : null;
   }
 
-  riftHeroes(inst) {
+  riftHeroes(inst: DungeonInstance) {
     return (Array.from(this.players.values()) as any[]).filter(p => p.zone === 'dungeon' && p.dungeonInstanceId === inst.id);
   }
 
-  riftOver(R) {
+  riftOver(R: any) {
     return R.phase === 'victory' || R.phase === 'defeat';
   }
 
   // What the town gate shows before entering: is the party already in there?
-  riftPortalInfo(player) {
+  riftPortalInfo(player: Player) {
     const inst = player.partyId ? this.dungeonInstances.get(`rift_party_${player.partyId}`) : null;
     const live = inst && inst.rift && !this.riftOver(inst.rift) ? inst.rift : null;
     return { partyRun: live ? { wave: live.wave, phase: live.phase } : null, inParty: !!player.partyId };
   }
 
-  handleEnterRift(socketId, options: any = {}) {
+  handleEnterRift(socketId: any, options: any = {}) {
     const player = this.players.get(socketId);
     if (!player || player.zone !== 'town' || player.isDead) return;
     const socket = this.io.sockets.sockets.get(socketId);
@@ -1907,7 +1908,7 @@ class GameServer {
     if (options && options.inviteParty) this.handlePartySummon(socketId);
   }
 
-  createRiftInstance(id, leader, modeId = 'normal') {
+  createRiftInstance(id: any, leader: any, modeId = 'normal') {
     // Normal and Hard start at a fixed level; Nightmare follows the party
     // members online when it opens (and spawns twice the monsters)
     const mode = RIFT.RIFT_MODES[modeId] ? modeId : 'normal';
@@ -1933,7 +1934,7 @@ class GameServer {
 
   // Put a hero in the arena (from the town gate or a party summon).
   // Returns false if that run has already ended.
-  joinRift(player, socket, inst, at = null) {
+  joinRift(player: Player, socket: any, inst: DungeonInstance, at: any = null) {
     const R = inst.rift;
     if (this.riftOver(R)) return false;
     player.dungeonRun = null;
@@ -1969,7 +1970,7 @@ class GameServer {
     return true;
   }
 
-  riftStatePayload(inst) {
+  riftStatePayload(inst: DungeonInstance) {
     const R = inst.rift;
     let alive = 0;
     for (const m of inst.mobs.values()) if (m.state !== 'dead') alive++;
@@ -1983,7 +1984,7 @@ class GameServer {
       timer: Math.max(0, Math.ceil(R.timer)),
       level: RIFT.waveLevel(R.baseLevel, upcoming, R.perWave), mode: R.mode,
       fountain: { hp: Math.round(R.fountain.hp), maxHp: R.fountain.maxHp },
-      structures: R.structures.map(s => ({ id: s.id, kind: s.kind, x: s.x, y: s.y, hp: Math.round(s.hp), maxHp: s.maxHp, owner: s.ownerName })),
+      structures: R.structures.map((s: any) => ({ id: s.id, kind: s.kind, x: s.x, y: s.y, hp: Math.round(s.hp), maxHp: s.maxHp, owner: s.ownerName })),
       points: Object.fromEntries(R.points),
       banked: Object.fromEntries(R.banked),
       choices: Object.fromEntries(R.choices),
@@ -1991,13 +1992,13 @@ class GameServer {
     };
   }
 
-  emitRiftState(inst) {
+  emitRiftState(inst: DungeonInstance) {
     inst.rift.stateClock = 0.25;
     this.emitZone('dungeon', 'rift_state', this.riftStatePayload(inst), inst.id);
   }
 
   // Every tick, per rift instance (ctxInstanceId is this instance)
-  updateRift(inst, dt) {
+  updateRift(inst: DungeonInstance, dt: any) {
     const R = inst.rift;
     const heroes = this.riftHeroes(inst);
     // the slain linger a moment for their death animation, then go
@@ -2045,7 +2046,7 @@ class GameServer {
     if (R.stateClock <= 0 && heroes.length) this.emitRiftState(inst);
   }
 
-  startRiftWave(inst, wave, heroCount) {
+  startRiftWave(inst: DungeonInstance, wave: any, heroCount: any) {
     const R = inst.rift;
     R.wave = wave;
     R.phase = 'wave';
@@ -2062,7 +2063,7 @@ class GameServer {
   }
 
   // A monster steps out of one of the four gates (in turn)
-  spawnRiftMob(inst, def) {
+  spawnRiftMob(inst: DungeonInstance, def: any) {
     const R = inst.rift;
     const gate = RIFT.RIFT_GATES[R.gateTurn++ % RIFT.RIFT_GATES.length];
     const x = gate.x + (Math.random() - 0.5) * 1.6;
@@ -2073,7 +2074,7 @@ class GameServer {
     this.emitZone('dungeon', 'dungeon_mobs_spawned', { mobs: [{ id, x, y, isBoss: !!mob.isBoss, element: mob.element || 'neutral' }] }, inst.id);
   }
 
-  riftWaveCleared(inst, heroes) {
+  riftWaveCleared(inst: DungeonInstance, heroes: any) {
     const R = inst.rift;
     const wave = R.wave;
     // a clear bonus for everyone holding the line, so supports can build too
@@ -2111,7 +2112,7 @@ class GameServer {
 
   // The fountain fell (defeat) or the last wave was cleared (victory).
   // Victory pays every hero's bank now; defeat forfeits it.
-  finishRift(inst, victory) {
+  finishRift(inst: DungeonInstance, victory: any) {
     const R = inst.rift;
     R.phase = victory ? 'victory' : 'defeat';
     R.timer = victory ? 8 : 5;
@@ -2132,16 +2133,16 @@ class GameServer {
     this.emitRiftState(inst);
   }
 
-  payRiftReward(player, bank) {
+  payRiftReward(player: Player, bank: any) {
     if (bank.gold > 0) player.gold += bank.gold;
     if (bank.essence > 0) {
-      const stack = player.inventory.items.find(i => i && i.id === RIFT.RIFT_ESSENCE_ID);
+      const stack = player.inventory.items.find((i: any) => i && i.id === RIFT.RIFT_ESSENCE_ID);
       if (stack) stack.count = (stack.count || 1) + bank.essence;
       else if (player.inventory.items.length < (player.inventory.maxSlots || DEFAULT_BAG_SLOTS)) player.inventory.items.push(ItemFactory.stack(ITEMS[RIFT.RIFT_ESSENCE_ID], bank.essence));
       else {
         // a full bag never eats essence: it goes to the personal chest instead
         if (!player.storage) player.storage = { maxSlots: 50, items: [] };
-        const stored = player.storage.items.find(i => i && i.id === RIFT.RIFT_ESSENCE_ID);
+        const stored = player.storage.items.find((i: any) => i && i.id === RIFT.RIFT_ESSENCE_ID);
         if (stored) stored.count = (stored.count || 1) + bank.essence;
         else player.storage.items.push(ItemFactory.stack(ITEMS[RIFT.RIFT_ESSENCE_ID], bank.essence));
         const socket = this.io.sockets.sockets.get(player.id);
@@ -2153,7 +2154,7 @@ class GameServer {
 
   // Walking out (the Leave button, a checkpoint "leave", or the run ending).
   // Only a checkpoint prompt pays the bank; leaving mid-wave forfeits it.
-  leaveRift(player, socket) {
+  leaveRift(player: Player, socket: any) {
     const inst = this.getRiftInstance(player);
     if (!inst) return;
     const R = inst.rift;
@@ -2180,7 +2181,7 @@ class GameServer {
     }
   }
 
-  handleRiftChoice(socketId, data) {
+  handleRiftChoice(socketId: any, data: any) {
     const player = this.players.get(socketId);
     const inst = player && this.getRiftInstance(player);
     if (!inst || inst.rift.phase !== 'choice') return;
@@ -2193,7 +2194,7 @@ class GameServer {
   }
 
   // Buy a structure with Rift Points and place it at (x, y), or a blessing
-  handleRiftBuild(socketId, data) {
+  handleRiftBuild(socketId: any, data: any) {
     const player = this.players.get(socketId);
     const socket = this.io.sockets.sockets.get(socketId);
     const inst = player && this.getRiftInstance(player);
@@ -2201,7 +2202,7 @@ class GameServer {
     const R = inst.rift;
     const def = RIFT.RIFT_STRUCTURES[data.kind];
     if (!def || this.riftOver(R)) return;
-    const say = (text, color = '#ef4444') => socket.emit('floating_text', { x: player.x, y: player.y - 0.8, text, color });
+    const say = (text: any, color = '#ef4444') => socket.emit('floating_text', { x: player.x, y: player.y - 0.8, text, color });
     const points = R.points.get(player.id) || 0;
     if (points < def.cost) return say(`Need ${def.cost} Rift Points (you have ${points})`);
     const F = R.fountain;
@@ -2220,11 +2221,11 @@ class GameServer {
     const x = Number(data.x), y = Number(data.y);
     if (!Number.isFinite(x) || !Number.isFinite(y)) return;
     if (Math.hypot(x - player.x, y - player.y) > RIFT.RIFT_STRUCT_REACH) return say('Too far away - build closer to you');
-    if (R.structures.filter(s => s.kind === data.kind).length >= def.max) return say(`At most ${def.max} ${def.name}s per run`);
+    if (R.structures.filter((s: any) => s.kind === data.kind).length >= def.max) return say(`At most ${def.max} ${def.name}s per run`);
     const FT = RIFT.RIFT_FOUNTAIN;
     if (Math.hypot(x - FT.x, y - FT.y) < FT.radius + def.radius + 0.8) return say('Too close to the fountain');
     if (RIFT.RIFT_GATES.some(g => Math.hypot(x - g.x, y - g.y) < 2.5)) return say('Too close to a rift gate');
-    if (R.structures.some(s => Math.hypot(s.x - x, s.y - y) < s.radius + def.radius + 0.1)) return say('Something is already built there');
+    if (R.structures.some((s: any) => Math.hypot(s.x - x, s.y - y) < s.radius + def.radius + 0.1)) return say('Something is already built there');
     if (this.isColliding(x, y, 'dungeon', def.radius)) return say("Can't build there");
 
     const maxHp = Math.round(def.hp + def.hpPerLevel * R.baseLevel);
@@ -2238,7 +2239,7 @@ class GameServer {
   }
 
   // Turrets fire, frost spires pulse, totems heal; the builder's attack powers them
-  updateRiftStructures(inst, dt, heroes) {
+  updateRiftStructures(inst: DungeonInstance, dt: any, heroes: any) {
     const R = inst.rift;
     if (!R.structures.length) return;
     const now = Date.now();
@@ -2250,7 +2251,7 @@ class GameServer {
       if (s.clock > 0) continue;
       s.clock = def.every;
       // a structure keeps working for the party after its builder leaves
-      const owner = heroes.find(p => p.id === s.ownerId) || heroes[0];
+      const owner = heroes.find((p: any) => p.id === s.ownerId) || heroes[0];
       if (s.kind === 'turret') {
         let target = null, best = def.range;
         for (const m of foes) {
@@ -2281,7 +2282,7 @@ class GameServer {
   }
 
   // A turret bolt: an ordinary projectile that starts at the turret
-  spawnRiftBolt(inst, s, owner, target, damage) {
+  spawnRiftBolt(inst: DungeonInstance, s: any, owner: any, target: any, damage: any) {
     const id = `proj_${this.nextEntityId++}`;
     const angle = Math.atan2(target.y - s.y, target.x - s.x);
     const speed = 11;
@@ -2298,7 +2299,7 @@ class GameServer {
 
   // Rift monster AI: march on the fountain; turn on a hero who comes close;
   // a structure in the way gets torn down first
-  updateRiftMob(mob, inst, dt) {
+  updateRiftMob(mob: Mob, inst: DungeonInstance, dt: any) {
     const R = inst.rift;
     if (this.riftOver(R)) return;
     const F = RIFT.RIFT_FOUNTAIN;
@@ -2316,7 +2317,7 @@ class GameServer {
       }
     }
     mob.targetPlayerId = hero ? hero.id : null;
-    const struct = !hero && mob.structTargetId ? R.structures.find(s => s.id === mob.structTargetId) : null;
+    const struct = !hero && mob.structTargetId ? R.structures.find((s: any) => s.id === mob.structTargetId) : null;
     if (!struct) mob.structTargetId = null;
 
     const goal = hero ? { x: hero.x, y: hero.y, reach: 1.2 }
@@ -2351,9 +2352,9 @@ class GameServer {
     const step = Math.min(dist, speed * dt);
     const nx = (goal.x - mob.x) / dist, ny = (goal.y - mob.y) / dist;
     // returns what stopped the step (a structure, or true for a wall), or null if it moved
-    const tryMove = (dx, dy) => {
+    const tryMove = (dx: any, dy: any) => {
       const tx = mob.x + dx, ty = mob.y + dy;
-      const blocker = R.structures.find(s => Math.hypot(s.x - tx, s.y - ty) < s.radius + 0.35);
+      const blocker = R.structures.find((s: any) => Math.hypot(s.x - tx, s.y - ty) < s.radius + 0.35);
       if (blocker) return blocker;
       if (this.isColliding(tx, ty, 'dungeon')) return true;
       mob.x = tx;
@@ -2370,7 +2371,7 @@ class GameServer {
     mob.facing = this.calculateFacing(mob.x, mob.y, goal.x, goal.y);
   }
 
-  damageRiftFountain(inst, dmg) {
+  damageRiftFountain(inst: DungeonInstance, dmg: any) {
     const R = inst.rift;
     const F = R.fountain;
     if (this.riftOver(R)) return;
@@ -2379,15 +2380,15 @@ class GameServer {
     if (F.hp <= 0) this.finishRift(inst, false);
   }
 
-  destroyRiftStructure(inst, s) {
+  destroyRiftStructure(inst: DungeonInstance, s: any) {
     const R = inst.rift;
-    R.structures = R.structures.filter(o => o !== s);
+    R.structures = R.structures.filter((o: any) => o !== s);
     const def = RIFT.RIFT_STRUCTURES[s.kind];
     this.emitZone('dungeon', 'floating_text', { x: s.x, y: s.y - 0.8, text: `💥 ${def.name} destroyed`, color: '#f87171', size: 15 }, inst.id);
     this.emitRiftState(inst);
   }
 
-  onRiftMobDeath(inst, mob, killer) {
+  onRiftMobDeath(inst: DungeonInstance, mob: Mob, killer: any) {
     const R = inst.rift;
     mob.diedAt = Date.now();
     if (killer && killer.zone === 'dungeon' && killer.dungeonInstanceId === inst.id) {
@@ -2400,7 +2401,7 @@ class GameServer {
   }
 
   // Fallen heroes stand up again beside the fountain
-  respawnInRift(player, socket) {
+  respawnInRift(player: Player, socket: any) {
     player.isDead = false;
     player.riftRespawnSet = false;
     player.respawnTimer = 0;
@@ -2416,18 +2417,18 @@ class GameServer {
   }
 
   // James the Gatekeeper forges unique gear from Rift Essence
-  handleJamesForge(socketId, data) {
+  handleJamesForge(socketId: any, data: any) {
     const player = this.players.get(socketId);
     const socket = this.io.sockets.sockets.get(socketId);
     if (!player || !socket || player.isDead || player.zone !== 'town') return;
-    const say = (text, color = '#ef4444') => socket.emit('floating_text', { x: player.x, y: player.y - 0.8, text, color });
-    const james = this.townMap.obstacles.find(o => o.id === 'npc_james');
+    const say = (text: any, color = '#ef4444') => socket.emit('floating_text', { x: player.x, y: player.y - 0.8, text, color });
+    const james = this.townMap.obstacles.find((o: any) => o.id === 'npc_james');
     if (!james || Math.hypot(james.x - player.x, james.y - player.y) > 4.5) return say('Walk up to James first');
     const recipe = RIFT.JAMES_RECIPES.find(r => r.itemId === (data && data.itemId));
     const def = recipe && ITEMS[recipe.itemId];
     if (!def) return;
     const items = player.inventory.items;
-    const essenceStack = items.find(i => i && i.id === RIFT.RIFT_ESSENCE_ID);
+    const essenceStack = items.find((i: any) => i && i.id === RIFT.RIFT_ESSENCE_ID);
     const essence = essenceStack ? (essenceStack.count || 1) : 0;
     if (essence < recipe.essence) return say(`Need ${recipe.essence} Rift Essence (you have ${essence})`);
     if ((player.gold || 0) < recipe.gold) return say(`Need ${recipe.gold.toLocaleString()} gold`);
@@ -2449,34 +2450,34 @@ class GameServer {
     this.savePlayerAccount(socketId);
   }
 
-  absorbIncomingDamage(player, damage, zone) {
+  absorbIncomingDamage(player: Player, damage: any, zone: any) {
     return this.passives.absorbIncomingDamage(player, damage, zone);
   }
 
   // ===== SET EFFECTS (armor set 4-piece bonuses, data/items/sets.json) =====
 
-  checkSecondWind(player, zone) {
+  checkSecondWind(player: Player, zone: any) {
     return this.combat.checkSecondWind(player, zone);
   }
 
-  setDamageMult(player, mob) {
+  setDamageMult(player: Player, mob: Mob) {
     return this.combat.setDamageMult(player, mob);
   }
 
-  applySetOnHit(player, mob, damage) {
+  applySetOnHit(player: Player, mob: Mob, damage: any) {
     return this.combat.applySetOnHit(player, mob, damage);
   }
 
-  applySetOnSkillCast(player, cooldown) {
+  applySetOnSkillCast(player: Player, cooldown: any) {
     return this.skills.applySetOnSkillCast(player, cooldown);
   }
 
-  flipEclipse(player) {
+  flipEclipse(player: Player) {
     return this.skills.flipEclipse(player);
   }
 
   // Per-tick upkeep: Energy Shield recharge, Eclipse phase clock and Dawn's party heal
-  tickPlayerShields(player, dt) {
+  tickPlayerShields(player: Player, dt: any) {
     if (player.esMax > 0 && player.es < player.esMax && Date.now() - (player.lastHitAt || 0) >= ENERGY_SHIELD.delay * 1000) {
       player.es = Math.min(player.esMax, player.es + player.esMax * ENERGY_SHIELD.rechargePerSec * dt);
     }
@@ -2495,11 +2496,11 @@ class GameServer {
     }
   }
 
-  mobStrikePlayer(mob, targetPlayer, zone, opts: any = {}) {
+  mobStrikePlayer(mob: Mob, targetPlayer: Player, zone: any, opts: any = {}) {
     return this.mobAI.mobStrikePlayer(mob, targetPlayer, zone, opts);
   }
 
-  landMobDamage(mob, targetPlayer, zone, effectiveDmg, armorShare, mech) {
+  landMobDamage(mob: Mob, targetPlayer: Player, zone: any, effectiveDmg: any, armorShare: any, mech: any) {
     return this.mobAI.landMobDamage(mob, targetPlayer, zone, effectiveDmg, armorShare, mech);
   }
 
@@ -2509,7 +2510,7 @@ class GameServer {
     this._snapTick = (this._snapTick || 0) + 1;
     const fullRefresh = this._snapTick % this.TICK_RATE === 0;
     if (!this._heavySigs) this._heavySigs = new WeakMap();
-    const round2 = v => Math.round(v * 100) / 100;
+    const round2 = (v: any) => Math.round(v * 100) / 100;
     const playersArr = Array.from(this.players.values()).map(p => {
       const sweep = isRangedClass(p.characterClass) ? { reach: 0, arc: 0 } : this.meleeSweep(p);
       const snap = {
@@ -2537,7 +2538,7 @@ class GameServer {
       gold: p.gold,
       speechBubble: p.speechBubble,
       isDead: p.isDead,
-      statusEffects: (p.statusEffects || []).map(e => ({ type: e.type, duration: Math.ceil(e.duration) })),
+      statusEffects: (p.statusEffects || []).map((e: any) => ({ type: e.type, duration: Math.ceil(e.duration) })),
       skillCooldowns: p.skillCooldowns,
       attackSpeed: p.attackSpeed || 1.0,
       swipe: p.swipe || 0,
@@ -2561,7 +2562,7 @@ class GameServer {
       smokeScreenTimer: Number((p.smokeScreenTimer || 0).toFixed(1)),
       trail: (p.effects && p.effects.trail) || null,
       // Gravelord undead minions (drawn by the client like monsters, in grave colours)
-      minions: p.minions && p.minions.length ? p.minions.map(m => ({ id: m.id, type: m.type, hue: m.hue, scale: m.scale, x: round2(m.x), y: round2(m.y), facing: m.facing, atk: m.atkAt, life: round2(Math.max(0, (m.until - Date.now()) / m.dur)), name: m.name, rage: !!(p.minionRage && p.minionRage.until > Date.now()) })) : undefined
+      minions: p.minions && p.minions.length ? p.minions.map((m: any) => ({ id: m.id, type: m.type, hue: m.hue, scale: m.scale, x: round2(m.x), y: round2(m.y), facing: m.facing, atk: m.atkAt, life: round2(Math.max(0, (m.until - Date.now()) / m.dur)), name: m.name, rage: !!(p.minionRage && p.minionRage.until > Date.now()) })) : undefined
       };
       const heavy = {
         inventory: p.inventory, equipment: p.equipment, baseStats: p.baseStats,
@@ -2580,7 +2581,7 @@ class GameServer {
       return snap;
     });
 
-    const snapMob = m => ({
+    const snapMob = (m: any) => ({
       id: m.id, type: m.type, name: m.name, level: m.level, x: round2(m.x), y: round2(m.y),
       facing: m.facing, hp: Math.round(m.hp), maxHp: m.maxHp, state: m.state, isBoss: m.isBoss, isMiniboss: !!m.isMiniboss,
       buffs: m.buffs || [], isCommander: !!m.isCommander, auraRadius: m.auraRadius || 0, hasCommanderBuff: !!m.hasCommanderBuff,

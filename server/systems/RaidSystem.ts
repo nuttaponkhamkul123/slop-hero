@@ -6,6 +6,7 @@ import { rollSkyblockReforge, applySkyblockReforge, pickGearForLevel } from '../
 import * as SP from '../spCards';
 import { ItemFactory } from '../entities/item';
 import { MobFactory } from '../entities/mob';
+import type { Mob, Player } from '../entities/types';
 const RAID = require('../raidBosses');
 
 export class RaidSystem {
@@ -34,7 +35,7 @@ export class RaidSystem {
     }
   }
 
-  spawnRaidBoss(zoneId) {
+  spawnRaidBoss(zoneId: any) {
     const conf = RAID.RAID_BOSSES[zoneId];
     const field = this.gs.fields.get(zoneId);
     if (!conf || !field || this.gs.raidStates.has(zoneId)) return;
@@ -63,7 +64,7 @@ export class RaidSystem {
     });
   }
 
-  despawnRaidBoss(zoneId, why = 'timeup') {
+  despawnRaidBoss(zoneId: any, why = 'timeup') {
     const st = this.gs.raidStates.get(zoneId);
     if (!st) return;
     const field = this.gs.fields.get(zoneId);
@@ -77,14 +78,14 @@ export class RaidSystem {
     }
   }
 
-  recordRaidDamage(zoneId, playerId, amount) {
+  recordRaidDamage(zoneId: any, playerId: any, amount: any) {
     const st = this.gs.raidStates.get(zoneId);
     if (!st || !playerId || !(amount > 0)) return;
     st.damage.set(playerId, (st.damage.get(playerId) || 0) + amount);
   }
 
   // Live standings for the boss: online players sorted by damage dealt
-  raidStandings(st) {
+  raidStandings(st: any) {
     const rows = [];
     for (const [pid, dmg] of st.damage) {
       const p = this.gs.players.get(pid);
@@ -95,7 +96,7 @@ export class RaidSystem {
     return rows;
   }
 
-  broadcastRaidLeaderboard(zoneId, st) {
+  broadcastRaidLeaderboard(zoneId: any, st: any) {
     const mob = this.gs.fields.get(zoneId) && this.gs.fields.get(zoneId).mobs.get(st.mobId);
     if (!mob || mob.state === 'dead') return;
     const standings = this.gs.raidStandings(st);   // full board: clients resolve their own rank
@@ -112,7 +113,7 @@ export class RaidSystem {
   }
 
   // Snapshot for players entering the zone mid-fight (rides zone_change)
-  raidInfo(zoneId) {
+  raidInfo(zoneId: any) {
     const st = this.gs.raidStates.get(zoneId);
     if (!st) return { active: false };
     const field = this.gs.fields.get(zoneId);
@@ -132,14 +133,14 @@ export class RaidSystem {
     };
   }
 
-  onRaidBossDeath(mob, killerPlayer) {
+  onRaidBossDeath(mob: Mob, killerPlayer: Player) {
     const zoneId = mob.fieldZone || (killerPlayer && killerPlayer.zone) || Object.keys(RAID.RAID_BOSSES)[0];
     const st = this.gs.raidStates.get(zoneId);
     if (!st || !mob.isRaidBoss) return;
     const def = st.def;
     const standings = this.gs.raidStandings(st);
 
-    const podium = standings.slice(0, 5).map((r, i) => `${i + 1}. ${r.name} (${r.dmg.toLocaleString()})`).join('  ');
+    const podium = standings.slice(0, 5).map((r: any, i: any) => `${i + 1}. ${r.name} (${r.dmg.toLocaleString()})`).join('  ');
     this.gs.broadcastSystemMessage(`🏆 RAID SLAYED! [${def.name}] has fallen! Damage: ${podium || 'no one recorded'}`);
     this.gs.emitZone(zoneId, 'raid_gone', { zoneId, reason: 'kill' });
     this.gs.emitZone(zoneId, 'mob_died', { mobId: mob.id, killerId: killerPlayer ? killerPlayer.id : null });
@@ -155,7 +156,7 @@ export class RaidSystem {
     this.gs.despawnRaidBoss(zoneId, 'kill');
   }
 
-  payRaidReward(player, def, bucket, rank, total) {
+  payRaidReward(player: Player, def: any, bucket: any, rank: any, total: any) {
     const gold = Math.max(1, Math.round(def.gold * bucket.gold * (0.85 + Math.random() * 0.3)));
     this.gs.giveLootToPlayer(player, { type: 'gold', amount: gold }, false);
 

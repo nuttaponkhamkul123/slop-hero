@@ -7,11 +7,12 @@ import { weaponAbility } from '../items';
 import * as SP from '../spCards';
 import { SKILL_DAMAGE_SCALE, BLOOD_AURA_START_HP, ULT_COOLDOWN, ULT_CHARGE_MAX, ULT_LOCK_SECONDS, SHADOW_SKIPS_SHAPES } from '../config/constants';
 import { ALL_CLASS_SKILLS, SKILL_RUNES, DEFAULT_EQUIPPED_SKILLS, CLIENT_SKILL_SLOTS, DEFAULT_SKILL_FOR_SLOT } from '../data/skills';
+import type { Player, Mob } from '../entities/types';
 
 export class SkillSystem {
   constructor(private readonly gs: GameServer) {}
 
-  handleCustomizeSkill(socketId, data) {
+  handleCustomizeSkill(socketId: any, data: any) {
     const player = this.gs.players.get(socketId);
     if (!player || player.isDead) return;
     if (player.spTransformed) return this.gs.customizeSpSkill(player, data);
@@ -21,14 +22,14 @@ export class SkillSystem {
     if (!validSlots.includes(data.slot)) return;
 
     if (!player.equippedSkills) {
-      player.equippedSkills = JSON.parse(JSON.stringify(DEFAULT_EQUIPPED_SKILLS[player.characterClass] || DEFAULT_EQUIPPED_SKILLS.warrior));
+      player.equippedSkills = JSON.parse(JSON.stringify((DEFAULT_EQUIPPED_SKILLS as any)[player.characterClass] || DEFAULT_EQUIPPED_SKILLS.warrior));
     }
     if (!player.equippedSkills.runes) {
       player.equippedSkills.runes = { slot1: 'none', slot2: 'none', slot3: 'none', dash: 'none' };
     }
 
     if (data.skillId) {
-      const skillDef = ALL_CLASS_SKILLS[data.skillId];
+      const skillDef = (ALL_CLASS_SKILLS as any)[data.skillId];
       if (skillDef && skillDef.class === player.characterClass) {
         if (skillDef.reqLevel && player.level < skillDef.reqLevel) {
           const socket = this.gs.io.sockets.sockets.get(socketId);
@@ -47,7 +48,7 @@ export class SkillSystem {
     }
 
     if (data.rune !== undefined) {
-      if (SKILL_RUNES[data.rune]) {
+      if ((SKILL_RUNES as any)[data.rune]) {
         player.equippedSkills.runes[data.slot] = data.rune;
       }
     }
@@ -58,9 +59,9 @@ export class SkillSystem {
       socket.emit('custom_skills_updated', {
         equippedSkills: player.equippedSkills
       });
-      const skillName = ALL_CLASS_SKILLS[player.equippedSkills[data.slot]] ? ALL_CLASS_SKILLS[player.equippedSkills[data.slot]].name : player.equippedSkills[data.slot];
+      const skillName = (ALL_CLASS_SKILLS as any)[player.equippedSkills[data.slot]] ? (ALL_CLASS_SKILLS as any)[player.equippedSkills[data.slot]].name : player.equippedSkills[data.slot];
       const slotKey = data.slot === 'slot1' ? 'Q' : data.slot === 'slot2' ? 'E' : data.slot === 'slot3' ? 'R' : 'Shift';
-      const runeDef = SKILL_RUNES[player.equippedSkills.runes[data.slot]] || SKILL_RUNES.none;
+      const runeDef = (SKILL_RUNES as any)[player.equippedSkills.runes[data.slot]] || SKILL_RUNES.none;
 
       let noticeText = `⚡ Set [${skillName}] to [${slotKey}]!`;
       if (data.rune !== undefined) {
@@ -80,7 +81,7 @@ export class SkillSystem {
 
   // The skill definition used for a slot; a transformed hero uses the card's
   // own SP skill, its damage scaled by the card's upgrade level.
-  resolvePlayerSkill(player, slot, skillId) {
+  resolvePlayerSkill(player: Player, slot: any, skillId: any) {
     // Right-click weapon ability: +5% damage per weapon upgrade level
     if (slot === 'weapon') {
       const weapon = player.equipment && player.equipment.weapon;
@@ -94,10 +95,10 @@ export class SkillSystem {
     // Signature: its first stage, carrying every stage (scaled like card skills)
     if (slot === 'ult') {
       if (!card || !card.signature) return null;
-      const stages = card.signature.stages.map(st => Object.assign({}, st, { dmgMult: st.dmgMult * k }));
+      const stages = card.signature.stages.map((st: any) => Object.assign({}, st, { dmgMult: st.dmgMult * k }));
       return Object.assign({}, stages[0], { cooldown: ULT_COOLDOWN, ultStages: stages });
     }
-    const base = ALL_CLASS_SKILLS[skillId] || DEFAULT_SKILL_FOR_SLOT(player, slot);
+    const base = (ALL_CLASS_SKILLS as any)[skillId] || DEFAULT_SKILL_FOR_SLOT(player, slot);
     const spSkill = card && card.arsenal.includes(skillId) && SP.skillUnlocked(card, skillId, lvl) && SP.SP_SKILLS[skillId];
     if (!spSkill) return base;
     return Object.assign({}, spSkill, { dmgMult: spSkill.dmgMult * k });
@@ -112,21 +113,21 @@ export class SkillSystem {
     if (!CLIENT_SKILL_SLOTS.has(slot)) return;
 
     if (!player.equippedSkills) {
-      player.equippedSkills = JSON.parse(JSON.stringify(DEFAULT_EQUIPPED_SKILLS[player.characterClass] || DEFAULT_EQUIPPED_SKILLS.warrior));
+      player.equippedSkills = JSON.parse(JSON.stringify((DEFAULT_EQUIPPED_SKILLS as any)[player.characterClass] || DEFAULT_EQUIPPED_SKILLS.warrior));
     }
     if (!player.skillCooldowns) {
       player.skillCooldowns = { slot1: 0, slot2: 0, slot3: 0, dash: 0, skill1: 0, skill2: 0 };
     }
     // Nightblade: casting Phantom Shuriken again while its stars are out calls them back (free, ignores cooldown)
     // Dragoon: casting Sky Lance again while it is planted dives onto it (also free)
-    const recast = (o) => !!(o && o.slot === slot && Date.now() < o.until && player.equippedSkills && player.equippedSkills[slot] === o.skillId
+    const recast = (o: any) => !!(o && o.slot === slot && Date.now() < o.until && player.equippedSkills && player.equippedSkills[slot] === o.skillId
       && o.zone === player.zone && o.instanceId === (player.dungeonInstanceId || null));
     const recall = recast(player.nbStars) || recast(player.dgSpear);
     if (!recall && (player.skillCooldowns[slot] > 0 || (player.skillCooldowns[rawSlot] > 0))) return;
 
     const socket0 = this.gs.io.sockets.sockets.get(socketId);
     const skillId = slot === 'weapon' ? 'weapon' : slot === 'ult' ? 'ult'
-      : player.equippedSkills[slot] || (DEFAULT_EQUIPPED_SKILLS[player.characterClass] && DEFAULT_EQUIPPED_SKILLS[player.characterClass][slot]) || 'whirlwind';
+      : player.equippedSkills[slot] || ((DEFAULT_EQUIPPED_SKILLS as any)[player.characterClass] && ((DEFAULT_EQUIPPED_SKILLS as any)[player.characterClass] as any)[slot]) || 'whirlwind';
     const skill = this.gs.resolvePlayerSkill(player, slot, skillId);
     if (!skill) {
       if (socket0) socket0.emit('floating_text', { x: player.x, y: player.y - 0.7, text: slot === 'ult' ? 'Transform with an SP card to use its Signature' : 'This weapon has no ability', color: '#94a3b8' });
@@ -220,7 +221,7 @@ export class SkillSystem {
     // `canCrit` only allows a crit; it is rolled like a basic attack, plus the
     // skill's own critBonus (e.g. Fan of Knives, Shadowstep).
     const skillCritChance = 0.15 + (player.critChanceBonus || 0) + (skill.critBonus || 0);
-    const applySkillDamage = (mob, baseDmg, canCrit = false) => {
+    const applySkillDamage = (mob: Mob, baseDmg: any, canCrit = false) => {
       const isCrit = canCrit && Math.random() < skillCritChance;
       let dmg = Math.max(1, Math.round(baseDmg * SKILL_DAMAGE_SCALE));
       if (runeId === 'flame') {
@@ -268,7 +269,7 @@ export class SkillSystem {
           'SW': { dx: 0, dy: 1 }, 'W': { dx: -1, dy: 1 }, 'NW': { dx: -1, dy: 0 },
           'N': { dx: -1, dy: -1 }, 'NE': { dx: 0, dy: -1 }
         };
-        const vec = facingVectors[player.facing] || { dx: 1, dy: 0 };
+        const vec = (facingVectors as any)[player.facing] || { dx: 1, dy: 0 };
         dirX = vec.dx; dirY = vec.dy;
       }
       const dirLen = Math.hypot(dirX, dirY) || 1;
@@ -306,7 +307,7 @@ export class SkillSystem {
   }
 
   // Skill cast hooks: Stormcaller Static stacks, Eclipse phase flip
-  applySetOnSkillCast(player, cooldown) {
+  applySetOnSkillCast(player: Player, cooldown: any) {
     if (!player.set4) return;
     const st = player.set4.stormcaller;
     if (st) player.staticStacks = Math.min(st.stacks, (player.staticStacks || 0) + 1);
@@ -314,7 +315,7 @@ export class SkillSystem {
     if (ec && cooldown >= ec.flipCooldown) this.gs.flipEclipse(player);
   }
 
-  flipEclipse(player) {
+  flipEclipse(player: Player) {
     const ec = player.set4 && player.set4.eclipse;
     if (!ec) return;
     player.eclipsePhase = player.eclipsePhase === 'dusk' ? 'dawn' : 'dusk';

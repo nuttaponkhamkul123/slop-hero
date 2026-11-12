@@ -6,11 +6,12 @@ import { MOB_EFFECTS } from '../effects/mobEffects';
 import { calculateElementalMultiplier } from '../elements';
 import * as SP from '../spCards';
 import { SKILL_DAMAGE_SCALE } from '../config/constants';
+import type { Mob, Player } from '../entities/types';
 
 export class MobAISystem {
   constructor(private readonly gs: GameServer) {}
 
-  updateMobsList(mobsMap, zone, dt, instanceId = null) {
+  updateMobsList(mobsMap: any, zone: any, dt: any, instanceId: any = null) {
     for (const mob of mobsMap.values()) {
       if (mob.state === 'dead') {
         if (zone === 'dungeon' || (mob.id && mob.id.startsWith('dungeon_'))) {
@@ -185,7 +186,7 @@ export class MobAISystem {
   // opts.mechanic: a telegraphed boss attack (bossMechanics.ts). It can't be dodged, smoked or
   // parried (you dodge it by moving), armor counts half, it reflects no thorns, and opts.mult
   // scales the boss's damage.
-  mobStrikePlayer(mob, targetPlayer, zone, opts: any = {}) {
+  mobStrikePlayer(mob: Mob, targetPlayer: Player, zone: any, opts: any = {}) {
     const now = Date.now();
     const mech = !!opts.mechanic;
     if (targetPlayer.godMode) {
@@ -228,7 +229,7 @@ export class MobAISystem {
 
   // The shared tail of a monster hit: armor (armorShare of Defense is subtracted), element,
   // crushing blows, thorns (not for mechanics), shields, death
-  landMobDamage(mob, targetPlayer, zone, effectiveDmg, armorShare, mech) {
+  landMobDamage(mob: Mob, targetPlayer: Player, zone: any, effectiveDmg: any, armorShare: any, mech: any) {
     let damageDealt = Math.max(1, Math.round(effectiveDmg - (targetPlayer.def * armorShare)));
 
     // Monster element vs the player's elemental resistance from gear

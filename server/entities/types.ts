@@ -84,8 +84,8 @@ export interface BaseStats {
   def: number;
   speed: number;
   attackRange: number;
-  attackSpeed: number;
-  swipe: number;
+  attackSpeed?: number;
+  swipe?: number;
 }
 
 export interface EquippedSkills {
@@ -116,6 +116,7 @@ export interface StatusEffect {
 }
 
 export interface DungeonRun {
+  clearedAt?: number;
   floor: number;
   difficulty: string;
   cleared: boolean;
@@ -241,7 +242,7 @@ export interface Player {
   set4?: any;
   eclipsePhase?: any;
   mastery?: number;
-  weaponPower?: number;
+  weaponPower?: any;
   manaCostMult?: number;
   critChanceBonus?: number;
   critDmgBonus?: number;

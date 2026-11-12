@@ -174,7 +174,7 @@ test('raid system matches the pre-refactor fixture', async () => {
       w.gs.spawnRaidBoss(Z1);
       const st = w.gs.raidStates.get(Z1);
       const mob = { ...w.fields.get(Z1).mobs.get(st.mobId) }; delete mob.fieldZone;
-      w.gs.payRaidReward = () => undefined;
+      w.gs.payRaidReward = (): void => undefined;
       w.log.length = 0;
       w.gs.onRaidBossDeath(mob, w.players.get('p1'));                          // zone comes from the killer
     });

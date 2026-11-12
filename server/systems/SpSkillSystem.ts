@@ -5,23 +5,24 @@ import type { GameServer } from '../gameServer';
 import { SP_SHAPE_HANDLERS, nextSpObjId } from '../skills/spShapeHandlers';
 import * as SP from '../spCards';
 import { SCORCH_MAX, SCORCH_SECONDS, FROST_TO_FREEZE, FROST_SECONDS, FREEZE_SECONDS, BOSS_FREEZE_SECONDS, CONDUCT_MAX, CONDUCT_SECONDS, CONDUCT_FORK_RANGE, CONDUCT_FORK_MAX, CONDUCT_FORK_SHARE, VOID_SOUL_MAX, VOID_SOUL_SECONDS, VOID_SOUL_BONUS, ECHO_DAMAGE, FRACTURE_MAX, FRACTURE_SECONDS, FRACTURE_STUN, HEAT_MAX, OVERHEAT_SECONDS, OVERHEAT_BONUS, RUNE_MAX, RUNE_POLL, RUNE_ARM_MS, RUNE_TRIGGER_R, COMBO_MAX, COMBO_SECONDS, COMBO_BONUS, DG_ROD_MAX, DG_ROD_SECONDS, DG_ROD_EVERY, DG_ROD_R, DG_ROD_MULT, DG_FENCE_RANGE, DG_FENCE_W, DG_FENCE_MULT, DG_OVERLOAD_R, DG_ARC_RANGE } from '../config/constants';
+import type { Player, Mob } from '../entities/types';
 
 export class SpSkillSystem {
   constructor(private readonly gs: GameServer) {}
 
   // Run a card skill from its SP_SKILLS data (see the shape list in spCards.js)
-  castSpSkill(player, skill, ctx) {
+  castSpSkill(player: Player, skill: any, ctx: any) {
     const { slot, cooldown, runeId, skillData, mobsMap, applySkillDamage, computeDashVector, isEcho, isShadow, recall } = ctx;
     const zone = player.zone;
     const instanceId = player.dungeonInstanceId || null;
     // a Nightblade shadow casts from where it stands
     const px = ctx.origin ? ctx.origin.x : player.x, py = ctx.origin ? ctx.origin.y : player.y;
     const fxBase = { type: 'sp_skill', shape: skill.spShape, element: skill.element, color: skill.color, cardId: skill.cardId, rune: runeId, skillId: skill.id, name: skill.name };
-    const emit = (data, first) => this.gs.emitZone(zone, 'skill_fx', first && !isEcho && !isShadow && !ctx.quiet
+    const emit = (data: any, first: any) => this.gs.emitZone(zone, 'skill_fx', first && !isEcho && !isShadow && !ctx.quiet
       ? { ...fxBase, ...data, skillSlot: slot, cooldown, playerId: player.id }
       : { ...fxBase, ...data });
     const alive = () => [...mobsMap.values()].filter(m => m.state !== 'dead');
-    const within = (cx, cy, r) => alive().filter(m => Math.hypot(m.x - cx, m.y - cy) <= r);
+    const within = (cx: any, cy: any, r: any) => alive().filter(m => Math.hypot(m.x - cx, m.y - cy) <= r);
     const nearest = (cx: number, cy: number, r: number, exclude: any = null) => {
       let best = null, bestD = r;
       for (const m of alive()) {
@@ -33,7 +34,7 @@ export class SpSkillSystem {
     };
 
     let dealt = 0;
-    const say = (x, y, text, color, size) => this.gs.emitZone(zone, 'floating_text', { x, y: y - 0.8, text, color, size });
+    const say = (x: any, y: any, text: any, color: any, size: any) => this.gs.emitZone(zone, 'floating_text', { x, y: y - 0.8, text, color, size });
     // Soul harvesters (Void Archon, Duskblade): every Soul empowers its skills; Devour spends them
     const isSoulCard = skill.souls !== undefined || skill.devour !== undefined;
     const souls = isSoulCard ? (player.voidSouls || 0) : 0;
@@ -45,7 +46,7 @@ export class SpSkillSystem {
       say(px, py, `🌑 DEVOUR x${souls} (+${heal} HP)`, '#c084fc', 17);
       player.voidSouls = 0;
     }
-    const gainSouls = (n) => {
+    const gainSouls = (n: any) => {
       player.voidSouls = Math.min(VOID_SOUL_MAX, (player.voidSouls || 0) + n);
       player.voidSoulTimer = VOID_SOUL_SECONDS;
     };
@@ -78,7 +79,7 @@ export class SpSkillSystem {
       player.heat = 0;
     }
     // Duskblade Doom: the brand replays a share of what it soaked up when it ends
-    const burstDoom = (mob, brand) => {
+    const burstDoom = (mob: Mob, brand: any) => {
       if (!mob || mob.doom !== brand) return;
       mob.doom = null;
       const dmg = Math.round(brand.stored * brand.share);
@@ -93,7 +94,7 @@ export class SpSkillSystem {
         say(mob.x, mob.y, '☠️ DOOM SPREADS', '#c084fc', 16);
       }
     };
-    const hit = (mob, mult = 1, fromX = px, fromY = py) => {
+    const hit = (mob: Mob, mult = 1, fromX = px, fromY = py) => {
       if (!mob || mob.state === 'dead') return;
       let m = skill.dmgMult * mult * soulMult * comboMult * heatMult;
       // Tempest Caller: Conductor marks held by the target when this skill lands
@@ -125,7 +126,7 @@ export class SpSkillSystem {
         if (!isBack && mob.facing) {
           const dx = mob.x - px, dy = mob.y - py;
           const facingVecs = { 'E': [1, 0], 'SE': [0.7, 0.7], 'S': [0, 1], 'SW': [-0.7, 0.7], 'W': [-1, 0], 'NW': [-0.7, -0.7], 'N': [0, -1], 'NE': [0.7, -0.7] };
-          const fv = facingVecs[mob.facing] || [0, 1];
+          const fv = (facingVecs as any)[mob.facing] || [0, 1];
           if (dx * fv[0] + dy * fv[1] > 0.15) isBack = true;
         }
         if (isBack) {
@@ -244,7 +245,7 @@ export class SpSkillSystem {
       dealt = 0;
     };
     // Later waves run on a timer; skip them if the hero left, died or changed instance
-    const later = (seconds, fn) => setTimeout(() => {
+    const later = (seconds: any, fn: any) => setTimeout(() => {
       const p = this.gs.players.get(player.id);
       if (!p || p !== player || p.isDead || p.zone !== zone || (p.dungeonInstanceId || null) !== instanceId) return;
       this.gs.runAs(player.id, () => { fn(); settleLeech(); });
@@ -272,7 +273,7 @@ export class SpSkillSystem {
       return { x: ex, y: ey };
     };
     // Move the hero along dir (a shadow's copy only measures the path)
-    const travel = (len) => {
+    const travel = (len: any) => {
       const { x: nx, y: ny } = ray(px, py, dir.normX, dir.normY, len);
       if (isShadow) return { x: nx, y: ny };
       player.x = nx; player.y = ny;
@@ -283,7 +284,7 @@ export class SpSkillSystem {
 
     // Rune Knight glyphs: carved at a spot, armed after a beat, burst when an
     // enemy steps on them (or all at once on Invocation)
-    const burstRune = (g, mult) => {
+    const burstRune = (g: any, mult: any) => {
       if (g.spent) return;
       g.spent = true;
       const sk = g.skill;
@@ -305,7 +306,7 @@ export class SpSkillSystem {
     };
     // Glyph damage over time (sk.dot): a tick of rune damage on everything in the glyph's area.
     // Scales with the card level like the burst does (dmgMult over the base dmg).
-    const runeDot = (sk, x, y, r) => {
+    const runeDot = (sk: any, x: any, y: any, r: any) => {
       const lvl = sk.dmg ? (sk.dmgMult || sk.dmg) / sk.dmg : 1;
       const dmg = Math.max(1, Math.round(player.dmg * sk.dot.mult * lvl));
       for (const m of within(x, y, r)) {
@@ -315,9 +316,9 @@ export class SpSkillSystem {
         if (sk.kind === 'bind') m.chillTimer = Math.max(m.chillTimer || 0, 0.6);
       }
     };
-    const placeRune = (sk, x, y, first) => {
+    const placeRune = (sk: any, x: any, y: any, first: any) => {
       const nowR = Date.now();
-      const live = (player.runeGlyphs || []).filter(g => !g.spent && g.until > nowR && g.zone === zone && g.instanceId === instanceId);
+      const live = (player.runeGlyphs || []).filter((g: any) => !g.spent && g.until > nowR && g.zone === zone && g.instanceId === instanceId);
       while (live.length >= RUNE_MAX) {
         const old = live.shift();
         old.spent = true;
@@ -342,15 +343,15 @@ export class SpSkillSystem {
     // ---- Dragoon Lightning Rods: planted lances the sky keeps striking (player.dgRods)
     const liveRods = () => {
       const now = Date.now();
-      player.dgRods = (player.dgRods || []).filter(rd => rd.until > now && rd.zone === zone && rd.instanceId === instanceId);
+      player.dgRods = (player.dgRods || []).filter((rd: any) => rd.until > now && rd.zone === zone && rd.instanceId === instanceId);
       return player.dgRods;
     };
-    const rodDamage = (m, mult, stun = 0) => {
+    const rodDamage = (m: any, mult: any, stun = 0) => {
       this.gs.applyDamageToMob(player, m, Math.max(1, Math.round(player.dmg * mult)), false, true);
       if (stun && m.state !== 'dead' && m.hp > 0) m.attackCooldown = Math.max(m.attackCooldown || 0, stun);
     };
-    const clearRod = (rod) => emit({ shape: 'rod', clearObj: rod.objId, radius: 0 }, false);
-    const strikeRod = (rod) => {
+    const clearRod = (rod: any) => emit({ shape: 'rod', clearObj: rod.objId, radius: 0 }, false);
+    const strikeRod = (rod: any) => {
       const rods = liveRods();
       const i = rods.indexOf(rod);
       if (i < 0) return;
@@ -368,7 +369,7 @@ export class SpSkillSystem {
       }
     };
     // thrown: the lance flew there (Storm Lance), so it does not drop out of the sky
-    const plantRod = (x, y, thrown = false) => {
+    const plantRod = (x: any, y: any, thrown = false) => {
       if (isShadow) return;
       const rods = liveRods();
       while (rods.length >= DG_ROD_MAX) clearRod(rods.shift());
@@ -378,7 +379,7 @@ export class SpSkillSystem {
       for (let k = 1; k * DG_ROD_EVERY <= DG_ROD_SECONDS + 0.01; k++) later(k * DG_ROD_EVERY, () => strikeRod(rod));
     };
     // every rod picked is struck by a giant bolt at once and spent
-    const overloadRods = (mult, pick = (rd) => true) => {
+    const overloadRods = (mult: any, pick = (rd: any) => true) => {
       const rods = liveRods();
       const spent = rods.filter(pick);
       if (!spent.length) return;
@@ -388,10 +389,10 @@ export class SpSkillSystem {
         clearRod(rod);
         within(rod.x, rod.y, DG_OVERLOAD_R).forEach(m => rodDamage(m, mult, 0.5));
       }
-      player.dgRods = rods.filter(rd => !spent.includes(rd));
+      player.dgRods = rods.filter((rd: any) => !spent.includes(rd));
     };
     // each rod throws a bolt at the enemy nearest to it
-    const rodArcs = (mult) => {
+    const rodArcs = (mult: any) => {
       for (const rod of liveRods()) {
         const m = nearest(rod.x, rod.y, DG_ARC_RANGE);
         if (!m) continue;
@@ -400,7 +401,7 @@ export class SpSkillSystem {
       }
     };
 
-    let spot = null; // where a lingering field (skill.field) settles
+    let spot: any = null; // where a lingering field (skill.field) settles
     const spCtx = {
       gs: this.gs, player, skill, ctx,
       slot, cooldown, runeId, skillData, mobsMap, applySkillDamage, computeDashVector, isEcho, isShadow, recall, zone, instanceId, px, py, fxBase, emit, alive, within, nearest, say, isSoulCard, souls, gainSouls, burstDoom, hit, settleLeech, later, rawTx, rawTy, td, dir, range, aimX, aimY, ray, travel, burstRune, runeDot, placeRune, liveRods, rodDamage, clearRod, strikeRod, plantRod, overloadRods, rodArcs,
