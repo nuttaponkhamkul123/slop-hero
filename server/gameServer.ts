@@ -156,6 +156,7 @@ import {
 } from './config/constants';
 import { ALL_CLASS_SKILLS, CLASS_SKILLS_CATALOG, SKILL_RUNES, DEFAULT_EQUIPPED_SKILLS, CLIENT_SKILL_SLOTS, DEFAULT_SKILL_FOR_SLOT, CLASS_SKILLS } from './data/skills';
 import { POTIONS, POTION_COOLDOWN_MS } from './data/potions';
+import { HERO_CLASSES, isHeroClass, starterEquipment } from './data/heroClasses';
 let minionSeq = 0;
 let spObjSeq = 0; // ids for placed card objects (glyphs, banners, lances) so the client can clear them
 
@@ -303,12 +304,7 @@ class GameServer {
   }
 
   makeStarterCharacter(heroName, characterClass) {
-    const defaultClasses = {
-      warrior: { maxHp: 180, maxMp: 50, dmg: 22, def: 8, speed: 4.8, attackRange: 1.6, attackSpeed: 1.0, swipe: 40 },
-      mage: { maxHp: 95, maxMp: 130, dmg: 32, def: 3, speed: 4.4, attackRange: 5.5, attackSpeed: 0.95, swipe: 15 },
-      rogue: { maxHp: 125, maxMp: 70, dmg: 26, def: 5, speed: 5.4, attackRange: 1.8, attackSpeed: 1.30, swipe: 25 }
-    };
-    const chosenClass = defaultClasses[characterClass] ? characterClass : 'warrior';
+    const chosenClass = isHeroClass(characterClass) ? characterClass : 'warrior';
     const cleanHeroName = (heroName || 'Hero').substring(0, 15).trim() || 'Hero';
 
     const starterChar = {
@@ -321,9 +317,7 @@ class GameServer {
       skills: {},
       equippedSkills: JSON.parse(JSON.stringify(DEFAULT_EQUIPPED_SKILLS[chosenClass] || DEFAULT_EQUIPPED_SKILLS.warrior)),
       equipment: {
-        weapon: chosenClass === 'warrior' ? { ...ITEMS.iron_blade, count: 1 } : (chosenClass === 'mage' ? { ...ITEMS.archmage_staff, count: 1 } : { ...ITEMS.shadow_daggers, count: 1 }),
-        armor: chosenClass === 'mage' ? { ...ITEMS.mystic_robe, count: 1 } : (chosenClass === 'rogue' ? { ...ITEMS.leather_tunic, count: 1 } : null),
-        helmet: chosenClass === 'warrior' ? { ...ITEMS.iron_helm, count: 1 } : null,
+        ...starterEquipment(chosenClass), // weapon, armor, helmet
         boots: null,
         gloves: null,
         cape: null,
@@ -1399,12 +1393,6 @@ class GameServer {
   }
 
   addPlayer(socket, data) {
-    const defaultClasses = {
-      warrior: { maxHp: 180, maxMp: 50, dmg: 22, def: 8, speed: 4.8, attackRange: 1.6, attackSpeed: 1.0, swipe: 40, skillName: 'Whirlwind' },
-      mage: { maxHp: 95, maxMp: 130, dmg: 32, def: 3, speed: 4.4, attackRange: 5.5, attackSpeed: 0.95, swipe: 15, skillName: 'Firestorm' },
-      rogue: { maxHp: 125, maxMp: 70, dmg: 26, def: 5, speed: 5.4, attackRange: 1.8, attackSpeed: 1.30, swipe: 25, skillName: 'Shadow Strike' }
-    };
-
     let savedChar = null;
     const accountUsername = accountManager.usernameForToken(data && data.token);
     const accountSlot = Math.max(0, parseInt(data && data.slot, 10) || 0);
@@ -1424,8 +1412,8 @@ class GameServer {
       }
     }
 
-    const chosenClass = savedChar ? (savedChar.characterClass || 'warrior') : (defaultClasses[data.characterClass] ? data.characterClass : 'warrior');
-    const classStats = defaultClasses[chosenClass];
+    const chosenClass = savedChar ? (savedChar.characterClass || 'warrior') : (isHeroClass(data.characterClass) ? data.characterClass : 'warrior');
+    const classStats = HERO_CLASSES[chosenClass].baseStats;
 
     const spawnX = 20 + (Math.random() - 0.5) * 2;
     const spawnY = 23 + (Math.random() - 0.5) * 1.5; // Spawn in open south plaza, away from fountain
@@ -1539,16 +1527,9 @@ class GameServer {
     };
 
     if (!savedChar) {
-      // Equip starter gear tailored to chosen class
-      if (chosenClass === 'warrior') {
-        player.equipment.weapon = { ...ITEMS.iron_blade, count: 1 };
-        player.equipment.helmet = { ...ITEMS.iron_helm, count: 1 };
-      } else if (chosenClass === 'mage') {
-        player.equipment.weapon = { ...ITEMS.archmage_staff, count: 1 };
-        player.equipment.armor = { ...ITEMS.mystic_robe, count: 1 };
-      } else if (chosenClass === 'rogue') {
-        player.equipment.weapon = { ...ITEMS.shadow_daggers, count: 1 };
-        player.equipment.armor = { ...ITEMS.leather_tunic, count: 1 };
+      // Equip starter gear tailored to chosen class (only the slots the class has gear for)
+      for (const [slot, item] of Object.entries(starterEquipment(chosenClass))) {
+        if (item) player.equipment[slot] = item;
       }
       if (player.accountUsername) {
         accountManager.saveCharacter(player.accountUsername, player, player.accountSlot || 0);
