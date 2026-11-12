@@ -20,6 +20,7 @@ test('makeStarterCharacter: matches the pre-refactor fixture for every class and
     got.noName = make.call({}, '', 'rogue');
     assert.deepEqual(JSON.parse(JSON.stringify(got)), fixture);
   } finally {
+    await (await import('../accountManager')).default.flush(); // let the startup save finish before deleting its folder
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });

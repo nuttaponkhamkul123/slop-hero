@@ -236,7 +236,7 @@ export const CLASS_SKILLS_CATALOG = {
 export const SKILL_RUNES = {
   none: { id: 'none', name: 'Standard Rune', icon: '⚪', desc: 'Default ability power without elemental modifiers.', color: '#94a3b8' },
   flame: { id: 'flame', name: 'Infernal Flame', icon: '🔴', desc: '+25% Damage and ignites enemies with persistent Burn DoT.', color: '#ef4444' },
-  frost: { id: 'frost', name: 'Glacial Frost', icon: '🔵', desc: 'Adds 40% Chill Slow for 3.5s and 25% chance to Freeze solid.', color: '#38bdf8' },
+  frost: { id: 'frost', name: 'Glacial Frost', icon: '🔵', desc: 'Adds 50% Chill Slow for 3.5s and 25% chance to Freeze solid.', color: '#38bdf8' },
   tempest: { id: 'tempest', name: 'Tempest Surge', icon: '⚡', desc: '-20% Cooldown reduction and +10% Electric Shock DMG.', color: '#eab308' },
   vampiric: { id: 'vampiric', name: 'Vampiric Drain', icon: '🟣', desc: 'Restores 25% of all skill damage dealt as immediate HP life leech.', color: '#a855f7' }
 };

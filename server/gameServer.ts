@@ -182,7 +182,6 @@ class GameServer {
   frostfellGroundItems: Map<string, any>;
   dungeonGroundItems: Map<string, any>;
   parties: Map<string, any>;
-  playerParties: Map<string, any>;
   nextPartyId: number;
   dungeonInstances: Map<string, any>;
   ctxInstanceId: any;
@@ -217,7 +216,6 @@ class GameServer {
     this.frostfellGroundItems = frostfell.groundItems;
     this.dungeonGroundItems = new Map<any, any>();
     this.parties = new Map<any, any>(); // partyId -> { id, leaderId, memberIds: Set }
-    this.playerParties = new Map<any, any>(); // socketId -> partyId
     this.nextPartyId = 1;
     this.dungeonInstances = new Map<any, any>(); // instanceId -> { id, partyId, floor, difficulty, dungeon, mobs, groundItems, chests, cleared }
     // Dungeon instance the current handler / tick step is acting in. Lookups and
@@ -242,7 +240,6 @@ class GameServer {
       this.raidNextSpawn.set(zid, Date.now() + (conf.firstDelayMinutes || 5) * RAID.MINUTE);
     }
 
-    this.initFrostfellMonsters();
     this.initFieldMonsters();
     this.initDungeonMonsters();
     this.startGameLoop();
@@ -1170,59 +1167,6 @@ class GameServer {
         });
       });
     }
-  }
-
-  initFrostfellMonsters() {
-    // Frostfell is a generated field now (fieldZones.js) and spawns with the rest
-    if (!this.fields.get('frostfell').zone.custom) return;
-    this.frostfellMobs.clear();
-    const frostDefs = [
-      { type: 'frost_wolf', name: 'Frostbite Wolf', level: 6, maxHp: 550, def: 15, dmg: 38, speed: 3.8, exp: 160, gold: 90, count: 6, buffs: ['frostbite'], element: 'ice', elementResist: { fire: -0.5, ice: 0.5 }, zone: { minX: 5, maxX: 18, minY: 20, maxY: 33 } },
-      { type: 'ice_elemental', name: 'Glacial Elemental', level: 8, maxHp: 750, def: 20, dmg: 48, speed: 2.5, exp: 240, gold: 140, count: 6, buffs: ['frostbite'], element: 'ice', elementResist: { fire: -0.6, ice: 0.6 }, zone: { minX: 24, maxX: 38, minY: 8, maxY: 25 } },
-      { type: 'frost_titan', name: 'Frost Titan Ymir', level: 12, maxHp: 2800, def: 35, dmg: 75, speed: 2.2, exp: 950, gold: 750, count: 1, buffs: ['frostbite', 'fortified'], element: 'ice', elementResist: { fire: -0.5, ice: 0.4, holy: -0.2 }, zone: { minX: 19, maxX: 23, minY: 16, maxY: 20 }, isBoss: true }
-    ];
-
-    frostDefs.forEach(def => {
-      for (let i = 0; i < def.count; i++) {
-        const id = `frost_mob_${this.nextEntityId++}`;
-        // re-roll spawns that land inside trees, crystals or cliffs
-        let spawnX, spawnY, tries = 0;
-        do {
-          spawnX = def.zone.minX + Math.random() * (def.zone.maxX - def.zone.minX);
-          spawnY = def.zone.minY + Math.random() * (def.zone.maxY - def.zone.minY);
-        } while (this.isColliding(spawnX, spawnY, 'frostfell', 0.3) && ++tries < 30);
-
-        this.frostfellMobs.set(id, {
-          id,
-          type: def.type,
-          name: def.name,
-          level: def.level,
-          x: spawnX,
-          y: spawnY,
-          spawnX,
-          spawnY,
-          zone: def.zone,
-          isBoss: !!def.isBoss,
-          hp: def.maxHp,
-          maxHp: def.maxHp,
-          dmg: def.dmg,
-          def: def.def,
-          speed: def.speed,
-          exp: mobExp(def.level, def.isBoss ? 'boss' : 'normal'),
-          gold: def.gold,
-          buffs: [...(def.buffs || [])],
-          isCommander: false,
-          auraRadius: 0,
-          targetPlayerId: null,
-          state: 'idle',
-          nextWanderTime: Date.now() + Math.random() * 3000,
-          wanderTarget: null,
-          attackCooldown: 0,
-          respawnTimer: 0,
-          facing: 'SE'
-        });
-      }
-    });
   }
 
   initDungeonMonsters() {
@@ -7134,9 +7078,9 @@ class GameServer {
 
     if (runeCounts.frost > 0) {
       mob.chillTimer = Math.max(mob.chillTimer || 0, 3.5);
-      mob.chillSlow = 0.40;
       if (Math.random() < Math.min(0.75, 0.25 * runeCounts.frost)) {
-        mob.freezeTimer = Math.max(mob.freezeTimer || 0, mob.isBoss ? BOSS_FREEZE_SECONDS : FREEZE_SECONDS);
+        if (!(mob.frozenTimer > 0)) mob.frozenKind = 'ice'; // don't turn a Chrono stasis into ice mid-way
+        mob.frozenTimer = Math.max(mob.frozenTimer || 0, mob.isBoss ? BOSS_FREEZE_SECONDS : FREEZE_SECONDS);
         this.emitZone((player && player.zone) || mob.fieldZone, 'floating_text', {
           x: mob.x,
           y: mob.y - 0.7,

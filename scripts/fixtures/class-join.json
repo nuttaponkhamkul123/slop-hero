@@ -180,7 +180,7 @@
       "esMax": 0,
       "es": 0
     },
-    "payloadHash": "2cd66e1e6d5651ce2b96c65124327e4b533f683f"
+    "payloadHash": "7e1a9545f909b02df06e18378d0b3c6a0ebf9381"
   },
   "mage": {
     "player": {
@@ -372,7 +372,7 @@
       "esMax": 85,
       "es": 85
     },
-    "payloadHash": "2cd66e1e6d5651ce2b96c65124327e4b533f683f"
+    "payloadHash": "7e1a9545f909b02df06e18378d0b3c6a0ebf9381"
   },
   "rogue": {
     "player": {
@@ -556,7 +556,7 @@
       "esMax": 0,
       "es": 0
     },
-    "payloadHash": "2cd66e1e6d5651ce2b96c65124327e4b533f683f"
+    "payloadHash": "7e1a9545f909b02df06e18378d0b3c6a0ebf9381"
   },
   "banana": {
     "player": {
@@ -739,6 +739,6 @@
       "esMax": 0,
       "es": 0
     },
-    "payloadHash": "2cd66e1e6d5651ce2b96c65124327e4b533f683f"
+    "payloadHash": "7e1a9545f909b02df06e18378d0b3c6a0ebf9381"
   }
 }

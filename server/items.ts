@@ -648,7 +648,7 @@ export const SOCKET_EXPANDER_DROP_CHANCE = 0.0000005; // 0.00005% drop chance fr
 
 export const RUNES_DEF: Record<string, any> = {
   flame: { id: 'rune_flame', runeType: 'flame', name: 'Infernal Flame', icon: '🔴', color: '#ef4444', desc: '+25% Damage & Persistent Burn DoT' },
-  frost: { id: 'rune_frost', runeType: 'frost', name: 'Glacial Frost', icon: '🔵', color: '#38bdf8', desc: '40% Chill Slow & 25% Freeze Chance' },
+  frost: { id: 'rune_frost', runeType: 'frost', name: 'Glacial Frost', icon: '🔵', color: '#38bdf8', desc: '50% Chill Slow & 25% Freeze Chance' },
   tempest: { id: 'rune_tempest', runeType: 'tempest', name: 'Tempest Surge', icon: '⚡', color: '#eab308', desc: '-20% Cooldown & +10% Shock DMG' },
   vampiric: { id: 'rune_vampiric', runeType: 'vampiric', name: 'Vampiric Drain', icon: '🟣', color: '#a855f7', desc: '25% Damage Dealt as HP Life Leech' }
 };
