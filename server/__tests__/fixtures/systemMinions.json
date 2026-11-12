@@ -1,0 +1,725 @@
+{
+  "keys": [
+    "town",
+    "frostfell",
+    "dungeon:inst1",
+    "dungeon:",
+    "dungeon:"
+  ],
+  "corpses": {
+    "none": [],
+    "snap1": [
+      [
+        "town",
+        [
+          {
+            "x": 1,
+            "y": 1,
+            "type": "wolf",
+            "hue": 0,
+            "scale": 1,
+            "name": "Wolf",
+            "at": 1700000000000
+          },
+          {
+            "x": 2,
+            "y": 2,
+            "type": "bear",
+            "hue": 120,
+            "scale": 1.5,
+            "name": "Bear",
+            "at": 1700000000000
+          }
+        ]
+      ],
+      [
+        "dungeon:inst1",
+        [
+          {
+            "x": 9,
+            "y": 9,
+            "type": "boar",
+            "hue": 0,
+            "scale": 1,
+            "name": "Boar",
+            "at": 1700000000000
+          }
+        ]
+      ]
+    ],
+    "snap2": [
+      [
+        "town",
+        [
+          {
+            "x": 3,
+            "y": 3,
+            "type": "rat",
+            "hue": 0,
+            "scale": 1,
+            "name": "Rat",
+            "at": 1700000012001
+          }
+        ]
+      ],
+      [
+        "dungeon:inst1",
+        [
+          {
+            "x": 9,
+            "y": 9,
+            "type": "boar",
+            "hue": 0,
+            "scale": 1,
+            "name": "Boar",
+            "at": 1700000000000
+          }
+        ]
+      ]
+    ],
+    "capLength": 40,
+    "capFirst": "t5",
+    "capLast": "t44",
+    "took": [
+      "a",
+      "c",
+      "d"
+    ],
+    "left": [
+      "b",
+      "far"
+    ],
+    "wrongZone": []
+  },
+  "raise": {
+    "first2": [
+      {
+        "id": "minion_1",
+        "type": "wolf",
+        "hue": 90,
+        "scale": 1.15,
+        "name": "Risen Wolf",
+        "x": 1,
+        "y": 2,
+        "facing": "S",
+        "born": 1700000000000,
+        "until": 1700000020000,
+        "dur": 20000,
+        "mult": 0.75,
+        "nextAtk": 1700000000500,
+        "atkAt": 0,
+        "targetId": null,
+        "zone": "dungeon",
+        "instanceId": "inst1"
+      },
+      {
+        "id": "minion_2",
+        "type": "ghoul",
+        "hue": 0,
+        "scale": 0.95,
+        "name": "Grave Thrall",
+        "x": 3,
+        "y": 4,
+        "facing": "S",
+        "born": 1700000000000,
+        "until": 1700000005000,
+        "dur": 5000,
+        "mult": 0.3,
+        "nextAtk": 1700000000500,
+        "atkAt": 0,
+        "targetId": null,
+        "zone": "dungeon",
+        "instanceId": "inst1"
+      }
+    ],
+    "afterCap": [
+      "minion_4:t1",
+      "minion_5:t2",
+      "minion_6:t3",
+      "minion_7:t4",
+      "minion_8:t5"
+    ],
+    "crumbled": [
+      [
+        "dungeon",
+        "skill_fx",
+        {
+          "type": "sp_skill",
+          "shape": "crumble",
+          "element": "earth",
+          "color": "#4ade80",
+          "cardId": "sp_gravelord",
+          "skillId": "sp_gravelord_raise",
+          "x": 1,
+          "y": 2,
+          "duration": 0.7
+        },
+        "inst1"
+      ],
+      [
+        "dungeon",
+        "skill_fx",
+        {
+          "type": "sp_skill",
+          "shape": "crumble",
+          "element": "earth",
+          "color": "#4ade80",
+          "cardId": "sp_gravelord",
+          "skillId": "sp_gravelord_raise",
+          "x": 3,
+          "y": 4,
+          "duration": 0.7
+        },
+        "inst1"
+      ],
+      [
+        "dungeon",
+        "skill_fx",
+        {
+          "type": "sp_skill",
+          "shape": "crumble",
+          "element": "earth",
+          "color": "#4ade80",
+          "cardId": "sp_gravelord",
+          "skillId": "sp_gravelord_raise",
+          "x": 0,
+          "y": 0,
+          "duration": 0.7
+        },
+        "inst1"
+      ]
+    ],
+    "hero2": [
+      "live",
+      "minion_9"
+    ],
+    "max": 5
+  },
+  "crumble": {
+    "noop": [],
+    "log": [
+      [
+        "town",
+        "skill_fx",
+        {
+          "type": "sp_skill",
+          "shape": "crumble",
+          "element": "earth",
+          "color": "#4ade80",
+          "cardId": "sp_gravelord",
+          "skillId": "sp_gravelord_raise",
+          "x": 1,
+          "y": 2,
+          "duration": 0.7
+        },
+        null
+      ],
+      [
+        "dungeon",
+        "skill_fx",
+        {
+          "type": "sp_skill",
+          "shape": "crumble",
+          "element": "earth",
+          "color": "#4ade80",
+          "cardId": "sp_gravelord",
+          "skillId": "sp_gravelord_raise",
+          "x": 3,
+          "y": 4,
+          "duration": 0.7
+        },
+        "i"
+      ]
+    ],
+    "after": [],
+    "hero3Minions": []
+  },
+  "tick": {
+    "expiredAndWrongPlace": {
+      "minions": [
+        {
+          "id": "ok",
+          "zone": "town",
+          "instanceId": null,
+          "x": 10.138656383304825,
+          "y": 10.094859935530366,
+          "until": 1700000060000,
+          "mult": 0.5,
+          "nextAtk": 1699999999999,
+          "atkAt": 0,
+          "targetId": null,
+          "facing": "S"
+        }
+      ],
+      "hits": [],
+      "events": [
+        [
+          "town",
+          "skill_fx",
+          {
+            "type": "sp_skill",
+            "shape": "crumble",
+            "element": "earth",
+            "color": "#4ade80",
+            "cardId": "sp_gravelord",
+            "skillId": "sp_gravelord_raise",
+            "x": 10,
+            "y": 10,
+            "duration": 0.7
+          },
+          null
+        ],
+        [
+          "dungeon",
+          "skill_fx",
+          {
+            "type": "sp_skill",
+            "shape": "crumble",
+            "element": "earth",
+            "color": "#4ade80",
+            "cardId": "sp_gravelord",
+            "skillId": "sp_gravelord_raise",
+            "x": 10,
+            "y": 10,
+            "duration": 0.7
+          },
+          null
+        ],
+        [
+          "town",
+          "skill_fx",
+          {
+            "type": "sp_skill",
+            "shape": "crumble",
+            "element": "earth",
+            "color": "#4ade80",
+            "cardId": "sp_gravelord",
+            "skillId": "sp_gravelord_raise",
+            "x": 10,
+            "y": 10,
+            "duration": 0.7
+          },
+          "x"
+        ]
+      ],
+      "mobs": []
+    },
+    "walksToPrey": {
+      "minions": [
+        {
+          "id": "m1",
+          "zone": "town",
+          "instanceId": null,
+          "x": 10.168,
+          "y": 10,
+          "until": 1700000060000,
+          "mult": 0.5,
+          "nextAtk": 1699999999999,
+          "atkAt": 0,
+          "targetId": "o1",
+          "facing": "SE"
+        }
+      ],
+      "hits": [],
+      "events": [],
+      "mobs": [
+        {
+          "id": "o1",
+          "x": 14,
+          "y": 10
+        }
+      ]
+    },
+    "strikesInReach": {
+      "minions": [
+        {
+          "id": "m1",
+          "zone": "town",
+          "instanceId": null,
+          "x": 10,
+          "y": 10,
+          "until": 1700000060000,
+          "mult": 0.5,
+          "nextAtk": 1700000000900,
+          "atkAt": 1700000000000,
+          "targetId": "o1",
+          "facing": "SE"
+        }
+      ],
+      "hits": [
+        {
+          "mob": "o1",
+          "dmg": 50,
+          "crit": false,
+          "echo": true
+        }
+      ],
+      "events": [],
+      "mobs": [
+        {
+          "id": "o1",
+          "x": 10.8,
+          "y": 10
+        }
+      ]
+    },
+    "picksNearest": {
+      "minions": [
+        {
+          "id": "m1",
+          "zone": "town",
+          "instanceId": null,
+          "x": 10.168,
+          "y": 10,
+          "until": 1700000060000,
+          "mult": 0.5,
+          "nextAtk": 1699999999999,
+          "atkAt": 0,
+          "targetId": "near",
+          "facing": "SE"
+        }
+      ],
+      "hits": [],
+      "events": [],
+      "mobs": [
+        {
+          "id": "far",
+          "x": 16,
+          "y": 10
+        },
+        {
+          "id": "near",
+          "x": 13,
+          "y": 10
+        }
+      ]
+    },
+    "ignoresOutOfLeash": {
+      "minions": [
+        {
+          "id": "m1",
+          "zone": "town",
+          "instanceId": null,
+          "x": 10.138656383304825,
+          "y": 10.094859935530366,
+          "until": 1700000060000,
+          "mult": 0.5,
+          "nextAtk": 1699999999999,
+          "atkAt": 0,
+          "targetId": null,
+          "facing": "S"
+        }
+      ],
+      "hits": [],
+      "events": [],
+      "mobs": [
+        {
+          "id": "o1",
+          "x": 40,
+          "y": 10
+        }
+      ]
+    },
+    "ignoresDeadAndDummies": {
+      "minions": [
+        {
+          "id": "m1",
+          "zone": "town",
+          "instanceId": null,
+          "x": 10.138656383304825,
+          "y": 10.094859935530366,
+          "until": 1700000060000,
+          "mult": 0.5,
+          "nextAtk": 1699999999999,
+          "atkAt": 0,
+          "targetId": null,
+          "facing": "S"
+        }
+      ],
+      "hits": [],
+      "events": [],
+      "mobs": [
+        {
+          "id": "d",
+          "x": 14,
+          "y": 10
+        },
+        {
+          "id": "z",
+          "x": 14,
+          "y": 10
+        },
+        {
+          "id": "y",
+          "x": 14,
+          "y": 10
+        }
+      ]
+    },
+    "keepsCurrentTarget": {
+      "minions": [
+        {
+          "id": "m1",
+          "zone": "town",
+          "instanceId": null,
+          "x": 10.168,
+          "y": 10,
+          "until": 1700000060000,
+          "mult": 0.5,
+          "nextAtk": 1699999999999,
+          "atkAt": 0,
+          "targetId": "a",
+          "facing": "SE"
+        }
+      ],
+      "hits": [],
+      "events": [],
+      "mobs": [
+        {
+          "id": "a",
+          "x": 12,
+          "y": 10
+        },
+        {
+          "id": "b",
+          "x": 11,
+          "y": 10
+        }
+      ]
+    },
+    "dropsTargetBeyondLeash": {
+      "minions": [
+        {
+          "id": "m1",
+          "zone": "town",
+          "instanceId": null,
+          "x": 10,
+          "y": 10,
+          "until": 1700000060000,
+          "mult": 0.5,
+          "nextAtk": 1700000000900,
+          "atkAt": 1700000000000,
+          "targetId": "b",
+          "facing": "SE"
+        }
+      ],
+      "hits": [
+        {
+          "mob": "b",
+          "dmg": 50,
+          "crit": false,
+          "echo": true
+        }
+      ],
+      "events": [],
+      "mobs": [
+        {
+          "id": "a",
+          "x": 40,
+          "y": 10
+        },
+        {
+          "id": "b",
+          "x": 11,
+          "y": 10
+        }
+      ]
+    },
+    "followsLord": {
+      "minions": [
+        {
+          "id": "m1",
+          "zone": "town",
+          "instanceId": null,
+          "x": 13.84080526839311,
+          "y": 10.053675296260106,
+          "until": 1700000060000,
+          "mult": 0.5,
+          "nextAtk": 1699999999999,
+          "atkAt": 0,
+          "targetId": null,
+          "facing": "W"
+        },
+        {
+          "id": "m2",
+          "zone": "town",
+          "instanceId": null,
+          "x": 3.157418496252085,
+          "y": 3.2178826680526296,
+          "until": 1700000060000,
+          "mult": 0.5,
+          "nextAtk": 1699999999999,
+          "atkAt": 0,
+          "targetId": null,
+          "facing": "S"
+        },
+        {
+          "id": "m3",
+          "zone": "town",
+          "instanceId": null,
+          "x": 10.012822922318238,
+          "y": 9.832490081895966,
+          "until": 1700000060000,
+          "mult": 0.5,
+          "nextAtk": 1699999999999,
+          "atkAt": 0,
+          "targetId": null,
+          "facing": "NE"
+        }
+      ],
+      "hits": [],
+      "events": [],
+      "mobs": []
+    },
+    "hurriesWhenFarBehind": {
+      "minions": [
+        {
+          "id": "m1",
+          "zone": "town",
+          "instanceId": null,
+          "x": 2.2675461160439294,
+          "y": 10.025932909397293,
+          "until": 1700000060000,
+          "mult": 0.5,
+          "nextAtk": 1699999999999,
+          "atkAt": 0,
+          "targetId": null,
+          "facing": "SE"
+        }
+      ],
+      "hits": [],
+      "events": [],
+      "mobs": []
+    },
+    "rageBuff": {
+      "minions": [
+        {
+          "id": "m1",
+          "zone": "town",
+          "instanceId": null,
+          "x": 10,
+          "y": 10,
+          "until": 1700000060000,
+          "mult": 0.5,
+          "nextAtk": 1700000000600,
+          "atkAt": 1700000000000,
+          "targetId": "o1",
+          "facing": "SE"
+        }
+      ],
+      "hits": [
+        {
+          "mob": "o1",
+          "dmg": 140,
+          "crit": true,
+          "echo": true
+        }
+      ],
+      "events": [],
+      "mobs": [
+        {
+          "id": "o1",
+          "x": 10.8,
+          "y": 10
+        }
+      ]
+    },
+    "rageExpired": {
+      "minions": [
+        {
+          "id": "m1",
+          "zone": "town",
+          "instanceId": null,
+          "x": 10,
+          "y": 10,
+          "until": 1700000060000,
+          "mult": 0.5,
+          "nextAtk": 1700000000900,
+          "atkAt": 1700000000000,
+          "targetId": "o1",
+          "facing": "SE"
+        }
+      ],
+      "hits": [
+        {
+          "mob": "o1",
+          "dmg": 50,
+          "crit": false,
+          "echo": true
+        }
+      ],
+      "events": [],
+      "mobs": [
+        {
+          "id": "o1",
+          "x": 10.8,
+          "y": 10
+        }
+      ]
+    },
+    "attackCooldown": {
+      "minions": [
+        {
+          "id": "m1",
+          "zone": "town",
+          "instanceId": null,
+          "x": 10,
+          "y": 10,
+          "until": 1700000060000,
+          "mult": 0.5,
+          "nextAtk": 1700000000500,
+          "atkAt": 0,
+          "targetId": "o1",
+          "facing": "SE"
+        }
+      ],
+      "hits": [],
+      "events": [],
+      "mobs": [
+        {
+          "id": "o1",
+          "x": 10.8,
+          "y": 10
+        }
+      ]
+    },
+    "slidesAlongWalls": {
+      "minions": [
+        {
+          "id": "m1",
+          "zone": "town",
+          "instanceId": null,
+          "x": 10,
+          "y": 10,
+          "until": 1700000060000,
+          "mult": 0.5,
+          "nextAtk": 1699999999999,
+          "atkAt": 0,
+          "targetId": "o1",
+          "facing": "SE"
+        }
+      ],
+      "hits": [],
+      "events": [],
+      "mobs": [
+        {
+          "id": "o1",
+          "x": 14,
+          "y": 10
+        }
+      ]
+    },
+    "noMinions": {
+      "minions": [],
+      "hits": [],
+      "events": [],
+      "mobs": [
+        {
+          "id": "o1",
+          "x": 14,
+          "y": 10
+        }
+      ]
+    }
+  }
+}

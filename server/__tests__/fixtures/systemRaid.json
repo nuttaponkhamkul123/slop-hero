@@ -1,0 +1,5007 @@
+{
+  "zones": [
+    "frostfell",
+    "celestial"
+  ],
+  "scenarios": {
+    "updateSpawnsEveryZone": {
+      "result": null,
+      "log": [
+        [
+          "system",
+          "☠️ RAID EVENT! [Glacier-King Ymirheim] (Lv.18) has awakened in [Zone frostfell]! It won't fall alone."
+        ],
+        [
+          "zone",
+          "frostfell",
+          "raid_spawn",
+          {
+            "zoneId": "frostfell",
+            "name": "Glacier-King Ymirheim",
+            "level": 18,
+            "hp": 59934,
+            "maxHp": 59934,
+            "endsIn": 600
+          }
+        ],
+        [
+          "system",
+          "☠️ RAID EVENT! [Aurumath, the Gilded Devourer] (Lv.105) has awakened in [Zone celestial]! It won't fall alone."
+        ],
+        [
+          "zone",
+          "celestial",
+          "raid_spawn",
+          {
+            "zoneId": "celestial",
+            "name": "Aurumath, the Gilded Devourer",
+            "level": 105,
+            "hp": 24642522,
+            "maxHp": 24642522,
+            "endsIn": 900
+          }
+        ]
+      ],
+      "state": {
+        "raidStates": {
+          "__map": [
+            [
+              "frostfell",
+              {
+                "conf": {
+                  "type": "frost_titan",
+                  "name": "Glacier-King Ymirheim",
+                  "hue": 200,
+                  "scale": 1.9,
+                  "level": 18,
+                  "speed": 2,
+                  "element": "ice",
+                  "elementResist": {
+                    "fire": -0.4,
+                    "ice": 0.6,
+                    "holy": -0.2,
+                    "lightning": 0.3
+                  },
+                  "buffs": [
+                    "frostbite",
+                    "fortified"
+                  ],
+                  "hpMult": 7,
+                  "dmgMult": 1.25,
+                  "defMult": 1.5,
+                  "expMult": 3,
+                  "goldMult": 8,
+                  "cardTier": 2,
+                  "spawn": {
+                    "x": 89,
+                    "y": 20
+                  },
+                  "zone": {
+                    "minX": 83,
+                    "maxX": 94,
+                    "minY": 16,
+                    "maxY": 30
+                  },
+                  "windowMinutes": 10,
+                  "respawnMinutes": 12,
+                  "firstDelayMinutes": 2
+                },
+                "def": {
+                  "type": "frost_titan",
+                  "name": "Glacier-King Ymirheim",
+                  "level": 18,
+                  "hue": 200,
+                  "scale": 1.9,
+                  "element": "ice",
+                  "elementResist": {
+                    "fire": -0.4,
+                    "ice": 0.6,
+                    "holy": -0.2,
+                    "lightning": 0.3
+                  },
+                  "buffs": [
+                    "frostbite",
+                    "fortified"
+                  ],
+                  "maxHp": 59934,
+                  "dmg": 136,
+                  "def": 93,
+                  "exp": 3597,
+                  "gold": 1888,
+                  "cardTier": 2,
+                  "speed": 2,
+                  "spawn": {
+                    "x": 89,
+                    "y": 20
+                  },
+                  "zone": {
+                    "minX": 83,
+                    "maxX": 94,
+                    "minY": 16,
+                    "maxY": 30
+                  }
+                },
+                "mobId": "frostfell_raid_100",
+                "damage": {
+                  "__map": []
+                },
+                "despawnAt": 1700000600000,
+                "lastBroadcast": 0
+              }
+            ],
+            [
+              "celestial",
+              {
+                "conf": {
+                  "type": "frost_titan",
+                  "name": "Aurumath, the Gilded Devourer",
+                  "hue": 55,
+                  "scale": 2.2,
+                  "level": 105,
+                  "speed": 1.9,
+                  "element": "holy",
+                  "elementResist": {
+                    "dark": -0.4,
+                    "holy": 0.5,
+                    "fire": 0.3,
+                    "ice": 0.3
+                  },
+                  "buffs": [
+                    "fortified",
+                    "ignited"
+                  ],
+                  "hpMult": 9,
+                  "dmgMult": 1.2,
+                  "defMult": 1.6,
+                  "expMult": 4,
+                  "goldMult": 10,
+                  "cardTier": 5,
+                  "spawn": {
+                    "x": 71,
+                    "y": 34
+                  },
+                  "zone": {
+                    "minX": 66,
+                    "maxX": 78,
+                    "minY": 28,
+                    "maxY": 46
+                  },
+                  "windowMinutes": 15,
+                  "respawnMinutes": 30,
+                  "firstDelayMinutes": 6
+                },
+                "def": {
+                  "type": "frost_titan",
+                  "name": "Aurumath, the Gilded Devourer",
+                  "level": 105,
+                  "hue": 55,
+                  "scale": 2.2,
+                  "element": "holy",
+                  "elementResist": {
+                    "dark": -0.4,
+                    "holy": 0.5,
+                    "fire": 0.3,
+                    "ice": 0.3
+                  },
+                  "buffs": [
+                    "fortified",
+                    "ignited"
+                  ],
+                  "maxHp": 24642522,
+                  "dmg": 631,
+                  "def": 454,
+                  "exp": 91632,
+                  "gold": 12800,
+                  "cardTier": 5,
+                  "speed": 1.9,
+                  "spawn": {
+                    "x": 71,
+                    "y": 34
+                  },
+                  "zone": {
+                    "minX": 66,
+                    "maxX": 78,
+                    "minY": 28,
+                    "maxY": 46
+                  }
+                },
+                "mobId": "celestial_raid_101",
+                "damage": {
+                  "__map": []
+                },
+                "despawnAt": 1700000900000,
+                "lastBroadcast": 0
+              }
+            ]
+          ]
+        },
+        "raidNextSpawn": {
+          "__map": []
+        },
+        "nextEntityId": 102,
+        "mobs": [
+          [
+            "frostfell",
+            [
+              {
+                "id": "frostfell_raid_100",
+                "hp": 59934,
+                "state": "idle"
+              }
+            ]
+          ],
+          [
+            "celestial",
+            [
+              {
+                "id": "celestial_raid_101",
+                "hp": 24642522,
+                "state": "idle"
+              }
+            ]
+          ]
+        ]
+      }
+    },
+    "updateWaitsForRespawnClock": {
+      "result": null,
+      "log": [],
+      "state": {
+        "raidStates": {
+          "__map": []
+        },
+        "raidNextSpawn": {
+          "__map": [
+            [
+              "frostfell",
+              1700000005000
+            ],
+            [
+              "celestial",
+              1700000005000
+            ]
+          ]
+        },
+        "nextEntityId": 100,
+        "mobs": [
+          [
+            "frostfell",
+            []
+          ],
+          [
+            "celestial",
+            []
+          ]
+        ]
+      }
+    },
+    "updateRespawnClockElapsed": {
+      "result": null,
+      "log": [
+        [
+          "system",
+          "☠️ RAID EVENT! [Glacier-King Ymirheim] (Lv.18) has awakened in [Zone frostfell]! It won't fall alone."
+        ],
+        [
+          "zone",
+          "frostfell",
+          "raid_spawn",
+          {
+            "zoneId": "frostfell",
+            "name": "Glacier-King Ymirheim",
+            "level": 18,
+            "hp": 59934,
+            "maxHp": 59934,
+            "endsIn": 600
+          }
+        ],
+        [
+          "system",
+          "☠️ RAID EVENT! [Aurumath, the Gilded Devourer] (Lv.105) has awakened in [Zone celestial]! It won't fall alone."
+        ],
+        [
+          "zone",
+          "celestial",
+          "raid_spawn",
+          {
+            "zoneId": "celestial",
+            "name": "Aurumath, the Gilded Devourer",
+            "level": 105,
+            "hp": 24642522,
+            "maxHp": 24642522,
+            "endsIn": 900
+          }
+        ]
+      ],
+      "state": {
+        "raidStates": {
+          "__map": [
+            [
+              "frostfell",
+              {
+                "conf": {
+                  "type": "frost_titan",
+                  "name": "Glacier-King Ymirheim",
+                  "hue": 200,
+                  "scale": 1.9,
+                  "level": 18,
+                  "speed": 2,
+                  "element": "ice",
+                  "elementResist": {
+                    "fire": -0.4,
+                    "ice": 0.6,
+                    "holy": -0.2,
+                    "lightning": 0.3
+                  },
+                  "buffs": [
+                    "frostbite",
+                    "fortified"
+                  ],
+                  "hpMult": 7,
+                  "dmgMult": 1.25,
+                  "defMult": 1.5,
+                  "expMult": 3,
+                  "goldMult": 8,
+                  "cardTier": 2,
+                  "spawn": {
+                    "x": 89,
+                    "y": 20
+                  },
+                  "zone": {
+                    "minX": 83,
+                    "maxX": 94,
+                    "minY": 16,
+                    "maxY": 30
+                  },
+                  "windowMinutes": 10,
+                  "respawnMinutes": 12,
+                  "firstDelayMinutes": 2
+                },
+                "def": {
+                  "type": "frost_titan",
+                  "name": "Glacier-King Ymirheim",
+                  "level": 18,
+                  "hue": 200,
+                  "scale": 1.9,
+                  "element": "ice",
+                  "elementResist": {
+                    "fire": -0.4,
+                    "ice": 0.6,
+                    "holy": -0.2,
+                    "lightning": 0.3
+                  },
+                  "buffs": [
+                    "frostbite",
+                    "fortified"
+                  ],
+                  "maxHp": 59934,
+                  "dmg": 136,
+                  "def": 93,
+                  "exp": 3597,
+                  "gold": 1888,
+                  "cardTier": 2,
+                  "speed": 2,
+                  "spawn": {
+                    "x": 89,
+                    "y": 20
+                  },
+                  "zone": {
+                    "minX": 83,
+                    "maxX": 94,
+                    "minY": 16,
+                    "maxY": 30
+                  }
+                },
+                "mobId": "frostfell_raid_100",
+                "damage": {
+                  "__map": []
+                },
+                "despawnAt": 1700000600000,
+                "lastBroadcast": 0
+              }
+            ],
+            [
+              "celestial",
+              {
+                "conf": {
+                  "type": "frost_titan",
+                  "name": "Aurumath, the Gilded Devourer",
+                  "hue": 55,
+                  "scale": 2.2,
+                  "level": 105,
+                  "speed": 1.9,
+                  "element": "holy",
+                  "elementResist": {
+                    "dark": -0.4,
+                    "holy": 0.5,
+                    "fire": 0.3,
+                    "ice": 0.3
+                  },
+                  "buffs": [
+                    "fortified",
+                    "ignited"
+                  ],
+                  "hpMult": 9,
+                  "dmgMult": 1.2,
+                  "defMult": 1.6,
+                  "expMult": 4,
+                  "goldMult": 10,
+                  "cardTier": 5,
+                  "spawn": {
+                    "x": 71,
+                    "y": 34
+                  },
+                  "zone": {
+                    "minX": 66,
+                    "maxX": 78,
+                    "minY": 28,
+                    "maxY": 46
+                  },
+                  "windowMinutes": 15,
+                  "respawnMinutes": 30,
+                  "firstDelayMinutes": 6
+                },
+                "def": {
+                  "type": "frost_titan",
+                  "name": "Aurumath, the Gilded Devourer",
+                  "level": 105,
+                  "hue": 55,
+                  "scale": 2.2,
+                  "element": "holy",
+                  "elementResist": {
+                    "dark": -0.4,
+                    "holy": 0.5,
+                    "fire": 0.3,
+                    "ice": 0.3
+                  },
+                  "buffs": [
+                    "fortified",
+                    "ignited"
+                  ],
+                  "maxHp": 24642522,
+                  "dmg": 631,
+                  "def": 454,
+                  "exp": 91632,
+                  "gold": 12800,
+                  "cardTier": 5,
+                  "speed": 1.9,
+                  "spawn": {
+                    "x": 71,
+                    "y": 34
+                  },
+                  "zone": {
+                    "minX": 66,
+                    "maxX": 78,
+                    "minY": 28,
+                    "maxY": 46
+                  }
+                },
+                "mobId": "celestial_raid_101",
+                "damage": {
+                  "__map": []
+                },
+                "despawnAt": 1700000900000,
+                "lastBroadcast": 0
+              }
+            ]
+          ]
+        },
+        "raidNextSpawn": {
+          "__map": [
+            [
+              "frostfell",
+              1700000000000
+            ],
+            [
+              "celestial",
+              1700000000000
+            ]
+          ]
+        },
+        "nextEntityId": 102,
+        "mobs": [
+          [
+            "frostfell",
+            [
+              {
+                "id": "frostfell_raid_100",
+                "hp": 59934,
+                "state": "idle"
+              }
+            ]
+          ],
+          [
+            "celestial",
+            [
+              {
+                "id": "celestial_raid_101",
+                "hp": 24642522,
+                "state": "idle"
+              }
+            ]
+          ]
+        ]
+      }
+    },
+    "updateBroadcastsAndExpires": {
+      "result": {
+        "z1Broadcast": 1700000000000
+      },
+      "log": [
+        [
+          "zone",
+          "frostfell",
+          "raid_leaderboard",
+          {
+            "zoneId": "frostfell",
+            "name": "Glacier-King Ymirheim",
+            "level": 18,
+            "hp": 59934,
+            "maxHp": 59934,
+            "endsIn": 600,
+            "top": [],
+            "count": 0
+          }
+        ],
+        [
+          "system",
+          "💨 [Aurumath, the Gilded Devourer] senses the odds and retreats into the deep. It returns in 30 minutes."
+        ],
+        [
+          "zone",
+          "celestial",
+          "raid_gone",
+          {
+            "zoneId": "celestial",
+            "reason": "timeup"
+          }
+        ]
+      ],
+      "state": {
+        "raidStates": {
+          "__map": [
+            [
+              "frostfell",
+              {
+                "conf": {
+                  "type": "frost_titan",
+                  "name": "Glacier-King Ymirheim",
+                  "hue": 200,
+                  "scale": 1.9,
+                  "level": 18,
+                  "speed": 2,
+                  "element": "ice",
+                  "elementResist": {
+                    "fire": -0.4,
+                    "ice": 0.6,
+                    "holy": -0.2,
+                    "lightning": 0.3
+                  },
+                  "buffs": [
+                    "frostbite",
+                    "fortified"
+                  ],
+                  "hpMult": 7,
+                  "dmgMult": 1.25,
+                  "defMult": 1.5,
+                  "expMult": 3,
+                  "goldMult": 8,
+                  "cardTier": 2,
+                  "spawn": {
+                    "x": 89,
+                    "y": 20
+                  },
+                  "zone": {
+                    "minX": 83,
+                    "maxX": 94,
+                    "minY": 16,
+                    "maxY": 30
+                  },
+                  "windowMinutes": 10,
+                  "respawnMinutes": 12,
+                  "firstDelayMinutes": 2
+                },
+                "def": {
+                  "type": "frost_titan",
+                  "name": "Glacier-King Ymirheim",
+                  "level": 18,
+                  "hue": 200,
+                  "scale": 1.9,
+                  "element": "ice",
+                  "elementResist": {
+                    "fire": -0.4,
+                    "ice": 0.6,
+                    "holy": -0.2,
+                    "lightning": 0.3
+                  },
+                  "buffs": [
+                    "frostbite",
+                    "fortified"
+                  ],
+                  "maxHp": 59934,
+                  "dmg": 136,
+                  "def": 93,
+                  "exp": 3597,
+                  "gold": 1888,
+                  "cardTier": 2,
+                  "speed": 2,
+                  "spawn": {
+                    "x": 89,
+                    "y": 20
+                  },
+                  "zone": {
+                    "minX": 83,
+                    "maxX": 94,
+                    "minY": 16,
+                    "maxY": 30
+                  }
+                },
+                "mobId": "frostfell_raid_100",
+                "damage": {
+                  "__map": []
+                },
+                "despawnAt": 1700000600000,
+                "lastBroadcast": 1700000000000
+              }
+            ]
+          ]
+        },
+        "raidNextSpawn": {
+          "__map": [
+            [
+              "celestial",
+              1700001800000
+            ]
+          ]
+        },
+        "nextEntityId": 102,
+        "mobs": [
+          [
+            "frostfell",
+            [
+              {
+                "id": "frostfell_raid_100",
+                "hp": 59934,
+                "state": "idle"
+              }
+            ]
+          ],
+          [
+            "celestial",
+            []
+          ]
+        ]
+      }
+    },
+    "updateQuietBetweenBroadcasts": {
+      "result": null,
+      "log": [
+        [
+          "system",
+          "☠️ RAID EVENT! [Aurumath, the Gilded Devourer] (Lv.105) has awakened in [Zone celestial]! It won't fall alone."
+        ],
+        [
+          "zone",
+          "celestial",
+          "raid_spawn",
+          {
+            "zoneId": "celestial",
+            "name": "Aurumath, the Gilded Devourer",
+            "level": 105,
+            "hp": 24642522,
+            "maxHp": 24642522,
+            "endsIn": 900
+          }
+        ]
+      ],
+      "state": {
+        "raidStates": {
+          "__map": [
+            [
+              "frostfell",
+              {
+                "conf": {
+                  "type": "frost_titan",
+                  "name": "Glacier-King Ymirheim",
+                  "hue": 200,
+                  "scale": 1.9,
+                  "level": 18,
+                  "speed": 2,
+                  "element": "ice",
+                  "elementResist": {
+                    "fire": -0.4,
+                    "ice": 0.6,
+                    "holy": -0.2,
+                    "lightning": 0.3
+                  },
+                  "buffs": [
+                    "frostbite",
+                    "fortified"
+                  ],
+                  "hpMult": 7,
+                  "dmgMult": 1.25,
+                  "defMult": 1.5,
+                  "expMult": 3,
+                  "goldMult": 8,
+                  "cardTier": 2,
+                  "spawn": {
+                    "x": 89,
+                    "y": 20
+                  },
+                  "zone": {
+                    "minX": 83,
+                    "maxX": 94,
+                    "minY": 16,
+                    "maxY": 30
+                  },
+                  "windowMinutes": 10,
+                  "respawnMinutes": 12,
+                  "firstDelayMinutes": 2
+                },
+                "def": {
+                  "type": "frost_titan",
+                  "name": "Glacier-King Ymirheim",
+                  "level": 18,
+                  "hue": 200,
+                  "scale": 1.9,
+                  "element": "ice",
+                  "elementResist": {
+                    "fire": -0.4,
+                    "ice": 0.6,
+                    "holy": -0.2,
+                    "lightning": 0.3
+                  },
+                  "buffs": [
+                    "frostbite",
+                    "fortified"
+                  ],
+                  "maxHp": 59934,
+                  "dmg": 136,
+                  "def": 93,
+                  "exp": 3597,
+                  "gold": 1888,
+                  "cardTier": 2,
+                  "speed": 2,
+                  "spawn": {
+                    "x": 89,
+                    "y": 20
+                  },
+                  "zone": {
+                    "minX": 83,
+                    "maxX": 94,
+                    "minY": 16,
+                    "maxY": 30
+                  }
+                },
+                "mobId": "frostfell_raid_100",
+                "damage": {
+                  "__map": []
+                },
+                "despawnAt": 1700000600000,
+                "lastBroadcast": 1699999999000
+              }
+            ],
+            [
+              "celestial",
+              {
+                "conf": {
+                  "type": "frost_titan",
+                  "name": "Aurumath, the Gilded Devourer",
+                  "hue": 55,
+                  "scale": 2.2,
+                  "level": 105,
+                  "speed": 1.9,
+                  "element": "holy",
+                  "elementResist": {
+                    "dark": -0.4,
+                    "holy": 0.5,
+                    "fire": 0.3,
+                    "ice": 0.3
+                  },
+                  "buffs": [
+                    "fortified",
+                    "ignited"
+                  ],
+                  "hpMult": 9,
+                  "dmgMult": 1.2,
+                  "defMult": 1.6,
+                  "expMult": 4,
+                  "goldMult": 10,
+                  "cardTier": 5,
+                  "spawn": {
+                    "x": 71,
+                    "y": 34
+                  },
+                  "zone": {
+                    "minX": 66,
+                    "maxX": 78,
+                    "minY": 28,
+                    "maxY": 46
+                  },
+                  "windowMinutes": 15,
+                  "respawnMinutes": 30,
+                  "firstDelayMinutes": 6
+                },
+                "def": {
+                  "type": "frost_titan",
+                  "name": "Aurumath, the Gilded Devourer",
+                  "level": 105,
+                  "hue": 55,
+                  "scale": 2.2,
+                  "element": "holy",
+                  "elementResist": {
+                    "dark": -0.4,
+                    "holy": 0.5,
+                    "fire": 0.3,
+                    "ice": 0.3
+                  },
+                  "buffs": [
+                    "fortified",
+                    "ignited"
+                  ],
+                  "maxHp": 24642522,
+                  "dmg": 631,
+                  "def": 454,
+                  "exp": 91632,
+                  "gold": 12800,
+                  "cardTier": 5,
+                  "speed": 1.9,
+                  "spawn": {
+                    "x": 71,
+                    "y": 34
+                  },
+                  "zone": {
+                    "minX": 66,
+                    "maxX": 78,
+                    "minY": 28,
+                    "maxY": 46
+                  }
+                },
+                "mobId": "celestial_raid_101",
+                "damage": {
+                  "__map": []
+                },
+                "despawnAt": 1700000900000,
+                "lastBroadcast": 0
+              }
+            ]
+          ]
+        },
+        "raidNextSpawn": {
+          "__map": []
+        },
+        "nextEntityId": 102,
+        "mobs": [
+          [
+            "frostfell",
+            [
+              {
+                "id": "frostfell_raid_100",
+                "hp": 59934,
+                "state": "idle"
+              }
+            ]
+          ],
+          [
+            "celestial",
+            [
+              {
+                "id": "celestial_raid_101",
+                "hp": 24642522,
+                "state": "idle"
+              }
+            ]
+          ]
+        ]
+      }
+    },
+    "spawn": {
+      "result": null,
+      "log": [
+        [
+          "system",
+          "☠️ RAID EVENT! [Glacier-King Ymirheim] (Lv.18) has awakened in [Zone frostfell]! It won't fall alone."
+        ],
+        [
+          "zone",
+          "frostfell",
+          "raid_spawn",
+          {
+            "zoneId": "frostfell",
+            "name": "Glacier-King Ymirheim",
+            "level": 18,
+            "hp": 59934,
+            "maxHp": 59934,
+            "endsIn": 600
+          }
+        ]
+      ],
+      "state": {
+        "raidStates": {
+          "__map": [
+            [
+              "frostfell",
+              {
+                "conf": {
+                  "type": "frost_titan",
+                  "name": "Glacier-King Ymirheim",
+                  "hue": 200,
+                  "scale": 1.9,
+                  "level": 18,
+                  "speed": 2,
+                  "element": "ice",
+                  "elementResist": {
+                    "fire": -0.4,
+                    "ice": 0.6,
+                    "holy": -0.2,
+                    "lightning": 0.3
+                  },
+                  "buffs": [
+                    "frostbite",
+                    "fortified"
+                  ],
+                  "hpMult": 7,
+                  "dmgMult": 1.25,
+                  "defMult": 1.5,
+                  "expMult": 3,
+                  "goldMult": 8,
+                  "cardTier": 2,
+                  "spawn": {
+                    "x": 89,
+                    "y": 20
+                  },
+                  "zone": {
+                    "minX": 83,
+                    "maxX": 94,
+                    "minY": 16,
+                    "maxY": 30
+                  },
+                  "windowMinutes": 10,
+                  "respawnMinutes": 12,
+                  "firstDelayMinutes": 2
+                },
+                "def": {
+                  "type": "frost_titan",
+                  "name": "Glacier-King Ymirheim",
+                  "level": 18,
+                  "hue": 200,
+                  "scale": 1.9,
+                  "element": "ice",
+                  "elementResist": {
+                    "fire": -0.4,
+                    "ice": 0.6,
+                    "holy": -0.2,
+                    "lightning": 0.3
+                  },
+                  "buffs": [
+                    "frostbite",
+                    "fortified"
+                  ],
+                  "maxHp": 59934,
+                  "dmg": 136,
+                  "def": 93,
+                  "exp": 3597,
+                  "gold": 1888,
+                  "cardTier": 2,
+                  "speed": 2,
+                  "spawn": {
+                    "x": 89,
+                    "y": 20
+                  },
+                  "zone": {
+                    "minX": 83,
+                    "maxX": 94,
+                    "minY": 16,
+                    "maxY": 30
+                  }
+                },
+                "mobId": "frostfell_raid_100",
+                "damage": {
+                  "__map": []
+                },
+                "despawnAt": 1700000600000,
+                "lastBroadcast": 0
+              }
+            ]
+          ]
+        },
+        "raidNextSpawn": {
+          "__map": []
+        },
+        "nextEntityId": 101,
+        "mobs": [
+          [
+            "frostfell",
+            [
+              {
+                "id": "frostfell_raid_100",
+                "hp": 59934,
+                "state": "idle"
+              }
+            ]
+          ],
+          [
+            "celestial",
+            []
+          ]
+        ]
+      }
+    },
+    "spawnUnknownZoneOrNoField": {
+      "result": null,
+      "log": [],
+      "state": {
+        "raidStates": {
+          "__map": []
+        },
+        "raidNextSpawn": {
+          "__map": []
+        },
+        "nextEntityId": 100,
+        "mobs": [
+          [
+            "celestial",
+            []
+          ]
+        ]
+      }
+    },
+    "despawnTimeup": {
+      "result": null,
+      "log": [
+        [
+          "system",
+          "💨 [Glacier-King Ymirheim] senses the odds and retreats into the deep. It returns in 12 minutes."
+        ],
+        [
+          "zone",
+          "frostfell",
+          "raid_gone",
+          {
+            "zoneId": "frostfell",
+            "reason": "timeup"
+          }
+        ]
+      ],
+      "state": {
+        "raidStates": {
+          "__map": []
+        },
+        "raidNextSpawn": {
+          "__map": [
+            [
+              "frostfell",
+              1700000720000
+            ]
+          ]
+        },
+        "nextEntityId": 101,
+        "mobs": [
+          [
+            "frostfell",
+            []
+          ],
+          [
+            "celestial",
+            []
+          ]
+        ]
+      }
+    },
+    "despawnKill": {
+      "result": null,
+      "log": [],
+      "state": {
+        "raidStates": {
+          "__map": []
+        },
+        "raidNextSpawn": {
+          "__map": [
+            [
+              "frostfell",
+              1700000720000
+            ]
+          ]
+        },
+        "nextEntityId": 101,
+        "mobs": [
+          [
+            "frostfell",
+            []
+          ],
+          [
+            "celestial",
+            []
+          ]
+        ]
+      }
+    },
+    "despawnNothingUp": {
+      "result": null,
+      "log": [],
+      "state": {
+        "raidStates": {
+          "__map": []
+        },
+        "raidNextSpawn": {
+          "__map": []
+        },
+        "nextEntityId": 100,
+        "mobs": [
+          [
+            "frostfell",
+            []
+          ],
+          [
+            "celestial",
+            []
+          ]
+        ]
+      }
+    },
+    "despawnUnknownConfig": {
+      "result": null,
+      "log": [
+        [
+          "system",
+          "💨 [Glacier-King Ymirheim] senses the odds and retreats into the deep. It returns in 25 minutes."
+        ],
+        [
+          "zone",
+          "ghostzone",
+          "raid_gone",
+          {
+            "zoneId": "ghostzone",
+            "reason": "timeup"
+          }
+        ]
+      ],
+      "state": {
+        "raidStates": {
+          "__map": []
+        },
+        "raidNextSpawn": {
+          "__map": [
+            [
+              "ghostzone",
+              1700001500000
+            ]
+          ]
+        },
+        "nextEntityId": 101,
+        "mobs": [
+          [
+            "frostfell",
+            [
+              {
+                "id": "frostfell_raid_100",
+                "hp": 59934,
+                "state": "idle"
+              }
+            ]
+          ],
+          [
+            "celestial",
+            []
+          ]
+        ]
+      }
+    },
+    "damageAndStandings": {
+      "result": {
+        "standings": [
+          {
+            "id": "p1",
+            "name": "Ann",
+            "dmg": 520
+          },
+          {
+            "id": "p2",
+            "name": "Ben",
+            "dmg": 501
+          }
+        ],
+        "damage": {
+          "__map": [
+            [
+              "p1",
+              520.4
+            ],
+            [
+              "p2",
+              500.6
+            ],
+            [
+              "p3",
+              9999
+            ],
+            [
+              "ghost",
+              5000
+            ]
+          ]
+        }
+      },
+      "log": [
+        [
+          "system",
+          "☠️ RAID EVENT! [Glacier-King Ymirheim] (Lv.18) has awakened in [Zone frostfell]! It won't fall alone."
+        ],
+        [
+          "zone",
+          "frostfell",
+          "raid_spawn",
+          {
+            "zoneId": "frostfell",
+            "name": "Glacier-King Ymirheim",
+            "level": 18,
+            "hp": 59934,
+            "maxHp": 59934,
+            "endsIn": 600
+          }
+        ]
+      ],
+      "state": {
+        "raidStates": {
+          "__map": [
+            [
+              "frostfell",
+              {
+                "conf": {
+                  "type": "frost_titan",
+                  "name": "Glacier-King Ymirheim",
+                  "hue": 200,
+                  "scale": 1.9,
+                  "level": 18,
+                  "speed": 2,
+                  "element": "ice",
+                  "elementResist": {
+                    "fire": -0.4,
+                    "ice": 0.6,
+                    "holy": -0.2,
+                    "lightning": 0.3
+                  },
+                  "buffs": [
+                    "frostbite",
+                    "fortified"
+                  ],
+                  "hpMult": 7,
+                  "dmgMult": 1.25,
+                  "defMult": 1.5,
+                  "expMult": 3,
+                  "goldMult": 8,
+                  "cardTier": 2,
+                  "spawn": {
+                    "x": 89,
+                    "y": 20
+                  },
+                  "zone": {
+                    "minX": 83,
+                    "maxX": 94,
+                    "minY": 16,
+                    "maxY": 30
+                  },
+                  "windowMinutes": 10,
+                  "respawnMinutes": 12,
+                  "firstDelayMinutes": 2
+                },
+                "def": {
+                  "type": "frost_titan",
+                  "name": "Glacier-King Ymirheim",
+                  "level": 18,
+                  "hue": 200,
+                  "scale": 1.9,
+                  "element": "ice",
+                  "elementResist": {
+                    "fire": -0.4,
+                    "ice": 0.6,
+                    "holy": -0.2,
+                    "lightning": 0.3
+                  },
+                  "buffs": [
+                    "frostbite",
+                    "fortified"
+                  ],
+                  "maxHp": 59934,
+                  "dmg": 136,
+                  "def": 93,
+                  "exp": 3597,
+                  "gold": 1888,
+                  "cardTier": 2,
+                  "speed": 2,
+                  "spawn": {
+                    "x": 89,
+                    "y": 20
+                  },
+                  "zone": {
+                    "minX": 83,
+                    "maxX": 94,
+                    "minY": 16,
+                    "maxY": 30
+                  }
+                },
+                "mobId": "frostfell_raid_100",
+                "damage": {
+                  "__map": [
+                    [
+                      "p1",
+                      520.4
+                    ],
+                    [
+                      "p2",
+                      500.6
+                    ],
+                    [
+                      "p3",
+                      9999
+                    ],
+                    [
+                      "ghost",
+                      5000
+                    ]
+                  ]
+                },
+                "despawnAt": 1700000600000,
+                "lastBroadcast": 0
+              }
+            ]
+          ]
+        },
+        "raidNextSpawn": {
+          "__map": []
+        },
+        "nextEntityId": 101,
+        "mobs": [
+          [
+            "frostfell",
+            [
+              {
+                "id": "frostfell_raid_100",
+                "hp": 59934,
+                "state": "idle"
+              }
+            ]
+          ],
+          [
+            "celestial",
+            []
+          ]
+        ]
+      }
+    },
+    "leaderboard": {
+      "result": null,
+      "log": [
+        [
+          "zone",
+          "frostfell",
+          "raid_leaderboard",
+          {
+            "zoneId": "frostfell",
+            "name": "Glacier-King Ymirheim",
+            "level": 18,
+            "hp": 1235,
+            "maxHp": 59934,
+            "endsIn": 91,
+            "top": [
+              {
+                "id": "p2",
+                "name": "Ben",
+                "dmg": 300
+              },
+              {
+                "id": "p1",
+                "name": "Ann",
+                "dmg": 100
+              }
+            ],
+            "count": 2
+          }
+        ]
+      ],
+      "state": {
+        "raidStates": {
+          "__map": [
+            [
+              "frostfell",
+              {
+                "conf": {
+                  "type": "frost_titan",
+                  "name": "Glacier-King Ymirheim",
+                  "hue": 200,
+                  "scale": 1.9,
+                  "level": 18,
+                  "speed": 2,
+                  "element": "ice",
+                  "elementResist": {
+                    "fire": -0.4,
+                    "ice": 0.6,
+                    "holy": -0.2,
+                    "lightning": 0.3
+                  },
+                  "buffs": [
+                    "frostbite",
+                    "fortified"
+                  ],
+                  "hpMult": 7,
+                  "dmgMult": 1.25,
+                  "defMult": 1.5,
+                  "expMult": 3,
+                  "goldMult": 8,
+                  "cardTier": 2,
+                  "spawn": {
+                    "x": 89,
+                    "y": 20
+                  },
+                  "zone": {
+                    "minX": 83,
+                    "maxX": 94,
+                    "minY": 16,
+                    "maxY": 30
+                  },
+                  "windowMinutes": 10,
+                  "respawnMinutes": 12,
+                  "firstDelayMinutes": 2
+                },
+                "def": {
+                  "type": "frost_titan",
+                  "name": "Glacier-King Ymirheim",
+                  "level": 18,
+                  "hue": 200,
+                  "scale": 1.9,
+                  "element": "ice",
+                  "elementResist": {
+                    "fire": -0.4,
+                    "ice": 0.6,
+                    "holy": -0.2,
+                    "lightning": 0.3
+                  },
+                  "buffs": [
+                    "frostbite",
+                    "fortified"
+                  ],
+                  "maxHp": 59934,
+                  "dmg": 136,
+                  "def": 93,
+                  "exp": 3597,
+                  "gold": 1888,
+                  "cardTier": 2,
+                  "speed": 2,
+                  "spawn": {
+                    "x": 89,
+                    "y": 20
+                  },
+                  "zone": {
+                    "minX": 83,
+                    "maxX": 94,
+                    "minY": 16,
+                    "maxY": 30
+                  }
+                },
+                "mobId": "frostfell_raid_100",
+                "damage": {
+                  "__map": [
+                    [
+                      "p1",
+                      100
+                    ],
+                    [
+                      "p2",
+                      300
+                    ]
+                  ]
+                },
+                "despawnAt": 1700000090500,
+                "lastBroadcast": 0
+              }
+            ]
+          ]
+        },
+        "raidNextSpawn": {
+          "__map": []
+        },
+        "nextEntityId": 101,
+        "mobs": [
+          [
+            "frostfell",
+            [
+              {
+                "id": "frostfell_raid_100",
+                "hp": 1234.6,
+                "state": "dead"
+              }
+            ]
+          ],
+          [
+            "celestial",
+            []
+          ]
+        ]
+      }
+    },
+    "raidInfo": {
+      "result": {
+        "none": {
+          "active": false
+        },
+        "active": {
+          "active": true,
+          "zoneId": "frostfell",
+          "name": "Glacier-King Ymirheim",
+          "level": 18,
+          "hp": 59934,
+          "maxHp": 59934,
+          "endsIn": 600,
+          "top": [
+            {
+              "id": "p1",
+              "name": "Ann",
+              "dmg": 80
+            },
+            {
+              "id": "p2",
+              "name": "Ben",
+              "dmg": 77
+            }
+          ],
+          "count": 2
+        },
+        "negative": {
+          "active": true,
+          "zoneId": "frostfell",
+          "name": "Glacier-King Ymirheim",
+          "level": 18,
+          "hp": 0,
+          "maxHp": 59934,
+          "endsIn": 600,
+          "top": [
+            {
+              "id": "p1",
+              "name": "Ann",
+              "dmg": 80
+            },
+            {
+              "id": "p2",
+              "name": "Ben",
+              "dmg": 77
+            }
+          ],
+          "count": 2
+        },
+        "dead": {
+          "active": false
+        }
+      },
+      "log": [
+        [
+          "system",
+          "☠️ RAID EVENT! [Glacier-King Ymirheim] (Lv.18) has awakened in [Zone frostfell]! It won't fall alone."
+        ],
+        [
+          "zone",
+          "frostfell",
+          "raid_spawn",
+          {
+            "zoneId": "frostfell",
+            "name": "Glacier-King Ymirheim",
+            "level": 18,
+            "hp": 59934,
+            "maxHp": 59934,
+            "endsIn": 600
+          }
+        ]
+      ],
+      "state": {
+        "raidStates": {
+          "__map": [
+            [
+              "frostfell",
+              {
+                "conf": {
+                  "type": "frost_titan",
+                  "name": "Glacier-King Ymirheim",
+                  "hue": 200,
+                  "scale": 1.9,
+                  "level": 18,
+                  "speed": 2,
+                  "element": "ice",
+                  "elementResist": {
+                    "fire": -0.4,
+                    "ice": 0.6,
+                    "holy": -0.2,
+                    "lightning": 0.3
+                  },
+                  "buffs": [
+                    "frostbite",
+                    "fortified"
+                  ],
+                  "hpMult": 7,
+                  "dmgMult": 1.25,
+                  "defMult": 1.5,
+                  "expMult": 3,
+                  "goldMult": 8,
+                  "cardTier": 2,
+                  "spawn": {
+                    "x": 89,
+                    "y": 20
+                  },
+                  "zone": {
+                    "minX": 83,
+                    "maxX": 94,
+                    "minY": 16,
+                    "maxY": 30
+                  },
+                  "windowMinutes": 10,
+                  "respawnMinutes": 12,
+                  "firstDelayMinutes": 2
+                },
+                "def": {
+                  "type": "frost_titan",
+                  "name": "Glacier-King Ymirheim",
+                  "level": 18,
+                  "hue": 200,
+                  "scale": 1.9,
+                  "element": "ice",
+                  "elementResist": {
+                    "fire": -0.4,
+                    "ice": 0.6,
+                    "holy": -0.2,
+                    "lightning": 0.3
+                  },
+                  "buffs": [
+                    "frostbite",
+                    "fortified"
+                  ],
+                  "maxHp": 59934,
+                  "dmg": 136,
+                  "def": 93,
+                  "exp": 3597,
+                  "gold": 1888,
+                  "cardTier": 2,
+                  "speed": 2,
+                  "spawn": {
+                    "x": 89,
+                    "y": 20
+                  },
+                  "zone": {
+                    "minX": 83,
+                    "maxX": 94,
+                    "minY": 16,
+                    "maxY": 30
+                  }
+                },
+                "mobId": "frostfell_raid_100",
+                "damage": {
+                  "__map": [
+                    [
+                      "p2",
+                      77
+                    ],
+                    [
+                      "p1",
+                      80
+                    ]
+                  ]
+                },
+                "despawnAt": 1700000600000,
+                "lastBroadcast": 0
+              }
+            ]
+          ]
+        },
+        "raidNextSpawn": {
+          "__map": []
+        },
+        "nextEntityId": 101,
+        "mobs": [
+          [
+            "frostfell",
+            [
+              {
+                "id": "frostfell_raid_100",
+                "hp": -50,
+                "state": "dead"
+              }
+            ]
+          ],
+          [
+            "celestial",
+            []
+          ]
+        ]
+      }
+    },
+    "deathPaysByRank": {
+      "result": {
+        "paid": [
+          {
+            "p": "p2",
+            "def": "Glacier-King Ymirheim",
+            "bucket": {
+              "label": "#1 MVP",
+              "gold": 4,
+              "exp": 5,
+              "frag": [
+                8,
+                14
+              ],
+              "gear": 1,
+              "gearBoss": true,
+              "card": 0.5,
+              "mythic": true
+            },
+            "rank": 1,
+            "total": 3
+          },
+          {
+            "p": "p4",
+            "def": "Glacier-King Ymirheim",
+            "bucket": {
+              "label": "Top 3",
+              "gold": 2,
+              "exp": 3,
+              "frag": [
+                5,
+                9
+              ],
+              "gear": 0.65,
+              "gearBoss": true,
+              "card": 0.25,
+              "mythic": false
+            },
+            "rank": 2,
+            "total": 3
+          },
+          {
+            "p": "p1",
+            "def": "Glacier-King Ymirheim",
+            "bucket": {
+              "label": "Top 3",
+              "gold": 2,
+              "exp": 3,
+              "frag": [
+                5,
+                9
+              ],
+              "gear": 0.65,
+              "gearBoss": true,
+              "card": 0.25,
+              "mythic": false
+            },
+            "rank": 3,
+            "total": 3
+          }
+        ],
+        "stillThere": false
+      },
+      "log": [
+        [
+          "system",
+          "🏆 RAID SLAYED! [Glacier-King Ymirheim] has fallen! Damage: 1. Ben (900)  2. Di (400)  3. Ann (100)"
+        ],
+        [
+          "zone",
+          "frostfell",
+          "raid_gone",
+          {
+            "zoneId": "frostfell",
+            "reason": "kill"
+          }
+        ],
+        [
+          "zone",
+          "frostfell",
+          "mob_died",
+          {
+            "mobId": "frostfell_raid_100",
+            "killerId": "p2"
+          }
+        ]
+      ],
+      "state": {
+        "raidStates": {
+          "__map": []
+        },
+        "raidNextSpawn": {
+          "__map": [
+            [
+              "frostfell",
+              1700000720000
+            ]
+          ]
+        },
+        "nextEntityId": 101,
+        "mobs": [
+          [
+            "frostfell",
+            []
+          ],
+          [
+            "celestial",
+            []
+          ]
+        ]
+      }
+    },
+    "deathNobodyHitIt": {
+      "result": null,
+      "log": [
+        [
+          "system",
+          "🏆 RAID SLAYED! [Glacier-King Ymirheim] has fallen! Damage: no one recorded"
+        ],
+        [
+          "zone",
+          "frostfell",
+          "raid_gone",
+          {
+            "zoneId": "frostfell",
+            "reason": "kill"
+          }
+        ],
+        [
+          "zone",
+          "frostfell",
+          "mob_died",
+          {
+            "mobId": "frostfell_raid_100",
+            "killerId": null
+          }
+        ]
+      ],
+      "state": {
+        "raidStates": {
+          "__map": []
+        },
+        "raidNextSpawn": {
+          "__map": [
+            [
+              "frostfell",
+              1700000720000
+            ]
+          ]
+        },
+        "nextEntityId": 101,
+        "mobs": [
+          [
+            "frostfell",
+            []
+          ],
+          [
+            "celestial",
+            []
+          ]
+        ]
+      }
+    },
+    "deathIgnored": {
+      "result": {
+        "states": [
+          "frostfell"
+        ]
+      },
+      "log": [],
+      "state": {
+        "raidStates": {
+          "__map": [
+            [
+              "frostfell",
+              {
+                "conf": {
+                  "type": "frost_titan",
+                  "name": "Glacier-King Ymirheim",
+                  "hue": 200,
+                  "scale": 1.9,
+                  "level": 18,
+                  "speed": 2,
+                  "element": "ice",
+                  "elementResist": {
+                    "fire": -0.4,
+                    "ice": 0.6,
+                    "holy": -0.2,
+                    "lightning": 0.3
+                  },
+                  "buffs": [
+                    "frostbite",
+                    "fortified"
+                  ],
+                  "hpMult": 7,
+                  "dmgMult": 1.25,
+                  "defMult": 1.5,
+                  "expMult": 3,
+                  "goldMult": 8,
+                  "cardTier": 2,
+                  "spawn": {
+                    "x": 89,
+                    "y": 20
+                  },
+                  "zone": {
+                    "minX": 83,
+                    "maxX": 94,
+                    "minY": 16,
+                    "maxY": 30
+                  },
+                  "windowMinutes": 10,
+                  "respawnMinutes": 12,
+                  "firstDelayMinutes": 2
+                },
+                "def": {
+                  "type": "frost_titan",
+                  "name": "Glacier-King Ymirheim",
+                  "level": 18,
+                  "hue": 200,
+                  "scale": 1.9,
+                  "element": "ice",
+                  "elementResist": {
+                    "fire": -0.4,
+                    "ice": 0.6,
+                    "holy": -0.2,
+                    "lightning": 0.3
+                  },
+                  "buffs": [
+                    "frostbite",
+                    "fortified"
+                  ],
+                  "maxHp": 59934,
+                  "dmg": 136,
+                  "def": 93,
+                  "exp": 3597,
+                  "gold": 1888,
+                  "cardTier": 2,
+                  "speed": 2,
+                  "spawn": {
+                    "x": 89,
+                    "y": 20
+                  },
+                  "zone": {
+                    "minX": 83,
+                    "maxX": 94,
+                    "minY": 16,
+                    "maxY": 30
+                  }
+                },
+                "mobId": "frostfell_raid_100",
+                "damage": {
+                  "__map": []
+                },
+                "despawnAt": 1700000600000,
+                "lastBroadcast": 0
+              }
+            ]
+          ]
+        },
+        "raidNextSpawn": {
+          "__map": []
+        },
+        "nextEntityId": 101,
+        "mobs": [
+          [
+            "frostfell",
+            [
+              {
+                "id": "frostfell_raid_100",
+                "hp": 59934,
+                "state": "idle"
+              }
+            ]
+          ],
+          [
+            "celestial",
+            []
+          ]
+        ]
+      }
+    },
+    "deathZoneFromKiller": {
+      "result": null,
+      "log": [
+        [
+          "system",
+          "🏆 RAID SLAYED! [Glacier-King Ymirheim] has fallen! Damage: no one recorded"
+        ],
+        [
+          "zone",
+          "frostfell",
+          "raid_gone",
+          {
+            "zoneId": "frostfell",
+            "reason": "kill"
+          }
+        ],
+        [
+          "zone",
+          "frostfell",
+          "mob_died",
+          {
+            "mobId": "frostfell_raid_100",
+            "killerId": "p1"
+          }
+        ]
+      ],
+      "state": {
+        "raidStates": {
+          "__map": []
+        },
+        "raidNextSpawn": {
+          "__map": [
+            [
+              "frostfell",
+              1700000720000
+            ]
+          ]
+        },
+        "nextEntityId": 101,
+        "mobs": [
+          [
+            "frostfell",
+            []
+          ],
+          [
+            "celestial",
+            []
+          ]
+        ]
+      }
+    },
+    "reward_rank1_warrior": {
+      "result": {
+        "bucket": "#1 MVP"
+      },
+      "log": [
+        [
+          "loot",
+          "p1",
+          {
+            "type": "gold",
+            "amount": 7054
+          },
+          false
+        ],
+        [
+          "exp",
+          "p1",
+          18412
+        ],
+        [
+          "jobexp",
+          "p1",
+          18412
+        ],
+        [
+          "loot",
+          "p1",
+          {
+            "type": "item",
+            "itemId": "spirit_fragment",
+            "amount": 14
+          },
+          false
+        ],
+        [
+          "loot",
+          "p1",
+          {
+            "type": "item",
+            "itemId": "hunters_grips",
+            "customItemData": {
+              "id": "hunters_grips",
+              "name": "Sharp Masterwork Hunter's Grips of the Titan",
+              "type": "equipment",
+              "slot": "gloves",
+              "iconKey": "gloves_hunter",
+              "rarity": "epic",
+              "sellPrice": 169,
+              "bonusDmg": 15,
+              "critChance": 5.5,
+              "desc": "+15 DMG, +34 HP, +5.5% Crit, 🔥 Fire RES +17% (Masterwork Roll)",
+              "uniqueId": "hunters_grips_1700000000000_irsqrg",
+              "custom": true,
+              "quality": "Masterwork",
+              "itemLevel": 18,
+              "maxSockets": 0,
+              "sockets": [],
+              "brokenSockets": 0,
+              "elementResist": {
+                "fire": 0.17
+              },
+              "bonusHp": 34,
+              "suffix": "of the Titan",
+              "attrSlots": 2,
+              "attrs": [
+                {
+                  "k": "mp",
+                  "v": 39,
+                  "q": 0.704
+                },
+                {
+                  "k": "atkSpeed",
+                  "v": 6,
+                  "q": 0.422
+                }
+              ],
+              "baseName": "Masterwork Hunter's Grips of the Titan",
+              "reforge": "Sharp",
+              "reforgeStats": {
+                "bonusDmg": 9,
+                "critChance": 18,
+                "critDmg": 40
+              }
+            },
+            "amount": 1
+          },
+          false
+        ],
+        [
+          "p1",
+          "raid_reward",
+          {
+            "rank": 1,
+            "total": 8,
+            "label": "#1 MVP",
+            "gold": 7054,
+            "exp": 18412,
+            "fragments": 14,
+            "bossName": "Glacier-King Ymirheim"
+          }
+        ],
+        [
+          "p1",
+          "player_updated",
+          {
+            "id": "p1",
+            "name": "Ann",
+            "zone": "frostfell",
+            "characterClass": "warrior",
+            "level": 40,
+            "isDead": false
+          }
+        ]
+      ],
+      "state": {
+        "raidStates": {
+          "__map": []
+        },
+        "raidNextSpawn": {
+          "__map": []
+        },
+        "nextEntityId": 100,
+        "mobs": [
+          [
+            "frostfell",
+            []
+          ],
+          [
+            "celestial",
+            []
+          ]
+        ]
+      }
+    },
+    "reward_rank1_mage": {
+      "result": {
+        "bucket": "#1 MVP"
+      },
+      "log": [
+        [
+          "loot",
+          "p2",
+          {
+            "type": "gold",
+            "amount": 7051
+          },
+          false
+        ],
+        [
+          "exp",
+          "p2",
+          17434
+        ],
+        [
+          "jobexp",
+          "p2",
+          17434
+        ],
+        [
+          "loot",
+          "p2",
+          {
+            "type": "item",
+            "itemId": "spirit_fragment",
+            "amount": 13
+          },
+          false
+        ],
+        [
+          "loot",
+          "p2",
+          {
+            "type": "item",
+            "itemId": "sapphire_signet",
+            "customItemData": {
+              "id": "sapphire_signet",
+              "name": "Godly Honed Sapphire Signet",
+              "type": "equipment",
+              "slot": "ring",
+              "iconKey": "ring_sapphire",
+              "rarity": "rare",
+              "sellPrice": 117,
+              "bonusMp": 99,
+              "bonusDmg": 14,
+              "elementResist": {
+                "ice": 0.08,
+                "holy": 0.09
+              },
+              "desc": "+14 DMG, +99 MP, ❄️ Ice RES +8%, ✨ Holy RES +9% (Honed Roll)",
+              "uniqueId": "sapphire_signet_1700000000000_yibiuy",
+              "custom": true,
+              "quality": "Honed",
+              "itemLevel": 18,
+              "attrSlots": 2,
+              "attrs": [
+                {
+                  "k": "hp",
+                  "v": 52,
+                  "q": 0.708
+                },
+                {
+                  "k": "moveSpeed",
+                  "v": 0.12,
+                  "q": 0.527
+                }
+              ],
+              "baseName": "Honed Sapphire Signet",
+              "reforge": "Godly",
+              "reforgeStats": {
+                "bonusDmg": 7,
+                "critChance": 6,
+                "critDmg": 30
+              }
+            },
+            "amount": 1
+          },
+          false
+        ],
+        [
+          "loot",
+          "p2",
+          {
+            "type": "item",
+            "itemId": "sp_card",
+            "customItemData": {
+              "id": "sp_card_sp_cryo_sage",
+              "cardId": "sp_cryo_sage",
+              "type": "sp_card",
+              "slot": "sp",
+              "cls": "mage",
+              "name": "SP Card: Cryo Sage",
+              "rarity": "epic",
+              "upgradeLevel": 0,
+              "spScale": 10,
+              "sellPrice": 1000,
+              "desc": "Master of the long winter, freezing foes in place before shattering them. Requires Job Lv. 20.",
+              "custom": true
+            },
+            "amount": 1
+          },
+          false
+        ],
+        [
+          "system",
+          "🃏 [Ben] pulled an SP Card [Cryo Sage] from the raid bounty!"
+        ],
+        [
+          "p2",
+          "raid_reward",
+          {
+            "rank": 1,
+            "total": 8,
+            "label": "#1 MVP",
+            "gold": 7051,
+            "exp": 17434,
+            "fragments": 13,
+            "bossName": "Glacier-King Ymirheim"
+          }
+        ],
+        [
+          "p2",
+          "player_updated",
+          {
+            "id": "p2",
+            "name": "Ben",
+            "zone": "frostfell",
+            "characterClass": "mage",
+            "level": 40,
+            "isDead": false
+          }
+        ]
+      ],
+      "state": {
+        "raidStates": {
+          "__map": []
+        },
+        "raidNextSpawn": {
+          "__map": []
+        },
+        "nextEntityId": 100,
+        "mobs": [
+          [
+            "frostfell",
+            []
+          ],
+          [
+            "celestial",
+            []
+          ]
+        ]
+      }
+    },
+    "reward_rank1_rogue": {
+      "result": {
+        "bucket": "#1 MVP"
+      },
+      "log": [
+        [
+          "loot",
+          "p4",
+          {
+            "type": "gold",
+            "amount": 7052
+          },
+          false
+        ],
+        [
+          "exp",
+          "p4",
+          17760
+        ],
+        [
+          "jobexp",
+          "p4",
+          17760
+        ],
+        [
+          "loot",
+          "p4",
+          {
+            "type": "item",
+            "itemId": "spirit_fragment",
+            "amount": 11
+          },
+          false
+        ],
+        [
+          "loot",
+          "p4",
+          {
+            "type": "item",
+            "itemId": "venom_kris",
+            "customItemData": {
+              "id": "venom_kris",
+              "name": "Odd Honed Venom Fang Kris of the Zephyr",
+              "type": "equipment",
+              "slot": "weapon",
+              "iconKey": "dagger",
+              "rarity": "rare",
+              "sellPrice": 187,
+              "bonusDmg": 29,
+              "bonusAttackSpeed": 0.38,
+              "element": "earth",
+              "desc": "[🌿 Earth], +29 DMG, +0.48 SPD, +38% Atk Spd (Honed Roll)",
+              "cls": "rogue",
+              "abilityId": "wpn_venom_kris",
+              "uniqueId": "venom_kris_1700000000000_fpqoft",
+              "custom": true,
+              "quality": "Honed",
+              "itemLevel": 18,
+              "maxSockets": 0,
+              "sockets": [],
+              "brokenSockets": 0,
+              "bonusSpeed": 0.48,
+              "suffix": "of the Zephyr",
+              "attrSlots": 0,
+              "attrs": [],
+              "baseName": "Honed Venom Fang Kris of the Zephyr",
+              "reforge": "Odd",
+              "reforgeStats": {
+                "critChance": 14,
+                "critDmg": 45,
+                "bonusMp": -15
+              }
+            },
+            "amount": 1
+          },
+          false
+        ],
+        [
+          "loot",
+          "p4",
+          {
+            "type": "item",
+            "itemId": "sp_card",
+            "customItemData": {
+              "id": "sp_card_sp_venom_lord",
+              "cardId": "sp_venom_lord",
+              "type": "sp_card",
+              "slot": "sp",
+              "cls": "rogue",
+              "name": "SP Card: Venom Lord",
+              "rarity": "epic",
+              "upgradeLevel": 0,
+              "spScale": 10,
+              "sellPrice": 1000,
+              "desc": "Master of virulent toxins. Stacks lethal poison, spreads epidemics on kill, and detonates. Requires Job Lv. 20.",
+              "custom": true
+            },
+            "amount": 1
+          },
+          false
+        ],
+        [
+          "system",
+          "🃏 [Di] pulled an SP Card [Venom Lord] from the raid bounty!"
+        ],
+        [
+          "p4",
+          "raid_reward",
+          {
+            "rank": 1,
+            "total": 8,
+            "label": "#1 MVP",
+            "gold": 7052,
+            "exp": 17760,
+            "fragments": 11,
+            "bossName": "Glacier-King Ymirheim"
+          }
+        ],
+        [
+          "p4",
+          "player_updated",
+          {
+            "id": "p4",
+            "name": "Di",
+            "zone": "frostfell",
+            "characterClass": "rogue",
+            "level": 40,
+            "isDead": false
+          }
+        ]
+      ],
+      "state": {
+        "raidStates": {
+          "__map": []
+        },
+        "raidNextSpawn": {
+          "__map": []
+        },
+        "nextEntityId": 100,
+        "mobs": [
+          [
+            "frostfell",
+            []
+          ],
+          [
+            "celestial",
+            []
+          ]
+        ]
+      }
+    },
+    "reward_rank2_warrior": {
+      "result": {
+        "bucket": "Top 3"
+      },
+      "log": [
+        [
+          "loot",
+          "p1",
+          {
+            "type": "gold",
+            "amount": 3530
+          },
+          false
+        ],
+        [
+          "exp",
+          "p1",
+          10259
+        ],
+        [
+          "jobexp",
+          "p1",
+          10259
+        ],
+        [
+          "loot",
+          "p1",
+          {
+            "type": "item",
+            "itemId": "spirit_fragment",
+            "amount": 8
+          },
+          false
+        ],
+        [
+          "loot",
+          "p1",
+          {
+            "type": "item",
+            "itemId": "sweeping_claymore",
+            "customItemData": {
+              "id": "sweeping_claymore",
+              "name": "Masterwork Sweeping Claymore of the Zephyr",
+              "type": "equipment",
+              "slot": "weapon",
+              "icon": "⚔️",
+              "rarity": "epic",
+              "sellPrice": 195,
+              "bonusDmg": 31,
+              "bonusSwipe": 80,
+              "bonusAttackSpeed": 0.14,
+              "element": "earth",
+              "desc": "[🌿 Earth], +31 DMG, +0.3 SPD, +14% Atk Spd, +80% Swipe (Masterwork Roll)",
+              "cls": "warrior",
+              "abilityId": "wpn_sweeping_claymore",
+              "uniqueId": "sweeping_claymore_1700000000000_lle1qg",
+              "custom": true,
+              "quality": "Masterwork",
+              "itemLevel": 18,
+              "maxSockets": 2,
+              "sockets": [
+                null,
+                null
+              ],
+              "brokenSockets": 0,
+              "bonusSpeed": 0.3,
+              "suffix": "of the Zephyr",
+              "attrSlots": 1,
+              "attrs": [
+                {
+                  "k": "def",
+                  "v": 6,
+                  "q": 0.513
+                }
+              ]
+            },
+            "amount": 1
+          },
+          false
+        ],
+        [
+          "loot",
+          "p1",
+          {
+            "type": "item",
+            "itemId": "sp_card",
+            "customItemData": {
+              "id": "sp_card_sp_runeknight",
+              "cardId": "sp_runeknight",
+              "type": "sp_card",
+              "slot": "sp",
+              "cls": "warrior",
+              "name": "SP Card: Rune Knight",
+              "rarity": "epic",
+              "upgradeLevel": 0,
+              "spScale": 10,
+              "sellPrice": 1000,
+              "desc": "A scholar-knight whose greatsword is a spell focus. Every blow is carved with runes that echo — each cast replays itself moments later at half strength. Requires Job Lv. 20.",
+              "custom": true
+            },
+            "amount": 1
+          },
+          false
+        ],
+        [
+          "system",
+          "🃏 [Ann] pulled an SP Card [Rune Knight] from the raid bounty!"
+        ],
+        [
+          "p1",
+          "raid_reward",
+          {
+            "rank": 2,
+            "total": 8,
+            "label": "Top 3",
+            "gold": 3530,
+            "exp": 10259,
+            "fragments": 8,
+            "bossName": "Glacier-King Ymirheim"
+          }
+        ],
+        [
+          "p1",
+          "player_updated",
+          {
+            "id": "p1",
+            "name": "Ann",
+            "zone": "frostfell",
+            "characterClass": "warrior",
+            "level": 40,
+            "isDead": false
+          }
+        ]
+      ],
+      "state": {
+        "raidStates": {
+          "__map": []
+        },
+        "raidNextSpawn": {
+          "__map": []
+        },
+        "nextEntityId": 100,
+        "mobs": [
+          [
+            "frostfell",
+            []
+          ],
+          [
+            "celestial",
+            []
+          ]
+        ]
+      }
+    },
+    "reward_rank2_mage": {
+      "result": {
+        "bucket": "Top 3"
+      },
+      "log": [
+        [
+          "loot",
+          "p2",
+          {
+            "type": "gold",
+            "amount": 3529
+          },
+          false
+        ],
+        [
+          "exp",
+          "p2",
+          11830
+        ],
+        [
+          "jobexp",
+          "p2",
+          11830
+        ],
+        [
+          "loot",
+          "p2",
+          {
+            "type": "item",
+            "itemId": "spirit_fragment",
+            "amount": 8
+          },
+          false
+        ],
+        [
+          "loot",
+          "p2",
+          {
+            "type": "item",
+            "itemId": "sweeping_claymore",
+            "customItemData": {
+              "id": "sweeping_claymore",
+              "name": "Spicy Masterwork Sweeping Claymore of Savagery",
+              "type": "equipment",
+              "slot": "weapon",
+              "icon": "⚔️",
+              "rarity": "epic",
+              "sellPrice": 207,
+              "bonusDmg": 39,
+              "bonusSwipe": 85,
+              "bonusAttackSpeed": 0.14,
+              "element": "earth",
+              "desc": "[🌿 Earth], +39 DMG, +14% Atk Spd, +85% Swipe (Masterwork Roll)",
+              "cls": "warrior",
+              "abilityId": "wpn_sweeping_claymore",
+              "uniqueId": "sweeping_claymore_1700000000000_jmu9ax",
+              "custom": true,
+              "quality": "Masterwork",
+              "itemLevel": 18,
+              "maxSockets": 2,
+              "sockets": [
+                null,
+                null
+              ],
+              "brokenSockets": 0,
+              "suffix": "of Savagery",
+              "attrSlots": 1,
+              "attrs": [
+                {
+                  "k": "def",
+                  "v": 7,
+                  "q": 0.617
+                }
+              ],
+              "baseName": "Masterwork Sweeping Claymore of Savagery",
+              "reforge": "Spicy",
+              "reforgeStats": {
+                "bonusDmg": 12,
+                "critChance": 6,
+                "critDmg": 55,
+                "bonusAttackSpeed": 0.12
+              }
+            },
+            "amount": 1
+          },
+          false
+        ],
+        [
+          "p2",
+          "raid_reward",
+          {
+            "rank": 2,
+            "total": 8,
+            "label": "Top 3",
+            "gold": 3529,
+            "exp": 11830,
+            "fragments": 8,
+            "bossName": "Glacier-King Ymirheim"
+          }
+        ],
+        [
+          "p2",
+          "player_updated",
+          {
+            "id": "p2",
+            "name": "Ben",
+            "zone": "frostfell",
+            "characterClass": "mage",
+            "level": 40,
+            "isDead": false
+          }
+        ]
+      ],
+      "state": {
+        "raidStates": {
+          "__map": []
+        },
+        "raidNextSpawn": {
+          "__map": []
+        },
+        "nextEntityId": 100,
+        "mobs": [
+          [
+            "frostfell",
+            []
+          ],
+          [
+            "celestial",
+            []
+          ]
+        ]
+      }
+    },
+    "reward_rank2_rogue": {
+      "result": {
+        "bucket": "Top 3"
+      },
+      "log": [
+        [
+          "loot",
+          "p4",
+          {
+            "type": "gold",
+            "amount": 3529
+          },
+          false
+        ],
+        [
+          "exp",
+          "p4",
+          9868
+        ],
+        [
+          "jobexp",
+          "p4",
+          9868
+        ],
+        [
+          "loot",
+          "p4",
+          {
+            "type": "item",
+            "itemId": "spirit_fragment",
+            "amount": 6
+          },
+          false
+        ],
+        [
+          "loot",
+          "p4",
+          {
+            "type": "item",
+            "itemId": "sapphire_signet",
+            "customItemData": {
+              "id": "sapphire_signet",
+              "name": "Masterwork Sapphire Signet of Savagery",
+              "type": "equipment",
+              "slot": "ring",
+              "iconKey": "ring_sapphire",
+              "rarity": "epic",
+              "sellPrice": 181,
+              "bonusMp": 119,
+              "bonusDmg": 22,
+              "elementResist": {
+                "ice": 0.08,
+                "dark": 0.1
+              },
+              "desc": "+22 DMG, +119 MP, ❄️ Ice RES +8%, 💀 Dark RES +10% (Masterwork Roll)",
+              "uniqueId": "sapphire_signet_1700000000000_sfxv20",
+              "custom": true,
+              "quality": "Masterwork",
+              "itemLevel": 18,
+              "suffix": "of Savagery",
+              "attrSlots": 1,
+              "attrs": [
+                {
+                  "k": "moveSpeed",
+                  "v": 0.08,
+                  "q": 0.172
+                }
+              ]
+            },
+            "amount": 1
+          },
+          false
+        ],
+        [
+          "p4",
+          "raid_reward",
+          {
+            "rank": 2,
+            "total": 8,
+            "label": "Top 3",
+            "gold": 3529,
+            "exp": 9868,
+            "fragments": 6,
+            "bossName": "Glacier-King Ymirheim"
+          }
+        ],
+        [
+          "p4",
+          "player_updated",
+          {
+            "id": "p4",
+            "name": "Di",
+            "zone": "frostfell",
+            "characterClass": "rogue",
+            "level": 40,
+            "isDead": false
+          }
+        ]
+      ],
+      "state": {
+        "raidStates": {
+          "__map": []
+        },
+        "raidNextSpawn": {
+          "__map": []
+        },
+        "nextEntityId": 100,
+        "mobs": [
+          [
+            "frostfell",
+            []
+          ],
+          [
+            "celestial",
+            []
+          ]
+        ]
+      }
+    },
+    "reward_rank3_warrior": {
+      "result": {
+        "bucket": "Top 3"
+      },
+      "log": [
+        [
+          "loot",
+          "p1",
+          {
+            "type": "gold",
+            "amount": 3533
+          },
+          false
+        ],
+        [
+          "exp",
+          "p1",
+          11630
+        ],
+        [
+          "jobexp",
+          "p1",
+          11630
+        ],
+        [
+          "loot",
+          "p1",
+          {
+            "type": "item",
+            "itemId": "spirit_fragment",
+            "amount": 7
+          },
+          false
+        ],
+        [
+          "loot",
+          "p1",
+          {
+            "type": "item",
+            "itemId": "plate_cuirass",
+            "customItemData": {
+              "id": "plate_cuirass",
+              "name": "Ancient Masterwork Gilded Plate Armor of the Gale",
+              "type": "equipment",
+              "slot": "armor",
+              "icon": "🛡️",
+              "rarity": "epic",
+              "sellPrice": 236,
+              "bonusHp": 183,
+              "bonusDef": 18,
+              "elementResist": {
+                "fire": 0.1
+              },
+              "desc": "+18 DEF, +183 HP, +22% Atk Spd, 🔥 Fire RES +10% (Masterwork Roll)",
+              "uniqueId": "plate_cuirass_1700000000000_vg72s6",
+              "custom": true,
+              "quality": "Masterwork",
+              "itemLevel": 18,
+              "maxSockets": 1,
+              "sockets": [
+                null
+              ],
+              "brokenSockets": 0,
+              "bonusAttackSpeed": 0.22,
+              "suffix": "of the Gale",
+              "attrSlots": 3,
+              "attrs": [
+                {
+                  "k": "cdr",
+                  "v": 3,
+                  "q": 0.153
+                },
+                {
+                  "k": "moveSpeed",
+                  "v": 0.13,
+                  "q": 0.584
+                },
+                {
+                  "k": "def",
+                  "v": 6,
+                  "q": 0.426
+                }
+              ],
+              "baseName": "Masterwork Gilded Plate Armor of the Gale",
+              "reforge": "Ancient",
+              "reforgeStats": {
+                "bonusDmg": 12,
+                "critDmg": 38,
+                "bonusDef": 15
+              }
+            },
+            "amount": 1
+          },
+          false
+        ],
+        [
+          "p1",
+          "raid_reward",
+          {
+            "rank": 3,
+            "total": 8,
+            "label": "Top 3",
+            "gold": 3533,
+            "exp": 11630,
+            "fragments": 7,
+            "bossName": "Glacier-King Ymirheim"
+          }
+        ],
+        [
+          "p1",
+          "player_updated",
+          {
+            "id": "p1",
+            "name": "Ann",
+            "zone": "frostfell",
+            "characterClass": "warrior",
+            "level": 40,
+            "isDead": false
+          }
+        ]
+      ],
+      "state": {
+        "raidStates": {
+          "__map": []
+        },
+        "raidNextSpawn": {
+          "__map": []
+        },
+        "nextEntityId": 100,
+        "mobs": [
+          [
+            "frostfell",
+            []
+          ],
+          [
+            "celestial",
+            []
+          ]
+        ]
+      }
+    },
+    "reward_rank3_mage": {
+      "result": {
+        "bucket": "Top 3"
+      },
+      "log": [
+        [
+          "loot",
+          "p2",
+          {
+            "type": "gold",
+            "amount": 3532
+          },
+          false
+        ],
+        [
+          "exp",
+          "p2",
+          11043
+        ],
+        [
+          "jobexp",
+          "p2",
+          11043
+        ],
+        [
+          "loot",
+          "p2",
+          {
+            "type": "item",
+            "itemId": "spirit_fragment",
+            "amount": 7
+          },
+          false
+        ],
+        [
+          "loot",
+          "p2",
+          {
+            "type": "item",
+            "itemId": "ranger_jerkin",
+            "customItemData": {
+              "id": "ranger_jerkin",
+              "name": "Smart Honed Ranger's Jerkin of Sweeping Edge",
+              "type": "equipment",
+              "slot": "armor",
+              "iconKey": "armor_leather",
+              "rarity": "rare",
+              "sellPrice": 70,
+              "bonusDef": 8,
+              "bonusSpeed": 0.36,
+              "desc": "+8 DEF, +0.36 SPD, +36% Swipe (Honed Roll)",
+              "uniqueId": "ranger_jerkin_1700000000000_ig407g",
+              "custom": true,
+              "quality": "Honed",
+              "itemLevel": 18,
+              "maxSockets": 1,
+              "sockets": [
+                null
+              ],
+              "brokenSockets": 0,
+              "bonusSwipe": 36,
+              "suffix": "of Sweeping Edge",
+              "attrSlots": 0,
+              "attrs": [],
+              "baseName": "Honed Ranger's Jerkin of Sweeping Edge",
+              "reforge": "Smart",
+              "reforgeStats": {
+                "bonusMp": 40,
+                "bonusDef": 10,
+                "bonusHp": 25
+              }
+            },
+            "amount": 1
+          },
+          false
+        ],
+        [
+          "p2",
+          "raid_reward",
+          {
+            "rank": 3,
+            "total": 8,
+            "label": "Top 3",
+            "gold": 3532,
+            "exp": 11043,
+            "fragments": 7,
+            "bossName": "Glacier-King Ymirheim"
+          }
+        ],
+        [
+          "p2",
+          "player_updated",
+          {
+            "id": "p2",
+            "name": "Ben",
+            "zone": "frostfell",
+            "characterClass": "mage",
+            "level": 40,
+            "isDead": false
+          }
+        ]
+      ],
+      "state": {
+        "raidStates": {
+          "__map": []
+        },
+        "raidNextSpawn": {
+          "__map": []
+        },
+        "nextEntityId": 100,
+        "mobs": [
+          [
+            "frostfell",
+            []
+          ],
+          [
+            "celestial",
+            []
+          ]
+        ]
+      }
+    },
+    "reward_rank3_rogue": {
+      "result": {
+        "bucket": "Top 3"
+      },
+      "log": [
+        [
+          "loot",
+          "p4",
+          {
+            "type": "gold",
+            "amount": 3532
+          },
+          false
+        ],
+        [
+          "exp",
+          "p4",
+          11238
+        ],
+        [
+          "jobexp",
+          "p4",
+          11238
+        ],
+        [
+          "loot",
+          "p4",
+          {
+            "type": "item",
+            "itemId": "spirit_fragment",
+            "amount": 5
+          },
+          false
+        ],
+        [
+          "loot",
+          "p4",
+          {
+            "type": "item",
+            "itemId": "hunters_grips",
+            "customItemData": {
+              "id": "hunters_grips",
+              "name": "Masterwork Hunter's Grips of Sweeping Edge",
+              "type": "equipment",
+              "slot": "gloves",
+              "iconKey": "gloves_hunter",
+              "rarity": "epic",
+              "sellPrice": 168,
+              "bonusDmg": 15,
+              "critChance": 5.5,
+              "desc": "+15 DMG, +42% Swipe, +5.5% Crit (Masterwork Roll)",
+              "uniqueId": "hunters_grips_1700000000000_ys512d",
+              "custom": true,
+              "quality": "Masterwork",
+              "itemLevel": 18,
+              "maxSockets": 1,
+              "sockets": [
+                null
+              ],
+              "brokenSockets": 0,
+              "bonusSwipe": 42,
+              "suffix": "of Sweeping Edge",
+              "attrSlots": 3,
+              "attrs": [
+                {
+                  "k": "dmg",
+                  "v": 6,
+                  "q": 0.379
+                },
+                {
+                  "k": "critChance",
+                  "v": 2.6,
+                  "q": 0.458
+                },
+                {
+                  "k": "atkSpeed",
+                  "v": 5,
+                  "q": 0.283
+                }
+              ]
+            },
+            "amount": 1
+          },
+          false
+        ],
+        [
+          "p4",
+          "raid_reward",
+          {
+            "rank": 3,
+            "total": 8,
+            "label": "Top 3",
+            "gold": 3532,
+            "exp": 11238,
+            "fragments": 5,
+            "bossName": "Glacier-King Ymirheim"
+          }
+        ],
+        [
+          "p4",
+          "player_updated",
+          {
+            "id": "p4",
+            "name": "Di",
+            "zone": "frostfell",
+            "characterClass": "rogue",
+            "level": 40,
+            "isDead": false
+          }
+        ]
+      ],
+      "state": {
+        "raidStates": {
+          "__map": []
+        },
+        "raidNextSpawn": {
+          "__map": []
+        },
+        "nextEntityId": 100,
+        "mobs": [
+          [
+            "frostfell",
+            []
+          ],
+          [
+            "celestial",
+            []
+          ]
+        ]
+      }
+    },
+    "reward_rank4_warrior": {
+      "result": {
+        "bucket": "Top 10"
+      },
+      "log": [
+        [
+          "loot",
+          "p1",
+          {
+            "type": "gold",
+            "amount": 2122
+          },
+          false
+        ],
+        [
+          "exp",
+          "p1",
+          6505
+        ],
+        [
+          "jobexp",
+          "p1",
+          6505
+        ],
+        [
+          "loot",
+          "p1",
+          {
+            "type": "item",
+            "itemId": "spirit_fragment",
+            "amount": 4
+          },
+          false
+        ],
+        [
+          "p1",
+          "raid_reward",
+          {
+            "rank": 4,
+            "total": 8,
+            "label": "Top 10",
+            "gold": 2122,
+            "exp": 6505,
+            "fragments": 4,
+            "bossName": "Glacier-King Ymirheim"
+          }
+        ],
+        [
+          "p1",
+          "player_updated",
+          {
+            "id": "p1",
+            "name": "Ann",
+            "zone": "frostfell",
+            "characterClass": "warrior",
+            "level": 40,
+            "isDead": false
+          }
+        ]
+      ],
+      "state": {
+        "raidStates": {
+          "__map": []
+        },
+        "raidNextSpawn": {
+          "__map": []
+        },
+        "nextEntityId": 100,
+        "mobs": [
+          [
+            "frostfell",
+            []
+          ],
+          [
+            "celestial",
+            []
+          ]
+        ]
+      }
+    },
+    "reward_rank4_mage": {
+      "result": {
+        "bucket": "Top 10"
+      },
+      "log": [
+        [
+          "loot",
+          "p2",
+          {
+            "type": "gold",
+            "amount": 2121
+          },
+          false
+        ],
+        [
+          "exp",
+          "p2",
+          6153
+        ],
+        [
+          "jobexp",
+          "p2",
+          6153
+        ],
+        [
+          "loot",
+          "p2",
+          {
+            "type": "item",
+            "itemId": "spirit_fragment",
+            "amount": 3
+          },
+          false
+        ],
+        [
+          "p2",
+          "raid_reward",
+          {
+            "rank": 4,
+            "total": 8,
+            "label": "Top 10",
+            "gold": 2121,
+            "exp": 6153,
+            "fragments": 3,
+            "bossName": "Glacier-King Ymirheim"
+          }
+        ],
+        [
+          "p2",
+          "player_updated",
+          {
+            "id": "p2",
+            "name": "Ben",
+            "zone": "frostfell",
+            "characterClass": "mage",
+            "level": 40,
+            "isDead": false
+          }
+        ]
+      ],
+      "state": {
+        "raidStates": {
+          "__map": []
+        },
+        "raidNextSpawn": {
+          "__map": []
+        },
+        "nextEntityId": 100,
+        "mobs": [
+          [
+            "frostfell",
+            []
+          ],
+          [
+            "celestial",
+            []
+          ]
+        ]
+      }
+    },
+    "reward_rank4_rogue": {
+      "result": {
+        "bucket": "Top 10"
+      },
+      "log": [
+        [
+          "loot",
+          "p4",
+          {
+            "type": "gold",
+            "amount": 2121
+          },
+          false
+        ],
+        [
+          "exp",
+          "p4",
+          6270
+        ],
+        [
+          "jobexp",
+          "p4",
+          6270
+        ],
+        [
+          "loot",
+          "p4",
+          {
+            "type": "item",
+            "itemId": "spirit_fragment",
+            "amount": 6
+          },
+          false
+        ],
+        [
+          "loot",
+          "p4",
+          {
+            "type": "item",
+            "itemId": "sp_card",
+            "customItemData": {
+              "id": "sp_card_sp_venom_lord",
+              "cardId": "sp_venom_lord",
+              "type": "sp_card",
+              "slot": "sp",
+              "cls": "rogue",
+              "name": "SP Card: Venom Lord",
+              "rarity": "epic",
+              "upgradeLevel": 0,
+              "spScale": 10,
+              "sellPrice": 1000,
+              "desc": "Master of virulent toxins. Stacks lethal poison, spreads epidemics on kill, and detonates. Requires Job Lv. 20.",
+              "custom": true
+            },
+            "amount": 1
+          },
+          false
+        ],
+        [
+          "system",
+          "🃏 [Di] pulled an SP Card [Venom Lord] from the raid bounty!"
+        ],
+        [
+          "p4",
+          "raid_reward",
+          {
+            "rank": 4,
+            "total": 8,
+            "label": "Top 10",
+            "gold": 2121,
+            "exp": 6270,
+            "fragments": 6,
+            "bossName": "Glacier-King Ymirheim"
+          }
+        ],
+        [
+          "p4",
+          "player_updated",
+          {
+            "id": "p4",
+            "name": "Di",
+            "zone": "frostfell",
+            "characterClass": "rogue",
+            "level": 40,
+            "isDead": false
+          }
+        ]
+      ],
+      "state": {
+        "raidStates": {
+          "__map": []
+        },
+        "raidNextSpawn": {
+          "__map": []
+        },
+        "nextEntityId": 100,
+        "mobs": [
+          [
+            "frostfell",
+            []
+          ],
+          [
+            "celestial",
+            []
+          ]
+        ]
+      }
+    },
+    "reward_rank5_warrior": {
+      "result": {
+        "bucket": "Top 10"
+      },
+      "log": [
+        [
+          "loot",
+          "p1",
+          {
+            "type": "gold",
+            "amount": 2124
+          },
+          false
+        ],
+        [
+          "exp",
+          "p1",
+          6032
+        ],
+        [
+          "jobexp",
+          "p1",
+          6032
+        ],
+        [
+          "loot",
+          "p1",
+          {
+            "type": "item",
+            "itemId": "spirit_fragment",
+            "amount": 3
+          },
+          false
+        ],
+        [
+          "loot",
+          "p1",
+          {
+            "type": "item",
+            "itemId": "sp_card",
+            "customItemData": {
+              "id": "sp_card_sp_sentinel",
+              "cardId": "sp_sentinel",
+              "type": "sp_card",
+              "slot": "sp",
+              "cls": "warrior",
+              "name": "SP Card: Sentinel",
+              "rarity": "epic",
+              "upgradeLevel": 0,
+              "spScale": 10,
+              "sellPrice": 1000,
+              "desc": "The shield that never breaks. A holy bulwark of the king's hall — war cries that stun, fortresses that refuse to fall, a shield ram that scatters packs, and a Bulwark Mist that blinds anything daring to swing at him. Requires Job Lv. 20.",
+              "custom": true
+            },
+            "amount": 1
+          },
+          false
+        ],
+        [
+          "system",
+          "🃏 [Ann] pulled an SP Card [Sentinel] from the raid bounty!"
+        ],
+        [
+          "p1",
+          "raid_reward",
+          {
+            "rank": 5,
+            "total": 8,
+            "label": "Top 10",
+            "gold": 2124,
+            "exp": 6032,
+            "fragments": 3,
+            "bossName": "Glacier-King Ymirheim"
+          }
+        ],
+        [
+          "p1",
+          "player_updated",
+          {
+            "id": "p1",
+            "name": "Ann",
+            "zone": "frostfell",
+            "characterClass": "warrior",
+            "level": 40,
+            "isDead": false
+          }
+        ]
+      ],
+      "state": {
+        "raidStates": {
+          "__map": []
+        },
+        "raidNextSpawn": {
+          "__map": []
+        },
+        "nextEntityId": 100,
+        "mobs": [
+          [
+            "frostfell",
+            []
+          ],
+          [
+            "celestial",
+            []
+          ]
+        ]
+      }
+    },
+    "reward_rank5_mage": {
+      "result": {
+        "bucket": "Top 10"
+      },
+      "log": [
+        [
+          "loot",
+          "p2",
+          {
+            "type": "gold",
+            "amount": 2123
+          },
+          false
+        ],
+        [
+          "exp",
+          "p2",
+          6975
+        ],
+        [
+          "jobexp",
+          "p2",
+          6975
+        ],
+        [
+          "loot",
+          "p2",
+          {
+            "type": "item",
+            "itemId": "spirit_fragment",
+            "amount": 6
+          },
+          false
+        ],
+        [
+          "loot",
+          "p2",
+          {
+            "type": "item",
+            "itemId": "sp_card",
+            "customItemData": {
+              "id": "sp_card_sp_cryo_sage",
+              "cardId": "sp_cryo_sage",
+              "type": "sp_card",
+              "slot": "sp",
+              "cls": "mage",
+              "name": "SP Card: Cryo Sage",
+              "rarity": "epic",
+              "upgradeLevel": 0,
+              "spScale": 10,
+              "sellPrice": 1000,
+              "desc": "Master of the long winter, freezing foes in place before shattering them. Requires Job Lv. 20.",
+              "custom": true
+            },
+            "amount": 1
+          },
+          false
+        ],
+        [
+          "system",
+          "🃏 [Ben] pulled an SP Card [Cryo Sage] from the raid bounty!"
+        ],
+        [
+          "p2",
+          "raid_reward",
+          {
+            "rank": 5,
+            "total": 8,
+            "label": "Top 10",
+            "gold": 2123,
+            "exp": 6975,
+            "fragments": 6,
+            "bossName": "Glacier-King Ymirheim"
+          }
+        ],
+        [
+          "p2",
+          "player_updated",
+          {
+            "id": "p2",
+            "name": "Ben",
+            "zone": "frostfell",
+            "characterClass": "mage",
+            "level": 40,
+            "isDead": false
+          }
+        ]
+      ],
+      "state": {
+        "raidStates": {
+          "__map": []
+        },
+        "raidNextSpawn": {
+          "__map": []
+        },
+        "nextEntityId": 100,
+        "mobs": [
+          [
+            "frostfell",
+            []
+          ],
+          [
+            "celestial",
+            []
+          ]
+        ]
+      }
+    },
+    "reward_rank5_rogue": {
+      "result": {
+        "bucket": "Top 10"
+      },
+      "log": [
+        [
+          "loot",
+          "p4",
+          {
+            "type": "gold",
+            "amount": 2123
+          },
+          false
+        ],
+        [
+          "exp",
+          "p4",
+          7092
+        ],
+        [
+          "jobexp",
+          "p4",
+          7092
+        ],
+        [
+          "loot",
+          "p4",
+          {
+            "type": "item",
+            "itemId": "spirit_fragment",
+            "amount": 5
+          },
+          false
+        ],
+        [
+          "p4",
+          "raid_reward",
+          {
+            "rank": 5,
+            "total": 8,
+            "label": "Top 10",
+            "gold": 2123,
+            "exp": 7092,
+            "fragments": 5,
+            "bossName": "Glacier-King Ymirheim"
+          }
+        ],
+        [
+          "p4",
+          "player_updated",
+          {
+            "id": "p4",
+            "name": "Di",
+            "zone": "frostfell",
+            "characterClass": "rogue",
+            "level": 40,
+            "isDead": false
+          }
+        ]
+      ],
+      "state": {
+        "raidStates": {
+          "__map": []
+        },
+        "raidNextSpawn": {
+          "__map": []
+        },
+        "nextEntityId": 100,
+        "mobs": [
+          [
+            "frostfell",
+            []
+          ],
+          [
+            "celestial",
+            []
+          ]
+        ]
+      }
+    },
+    "reward_rank6_warrior": {
+      "result": {
+        "bucket": "Top 10"
+      },
+      "log": [
+        [
+          "loot",
+          "p1",
+          {
+            "type": "gold",
+            "amount": 2125
+          },
+          false
+        ],
+        [
+          "exp",
+          "p1",
+          6855
+        ],
+        [
+          "jobexp",
+          "p1",
+          6855
+        ],
+        [
+          "loot",
+          "p1",
+          {
+            "type": "item",
+            "itemId": "spirit_fragment",
+            "amount": 6
+          },
+          false
+        ],
+        [
+          "loot",
+          "p1",
+          {
+            "type": "item",
+            "itemId": "leather_tunic",
+            "customItemData": {
+              "id": "leather_tunic",
+              "name": "Pure Honed Rogue Leather Armor of the Titan",
+              "type": "equipment",
+              "slot": "armor",
+              "icon": "🥋",
+              "rarity": "rare",
+              "sellPrice": 70,
+              "bonusDef": 8,
+              "bonusSpeed": 0.48,
+              "desc": "+8 DEF, +67 HP, +0.48 SPD, ✨ Holy RES +6% (Honed Roll)",
+              "uniqueId": "leather_tunic_1700000000000_egskt9",
+              "custom": true,
+              "quality": "Honed",
+              "itemLevel": 18,
+              "maxSockets": 0,
+              "sockets": [],
+              "brokenSockets": 0,
+              "elementResist": {
+                "holy": 0.06
+              },
+              "bonusHp": 67,
+              "suffix": "of the Titan",
+              "attrSlots": 1,
+              "attrs": [
+                {
+                  "k": "atkSpeed",
+                  "v": 7,
+                  "q": 0.775
+                }
+              ],
+              "baseName": "Honed Rogue Leather Armor of the Titan",
+              "reforge": "Pure",
+              "reforgeStats": {
+                "bonusDmg": 4,
+                "bonusDef": 7,
+                "bonusHp": 35,
+                "bonusSpeed": 0.2,
+                "critChance": 4,
+                "critDmg": 16
+              }
+            },
+            "amount": 1
+          },
+          false
+        ],
+        [
+          "p1",
+          "raid_reward",
+          {
+            "rank": 6,
+            "total": 8,
+            "label": "Top 10",
+            "gold": 2125,
+            "exp": 6855,
+            "fragments": 6,
+            "bossName": "Glacier-King Ymirheim"
+          }
+        ],
+        [
+          "p1",
+          "player_updated",
+          {
+            "id": "p1",
+            "name": "Ann",
+            "zone": "frostfell",
+            "characterClass": "warrior",
+            "level": 40,
+            "isDead": false
+          }
+        ]
+      ],
+      "state": {
+        "raidStates": {
+          "__map": []
+        },
+        "raidNextSpawn": {
+          "__map": []
+        },
+        "nextEntityId": 100,
+        "mobs": [
+          [
+            "frostfell",
+            []
+          ],
+          [
+            "celestial",
+            []
+          ]
+        ]
+      }
+    },
+    "reward_rank6_mage": {
+      "result": {
+        "bucket": "Top 10"
+      },
+      "log": [
+        [
+          "loot",
+          "p2",
+          {
+            "type": "gold",
+            "amount": 2125
+          },
+          false
+        ],
+        [
+          "exp",
+          "p2",
+          6502
+        ],
+        [
+          "jobexp",
+          "p2",
+          6502
+        ],
+        [
+          "loot",
+          "p2",
+          {
+            "type": "item",
+            "itemId": "spirit_fragment",
+            "amount": 6
+          },
+          false
+        ],
+        [
+          "loot",
+          "p2",
+          {
+            "type": "item",
+            "itemId": "ruby_signet",
+            "customItemData": {
+              "id": "ruby_signet",
+              "name": "Pleasant Tempered Ruby Signet",
+              "type": "equipment",
+              "slot": "ring",
+              "iconKey": "ring_ruby",
+              "rarity": "uncommon",
+              "sellPrice": 105,
+              "bonusDmg": 16,
+              "elementResist": {
+                "fire": 0.08,
+                "holy": 0.08
+              },
+              "desc": "+16 DMG, 🔥 Fire RES +8%, ✨ Holy RES +8% (Tempered Roll)",
+              "uniqueId": "ruby_signet_1700000000000_yw6m68",
+              "custom": true,
+              "quality": "Tempered",
+              "itemLevel": 18,
+              "attrSlots": 0,
+              "attrs": [],
+              "baseName": "Tempered Ruby Signet",
+              "reforge": "Pleasant",
+              "reforgeStats": {
+                "bonusHp": 25
+              }
+            },
+            "amount": 1
+          },
+          false
+        ],
+        [
+          "loot",
+          "p2",
+          {
+            "type": "item",
+            "itemId": "sp_card",
+            "customItemData": {
+              "id": "sp_card_sp_cryo_sage",
+              "cardId": "sp_cryo_sage",
+              "type": "sp_card",
+              "slot": "sp",
+              "cls": "mage",
+              "name": "SP Card: Cryo Sage",
+              "rarity": "epic",
+              "upgradeLevel": 0,
+              "spScale": 10,
+              "sellPrice": 1000,
+              "desc": "Master of the long winter, freezing foes in place before shattering them. Requires Job Lv. 20.",
+              "custom": true
+            },
+            "amount": 1
+          },
+          false
+        ],
+        [
+          "system",
+          "🃏 [Ben] pulled an SP Card [Cryo Sage] from the raid bounty!"
+        ],
+        [
+          "p2",
+          "raid_reward",
+          {
+            "rank": 6,
+            "total": 8,
+            "label": "Top 10",
+            "gold": 2125,
+            "exp": 6502,
+            "fragments": 6,
+            "bossName": "Glacier-King Ymirheim"
+          }
+        ],
+        [
+          "p2",
+          "player_updated",
+          {
+            "id": "p2",
+            "name": "Ben",
+            "zone": "frostfell",
+            "characterClass": "mage",
+            "level": 40,
+            "isDead": false
+          }
+        ]
+      ],
+      "state": {
+        "raidStates": {
+          "__map": []
+        },
+        "raidNextSpawn": {
+          "__map": []
+        },
+        "nextEntityId": 100,
+        "mobs": [
+          [
+            "frostfell",
+            []
+          ],
+          [
+            "celestial",
+            []
+          ]
+        ]
+      }
+    },
+    "reward_rank6_rogue": {
+      "result": {
+        "bucket": "Top 10"
+      },
+      "log": [
+        [
+          "loot",
+          "p4",
+          {
+            "type": "gold",
+            "amount": 2125
+          },
+          false
+        ],
+        [
+          "exp",
+          "p4",
+          6620
+        ],
+        [
+          "jobexp",
+          "p4",
+          6620
+        ],
+        [
+          "loot",
+          "p4",
+          {
+            "type": "item",
+            "itemId": "spirit_fragment",
+            "amount": 4
+          },
+          false
+        ],
+        [
+          "loot",
+          "p4",
+          {
+            "type": "item",
+            "itemId": "plate_cuirass",
+            "customItemData": {
+              "id": "plate_cuirass",
+              "name": "Honed Gilded Plate Armor of the Titan",
+              "type": "equipment",
+              "slot": "armor",
+              "icon": "🛡️",
+              "rarity": "rare",
+              "sellPrice": 191,
+              "bonusHp": 178,
+              "bonusDef": 15,
+              "elementResist": {
+                "fire": 0.1,
+                "holy": 0.11
+              },
+              "desc": "+15 DEF, +178 HP, 🔥 Fire RES +10%, ✨ Holy RES +11% (Honed Roll)",
+              "uniqueId": "plate_cuirass_1700000000000_hsqj3g",
+              "custom": true,
+              "quality": "Honed",
+              "itemLevel": 18,
+              "maxSockets": 0,
+              "sockets": [],
+              "brokenSockets": 0,
+              "suffix": "of the Titan",
+              "attrSlots": 2,
+              "attrs": [
+                {
+                  "k": "mp",
+                  "v": 16,
+                  "q": 0.001
+                },
+                {
+                  "k": "def",
+                  "v": 5,
+                  "q": 0.278
+                }
+              ]
+            },
+            "amount": 1
+          },
+          false
+        ],
+        [
+          "p4",
+          "raid_reward",
+          {
+            "rank": 6,
+            "total": 8,
+            "label": "Top 10",
+            "gold": 2125,
+            "exp": 6620,
+            "fragments": 4,
+            "bossName": "Glacier-King Ymirheim"
+          }
+        ],
+        [
+          "p4",
+          "player_updated",
+          {
+            "id": "p4",
+            "name": "Di",
+            "zone": "frostfell",
+            "characterClass": "rogue",
+            "level": 40,
+            "isDead": false
+          }
+        ]
+      ],
+      "state": {
+        "raidStates": {
+          "__map": []
+        },
+        "raidNextSpawn": {
+          "__map": []
+        },
+        "nextEntityId": 100,
+        "mobs": [
+          [
+            "frostfell",
+            []
+          ],
+          [
+            "celestial",
+            []
+          ]
+        ]
+      }
+    },
+    "reward_rank7_warrior": {
+      "result": {
+        "bucket": "Top 10"
+      },
+      "log": [
+        [
+          "loot",
+          "p1",
+          {
+            "type": "gold",
+            "amount": 2127
+          },
+          false
+        ],
+        [
+          "exp",
+          "p1",
+          6382
+        ],
+        [
+          "jobexp",
+          "p1",
+          6382
+        ],
+        [
+          "loot",
+          "p1",
+          {
+            "type": "item",
+            "itemId": "spirit_fragment",
+            "amount": 5
+          },
+          false
+        ],
+        [
+          "p1",
+          "raid_reward",
+          {
+            "rank": 7,
+            "total": 8,
+            "label": "Top 10",
+            "gold": 2127,
+            "exp": 6382,
+            "fragments": 5,
+            "bossName": "Glacier-King Ymirheim"
+          }
+        ],
+        [
+          "p1",
+          "player_updated",
+          {
+            "id": "p1",
+            "name": "Ann",
+            "zone": "frostfell",
+            "characterClass": "warrior",
+            "level": 40,
+            "isDead": false
+          }
+        ]
+      ],
+      "state": {
+        "raidStates": {
+          "__map": []
+        },
+        "raidNextSpawn": {
+          "__map": []
+        },
+        "nextEntityId": 100,
+        "mobs": [
+          [
+            "frostfell",
+            []
+          ],
+          [
+            "celestial",
+            []
+          ]
+        ]
+      }
+    },
+    "reward_rank7_mage": {
+      "result": {
+        "bucket": "Top 10"
+      },
+      "log": [
+        [
+          "loot",
+          "p2",
+          {
+            "type": "gold",
+            "amount": 2127
+          },
+          false
+        ],
+        [
+          "exp",
+          "p2",
+          6029
+        ],
+        [
+          "jobexp",
+          "p2",
+          6029
+        ],
+        [
+          "loot",
+          "p2",
+          {
+            "type": "item",
+            "itemId": "spirit_fragment",
+            "amount": 5
+          },
+          false
+        ],
+        [
+          "loot",
+          "p2",
+          {
+            "type": "item",
+            "itemId": "leather_tunic",
+            "customItemData": {
+              "id": "leather_tunic",
+              "name": "Titanic Tempered Rogue Leather Armor of Savagery",
+              "type": "equipment",
+              "slot": "armor",
+              "icon": "🥋",
+              "rarity": "uncommon",
+              "sellPrice": 64,
+              "bonusDef": 8,
+              "bonusSpeed": 0.44,
+              "desc": "+11 DMG, +8 DEF, +0.44 SPD, 🌿 Earth RES +14% (Tempered Roll)",
+              "uniqueId": "leather_tunic_1700000000000_7swo8w",
+              "custom": true,
+              "quality": "Tempered",
+              "itemLevel": 18,
+              "maxSockets": 0,
+              "sockets": [],
+              "brokenSockets": 0,
+              "elementResist": {
+                "earth": 0.14
+              },
+              "bonusDmg": 11,
+              "suffix": "of Savagery",
+              "attrSlots": 1,
+              "attrs": [
+                {
+                  "k": "critChance",
+                  "v": 1.2,
+                  "q": 0.067
+                }
+              ],
+              "baseName": "Tempered Rogue Leather Armor of Savagery",
+              "reforge": "Titanic",
+              "reforgeStats": {
+                "bonusHp": 20,
+                "bonusDef": 5
+              }
+            },
+            "amount": 1
+          },
+          false
+        ],
+        [
+          "p2",
+          "raid_reward",
+          {
+            "rank": 7,
+            "total": 8,
+            "label": "Top 10",
+            "gold": 2127,
+            "exp": 6029,
+            "fragments": 5,
+            "bossName": "Glacier-King Ymirheim"
+          }
+        ],
+        [
+          "p2",
+          "player_updated",
+          {
+            "id": "p2",
+            "name": "Ben",
+            "zone": "frostfell",
+            "characterClass": "mage",
+            "level": 40,
+            "isDead": false
+          }
+        ]
+      ],
+      "state": {
+        "raidStates": {
+          "__map": []
+        },
+        "raidNextSpawn": {
+          "__map": []
+        },
+        "nextEntityId": 100,
+        "mobs": [
+          [
+            "frostfell",
+            []
+          ],
+          [
+            "celestial",
+            []
+          ]
+        ]
+      }
+    },
+    "reward_rank7_rogue": {
+      "result": {
+        "bucket": "Top 10"
+      },
+      "log": [
+        [
+          "loot",
+          "p4",
+          {
+            "type": "gold",
+            "amount": 2127
+          },
+          false
+        ],
+        [
+          "exp",
+          "p4",
+          6147
+        ],
+        [
+          "jobexp",
+          "p4",
+          6147
+        ],
+        [
+          "loot",
+          "p4",
+          {
+            "type": "item",
+            "itemId": "spirit_fragment",
+            "amount": 4
+          },
+          false
+        ],
+        [
+          "loot",
+          "p4",
+          {
+            "type": "item",
+            "itemId": "sp_card",
+            "customItemData": {
+              "id": "sp_card_sp_venom_lord",
+              "cardId": "sp_venom_lord",
+              "type": "sp_card",
+              "slot": "sp",
+              "cls": "rogue",
+              "name": "SP Card: Venom Lord",
+              "rarity": "epic",
+              "upgradeLevel": 0,
+              "spScale": 10,
+              "sellPrice": 1000,
+              "desc": "Master of virulent toxins. Stacks lethal poison, spreads epidemics on kill, and detonates. Requires Job Lv. 20.",
+              "custom": true
+            },
+            "amount": 1
+          },
+          false
+        ],
+        [
+          "system",
+          "🃏 [Di] pulled an SP Card [Venom Lord] from the raid bounty!"
+        ],
+        [
+          "p4",
+          "raid_reward",
+          {
+            "rank": 7,
+            "total": 8,
+            "label": "Top 10",
+            "gold": 2127,
+            "exp": 6147,
+            "fragments": 4,
+            "bossName": "Glacier-King Ymirheim"
+          }
+        ],
+        [
+          "p4",
+          "player_updated",
+          {
+            "id": "p4",
+            "name": "Di",
+            "zone": "frostfell",
+            "characterClass": "rogue",
+            "level": 40,
+            "isDead": false
+          }
+        ]
+      ],
+      "state": {
+        "raidStates": {
+          "__map": []
+        },
+        "raidNextSpawn": {
+          "__map": []
+        },
+        "nextEntityId": 100,
+        "mobs": [
+          [
+            "frostfell",
+            []
+          ],
+          [
+            "celestial",
+            []
+          ]
+        ]
+      }
+    },
+    "reward_rank8_warrior": {
+      "result": {
+        "bucket": "Top 10"
+      },
+      "log": [
+        [
+          "loot",
+          "p1",
+          {
+            "type": "gold",
+            "amount": 2129
+          },
+          false
+        ],
+        [
+          "exp",
+          "p1",
+          5909
+        ],
+        [
+          "jobexp",
+          "p1",
+          5909
+        ],
+        [
+          "loot",
+          "p1",
+          {
+            "type": "item",
+            "itemId": "spirit_fragment",
+            "amount": 4
+          },
+          false
+        ],
+        [
+          "loot",
+          "p1",
+          {
+            "type": "item",
+            "itemId": "sp_card",
+            "customItemData": {
+              "id": "sp_card_sp_reaver",
+              "cardId": "sp_reaver",
+              "type": "sp_card",
+              "slot": "sp",
+              "cls": "warrior",
+              "name": "SP Card: Reaver",
+              "rarity": "epic",
+              "upgradeLevel": 0,
+              "spScale": 10,
+              "sellPrice": 1000,
+              "desc": "A living bonfire with a greatsword. Pyre Slashes stack long-burning flames, a toggled Flame Stance scours the ground around him, and Firebrand Chain drags the blaze through whole packs. Requires Job Lv. 20.",
+              "custom": true
+            },
+            "amount": 1
+          },
+          false
+        ],
+        [
+          "system",
+          "🃏 [Ann] pulled an SP Card [Reaver] from the raid bounty!"
+        ],
+        [
+          "p1",
+          "raid_reward",
+          {
+            "rank": 8,
+            "total": 8,
+            "label": "Top 10",
+            "gold": 2129,
+            "exp": 5909,
+            "fragments": 4,
+            "bossName": "Glacier-King Ymirheim"
+          }
+        ],
+        [
+          "p1",
+          "player_updated",
+          {
+            "id": "p1",
+            "name": "Ann",
+            "zone": "frostfell",
+            "characterClass": "warrior",
+            "level": 40,
+            "isDead": false
+          }
+        ]
+      ],
+      "state": {
+        "raidStates": {
+          "__map": []
+        },
+        "raidNextSpawn": {
+          "__map": []
+        },
+        "nextEntityId": 100,
+        "mobs": [
+          [
+            "frostfell",
+            []
+          ],
+          [
+            "celestial",
+            []
+          ]
+        ]
+      }
+    },
+    "reward_rank8_mage": {
+      "result": {
+        "bucket": "Top 10"
+      },
+      "log": [
+        [
+          "loot",
+          "p2",
+          {
+            "type": "gold",
+            "amount": 2128
+          },
+          false
+        ],
+        [
+          "exp",
+          "p2",
+          6852
+        ],
+        [
+          "jobexp",
+          "p2",
+          6852
+        ],
+        [
+          "loot",
+          "p2",
+          {
+            "type": "item",
+            "itemId": "spirit_fragment",
+            "amount": 4
+          },
+          false
+        ],
+        [
+          "loot",
+          "p2",
+          {
+            "type": "item",
+            "itemId": "sp_card",
+            "customItemData": {
+              "id": "sp_card_sp_cryo_sage",
+              "cardId": "sp_cryo_sage",
+              "type": "sp_card",
+              "slot": "sp",
+              "cls": "mage",
+              "name": "SP Card: Cryo Sage",
+              "rarity": "epic",
+              "upgradeLevel": 0,
+              "spScale": 10,
+              "sellPrice": 1000,
+              "desc": "Master of the long winter, freezing foes in place before shattering them. Requires Job Lv. 20.",
+              "custom": true
+            },
+            "amount": 1
+          },
+          false
+        ],
+        [
+          "system",
+          "🃏 [Ben] pulled an SP Card [Cryo Sage] from the raid bounty!"
+        ],
+        [
+          "p2",
+          "raid_reward",
+          {
+            "rank": 8,
+            "total": 8,
+            "label": "Top 10",
+            "gold": 2128,
+            "exp": 6852,
+            "fragments": 4,
+            "bossName": "Glacier-King Ymirheim"
+          }
+        ],
+        [
+          "p2",
+          "player_updated",
+          {
+            "id": "p2",
+            "name": "Ben",
+            "zone": "frostfell",
+            "characterClass": "mage",
+            "level": 40,
+            "isDead": false
+          }
+        ]
+      ],
+      "state": {
+        "raidStates": {
+          "__map": []
+        },
+        "raidNextSpawn": {
+          "__map": []
+        },
+        "nextEntityId": 100,
+        "mobs": [
+          [
+            "frostfell",
+            []
+          ],
+          [
+            "celestial",
+            []
+          ]
+        ]
+      }
+    },
+    "reward_rank8_rogue": {
+      "result": {
+        "bucket": "Top 10"
+      },
+      "log": [
+        [
+          "loot",
+          "p4",
+          {
+            "type": "gold",
+            "amount": 2129
+          },
+          false
+        ],
+        [
+          "exp",
+          "p4",
+          6969
+        ],
+        [
+          "jobexp",
+          "p4",
+          6969
+        ],
+        [
+          "loot",
+          "p4",
+          {
+            "type": "item",
+            "itemId": "spirit_fragment",
+            "amount": 3
+          },
+          false
+        ],
+        [
+          "p4",
+          "raid_reward",
+          {
+            "rank": 8,
+            "total": 8,
+            "label": "Top 10",
+            "gold": 2129,
+            "exp": 6969,
+            "fragments": 3,
+            "bossName": "Glacier-King Ymirheim"
+          }
+        ],
+        [
+          "p4",
+          "player_updated",
+          {
+            "id": "p4",
+            "name": "Di",
+            "zone": "frostfell",
+            "characterClass": "rogue",
+            "level": 40,
+            "isDead": false
+          }
+        ]
+      ],
+      "state": {
+        "raidStates": {
+          "__map": []
+        },
+        "raidNextSpawn": {
+          "__map": []
+        },
+        "nextEntityId": 100,
+        "mobs": [
+          [
+            "frostfell",
+            []
+          ],
+          [
+            "celestial",
+            []
+          ]
+        ]
+      }
+    },
+    "rewardPlayerWithoutSocket": {
+      "result": null,
+      "log": [
+        [
+          "loot",
+          "p3",
+          {
+            "type": "gold",
+            "amount": 7130
+          },
+          false
+        ],
+        [
+          "exp",
+          "p3",
+          17695
+        ],
+        [
+          "jobexp",
+          "p3",
+          17695
+        ],
+        [
+          "loot",
+          "p3",
+          {
+            "type": "item",
+            "itemId": "spirit_fragment",
+            "amount": 13
+          },
+          false
+        ],
+        [
+          "loot",
+          "p3",
+          {
+            "type": "item",
+            "itemId": "iron_gauntlets",
+            "customItemData": {
+              "id": "iron_gauntlets",
+              "name": "Fast Masterwork Iron Gauntlets of the Titan",
+              "type": "equipment",
+              "slot": "gloves",
+              "iconKey": "gloves_iron",
+              "rarity": "epic",
+              "sellPrice": 69,
+              "bonusDmg": 17,
+              "desc": "+17 DMG, +41 HP, ✨ Holy RES +18% (Masterwork Roll)",
+              "uniqueId": "iron_gauntlets_1700000000000_ji8sll",
+              "custom": true,
+              "quality": "Masterwork",
+              "itemLevel": 18,
+              "maxSockets": 0,
+              "sockets": [],
+              "brokenSockets": 0,
+              "elementResist": {
+                "holy": 0.18
+              },
+              "bonusHp": 41,
+              "suffix": "of the Titan",
+              "attrSlots": 3,
+              "attrs": [
+                {
+                  "k": "critDmg",
+                  "v": 7,
+                  "q": 0.107
+                },
+                {
+                  "k": "hpRegen",
+                  "v": 3.8,
+                  "q": 0.589
+                },
+                {
+                  "k": "mpRegen",
+                  "v": 2.1,
+                  "q": 0.628
+                }
+              ],
+              "baseName": "Masterwork Iron Gauntlets of the Titan",
+              "reforge": "Fast",
+              "reforgeStats": {
+                "bonusAttackSpeed": 0.32,
+                "bonusSpeed": 0.6
+              }
+            },
+            "amount": 1
+          },
+          false
+        ],
+        [
+          "loot",
+          "p3",
+          {
+            "type": "item",
+            "itemId": "sp_card",
+            "customItemData": {
+              "id": "sp_card_sp_venom_lord",
+              "cardId": "sp_venom_lord",
+              "type": "sp_card",
+              "slot": "sp",
+              "cls": "rogue",
+              "name": "SP Card: Venom Lord",
+              "rarity": "epic",
+              "upgradeLevel": 0,
+              "spScale": 10,
+              "sellPrice": 1000,
+              "desc": "Master of virulent toxins. Stacks lethal poison, spreads epidemics on kill, and detonates. Requires Job Lv. 20.",
+              "custom": true
+            },
+            "amount": 1
+          },
+          false
+        ],
+        [
+          "system",
+          "🃏 [Cy] pulled an SP Card [Venom Lord] from the raid bounty!"
+        ]
+      ],
+      "state": {
+        "raidStates": {
+          "__map": []
+        },
+        "raidNextSpawn": {
+          "__map": []
+        },
+        "nextEntityId": 100,
+        "mobs": [
+          [
+            "frostfell",
+            []
+          ],
+          [
+            "celestial",
+            []
+          ]
+        ]
+      }
+    }
+  }
+}

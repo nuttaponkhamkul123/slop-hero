@@ -1,0 +1,6 @@
+{
+  "className": "DungeonRunSystem",
+  "field": "dungeonRun",
+  "description": "Dungeon runs: run state, doors and room spawning, kill progress toward the boss portal, the clear and failure payouts, and the dungeon loot chests.",
+  "methods": ["getPlayerDungeonInstance", "newDungeonRun", "updateDungeonRooms", "spawnDungeonRoom", "cleanupDungeonInstanceIfEmpty", "handleOpenChest", "emitDungeonRunUpdate", "completeDungeonRun", "endDungeonRun", "countDungeonProgress"]
+}

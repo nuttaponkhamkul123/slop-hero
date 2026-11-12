@@ -14,6 +14,7 @@ import rings from './data/items/rings.json';
 import runes from './data/items/runes.json';
 import craftingMats from './data/items/crafting.json';
 import armorSets from './data/items/sets.json';
+import type { Item } from './entities/types';
 
 // Armor sets: wearing 2 / 4 pieces turns on the set's bonuses (see data/items/sets.json)
 const ARMOR_SETS: Record<string, any> = armorSets;
@@ -99,7 +100,7 @@ const WEAPON_POWERS: Record<string, any> = {
   gatekeeper_greatsword: { dmgMult: 0.7, sweepReach: 2.5, sweepArc: 220, minSwipe: 80 },
   sunfire_conduit: { dmgMult: 1.1, fireChannel: 5 }
 };
-function weaponPower(item) {
+function weaponPower(item: Item) {
   return (item && WEAPON_POWERS[item.id]) || null;
 }
 // Cooldowns above are scaled by this (rounded to 0.5s) so right-click stays snappy
@@ -112,19 +113,19 @@ const ELEMENT_COLORS = { neutral: '#e2e8f0', fire: '#f97316', ice: '#67e8f9', li
     const element = (weapon && weapon.element) || 'neutral';
     // cdExact: the cooldown is used as written (no scaling, no 1s floor)
     if (!a.cdExact) a.cd = Math.max(1, Math.round(a.cd * WEAPON_ABILITY_CD_MULT * 2) / 2);
-    normalizeSpSkill('wpn_' + weaponId, Object.assign(a, { element, color: ELEMENT_COLORS[element] || ELEMENT_COLORS.neutral }));
+    normalizeSpSkill('wpn_' + weaponId, Object.assign(a, { element, color: (ELEMENT_COLORS as any)[element] || ELEMENT_COLORS.neutral }));
     if (weapon) weapon.abilityId = a.id;
   }
 }
 
 // The ability of a weapon item (by base id, so items saved earlier work too)
-function weaponAbility(item) {
+function weaponAbility(item: Item) {
   return (item && WEAPON_ABILITIES[item.id]) || null;
 }
 
 // Class required to equip an item, or null if anyone can. Looks up the base
 // definition so items saved before the class lock still get checked.
-function requiredClass(item) {
+function requiredClass(item: Item) {
   if (!item) return null;
   const base = ITEMS[item.id];
   return (base && base.cls) || item.cls || null;
@@ -151,7 +152,7 @@ const GEAR_POOLS = {
 for (const s of Object.values(ARMOR_SETS) as any[]) GEAR_POOLS.boss.push(...s.pieces);
 
 // How many pieces of each armor set a hero has on: { setId: count }
-function equippedSetCounts(equipment) {
+function equippedSetCounts(equipment: any) {
   const counts: Record<string, number> = {};
   for (const eq of Object.values(equipment || {}) as any[]) {
     const setId = eq && ((ITEMS[eq.id] && ITEMS[eq.id].setId) || eq.setId);
@@ -160,8 +161,8 @@ function equippedSetCounts(equipment) {
   return counts;
 }
 
-function pickGear(pool) {
-  const list = GEAR_POOLS[pool] || GEAR_POOLS.common;
+function pickGear(pool: any) {
+  const list = (GEAR_POOLS as any)[pool] || GEAR_POOLS.common;
   return list[Math.floor(Math.random() * list.length)];
 }
 
@@ -176,24 +177,24 @@ const BOSS_TIER_WEIGHT = { common: 0.15, rare: 0.5, epic: 1, legendary: 0.6 };
 const BOSS_LEVEL_REACH = 20;      // bosses also drop tiers up to this many levels above them
 const CLASS_WEAPON_SHARE = 0.6;   // share of weapon drops that fit the killer's class
 const GEAR_TIER = {};
-for (const id of GEAR_POOLS.common) GEAR_TIER[id] = 'common';
-for (const id of GEAR_POOLS.rare) GEAR_TIER[id] = 'rare';
-for (const id of GEAR_POOLS.boss) GEAR_TIER[id] = ITEMS[id].rarity === 'legendary' ? 'legendary' : 'epic';
+for (const id of GEAR_POOLS.common) (GEAR_TIER as any)[id] = 'common';
+for (const id of GEAR_POOLS.rare) (GEAR_TIER as any)[id] = 'rare';
+for (const id of GEAR_POOLS.boss) (GEAR_TIER as any)[id] = ITEMS[id].rarity === 'legendary' ? 'legendary' : 'epic';
 
-function weightedPick(entries) {
-  const total = entries.reduce((t, e) => t + e.w, 0);
+function weightedPick(entries: any) {
+  const total = entries.reduce((t: any, e: any) => t + e.w, 0);
   let r = Math.random() * total;
   for (const e of entries) if ((r -= e.w) <= 0) return e.id;
   return entries[entries.length - 1].id;
 }
 
 // Gear id for a drop at `level`; cls biases weapon drops toward that class
-function pickGearForLevel(level, { boss = false, cls = null } = {}) {
+function pickGearForLevel(level: any, { boss = false, cls = null }: { boss?: boolean; cls?: string | null } = {}) {
   const weights = boss ? BOSS_TIER_WEIGHT : NORMAL_TIER_WEIGHT;
   const reach = boss ? BOSS_LEVEL_REACH : 0;
   const fits = (Object.entries(GEAR_TIER) as [string, number][])
-    .filter(([, tier]) => weights[tier] > 0 && GEAR_TIER_BANDS[tier][0] <= level + reach && level <= GEAR_TIER_BANDS[tier][1])
-    .map(([id, tier]) => ({ id, w: weights[tier] }));
+    .filter(([, tier]) => (weights as any)[tier] > 0 && ((GEAR_TIER_BANDS as any)[tier] as any)[0] <= level + reach && level <= ((GEAR_TIER_BANDS as any)[tier] as any)[1])
+    .map(([id, tier]) => ({ id, w: (weights as any)[tier] }));
   if (!fits.length) return pickGear(boss ? 'boss' : 'common');
 
   const weapons = fits.filter(e => ITEMS[e.id].slot === 'weapon');
@@ -212,12 +213,12 @@ const ENHANCE_COST_GROWTH = 1.55;
 const ENHANCE_CHANCE = [1, 1, 1, 0.9, 0.8, 0.7, 0.6, 0.5, 0.42, 0.35, 0.28, 0.22, 0.17, 0.13, 0.1];
 const ENHANCE_SAFE_LEVEL = 7;
 
-function enhanceCost(item) {
+function enhanceCost(item: Item) {
   const lvl = item.upgradeLevel || 0;
-  return Math.round((ENHANCE_BASE_COST[item.rarity] || ENHANCE_BASE_COST.common) * Math.pow(ENHANCE_COST_GROWTH, lvl));
+  return Math.round(((ENHANCE_BASE_COST as any)[item.rarity] || ENHANCE_BASE_COST.common) * Math.pow(ENHANCE_COST_GROWTH, lvl));
 }
 
-function enhanceChance(item) {
+function enhanceChance(item: Item) {
   return ENHANCE_CHANCE[item.upgradeLevel || 0] || 0;
 }
 
@@ -231,7 +232,7 @@ const RESIST_ELEMENTS = ['fire', 'ice', 'lightning', 'earth', 'holy', 'dark'];
 // itemLevel = level of the monster (or dungeon floor band) that dropped it.
 // Stats grow smoothly with it: every 10 item levels is worth what one dungeon
 // floor used to be (+3 base attack, +0.08 quality roll, +22% suffix).
-function generateRandomizedGear(baseId, itemLevel = 1, isBoss = false) {
+function generateRandomizedGear(baseId: any, itemLevel = 1, isBoss = false) {
   const base = ITEMS[baseId];
   if (!base || base.type !== 'equipment') return { ...(base || {}) };
   itemLevel = Math.max(1, Math.round(itemLevel));
@@ -355,7 +356,7 @@ function generateRandomizedGear(baseId, itemLevel = 1, isBoss = false) {
   const statList = [];
   if (item.element && item.element !== 'neutral') {
     const elIcons = { fire: '🔥 Fire', ice: '❄️ Ice', lightning: '⚡ Lightning', earth: '🌿 Earth', holy: '✨ Holy', dark: '💀 Dark' };
-    statList.push(`[${elIcons[item.element] || item.element}]`);
+    statList.push(`[${(elIcons as any)[item.element] || item.element}]`);
   }
   if (item.bonusDmg) statList.push(`+${item.bonusDmg} DMG`);
   if (item.bonusDef) statList.push(`+${item.bonusDef} DEF`);
@@ -368,7 +369,7 @@ function generateRandomizedGear(baseId, itemLevel = 1, isBoss = false) {
   if (item.critDmg) statList.push(`+${item.critDmg}% Crit DMG`);
   if (item.elementResist) {
     for (const [el, rawVal] of Object.entries(item.elementResist)) { const val = rawVal as number;
-      const info = ELEMENT_INFO[el];
+      const info = (ELEMENT_INFO as any)[el];
       statList.push(`${info ? `${info.icon} ${info.name}` : el} RES +${Math.round(val * 100)}%`);
     }
   }
@@ -562,14 +563,14 @@ const SKYBLOCK_REFORGES = {
   }
 };
 
-function getReforgeCategory(slot) {
+function getReforgeCategory(slot: any) {
   if (slot === 'weapon' || slot === 'gloves') return 'weapon';   // gloves are attack gear: weapon reforges
   if (slot === 'armor' || slot === 'helmet' || slot === 'boots' || slot === 'cape') return 'armor';
   if (slot === 'ring') return 'ring';
   return 'armor';
 }
 
-function rollSkyblockReforge(item) {
+function rollSkyblockReforge(item: Item) {
   if (!item || item.type !== 'equipment') return null;
   const catKey = getReforgeCategory(item.slot);
   const options = SKYBLOCK_REFORGES[catKey];
@@ -583,10 +584,10 @@ function rollSkyblockReforge(item) {
   return chosenName;
 }
 
-function applySkyblockReforge(item, reforgeName) {
+function applySkyblockReforge(item: Item, reforgeName: any) {
   if (!item || item.type !== 'equipment' || !reforgeName) return item;
   const catKey = getReforgeCategory(item.slot);
-  const reforgeDef = SKYBLOCK_REFORGES[catKey] && SKYBLOCK_REFORGES[catKey][reforgeName];
+  const reforgeDef = SKYBLOCK_REFORGES[catKey] && (SKYBLOCK_REFORGES[catKey] as any)[reforgeName];
   if (!reforgeDef) return item;
 
   // reforges have four strengths: uncommon gear gets the common one, divine the legendary one
@@ -648,7 +649,7 @@ export const SOCKET_EXPANDER_DROP_CHANCE = 0.0000005; // 0.00005% drop chance fr
 
 export const RUNES_DEF: Record<string, any> = {
   flame: { id: 'rune_flame', runeType: 'flame', name: 'Infernal Flame', icon: '🔴', color: '#ef4444', desc: '+25% Damage & Persistent Burn DoT' },
-  frost: { id: 'rune_frost', runeType: 'frost', name: 'Glacial Frost', icon: '🔵', color: '#38bdf8', desc: '40% Chill Slow & 25% Freeze Chance' },
+  frost: { id: 'rune_frost', runeType: 'frost', name: 'Glacial Frost', icon: '🔵', color: '#38bdf8', desc: '50% Chill Slow & 25% Freeze Chance' },
   tempest: { id: 'rune_tempest', runeType: 'tempest', name: 'Tempest Surge', icon: '⚡', color: '#eab308', desc: '-20% Cooldown & +10% Shock DMG' },
   vampiric: { id: 'rune_vampiric', runeType: 'vampiric', name: 'Vampiric Drain', icon: '🟣', color: '#a855f7', desc: '25% Damage Dealt as HP Life Leech' }
 };

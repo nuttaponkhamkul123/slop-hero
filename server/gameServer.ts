@@ -43,445 +43,148 @@ import * as RIFT from './eternalRift';
 import * as CRAFT from './crafting';
 import * as DMODS from './dungeonMods';
 import * as ATTR from './itemAttributes';
-const SP_TRANSFORM_COOLDOWN = 3.2; // 8s reduced by 60% (* 0.4)
-
-// Global tuning knob for every skill's damage against monsters
-// (multiplies player.dmg * skill.dmgMult before rune/berserk/crit).
-const SKILL_DAMAGE_SCALE = 0.9;
-// Cosmetic player effects (Effects dialog): the trail ids a hero may wear (the look is in public/js/trails.js)
-const TRAIL_IDS = new Set(['afterimage', 'ember', 'frost', 'shadow', 'sakura', 'lightning', 'stardust', 'toxic', 'rainbow']);
-// Field props break after a few hits and grow back after PROP_RESPAWN_S seconds
-const PROP_RESPAWN_S = 20;
-const PROP_HITS: Record<string, number> = {
-  cactus: 2, dead_tree: 3, ice_crystal: 3, giant_mushroom: 3, oak_tree: 4, pine_tree: 4, snow_pine: 4,
-  boulder: 5, stone_pillar: 5, frost_monolith: 6
-};
-// Berserker blood auras (SP 'aura' skills): need this share of max HP to switch
-// one on, and all of them fade once HP is drained down to BLOOD_AURA_MIN_HP
-const BLOOD_AURA_START_HP = 0.2;
-const BLOOD_AURA_MIN_HP = 0.1;
-// Mana tuning. Skill costs grow with level so they keep pace with max MP
-// (+15 per level): cost = base * MANA_COST_SCALE * (1 + MANA_COST_PER_LEVEL * (level - 1)).
-// Regen per second = MANA_REGEN_PCT of max MP + MANA_REGEN_FLAT.
-const MANA_COST_SCALE = 0.9;
-const MANA_COST_PER_LEVEL = 0.05;
-const MANA_REGEN_PCT = 0.035;
-const MANA_REGEN_FLAT = 3;
-// Bag size of a new hero, and the most backpack expanders can raise it to
-const DEFAULT_BAG_SLOTS = 150;
-const MAX_BAG_SLOTS = 240;
-// Dungeon boss portal: opens once this share of the run's monsters (weighted) are dead.
-// Minibosses are worth DUNGEON_MINIBOSS_WEIGHT ordinary monsters.
-const DUNGEON_PORTAL_SHARE = 0.5;
-const DUNGEON_MINIBOSS_WEIGHT = 8;
-const dungeonProgressWeight = (m: any) => (m.isMiniboss || m.mechanics === 'miniboss' ? DUNGEON_MINIBOSS_WEIGHT : 1);
-// Natural HP regen per second, as a share of max HP (gear and attributes add flat regen on top)
-const HP_REGEN_PCT = 0.015;
-// Melee basic-attack cleave: reach past the attack range (tiles) and the default
-// arc (degrees, cos 0.35 either side of the facing); sweep weapons add to both
-const SWEEP_EXTRA_REACH = 1.15;
-// A swing that arrives this close to the end of the attack cooldown (25 Hz tick steps
-// plus network jitter) still lands: the client has already played it. The leftover is
-// carried into the next cooldown, so the attack rate itself never goes up.
-const ATTACK_GRACE_S = 0.15;
-const SWEEP_ARC_DEG = Math.round((Math.acos(0.35) * 360) / Math.PI);
-// Mage card mechanics (see spCards.js): caps and timers
-const SCORCH_MAX = 5, SCORCH_SECONDS = 6;
-const FROST_TO_FREEZE = 3, FROST_SECONDS = 5, FREEZE_SECONDS = 2, BOSS_FREEZE_SECONDS = 0.8;
-// Tempest Caller: Conductor marks on enemies, arcs between marked enemies, delayed Thunderclap
-const CONDUCT_MAX = 3, CONDUCT_SECONDS = 7, CONDUCT_FORK_RANGE = 4.5, CONDUCT_FORK_MAX = 3, CONDUCT_FORK_SHARE = 0.4;
-const VOID_SOUL_MAX = 10, VOID_SOUL_SECONDS = 12, VOID_SOUL_BONUS = 0.04;
-// SP signature charge: per landed hit, per kill, per full max HP of damage taken;
-// at most ULT_MAX_GAIN_PER_SEC a second, none while a signature is still playing out
-const ULT_COOLDOWN = 1, ULT_CHARGE_MAX = 100, ULT_GAIN_HIT = 1, ULT_GAIN_KILL = 4, ULT_GAIN_HURT = 60, ULT_MAX_GAIN_PER_SEC = 10, ULT_LOCK_SECONDS = 4;
-const ECHO_DAMAGE = 0.6;
-// Check a hero's bag / gear / skills for changes this often (in ticks) when building snapshots
-const HEAVY_CHECK_TICKS = Number(process.env.HEAVY_CHECK_TICKS) || 5;
-
-// Variant warrior card mechanics (see spCards.ts)
-const FRACTURE_MAX = 5, FRACTURE_SECONDS = 6, FRACTURE_STUN = 0.35;         // Gravelord
-const HEAT_MAX = 100, HEAT_HOLD_MS = 3000, HEAT_DECAY = 10;                   // Reaver: Heat fades 10/s after 3s idle
-const OVERHEAT_SECONDS = 6, OVERHEAT_BONUS = 0.4, OVERHEAT_BURN = 0.015;     // Reaver Overheat
-const RUNE_MAX = 4, RUNE_POLL = 0.25, RUNE_ARM_MS = 400, RUNE_TRIGGER_R = 1.1; // Rune Knight glyphs
-const COMBO_MAX = 6, COMBO_SECONDS = 4, COMBO_BONUS = 0.1;                   // Warchief
-// Dragoon Lightning Rods (spCards: rod / rodArc / overload): at most DG_ROD_MAX planted at once,
-// each lasting DG_ROD_SECONDS; the sky strikes every rod every DG_ROD_EVERY s (DG_ROD_MULT x ATK
-// within DG_ROD_R), and a rod links to the next one planted within DG_FENCE_RANGE by an arc fence
-// (DG_FENCE_MULT x ATK to enemies within DG_FENCE_W of it, and a short slow)
-const DG_ROD_MAX = 3, DG_ROD_SECONDS = 8, DG_ROD_EVERY = 1.2, DG_ROD_R = 1.6, DG_ROD_MULT = 0.45;
-const DG_FENCE_RANGE = 7, DG_FENCE_W = 0.7, DG_FENCE_MULT = 0.3, DG_OVERLOAD_R = 2.4, DG_ARC_RANGE = 4.5;
-// Gravelord undead minions (Raise the Fallen): monsters' corpses stay raisable for
-// GRAVE_CORPSE_MS; minions chase the nearest enemy within MINION_AGGRO (staying within
-// MINION_LEASH of their lord), hit every MINION_ATTACK_EVERY s for `mult` x the lord's ATK
-const GRAVE_CORPSE_MS = 12000, GRAVE_CORPSE_MAX = 40, MINION_MAX = 5;
-const MINION_SPEED = 4.2, MINION_REACH = 1.1, MINION_ATTACK_EVERY = 0.9, MINION_AGGRO = 8, MINION_LEASH = 11;
-let minionSeq = 0;
-let spObjSeq = 0; // ids for placed card objects (glyphs, banners, lances) so the client can clear them
-// Skills a Nightblade shadow does not copy: tossing the shadow itself, and ones that only move or buff the hero
-const SHADOW_SKIPS_SHAPES = new Set(['shadow', 'aura', 'rewind', 'buff']);
-const REWIND_SAMPLE_S = 0.25, REWIND_KEEP_S = 4;
-// Dungeon snapshots carry only mobs a hero in the instance could see: the iso
-// screen is a diamond in world space, |dx - dy| and |dx + dy| bounded (sized
-// for a 1920x1080 view at the furthest zoom-out, 0.65)
-const MOB_VIEW_ISO_X = 50;
-const MOB_VIEW_ISO_Y = 56;
-// Dungeon ticks are diffs; the full mob + chest list goes out this often (s)
-const MOB_FULL_REFRESH_S = 5;
-// Dungeon monsters rise this long when their room opens (no AI meanwhile)
-const DUNGEON_SPAWN_MS = 1000;
-// Most floating texts (damage numbers...) one room receives per tick; the
-// rest of a huge AoE burst is dropped rather than flooding the clients
-const FLOATING_TEXT_BATCH_MAX = 40;
-const mobInView = (m, p) => {
-  const dx = m.x - p.x, dy = m.y - p.y;
-  return Math.abs(dx - dy) <= MOB_VIEW_ISO_X && Math.abs(dx + dy) <= MOB_VIEW_ISO_Y;
-};
-
-// Share of the escrowed chest loot a player keeps when a dungeon run fails
-// (leaving, dying or disconnecting before the boss is defeated).
-const FAILED_RUN_LOOT_KEEP = 0.3;
-
-// ================= MASSIVE CLASS SKILL ARSENAL (24 SKILLS) =================
-const ALL_CLASS_SKILLS = {
-  // === WARRIOR SKILLS (Lv 1 - 60) ===
-  whirlwind: {
-    id: 'whirlwind', class: 'warrior', reqLevel: 1, name: 'Whirlwind Slash', icon: '🌪️', category: 'AoE Physical', fxType: 'whirlwind',
-    mpCost: 14, cooldown: 3.5, radius: 3.4, dmgMult: 2.0, damageMultiplier: 2.0,
-    desc: 'Spin continuously dealing 2.0x Physical damage in a 360° cyclone around you.'
-  },
-  blade_charge: {
-    id: 'blade_charge', class: 'warrior', reqLevel: 1, isDash: true, name: 'Blade Charge', icon: '⚔️', category: 'Mobility Rush', fxType: 'blade_charge',
-    mpCost: 10, cooldown: 3.0, distance: 4.8, dmgMult: 1.8, damageMultiplier: 1.8,
-    desc: 'Rush forward piercing enemies for 1.8x damage and knocking them back.'
-  },
-  shield_slam: {
-    id: 'shield_slam', class: 'warrior', reqLevel: 5, name: 'Aegis Shield Bash', icon: '🛡️', category: 'Stun & Shield', fxType: 'shield_slam',
-    mpCost: 15, cooldown: 4.0, radius: 2.4, dmgMult: 2.4, damageMultiplier: 2.4, stunDuration: 2.0, shieldHp: 80,
-    desc: 'Slam enemies with an iron aegis, dealing 2.4x damage, stunning for 2s, and granting an 80 HP shield.'
-  },
-  earthshaker: {
-    id: 'earthshaker', class: 'warrior', reqLevel: 10, name: 'Earthshaker Slam', icon: '💥', category: 'AoE Stun / Slow', fxType: 'earthshaker',
-    mpCost: 16, cooldown: 4.5, radius: 3.4, dmgMult: 2.2, damageMultiplier: 2.2, slowDuration: 2.5,
-    desc: 'Strike the ground with colossal force, dealing 2.2x damage and slowing foes by 50% for 2.5s.'
-  },
-  blood_rage: {
-    id: 'blood_rage', class: 'warrior', reqLevel: 15, name: 'Berserker Blood Rage', icon: '🩸', category: 'Self Buff', fxType: 'blood_rage',
-    mpCost: 12, cooldown: 7.0, duration: 6.0, bonusDmgPct: 0.35, lifestealPct: 0.04,
-    desc: 'Sacrifice 8% HP to enter a berserk state for 6s: +35% DMG and 4% Life Steal on attacks.'
-  },
-  iron_fortress: {
-    id: 'iron_fortress', class: 'warrior', reqLevel: 20, name: 'Iron Fortress', icon: '🏰', category: 'Defense / Thorns', fxType: 'iron_fortress',
-    mpCost: 18, cooldown: 8.0, duration: 4.5, damageReduction: 0.60, thornsDmg: 25,
-    desc: 'Assume an immovable iron stance for 4.5s: reduce damage taken by 60% and reflect 25 damage back to attackers.'
-  },
-  war_stomp: {
-    id: 'war_stomp', class: 'warrior', reqLevel: 25, name: 'Thunder War Stomp', icon: '⚡', category: 'Vortex CC', fxType: 'war_stomp',
-    mpCost: 20, cooldown: 5.5, radius: 4.2, dmgMult: 2.1, damageMultiplier: 2.1, stunDuration: 1.8,
-    desc: 'Stomp with seismic thunder, pulling all nearby enemies toward you, dealing 2.1x damage and stunning for 1.8s.'
-  },
-  colossus_strike: {
-    id: 'colossus_strike', class: 'warrior', reqLevel: 30, name: 'Colossus Decapitate', icon: '🗡️', category: 'Ultimate Burst', fxType: 'colossus_strike',
-    mpCost: 28, cooldown: 9.0, radius: 3.0, dmgMult: 3.8, damageMultiplier: 3.8,
-    desc: '[ULTIMATE] Leap high and smash down a colossal greatblade strike for 3.8x devastating burst damage!'
-  },
-  dragon_roar: {
-    id: 'dragon_roar', class: 'warrior', reqLevel: 35, name: "Dragon's Battle Cry", icon: '🐲', category: 'AoE Fear & Buff', fxType: 'dragon_roar',
-    mpCost: 22, cooldown: 8.0, radius: 4.5, dmgMult: 2.6, damageMultiplier: 2.6, duration: 6.0,
-    desc: 'Unleash a primeval dragon roar dealing 2.6x damage, fearing foes for 2s and granting +40% ATK for 6s.'
-  },
-  meteor_dive: {
-    id: 'meteor_dive', class: 'warrior', reqLevel: 40, name: 'Heavenly Meteor Dive', icon: '☄️', category: 'Leap & Crater', fxType: 'meteor_dive',
-    mpCost: 26, cooldown: 7.5, radius: 4.0, dmgMult: 3.4, damageMultiplier: 3.4,
-    desc: 'Leap into the heavens and crash like a meteor onto target zone, dealing 3.4x damage and leaving a burning crater.'
-  },
-  bladestorm_frenzy: {
-    id: 'bladestorm_frenzy', class: 'warrior', reqLevel: 45, name: 'Bladestorm Hurricane', icon: '🌀', category: 'Sustained Heavy AoE', fxType: 'bladestorm_frenzy',
-    mpCost: 30, cooldown: 9.0, radius: 4.2, dmgMult: 3.8, damageMultiplier: 3.8,
-    desc: 'Enter an unstoppable whirlwind of steel, cutting nearby enemies 4 times for 3.8x total damage with crowd control immunity.'
-  },
-  titan_bastion: {
-    id: 'titan_bastion', class: 'warrior', reqLevel: 50, name: "Titan's Immortal Bastion", icon: '🏛️', category: 'Ultimate Shield Wall', fxType: 'titan_bastion',
-    mpCost: 25, cooldown: 12.0, duration: 5.0, shieldHp: 350,
-    desc: 'Summon the golden bastion of the Titans: grant 350 HP shield, crowd control immunity, and +30% Armor for 5s.'
-  },
-  sundering_cleave: {
-    id: 'sundering_cleave', class: 'warrior', reqLevel: 55, name: 'Sundering World Cleave', icon: '🪓', category: 'Linear Armor Shatter', fxType: 'sundering_cleave',
-    mpCost: 28, cooldown: 7.0, distance: 9.0, dmgMult: 4.2, damageMultiplier: 4.2,
-    desc: 'Shatter reality forward in an earth-shattering fissure, dealing 4.2x damage and reducing enemy defense by 40% for 5s.'
-  },
-  ragnarok_slash: {
-    id: 'ragnarok_slash', class: 'warrior', reqLevel: 60, name: 'Ragnarök Godslayer', icon: '👑', category: 'Grand Ultimate', fxType: 'ragnarok_slash',
-    mpCost: 45, cooldown: 14.0, radius: 5.5, dmgMult: 5.5, damageMultiplier: 5.5,
-    desc: '[LV. 60 GRAND ULTIMATE] Channel primordial god-slaying fury: unleash 4 colossal golden cross-cleaves across the screen for 5.5x cataclysmic burst damage!'
-  },
-
-  // === MAGE SKILLS (Lv 1 - 60) ===
-  firestorm: {
-    id: 'firestorm', class: 'mage', reqLevel: 1, name: 'Firestorm Meteor', icon: '🔥', category: 'AoE Burn', fxType: 'firestorm',
-    mpCost: 22, cooldown: 4.5, radius: 3.8, dmgMult: 2.4, damageMultiplier: 2.4, burnDuration: 3.0, burnDmg: 12,
-    desc: 'Call down apocalyptic burning meteors dealing 2.4x damage and setting foes ablaze with Burn DoT.'
-  },
-  arcane_blink: {
-    id: 'arcane_blink', class: 'mage', reqLevel: 1, isDash: true, name: 'Arcane Blink', icon: '🔮', category: 'Mobility Teleport', fxType: 'arcane_blink',
-    mpCost: 15, cooldown: 3.5, distance: 5.2, dmgMult: 1.5, damageMultiplier: 1.5, radius: 2.4,
-    desc: 'Teleport instantly in your movement direction, cleansing debuffs and releasing an arcane shockwave.'
-  },
-  frost_nova: {
-    id: 'frost_nova', class: 'mage', reqLevel: 5, name: 'Frost Nova', icon: '❄️', category: 'AoE Freeze / Chill', fxType: 'frost_nova',
-    mpCost: 18, cooldown: 4.0, radius: 4.0, dmgMult: 1.8, damageMultiplier: 1.8, chillDuration: 3.5,
-    desc: 'Release an expanding glacial ring dealing 1.8x damage and chilling enemies by 50% for 3.5s.'
-  },
-  chain_lightning: {
-    id: 'chain_lightning', class: 'mage', reqLevel: 10, name: 'Chain Lightning', icon: '⚡', category: 'Targeted Shock', fxType: 'chain_lightning',
-    mpCost: 20, cooldown: 4.0, bounces: 5, dmgMult: 2.2, damageMultiplier: 2.2,
-    desc: 'Cast crackling lightning that arcs across up to 5 nearby monsters, dealing 2.2x electric shock damage.'
-  },
-  mana_shield: {
-    id: 'mana_shield', class: 'mage', reqLevel: 15, name: 'Arcane Mana Barrier', icon: '✨', category: 'Defensive Shield', fxType: 'mana_shield',
-    mpCost: 15, cooldown: 8.0, duration: 6.0, absorbHp: 120,
-    desc: 'Surround yourself with a prismatic arcane sphere absorbing up to 120 damage using Mana for 6s.'
-  },
-  pyroblast: {
-    id: 'pyroblast', class: 'mage', reqLevel: 20, name: 'Pyroblast Nova', icon: '☄️', category: 'Burst Fireball', fxType: 'pyroblast',
-    mpCost: 24, cooldown: 5.0, radius: 3.2, dmgMult: 3.2, damageMultiplier: 3.2, burnDuration: 4.0, burnDmg: 16,
-    desc: 'Hurl an enormous molten fire orb that pierces and explodes for 3.2x burst damage + deep burn.'
-  },
-  blizzard: {
-    id: 'blizzard', class: 'mage', reqLevel: 25, name: 'Glacial Blizzard', icon: '🌨️', category: 'AoE Freeze Hail', fxType: 'blizzard',
-    mpCost: 25, cooldown: 6.0, radius: 4.4, dmgMult: 2.5, damageMultiplier: 2.5, freezeDuration: 2.0,
-    desc: 'Summon a vicious hail of razor ice shards over an area, dealing 2.5x damage and freezing enemies solid.'
-  },
-  black_hole: {
-    id: 'black_hole', class: 'mage', reqLevel: 30, name: 'Cosmic Singularity', icon: '🌌', category: 'Ultimate Gravity', fxType: 'black_hole',
-    mpCost: 32, cooldown: 10.0, radius: 4.8, dmgMult: 3.6, damageMultiplier: 3.6, duration: 2.2,
-    desc: '[ULTIMATE] Open a gravitational singularity that sucks all foes to the epicenter then violently implodes for 3.6x damage!'
-  },
-  thunder_storm: {
-    id: 'thunder_storm', class: 'mage', reqLevel: 35, name: 'Tempest Cataclysm', icon: '🌩️', category: 'Multi-Lightning Storm', fxType: 'thunder_storm',
-    mpCost: 28, cooldown: 7.5, radius: 4.5, dmgMult: 3.5, damageMultiplier: 3.5,
-    desc: 'Summon torrential stormclouds that strike 6 rapid lightning bolts, electrocuting all foes for 3.5x damage.'
-  },
-  glacial_comet: {
-    id: 'glacial_comet', class: 'mage', reqLevel: 40, name: 'Crystalline Glacial Comet', icon: '🧊', category: 'Frost Impact / Freeze', fxType: 'glacial_comet',
-    mpCost: 30, cooldown: 8.0, radius: 4.2, dmgMult: 3.8, damageMultiplier: 3.8,
-    desc: 'Pull down a massive crystalline comet from the void, crashing for 3.8x damage and encasing all targets in deep freeze.'
-  },
-  arcane_hyperbeam: {
-    id: 'arcane_hyperbeam', class: 'mage', reqLevel: 45, name: 'Disintegration Hyperbeam', icon: '💫', category: 'Linear Death Ray', fxType: 'arcane_hyperbeam',
-    mpCost: 34, cooldown: 8.5, distance: 10.0, dmgMult: 4.0, damageMultiplier: 4.0,
-    desc: 'Channel an unrelenting prismatic antimatter laser piercing through all foes in front of you for 4.0x damage.'
-  },
-  time_dilation: {
-    id: 'time_dilation', class: 'mage', reqLevel: 50, name: 'Chrono Time Warp', icon: '⏳', category: 'Chrono Control', fxType: 'time_dilation',
-    mpCost: 32, cooldown: 13.0, radius: 5.0, duration: 4.5,
-    desc: 'Bend space-time into a Chronosphere: slow all enemy movements and attacks by 80% while granting you +50% Cast Speed.'
-  },
-  supernova_blast: {
-    id: 'supernova_blast', class: 'mage', reqLevel: 55, name: 'Solar Supernova', icon: '💥', category: 'Cosmic Stellar Flare', fxType: 'supernova_blast',
-    mpCost: 38, cooldown: 11.0, radius: 5.2, dmgMult: 4.6, damageMultiplier: 4.6,
-    desc: 'Spawn an embryonic star that swells and detonates in a blinding thermonuclear supernova flare for 4.6x damage!'
-  },
-  genesis_cataclysm: {
-    id: 'genesis_cataclysm', class: 'mage', reqLevel: 60, name: 'Cataclysm of Genesis', icon: '✨', category: 'Grand Ultimate', fxType: 'genesis_cataclysm',
-    mpCost: 50, cooldown: 15.0, radius: 6.0, dmgMult: 5.8, damageMultiplier: 5.8,
-    desc: '[LV. 60 GRAND ULTIMATE] Initiate planetary celestial convergence: summon down orbital cosmic lances and stellar energy beams for 5.8x god-tier annihilation!'
-  },
-
-  // === ROGUE SKILLS (Lv 1 - 60) ===
-  fan_of_knives: {
-    id: 'fan_of_knives', class: 'rogue', reqLevel: 1, name: 'Fan of Knives', icon: '🗡️', category: 'AoE Critical', fxType: 'fan_of_knives',
-    mpCost: 14, cooldown: 3.0, radius: 3.4, dmgMult: 2.2, damageMultiplier: 2.2, critBonus: 0.35,
-    desc: 'Hurl a rapid 360° ring of razor daggers with +35% Critical Strike chance dealing 2.2x damage.'
-  },
-  shadow_dash: {
-    id: 'shadow_dash', class: 'rogue', reqLevel: 1, isDash: true, name: 'Shadow Dash', icon: '💨', category: 'Mobility Sprint', fxType: 'shadow_dash',
-    mpCost: 8, cooldown: 2.5, distance: 4.8, dmgMult: 1.9, damageMultiplier: 1.9,
-    desc: 'Phantom sprint through shadows, slicing enemies along the path for 1.9x and gaining +40% speed for 2s.'
-  },
-  poison_darts: {
-    id: 'poison_darts', class: 'rogue', reqLevel: 5, name: 'Shurikens', icon: '🎯', category: 'Ranged Spread', fxType: 'poison_darts',
-    mpCost: 12, cooldown: 3.5, dmgMult: 2.3, damageMultiplier: 2.3,
-    desc: 'Hurl 8 steel shurikens in every direction; they curve back to you, hitting every enemy they pass through (out and back) for 1.15x damage each.'
-  },
-  caltrops: {
-    id: 'caltrops', class: 'rogue', reqLevel: 10, name: 'Barbed Caltrops', icon: '⛓️', category: 'Ground Trap / Bleed', fxType: 'caltrops',
-    mpCost: 14, cooldown: 5.0, radius: 3.2, dmgMult: 1.6, damageMultiplier: 1.6, slowDuration: 4.0,
-    desc: 'Scatter razor-spiked caltrops on the ground, crippling enemy move speed by 60% and causing bleeding.'
-  },
-  shadowstep: {
-    id: 'shadowstep', class: 'rogue', reqLevel: 15, name: 'Shadowstep Ambush', icon: '👤', category: 'Backstab Teleport', fxType: 'shadowstep',
-    mpCost: 16, cooldown: 4.5, dmgMult: 2.8, damageMultiplier: 2.8, critBonus: 0.50,
-    desc: 'Vanish and reappear directly behind the nearest enemy, backstabbing for 2.8x damage with +50% Crit!'
-  },
-  toxic_bomb: {
-    id: 'toxic_bomb', class: 'rogue', reqLevel: 20, name: 'Toxic Smoke Bomb', icon: '☠️', category: 'AoE Poison Fog', fxType: 'toxic_bomb',
-    mpCost: 16, cooldown: 4.5, radius: 3.2, dmgMult: 1.4, damageMultiplier: 1.4, poisonDuration: 4.5, poisonDmg: 11,
-    desc: 'Toss a caustic chemical flask creating a corrosive poison cloud that melts enemy armor and deals 11 DoT.'
-  },
-  smoke_screen: {
-    id: 'smoke_screen', class: 'rogue', reqLevel: 25, name: 'Vanish Smoke Screen', icon: '🌫️', category: 'Stealth & 100% Crit', fxType: 'smoke_screen',
-    mpCost: 15, cooldown: 7.5, duration: 3.5,
-    desc: 'Vanish into thick smoke for 3.5s: gain 100% movement speed and make your next strike a guaranteed 2.5x Critical.'
-  },
-  death_blossom: {
-    id: 'death_blossom', class: 'rogue', reqLevel: 30, name: 'Death Blossom', icon: '🌸', category: 'Ultimate Omnislash', fxType: 'death_blossom',
-    mpCost: 28, cooldown: 9.5, radius: 4.0, slashes: 8, dmgMult: 4.0, damageMultiplier: 4.0,
-    desc: '[ULTIMATE] Become an untargetable shadow blur, slashing all surrounding enemies 8 times for 4.0x total damage!'
-  },
-  venomous_barrage: {
-    id: 'venomous_barrage', class: 'rogue', reqLevel: 35, name: 'Viper Venom Barrage', icon: '🐍', category: 'Rapid Piercing Volley', fxType: 'venomous_barrage',
-    mpCost: 22, cooldown: 5.5, distance: 7.5, dmgMult: 3.2, damageMultiplier: 3.2,
-    desc: 'Spray a fan of 15 lethal neurotoxin needle-blades, piercing through all enemies for 3.2x damage and lethal poisoning.'
-  },
-  phantom_assassins: {
-    id: 'phantom_assassins', class: 'rogue', reqLevel: 40, name: 'Shadow Clone Mirage', icon: '👥', category: 'Clone Decoy Flurry', fxType: 'phantom_assassins',
-    mpCost: 24, cooldown: 7.0, radius: 4.2, dmgMult: 3.0, damageMultiplier: 3.0,
-    desc: 'Project 2 ethereal shadow clone phantoms that dash through nearby targets, executing synchronized cross-cleaves for 3.0x damage.'
-  },
-  assassins_cull: {
-    id: 'assassins_cull', class: 'rogue', reqLevel: 45, name: 'Guillotine Execution', icon: '🩸', category: 'Execute Heavy Burst', fxType: 'assassins_cull',
-    mpCost: 26, cooldown: 6.5, dmgMult: 4.2, damageMultiplier: 4.2,
-    desc: 'Perform a ruthless execution strike dealing 4.2x damage. Deals +100% additional bonus damage to enemies under 50% HP!'
-  },
-  abyssal_tether: {
-    id: 'abyssal_tether', class: 'rogue', reqLevel: 50, name: 'Abyssal Shadow Chains', icon: '⛓️', category: 'Shadow Pull & Lockdown', fxType: 'abyssal_tether',
-    mpCost: 26, cooldown: 10.0, radius: 5.2, rootDuration: 3.0,
-    desc: 'Fire shadowy barbed chains that latch onto all surrounding foes, pulling them into an agonizing cluster and rooting them for 3s.'
-  },
-  blade_dance: {
-    id: 'blade_dance', class: 'rogue', reqLevel: 55, name: 'Dancing Razor Mirage', icon: '🩰', category: 'Mirage Blade Flurry', fxType: 'blade_dance',
-    mpCost: 32, cooldown: 9.0, radius: 4.8, dmgMult: 4.5, damageMultiplier: 4.5,
-    desc: 'Dance through shadows at blinding speed, leaving cutting razor ribbons across the battlefield for 4.5x total damage.'
-  },
-  eclipse_execution: {
-    id: 'eclipse_execution', class: 'rogue', reqLevel: 60, name: 'Void Eclipse Omnislash', icon: '🌑', category: 'Grand Ultimate', fxType: 'eclipse_execution',
-    mpCost: 45, cooldown: 15.0, radius: 6.0, dmgMult: 6.0, damageMultiplier: 6.0,
-    desc: '[LV. 60 GRAND ULTIMATE] Plunge the arena into total void eclipse: flash through all targets 16 times with neon-violet cross-cleaves for 6.0x catastrophic burst damage!'
-  }
-};
-
-// Reduce all class skill cooldowns by 60% (cooldown * 0.40)
-for (const s of Object.values(ALL_CLASS_SKILLS)) {
-  if (s && typeof (s as any).cooldown === 'number') {
-    (s as any).cooldown = Math.max(0.4, Number(((s as any).cooldown * 0.4).toFixed(2)));
-  }
-}
-
-const CLASS_SKILLS_CATALOG = {
-  warrior: Object.values(ALL_CLASS_SKILLS).filter(s => s.class === 'warrior').sort((a, b) => a.reqLevel - b.reqLevel),
-  mage: Object.values(ALL_CLASS_SKILLS).filter(s => s.class === 'mage').sort((a, b) => a.reqLevel - b.reqLevel),
-  rogue: Object.values(ALL_CLASS_SKILLS).filter(s => s.class === 'rogue').sort((a, b) => a.reqLevel - b.reqLevel)
-};
-
-const SKILL_RUNES = {
-  none: { id: 'none', name: 'Standard Rune', icon: '⚪', desc: 'Default ability power without elemental modifiers.', color: '#94a3b8' },
-  flame: { id: 'flame', name: 'Infernal Flame', icon: '🔴', desc: '+25% Damage and ignites enemies with persistent Burn DoT.', color: '#ef4444' },
-  frost: { id: 'frost', name: 'Glacial Frost', icon: '🔵', desc: 'Adds 40% Chill Slow for 3.5s and 25% chance to Freeze solid.', color: '#38bdf8' },
-  tempest: { id: 'tempest', name: 'Tempest Surge', icon: '⚡', desc: '-20% Cooldown reduction and +10% Electric Shock DMG.', color: '#eab308' },
-  vampiric: { id: 'vampiric', name: 'Vampiric Drain', icon: '🟣', desc: 'Restores 25% of all skill damage dealt as immediate HP life leech.', color: '#a855f7' }
-};
-
-const DEFAULT_EQUIPPED_SKILLS = {
-  warrior: {
-    slot1: 'whirlwind',
-    slot2: 'earthshaker',
-    slot3: 'colossus_strike',
-    dash: 'blade_charge',
-    runes: { slot1: 'none', slot2: 'none', slot3: 'none', dash: 'none' }
-  },
-  mage: {
-    slot1: 'firestorm',
-    slot2: 'frost_nova',
-    slot3: 'black_hole',
-    dash: 'arcane_blink',
-    runes: { slot1: 'none', slot2: 'none', slot3: 'none', dash: 'none' }
-  },
-  rogue: {
-    slot1: 'fan_of_knives',
-    slot2: 'toxic_bomb',
-    slot3: 'death_blossom',
-    dash: 'shadow_dash',
-    runes: { slot1: 'none', slot2: 'none', slot3: 'none', dash: 'none' }
-  }
-};
-
-// Slots a client may cast from
-const CLIENT_SKILL_SLOTS = new Set(['slot1', 'slot2', 'slot3', 'dash', 'weapon', 'skill1', 'skill2', 'ult']);
-
-const DEFAULT_SKILL_FOR_SLOT = (player, slot) => {
-  const defaults = DEFAULT_EQUIPPED_SKILLS[player.characterClass] || DEFAULT_EQUIPPED_SKILLS.warrior;
-  return ALL_CLASS_SKILLS[defaults[slot]] || ALL_CLASS_SKILLS.whirlwind;
-};
-
-const CLASS_SKILLS = {
-  warrior: {
-    skill1: ALL_CLASS_SKILLS.whirlwind,
-    skill2: ALL_CLASS_SKILLS.earthshaker,
-    dash: ALL_CLASS_SKILLS.blade_charge
-  },
-  mage: {
-    skill1: ALL_CLASS_SKILLS.firestorm,
-    skill2: ALL_CLASS_SKILLS.frost_nova,
-    dash: ALL_CLASS_SKILLS.arcane_blink
-  },
-  rogue: {
-    skill1: ALL_CLASS_SKILLS.fan_of_knives,
-    skill2: ALL_CLASS_SKILLS.toxic_bomb,
-    dash: ALL_CLASS_SKILLS.shadow_dash
-  }
-};
+import {
+  SP_TRANSFORM_COOLDOWN,
+  SKILL_DAMAGE_SCALE,
+  TRAIL_IDS,
+  PROP_RESPAWN_S,
+  PROP_HITS,
+  BLOOD_AURA_START_HP,
+  BLOOD_AURA_MIN_HP,
+  MANA_COST_SCALE,
+  MANA_COST_PER_LEVEL,
+  MANA_REGEN_PCT,
+  MANA_REGEN_FLAT,
+  DEFAULT_BAG_SLOTS,
+  MAX_BAG_SLOTS,
+  DUNGEON_PORTAL_SHARE,
+  DUNGEON_MINIBOSS_WEIGHT,
+  dungeonProgressWeight,
+  HP_REGEN_PCT,
+  SWEEP_EXTRA_REACH,
+  ATTACK_GRACE_S,
+  SWEEP_ARC_DEG,
+  SCORCH_MAX,
+  SCORCH_SECONDS,
+  FROST_TO_FREEZE,
+  FROST_SECONDS,
+  FREEZE_SECONDS,
+  BOSS_FREEZE_SECONDS,
+  CONDUCT_MAX,
+  CONDUCT_SECONDS,
+  CONDUCT_FORK_RANGE,
+  CONDUCT_FORK_MAX,
+  CONDUCT_FORK_SHARE,
+  VOID_SOUL_MAX,
+  VOID_SOUL_SECONDS,
+  VOID_SOUL_BONUS,
+  ULT_COOLDOWN,
+  ULT_CHARGE_MAX,
+  ULT_GAIN_HIT,
+  ULT_GAIN_KILL,
+  ULT_GAIN_HURT,
+  ULT_MAX_GAIN_PER_SEC,
+  ULT_LOCK_SECONDS,
+  ECHO_DAMAGE,
+  HEAVY_CHECK_TICKS,
+  FRACTURE_MAX,
+  FRACTURE_SECONDS,
+  FRACTURE_STUN,
+  HEAT_MAX,
+  HEAT_HOLD_MS,
+  HEAT_DECAY,
+  OVERHEAT_SECONDS,
+  OVERHEAT_BONUS,
+  OVERHEAT_BURN,
+  RUNE_MAX,
+  RUNE_POLL,
+  RUNE_ARM_MS,
+  RUNE_TRIGGER_R,
+  COMBO_MAX,
+  COMBO_SECONDS,
+  COMBO_BONUS,
+  DG_ROD_MAX,
+  DG_ROD_SECONDS,
+  DG_ROD_EVERY,
+  DG_ROD_R,
+  DG_ROD_MULT,
+  DG_FENCE_RANGE,
+  DG_FENCE_W,
+  DG_FENCE_MULT,
+  DG_OVERLOAD_R,
+  DG_ARC_RANGE,
+  GRAVE_CORPSE_MS,
+  GRAVE_CORPSE_MAX,
+  MINION_MAX,
+  MINION_SPEED,
+  MINION_REACH,
+  MINION_ATTACK_EVERY,
+  MINION_AGGRO,
+  MINION_LEASH,
+  SHADOW_SKIPS_SHAPES,
+  REWIND_SAMPLE_S,
+  REWIND_KEEP_S,
+  MOB_VIEW_ISO_X,
+  MOB_VIEW_ISO_Y,
+  MOB_FULL_REFRESH_S,
+  DUNGEON_SPAWN_MS,
+  FLOATING_TEXT_BATCH_MAX,
+  mobInView,
+  FAILED_RUN_LOOT_KEEP,
+  PORTAL_USE_RANGE,
+  RIFT_TOWN_ARRIVAL,
+  PARTY_EXP_RANGE,
+  PARTY_EXP_BONUS,
+  PASSIVE_REFUND_COST,
+  MAX_PLAYER_ELEMENT_RESIST,
+  ENERGY_SHIELD,
+  ARMOR_RUNE_DROP,
+  PARTY_SUMMON_TTL_MS,
+  ITEM_DESPAWN_MS,
+  ITEM_SWEEP_INTERVAL_MS,
+  FACINGS,
+  AIM_FACE_LOCK_SEC,
+  MAGE_SPLASH_SHARE,
+  MAGE_SPLASH_RADIUS,
+  RUN_PAR_BASE_SEC,
+  RUN_PAR_PER_ROOM_SEC,
+  RUN_RANK_MULT,
+  MOB_GEAR_DROP_CHANCE,
+  BOSS_GEAR_DROP_CHANCE,
+  BOSS_BONUS_GEAR_DROP_CHANCE,
+  BOSS_REVIVAL_STONE_CHANCE
+} from './config/constants';
+import { ALL_CLASS_SKILLS, CLASS_SKILLS_CATALOG, SKILL_RUNES, DEFAULT_EQUIPPED_SKILLS, CLIENT_SKILL_SLOTS, DEFAULT_SKILL_FOR_SLOT, CLASS_SKILLS } from './data/skills';
+import { POTIONS, POTION_COOLDOWN_MS } from './data/potions';
+import { HERO_CLASSES, isHeroClass, isRangedClass, starterEquipment } from './data/heroClasses';
+import { createStarterCharacter, createLivePlayer } from './entities/player';
+import { ItemFactory } from './entities/item';
+import { MobFactory } from './entities/mob';
+import { createProjectile, createGroundItem, createDungeonInstance, createRiftInstance, createParty } from './entities/world';
+import { StatusEffectSystem } from './systems/StatusEffectSystem';
+import { PotionSystem } from './systems/PotionSystem';
+import { MinionSystem } from './systems/MinionSystem';
+import { PartySystem } from './systems/PartySystem';
+import { RaidSystem } from './systems/RaidSystem';
+import { SpCardSystem } from './systems/SpCardSystem';
+import { InventorySystem } from './systems/InventorySystem';
+import { ItemUpgradeSystem } from './systems/ItemUpgradeSystem';
+import { LevelSystem } from './systems/LevelSystem';
+import { LootSystem } from './systems/LootSystem';
+import { DungeonRunSystem } from './systems/DungeonRunSystem';
+import { ZoneSystem } from './systems/ZoneSystem';
+import { PassiveSystem } from './systems/PassiveSystem';
+import { StatsSystem } from './systems/StatsSystem';
+import { CombatSystem } from './systems/CombatSystem';
+import { SkillSystem } from './systems/SkillSystem';
+import { SpSkillSystem } from './systems/SpSkillSystem';
+import { MobAISystem } from './systems/MobAISystem';
+import type { Player, DungeonInstance, Mob, Item } from './entities/types';
 
 const PASSIVES = require('./talents');
 const { createBossMechanics } = require('./bossMechanics');
-// How close a hero must stand to a portal to use it (client shows the button in range)
-const PORTAL_USE_RANGE = 2.5;
-// Where heroes come back out of the Eternal Rift (beside its town gate)
-const RIFT_TOWN_ARRIVAL = { x: 27.0, y: 21.4 };
 const RAID = require('./raidBosses');
-// Party EXP sharing: members within this many tiles (1 tile = 1 metre) of the
-// killer, on the same map, split the kill's EXP; each extra member adds this bonus
-const PARTY_EXP_RANGE = 10;
-const PARTY_EXP_BONUS = 0.1;
 const TALENT_PROCS = PASSIVES.TALENT_PROCS;
-// Gold to refund one passive node (right-click in the tree)
-const PASSIVE_REFUND_COST = 25;
-
-
-const MAX_PLAYER_ELEMENT_RESIST = 0.6;
-// Mage passive Energy Shield: size from Max HP and Max MP; recharges once the
-// mage has gone `delay` seconds without being hit
-const ENERGY_SHIELD = { hpShare: 0.12, mpShare: 0.3, delay: 3, rechargePerSec: 0.15 };
-// Chance a kill drops a defensive armor rune (crafting makes them too)
-const ARMOR_RUNE_DROP = { normal: 0.0015, boss: 0.08 };
-const PARTY_SUMMON_TTL_MS = 30000;
-// Loot left on the ground disappears after this long
-const ITEM_DESPAWN_MS = 5 * 60 * 1000;
-const ITEM_SWEEP_INTERVAL_MS = 1000;
-// "Face the cursor" setting: the 8 facings a client may send, and how long a
-// swing keeps the hero turned toward its target before it follows the mouse again
-const FACINGS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
-const AIM_FACE_LOCK_SEC = 0.7;
-// Mage basic attacks burst on impact: nearby monsters take this share of the hit
-const MAGE_SPLASH_SHARE = 0.3;
-const MAGE_SPLASH_RADIUS = 1.9;
-// Dungeon completion grade: par time grows with the number of rooms
-const RUN_PAR_BASE_SEC = 90;
-const RUN_PAR_PER_ROOM_SEC = 25;
-const RUN_RANK_MULT = { S: 2, A: 1.5, B: 1.2, C: 1 };
-// Potions usable from the quick slots: share of max HP / MP restored
-const POTIONS = {
-  health_potion: { kind: 'health', pct: 0.45 },
-  greater_health_potion: { kind: 'health', pct: 0.75 },
-  mana_potion: { kind: 'mana', pct: 0.5 },
-  greater_mana_potion: { kind: 'mana', pct: 0.8 }
-};
-// Cooldown after drinking, shared by every potion of the same kind
-const POTION_COOLDOWN_MS = { health: 10000, mana: 5000 };
-// Equipment drop rates (kept low on purpose)
-const MOB_GEAR_DROP_CHANCE = 0.025;
-const BOSS_GEAR_DROP_CHANCE = 0.35;
-const BOSS_BONUS_GEAR_DROP_CHANCE = 0.06;
-const BOSS_REVIVAL_STONE_CHANCE = 0.4;
 
 class GameServer {
   [key: string]: any;
@@ -492,17 +195,16 @@ class GameServer {
   dungeonFloor: number;
   dungeonDifficulty: string;
   dungeon: any;
-  players: Map<string, any>;
-  townMobs: Map<string, any>;
+  players: Map<string, Player>;
+  townMobs: Map<string, Mob>;
   frostfellMobs: Map<string, any>;
   dungeonMobs: Map<string, any>;
   townGroundItems: Map<string, any>;
   frostfellGroundItems: Map<string, any>;
   dungeonGroundItems: Map<string, any>;
   parties: Map<string, any>;
-  playerParties: Map<string, any>;
   nextPartyId: number;
-  dungeonInstances: Map<string, any>;
+  dungeonInstances: Map<string, DungeonInstance>;
   ctxInstanceId: any;
   projectiles: Map<string, any>;
   smokeClouds: any[];
@@ -510,8 +212,9 @@ class GameServer {
   TICK_RATE: number;
   tickInterval: any;
   _ftQueue: Map<string, any>;
-  constructor(io) {
+  constructor(io: any) {
     this.io = io;
+    this.initSystems();
     this.townMap = generateMap();
 
     // Level-chained open-world field zones (Greenmeadow Lv 1 ... Celestial Reach Lv 100).
@@ -535,7 +238,6 @@ class GameServer {
     this.frostfellGroundItems = frostfell.groundItems;
     this.dungeonGroundItems = new Map<any, any>();
     this.parties = new Map<any, any>(); // partyId -> { id, leaderId, memberIds: Set }
-    this.playerParties = new Map<any, any>(); // socketId -> partyId
     this.nextPartyId = 1;
     this.dungeonInstances = new Map<any, any>(); // instanceId -> { id, partyId, floor, difficulty, dungeon, mobs, groundItems, chests, cleared }
     // Dungeon instance the current handler / tick step is acting in. Lookups and
@@ -560,7 +262,6 @@ class GameServer {
       this.raidNextSpawn.set(zid, Date.now() + (conf.firstDelayMinutes || 5) * RAID.MINUTE);
     }
 
-    this.initFrostfellMonsters();
     this.initFieldMonsters();
     this.initDungeonMonsters();
     this.startGameLoop();
@@ -571,21 +272,47 @@ class GameServer {
     }, 30000);
   }
 
-  savePlayerAccount(socketId) {
+  // Game systems: classes that own one area of the rules (see server/systems). Each reaches the server through `gs`.
+  initSystems() {
+    this.mobAI = new MobAISystem(this);
+    this.spSkills = new SpSkillSystem(this);
+    this.skills = new SkillSystem(this);
+    this.combat = new CombatSystem(this);
+    this.stats = new StatsSystem(this);
+    this.passives = new PassiveSystem(this);
+    this.zones = new ZoneSystem(this);
+    this.dungeonRun = new DungeonRunSystem(this);
+    this.loot = new LootSystem(this);
+    this.level = new LevelSystem(this);
+    this.itemUpgrade = new ItemUpgradeSystem(this);
+    this.inventory = new InventorySystem(this);
+    this.spCards = new SpCardSystem(this);
+    this.raid = new RaidSystem(this);
+    this.party = new PartySystem(this);
+    this.minions = new MinionSystem(this);
+    this.potions = new PotionSystem(this);
+    this.statusFx = new StatusEffectSystem(this);
+  }
+
+  savePlayerAccount(socketId: any) {
     const player = this.players.get(socketId);
     if (!player || !player.accountUsername) return;
     accountManager.saveCharacter(player.accountUsername, player, player.accountSlot || 0);
   }
 
   saveAllOnlinePlayers() {
+    // update every character in memory, then write the accounts file once
+    let any = false;
     for (const player of this.players.values()) {
       if (player.accountUsername) {
-        accountManager.saveCharacter(player.accountUsername, player, player.accountSlot || 0);
+        accountManager.saveCharacter(player.accountUsername, player, player.accountSlot || 0, false);
+        any = true;
       }
     }
+    if (any) accountManager.saveAccounts();
   }
 
-  handleAccountRegister(socket, data) {
+  handleAccountRegister(socket: any, data: any) {
     if (!data) return;
     const { username, password, heroName, characterClass } = data;
     const name = (heroName || username || 'Hero').substring(0, 15).trim() || 'Hero';
@@ -599,7 +326,7 @@ class GameServer {
   }
 
   // Create another character on a logged-in account
-  handleCreateCharacter(socket, data) {
+  handleCreateCharacter(socket: any, data: any) {
     const username = accountManager.usernameForToken(data && data.token);
     if (!username) return socket.emit('character_list_response', { success: false, message: 'Session expired - please log in again.' });
     const name = String(data.name || '').substring(0, 15).trim();
@@ -608,7 +335,7 @@ class GameServer {
     socket.emit('character_list_response', res);
   }
 
-  handleDeleteCharacter(socket, data) {
+  handleDeleteCharacter(socket: any, data: any) {
     const username = accountManager.usernameForToken(data && data.token);
     if (!username) return socket.emit('character_list_response', { success: false, message: 'Session expired - please log in again.' });
     const slot = Number(data.slot);
@@ -617,64 +344,18 @@ class GameServer {
     socket.emit('character_list_response', accountManager.deleteCharacter(username, slot));
   }
 
-  makeStarterCharacter(heroName, characterClass) {
-    const defaultClasses = {
-      warrior: { maxHp: 180, maxMp: 50, dmg: 22, def: 8, speed: 4.8, attackRange: 1.6, attackSpeed: 1.0, swipe: 40 },
-      mage: { maxHp: 95, maxMp: 130, dmg: 32, def: 3, speed: 4.4, attackRange: 5.5, attackSpeed: 0.95, swipe: 15 },
-      rogue: { maxHp: 125, maxMp: 70, dmg: 26, def: 5, speed: 5.4, attackRange: 1.8, attackSpeed: 1.30, swipe: 25 }
-    };
-    const chosenClass = defaultClasses[characterClass] ? characterClass : 'warrior';
-    const cleanHeroName = (heroName || 'Hero').substring(0, 15).trim() || 'Hero';
-
-    const starterChar = {
-      name: cleanHeroName,
-      characterClass: chosenClass,
-      level: 1,
-      exp: 0,
-      expNext: expToNext(1),
-      skillPoints: 1,
-      skills: {},
-      equippedSkills: JSON.parse(JSON.stringify(DEFAULT_EQUIPPED_SKILLS[chosenClass] || DEFAULT_EQUIPPED_SKILLS.warrior)),
-      equipment: {
-        weapon: chosenClass === 'warrior' ? { ...ITEMS.iron_blade, count: 1 } : (chosenClass === 'mage' ? { ...ITEMS.archmage_staff, count: 1 } : { ...ITEMS.shadow_daggers, count: 1 }),
-        armor: chosenClass === 'mage' ? { ...ITEMS.mystic_robe, count: 1 } : (chosenClass === 'rogue' ? { ...ITEMS.leather_tunic, count: 1 } : null),
-        helmet: chosenClass === 'warrior' ? { ...ITEMS.iron_helm, count: 1 } : null,
-        boots: null,
-        gloves: null,
-        cape: null,
-        ring: null
-      },
-      gold: 50,
-      inventory: {
-        healthPotions: 3,
-        manaPotions: 2,
-        kills: 0,
-        maxSlots: DEFAULT_BAG_SLOTS,
-        items: [
-          { ...ITEMS.ancient_ruby, count: 1 },
-          { ...ITEMS.revival_stone, count: 1 }
-        ]
-      },
-      storage: {
-        maxSlots: 50,
-        items: []
-      },
-      zone: 'town',
-      x: 20,
-      y: 23
-    };
-
-    return starterChar;
+  makeStarterCharacter(heroName: any, characterClass: any) {
+    return createStarterCharacter(heroName, characterClass);
   }
 
-  handleAccountLogin(socket, data) {
+  handleAccountLogin(socket: any, data: any) {
     if (!data) return;
     const res = accountManager.login(data.username, data.password);
     socket.emit('account_login_response', res);
   }
 
   // --- zone rooms: every socket sits in the room of the zone / dungeon instance it is in ---
-  emitZone(zone, event, data, instanceId = null) {
+  emitZone(zone: any, event: any, data: any, instanceId: any = null) {
     if (!zone) return this.io.emit(event, data);
     if (zone === 'dungeon' && !instanceId) instanceId = this.ctxInstanceId;
     const room = (zone === 'dungeon' && instanceId) ? `dungeon:${instanceId}` : `zone:${zone}`;
@@ -691,7 +372,7 @@ class GameServer {
 
   flushFloatingTexts() {
     for (const [room, list] of this._ftQueue) {
-      this.io.to(room).emit('floating_texts', list.map(t => ({
+      this.io.to(room).emit('floating_texts', list.map((t: any) => ({
         ...t, x: Math.round(t.x * 100) / 100, y: Math.round(t.y * 100) / 100
       })));
     }
@@ -699,7 +380,7 @@ class GameServer {
   }
 
   // Run fn with the given player's dungeon instance as the active context.
-  runAs(socketId, fn) {
+  runAs(socketId: any, fn: any) {
     const prev = this.ctxInstanceId;
     const player = this.players.get(socketId);
     this.ctxInstanceId = player ? (player.dungeonInstanceId || null) : null;
@@ -726,7 +407,7 @@ class GameServer {
 
   // --- dungeon instance helpers ---
   // Lava cracks, acid, frost and rifts afflict whoever stands on them
-  applyDungeonHazard(player) {
+  applyDungeonHazard(player: Player) {
     if (player.isDead || player.godMode) return;
     const inst = this.getPlayerDungeonInstance(player);
     const row = inst && inst.dungeon.tiles[Math.floor(player.y)];
@@ -736,12 +417,11 @@ class GameServer {
     this.applyStatusEffect(player, hazard.status, hazard.duration, value);
   }
 
-  getPlayerDungeonInstance(player) {
-    if (!player || player.zone !== 'dungeon' || !player.dungeonInstanceId) return null;
-    return this.dungeonInstances.get(player.dungeonInstanceId) || null;
+  getPlayerDungeonInstance(player: Player) {
+    return this.dungeonRun.getPlayerDungeonInstance(player);
   }
 
-  getOrCreateDungeonInstance(player, floor = 1, difficulty = 'normal', forceRegen = false, mode = 'classic', mods: string[] = []) {
+  getOrCreateDungeonInstance(player: Player, floor = 1, difficulty = 'normal', forceRegen = false, mode = 'classic', mods: string[] = []) {
     const instanceId = player.partyId ? `party_${player.partyId}` : `solo_${player.id}`;
     const existing = this.dungeonInstances.get(instanceId);
     // an unfinished run is resumed, unless the player now asks for the other mode or other modifiers (a fresh dungeon then)
@@ -753,27 +433,20 @@ class GameServer {
     // opens (see updateDungeonRooms / spawnDungeonRoom)
     const pendingMobs = new Map<any, any>(); // roomIdx -> mobs
     if (dungeonMap && dungeonMap.mobs) {
-      dungeonMap.mobs.forEach(mob => {
+      dungeonMap.mobs.forEach((mob: Mob) => {
         if (!pendingMobs.has(mob.roomIdx)) pendingMobs.set(mob.roomIdx, []);
-        pendingMobs.get(mob.roomIdx).push(DMODS.applyModsToMob({
-          ...mob,
-          def: mob.def || 10,
-          buffs: mob.buffs || [],
-          isCommander: !!mob.isCommander,
-          auraRadius: mob.auraRadius || 0,
-          hasCommanderBuff: false
-        }, mods));
+        pendingMobs.get(mob.roomIdx).push(DMODS.applyModsToMob(MobFactory.dungeonMob(mob, 10), mods));
       });
     }
 
     const bossRoomIdx = dungeonMap && dungeonMap.rooms ? dungeonMap.rooms.length - 1 : -1;
-    const trashMobs = (dungeonMap && dungeonMap.mobs) ? dungeonMap.mobs.filter(m => m.roomIdx !== bossRoomIdx) : [];
+    const trashMobs = (dungeonMap && dungeonMap.mobs) ? dungeonMap.mobs.filter((m: any) => m.roomIdx !== bossRoomIdx) : [];
     const totalTrashMobs = trashMobs.length;
     // the boss portal opens at DUNGEON_PORTAL_SHARE of the dungeon's monsters (by progress weight)
-    const totalWeight = trashMobs.reduce((t, m) => t + dungeonProgressWeight(m), 0);
+    const totalWeight = trashMobs.reduce((t: any, m: any) => t + dungeonProgressWeight(m), 0);
     const requiredKills = Math.max(1, Math.round(totalWeight * DUNGEON_PORTAL_SHARE));
 
-    const inst: any = {
+    const inst: any = createDungeonInstance({
       id: instanceId,
       partyId: player.partyId || null,
       floor,
@@ -782,21 +455,12 @@ class GameServer {
       mods,                       // dungeon modifiers (dungeonMods.ts)
       modReward: DMODS.modReward(mods),
       dungeon: dungeonMap,
-      mobs: new Map<any, any>(),
       pendingMobs,
-      groundItems: new Map<any, any>(),
       chests: dungeonMap.chests || [],
-      cleared: false,
-      startedAt: Date.now(),
       bossRoomIdx,
       totalTrashMobs,
-      requiredKills,
-      killedTrashCount: 0,
-      killPercent: 0,
-      bossPortalReady: false,
-      bossPortalSpawned: false,
-      bossPortalPos: null
-    };
+      requiredKills
+    });
 
     this.dungeonInstances.set(instanceId, inst);
     // The entrance (no monsters) clears at once, opening its doors and
@@ -806,342 +470,68 @@ class GameServer {
     return inst;
   }
 
-  // ---------------------------------------------------------------- SP cards
-  equipSpCard(player, itemIndex) {
-    const socket = this.io.sockets.sockets.get(player.id);
-    const say = (text, color = '#ef4444') => socket && socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text, color });
-    const item = player.inventory.items[itemIndex];
-    const card = item && SP.CARD_BY_ID[item.cardId];
-    if (!card) return;
-    if (card.cls !== player.characterClass) return say(`Only a ${card.cls} can wear this card!`);
-    if ((player.jobLevel || 1) < card.jobReq) return say(`Requires Job Lv. ${card.jobReq}!`);
-    if (player.spTransformed) this.setTransformed(player, false);
-    player.inventory.items.splice(itemIndex, 1);
-    const old = player.equipment.sp;
-    if (old) player.inventory.items.push(old);
-    player.equipment.sp = { ...item, count: 1 };
-    this.recalculatePlayerStats(player);
-    say(`Equipped SP Card: ${card.name}. Press T to transform!`, '#c084fc');
-    if (socket) socket.emit('player_updated', player);
+  equipSpCard(player: Player, itemIndex: any) {
+    return this.spCards.equipSpCard(player, itemIndex);
   }
 
-  handleSpTransform(socketId) {
-    const player = this.players.get(socketId);
-    const socket = this.io.sockets.sockets.get(socketId);
-    if (!player || !socket || player.isDead) return;
-    const say = (text, color = '#ef4444') => socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text, color });
-    const cardItem = player.equipment && player.equipment.sp;
-    const card = cardItem && SP.CARD_BY_ID[cardItem.cardId];
-    if (!card) return say('No SP card equipped!');
-    if (player.spCooldown > 0) return say(`Transform ready in ${Math.ceil(player.spCooldown)}s`);
-    if (!player.spTransformed && (player.jobLevel || 1) < card.jobReq) return say(`Requires Job Lv. ${card.jobReq}!`);
-    this.setTransformed(player, !player.spTransformed);
+  handleSpTransform(socketId: any) {
+    return this.spCards.handleSpTransform(socketId);
   }
 
-  // The card's four equipped skills for this hero (their picks from its arsenal)
-  spLoadout(player, card) {
-    if (!player.spLoadouts) player.spLoadouts = {};
-    // a reworked kit (card.kit bumped) starts over from the card's new defaults
-    const stored = player.spLoadouts[card.id];
-    const saved = stored && (stored.kit || 0) === (card.kit || 0) ? stored : {};
-    const out = {};
-    for (const slot of ['slot1', 'slot2', 'slot3', 'dash']) {
-      const id = saved[slot];
-      // an extra still locked at this card level falls back to the slot's default
-      const lvl = (player.equipment && player.equipment.sp && player.equipment.sp.upgradeLevel) || 0;
-      const sk = id && card.arsenal.includes(id) && SP.skillUnlocked(card, id, lvl) && SP.SP_SKILLS[id];
-      out[slot] = sk && sk.isDash === (slot === 'dash') ? id : card.skills[slot];
-    }
-    player.spLoadouts[card.id] = { ...out, kit: card.kit || 0 };
-    return { ...out };
+  spLoadout(player: Player, card: any) {
+    return this.spCards.spLoadout(player, card);
   }
 
-  // Spellbook while transformed: swap skills from the card's arsenal
-  customizeSpSkill(player, data) {
-    const socket = this.io.sockets.sockets.get(player.id);
-    const say = (text, color = '#ef4444') => socket && socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text, color });
-    const card = player.equipment && player.equipment.sp && SP.CARD_BY_ID[player.equipment.sp.cardId];
-    const slots = ['slot1', 'slot2', 'slot3', 'dash'];
-    if (!card || !data || !slots.includes(data.slot)) return;
-    const loadout = this.spLoadout(player, card);
-    let notice = null;
-
-    if (data.skillId) {
-      const sk = SP.SP_SKILLS[data.skillId];
-      if (!sk || !card.arsenal.includes(data.skillId)) return;
-      const need = card.unlocks && card.unlocks[data.skillId];
-      if (!SP.skillUnlocked(card, data.skillId, player.equipment.sp.upgradeLevel || 0)) return say(`🔒 Unlocks at card +${need}`);
-      if (sk.isDash !== (data.slot === 'dash')) return say(sk.isDash ? 'Movement skills go in the [Shift] slot' : 'Only movement skills fit the [Shift] slot');
-      // already in another slot: trade places
-      for (const slot of slots) if (slot !== data.slot && loadout[slot] === data.skillId) loadout[slot] = loadout[data.slot];
-      loadout[data.slot] = data.skillId;
-      player.spLoadouts[card.id] = { ...loadout, kit: card.kit || 0 };
-      Object.assign(player.equippedSkills, loadout);
-      notice = `Set [${sk.name}]`;
-    }
-    if (data.rune !== undefined && SKILL_RUNES[data.rune]) {
-      player.equippedSkills.runes[data.slot] = data.rune;
-      if (player.baseEquippedSkills && player.baseEquippedSkills.runes) player.baseEquippedSkills.runes[data.slot] = data.rune;
-      notice = `Inscribed [${SKILL_RUNES[data.rune].name}]`;
-    }
-    if (socket) {
-      socket.emit('player_updated', player);
-      socket.emit('custom_skills_updated', { equippedSkills: player.equippedSkills });
-      if (notice) say(notice, '#facc15');
-    }
+  customizeSpSkill(player: Player, data: any) {
+    return this.spCards.customizeSpSkill(player, data);
   }
 
-  setTransformed(player, on) {
-    const socket = this.io.sockets.sockets.get(player.id);
-    const cardItem = player.equipment && player.equipment.sp;
-    const card = cardItem && SP.CARD_BY_ID[cardItem.cardId];
-    if (on && !card) return;
-    if (on === !!player.spTransformed) return;
-    if (on) {
-      player.baseEquippedSkills = JSON.parse(JSON.stringify(player.equippedSkills || DEFAULT_EQUIPPED_SKILLS[player.characterClass]));
-      player.equippedSkills = {
-        ...this.spLoadout(player, card),
-        runes: player.baseEquippedSkills.runes || { slot1: 'none', slot2: 'none', slot3: 'none', dash: 'none' }
-      };
-      player.spTransformed = true;
-    } else {
-      if (player.baseEquippedSkills) player.equippedSkills = player.baseEquippedSkills;
-      player.baseEquippedSkills = null;
-      player.spTransformed = false;
-    }
-    player.spCooldown = SP_TRANSFORM_COOLDOWN;
-    this.recalculatePlayerStats(player);
-    this.emitZone(player.zone, 'sp_transform', {
-      playerId: player.id, on: player.spTransformed, cardId: cardItem ? cardItem.cardId : null,
-      level: cardItem ? (cardItem.upgradeLevel || 0) : 0, x: player.x, y: player.y
-    });
-    if (socket) socket.emit('player_updated', player);
+  setTransformed(player: Player, on: any) {
+    return this.spCards.setTransformed(player, on);
   }
 
-  fragmentCount(player) {
-    const stack = player.inventory.items.find(i => i.id === 'spirit_fragment');
-    return stack ? (stack.count || 1) : 0;
+  fragmentCount(player: Player) {
+    return this.spCards.fragmentCount(player);
   }
 
-  spendFragments(player, n) {
-    const idx = player.inventory.items.findIndex(i => i.id === 'spirit_fragment');
-    if (idx < 0) return;
-    const stack = player.inventory.items[idx];
-    stack.count = (stack.count || 1) - n;
-    if (stack.count <= 0) player.inventory.items.splice(idx, 1);
+  spendFragments(player: Player, n: any) {
+    return this.spCards.spendFragments(player, n);
   }
 
-  // Enchanter: +1 an SP card (equipped or in the bag) for gold and fragments
-  handleSpCardEnhance(socketId, data) {
-    const player = this.players.get(socketId);
-    const socket = this.io.sockets.sockets.get(socketId);
-    if (!player || !socket || player.isDead || player.zone !== 'town' || !data) return;
-    const item = data.target === 'equipped' ? player.equipment.sp : player.inventory.items[data.itemIndex];
-    if (!item || item.type !== 'sp_card') return;
-    const fail = (message) => socket.emit('sp_enhance_result', { ok: false, message });
-    const lvl = item.upgradeLevel || 0;
-    if (lvl >= SP.SP_MAX_LEVEL) return fail(`Card is already +${SP.SP_MAX_LEVEL}!`);
-    const cost = SP.cardEnhanceCost(item.cardId, lvl);
-    if (player.gold < cost.gold) return fail(`Need ${cost.gold.toLocaleString()} Gold!`);
-    if (this.fragmentCount(player) < cost.fragments) return fail(`Need ${cost.fragments} Spirit Fragments!`);
-
-    player.gold -= cost.gold;
-    this.spendFragments(player, cost.fragments);
-    const success = Math.random() < (SP.SP_ENHANCE_CHANCE[lvl] || 0);
-    let downgraded = false;
-    if (success) item.upgradeLevel = lvl + 1;
-    else if (lvl >= SP.SP_SAFE_LEVEL) { item.upgradeLevel = lvl - 1; downgraded = true; }
-    const card = SP.CARD_BY_ID[item.cardId];
-    item.name = `SP Card: ${card.name}${item.upgradeLevel ? ' +' + item.upgradeLevel : ''}`;
-    if (data.target === 'equipped') this.recalculatePlayerStats(player);
-    this.savePlayerAccount(socketId);
-    socket.emit('player_updated', player);
-    socket.emit('sp_enhance_result', { ok: true, success, downgraded, level: item.upgradeLevel || 0, cost, item });
-    if (player.spTransformed && data.target === 'equipped') {
-      this.emitZone(player.zone, 'sp_transform', { playerId: player.id, on: true, cardId: item.cardId, level: item.upgradeLevel || 0, x: player.x, y: player.y, refresh: true });
-    }
-    if (success && item.upgradeLevel >= 70) this.broadcastSystemMessage(`[${player.name}] enhanced [${card.name}] to +${item.upgradeLevel}!`);
+  handleSpCardEnhance(socketId: any, data: any) {
+    return this.spCards.handleSpCardEnhance(socketId, data);
   }
 
-  // Enchanter: trade fragments + gold for a card of your class (any tier)
-  handleSpCardExchange(socketId, data) {
-    const player = this.players.get(socketId);
-    const socket = this.io.sockets.sockets.get(socketId);
-    if (!player || !socket || player.isDead || player.zone !== 'town' || !data) return;
-    const card = SP.CARD_BY_ID[data.cardId];
-    const fail = (message) => socket.emit('sp_exchange_result', { ok: false, message });
-    if (!card || card.cls !== player.characterClass) return fail('That card is not for your class.');
-    const price = SP.SP_TIERS[card.tier].exchange;
-    if (!price) return fail('This card can only be found on the deepest bosses.');
-    if (this.fragmentCount(player) < price.fragments) return fail(`Need ${price.fragments} Spirit Fragments!`);
-    if (player.gold < price.gold) return fail(`Need ${price.gold.toLocaleString()} Gold!`);
-    const maxCap = player.inventory.maxSlots || DEFAULT_BAG_SLOTS;
-    if (player.inventory.items.length >= maxCap) return fail('Inventory is full!');
-    player.gold -= price.gold;
-    this.spendFragments(player, price.fragments);
-    player.inventory.items.push({ ...SP.makeCardItem(card.id), custom: true, count: 1 });
-    this.savePlayerAccount(socketId);
-    socket.emit('player_updated', player);
-    socket.emit('sp_exchange_result', { ok: true, cardId: card.id });
-    this.broadcastSystemMessage(`[${player.name}] obtained the SP Card [${card.name}] from Valka!`);
+  handleSpCardExchange(socketId: any, data: any) {
+    return this.spCards.handleSpCardExchange(socketId, data);
   }
 
-  awardJobExp(player, amount) {
-    if (!amount || (player.jobLevel || 1) >= SP.JOB_MAX_LEVEL) return;
-    player.jobLevel = player.jobLevel || 1;
-    player.jobExp = (player.jobExp || 0) + amount;
-    player.jobExpNext = SP.jobExpToNext(player.jobLevel);
-    let leveled = false;
-    while (player.jobLevel < SP.JOB_MAX_LEVEL && player.jobExp >= player.jobExpNext) {
-      player.jobExp -= player.jobExpNext;
-      player.jobLevel++;
-      player.jobExpNext = SP.jobExpToNext(player.jobLevel);
-      leveled = true;
-    }
-    if (player.jobLevel >= SP.JOB_MAX_LEVEL) player.jobExp = 0;
-    if (leveled) {
-      this.recalculatePlayerStats(player);
-      this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 1.7, text: `JOB LEVEL ${player.jobLevel}!`, color: '#c084fc', size: 20 });
-      this.emitZone(player.zone, 'job_level_up', { playerId: player.id, jobLevel: player.jobLevel, x: player.x, y: player.y });
-      this.sendDirectMessage(player.id, `[${player.name}] reached Job Level ${player.jobLevel}!`);
-    }
+  awardJobExp(player: Player, amount: any) {
+    return this.spCards.awardJobExp(player, amount);
   }
 
-  // Boss loot for every hero in the instance: a rare card roll and fragments
-  rollBossSpLoot(inst, bossLevel) {
-    for (const p of this.players.values()) {
-      if (p.zone !== 'dungeon' || p.dungeonInstanceId !== inst.id) continue;
-      // heroes far above the boss's level get no card or fragments
-      if (Math.random() >= lootGapMult(p.level, bossLevel)) continue;
-      const cardId = SP.rollCardDrop(p.characterClass, inst.floor, inst.difficulty);
-      if (cardId) {
-        this.giveLootToPlayer(p, { type: 'item', itemId: 'sp_card', customItemData: { ...SP.makeCardItem(cardId), custom: true }, amount: 1 });
-        this.broadcastSystemMessage(`[${p.name}] found the SP Card [${SP.CARD_BY_ID[cardId].name}] on B${inst.floor}!`);
-      }
-      if (Math.random() < SP.FRAGMENT_DROP.boss) {
-        this.giveLootToPlayer(p, { type: 'item', itemId: 'spirit_fragment', amount: SP.bossFragments(inst.floor) });
-      }
-      const socket = this.io.sockets.sockets.get(p.id);
-      if (socket) socket.emit('player_updated', p);
-    }
+  rollBossSpLoot(inst: DungeonInstance, bossLevel: any) {
+    return this.spCards.rollBossSpLoot(inst, bossLevel);
   }
 
-  newDungeonRun(inst, cleared = false) {
-    return {
-      floor: inst.floor, difficulty: inst.difficulty, cleared, gold: 0, items: [],
-      startedAt: inst.startedAt || Date.now(), deaths: 0, kills: 0, exp: 0,
-      revivalsUsed: 0, maxRevivals: 10
-    };
+  newDungeonRun(inst: DungeonInstance, cleared = false) {
+    return this.dungeonRun.newDungeonRun(inst, cleared);
   }
 
-  // Doors open as rooms are cleared: every door leading on from a cleared room
-  // unlocks, the boss door included (side rooms don't have to be cleared).
-  // A room's monsters spawn when a door into it opens, so a room is cleared
-  // only once it has spawned and all its monsters are dead.
-  updateDungeonRooms(inst) {
-    const dung = inst.dungeon;
-    if (!dung || !dung.doors || !dung.rooms) return;
-    if (!inst.roomsCleared) inst.roomsCleared = new Set();
-    if (!inst.roomsSpawned) inst.roomsSpawned = new Set();
-    const newlyCleared = [];
-    const opened = [];
-    const spawned = [];
-    if (!inst.roomsSpawned.has(0)) spawned.push(...this.spawnDungeonRoom(inst, 0));
-
-    // An opened room with no monsters (treasure) is clear straight away and
-    // opens its own doors, so repeat until nothing changes
-    for (let pass = 0; pass <= dung.rooms.length; pass++) {
-      const alive = new Map<any, any>();
-      for (const m of inst.mobs.values()) {
-        if (m.roomIdx !== undefined && m.state !== 'dead' && m.hp > 0) alive.set(m.roomIdx, (alive.get(m.roomIdx) || 0) + 1);
-      }
-      let progress = false;
-      for (const i of inst.roomsSpawned) {
-        if (!inst.roomsCleared.has(i) && !alive.get(i)) {
-          inst.roomsCleared.add(i);
-          newlyCleared.push(i);
-          progress = true;
-        }
-      }
-      for (const d of dung.doors) {
-        if (d.open || !inst.roomsCleared.has(d.from)) continue;
-        d.open = true;
-        for (const [x, y] of d.tiles) dung.tiles[y][x] = DUNGEON_TILES.FLOOR;
-        dung.obstacles = dung.obstacles.filter(o => o.id !== d.id);
-        opened.push({ id: d.id, tiles: d.tiles, boss: d.boss, x: d.x, y: d.y });
-        if (!inst.roomsSpawned.has(d.to)) {
-          spawned.push(...this.spawnDungeonRoom(inst, d.to));
-          // Rush mode: the door opens onto ONE long hall, so every chamber of it fills at once
-          if (dung.rooms[d.to] && dung.rooms[d.to].rush) {
-            dung.rooms.forEach((r, ri) => { if (r.rush && !inst.roomsSpawned.has(ri)) spawned.push(...this.spawnDungeonRoom(inst, ri)); });
-          }
-        }
-        progress = true;
-      }
-      if (!progress) break;
-    }
-    if (!newlyCleared.length && !opened.length) return;
-
-    const bossIdx = dung.rooms.length - 1;
-    // If all monster rooms are cleared, ensure killPercent is 100% and boss portal is ready
-    if (inst.roomsCleared && dung.rooms && inst.roomsCleared.size >= dung.rooms.length - 1) {
-      inst.killPercent = 100;
-      if (!inst.bossPortalReady) {
-        inst.bossPortalReady = true;
-        this.emitZone('dungeon', 'floating_text', {
-          x: dung.rooms[0].cx + 0.5,
-          y: dung.rooms[0].cy - 1.2,
-          text: '🌀 BOSS PORTAL READY (100%)!',
-          color: '#c084fc',
-          size: 24
-        }, inst.id);
-      }
-    }
-    if (!inst.announce) return; // first pass at creation: nobody to tell yet
-    if (spawned.length) this.emitZone('dungeon', 'dungeon_mobs_spawned', { mobs: spawned }, inst.id);
-    for (const i of newlyCleared) {
-      if (i === 0 || i === bossIdx || dung.rooms[i].rush) continue;
-      const r = dung.rooms[i];
-      this.emitZone('dungeon', 'floating_text', { x: r.cx + 0.5, y: r.cy, text: 'ROOM CLEARED', color: '#4ade80', size: 22 }, inst.id);
-    }
-    if (opened.length) {
-      this.emitZone('dungeon', 'dungeon_doors_opened', { doors: opened }, inst.id);
-      if (opened.some(d => d.boss)) {
-        const bd = opened.find(d => d.boss);
-        this.emitZone('dungeon', 'floating_text', { x: bd.x, y: bd.y - 0.5, text: 'THE BOSS ROOM IS OPEN', color: '#ef4444', size: 24 }, inst.id);
-      }
-    }
-    for (const p of this.players.values()) {
-      if (p.zone === 'dungeon' && p.dungeonInstanceId === inst.id) this.emitDungeonRunUpdate(p);
-    }
+  updateDungeonRooms(inst: DungeonInstance) {
+    return this.dungeonRun.updateDungeonRooms(inst);
   }
 
-  // Bring a room's waiting monsters into the instance. Once the run is live
-  // they rise for DUNGEON_SPAWN_MS (no AI) while clients play the summon effect.
-  // Returns what clients need for that effect.
-  spawnDungeonRoom(inst, roomIdx) {
-    inst.roomsSpawned.add(roomIdx);
-    const list = (inst.pendingMobs && inst.pendingMobs.get(roomIdx)) || [];
-    if (inst.pendingMobs) inst.pendingMobs.delete(roomIdx);
-    const until = inst.announce ? Date.now() + DUNGEON_SPAWN_MS : 0;
-    return list.map(m => {
-      m.spawnUntil = until;
-      m.dungeonInstanceId = inst.id;   // so a death with no killer (burn, poison) still finds its run
-      inst.mobs.set(m.id, m);
-      return { id: m.id, x: m.x, y: m.y, isBoss: !!m.isBoss, element: m.element || 'neutral' };
-    });
+  spawnDungeonRoom(inst: DungeonInstance, roomIdx: any) {
+    return this.dungeonRun.spawnDungeonRoom(inst, roomIdx);
   }
 
-  cleanupDungeonInstanceIfEmpty(instanceId) {
-    if (!instanceId || !this.dungeonInstances.has(instanceId)) return;
-    const hasPlayers = Array.from(this.players.values()).some(p => p.zone === 'dungeon' && p.dungeonInstanceId === instanceId);
-    if (!hasPlayers) {
-      this.dungeonInstances.delete(instanceId);
-    }
+  cleanupDungeonInstanceIfEmpty(instanceId: any) {
+    return this.dungeonRun.cleanupDungeonInstanceIfEmpty(instanceId);
   }
 
   // --- zone lookups (town / field zones / per-instance dungeon) ---
-  getMobsMap(zone, playerOrInstId = null) {
+  getMobsMap(zone: any, playerOrInstId: any = null) {
     if (zone === 'town') return this.townMobs;
     if (this.fields && this.fields.has(zone)) return this.fields.get(zone).mobs;
     if (zone === 'dungeon') {
@@ -1156,435 +546,74 @@ class GameServer {
     return this.dungeonMobs;
   }
 
-  getGroundItemsMap(zone, playerOrInstId = null) {
-    if (zone === 'town') return this.townGroundItems;
-    if (this.fields && this.fields.has(zone)) return this.fields.get(zone).groundItems;
-    if (zone === 'dungeon') {
-      let instId = null;
-      if (typeof playerOrInstId === 'string') instId = playerOrInstId;
-      else if (playerOrInstId && playerOrInstId.dungeonInstanceId) instId = playerOrInstId.dungeonInstanceId;
-      if (!instId) instId = this.ctxInstanceId;
-      if (instId && this.dungeonInstances.has(instId)) {
-        return this.dungeonInstances.get(instId).groundItems;
-      }
-    }
-    return this.dungeonGroundItems;
+  getGroundItemsMap(zone: any, playerOrInstId: any = null) {
+    return this.loot.getGroundItemsMap(zone, playerOrInstId);
   }
 
-  // ==========================================
-  // PARTY SYSTEM (Invites, Members, Sharing)
-  // ==========================================
-  getPartyData(partyId) {
-    if (!partyId || !this.parties.has(partyId)) return null;
-    const party = this.parties.get(partyId);
-    const members = [];
-    for (const memberId of party.memberIds) {
-      const p = this.players.get(memberId);
-      if (p) {
-        members.push({
-          id: p.id,
-          name: p.name,
-          level: p.level,
-          characterClass: p.characterClass,
-          hp: p.hp,
-          maxHp: p.maxHp,
-          mp: p.mp,
-          maxMp: p.maxMp,
-          zone: p.zone,
-          isLeader: p.id === party.leaderId
-        });
-      }
-    }
-    return {
-      id: party.id,
-      leaderId: party.leaderId,
-      members
-    };
+  getPartyData(partyId: any) {
+    return this.party.getPartyData(partyId);
   }
 
-  broadcastPartyUpdate(partyId) {
-    const data = this.getPartyData(partyId);
-    if (!data) return;
-    const party = this.parties.get(partyId);
-    if (!party) return;
-    for (const memberId of party.memberIds) {
-      const socket = this.io.sockets.sockets.get(memberId);
-      if (socket) {
-        socket.emit('party_updated', data);
-      }
-    }
+  broadcastPartyUpdate(partyId: any) {
+    return this.party.broadcastPartyUpdate(partyId);
   }
 
-  handlePartyInvite(socketId, data) {
-    const player = this.players.get(socketId);
-    if (!player || !data) return;
-    const socket = this.io.sockets.sockets.get(socketId);
-
-    let targetPlayer = null;
-    if (data.targetPlayerId) {
-      targetPlayer = this.players.get(data.targetPlayerId);
-    } else if (data.targetName) {
-      const nameLower = data.targetName.trim().toLowerCase();
-      targetPlayer = Array.from(this.players.values()).find(p => p.name.toLowerCase() === nameLower);
-    }
-
-    if (!targetPlayer || targetPlayer.id === socketId) {
-      if (socket) {
-        socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: '⚠️ Player not found!', color: '#ef4444' });
-      }
-      return;
-    }
-
-    if (targetPlayer.partyId) {
-      if (socket) {
-        socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: `⚠️ [${targetPlayer.name}] is already in a party!`, color: '#ef4444' });
-      }
-      return;
-    }
-
-    // Create party if inviter does not have one
-    let partyId = player.partyId;
-    if (!partyId) {
-      partyId = 'party_' + (this.nextPartyId++);
-      this.parties.set(partyId, {
-        id: partyId,
-        leaderId: player.id,
-        memberIds: new Set([player.id])
-      });
-      player.partyId = partyId;
-      this.broadcastPartyUpdate(partyId);
-    }
-
-    const party = this.parties.get(partyId);
-    if (!party || party.memberIds.size >= 4) {
-      if (socket) {
-        socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: '⚠️ Party is full! (Max 4 members)', color: '#ef4444' });
-      }
-      return;
-    }
-
-    const targetSocket = this.io.sockets.sockets.get(targetPlayer.id);
-    if (targetSocket) {
-      targetSocket.emit('party_invite_received', {
-        partyId,
-        inviterId: player.id,
-        inviterName: player.name
-      });
-      if (socket) {
-        socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: `📨 Sent party invite to [${targetPlayer.name}]!`, color: '#38bdf8' });
-      }
-    }
+  handlePartyInvite(socketId: any, data: any) {
+    return this.party.handlePartyInvite(socketId, data);
   }
 
-  handlePartyAccept(socketId, data) {
-    const player = this.players.get(socketId);
-    if (!player || !data || !data.partyId) return;
-    const party = this.parties.get(data.partyId);
-    if (!party || party.memberIds.size >= 4) {
-      const socket = this.io.sockets.sockets.get(socketId);
-      if (socket) socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: '⚠️ Party no longer exists or is full!', color: '#ef4444' });
-      return;
-    }
-
-    if (player.partyId) {
-      this.removePlayerFromParty(socketId);
-    }
-
-    party.memberIds.add(player.id);
-    player.partyId = party.id;
-    this.broadcastPartyUpdate(party.id);
-
-    const leaderPlayer = this.players.get(party.leaderId);
-    const socket = this.io.sockets.sockets.get(socketId);
-    if (socket) {
-      socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: `⚔️ Joined party of [${leaderPlayer ? leaderPlayer.name : 'Party'}]!`, color: '#4ade80' });
-    }
-    this.broadcastSystemMessage(`⚔️ [${player.name}] joined the party!`);
+  handlePartyAccept(socketId: any, data: any) {
+    return this.party.handlePartyAccept(socketId, data);
   }
 
-  handlePartyDecline(socketId, data) {
-    const player = this.players.get(socketId);
-    if (!player || !data || !data.inviterId) return;
-    const inviterSocket = this.io.sockets.sockets.get(data.inviterId);
-    if (inviterSocket) {
-      inviterSocket.emit('floating_text', { x: 0, y: 0, text: `[${player.name}] declined party invitation.`, color: '#94a3b8' });
-    }
+  handlePartyDecline(socketId: any, data: any) {
+    return this.party.handlePartyDecline(socketId, data);
   }
 
-  // Ask every other party member to teleport to this player's map (or dungeon)
-  handlePartySummon(socketId) {
-    const player = this.players.get(socketId);
-    if (!player || player.isDead || !player.partyId) return;
-    const party = this.parties.get(player.partyId);
-    const socket = this.io.sockets.sockets.get(socketId);
-    if (!party || party.memberIds.size <= 1) {
-      if (socket) socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: '⚠️ No party members to summon!', color: '#ef4444' });
-      return;
-    }
-
-    const inst = this.getPlayerDungeonInstance(player);
-    const field = this.fields.get(player.zone);
-    const where = inst ? (inst.rift ? 'the Eternal Rift' : `Dungeon B${inst.floor}`) : field ? field.zone.name : 'Town';
-    const expiresAt = Date.now() + PARTY_SUMMON_TTL_MS;
-    let sent = 0;
-    for (const memberId of party.memberIds) {
-      if (memberId === player.id) continue;
-      const member = this.players.get(memberId);
-      const memberSocket = this.io.sockets.sockets.get(memberId);
-      if (!member || !memberSocket) continue;
-      if (member.zone === player.zone && member.dungeonInstanceId === player.dungeonInstanceId) continue;
-      member.pendingSummon = { fromId: player.id, expiresAt };
-      memberSocket.emit('party_summon_received', { fromId: player.id, fromName: player.name, where, isDungeon: !!inst });
-      sent++;
-    }
-    if (socket) {
-      socket.emit('floating_text', {
-        x: player.x, y: player.y - 0.7,
-        text: sent ? `📣 Summoned ${sent} party member${sent > 1 ? 's' : ''} to ${where}!` : '✅ Your party is already here!',
-        color: '#38bdf8'
-      });
-    }
+  handlePartySummon(socketId: any) {
+    return this.party.handlePartySummon(socketId);
   }
 
-  handlePartySummonAccept(socketId, data) {
-    const player = this.players.get(socketId);
-    const socket = this.io.sockets.sockets.get(socketId);
-    if (!player || !socket || !data) return;
-    const pending = player.pendingSummon;
-    player.pendingSummon = null;
-    const fail = (text) => socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text, color: '#ef4444' });
-    if (!pending || pending.fromId !== data.fromId || Date.now() > pending.expiresAt) return fail('⚠️ The summon has expired.');
-    const summoner = this.players.get(pending.fromId);
-    if (!summoner || summoner.isDead || !player.partyId || summoner.partyId !== player.partyId) return fail('⚠️ The summoner is no longer available.');
-    if (player.isDead) return;
-
-    const at = { x: summoner.x, y: summoner.y };
-    const inst = this.getPlayerDungeonInstance(summoner);
-    const field = this.fields.get(summoner.zone);
-    if (inst) {
-      const floorConfig = DUNGEON_FLOORS[inst.floor - 1] || { minLevel: 1 };
-      if ((player.level || 1) < floorConfig.minLevel) return fail(`⛔ Requires Level ${floorConfig.minLevel}+ for B${inst.floor}!`);
-    } else if (field && (player.level || 1) < field.zone.gateLevel) {
-      return fail(`⛔ ${field.zone.name} requires Level ${field.zone.gateLevel}+!`);
-    }
-
-    // Leaving another dungeon run counts the same as walking out of it
-    if (player.zone === 'dungeon') {
-      const prevInstId = player.dungeonInstanceId;
-      this.endDungeonRun(player, socket);
-      player.dungeonInstanceId = null;
-      if (prevInstId) this.cleanupDungeonInstanceIfEmpty(prevInstId);
-    }
-
-    if (inst && inst.rift) {
-      if (!this.joinRift(player, socket, inst, at)) return fail('⚠️ That Eternal Rift run has already ended.');
-    } else if (inst) {
-      player.dungeonRun = this.newDungeonRun(inst, !!(summoner.dungeonRun && summoner.dungeonRun.cleared));
-      this.teleportPlayerToDungeon(player, socket, inst, at);
-      this.emitDungeonRunUpdate(player, socket);
-    } else if (field) {
-      this.teleportPlayerToField(player, socket, summoner.zone, 'south', at);
-    } else {
-      this.teleportPlayerToTown(player, socket, at);
-    }
-    player.portalCooldown = 4.0;
+  handlePartySummonAccept(socketId: any, data: any) {
+    return this.party.handlePartySummonAccept(socketId, data);
   }
 
-  // Online players who can be invited (not in a party yet)
-  handlePartyListCandidates(socketId) {
-    const socket = this.io.sockets.sockets.get(socketId);
-    if (!socket) return;
-    const candidates = Array.from(this.players.values())
-      .filter(p => p.id !== socketId && !p.partyId)
-      .map(p => ({ id: p.id, name: p.name, level: p.level, characterClass: p.characterClass, zone: p.zone }));
-    socket.emit('party_candidates', candidates);
+  handlePartyListCandidates(socketId: any) {
+    return this.party.handlePartyListCandidates(socketId);
   }
 
-  handlePartyLeave(socketId) {
-    this.removePlayerFromParty(socketId);
+  handlePartyLeave(socketId: any) {
+    return this.party.handlePartyLeave(socketId);
   }
 
-  handlePartyKick(socketId, data) {
-    const player = this.players.get(socketId);
-    if (!player || !player.partyId || !data || !data.targetId) return;
-    const party = this.parties.get(player.partyId);
-    if (!party || party.leaderId !== player.id) return;
-    if (data.targetId === player.id) return;
-
-    const targetSocket = this.io.sockets.sockets.get(data.targetId);
-    const targetPlayer = this.players.get(data.targetId);
-    if (targetSocket && targetPlayer) {
-      targetSocket.emit('floating_text', { x: targetPlayer.x, y: targetPlayer.y - 0.7, text: '⚠️ You were removed from the party.', color: '#ef4444' });
-    }
-    this.removePlayerFromParty(data.targetId);
+  handlePartyKick(socketId: any, data: any) {
+    return this.party.handlePartyKick(socketId, data);
   }
 
-  removePlayerFromParty(socketId) {
-    const player = this.players.get(socketId);
-    if (!player || !player.partyId) return;
-    const partyId = player.partyId;
-    const party = this.parties.get(partyId);
-    player.partyId = null;
-
-    const socket = this.io.sockets.sockets.get(socketId);
-    if (socket) {
-      socket.emit('party_left');
-    }
-
-    if (party) {
-      party.memberIds.delete(socketId);
-      if (party.memberIds.size === 0) {
-        this.parties.delete(partyId);
-      } else {
-        if (party.leaderId === socketId) {
-          party.leaderId = Array.from(party.memberIds)[0];
-          const newLeader = this.players.get(party.leaderId);
-          if (newLeader) {
-            this.broadcastSystemMessage(`👑 [${newLeader.name}] is now the Party Leader!`);
-          }
-        }
-        this.broadcastPartyUpdate(partyId);
-      }
-    }
+  removePlayerFromParty(socketId: any) {
+    return this.party.removePlayerFromParty(socketId);
   }
 
   initFieldMonsters() {
-    for (const field of this.fields.values()) {
-      const defs = buildFieldMobs(field.zone, field.map);
-      if (!defs) continue;
-      field.mobs.clear();
-      defs.forEach(def => {
-        const id = `${field.zone.id}_mob_${this.nextEntityId++}`;
-        field.mobs.set(id, {
-          id,
-          type: def.type,
-          name: def.name,
-          level: def.level,
-          x: def.spawn.x,
-          y: def.spawn.y,
-          spawnX: def.spawn.x,
-          spawnY: def.spawn.y,
-          zone: def.zone,
-          fieldZone: field.zone.id,
-          hue: def.hue || 0,
-          scale: def.scale || 1,
-          isBoss: !!def.isBoss,
-          hp: def.maxHp,
-          maxHp: def.maxHp,
-          dmg: def.dmg,
-          def: def.def,
-          speed: def.speed,
-          exp: mobExp(def.level, def.isBoss ? 'boss' : 'normal'),
-          gold: def.gold,
-          element: def.element || "ice",
-          elementResist: def.elementResist || { fire: -0.5, ice: 0.5 },
-          buffs: [...(def.buffs || [])],
-          isCommander: false,
-          auraRadius: 0,
-          targetPlayerId: null,
-          state: 'idle',
-          nextWanderTime: Date.now() + Math.random() * 3000,
-          wanderTarget: null,
-          attackCooldown: 0,
-          respawnTimer: 0,
-          facing: 'SE'
-        });
-      });
-    }
-  }
-
-  initFrostfellMonsters() {
-    // Frostfell is a generated field now (fieldZones.js) and spawns with the rest
-    if (!this.fields.get('frostfell').zone.custom) return;
-    this.frostfellMobs.clear();
-    const frostDefs = [
-      { type: 'frost_wolf', name: 'Frostbite Wolf', level: 6, maxHp: 550, def: 15, dmg: 38, speed: 3.8, exp: 160, gold: 90, count: 6, buffs: ['frostbite'], element: 'ice', elementResist: { fire: -0.5, ice: 0.5 }, zone: { minX: 5, maxX: 18, minY: 20, maxY: 33 } },
-      { type: 'ice_elemental', name: 'Glacial Elemental', level: 8, maxHp: 750, def: 20, dmg: 48, speed: 2.5, exp: 240, gold: 140, count: 6, buffs: ['frostbite'], element: 'ice', elementResist: { fire: -0.6, ice: 0.6 }, zone: { minX: 24, maxX: 38, minY: 8, maxY: 25 } },
-      { type: 'frost_titan', name: 'Frost Titan Ymir', level: 12, maxHp: 2800, def: 35, dmg: 75, speed: 2.2, exp: 950, gold: 750, count: 1, buffs: ['frostbite', 'fortified'], element: 'ice', elementResist: { fire: -0.5, ice: 0.4, holy: -0.2 }, zone: { minX: 19, maxX: 23, minY: 16, maxY: 20 }, isBoss: true }
-    ];
-
-    frostDefs.forEach(def => {
-      for (let i = 0; i < def.count; i++) {
-        const id = `frost_mob_${this.nextEntityId++}`;
-        // re-roll spawns that land inside trees, crystals or cliffs
-        let spawnX, spawnY, tries = 0;
-        do {
-          spawnX = def.zone.minX + Math.random() * (def.zone.maxX - def.zone.minX);
-          spawnY = def.zone.minY + Math.random() * (def.zone.maxY - def.zone.minY);
-        } while (this.isColliding(spawnX, spawnY, 'frostfell', 0.3) && ++tries < 30);
-
-        this.frostfellMobs.set(id, {
-          id,
-          type: def.type,
-          name: def.name,
-          level: def.level,
-          x: spawnX,
-          y: spawnY,
-          spawnX,
-          spawnY,
-          zone: def.zone,
-          isBoss: !!def.isBoss,
-          hp: def.maxHp,
-          maxHp: def.maxHp,
-          dmg: def.dmg,
-          def: def.def,
-          speed: def.speed,
-          exp: mobExp(def.level, def.isBoss ? 'boss' : 'normal'),
-          gold: def.gold,
-          buffs: [...(def.buffs || [])],
-          isCommander: false,
-          auraRadius: 0,
-          targetPlayerId: null,
-          state: 'idle',
-          nextWanderTime: Date.now() + Math.random() * 3000,
-          wanderTarget: null,
-          attackCooldown: 0,
-          respawnTimer: 0,
-          facing: 'SE'
-        });
-      }
-    });
+    return this.zones.initFieldMonsters();
   }
 
   initDungeonMonsters() {
-    this.dungeonMobs.clear();
-    if (this.dungeon && this.dungeon.mobs) {
-      this.dungeon.mobs.forEach(mob => {
-        this.dungeonMobs.set(mob.id, {
-          ...mob,
-          def: mob.def || 12,
-          buffs: mob.buffs || [],
-          isCommander: !!mob.isCommander,
-          auraRadius: mob.auraRadius || 0,
-          hasCommanderBuff: false
-        });
-      });
-    }
+    return this.zones.initDungeonMonsters();
   }
 
   regenerateDungeon(floor = 1, difficulty = 'normal') {
-    this.dungeonFloor = floor;
-    this.dungeonDifficulty = difficulty;
-    this.dungeon = generateProceduralDungeon(floor, difficulty);
-    this.dungeonGroundItems.clear();
-    this.initDungeonMonsters();
-    const floorConfig = DUNGEON_FLOORS[floor - 1] || { name: `Floor ${floor}` };
-    const diffLabel = (DIFFICULTIES[difficulty] && DIFFICULTIES[difficulty].name) || difficulty;
-    this.broadcastSystemMessage(`🌀 Abyssal Portal re-aligned to ${floorConfig.name} (B${floor}) [${diffLabel.toUpperCase()}]!`);
+    return this.zones.regenerateDungeon(floor, difficulty);
   }
 
-  // Cosmetic only: which trail the hero wears. Anything outside the whitelist clears it.
   handleSetEffects(socketId: string, data: any) {
-    const player: any = this.players.get(socketId);
-    if (!player) return;
-    const trail = data && typeof data.trail === 'string' && TRAIL_IDS.has(data.trail) ? data.trail : null;
-    player.effects = { ...(player.effects || {}), trail };
+    return this.stats.handleSetEffects(socketId, data);
   }
 
   // ---- destructible field props: every solid prop in a field zone breaks after a few hits (swings and
   // skills near it) and grows back PROP_RESPAWN_S seconds later. A broken prop is flagged `destroyed`
   // on the map obstacle itself, so it stops blocking movement and rides zone_change to late joiners.
-  damageFieldProps(player, cx, cy, radius, cone: { dx: number; dy: number; cos: number } | null = null) {
+  damageFieldProps(player: Player, cx: any, cy: any, radius: any, cone: { dx: number; dy: number; cos: number } | null = null) {
     const field = this.fields.get(player.zone);
     if (!field) return;
     const grid = fieldObstacleGrid(field.map);
@@ -1622,7 +651,7 @@ class GameServer {
   }
 
   // Bring broken props back once their time is up (never on top of someone standing there)
-  updateFieldProps(field, zoneId) {
+  updateFieldProps(field: any, zoneId: any) {
     const list = field.destroyedProps;
     if (!list || !list.length) return;
     const now = Date.now();
@@ -1637,7 +666,7 @@ class GameServer {
     }
   }
 
-  isColliding(x, y, zone = 'town', radius = 0.4) {
+  isColliding(x: any, y: any, zone = 'town', radius = 0.4) {
     if (zone === 'town') {
       if (x < 1 || x > MAP_WIDTH - 2 || y < 1 || y > MAP_HEIGHT - 2) return true;
       const tileX = Math.floor(x);
@@ -1702,7 +731,7 @@ class GameServer {
     return false;
   }
 
-  distToSegment(px, py, x1, y1, x2, y2) {
+  distToSegment(px: any, py: any, x1: any, y1: any, x2: any, y2: any) {
     const dx = x2 - x1;
     const dy = y2 - y1;
     const lenSq = dx * dx + dy * dy;
@@ -1713,13 +742,7 @@ class GameServer {
     return Math.hypot(px - projX, py - projY);
   }
 
-  addPlayer(socket, data) {
-    const defaultClasses = {
-      warrior: { maxHp: 180, maxMp: 50, dmg: 22, def: 8, speed: 4.8, attackRange: 1.6, attackSpeed: 1.0, swipe: 40, skillName: 'Whirlwind' },
-      mage: { maxHp: 95, maxMp: 130, dmg: 32, def: 3, speed: 4.4, attackRange: 5.5, attackSpeed: 0.95, swipe: 15, skillName: 'Firestorm' },
-      rogue: { maxHp: 125, maxMp: 70, dmg: 26, def: 5, speed: 5.4, attackRange: 1.8, attackSpeed: 1.30, swipe: 25, skillName: 'Shadow Strike' }
-    };
-
+  addPlayer(socket: any, data: any) {
     let savedChar = null;
     const accountUsername = accountManager.usernameForToken(data && data.token);
     const accountSlot = Math.max(0, parseInt(data && data.slot, 10) || 0);
@@ -1739,8 +762,8 @@ class GameServer {
       }
     }
 
-    const chosenClass = savedChar ? (savedChar.characterClass || 'warrior') : (defaultClasses[data.characterClass] ? data.characterClass : 'warrior');
-    const classStats = defaultClasses[chosenClass];
+    const chosenClass = savedChar ? (savedChar.characterClass || 'warrior') : (isHeroClass(data.characterClass) ? data.characterClass : 'warrior');
+    const classStats = HERO_CLASSES[chosenClass].baseStats;
 
     const spawnX = 20 + (Math.random() - 0.5) * 2;
     const spawnY = 23 + (Math.random() - 0.5) * 1.5; // Spawn in open south plaza, away from fountain
@@ -1750,121 +773,19 @@ class GameServer {
     if (savedChar && savedChar.inventory && (savedChar.inventory.maxSlots || 30) < DEFAULT_BAG_SLOTS) {
       savedChar.inventory.maxSlots = Math.min(MAX_BAG_SLOTS, (savedChar.inventory.maxSlots || 30) + DEFAULT_BAG_SLOTS - 30);
     }
-    const player = {
+    const player = createLivePlayer({
       id: socket.id,
-      accountUsername: accountUsername || null,
+      accountUsername,
       accountSlot,
       role: accountManager.roleFor(accountUsername),
-      name: savedChar ? savedChar.name : ((data.name || 'Hero').substring(0, 15).trim() || 'Hero'),
-      characterClass: chosenClass,
-      zone: 'town', // 'town', 'frostfell', or 'dungeon'
-      x: spawnX,
-      y: spawnY,
-      targetX: null,
-      targetY: null,
-      moveDir: { dx: 0, dy: 0 },
-      facing: 'SE',
-      isMoving: false,
-      level: savedChar ? (savedChar.level || 1) : 1,
-      exp: savedChar ? (savedChar.exp || 0) : 0,
-      expNext: expToNext(savedChar ? (savedChar.level || 1) : 1),
-      skillPoints: savedChar ? (savedChar.skillPoints !== undefined ? savedChar.skillPoints : 1) : 1,
-      jobLevel: savedChar ? (savedChar.jobLevel || 1) : 1,
-      spLoadouts: (savedChar && savedChar.spLoadouts) || {},
-      jobExp: savedChar ? (savedChar.jobExp || 0) : 0,
-      jobExpNext: SP.jobExpToNext(savedChar ? (savedChar.jobLevel || 1) : 1),
-      spTransformed: false,
-      spCooldown: 0,
-      skills: savedChar ? (savedChar.skills || {}) : {}, // { [skillId]: rank }
-      baseStats: {
-        maxHp: classStats.maxHp,
-        maxMp: classStats.maxMp,
-        dmg: classStats.dmg,
-        def: classStats.def,
-        speed: classStats.speed,
-        attackRange: classStats.attackRange,
-        attackSpeed: classStats.attackSpeed,
-        swipe: classStats.swipe
-      },
-      attackSpeed: classStats.attackSpeed,
-      swipe: classStats.swipe,
-      equipment: savedChar && savedChar.equipment ? savedChar.equipment : {
-        weapon: null,
-        armor: null,
-        helmet: null,
-        boots: null,
-        gloves: null,
-        cape: null,
-        ring: null
-      },
-      hp: classStats.maxHp,
-      maxHp: classStats.maxHp,
-      mp: classStats.maxMp,
-      maxMp: classStats.maxMp,
-      dmg: classStats.dmg,
-      def: classStats.def,
-      speed: classStats.speed,
-      attackRange: classStats.attackRange,
-      gold: savedChar && savedChar.gold !== undefined ? savedChar.gold : 50,
-      inventory: savedChar && savedChar.inventory ? {
-        ...savedChar.inventory,
-        maxSlots: savedChar.inventory.maxSlots || DEFAULT_BAG_SLOTS,
-        items: Array.isArray(savedChar.inventory.items) ? savedChar.inventory.items : []
-      } : {
-        healthPotions: 3,
-        manaPotions: 2,
-        kills: 0,
-        maxSlots: DEFAULT_BAG_SLOTS,
-        items: [
-          { ...ITEMS.ancient_ruby, count: 1 },
-          { ...ITEMS.revival_stone, count: 1 }
-        ]
-      },
-      storage: (savedChar && savedChar.storage) ? {
-        maxSlots: savedChar.storage.maxSlots || 50,
-        items: Array.isArray(savedChar.storage.items) ? savedChar.storage.items : []
-      } : {
-        maxSlots: 50,
-        items: []
-      },
-      attackCooldown: 0,
-      skillCooldown: 0,
-      equippedSkills: savedChar && savedChar.equippedSkills ? savedChar.equippedSkills : JSON.parse(JSON.stringify(DEFAULT_EQUIPPED_SKILLS[chosenClass] || DEFAULT_EQUIPPED_SKILLS.warrior)),
-      skillCooldowns: {
-        slot1: 0,
-        slot2: 0,
-        slot3: 0,
-        dash: 0,
-        skill1: 0,
-        skill2: 0
-      },
-      sprintTimer: 0,
-      portalCooldown: 0,
-      isAttacking: false,
-      speechBubble: null,
-      speechTimer: 0,
-      isDead: false,
-      respawnTimer: 0,
-      statusEffects: [],
-      speedFactor: 1.0,
-      shieldHp: 0,
-      berserkTimer: 0,
-      ironFortressTimer: 0,
-      smokeScreenTimer: 0
-    };
+      saved: savedChar,
+      chosenClass,
+      guestName: data && data.name,
+      spawnX,
+      spawnY
+    });
 
     if (!savedChar) {
-      // Equip starter gear tailored to chosen class
-      if (chosenClass === 'warrior') {
-        player.equipment.weapon = { ...ITEMS.iron_blade, count: 1 };
-        player.equipment.helmet = { ...ITEMS.iron_helm, count: 1 };
-      } else if (chosenClass === 'mage') {
-        player.equipment.weapon = { ...ITEMS.archmage_staff, count: 1 };
-        player.equipment.armor = { ...ITEMS.mystic_robe, count: 1 };
-      } else if (chosenClass === 'rogue') {
-        player.equipment.weapon = { ...ITEMS.shadow_daggers, count: 1 };
-        player.equipment.armor = { ...ITEMS.leather_tunic, count: 1 };
-      }
       if (player.accountUsername) {
         accountManager.saveCharacter(player.accountUsername, player, player.accountSlot || 0);
       }
@@ -1872,13 +793,13 @@ class GameServer {
 
     // Weapons became class-locked; tag older saved items and move a wrong-class weapon back to the bag
     for (const it of [...player.inventory.items, ...Object.values(player.equipment)]) {
-      const c = it && it.type === 'sp_card' ? (SP.CARD_BY_ID[it.cardId] || {}).cls : requiredClass(it);
+      const c = it && it.type === 'sp_card' ? ((SP.CARD_BY_ID as any)[it.cardId] || {}).cls : requiredClass(it);
       if (c) it.cls = c;
     }
     const heldWeapon = player.equipment.weapon;
     const heldCls = requiredClass(heldWeapon);
     if (heldCls && heldCls !== player.characterClass) {
-      player.inventory.items.push({ ...heldWeapon, count: 1 });
+      player.inventory.items.push(ItemFactory.stack(heldWeapon));
       player.equipment.weapon = null;
     }
 
@@ -1915,7 +836,7 @@ class GameServer {
       socketMax: SOCKET_MAX,
       crafting: CRAFT.craftingCatalog(),
       dungeonMods: DMODS.clientCatalog(),
-      itemNames: Object.fromEntries((Object.values(ARMOR_SETS) as any[]).flatMap(s => s.pieces.map(id => [id, ITEMS[id] && ITEMS[id].name]))),
+      itemNames: Object.fromEntries((Object.values(ARMOR_SETS) as any[]).flatMap(s => s.pieces.map((id: any) => [id, ITEMS[id] && ITEMS[id].name]))),
       enhanceRules: { max: ENHANCE_MAX, safeLevel: ENHANCE_SAFE_LEVEL, base: ENHANCE_BASE_COST, growth: ENHANCE_COST_GROWTH, chance: ENHANCE_CHANCE },
       riftCatalog: {
         structures: RIFT.RIFT_STRUCTURES,
@@ -1935,7 +856,7 @@ class GameServer {
     }
   }
 
-  removePlayer(socketId) {
+  removePlayer(socketId: any) {
     const player = this.players.get(socketId);
     if (player) {
       if (player.accountUsername) {
@@ -1955,12 +876,12 @@ class GameServer {
   }
 
   // Handle using Revival Stone (หินชุบชีวิต); superStone picks the Super Revival Stone
-  handleUseRevivalStone(socketId, superStone = false) {
+  handleUseRevivalStone(socketId: any, superStone = false) {
     const player = this.players.get(socketId);
     if (!player || !player.isDead) return;
 
     const stoneId = superStone ? 'super_revival_stone' : 'revival_stone';
-    const stoneIdx = player.inventory && player.inventory.items ? player.inventory.items.findIndex(it => it.id === stoneId) : -1;
+    const stoneIdx = player.inventory && player.inventory.items ? player.inventory.items.findIndex((it: any) => it.id === stoneId) : -1;
     if (stoneIdx === -1) {
       const socket = this.io.sockets.sockets.get(socketId);
       if (socket) {
@@ -1978,7 +899,7 @@ class GameServer {
     const inRift = !!this.getRiftInstance(player);
     if (player.zone === 'dungeon' && !inRift) {
       if (!player.dungeonRun) {
-        player.dungeonRun = { revivalsUsed: 0, maxRevivals: 10 };
+        player.dungeonRun = { revivalsUsed: 0, maxRevivals: 10 } as any;
       }
       const used = player.dungeonRun.revivalsUsed || 0;
       const maxRev = player.dungeonRun.maxRevivals || 10;
@@ -2047,7 +968,7 @@ class GameServer {
     this.savePlayerAccount(socketId);
   }
 
-  handlePlayerInput(socketId, input) {
+  handlePlayerInput(socketId: any, input: any) {
     const player = this.players.get(socketId);
     if (!player || player.isDead) return;
 
@@ -2084,4052 +1005,236 @@ class GameServer {
     }
   }
 
-  // Portals no longer fire by walking onto them: the client shows a button
-  // near one and sends 'use_portal' (handleUsePortal)
-  handleUsePortal(socketId) {
-    const player = this.players.get(socketId);
-    const socket = this.io.sockets.sockets.get(socketId);
-    if (!player || !socket || player.isDead) return;
-    this.checkPortalAndInteractions(player, socket);
+  handleUsePortal(socketId: any) {
+    return this.zones.handleUsePortal(socketId);
   }
 
-  checkPortalAndInteractions(player, socket) {
-    if (player.portalCooldown > 0) return;
-
-    if (player.zone === 'town') {
-      for (const obs of this.townMap.obstacles) {
-        if (Math.hypot(player.x - obs.x, player.y - obs.y) >= PORTAL_USE_RANGE) continue;
-        // Abyssal Dungeon Portal on the plaza
-        if (obs.id === 'portal_dungeon') {
-          player.portalCooldown = 2.0;
-          socket.emit('open_dungeon_portal_modal');
-          return;
-        }
-        // Eternal Rift gate at the end of the east boulevard
-        if (obs.id === 'portal_rift') {
-          player.portalCooldown = 2.0;
-          socket.emit('open_rift_portal_modal', this.riftPortalInfo(player));
-          return;
-        }
-        // North city gate out to the first field zone
-        if (obs.type === 'field_portal') {
-          this.teleportPlayerToField(player, socket, obs.target, obs.arrive);
-          return;
-        }
-      }
-    } else if (this.fields.has(player.zone)) {
-      // Field zone portals: back to the previous zone / on to the next one
-      const map = this.fields.get(player.zone).map;
-      for (const obs of map.obstacles) {
-        if (obs.type !== 'field_portal') continue;
-        if (Math.hypot(player.x - obs.x, player.y - obs.y) >= PORTAL_USE_RANGE) continue;
-        if (obs.target === 'town') this.teleportPlayerToTown(player, socket, this.townMap.arrivals && this.townMap.arrivals[obs.arrive]);
-        else this.teleportPlayerToField(player, socket, obs.target, obs.arrive);
-        return;
-      }
-    } else if (player.zone === 'dungeon') {
-      const inst = this.getPlayerDungeonInstance(player);
-      if (inst && inst.dungeon && inst.dungeon.obstacles) {
-        for (const obs of inst.dungeon.obstacles) {
-          if (obs.type !== 'dungeon_boss_portal') continue;
-          if (Math.hypot(player.x - obs.x, player.y - obs.y) >= PORTAL_USE_RANGE) continue;
-          if (obs.isReturn) {
-            this.teleportPlayerFromBossRoom(player, socket, inst);
-          } else {
-            this.teleportPlayerToBossRoom(player, socket, inst);
-          }
-          return;
-        }
-      }
-    }
+  checkPortalAndInteractions(player: Player, socket: any) {
+    return this.zones.checkPortalAndInteractions(player, socket);
   }
 
   handleSpawnBossPortal(socketId: any) {
-    const player = this.players.get(socketId);
-    if (!player || player.zone !== 'dungeon' || player.isDead) return;
-    const inst = this.getPlayerDungeonInstance(player);
-    if (!inst || !inst.bossPortalReady || inst.bossPortalSpawned) return;
-
-    const portalX = Math.round(player.x) + 0.5;
-    const portalY = Math.round(player.y) + 0.5;
-    const portalObstacle = {
-      id: 'portal_boss',
-      x: portalX,
-      y: portalY,
-      type: 'dungeon_boss_portal',
-      isReturn: false,
-      collidable: false
-    };
-
-    inst.bossPortalPos = { x: portalX, y: portalY };
-    inst.bossPortalSpawned = true;
-    if (!inst.dungeon.obstacles) inst.dungeon.obstacles = [];
-    inst.dungeon.obstacles.push(portalObstacle);
-
-    this.emitZone('dungeon', 'boss_portal_spawned', { portal: portalObstacle }, inst.id);
-    this.emitZone('dungeon', 'floating_text', {
-      x: portalX,
-      y: portalY - 1.2,
-      text: '🌀 BOSS PORTAL OPENED!',
-      color: '#c084fc',
-      size: 24
-    }, inst.id);
-    this.broadcastSystemMessage(`🌀 [${player.name}] summoned the Boss Portal!`);
-
-    for (const p of this.players.values()) {
-      if (p.zone === 'dungeon' && p.dungeonInstanceId === inst.id) {
-        this.emitDungeonRunUpdate(p);
-      }
-    }
+    return this.zones.handleSpawnBossPortal(socketId);
   }
 
   teleportPlayerToBossRoom(player: any, socket: any, inst: any) {
-    if (!inst || !inst.dungeon || !inst.dungeon.rooms) return;
-    const bossRoom = inst.dungeon.rooms[inst.dungeon.rooms.length - 1];
-    if (!bossRoom) return;
-
-    const destX = bossRoom.cx + 0.5;
-    const destY = bossRoom.y + bossRoom.h - 2.5;
-
-    player.x = destX;
-    player.y = destY;
-    player.targetX = null;
-    player.targetY = null;
-    player.portalCooldown = 2.0;
-
-    const bossIdx = inst.dungeon.rooms.length - 1;
-    if (!inst.roomsSpawned.has(bossIdx)) {
-      const spawned = this.spawnDungeonRoom(inst, bossIdx);
-      if (spawned.length) {
-        this.emitZone('dungeon', 'dungeon_mobs_spawned', { mobs: spawned }, inst.id);
-      }
-      this.emitZone('dungeon', 'floating_text', {
-        x: bossRoom.cx + 0.5,
-        y: bossRoom.cy - 1.5,
-        text: '⚔️ BOSS ENCOUNTER!',
-        color: '#ef4444',
-        size: 28
-      }, inst.id);
-    }
-
-    if (socket) socket.emit('player_teleport', { id: player.id, x: player.x, y: player.y });
-    this.emitZone('dungeon', 'player_teleport', { id: player.id, x: player.x, y: player.y }, inst.id);
-    if (socket) socket.emit('floating_text', { x: player.x, y: player.y - 1.0, text: 'ENTERED BOSS LAIR!', color: '#f43f5e' });
+    return this.zones.teleportPlayerToBossRoom(player, socket, inst);
   }
 
   teleportPlayerFromBossRoom(player: any, socket: any, inst: any) {
-    if (!inst || !inst.dungeon) return;
-    const returnPos = inst.bossPortalPos || inst.dungeon.spawnPoint || { x: player.x, y: player.y };
-
-    player.x = returnPos.x;
-    player.y = returnPos.y;
-    player.targetX = null;
-    player.targetY = null;
-    player.portalCooldown = 2.0;
-
-    if (socket) socket.emit('player_teleport', { id: player.id, x: player.x, y: player.y });
-    this.emitZone('dungeon', 'player_teleport', { id: player.id, x: player.x, y: player.y }, inst.id);
-    if (socket) socket.emit('floating_text', { x: player.x, y: player.y - 1.0, text: 'RETURNED TO DUNGEON', color: '#38bdf8' });
+    return this.zones.teleportPlayerFromBossRoom(player, socket, inst);
   }
 
   handleEnterDungeon(socketId: any, options: any = {}) {
-    const player = this.players.get(socketId);
-    if (!player || player.zone !== 'town' || player.isDead) return;
-    const socket = this.io.sockets.sockets.get(socketId);
-    if (!socket) return;
-
-    // Party members join the dungeon their party already has open
-    const partyInst = player.partyId ? this.dungeonInstances.get(`party_${player.partyId}`) : null;
-    const floor = partyInst ? partyInst.floor : Math.max(1, Math.min(10, parseInt(options.floor, 10) || 1));
-    const floorConfig = DUNGEON_FLOORS[floor - 1] || { minLevel: 1 };
-
-    // Strict level gate: prevent low level players from skipping to high level floors
-    if ((player.level || 1) < floorConfig.minLevel) {
-      socket.emit('floating_text', {
-        x: player.x,
-        y: player.y - 0.7,
-        text: `⛔ Requires Level ${floorConfig.minLevel}+!`,
-        color: '#ef4444'
-      });
-      return;
-    }
-
-    const difficulty = partyInst ? partyInst.difficulty
-      : (['normal', 'hard', 'nightmare'].includes(options.difficulty) ? options.difficulty : 'normal');
-    // classic labyrinth, or Rush (one super long hall holding every monster); a party joins the leader's mode
-    const mode = partyInst ? (partyInst.mode || 'classic') : (options.mode === 'rush' ? 'rush' : 'classic');
-
-    // modifiers picked at the portal; a party member gets the leader's
-    const mods = partyInst ? (partyInst.mods || []) : DMODS.parseMods(options.mods);
-    const inst = this.getOrCreateDungeonInstance(player, floor, difficulty, false, mode, mods);
-    if (partyInst) {
-      socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: `⚔️ Joining your party in B${inst.floor}!`, color: '#4ade80' });
-    }
-    player.dungeonInstanceId = inst.id;
-    player.dungeonRun = this.newDungeonRun(inst);
-    this.teleportPlayerToDungeon(player, socket, inst);
-    this.emitDungeonRunUpdate(player, socket);
-    if (options.inviteParty) this.handlePartySummon(socketId);
+    return this.zones.handleEnterDungeon(socketId, options);
   }
 
-  handleLeaveDungeon(socketId) {
-    const player = this.players.get(socketId);
-    if (!player || player.zone !== 'dungeon' || player.isDead) return;
-    const socket = this.io.sockets.sockets.get(socketId);
-    if (!socket) return;
-
-    const inst = this.getPlayerDungeonInstance(player);
-    if (inst && inst.rift) {
-      this.leaveRift(player, socket);
-      return;
-    }
-    const dung = inst ? inst.dungeon : this.dungeon;
-    const mobsMap = inst ? inst.mobs : this.dungeonMobs;
-
-    if (dung && dung.bossRoom) {
-      const br = dung.bossRoom;
-      const inBossRoom = (player.x >= br.x - 1 && player.x <= br.x + br.w + 1 && player.y >= br.y - 1 && player.y <= br.y + br.h + 1);
-      if (inBossRoom) {
-        const bossMob = (Array.from(mobsMap.values()) as any[]).find(m => m.isBoss && m.state !== 'dead' && m.hp > 0);
-        if (bossMob) {
-          socket.emit('floating_text', {
-            x: player.x,
-            y: player.y - 0.8,
-            text: `🔒 มิติปิดผนึก! ต้องกำจัดบอสก่อนจึงจะออกจากห้องบอสได้`,
-            color: '#ef4444',
-            size: 18
-          });
-          return;
-        }
-      }
-    }
-
-    const prevInstanceId = player.dungeonInstanceId;
-    player.dungeonInstanceId = null;
-    if (prevInstanceId) {
-      this.cleanupDungeonInstanceIfEmpty(prevInstanceId);
-    }
-    this.teleportPlayerToTown(player, socket);
+  handleLeaveDungeon(socketId: any) {
+    return this.zones.handleLeaveDungeon(socketId);
   }
 
-  teleportPlayerToDungeon(player, socket, inst = null, at = null) {
-    if (!inst) {
-      inst = this.getPlayerDungeonInstance(player) || this.getOrCreateDungeonInstance(player);
-    }
-    player.dungeonInstanceId = inst.id;
-    player.portalCooldown = 4.0;
-    player.zone = 'dungeon';
-    player.x = at ? at.x : inst.dungeon.spawnPoint.x;
-    player.y = at ? at.y : inst.dungeon.spawnPoint.y;
-    player.targetX = null;
-    player.targetY = null;
-
-    if (socket) {
-      if (player._room) socket.leave(player._room);
-      player._room = `dungeon:${inst.id}`;
-      socket.join(player._room);
-
-      socket.emit('zone_change', {
-        zone: 'dungeon',
-        // the generator's raw mob list rides on the map object; clients use the live `mobs` below
-        map: { ...inst.dungeon, mobs: undefined },
-        floorLevel: inst.floor,
-        difficulty: inst.difficulty,
-        player,
-        players: Array.from(this.players.values()).filter(p => p.zone === 'dungeon' && p.dungeonInstanceId === inst.id),
-        // big floors hold thousands of mobs: send the living ones in view (game_tick adds the rest as they come into view)
-        mobs: (Array.from(inst.mobs.values()) as any[]).filter(m => m.state !== 'dead' && (m.isBoss || mobInView(m, player))),
-        groundItems: Array.from(inst.groundItems.values()),
-        chests: inst.chests
-      });
-    }
-
-    const floorConfig = DUNGEON_FLOORS[inst.floor - 1] || { name: `Floor ${inst.floor}` };
-    const diffName = (DIFFICULTIES[inst.difficulty] && DIFFICULTIES[inst.difficulty].name) || inst.difficulty;
-    this.sendDirectMessage(player.id, `🌀 [${player.name}] entered ${floorConfig.name} (B${inst.floor} - ${diffName})!`);
+  teleportPlayerToDungeon(player: Player, socket: any, inst: DungeonInstance = null, at: any = null) {
+    return this.zones.teleportPlayerToDungeon(player, socket, inst, at);
   }
 
-  // Move a player into a field zone, arriving at its south (from the previous
-  // zone) or north (coming back from the next zone) portal.
-  teleportPlayerToField(player, socket, zoneId, arrive = 'south', at = null) {
-    const field = this.fields.get(zoneId);
-    if (!field) return;
-    const zone = field.zone;
-    if ((player.level || 1) < zone.gateLevel) {
-      player.portalCooldown = 2.0;
-      socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: `⛔ ${zone.name} requires Level ${zone.gateLevel}+!`, color: '#ef4444' });
-      return;
-    }
-
-    const spot = at || (field.map.arrivals && field.map.arrivals[arrive]) || field.map.spawnPoint || { x: 21, y: 32 };
-    player.portalCooldown = 4.0;
-    player.zone = zoneId;
-    player.x = spot.x;
-    player.y = spot.y;
-    player.targetX = null;
-    player.targetY = null;
-
-    socket.emit('zone_change', {
-      zone: zoneId,
-      zoneName: zone.name,
-      zoneLevel: `Lv. ${zone.minLevel}-${zone.maxLevel}`,
-      map: field.map,
-      player,
-      players: Array.from(this.players.values()).filter(p => p.zone === zoneId),
-      // the living mobs in view; game_tick adds the rest as they come into view
-      mobs: (Array.from(field.mobs.values()) as any[]).filter(m => m.state !== 'dead' && (m.isBoss || mobInView(m, player))),
-      groundItems: Array.from(field.groundItems.values()),
-      raid: this.raidInfo(zoneId)
-    });
-
-    this.sendDirectMessage(player.id, `🧭 [${player.name}] ventured into ${zone.name} (Lv. ${zone.minLevel}-${zone.maxLevel})!`);
+  teleportPlayerToField(player: Player, socket: any, zoneId: any, arrive = 'south', at: any = null) {
+    return this.zones.teleportPlayerToField(player, socket, zoneId, arrive, at);
   }
 
-  teleportPlayerToFrostfell(player, socket) {
-    this.teleportPlayerToField(player, socket, 'frostfell', 'south');
+  teleportPlayerToFrostfell(player: Player, socket: any) {
+    return this.zones.teleportPlayerToFrostfell(player, socket);
   }
 
-  teleportPlayerToTown(player, socket, at = null) {
-    if (player.zone === 'dungeon') {
-      const prevInstId = player.dungeonInstanceId;
-      player.dungeonInstanceId = null;
-      if (prevInstId) this.cleanupDungeonInstanceIfEmpty(prevInstId);
-      this.endDungeonRun(player, socket);
-    }
-    player.portalCooldown = 4.0; // 4 second cooldown prevents bounce-back
-    player.zone = 'town';
-    player.x = at ? at.x : 21.0;
-    player.y = at ? at.y : 19.0;
-    player.targetX = null;
-    player.targetY = null;
-
-    socket.emit('zone_change', {
-      zone: 'town',
-      map: this.townMap,
-      player,
-      players: Array.from(this.players.values()).filter(p => p.zone === 'town'),
-      mobs: Array.from(this.townMobs.values()),
-      groundItems: Array.from(this.townGroundItems.values())
-    });
-
-    this.sendDirectMessage(player.id, `🏰 [${player.name}] returned safely to town.`);
+  teleportPlayerToTown(player: Player, socket: any, at: any = null) {
+    return this.zones.teleportPlayerToTown(player, socket, at);
   }
 
-  handleAllocateSkillPoint(socketId, skillId) {
-    this.handleAllocatePassives(socketId, [skillId]);
+  handleAllocateSkillPoint(socketId: any, skillId: any) {
+    return this.level.handleAllocateSkillPoint(socketId, skillId);
   }
 
-  // Allocate passive nodes in order (a path the client picked). Each node must touch the class
-  // start or a node already owned (including ones earlier in this same path); one point each.
-  handleAllocatePassives(socketId, ids) {
-    const player = this.players.get(socketId);
-    if (!player || player.isDead || !Array.isArray(ids)) return;
-    if (!player.skills) player.skills = {};
-    const socket = this.io.sockets.sockets.get(socketId);
-    const learned = [];
-    let error = '';
-    for (const id of ids.slice(0, 200)) {
-      if (!player.skillPoints || player.skillPoints <= 0) { error = '⚠️ Not enough passive points!'; break; }
-      const node = PASSIVES.BY_ID.get(String(id));
-      if (!node) break;
-      if (!PASSIVES.canAllocate(player.characterClass, player.skills, node.id)) {
-        error = (player.skills[node.id] || 0) > 0 ? '' : '⚠️ Connect it to a passive you already have!';
-        break;
-      }
-      player.skillPoints--;
-      player.skills[node.id] = 1;
-      learned.push(node);
-    }
-    if (learned.length) this.recalculatePlayerStats(player);
-    if (!socket) return;
-    if (learned.length) socket.emit('player_updated', player);
-    // always resync: the client may have optimistically added the points
-    socket.emit('skill_tree_updated', { skillPoints: player.skillPoints, skills: player.skills });
-    if (error) socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: error, color: '#ef4444' });
-    if (!learned.length) return;
-    const big = learned.filter(n => n.kind === 'notable' || n.kind === 'keystone');
-    const label = big.length ? big.map(n => n.name).join(', ') : learned[learned.length - 1].name;
-    socket.emit('floating_text', {
-      x: player.x,
-      y: player.y - 0.7,
-      text: `✨ ${learned.length > 1 ? `+${learned.length} passives: ` : ''}[${label}]`,
-      color: '#facc15'
-    });
-    if (big.length) this.sendDirectMessage(player.id, `🌳 [${player.name}] allocated [${big.map(n => n.name).join('], [')}]!`);
+  handleAllocatePassives(socketId: any, ids: any) {
+    return this.level.handleAllocatePassives(socketId, ids);
   }
 
-  // Refund one passive node for a little gold, as long as the rest of the build stays connected
-  handleRefundPassive(socketId, id) {
-    const player = this.players.get(socketId);
-    if (!player || player.isDead || !player.skills) return;
-    const socket = this.io.sockets.sockets.get(socketId);
-    const node = PASSIVES.BY_ID.get(String(id));
-    const fail = (text) => {
-      if (!socket) return;
-      socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text, color: '#ef4444' });
-      socket.emit('skill_tree_updated', { skillPoints: player.skillPoints, skills: player.skills });
-    };
-    if (!node || !(player.skills[node.id] > 0)) return fail('⚠️ You do not own that passive.');
-    if (!PASSIVES.canRefund(player.characterClass, player.skills, node.id)) return fail('⚠️ Other passives depend on it: refund the far end of the path first.');
-    if ((player.gold || 0) < PASSIVE_REFUND_COST) return fail(`⚠️ Need ${PASSIVE_REFUND_COST.toLocaleString('en-US')} Gold to refund a passive!`);
-    player.gold -= PASSIVE_REFUND_COST;
-    delete player.skills[node.id];
-    player.skillPoints = (player.skillPoints || 0) + 1;
-    this.recalculatePlayerStats(player);
-    if (!socket) return;
-    socket.emit('player_updated', player);
-    socket.emit('skill_tree_updated', { skillPoints: player.skillPoints, skills: player.skills });
-    socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: `↩ Refunded [${node.name}] (-${PASSIVE_REFUND_COST.toLocaleString('en-US')} Gold)`, color: '#38bdf8' });
+  handleRefundPassive(socketId: any, id: any) {
+    return this.level.handleRefundPassive(socketId, id);
   }
 
-  // A saved build that no longer fits the tree (it was redesigned, or the save is broken) is
-  // refunded in full, for free: the hero gets every spent point back and re-picks their path.
-  refundStaleTalents(player) {
-    if (!player || !player.skills) return;
-    if (PASSIVES.isValidAllocation(player.characterClass, player.skills)) return;
-    const spent = Object.keys(player.skills).reduce((s, id) => s + Number(player.skills[id] || 0), 0);
-    player.skillPoints = (player.skillPoints || 0) + spent;
-    player.skills = {};
-    player.talentRefunded = (player.talentRefunded || 0) + spent;
+  refundStaleTalents(player: Player) {
+    return this.level.refundStaleTalents(player);
   }
 
-  handleResetSkillPoints(socketId) {
-    const player = this.players.get(socketId);
-    if (!player || player.isDead) return;
-    if (!player.skills) return;
-
-    let pointsSpent = 0;
-    for (const rank of Object.values(player.skills)) {
-      pointsSpent += Number(rank || 0);
-    }
-    if (pointsSpent === 0) return;
-
-    const resetCost = Math.min(500, pointsSpent * 50);
-    const socket = this.io.sockets.sockets.get(socketId);
-
-    if (player.gold < resetCost) {
-      if (socket) {
-        socket.emit('floating_text', {
-          x: player.x,
-          y: player.y - 0.7,
-          text: `⚠️ Need ${resetCost.toLocaleString('en-US')} Gold to respec talents!`,
-          color: '#ef4444'
-        });
-      }
-      return;
-    }
-
-    player.gold -= resetCost;
-    player.skillPoints = (player.skillPoints || 0) + pointsSpent;
-    player.skills = {};
-    this.recalculatePlayerStats(player);
-
-    if (socket) {
-      socket.emit('player_updated', player);
-      socket.emit('skill_tree_updated', {
-        skillPoints: player.skillPoints,
-        skills: player.skills
-      });
-      socket.emit('floating_text', {
-        x: player.x,
-        y: player.y - 0.7,
-        text: `🔄 Talents Reset! Restored ${pointsSpent} points (-${resetCost.toLocaleString('en-US')} Gold)`,
-        color: '#38bdf8'
-      });
-    }
-
-    this.sendDirectMessage(player.id, `🔄 [${player.name}] redistributed their talent points.`);
+  handleResetSkillPoints(socketId: any) {
+    return this.level.handleResetSkillPoints(socketId);
   }
 
-  // Handle Opening Treasure Chests in Dungeon
-  handleOpenChest(socketId, chestId) {
-    const player = this.players.get(socketId);
-    if (!player || player.zone !== 'dungeon' || player.isDead) return;
-
-    const inst = this.getPlayerDungeonInstance(player);
-    const chests = inst ? inst.chests : this.dungeon.chests;
-    const chestFloor = inst ? inst.floor : this.dungeonFloor;
-    const chestDifficulty = inst ? inst.difficulty : this.dungeonDifficulty;
-    const chest = chests.find(c => c.id === chestId);
-    // Every party member loots each chest once for themselves
-    if (!chest) return;
-    if (!chest.openedBy) chest.openedBy = [];
-    if (chest.openedBy.includes(player.id)) return;
-
-    const dist = Math.hypot(chest.x - player.x, chest.y - player.y);
-    if (dist <= 2.5) {
-      chest.openedBy.push(player.id);
-      const loot = rollDungeonLoot(chest.isGold, chestFloor, player.characterClass);
-      const socket = this.io.sockets.sockets.get(socketId);
-
-      // Chest loot is only secured once the dungeon is cleared: until the boss
-      // falls it is held in the run's loot bag (see endDungeonRun).
-      if (!player.dungeonRun) {
-        player.dungeonRun = inst ? this.newDungeonRun(inst) : { floor: chestFloor, difficulty: chestDifficulty, cleared: false, gold: 0, items: [], startedAt: Date.now(), deaths: 0, kills: 0, exp: 0 };
-      }
-      const run = player.dungeonRun;
-      loot.forEach((it) => {
-        if (run.cleared) {
-          this.giveLootToPlayer(player, it);
-        } else if (it.type === 'gold') {
-          run.gold += it.amount;
-        } else {
-          run.items.push(it);
-        }
-      });
-      if (run.cleared && socket) socket.emit('player_updated', player);
-      this.emitDungeonRunUpdate(player, socket);
-
-      if (!socket) return;
-      socket.emit('chest_opened', { chestId, openedBy: player.name });
-      socket.emit('floating_text', {
-        x: chest.x,
-        y: chest.y - 0.8,
-        text: run.cleared ? '💎 Chest Unlocked!' : '💎 Loot bagged - defeat the boss to secure it!',
-        color: '#facc15'
-      });
-    }
+  handleOpenChest(socketId: any, chestId: any) {
+    return this.dungeonRun.handleOpenChest(socketId, chestId);
   }
 
-  handlePlayerAttack(socketId, targetInfo) {
-    const player = this.players.get(socketId);
-    if (!player || player.isDead || player.attackCooldown > ATTACK_GRACE_S) return;
-
-    const atkSpeed = Math.max(0.4, player.attackSpeed || 1.0);
-    player.attackCooldown = Math.max(0, player.attackCooldown || 0) + Math.max(0.12, 0.55 / atkSpeed);
-    player.isAttacking = true;
-
-    const mobsMap = this.getMobsMap(player.zone);
-
-    let targetMob = null;
-    if (targetInfo && targetInfo.targetType === 'mob') {
-      const mob = mobsMap.get(targetInfo.targetId);
-      if (mob && mob.state !== 'dead') {
-        targetMob = mob;
-      }
-    }
-
-    // A swing keeps the hero turned toward its target for a moment, even
-    // with "face the cursor" on
-    player.faceLockTimer = AIM_FACE_LOCK_SEC;
-    if (targetMob) {
-      player.facing = this.calculateFacing(player.x, player.y, targetMob.x, targetMob.y);
-      // In reach of a click-moved hero: plant the feet and swing instead of walking on into the monster
-      const reach = (player.attackRange || 1.6) + 0.6;
-      const wasd = player.moveDir && (player.moveDir.dx || player.moveDir.dy);
-      if (!wasd && Math.hypot(targetMob.x - player.x, targetMob.y - player.y) <= reach) {
-        player.targetX = null;
-        player.targetY = null;
-        player.isMoving = false;
-      }
-    } else if (targetInfo && targetInfo.worldX !== undefined) {
-      player.facing = this.calculateFacing(player.x, player.y, targetInfo.worldX, targetInfo.worldY);
-    }
-
-    // a swing also hits the props in front of the hero (field zones): melee in a short cone, mages farther
-    if (this.fields.has(player.zone)) {
-      let ax = targetMob ? targetMob.x - player.x : targetInfo && targetInfo.worldX !== undefined ? targetInfo.worldX - player.x : NaN;
-      let ay = targetMob ? targetMob.y - player.y : targetInfo && targetInfo.worldY !== undefined ? targetInfo.worldY - player.y : NaN;
-      if (!Number.isFinite(ax) || !Number.isFinite(ay) || Math.hypot(ax, ay) < 0.01) {
-        const fv: any = { E: [1, 0], SE: [0.707, 0.707], S: [0, 1], SW: [-0.707, 0.707], W: [-1, 0], NW: [-0.707, -0.707], N: [0, -1], NE: [0.707, -0.707] }[player.facing] || [1, 0];
-        ax = fv[0]; ay = fv[1];
-      }
-      const al = Math.hypot(ax, ay) || 1;
-      const propReach = player.characterClass === 'mage' ? 4 : (player.attackRange || 1.6) + 1.2;
-      this.damageFieldProps(player, player.x, player.y, propReach, { dx: ax / al, dy: ay / al, cos: 0.4 });
-    }
-
-    const critChance = 0.15 + (player.critChanceBonus || 0);
-    let isCrit = Math.random() < critChance;
-    if (player.smokeScreenTimer > 0) {
-      isCrit = true;
-      player.smokeScreenTimer = 0;
-      this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.7, text: '💥 AMBUSH!', color: '#f59e0b', size: 20 });
-    }
-
-    let attackDmg = player.dmg;
-    if (player.berserkTimer > 0) {
-      attackDmg = Math.round(attackDmg * 1.35);
-    }
-    // (Dread Lord's low-HP bonus is its card passive: passiveDamageMult)
-    if (player.bloodlust) attackDmg = Math.round(attackDmg * this.bloodRage(player));
-    // melee hits below add up what they took, for the SP card passive leech
-    let meleeDealt = 0;
-    // where each blow landed, so the client can burst particles on what was hit
-    const hits: any[] = [];
-    const strike = (mob, dmg, crit) => {
-      const before = mob.hp;
-      this.applyDamageToMob(player, mob, dmg, crit);
-      meleeDealt += Math.max(0, before - Math.max(0, mob.hp));
-      if (hits.length < 12) hits.push({ x: Math.round(mob.x * 100) / 100, y: Math.round(mob.y * 100) / 100, crit: !!crit });
-    };
-
-    let hasSweepTriggered = false;
-    let sweepRangeHit = 0; // how far this swing's cleave reached (tiles), for the client's arc
-
-    const power = player.weaponPower;
-    if (player.characterClass === 'mage' && power && power.fireChannel) {
-      // Sunfire Conduit: one fireball into each of the nearest enemies (the clicked one first), no splash
-      const reach = player.attackRange + 1.0;
-      const near = (Array.from(mobsMap.values()) as any[])
-        .filter(m => m.state !== 'dead' && m !== targetMob && !(m.spawnUntil && Date.now() < m.spawnUntil) && Math.hypot(m.x - player.x, m.y - player.y) <= reach)
-        .sort((a, b) => Math.hypot(a.x - player.x, a.y - player.y) - Math.hypot(b.x - player.x, b.y - player.y));
-      const targets = (targetMob && Math.hypot(targetMob.x - player.x, targetMob.y - player.y) <= reach ? [targetMob] : []).concat(near).slice(0, power.fireChannel);
-      if (targets.length) {
-        targets.forEach(m => this.spawnProjectile(player, m.x, m.y, m.id, 'mob', attackDmg, { crit: isCrit }));
-      } else if (targetInfo && targetInfo.worldX !== undefined && targetInfo.worldY !== undefined) {
-        this.spawnProjectile(player, targetInfo.worldX, targetInfo.worldY, null, 'point', attackDmg, { crit: isCrit });
-      }
-    } else if (player.characterClass === 'mage') {
-      // Mage Ranged Projectiles
-      if (targetMob) {
-        const dist = Math.hypot(targetMob.x - player.x, targetMob.y - player.y);
-        if (dist <= player.attackRange + 1.0) {
-          this.spawnProjectile(player, targetMob.x, targetMob.y, targetMob.id, 'mob', attackDmg, { splash: MAGE_SPLASH_SHARE, crit: isCrit });
-        }
-      } else if (targetInfo && targetInfo.worldX !== undefined && targetInfo.worldY !== undefined) {
-        this.spawnProjectile(player, targetInfo.worldX, targetInfo.worldY, null, 'point', attackDmg, { splash: MAGE_SPLASH_SHARE, crit: isCrit });
-      } else {
-        const facingVectors = {
-          E: { x: 1, y: 0 }, SE: { x: 0.707, y: 0.707 }, S: { x: 0, y: 1 }, SW: { x: -0.707, y: 0.707 },
-          W: { x: -1, y: 0 }, NW: { x: -0.707, y: -0.707 }, N: { x: 0, y: -1 }, NE: { x: 0.707, y: -0.707 }
-        };
-        const fv = facingVectors[player.facing] || { x: 1, y: 0 };
-        this.spawnProjectile(player, player.x + fv.x * 6, player.y + fv.y * 6, null, 'point', attackDmg, { splash: MAGE_SPLASH_SHARE, crit: isCrit });
-      }
-    } else {
-      // Melee basic attacks with Minecraft-style Sweeping Edge cleave!
-      const hitMobs = new Set();
-      let primaryHit = false;
-
-      // 1. Primary target damage
-      if (targetMob) {
-        const dist = Math.hypot(targetMob.x - player.x, targetMob.y - player.y);
-        if (dist <= player.attackRange + 1.1) {
-          strike(targetMob, attackDmg, isCrit);
-          hitMobs.add(targetMob.id);
-          primaryHit = true;
-          if (player.berserkTimer > 0) {
-            const maxHeal = Math.max(2, Math.round(player.maxHp * 0.04));
-            const lifesteal = Math.min(maxHeal, Math.max(1, Math.round(attackDmg * 0.04)));
-            player.hp = Math.min(player.maxHp, player.hp + lifesteal);
-          }
-          this.chainBasicAttack(player, targetMob, attackDmg, mobsMap, strike);
-        }
-      }
-
-      // 2. Sweeping Edge (Swipe) Cleave to surrounding enemies in front arc
-      // (Gatekeeper's Greatsword: a far longer, wider cleave with a damage floor)
-      const swipePct = Math.max(player.swipe !== undefined ? player.swipe : 35, (power && power.minSwipe) || 0);
-      if (swipePct > 0) {
-        hasSweepTriggered = true;
-        const facingVectors = {
-          E: { x: 0.707, y: -0.707 },
-          SE: { x: 1.0, y: 0.0 },
-          S: { x: 0.707, y: 0.707 },
-          SW: { x: 0.0, y: 1.0 },
-          W: { x: -0.707, y: 0.707 },
-          NW: { x: -1.0, y: 0.0 },
-          N: { x: -0.707, y: -0.707 },
-          NE: { x: 0.0, y: -1.0 }
-        };
-        const fv = facingVectors[player.facing] || { x: 1.0, y: 0.0 };
-        const { reach: sweepRange, arc } = this.meleeSweep(player);
-        sweepRangeHit = sweepRange;
-        const minDot = Math.cos((arc * Math.PI) / 360);
-        const swipeDmg = Math.max(1, Math.round(attackDmg * (swipePct / 100)));
-
-        for (const mob of mobsMap.values()) {
-          if (mob.state === 'dead' || hitMobs.has(mob.id)) continue;
-          const dx = mob.x - player.x;
-          const dy = mob.y - player.y;
-          const dist = Math.hypot(dx, dy);
-          if (dist > sweepRange) continue;
-
-          // Check angle in cone (±68 degrees, cos >= 0.35; wider for a sweepArc weapon)
-          const dot = dist > 0.001 ? (dx * fv.x + dy * fv.y) / dist : 1.0;
-          if (dot >= minDot) {
-            hitMobs.add(mob.id);
-            strike(mob, swipeDmg, Math.random() < critChance);   // its own crit roll, like the main target
-          }
-        }
-      }
-      this.cardPassiveLeech(player, meleeDealt);
-    }
-
-    this.emitZone(player.zone, 'entity_attack_fx', {
-      attackerId: player.id,
-      attackerType: 'player',
-      class: player.characterClass,
-      cardId: player.spTransformed && player.equipment && player.equipment.sp ? player.equipment.sp.cardId : null,
-      targetId: targetInfo ? targetInfo.targetId : null,
-      x: player.x,
-      y: player.y,
-      facing: player.facing,
-      targetX: targetMob ? targetMob.x : undefined,
-      targetY: targetMob ? targetMob.y : undefined,
-      hasSweep: hasSweepTriggered,
-      attackSpeed: player.attackSpeed || 1.0,
-      swipe: player.swipe || 0,
-      // the cleave's true reach (tiles) and arc (degrees), so the slash covers what it hits
-      sweepRange: sweepRangeHit,
-      sweepArc: hasSweepTriggered ? this.meleeSweep(player).arc : 0,
-      hits
-    });
+  handlePlayerAttack(socketId: any, targetInfo: any) {
+    return this.combat.handlePlayerAttack(socketId, targetInfo);
   }
 
-  // How far (tiles) and how wide (degrees) a melee hero's basic-attack cleave reaches
-  meleeSweep(player) {
-    const power = player.weaponPower;
-    return {
-      reach: (player.attackRange || 1.6) + SWEEP_EXTRA_REACH + ((power && power.sweepReach) || 0),
-      arc: (power && power.sweepArc) || SWEEP_ARC_DEG
-    };
+  meleeSweep(player: Player) {
+    return this.combat.meleeSweep(player);
   }
 
-  handleCustomizeSkill(socketId, data) {
-    const player = this.players.get(socketId);
-    if (!player || player.isDead) return;
-    if (player.spTransformed) return this.customizeSpSkill(player, data);
-
-    if (!data || !data.slot) return;
-    const validSlots = ['slot1', 'slot2', 'slot3', 'dash'];
-    if (!validSlots.includes(data.slot)) return;
-
-    if (!player.equippedSkills) {
-      player.equippedSkills = JSON.parse(JSON.stringify(DEFAULT_EQUIPPED_SKILLS[player.characterClass] || DEFAULT_EQUIPPED_SKILLS.warrior));
-    }
-    if (!player.equippedSkills.runes) {
-      player.equippedSkills.runes = { slot1: 'none', slot2: 'none', slot3: 'none', dash: 'none' };
-    }
-
-    if (data.skillId) {
-      const skillDef = ALL_CLASS_SKILLS[data.skillId];
-      if (skillDef && skillDef.class === player.characterClass) {
-        if (skillDef.reqLevel && player.level < skillDef.reqLevel) {
-          const socket = this.io.sockets.sockets.get(socketId);
-          if (socket) {
-            socket.emit('floating_text', {
-              x: player.x,
-              y: player.y - 0.7,
-              text: `🔒 Requires Level ${skillDef.reqLevel}!`,
-              color: '#ef4444'
-            });
-          }
-          return;
-        }
-        player.equippedSkills[data.slot] = data.skillId;
-      }
-    }
-
-    if (data.rune !== undefined) {
-      if (SKILL_RUNES[data.rune]) {
-        player.equippedSkills.runes[data.slot] = data.rune;
-      }
-    }
-
-    const socket = this.io.sockets.sockets.get(socketId);
-    if (socket) {
-      socket.emit('player_updated', player);
-      socket.emit('custom_skills_updated', {
-        equippedSkills: player.equippedSkills
-      });
-      const skillName = ALL_CLASS_SKILLS[player.equippedSkills[data.slot]] ? ALL_CLASS_SKILLS[player.equippedSkills[data.slot]].name : player.equippedSkills[data.slot];
-      const slotKey = data.slot === 'slot1' ? 'Q' : data.slot === 'slot2' ? 'E' : data.slot === 'slot3' ? 'R' : 'Shift';
-      const runeDef = SKILL_RUNES[player.equippedSkills.runes[data.slot]] || SKILL_RUNES.none;
-
-      let noticeText = `⚡ Set [${skillName}] to [${slotKey}]!`;
-      if (data.rune !== undefined) {
-        noticeText = `🔮 Inscribed ${runeDef.icon} [${runeDef.name}] into [${slotKey}]!`;
-      }
-
-      socket.emit('floating_text', {
-        x: player.x,
-        y: player.y - 0.7,
-        text: noticeText,
-        color: '#facc15'
-      });
-    }
-
-    this.sendDirectMessage(player.id, `⚡ [${player.name}] customized their active ability loadout.`);
+  handleCustomizeSkill(socketId: any, data: any) {
+    return this.skills.handleCustomizeSkill(socketId, data);
   }
 
-  // The skill definition used for a slot; a transformed hero uses the card's
-  // own SP skill, its damage scaled by the card's upgrade level.
-  resolvePlayerSkill(player, slot, skillId) {
-    // Right-click weapon ability: +5% damage per weapon upgrade level
-    if (slot === 'weapon') {
-      const weapon = player.equipment && player.equipment.weapon;
-      const ability = weaponAbility(weapon);
-      if (!ability) return null;
-      return Object.assign({}, ability, { dmgMult: ability.dmgMult * (1 + 0.05 * (weapon.upgradeLevel || 0)) });
-    }
-    const card = this.spCard(player);
-    const lvl = (card && player.equipment.sp.upgradeLevel) || 0;
-    const k = 1 + SP.SP_SKILL_PER_LEVEL * lvl;
-    // Signature: its first stage, carrying every stage (scaled like card skills)
-    if (slot === 'ult') {
-      if (!card || !card.signature) return null;
-      const stages = card.signature.stages.map(st => Object.assign({}, st, { dmgMult: st.dmgMult * k }));
-      return Object.assign({}, stages[0], { cooldown: ULT_COOLDOWN, ultStages: stages });
-    }
-    const base = ALL_CLASS_SKILLS[skillId] || DEFAULT_SKILL_FOR_SLOT(player, slot);
-    const spSkill = card && card.arsenal.includes(skillId) && SP.skillUnlocked(card, skillId, lvl) && SP.SP_SKILLS[skillId];
-    if (!spSkill) return base;
-    return Object.assign({}, spSkill, { dmgMult: spSkill.dmgMult * k });
+  resolvePlayerSkill(player: Player, slot: any, skillId: any) {
+    return this.skills.resolvePlayerSkill(player, slot, skillId);
   }
 
-  // Damage multiplier from Bloodlust (Berserker buff)
-  bloodRage(player) {
-    return player.bloodlust ? 1 + (player.bloodlust.rage || 0) : 1;
+  bloodRage(player: Player) {
+    return this.passives.bloodRage(player);
   }
 
   // ------------------------------------------------ SP signatures & passives
   // (data and field meanings: spSignatures.ts)
 
-  // The card a transformed hero is wearing, else null
-  spCard(player) {
-    return (player && player.spTransformed && player.equipment && player.equipment.sp && SP.CARD_BY_ID[player.equipment.sp.cardId]) || null;
+  spCard(player: Player) {
+    return this.passives.spCard(player);
   }
 
-  // Signature charge (0..100). Gains are capped per second so a big pack hit
-  // by one wide skill can't fill it in a single cast.
-  gainUltCharge(player, amount) {
-    const card = this.spCard(player);
-    if (!card || !card.signature || !(amount > 0) || player.isDead) return;
-    const now = Date.now();
-    if (player.ultLockUntil > now) return;
-    if (!player.ultWindow || now - player.ultWindow.t >= 1000) player.ultWindow = { t: now, g: 0 };
-    const gain = Math.min(amount * (1 + ((card.passive && card.passive.ultGain) || 0)), ULT_MAX_GAIN_PER_SEC - player.ultWindow.g);
-    if (gain <= 0) return;
-    player.ultWindow.g += gain;
-    const before = player.ultCharge || 0;
-    player.ultCharge = Math.min(ULT_CHARGE_MAX, before + gain);
-    if (before < ULT_CHARGE_MAX && player.ultCharge >= ULT_CHARGE_MAX) {
-      const socket = this.io.sockets.sockets.get(player.id);
-      if (socket) socket.emit('floating_text', { x: player.x, y: player.y - 1.1, text: `✦ ${card.signature.name.toUpperCase()} READY [G]`, color: card.color || '#facc15', size: 17 });
-    }
+  gainUltCharge(player: Player, amount: any) {
+    return this.passives.gainUltCharge(player, amount);
   }
 
-  // Passive damage bonus for a hit on `mob` (status, execute, opener, low HP)
-  passiveDamageMult(player, mob) {
-    const pv = this.spCard(player) && this.spCard(player).passive;
-    if (!pv) return 1;
-    let k = 1;
-    if (pv.vs) {
-      if (pv.vs.burn && mob.burnTimer > 0) k += pv.vs.burn;
-      if (pv.vs.poison && mob.poisonTimer > 0) k += pv.vs.poison;
-      if (pv.vs.chill && mob.chillTimer > 0) k += pv.vs.chill;
-      if (pv.vs.frozen && mob.frozenTimer > 0) k += pv.vs.frozen;
-    }
-    if (pv.execute && mob.maxHp && mob.hp <= mob.maxHp * pv.execute.below) k += pv.execute.dmg;
-    if (pv.opener && mob.maxHp && mob.hp >= mob.maxHp) k += pv.opener;
-    if (pv.lowHp && player.hp <= player.maxHp * pv.lowHp.below) k += pv.lowHp.dmg || 0;
-    return k;
+  passiveDamageMult(player: Player, mob: Mob) {
+    return this.passives.passiveDamageMult(player, mob);
   }
 
-  // Passive on-hit procs; `damage` is what landed. Extra hits it deals are
-  // flagged as echoes so they never proc again.
-  passiveOnHit(player, mob, damage) {
-    const card = this.spCard(player);
-    const hp = card && card.passive && card.passive.hitProc;
-    if (!hp || Math.random() >= hp.chance || mob.state === 'dead' || mob.hp <= 0) return;
-    const zone = player.zone;
-    const inst = player.zone === 'dungeon' ? player.dungeonInstanceId : null;
-    if (hp.poison) {
-      mob.poisonStacks = Math.min(10, (mob.poisonStacks || 0) + hp.poison);
-      mob.poisonTimer = Math.max(mob.poisonTimer || 0, 6);
-      mob.poisonDmg = Math.max(mob.poisonDmg || 0, Math.round(player.dmg * 0.12 * mob.poisonStacks));
-    }
-    if (hp.burn) { mob.burnTimer = Math.max(mob.burnTimer || 0, hp.burn); mob.burnDmg = Math.max(mob.burnDmg || 0, Math.round(player.dmg * 0.2)); }
-    if (hp.chill) mob.chillTimer = Math.max(mob.chillTimer || 0, hp.chill);
-    if (hp.frost && !(mob.frozenTimer > 0)) {
-      mob.frostStacks = (mob.frostStacks || 0) + hp.frost;
-      mob.frostTimer = FROST_SECONDS;
-      mob.chillTimer = Math.max(mob.chillTimer || 0, 2);
-      if (mob.frostStacks >= FROST_TO_FREEZE) {
-        mob.frostStacks = 0;
-        mob.frozenTimer = mob.isBoss ? BOSS_FREEZE_SECONDS : FREEZE_SECONDS;
-        mob.frozenKind = 'ice';
-        this.emitZone(zone, 'floating_text', { x: mob.x, y: mob.y - 0.8, text: '❄️ FROZEN', color: '#67e8f9', size: 15 }, inst);
-      }
-    }
-    if (hp.stun) mob.attackCooldown = Math.max(mob.attackCooldown || 0, hp.stun);
-    if (hp.haste && player.skillCooldowns) {
-      for (const k of Object.keys(player.skillCooldowns)) if (player.skillCooldowns[k] > 0) player.skillCooldowns[k] = Math.max(0, player.skillCooldowns[k] - hp.haste);
-    }
-    if (hp.zap) {
-      const mobs = [...this.getMobsMap(zone).values()];
-      let best = null, bestD = 4;
-      for (const m of mobs) {
-        if (m === mob || m.state === 'dead' || m.hp <= 0) continue;
-        const d = Math.hypot(m.x - mob.x, m.y - mob.y);
-        if (d < bestD) { best = m; bestD = d; }
-      }
-      if (best) {
-        this.emitZone(zone, 'skill_fx', { type: 'sp_skill', shape: 'chain', element: card.element, color: card.color, cardId: card.id, skillId: 'passive_' + card.id, name: card.passive.name, x: best.x, y: best.y, startX: mob.x, startY: mob.y, points: [{ x: mob.x, y: mob.y }, { x: best.x, y: best.y }] }, inst);
-        this.applyDamageToMob(player, best, Math.max(1, Math.round(damage * hp.zap)), false, true);
-      }
-    }
-    // a bolt straight down out of the sky onto the target (Dragoon: Storm Rider)
-    if (hp.skyBolt) {
-      this.emitZone(zone, 'skill_fx', { type: 'sp_skill', shape: 'rodStrike', sky: true, element: card.element, color: card.color, cardId: card.id, skillId: 'passive_' + card.id, name: card.passive.name, x: mob.x, y: mob.y, radius: 0.8, duration: 0.45 }, inst);
-      this.applyDamageToMob(player, mob, Math.max(1, Math.round(damage * hp.skyBolt)), false, true);
-    }
-    if (hp.echoHit) {
-      const dmg = Math.max(1, Math.round(damage * hp.echoHit));
-      setTimeout(() => {
-        if (player.isDead || player.zone !== zone || mob.state === 'dead' || mob.hp <= 0) return;
-        this.emitZone(zone, 'floating_text', { x: mob.x, y: mob.y - 0.9, text: '᚛ ECHO', color: card.color, size: 13 }, inst);
-        this.emitZone(zone, 'skill_fx', { type: 'sp_skill', shape: 'echo', element: card.element, color: card.color, cardId: card.id, skillId: 'passive_' + card.id, name: card.passive.name, x: mob.x, y: mob.y, duration: 0.6 }, inst);
-        this.applyDamageToMob(player, mob, dmg, false, true);
-      }, 600);
-    }
+  passiveOnHit(player: Player, mob: Mob, damage: any) {
+    return this.passives.passiveOnHit(player, mob, damage);
   }
 
-  // Passive on-kill effects
-  passiveOnKill(player, mob) {
-    const card = this.spCard(player);
-    const kill = card && card.passive && card.passive.kill;
-    this.gainUltCharge(player, ULT_GAIN_KILL);
-    if (!kill) return;
-    const zone = player.zone;
-    const inst = player.zone === 'dungeon' ? player.dungeonInstanceId : null;
-    if (kill.heal) player.hp = Math.min(player.maxHp, player.hp + Math.round(player.maxHp * kill.heal));
-    if (kill.mana) player.mp = Math.min(player.maxMp, player.mp + Math.round(player.maxMp * kill.mana));
-    if (kill.souls) { player.voidSouls = Math.min(VOID_SOUL_MAX, (player.voidSouls || 0) + kill.souls); player.voidSoulTimer = VOID_SOUL_SECONDS; }
-    if (kill.cdr && player.skillCooldowns) {
-      for (const k of Object.keys(player.skillCooldowns)) if (player.skillCooldowns[k] > 0) player.skillCooldowns[k] = Math.max(0, player.skillCooldowns[k] - kill.cdr);
-    }
-    const near = (r) => [...this.getMobsMap(zone).values()].filter(m => m !== mob && m.state !== 'dead' && m.hp > 0 && Math.hypot(m.x - mob.x, m.y - mob.y) <= r);
-    if (kill.spread && (mob.poisonTimer > 0 || mob.burnTimer > 0)) {
-      for (const m of near(kill.spread)) {
-        if (mob.poisonTimer > 0) {
-          m.poisonStacks = Math.min(10, Math.max(m.poisonStacks || 0, mob.poisonStacks || 1));
-          m.poisonTimer = Math.max(m.poisonTimer || 0, mob.poisonTimer);
-          m.poisonDmg = Math.max(m.poisonDmg || 0, mob.poisonDmg || 0);
-        }
-        if (mob.burnTimer > 0) { m.burnTimer = Math.max(m.burnTimer || 0, mob.burnTimer); m.burnDmg = Math.max(m.burnDmg || 0, mob.burnDmg || 0); }
-        m.lastHitBy = player.id;
-      }
-      this.emitZone(zone, 'skill_fx', { type: 'sp_skill', shape: 'nova', element: card.element, color: card.color, cardId: card.id, skillId: 'passive_' + card.id, name: card.passive.name, x: mob.x, y: mob.y, radius: kill.spread }, inst);
-    }
-    // a kill burst never chains into further bursts
-    if (kill.nova && !player.inKillNova) {
-      player.inKillNova = true;
-      try {
-        this.emitZone(zone, 'skill_fx', { type: 'sp_skill', shape: 'nova', element: card.element, color: card.color, cardId: card.id, skillId: 'passive_' + card.id, name: card.passive.name, x: mob.x, y: mob.y, radius: kill.nova.r }, inst);
-        const dmg = Math.max(1, Math.round(player.dmg * kill.nova.dmg));
-        for (const m of near(kill.nova.r)) this.applyDamageToMob(player, m, dmg, false, true);
-      } finally {
-        player.inKillNova = false;
-      }
-    }
+  passiveOnKill(player: Player, mob: Mob) {
+    return this.passives.passiveOnKill(player, mob);
   }
 
-  // Passive effects on melee damage taken from `mob`; returns the damage after them
-  passiveOnHurt(player, mob, damage, zone) {
-    const pv = this.spCard(player) && this.spCard(player).passive;
-    if (damage > 0) this.gainUltCharge(player, (damage / Math.max(1, player.maxHp)) * ULT_GAIN_HURT);
-    if (!pv) return damage;
-    let k = pv.dmgTaken || 1;
-    if (pv.lowHp && pv.lowHp.def && player.hp <= player.maxHp * pv.lowHp.below) k *= 1 - pv.lowHp.def;
-    damage = Math.max(1, Math.round(damage * k));
-    if (pv.reflect && mob && mob.state !== 'dead') this.applyDamageToMob(player, mob, Math.max(1, Math.round(damage * pv.reflect)), false, true);
-    if (pv.hurtShield && Math.random() < pv.hurtShield.chance) {
-      const v = Math.round(player.maxHp * pv.hurtShield.share);
-      player.shieldHp = (player.shieldHp || 0) + v;
-      this.emitZone(zone, 'floating_text', { x: player.x, y: player.y - 1.0, text: `🛡️ ${pv.name} +${v}`, color: '#fde68a', size: 14 });
-    }
-    return damage;
+  passiveOnHurt(player: Player, mob: Mob, damage: any, zone: any) {
+    return this.passives.passiveOnHurt(player, mob, damage, zone);
   }
 
-  // SP card passive leech (Berserker Bloodthirst) on `dealt` damage; Bloodlust multiplies it
-  cardPassiveLeech(player, dealt) {
-    const card = player.spTransformed && player.equipment && player.equipment.sp && SP.CARD_BY_ID[player.equipment.sp.cardId];
-    const passive = card && card.passive;
-    if (!passive || !passive.leech || dealt <= 0) return;
-    const thirst = player.bloodlust ? player.bloodlust.thirst || 1 : 1;
-    const heal = Math.min(Math.round(player.maxHp * passive.cap * thirst), Math.max(1, Math.round(dealt * passive.leech * thirst)));
-    player.hp = Math.min(player.maxHp, player.hp + heal);
-    this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.6, text: `🩸 +${heal}`, color: '#f87171', size: 13 });
+  cardPassiveLeech(player: Player, dealt: any) {
+    return this.passives.cardPassiveLeech(player, dealt);
   }
 
-  // Storm Herald Arc Conduit (a toggled chainAttack): a basic attack that lands
-  // arcs on to the nearest enemies, each jump weaker; every swing costs MP and
-  // the conduit fades when there is not enough
-  chainBasicAttack(player, first, attackDmg, mobsMap, strike) {
-    const toggle = (Object.values(player.spToggles || {}) as any[]).find(a => a.skill.chainAttack);
-    if (!toggle) return;
-    const sk = toggle.skill, C = sk.chainAttack;
-    const cost = Math.round(C.mp * (player.manaCostMult || 1));
-    if (player.mp < cost) {
-      this.endSpToggle(player, sk.id, true);
-      this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.8, text: '💧 OUT OF MANA - conduit fades', color: '#38bdf8', size: 16 });
-      return;
-    }
-    player.mp -= cost;
-    const visited = new Set([first]);
-    const points = [{ x: first.x, y: first.y }];
-    let cur = first, mult = 1;
-    while (points.length < C.n) {
-      let next = null, best = C.jump;
-      for (const m of mobsMap.values()) {
-        if (m.state === 'dead' || visited.has(m)) continue;
-        const d = Math.hypot(m.x - cur.x, m.y - cur.y);
-        if (d <= best) { best = d; next = m; }
-      }
-      if (!next) break;
-      mult *= C.decay;
-      visited.add(next);
-      points.push({ x: next.x, y: next.y });
-      strike(next, Math.max(1, Math.round(attackDmg * mult)), Math.random() < 0.15 + (player.critChanceBonus || 0));
-      cur = next;
-    }
-    if (points.length > 1) {
-      this.emitZone(player.zone, 'skill_fx', {
-        type: 'sp_skill', shape: 'chain', quiet: true, x: player.x, y: player.y, startX: player.x, startY: player.y, points,
-        element: sk.element, color: sk.color, cardId: sk.cardId, skillId: sk.id
-      });
-    }
+  chainBasicAttack(player: Player, first: any, attackDmg: any, mobsMap: any, strike: any) {
+    return this.combat.chainBasicAttack(player, first, attackDmg, mobsMap, strike);
   }
 
-  endSpToggle(player, skillId, quiet = false) {
-    const toggle = player.spToggles && player.spToggles[skillId];
-    if (!toggle) return;
-    delete player.spToggles[skillId];
-    if (!quiet) this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.8, text: `${toggle.skill.name.toUpperCase()} OFF`, color: '#94a3b8' });
+  endSpToggle(player: Player, skillId: any, quiet = false) {
+    return this.spCards.endSpToggle(player, skillId, quiet);
   }
 
-  // Every frame: toggled SP skills pay their upkeep (HP `drain` - natural HP
-  // regen is off meanwhile - or MP `mpDrain`) and strike everything within r
-  // every `every` seconds. Out of blood or mana, the toggles paying it end.
-  tickSpToggles(player, dt) {
-    const loadout = Object.values(player.equippedSkills || {});
-    for (const id of Object.keys(player.spToggles)) {
-      if (!player.spTransformed || !loadout.includes(id)) this.endSpToggle(player, id);
-    }
-    const all: any[] = Object.values(player.spToggles);
-    if (!all.length) return false;
-    const sum = (k) => all.reduce((s, a) => s + (a.skill[k] || 0), 0);
-    const hpDrain = sum('drain'), mpDrain = sum('mpDrain');
-    if (!player.godMode) {
-      player.hp = Math.max(1, player.hp - player.maxHp * hpDrain * dt);
-      player.mp = Math.max(0, player.mp - player.maxMp * mpDrain * dt);
-    }
-    const say = (text) => this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.8, text, color: '#ef4444', size: 16 });
-    if (hpDrain && player.hp <= player.maxHp * BLOOD_AURA_MIN_HP) {
-      for (const a of all) if (a.skill.drain) this.endSpToggle(player, a.skill.id, true);
-      say('🩸 OUT OF BLOOD - aura fades');
-    }
-    if (mpDrain && player.mp <= 0) {
-      for (const a of all) if (a.skill.mpDrain) this.endSpToggle(player, a.skill.id, true);
-      say('💧 OUT OF MANA - blades stop');
-    }
-    const mobsMap = this.getMobsMap(player.zone, player);
-    const rage = this.bloodRage(player);
-    const critChance = 0.15 + (player.critChanceBonus || 0);
-    for (const a of (Object.values(player.spToggles) as any[])) {
-      const sk = a.skill;
-      if (!sk.r || !sk.dmgMult) continue;
-      a.clock += dt;
-      if (a.clock + 1e-6 < sk.every) continue;
-      a.clock -= sk.every;
-      const dmg = Math.max(1, Math.round(player.dmg * sk.dmgMult * rage * SKILL_DAMAGE_SCALE));
-      let struck = 0, dealt = 0;
-      let targets = [...mobsMap.values()].filter(m => m.state !== 'dead' && Math.hypot(m.x - player.x, m.y - player.y) <= sk.r);
-      // skyStrike: a bolt from the sky on each of the nearest few instead of a ring
-      if (sk.skyStrike) {
-        targets = targets.sort((p1, p2) => Math.hypot(p1.x - player.x, p1.y - player.y) - Math.hypot(p2.x - player.x, p2.y - player.y)).slice(0, sk.skyStrike);
-      }
-      const bolts = sk.skyStrike ? targets.map(m => ({ x: m.x, y: m.y })) : null;
-      for (const mob of targets) {
-        if (sk.burn) { mob.burnTimer = Math.max(mob.burnTimer || 0, sk.burn); mob.burnDmg = Math.max(mob.burnDmg || 0, Math.round(player.dmg * 0.2)); }
-        if (sk.chill) mob.chillTimer = Math.max(mob.chillTimer || 0, sk.chill);
-        const before = mob.hp;
-        this.applyDamageToMob(player, mob, dmg, Math.random() < critChance);
-        dealt += Math.max(0, before - Math.max(0, mob.hp));
-        struck++;
-      }
-      if (sk.spin) this.cardPassiveLeech(player, dealt);
-      if (struck) {
-        this.emitZone(player.zone, 'skill_fx', {
-          type: 'sp_skill', shape: 'aura', pulse: true, spin: !!sk.spin, bolts, x: player.x, y: player.y, radius: sk.r,
-          element: sk.element, color: sk.color, cardId: sk.cardId, skillId: sk.id
-        });
-      }
-    }
-    return hpDrain > 0;
+  tickSpToggles(player: Player, dt: any) {
+    return this.spCards.tickSpToggles(player, dt);
   }
 
-  // Bannerman: the War Standard this hero planted, if it still stands where they are
-  ownBanner(player) {
-    const b = player.banner;
-    if (!b || Date.now() >= b.until || b.zone !== player.zone || b.instanceId !== (player.dungeonInstanceId || null)) return null;
-    return b;
+  ownBanner(player: Player) {
+    return this.passives.ownBanner(player);
   }
 
-  // Phoenix Oath passive: a lethal blow sets the hero alight instead (once per cd)
-  phoenixRebirth(player) {
-    const card = player.spTransformed && player.equipment && player.equipment.sp && SP.CARD_BY_ID[player.equipment.sp.cardId];
-    const rb = card && card.passive && card.passive.rebirth;
-    if (!rb || Date.now() < (player.rebirthReadyAt || 0)) return false;
-    player.rebirthReadyAt = Date.now() + rb.cd * 1000;
-    player.hp = Math.round(player.maxHp * rb.hp);
-    player.isDead = false;
-    for (const m of this.getMobsMap(player.zone, player).values()) {
-      if (m.state === 'dead' || Math.hypot(m.x - player.x, m.y - player.y) > rb.r) continue;
-      m.burnTimer = Math.max(m.burnTimer || 0, 4);
-      m.burnDmg = Math.max(m.burnDmg || 0, Math.round(player.dmg * 0.3));
-      this.applyDamageToMob(player, m, Math.round(player.dmg * rb.dmg * SKILL_DAMAGE_SCALE), false);
-    }
-    this.emitZone(player.zone, 'skill_fx', {
-      type: 'sp_skill', shape: 'rebirth', x: player.x, y: player.y, radius: rb.r, element: card.element, color: card.color, cardId: card.id, skillId: 'sp_phoenix_rebirth', name: 'Rebirth'
-    });
-    this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 1.0, text: '🔥 REBIRTH!', color: '#fbbf24', size: 22 });
-    return true;
+  phoenixRebirth(player: Player) {
+    return this.passives.phoenixRebirth(player);
   }
 
-  // Buffs and debuffs on a hero, for the HUD tray: [{ k, n, i, t?, v?, d? }]
-  // (k key, n name, i icon, t seconds left, v stacks / amount, d = debuff)
-  heroBuffs(p) {
-    const out = [];
-    const timed = (k, n, i, t) => { if (t > 0) out.push({ k, n, i, t: Math.ceil(t) }); };
-    for (const a of (Object.values(p.spToggles || {}) as any[])) out.push({ k: a.skill.id, n: a.skill.name, i: a.skill.icon || '✨' });
-    if (p.bloodlust) timed('bloodlust', 'Bloodlust', '🔥', p.bloodlust.timer);
-    timed('rage', 'Rage', '💢', p.berserkTimer);
-    timed('fortress', 'Fortress', '🛡️', p.ironFortressTimer);
-    timed('vanish', 'Vanish', '👤', p.smokeScreenTimer);
-    timed('undying', 'Undying', '💀', p.undyingTimer);
-    timed('haste', 'Haste', '💨', p.sprintTimer);
-    if (p.shieldHp > 0) out.push({ k: 'shield', n: 'Shield', i: '🔰', v: Math.round(p.shieldHp) });
-    // shown in 10% steps: an exact number would change every tick while it recharges
-    // and rebuild the buff bar 25 times a second (the HP bar shows the exact value)
-    if (p.esMax > 0) out.push({ k: 'es', n: 'Energy Shield', i: '💠', v: `${Math.round((p.es || 0) / p.esMax * 10) * 10}%` });
-    // armor set 4-piece states
-    if (p.set4) {
-      const nowMs = Date.now();
-      if (p.set4.wayfarer) {
-        const cd = Math.max(0, ((p.secondWindReadyAt || 0) - nowMs) / 1000);
-        out.push(cd > 0 ? { k: 'second_wind', n: 'Second Wind (cooldown)', i: '🌿', t: Math.ceil(cd), d: true } : { k: 'second_wind', n: 'Second Wind ready', i: '🌿' });
-      }
-      if (p.set4.stormcaller) out.push({ k: 'static', n: 'Static', i: '⚡', v: p.staticStacks || 0 });
-      if (p.set4.eclipse && p.eclipsePhase) {
-        const dusk = p.eclipsePhase === 'dusk';
-        out.push({ k: 'eclipse', n: dusk ? 'Dusk (+15% DMG, leech)' : 'Dawn (+20% DEF, party heal)', i: dusk ? '🌑' : '🌕', t: Math.ceil(p.eclipseTimer || 0) });
-      }
-    }
-    if (p.flowStacks > 0) out.push({ k: 'flow', n: 'Flow', i: '🌊', v: p.flowStacks, t: Math.ceil(p.flowTimer || 0) });
-    if (p.voidSouls > 0) out.push({ k: 'souls', n: 'Souls', i: '👻', v: p.voidSouls, t: Math.ceil(p.voidSoulTimer || 0) });
-    // variant warrior card states
-    const now = Date.now();
-    const left = (until) => (until || 0) > now ? (until - now) / 1000 : 0;
-    if (p.heat > 0) out.push({ k: 'heat', n: 'Heat', i: '🌡️', v: Math.round(p.heat) });
-    timed('overheat', 'Overheat', '🔥', left(p.overheatUntil));
-    if (p.combo && p.combo.n > 0 && p.combo.until > now) out.push({ k: 'combo', n: 'Combo', i: '🪓', v: p.combo.n, t: Math.ceil(left(p.combo.until)) });
-    timed('riposte', 'Riposte', '🛡️', left(p.parry && p.parry.until));
-    if (this.ownBanner(p)) timed('banner', 'War Standard', '🚩', left(p.banner.until));
-    if (p.spTransformed && p.equipment && p.equipment.sp && p.equipment.sp.cardId === 'sp_phoenix_oath') {
-      const cd = left(p.rebirthReadyAt);
-      out.push(cd > 0 ? { k: 'rebirth', n: 'Rebirth (recharging)', i: '🪶', t: Math.ceil(cd), d: 1 } : { k: 'rebirth', n: 'Rebirth ready', i: '🪶' });
-    }
-    const DEBUFFS = { poison: ['Poison', '☠️'], burn: ['Burn', '🔥'], chill: ['Chill', '❄️'] };
-    for (const e of p.statusEffects || []) {
-      const [n, i] = DEBUFFS[e.type] || [e.type, '⚠️'];
-      out.push({ k: 'd_' + e.type, n, i, t: Math.ceil(e.duration), d: 1 });
-    }
-    return out;
+  heroBuffs(p: any) {
+    return this.passives.heroBuffs(p);
   }
 
-  // =================================================================
-  // FIELD RAID / WORLD BOSS EVENTS
-  // =================================================================
   updateRaidEvents() {
-    const now = Date.now();
-    for (const zoneId of Object.keys(RAID.RAID_BOSSES)) {
-      const st = this.raidStates.get(zoneId);
-      if (!st) {
-        if (now >= (this.raidNextSpawn.get(zoneId) || 0)) this.spawnRaidBoss(zoneId);
-        continue;
-      }
-      // the boss window expired without a kill: it retreats and the clock resets
-      if (now >= st.despawnAt) {
-        this.despawnRaidBoss(zoneId, 'timeup');
-        continue;
-      }
-      if (now - st.lastBroadcast >= 4000) {
-        st.lastBroadcast = now;
-        this.broadcastRaidLeaderboard(zoneId, st);
-      }
-    }
+    return this.raid.updateRaidEvents();
   }
 
-  spawnRaidBoss(zoneId) {
-    const conf = RAID.RAID_BOSSES[zoneId];
-    const field = this.fields.get(zoneId);
-    if (!conf || !field || this.raidStates.has(zoneId)) return;
-    const def = RAID.buildRaidMobDef(zoneId);
-    if (!def) return;
-    const id = `${zoneId}_raid_${this.nextEntityId++}`;
-    const mob: any = {
-      id,
-      type: def.type,
-      name: def.name,
-      level: def.level,
-      x: def.spawn.x,
-      y: def.spawn.y,
-      spawnX: def.spawn.x,
-      spawnY: def.spawn.y,
-      zone: def.zone,
-      fieldZone: zoneId,
-      hue: def.hue,
-      scale: def.scale,
-      isBoss: true,
-      isRaidBoss: true,
-      mechanics: 'boss',
-      isCommander: true,
-      auraRadius: 0,
-      hp: def.maxHp,
-      maxHp: def.maxHp,
-      dmg: def.dmg,
-      def: def.def,
-      speed: def.speed,
-      exp: def.exp,
-      gold: def.gold,
-      element: def.element,
-      elementResist: def.elementResist,
-      buffs: [...def.buffs],
-      targetPlayerId: null,
-      state: 'idle',
-      nextWanderTime: Date.now() + 600,
-      wanderTarget: null,
-      attackCooldown: 0,
-      respawnTimer: Infinity,          // raid respawn is handled by the schedule, not the normal mob timer
-      facing: 'SE',
-      spawnUntil: Date.now() + 900     // brief rise-in before it can be hit
-    };
-    field.mobs.set(id, mob);
-    const now = Date.now();
-    this.raidStates.set(zoneId, {
-      conf,
-      def,
-      mobId: id,
-      damage: new Map(),
-      despawnAt: now + (conf.windowMinutes || 15) * RAID.MINUTE,
-      lastBroadcast: 0
-    });
-    this.broadcastSystemMessage(`☠️ RAID EVENT! [${def.name}] (Lv.${def.level}) has awakened in [${field.zone.name}]! It won't fall alone.`);
-    this.emitZone(zoneId, 'raid_spawn', {
-      zoneId,
-      name: def.name,
-      level: def.level,
-      hp: mob.maxHp,
-      maxHp: mob.maxHp,
-      endsIn: (conf.windowMinutes || 15) * 60
-    });
+  spawnRaidBoss(zoneId: any) {
+    return this.raid.spawnRaidBoss(zoneId);
   }
 
-  despawnRaidBoss(zoneId, why = 'timeup') {
-    const st = this.raidStates.get(zoneId);
-    if (!st) return;
-    const field = this.fields.get(zoneId);
-    if (field) field.mobs.delete(st.mobId);
-    this.raidStates.delete(zoneId);
-    const conf = RAID.RAID_BOSSES[zoneId];
-    this.raidNextSpawn.set(zoneId, Date.now() + (conf ? conf.respawnMinutes : 25) * RAID.MINUTE);
-    if (why === 'timeup') {
-      this.broadcastSystemMessage(`💨 [${st.def.name}] senses the odds and retreats into the deep. It returns in ${conf ? conf.respawnMinutes : 25} minutes.`);
-      this.emitZone(zoneId, 'raid_gone', { zoneId, reason: 'timeup' });
-    }
+  despawnRaidBoss(zoneId: any, why = 'timeup') {
+    return this.raid.despawnRaidBoss(zoneId, why);
   }
 
-  recordRaidDamage(zoneId, playerId, amount) {
-    const st = this.raidStates.get(zoneId);
-    if (!st || !playerId || !(amount > 0)) return;
-    st.damage.set(playerId, (st.damage.get(playerId) || 0) + amount);
+  recordRaidDamage(zoneId: any, playerId: any, amount: any) {
+    return this.raid.recordRaidDamage(zoneId, playerId, amount);
   }
 
-  // Live standings for the boss: online players sorted by damage dealt
-  raidStandings(st) {
-    const rows = [];
-    for (const [pid, dmg] of st.damage) {
-      const p = this.players.get(pid);
-      if (!p || p.isDead) continue;
-      rows.push({ id: pid, name: p.name, dmg: Math.round(dmg) });
-    }
-    rows.sort((a, b) => b.dmg - a.dmg);
-    return rows;
+  raidStandings(st: any) {
+    return this.raid.raidStandings(st);
   }
 
-  broadcastRaidLeaderboard(zoneId, st) {
-    const mob = this.fields.get(zoneId) && this.fields.get(zoneId).mobs.get(st.mobId);
-    if (!mob || mob.state === 'dead') return;
-    const standings = this.raidStandings(st);   // full board: clients resolve their own rank
-    this.emitZone(zoneId, 'raid_leaderboard', {
-      zoneId,
-      name: st.def.name,
-      level: st.def.level,
-      hp: Math.max(0, Math.round(mob.hp)),
-      maxHp: st.def.maxHp,
-      endsIn: Math.max(0, Math.round((st.despawnAt - Date.now()) / 1000)),
-      top: standings,
-      count: standings.length
-    });
+  broadcastRaidLeaderboard(zoneId: any, st: any) {
+    return this.raid.broadcastRaidLeaderboard(zoneId, st);
   }
 
-  // Snapshot for players entering the zone mid-fight (rides zone_change)
-  raidInfo(zoneId) {
-    const st = this.raidStates.get(zoneId);
-    if (!st) return { active: false };
-    const field = this.fields.get(zoneId);
-    const mob = field && field.mobs.get(st.mobId);
-    if (!mob || mob.state === 'dead') return { active: false };
-    const standings = this.raidStandings(st);   // full board: clients resolve their own rank
-    return {
-      active: true,
-      zoneId,
-      name: st.def.name,
-      level: st.def.level,
-      hp: Math.max(0, Math.round(mob.hp)),
-      maxHp: st.def.maxHp,
-      endsIn: Math.max(0, Math.round((st.despawnAt - Date.now()) / 1000)),
-      top: standings,
-      count: standings.length
-    };
+  raidInfo(zoneId: any) {
+    return this.raid.raidInfo(zoneId);
   }
 
-  onRaidBossDeath(mob, killerPlayer) {
-    const zoneId = mob.fieldZone || (killerPlayer && killerPlayer.zone) || Object.keys(RAID.RAID_BOSSES)[0];
-    const st = this.raidStates.get(zoneId);
-    if (!st || !mob.isRaidBoss) return;
-    const def = st.def;
-    const standings = this.raidStandings(st);
-
-    const podium = standings.slice(0, 5).map((r, i) => `${i + 1}. ${r.name} (${r.dmg.toLocaleString()})`).join('  ');
-    this.broadcastSystemMessage(`🏆 RAID SLAYED! [${def.name}] has fallen! Damage: ${podium || 'no one recorded'}`);
-    this.emitZone(zoneId, 'raid_gone', { zoneId, reason: 'kill' });
-    this.emitZone(zoneId, 'mob_died', { mobId: mob.id, killerId: killerPlayer ? killerPlayer.id : null });
-
-    let rank = 0;
-    const total = standings.length;
-    for (const row of standings) {
-      rank++;
-      const p = this.players.get(row.id);
-      if (!p) continue;
-      this.payRaidReward(p, def, RAID.raidBucketFor(rank), rank, total);
-    }
-    this.despawnRaidBoss(zoneId, 'kill');
+  onRaidBossDeath(mob: Mob, killerPlayer: Player) {
+    return this.raid.onRaidBossDeath(mob, killerPlayer);
   }
 
-  payRaidReward(player, def, bucket, rank, total) {
-    const gold = Math.max(1, Math.round(def.gold * bucket.gold * (0.85 + Math.random() * 0.3)));
-    this.giveLootToPlayer(player, { type: 'gold', amount: gold }, false);
-
-    const exp = Math.max(1, Math.round(def.exp * bucket.exp * (0.9 + Math.random() * 0.2)));
-    this.awardExp(player, exp);
-    this.awardJobExp(player, exp);
-
-    const [fmin, fmax] = bucket.frag;
-    const frags = fmin + Math.floor(Math.random() * (fmax - fmin + 1));
-    if (frags > 0) this.giveLootToPlayer(player, { type: 'item', itemId: 'spirit_fragment', amount: frags }, false);
-
-    // gear roll (top ranks roll guaranteed, boss-quality gear)
-    if (Math.random() < bucket.gear) {
-      const cls = player.characterClass;
-      let gear = generateRandomizedGear(pickGearForLevel(def.level, { boss: bucket.gearBoss, cls }), def.level, bucket.gearBoss);
-      const reforge = (bucket.mythic || Math.random() < 0.5) ? rollSkyblockReforge(gear) : null;
-      if (reforge) gear = applySkyblockReforge(gear, reforge);
-      this.giveLootToPlayer(player, { type: 'item', itemId: gear.id, customItemData: gear, amount: 1 }, false);
-    }
-
-    // SP-card roll from the boss's card tier pool
-    if (Math.random() < bucket.card) {
-      const pool = (SP.SP_CARDS[player.characterClass] || []).filter(c => c.tier === (def.cardTier || 1));
-      const chosen = pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
-      if (chosen) {
-        const cardItem = SP.makeCardItem(chosen.id);
-        if (cardItem) {
-          this.giveLootToPlayer(player, { type: 'item', itemId: 'sp_card', customItemData: { ...cardItem, custom: true }, amount: 1 }, false);
-          this.broadcastSystemMessage(`🃏 [${player.name}] pulled an SP Card [${chosen.name}] from the raid bounty!`);
-        }
-      }
-    }
-
-    const socket = this.io.sockets.sockets.get(player.id);
-    if (socket) {
-      socket.emit('raid_reward', { rank, total, label: bucket.label, gold, exp, fragments: frags, bossName: def.name });
-      socket.emit('player_updated', player);
-    }
+  payRaidReward(player: Player, def: any, bucket: any, rank: any, total: any) {
+    return this.raid.payRaidReward(player, def, bucket, rank, total);
   }
 
-  // Run a card skill from its SP_SKILLS data (see the shape list in spCards.js)
-  castSpSkill(player, skill, ctx) {
-    const { slot, cooldown, runeId, skillData, mobsMap, applySkillDamage, computeDashVector, isEcho, isShadow, recall } = ctx;
-    const zone = player.zone;
-    const instanceId = player.dungeonInstanceId || null;
-    // a Nightblade shadow casts from where it stands
-    const px = ctx.origin ? ctx.origin.x : player.x, py = ctx.origin ? ctx.origin.y : player.y;
-    const fxBase = { type: 'sp_skill', shape: skill.spShape, element: skill.element, color: skill.color, cardId: skill.cardId, rune: runeId, skillId: skill.id, name: skill.name };
-    const emit = (data, first) => this.emitZone(zone, 'skill_fx', first && !isEcho && !isShadow && !ctx.quiet
-      ? { ...fxBase, ...data, skillSlot: slot, cooldown, playerId: player.id }
-      : { ...fxBase, ...data });
-    const alive = () => [...mobsMap.values()].filter(m => m.state !== 'dead');
-    const within = (cx, cy, r) => alive().filter(m => Math.hypot(m.x - cx, m.y - cy) <= r);
-    const nearest = (cx: number, cy: number, r: number, exclude: any = null) => {
-      let best = null, bestD = r;
-      for (const m of alive()) {
-        if (exclude && exclude.has(m)) continue;
-        const d = Math.hypot(m.x - cx, m.y - cy);
-        if (d <= bestD) { best = m; bestD = d; }
-      }
-      return best;
-    };
-
-    let dealt = 0;
-    const say = (x, y, text, color, size) => this.emitZone(zone, 'floating_text', { x, y: y - 0.8, text, color, size });
-    // Soul harvesters (Void Archon, Duskblade): every Soul empowers its skills; Devour spends them
-    const isSoulCard = skill.souls !== undefined || skill.devour !== undefined;
-    const souls = isSoulCard ? (player.voidSouls || 0) : 0;
-    let soulMult = 1 + VOID_SOUL_BONUS * souls;
-    if (skill.devour && souls > 0) {
-      soulMult *= 1 + 0.12 * souls;
-      const heal = Math.round(player.maxHp * skill.devour * souls);
-      player.hp = Math.min(player.maxHp, player.hp + heal);
-      say(px, py, `🌑 DEVOUR x${souls} (+${heal} HP)`, '#c084fc', 17);
-      player.voidSouls = 0;
-    }
-    const gainSouls = (n) => {
-      player.voidSouls = Math.min(VOID_SOUL_MAX, (player.voidSouls || 0) + n);
-      player.voidSoulTimer = VOID_SOUL_SECONDS;
-    };
-    // Warchief Combo: a skill different from the last one stacks Combo,
-    // repeating one drops it; a finisher cashes the whole chain in
-    let comboMult = 1;
-    if (skill.combo && !isEcho && !isShadow) {
-      const nowC = Date.now();
-      const c = player.combo && player.combo.until > nowC ? player.combo : { n: 0, last: null };
-      let n = c.last === skill.id ? 0 : Math.min(COMBO_MAX, c.n + 1);
-      if (skill.comboGain) n = Math.min(COMBO_MAX, n + skill.comboGain);
-      comboMult = 1 + COMBO_BONUS * n;
-      if (skill.finisher && n > 0) {
-        comboMult *= 1 + skill.finisher * n;
-        say(px, py, `🪓 FINISHER x${n}`, '#f97316', 18);
-        n = 0;
-      } else if (c.last === skill.id && c.n > 1) {
-        say(px, py, 'COMBO BROKEN', '#94a3b8', 14);
-      } else if (n > 1) {
-        say(px, py, `🪓 COMBO x${n}`, '#fb923c', 13 + n);
-      }
-      player.combo = { n, last: skill.id, until: nowC + COMBO_SECONDS * 1000 };
-    }
-    // Reaver: Overheat powers every skill of the card; Vent spends the Heat
-    let heatMult = 1;
-    if (skill.cardId === 'sp_reaver' && player.overheatUntil > Date.now()) heatMult = 1 + OVERHEAT_BONUS;
-    if (skill.vent && player.heat > 0 && !isEcho && !isShadow) {
-      heatMult *= 1 + skill.vent * player.heat / 10;
-      say(px, py, `🔥 VENT ${Math.round(player.heat)} HEAT`, '#fb923c', 17);
-      player.heat = 0;
-    }
-    // Duskblade Doom: the brand replays a share of what it soaked up when it ends
-    const burstDoom = (mob, brand) => {
-      if (!mob || mob.doom !== brand) return;
-      mob.doom = null;
-      const dmg = Math.round(brand.stored * brand.share);
-      if (dmg <= 0) return;
-      emit({ shape: 'doom', x: mob.x, y: mob.y, radius: 1.8, burst: true }, false);
-      if (mob.state !== 'dead' && mob.hp > 0) {
-        this.applyDamageToMob(player, mob, dmg, false);
-        say(mob.x, mob.y, `☠️ DOOM -${dmg}`, '#c084fc', 18);
-      } else {
-        // the brand outlives its bearer and bursts onto whoever stood beside it
-        for (const m of within(mob.x, mob.y, 2.5)) this.applyDamageToMob(player, m, Math.round(dmg * 0.5), false);
-        say(mob.x, mob.y, '☠️ DOOM SPREADS', '#c084fc', 16);
-      }
-    };
-    const hit = (mob, mult = 1, fromX = px, fromY = py) => {
-      if (!mob || mob.state === 'dead') return;
-      let m = skill.dmgMult * mult * soulMult * comboMult * heatMult;
-      // Tempest Caller: Conductor marks held by the target when this skill lands
-      const conductNow = mob.conductTimer > 0 ? (mob.conduct || 0) : 0;
-      // Gravelord: shatter the Fracture cracks for bonus damage and a stun
-      let shatterStun = 0;
-      if (skill.shatterEarth && mob.fracture > 0 && mob.fractureUntil > Date.now()) {
-        m *= 1 + skill.shatterEarth * mob.fracture;
-        shatterStun = FRACTURE_STUN * mob.fracture;
-        say(mob.x, mob.y, `🪨 SHATTER x${mob.fracture}`, '#a3e635', 16);
-        mob.fracture = 0;
-      }
-      // Pyromancer: Combust detonates Scorch, Fire Chain feeds on it
-      if (skill.combust && mob.scorchStacks > 0) {
-        m *= 1 + skill.combust * mob.scorchStacks;
-        say(mob.x, mob.y, `💥 COMBUST x${mob.scorchStacks}`, '#fb923c', 16);
-        mob.scorchStacks = 0;
-      }
-      if (skill.scorchBonus && mob.scorchStacks > 0) m *= 1 + skill.scorchBonus * mob.scorchStacks;
-      // Cryo Sage: Shatter a frozen enemy for big damage, which thaws it
-      if (skill.shatterFrozen && mob.frozenTimer > 0 && mob.frozenKind === 'ice') {
-        m *= skill.shatterFrozen;
-        mob.frozenTimer = 0;
-        say(mob.x, mob.y, '🧊 SHATTER!', '#a5f3fc', 17);
-      }
-      if (skill.backstab) {
-        const isStealthed = player.smokeScreenTimer > 0;
-        let isBack = isStealthed;
-        if (!isBack && mob.facing) {
-          const dx = mob.x - px, dy = mob.y - py;
-          const facingVecs = { 'E': [1, 0], 'SE': [0.7, 0.7], 'S': [0, 1], 'SW': [-0.7, 0.7], 'W': [-1, 0], 'NW': [-0.7, -0.7], 'N': [0, -1], 'NE': [0.7, -0.7] };
-          const fv = facingVecs[mob.facing] || [0, 1];
-          if (dx * fv[0] + dy * fv[1] > 0.15) isBack = true;
-        }
-        if (isBack) {
-          m *= 2.8;
-          mob.shadowMarkTimer = 6.0;
-          this.emitZone(zone, 'floating_text', { x: mob.x, y: mob.y - 0.8, text: '🗡️ BACKSTAB CRIT!', color: '#c084fc', size: 18 });
-        } else {
-          mob.shadowMarkTimer = 4.0;
-        }
-      }
-      if (skill.execute && mob.maxHp && mob.hp <= mob.maxHp * skill.execute[0]) m *= skill.execute[1];
-      if (skill.furyBonus) {
-        const missingHp = Math.max(0, 1 - (player.hp / Math.max(1, player.maxHp)));
-        m *= 1 + skill.furyBonus * missingHp;
-      }
-      if (skill.shatter && mob.chillTimer > 0) m *= skill.shatter;
-      const before = mob.hp;
-      if (skill.burn) { mob.burnTimer = skill.burn; mob.burnDmg = Math.max(mob.burnDmg || 0, Math.round(player.dmg * 0.2)); }
-      if (skill.chill) mob.chillTimer = Math.max(mob.chillTimer || 0, skill.chill);
-      if (skill.poisonStacks) {
-        mob.poisonStacks = Math.min(10, (mob.poisonStacks || 0) + skill.poisonStacks);
-        mob.poisonTimer = Math.max(mob.poisonTimer || 0, skill.poison || 6.0);
-        mob.poisonDmg = Math.max(mob.poisonDmg || 0, Math.round(player.dmg * 0.12 * mob.poisonStacks));
-        this.emitZone(zone, 'floating_text', { x: mob.x, y: mob.y - 0.6, text: `🧪 POISON x${mob.poisonStacks}`, color: '#4ade80' });
-      } else if (skill.poison) {
-        mob.poisonTimer = skill.poison;
-        mob.poisonDmg = Math.max(mob.poisonDmg || 0, Math.round(player.dmg * 0.15));
-      }
-      if (skill.staticCharge) {
-        mob.staticCharge = skill.staticCharge;
-        this.emitZone(zone, 'floating_text', { x: mob.x, y: mob.y - 0.6, text: '⚡ STATIC', color: '#facc15' });
-      }
-      applySkillDamage(mob, Math.round(player.dmg * m), true);
-      dealt += Math.max(0, before - Math.max(0, mob.hp));
-      const stillUp = mob.state !== 'dead' && mob.hp > 0;
-      if (stillUp && skill.scorch) {
-        mob.scorchStacks = Math.min(SCORCH_MAX, (mob.scorchStacks || 0) + skill.scorch);
-        mob.scorchTimer = SCORCH_SECONDS;
-      }
-      if (stillUp && skill.frost && !(mob.frozenTimer > 0)) {
-        mob.frostStacks = (mob.frostStacks || 0) + skill.frost;
-        mob.frostTimer = FROST_SECONDS;
-        mob.chillTimer = Math.max(mob.chillTimer || 0, 2);
-        if (mob.frostStacks >= FROST_TO_FREEZE) {
-          mob.frostStacks = 0;
-          mob.frozenTimer = mob.isBoss ? BOSS_FREEZE_SECONDS : FREEZE_SECONDS;
-          mob.frozenKind = 'ice';
-          say(mob.x, mob.y, '❄️ FROZEN', '#67e8f9', 16);
-        }
-      }
-      if (stillUp && skill.stasis) {
-        mob.frozenTimer = Math.max(mob.frozenTimer || 0, mob.isBoss ? skill.stasis * 0.4 : skill.stasis);
-        mob.frozenKind = 'time';
-      }
-      if (stillUp && skill.stun) mob.attackCooldown = Math.max(mob.attackCooldown || 0, skill.stun);
-      if (stillUp && shatterStun) mob.attackCooldown = Math.max(mob.attackCooldown || 0, shatterStun);
-      if (stillUp && skill.fracture) {
-        const cracks = mob.fractureUntil > Date.now() ? mob.fracture || 0 : 0;
-        mob.fracture = Math.min(FRACTURE_MAX, cracks + skill.fracture);
-        mob.fractureUntil = Date.now() + FRACTURE_SECONDS * 1000;
-      }
-      if (stillUp && skill.doom && !(mob.doom && mob.doom.until > Date.now())) {
-        const brand = { owner: player.id, stored: 0, share: skill.doom.share, until: Date.now() + skill.doom.delay * 1000 };
-        mob.doom = brand;
-        emit({ shape: 'doom', x: mob.x, y: mob.y, radius: 0.9, duration: skill.doom.delay, followMob: mob.id }, false);
-        later(skill.doom.delay, () => burstDoom(mob, brand));
-      }
-      if (skill.souls) gainSouls(skill.souls);
-      else if (!stillUp && isSoulCard) gainSouls(1);
-      // Conductor: lightning forks from a marked target into the marked enemies around it
-      if (skill.fork && conductNow > 0) {
-        const forks = alive()
-          .filter(o => o !== mob && o.conductTimer > 0 && (o.conduct || 0) > 0 && Math.hypot(o.x - mob.x, o.y - mob.y) <= CONDUCT_FORK_RANGE)
-          .sort((a, b) => Math.hypot(a.x - mob.x, a.y - mob.y) - Math.hypot(b.x - mob.x, b.y - mob.y))
-          .slice(0, CONDUCT_FORK_MAX);
-        if (forks.length) {
-          emit({ quiet: true, shape: 'chain', x: mob.x, y: mob.y, startX: mob.x, startY: mob.y, points: forks.map(o => ({ x: o.x, y: o.y })) }, false);
-          const forkDmg = Math.round(player.dmg * skill.dmgMult * mult * CONDUCT_FORK_SHARE * conductNow);
-          for (const o of forks) {
-            this.applyDamageToMob(player, o, forkDmg, false);
-            say(o.x, o.y, `⚡ ARC -${forkDmg}`, '#fde047', 14);
-          }
-        }
-      }
-      // Thunderclap: the thunder arrives late. The marks are spent and the target booms after a beat
-      if (skill.clap && conductNow > 0) {
-        mob.conduct = 0;
-        const cx = mob.x, cy = mob.y;
-        say(cx, cy, `🌩️ THUNDER x${conductNow}`, '#facc15', 15);
-        later(skill.clap.delay, () => {
-          emit({ shape: 'nova', x: cx, y: cy, radius: skill.clap.r, burst: true }, false);
-          const clapDmg = Math.round(player.dmg * skill.clap.mult * conductNow);
-          for (const o of within(cx, cy, skill.clap.r)) this.applyDamageToMob(player, o, clapDmg, false);
-          say(cx, cy, `🌩️ THUNDERCLAP -${clapDmg}`, '#fef08a', 18);
-        });
-      }
-      // mark the target (after the fork/clap so a fresh mark never feeds its own cast)
-      if (stillUp && skill.conduct) {
-        const held = mob.conductTimer > 0 ? (mob.conduct || 0) : 0;
-        mob.conduct = Math.min(CONDUCT_MAX, held + skill.conduct);
-        mob.conductTimer = CONDUCT_SECONDS;
-        say(mob.x, mob.y - 0.2, `⚡ CONDUCTOR x${mob.conduct}`, '#facc15', 12 + mob.conduct);
-      }
-      if (skill.knock && mob.state !== 'dead') {
-        const d = Math.hypot(mob.x - fromX, mob.y - fromY) || 1;
-        const kx = mob.x + ((mob.x - fromX) / d) * skill.knock;
-        const ky = mob.y + ((mob.y - fromY) / d) * skill.knock;
-        if (!this.isColliding(kx, ky, zone)) { mob.x = kx; mob.y = ky; }
-      }
-    };
-    const settleLeech = () => {
-      if (!skill.leech || dealt <= 0) return;
-      const heal = Math.min(Math.round(player.maxHp * 0.1), Math.max(1, Math.round(dealt * skill.leech)));
-      player.hp = Math.min(player.maxHp, player.hp + heal);
-      this.emitZone(zone, 'floating_text', { x: player.x, y: player.y - 0.6, text: `+${heal} HP`, color: '#4ade80' });
-      dealt = 0;
-    };
-    // Later waves run on a timer; skip them if the hero left, died or changed instance
-    const later = (seconds, fn) => setTimeout(() => {
-      const p = this.players.get(player.id);
-      if (!p || p !== player || p.isDead || p.zone !== zone || (p.dungeonInstanceId || null) !== instanceId) return;
-      this.runAs(player.id, () => { fn(); settleLeech(); });
-    }, seconds * 1000);
-
-    // Aim: toward the target point (or the dash direction for movement skills)
-    const rawTx = Number.isFinite(skillData.targetX) ? skillData.targetX : px;
-    const rawTy = Number.isFinite(skillData.targetY) ? skillData.targetY : py;
-    const td = Math.hypot(rawTx - px, rawTy - py);
-    const dir = td > 0.3 && !skill.isDash
-      ? { normX: (rawTx - px) / td, normY: (rawTy - py) / td }
-      : computeDashVector();
-    const range = skill.range || 7;
-    const aimX = td > range ? px + dir.normX * range : (td > 0.3 ? rawTx : px + dir.normX * Math.min(range, 3));
-    const aimY = td > range ? py + dir.normY * range : (td > 0.3 ? rawTy : py + dir.normY * Math.min(range, 3));
-
-    // Walk from (x0, y0) along (nx, ny) until a wall, returning the furthest free point
-    const ray = (x0: number, y0: number, nx: number, ny: number, len: number, radius: number = 0.35) => {
-      let ex = x0, ey = y0;
-      for (let d = 0.25; d <= len; d += 0.25) {
-        const tx = x0 + nx * d, ty = y0 + ny * d;
-        if (this.isColliding(tx, ty, zone, radius)) break;
-        ex = tx; ey = ty;
-      }
-      return { x: ex, y: ey };
-    };
-    // Move the hero along dir (a shadow's copy only measures the path)
-    const travel = (len) => {
-      const { x: nx, y: ny } = ray(px, py, dir.normX, dir.normY, len);
-      if (isShadow) return { x: nx, y: ny };
-      player.x = nx; player.y = ny;
-      player.targetX = null; player.targetY = null;
-      player.facing = this.calculateFacing(px, py, nx, ny);
-      return { x: nx, y: ny };
-    };
-
-    // Rune Knight glyphs: carved at a spot, armed after a beat, burst when an
-    // enemy steps on them (or all at once on Invocation)
-    const burstRune = (g, mult) => {
-      if (g.spent) return;
-      g.spent = true;
-      const sk = g.skill;
-      emit({ shape: 'rune', burst: true, kind: sk.kind, skillId: sk.id, x: g.x, y: g.y, radius: sk.r * (mult > 1 ? 1.15 : 1), clearObj: g.id }, false);
-      // the ground stays inscribed for a while, burning anything that walks in
-      if (sk.dot && sk.dot.linger) {
-        const sr = sk.r * 0.85;
-        emit({ shape: 'rune', scar: true, kind: sk.kind, skillId: sk.id, x: g.x, y: g.y, radius: sr, duration: sk.dot.linger }, false);
-        for (let k = 1; k * sk.dot.every <= sk.dot.linger + 0.01; k++) later(k * sk.dot.every, () => runeDot(sk, g.x, g.y, sr));
-      }
-      for (const m of within(g.x, g.y, sk.r * (mult > 1 ? 1.15 : 1))) {
-        if (sk.stun) m.attackCooldown = Math.max(m.attackCooldown || 0, sk.stun);
-        if (sk.stun) m.chillTimer = Math.max(m.chillTimer || 0, sk.stun);
-        if (sk.chill) m.chillTimer = Math.max(m.chillTimer || 0, sk.chill);
-        const before = m.hp;
-        applySkillDamage(m, Math.round(player.dmg * sk.dmgMult * mult), true);
-        dealt += Math.max(0, before - Math.max(0, m.hp));
-      }
-    };
-    // Glyph damage over time (sk.dot): a tick of rune damage on everything in the glyph's area.
-    // Scales with the card level like the burst does (dmgMult over the base dmg).
-    const runeDot = (sk, x, y, r) => {
-      const lvl = sk.dmg ? (sk.dmgMult || sk.dmg) / sk.dmg : 1;
-      const dmg = Math.max(1, Math.round(player.dmg * sk.dot.mult * lvl));
-      for (const m of within(x, y, r)) {
-        this.applyDamageToMob(player, m, dmg, false, true);
-        if (m.state === 'dead' || m.hp <= 0) continue;
-        if (sk.kind === 'frost') m.chillTimer = Math.max(m.chillTimer || 0, 1.0);
-        if (sk.kind === 'bind') m.chillTimer = Math.max(m.chillTimer || 0, 0.6);
-      }
-    };
-    const placeRune = (sk, x, y, first) => {
-      const nowR = Date.now();
-      const live = (player.runeGlyphs || []).filter(g => !g.spent && g.until > nowR && g.zone === zone && g.instanceId === instanceId);
-      while (live.length >= RUNE_MAX) {
-        const old = live.shift();
-        old.spent = true;
-        emit({ shape: 'rune', clearObj: old.id, x: old.x, y: old.y, radius: 0 }, false);
-      }
-      const g = { id: 'g' + (++spObjSeq), skill: sk, x, y, until: nowR + sk.dur * 1000, armAt: nowR + RUNE_ARM_MS, spent: false, zone, instanceId };
-      live.push(g);
-      player.runeGlyphs = live;
-      emit({ shape: 'rune', kind: sk.kind, skillId: sk.id, name: sk.name, x, y, radius: sk.r, duration: sk.dur, objId: g.id }, first);
-      const ticks = Math.ceil(sk.dur / RUNE_POLL);
-      for (let i = 1; i <= ticks; i++) {
-        later(i * RUNE_POLL, () => {
-          if (g.spent) return;
-          if (Date.now() >= g.until) { g.spent = true; return; }
-          // armed: everything walking into the glyph's area takes rune damage over time
-          if (sk.dot && Date.now() >= g.armAt && i % Math.max(1, Math.round(sk.dot.every / RUNE_POLL)) === 0) runeDot(sk, g.x, g.y, sk.r);
-          if (Date.now() >= g.armAt && within(g.x, g.y, RUNE_TRIGGER_R).length) burstRune(g, 1);
-        });
-      }
-    };
-
-    // ---- Dragoon Lightning Rods: planted lances the sky keeps striking (player.dgRods)
-    const liveRods = () => {
-      const now = Date.now();
-      player.dgRods = (player.dgRods || []).filter(rd => rd.until > now && rd.zone === zone && rd.instanceId === instanceId);
-      return player.dgRods;
-    };
-    const rodDamage = (m, mult, stun = 0) => {
-      this.applyDamageToMob(player, m, Math.max(1, Math.round(player.dmg * mult)), false, true);
-      if (stun && m.state !== 'dead' && m.hp > 0) m.attackCooldown = Math.max(m.attackCooldown || 0, stun);
-    };
-    const clearRod = (rod) => emit({ shape: 'rod', clearObj: rod.objId, radius: 0 }, false);
-    const strikeRod = (rod) => {
-      const rods = liveRods();
-      const i = rods.indexOf(rod);
-      if (i < 0) return;
-      emit({ shape: 'rodStrike', x: rod.x, y: rod.y, radius: DG_ROD_R, duration: 0.5 }, false);
-      within(rod.x, rod.y, DG_ROD_R).forEach(m => rodDamage(m, DG_ROD_MULT));
-      // the arc fence to the next rod planted after this one
-      const next = rods[i + 1];
-      if (next && Math.hypot(next.x - rod.x, next.y - rod.y) <= DG_FENCE_RANGE) {
-        emit({ shape: 'fence', startX: rod.x, startY: rod.y, x: next.x, y: next.y, duration: 0.55 }, false);
-        for (const m of alive()) {
-          if (this.distToSegment(m.x, m.y, rod.x, rod.y, next.x, next.y) > DG_FENCE_W) continue;
-          rodDamage(m, DG_FENCE_MULT);
-          if (m.state !== 'dead') m.chillTimer = Math.max(m.chillTimer || 0, 0.8);
-        }
-      }
-    };
-    // thrown: the lance flew there (Storm Lance), so it does not drop out of the sky
-    const plantRod = (x, y, thrown = false) => {
-      if (isShadow) return;
-      const rods = liveRods();
-      while (rods.length >= DG_ROD_MAX) clearRod(rods.shift());
-      const rod = { objId: 'r' + (++spObjSeq), x, y, until: Date.now() + DG_ROD_SECONDS * 1000, zone, instanceId };
-      rods.push(rod);
-      emit({ shape: 'rod', x, y, objId: rod.objId, duration: DG_ROD_SECONDS, ownerId: player.id, thrown }, false);
-      for (let k = 1; k * DG_ROD_EVERY <= DG_ROD_SECONDS + 0.01; k++) later(k * DG_ROD_EVERY, () => strikeRod(rod));
-    };
-    // every rod picked is struck by a giant bolt at once and spent
-    const overloadRods = (mult, pick = (rd) => true) => {
-      const rods = liveRods();
-      const spent = rods.filter(pick);
-      if (!spent.length) return;
-      say(spent[0].x, spent[0].y, `⚡ OVERLOAD x${spent.length}`, '#fde047', 17);
-      for (const rod of spent) {
-        emit({ shape: 'overload', x: rod.x, y: rod.y, radius: DG_OVERLOAD_R, duration: 0.9 }, false);
-        clearRod(rod);
-        within(rod.x, rod.y, DG_OVERLOAD_R).forEach(m => rodDamage(m, mult, 0.5));
-      }
-      player.dgRods = rods.filter(rd => !spent.includes(rd));
-    };
-    // each rod throws a bolt at the enemy nearest to it
-    const rodArcs = (mult) => {
-      for (const rod of liveRods()) {
-        const m = nearest(rod.x, rod.y, DG_ARC_RANGE);
-        if (!m) continue;
-        emit({ shape: 'chain', x: m.x, y: m.y, startX: rod.x, startY: rod.y, points: [{ x: rod.x, y: rod.y }, { x: m.x, y: m.y }], fromRod: true, duration: 0.45 }, false);
-        hit(m, mult, rod.x, rod.y);
-      }
-    };
-
-    let spot = null; // where a lingering field (skill.field) settles
-    switch (skill.spShape) {
-      case 'aura': {
-        // toggled on here; tickSpToggles pays the upkeep and strikes every frame after
-        if (!player.spToggles) player.spToggles = {};
-        player.spToggles[skill.id] = { skill, clock: 0 };
-        emit({ x: px, y: py, radius: skill.r || 1.4, spin: !!skill.spin }, true);
-        say(px, py, `${skill.icon || '✨'} ${skill.name.toUpperCase()} ON`, skill.color || '#ef4444', 16);
-        break;
-      }
-      case 'rewind': {
-        // back to the oldest sample within 'back' seconds
-        const trail = player.timeTrail || [];
-        const want = Date.now() - (skill.back || 3) * 1000;
-        const past = trail.find(t => t.t >= want) || trail[0];
-        if (past && !this.isColliding(past.x, past.y, zone)) {
-          player.x = past.x; player.y = past.y;
-          player.targetX = null; player.targetY = null;
-          if (past.hp > player.hp) player.hp = Math.min(player.maxHp, past.hp);
-        }
-        emit({ startX: px, startY: py, x: player.x, y: player.y, radius: 1.2 }, true);
-        say(player.x, player.y, '⏪ REWIND', '#fde68a', 17);
-        player.timeTrail = [];
-        break;
-      }
-      case 'nova':
-      case 'buff': {
-        emit({ x: px, y: py, radius: skill.r || 1.4 }, true);
-        if (skill.provoke) {
-          for (const m of within(px, py, skill.r)) {
-            const nx = px + (m.x - px) * (1 - skill.provoke), ny = py + (m.y - py) * (1 - skill.provoke);
-            if (!m.isBoss && !this.isColliding(nx, ny, zone)) { m.x = nx; m.y = ny; }
-            m.targetPlayerId = player.id;
-            m.state = 'chase';
-          }
-          say(px, py, '📯 CHALLENGE!', '#fde68a', 17);
-        }
-        if (skill.dmg) within(px, py, skill.r).forEach(m => hit(m));
-        if (skill.reap) {
-          // Devour: every Doom brand of this hero bursts now
-          for (const m of alive()) if (m.doom && m.doom.owner === player.id) burstDoom(m, m.doom);
-        }
-        break;
-      }
-      case 'fault': {
-        // the crack crawls forward a segment at a time; each enemy cracks once
-        const n = skill.n || 5, step = skill.step || 1;
-        const pts = [];
-        for (let i = 1; i <= n; i++) pts.push(ray(px, py, dir.normX, dir.normY, i * step, 0.3));
-        emit({ startX: px, startY: py, x: pts[n - 1].x, y: pts[n - 1].y, segs: pts, radius: skill.hit, every: skill.every, duration: n * skill.every + 0.7 }, true);
-        const struck = new Set();
-        pts.forEach((p, i) => later(i * skill.every, () => {
-          for (const m of within(p.x, p.y, skill.hit)) {
-            if (struck.has(m)) continue;
-            struck.add(m);
-            hit(m, 1, p.x, p.y);
-          }
-        }));
-        break;
-      }
-      case 'spear': {
-        if (recall && player.dgSpear) {
-          // dive onto the planted lance
-          const sp = player.dgSpear;
-          player.dgSpear = null;
-          player.x = sp.x; player.y = sp.y;
-          player.targetX = null; player.targetY = null;
-          player.facing = this.calculateFacing(px, py, sp.x, sp.y);
-          emit({ dive: true, ownerId: player.id, startX: px, startY: py, x: sp.x, y: sp.y, radius: skill.diveR, clearObj: sp.objId }, false);
-          say(sp.x, sp.y, skill.rod ? '⚡ LIGHTNING DIVE!' : '🐉 LANCE DIVE!', '#facc15', 17);
-          within(sp.x, sp.y, skill.diveR).forEach(m => hit(m, skill.dive / (skill.dmgMult || 1), sp.x, sp.y));
-          if (skill.rod) overloadRods(skill.dive * 0.6, (rd) => Math.hypot(rd.x - sp.x, rd.y - sp.y) < 1);
-          const socket = this.io.sockets.sockets.get(player.id);
-          if (socket) socket.emit('player_updated', player);
-          break;
-        }
-        const end = ray(px, py, dir.normX, dir.normY, skill.len, 0.25);
-        const objId = 's' + (++spObjSeq);
-        emit({ startX: px, startY: py, x: end.x, y: end.y, width: skill.width, duration: skill.hold, objId, ownerId: player.id }, true);
-        for (const m of alive()) {
-          if (this.distToSegment(m.x, m.y, px, py, end.x, end.y) <= skill.width) hit(m);
-        }
-        if (!isShadow) player.dgSpear = { slot, skillId: skill.id, x: end.x, y: end.y, objId, until: Date.now() + skill.hold * 1000, zone, instanceId };
-        if (skill.rod) plantRod(end.x, end.y, true);
-        break;
-      }
-      case 'jump': {
-        // up into the clouds (untouchable), down onto the cursor a moment later
-        const land = ray(px, py, dir.normX, dir.normY, Math.min(range, Math.max(1, Math.hypot(aimX - px, aimY - py))), 0.35);
-        if (!isShadow) player.airborneUntil = Date.now() + skill.air * 1000;
-        emit({ startX: px, startY: py, x: land.x, y: land.y, radius: skill.r, air: skill.air, duration: skill.air + 0.5 }, true);
-        later(skill.air, () => {
-          if (!isShadow) {
-            player.x = land.x; player.y = land.y;
-            player.targetX = null; player.targetY = null;
-            player.airborneUntil = 0;
-            const socket = this.io.sockets.sockets.get(player.id);
-            if (socket) socket.emit('player_updated', player);
-          }
-          emit({ landed: true, x: land.x, y: land.y, radius: skill.r }, false);
-          within(land.x, land.y, skill.r).forEach(m => hit(m, 1, land.x, land.y));
-          if (skill.overload) overloadRods(skill.overload);
-          if (skill.rod) plantRod(land.x, land.y);
-        });
-        break;
-      }
-      case 'wall': {
-        // a wall of fire across the aim point, at right angles to it
-        const half = (skill.len || 5) / 2, qx = -dir.normY, qy = dir.normX;
-        spot = { x0: aimX - qx * half, y0: aimY - qy * half, x1: aimX + qx * half, y1: aimY + qy * half };
-        emit({ startX: spot.x0, startY: spot.y0, x: spot.x1, y: spot.y1, width: 1, duration: skill.field ? skill.field.dur : 0.8 }, true);
-        for (const m of alive()) {
-          if (this.distToSegment(m.x, m.y, spot.x0, spot.y0, spot.x1, spot.y1) <= 1) hit(m, 1, aimX, aimY);
-        }
-        break;
-      }
-      case 'rune': {
-        const at = ray(px, py, dir.normX, dir.normY, Math.hypot(aimX - px, aimY - py), 0.3);
-        placeRune(skill, at.x, at.y, true);
-        break;
-      }
-      case 'rage': {
-        // Grave Frenzy: the minions (and any raised while it lasts) fight in a killing rage
-        const R = skill.rage;
-        if (!isShadow) player.minionRage = { until: Date.now() + R.dur * 1000, dmg: R.dmg, aspd: R.aspd, crit: R.crit, critMult: R.critMult };
-        const mins = (player.minions || []).filter(m => m.until > Date.now());
-        emit({ x: px, y: py, radius: skill.r || 3, points: mins.map(m => ({ x: m.x, y: m.y })) }, true);
-        say(px, py, mins.length ? `☠️ GRAVE FRENZY x${mins.length}` : '☠️ GRAVE FRENZY', '#a3e635', 17);
-        break;
-      }
-      case 'gravebomb': {
-        // Corpse Detonation: every minion goes up in grave fire and is spent
-        const nowB = Date.now();
-        const mins = (player.minions || []).filter(m => m.until > nowB && m.zone === zone && m.instanceId === instanceId);
-        emit({ x: px, y: py, radius: skill.r, points: mins.map(m => ({ x: m.x, y: m.y })) }, true);
-        if (!mins.length) { say(px, py, 'No minions to detonate', '#94a3b8', 14); break; }
-        say(px, py, `💥 CORPSE DETONATION x${mins.length}`, '#4ade80', 17);
-        if (!isShadow) player.minions = player.minions.filter(m => !mins.includes(m));
-        mins.forEach((m, i) => {
-          const bx = m.x, by = m.y;
-          later(0.08 + i * 0.07, () => {
-            emit({ shape: 'gravebomb', burst: true, x: bx, y: by, radius: skill.r }, false);
-            within(bx, by, skill.r).forEach(o => hit(o, 1, bx, by));
-          });
-        });
-        break;
-      }
-      case 'raise': {
-        // Raise the Fallen: the dead near the cursor climb back up as the Gravelord's minions
-        const picks = this.takeCorpses(zone, instanceId, aimX, aimY, skill.r, skill.n);
-        const risen = picks.length ? picks : [{ x: aimX, y: aimY, type: 'skeleton', hue: 0, scale: 1, thrall: true }];
-        emit({ x: aimX, y: aimY, radius: skill.r, points: risen.map(c => ({ x: c.x, y: c.y })), thrall: !picks.length }, true);
-        say(aimX, aimY, picks.length ? `☠️ RISE! x${picks.length}` : '☠️ GRAVE THRALL', '#4ade80', 16);
-        if (!isShadow) for (const c of risen) this.raiseMinion(player, c, skill);
-        for (const c of risen) within(c.x, c.y, 1.3).forEach(m => hit(m, 1, c.x, c.y));
-        break;
-      }
-      case 'invoke': {
-        const nowI = Date.now();
-        const glyphs = (player.runeGlyphs || []).filter(g => !g.spent && g.until > nowI && g.zone === zone && g.instanceId === instanceId);
-        emit({ x: px, y: py, radius: skill.r, points: glyphs.map(g => ({ x: g.x, y: g.y })) }, true);
-        if (!glyphs.length) {
-          say(px, py, 'No glyphs carved', '#94a3b8', 14);
-          within(px, py, 2).forEach(m => hit(m, 0.6));
-          break;
-        }
-        say(px, py, `✴️ INVOCATION x${glyphs.length}`, '#a3e635', 17);
-        glyphs.forEach((g, i) => later(i * 0.08, () => burstRune(g, skill.dmgMult)));
-        break;
-      }
-      case 'ricochet': {
-        // the shield bounces from enemy to enemy, then flies home
-        const visited = new Set();
-        const points = [];
-        const atAim = nearest(aimX, aimY, 2.5);
-        let cur = atAim && Math.hypot(atAim.x - px, atAim.y - py) <= range ? atAim : nearest(px, py, range);
-        while (cur && points.length < skill.n) {
-          visited.add(cur);
-          const from = points.length ? points[points.length - 1] : { x: px, y: py };
-          points.push({ x: cur.x, y: cur.y });
-          hit(cur, 1, from.x, from.y);
-          cur = nearest(cur.x, cur.y, skill.jump || 4, visited);
-        }
-        emit({ startX: px, startY: py, x: px, y: py, bounces: points, duration: 0.25 + points.length * 0.14 }, true);
-        if (points.length && skill.shieldPerHit && !isShadow) {
-          const v = Math.round(player.maxHp * skill.shieldPerHit * points.length);
-          player.shieldHp = (player.shieldHp || 0) + v;
-          say(px, py, `🛡️ +${v} SHIELD`, '#fde68a', 14);
-        }
-        break;
-      }
-      case 'phantom': {
-        // a phantom blade leaps from enemy to enemy, a new one each slash
-        emit({ x: px, y: py, radius: 1.2, duration: skill.n * skill.every + 0.5 }, true);
-        let cx = px, cy = py, last = null;
-        for (let i = 0; i < skill.n; i++) {
-          later(0.1 + i * skill.every, () => {
-            const prey = nearest(cx, cy, skill.range, last ? new Set([last]) : null) || (last && last.state !== 'dead' ? last : null);
-            if (!prey) return;
-            emit({ slash: true, startX: cx, startY: cy, x: prey.x, y: prey.y, wave: i }, false);
-            hit(prey, 1, cx, cy);
-            cx = prey.x; cy = prey.y; last = prey;
-          });
-        }
-        break;
-      }
-      case 'hurl': {
-        // grab the nearest enemy and throw it at the cursor; bosses are only slammed in place
-        const victim = nearest(px, py, skill.range);
-        if (!victim) {
-          emit({ startX: px, startY: py, x: px + dir.normX, y: py + dir.normY, radius: 1, miss: true }, true);
-          say(px, py, 'Nothing to grab', '#94a3b8', 14);
-          break;
-        }
-        const heavy = !!victim.isBoss;
-        // thrown toward the cursor itself (aimX/aimY are clamped to the short grab range)
-        const to = ray(victim.x, victim.y, dir.normX, dir.normY, Math.min(skill.throw, Math.max(2, Math.hypot(rawTx - victim.x, rawTy - victim.y))), 0.35);
-        const land = heavy ? { x: victim.x, y: victim.y } : to;
-        emit({ startX: victim.x, startY: victim.y, x: land.x, y: land.y, radius: skill.land.r, heavy, duration: 0.85 }, true);
-        if (!heavy) { victim.x = land.x; victim.y = land.y; }
-        victim.attackCooldown = Math.max(victim.attackCooldown || 0, 0.5);
-        later(0.35, () => {
-          hit(victim, 1, px, py);
-          within(land.x, land.y, skill.land.r).filter(m => m !== victim).forEach(m => hit(m, skill.land.mult, land.x, land.y));
-        });
-        break;
-      }
-      case 'banner': {
-        if (isShadow) break;
-        const at = ray(px, py, dir.normX, dir.normY, Math.hypot(aimX - px, aimY - py), 0.3);
-        if (player.banner) emit({ shape: 'banner', clearObj: player.banner.id, x: player.banner.x, y: player.banner.y, radius: 0 }, false);
-        const b = { id: 'b' + (++spObjSeq), x: at.x, y: at.y, r: skill.r, bonus: skill.bonus, until: Date.now() + skill.dur * 1000, zone, instanceId };
-        player.banner = b;
-        emit({ x: b.x, y: b.y, radius: b.r, duration: skill.dur, objId: b.id }, true);
-        within(b.x, b.y, b.r).forEach(m => hit(m, 1, b.x, b.y));
-        const ticks = Math.floor(skill.dur / skill.every);
-        for (let i = 1; i <= ticks; i++) {
-          later(i * skill.every, () => {
-            if (player.banner !== b) return;
-            within(b.x, b.y, b.r).forEach(m => hit(m, skill.tick, b.x, b.y));
-            if (Math.hypot(player.x - b.x, player.y - b.y) <= b.r) player.hp = Math.min(player.maxHp, player.hp + player.maxHp * skill.regen * skill.every);
-          });
-        }
-        break;
-      }
-      case 'rally': {
-        const b = this.ownBanner(player);
-        let cx = px, cy = py;
-        if (b && !isShadow) {
-          player.x = b.x; player.y = b.y;
-          player.targetX = null; player.targetY = null;
-          player.facing = this.calculateFacing(px, py, b.x, b.y);
-          cx = b.x; cy = b.y;
-          const socket = this.io.sockets.sockets.get(player.id);
-          if (socket) socket.emit('player_updated', player);
-        }
-        emit({ startX: px, startY: py, x: cx, y: cy, radius: skill.r, leap: !!b }, true);
-        if (b) say(cx, cy, '🚩 RALLY!', '#fbbf24', 17);
-        within(cx, cy, skill.r).forEach(m => hit(m, 1, cx, cy));
-        break;
-      }
-      case 'boomerang': {
-        // axes fly out, then turn and come back to wherever the hero is now
-        const n = skill.n || 2, base = Math.atan2(dir.normY, dir.normX), w = skill.width || 1;
-        const axes = [];
-        for (let i = 0; i < n; i++) {
-          const ang = base + (n > 1 ? (i / (n - 1) * 2 - 1) * skill.spread : 0);
-          const end = ray(px, py, Math.cos(ang), Math.sin(ang), skill.len, 0.3);
-          axes.push({ ex: end.x, ey: end.y });
-        }
-        emit({ x: px, y: py, startX: px, startY: py, axes, width: w, duration: skill.dur, followId: player.id }, true);
-        const pass = (back) => {
-          const hx = player.x, hy = player.y;
-          const struck = new Set();
-          for (const a of axes) {
-            for (const m of alive()) {
-              if (struck.has(m)) continue;
-              const d = back ? this.distToSegment(m.x, m.y, a.ex, a.ey, hx, hy) : this.distToSegment(m.x, m.y, px, py, a.ex, a.ey);
-              if (d <= w) { struck.add(m); hit(m, 1, back ? a.ex : px, back ? a.ey : py); }
-            }
-          }
-        };
-        later(skill.dur * 0.2, () => pass(false));
-        later(skill.dur * 0.8, () => pass(true));
-        break;
-      }
-      case 'firebird': {
-        // a teardrop loop: out toward the cursor, sweeping round, and home
-        const L = skill.len, N = 24, path = [];
-        for (let i = 0; i <= N; i++) {
-          const t = i / N, fwd = Math.sin(t * Math.PI) * L, lat = Math.sin(t * Math.PI * 2) * L * 0.35;
-          path.push({ x: px + dir.normX * fwd - dir.normY * lat, y: py + dir.normY * fwd + dir.normX * lat });
-        }
-        emit({ x: px, y: py, path, radius: skill.r, duration: skill.dur }, true);
-        const ticks = Math.round(skill.dur / skill.every);
-        for (let i = 1; i <= ticks; i++) {
-          later(i * skill.every, () => {
-            const p = path[Math.min(N, Math.round((i / ticks) * N))];
-            within(p.x, p.y, skill.r).forEach(m => hit(m, 1, p.x, p.y));
-          });
-        }
-        break;
-      }
-      case 'sacrifice': {
-        // burn your own life into the blast; it grows with what you spent, then regrows
-        const spent = isShadow ? 0 : Math.round(player.hp * skill.burnHp);
-        if (spent) player.hp = Math.max(1, player.hp - spent);
-        const boost = 1 + 4 * spent / Math.max(1, player.maxHp);
-        emit({ x: px, y: py, radius: skill.r, spent }, true);
-        if (spent) say(px, py, `🔥 SACRIFICE -${spent} HP`, '#f97316', 17);
-        within(px, py, skill.r).forEach(m => hit(m, boost));
-        if (skill.regrow && spent) {
-          const per = spent * skill.regrow / 10;
-          for (let i = 1; i <= 10; i++) later(i * 0.5, () => { player.hp = Math.min(player.maxHp, player.hp + per); });
-        }
-        break;
-      }
-      case 'shuriken': {
-        const width = skill.width || 0.8;
-        if (recall) {
-          // every star out there (the shadow's too) flies back to the hero, cutting what it passes
-          const out = player.nbStars;
-          player.nbStars = null;
-          const hx = player.x, hy = player.y;
-          emit({ recall: true, ownerId: player.id, x: hx, y: hy, stars: out.stars }, false);
-          for (const s of out.stars) {
-            for (const m of alive()) {
-              if (this.distToSegment(m.x, m.y, s.x, s.y, hx, hy) <= width) hit(m, skill.back || 1, s.x, s.y);
-            }
-          }
-          say(hx, hy, '🌀 RECALL!', '#c084fc', 15);
-          break;
-        }
-        // a fan of stars toward the cursor; each stops at its spot (or a wall) and hovers there
-        const n = skill.n || 5;
-        const reach = Math.min(range, Math.max(3, Math.hypot(aimX - px, aimY - py)));
-        const base = Math.atan2(dir.normY, dir.normX), step = n > 1 ? (skill.spread * Math.PI / 180) / (n - 1) : 0;
-        const stars = [];
-        for (let i = 0; i < n; i++) {
-          const ang = base + (i - (n - 1) / 2) * step;
-          const end = ray(px, py, Math.cos(ang), Math.sin(ang), reach, 0.2);
-          stars.push({ x: end.x, y: end.y });
-          for (const m of alive()) {
-            if (this.distToSegment(m.x, m.y, px, py, end.x, end.y) <= width) hit(m);
-          }
-        }
-        if (isShadow) {
-          // the shadow's stars come back with the hero's on recall
-          if (player.nbStars) player.nbStars.stars.push(...stars);
-        } else {
-          player.nbStars = { slot, skillId: skill.id, stars, until: Date.now() + (skill.hold || 5) * 1000, zone, instanceId };
-        }
-        emit({ startX: px, startY: py, x: aimX, y: aimY, stars, ownerId: player.id, duration: skill.hold || 5 }, true);
-        break;
-      }
-      case 'smoke': {
-        // anyone standing in the cloud makes monster attacks miss (see smokeMissChance)
-        this.smokeClouds.push({ zone, instanceId, x: px, y: py, r: skill.r, miss: skill.miss, until: Date.now() + skill.dur * 1000 });
-        emit({ x: px, y: py, radius: skill.r, duration: skill.dur }, true);
-        if (skill.dmg) within(px, py, skill.r).forEach(m => hit(m));
-        if (!isShadow) say(px, py, '💨 SMOKE BOMB', '#cbd5e1', 15);
-        break;
-      }
-      case 'shadow': {
-        const spotAt = ray(px, py, dir.normX, dir.normY, Math.hypot(aimX - px, aimY - py), 0.3);
-        player.nbShadow = { x: spotAt.x, y: spotAt.y, mirror: skill.mirror, until: Date.now() + skill.dur * 1000, zone, instanceId };
-        emit({ startX: px, startY: py, x: spotAt.x, y: spotAt.y, radius: skill.r, duration: skill.dur }, true);
-        if (skill.dmg) within(spotAt.x, spotAt.y, skill.r).forEach(m => hit(m, 1, spotAt.x, spotAt.y));
-        say(spotAt.x, spotAt.y, '👤 SHADOW', '#a855f7', 15);
-        break;
-      }
-      case 'orbit': {
-        // stars circle the hero (or stay put around the shadow) and cut on every tick
-        const centre = () => (isShadow ? { x: px, y: py } : { x: player.x, y: player.y });
-        emit({ x: px, y: py, radius: skill.r, n: skill.n, duration: skill.dur, followId: isShadow ? null : player.id }, true);
-        const spin = () => {
-          const c = centre();
-          within(c.x, c.y, skill.r).forEach(m => hit(m, 1, c.x, c.y));
-        };
-        spin();
-        const ticks = Math.round(skill.dur / skill.every);
-        for (let i = 1; i < ticks; i++) later(i * skill.every, spin);
-        break;
-      }
-      case 'orbs': {
-        // n storm orbs fan out ahead (±spread rad) and drift len tiles over dur s,
-        // stopping at walls, shocking everything within r of each every `every` s
-        const n = skill.n || 2, base = Math.atan2(dir.normY, dir.normX);
-        const orbs = [];
-        for (let i = 0; i < n; i++) {
-          const ang = base + (n > 1 ? (i / (n - 1) * 2 - 1) * skill.spread : 0);
-          const end = ray(px, py, Math.cos(ang), Math.sin(ang), skill.len, 0.3);
-          orbs.push({ sx: px, sy: py, ex: end.x, ey: end.y });
-        }
-        emit({ x: px, y: py, orbs, radius: skill.r, duration: skill.dur }, true);
-        const ticks = Math.round(skill.dur / skill.every);
-        const shock = (i) => {
-          const k = i / ticks;
-          for (const o of orbs) {
-            const ox = o.sx + (o.ex - o.sx) * k, oy = o.sy + (o.ey - o.sy) * k;
-            within(ox, oy, skill.r).forEach(m => hit(m, 1, ox, oy));
-          }
-        };
-        for (let i = 1; i <= ticks; i++) later(i * skill.every, () => shock(i));
-        break;
-      }
-      case 'detonate': {
-        emit({ x: px, y: py, radius: skill.r || 7.0 }, true);
-        let detonatedCount = 0;
-        for (const m of within(px, py, skill.r || 7.0)) {
-          const stacks = m.poisonStacks || (m.poisonTimer > 0 ? 2 : 0);
-          if (stacks > 0) {
-            const detonateMult = (skill.dmgMult || 2.2) + (stacks * 0.75);
-            const detonateDmg = Math.round(player.dmg * detonateMult);
-            applySkillDamage(m, detonateDmg, true);
-            m.poisonStacks = 0;
-            m.poisonTimer = 0;
-            m.poisonDmg = 0;
-            detonatedCount++;
-            this.emitZone(zone, 'floating_text', { x: m.x, y: m.y - 0.8, text: `💥 DETONATE! -${detonateDmg}`, color: '#22c55e', size: 18 });
-          }
-        }
-        if (detonatedCount > 0) {
-          this.emitZone(zone, 'floating_text', { x: px, y: py - 0.8, text: `☣️ DETONATED ${detonatedCount} ENEMIES!`, color: '#86efac', size: 16 });
-        }
-        break;
-      }
-      case 'blast': {
-        spot = { x: aimX, y: aimY };
-        emit({ x: aimX, y: aimY, startX: px, startY: py, radius: skill.r }, true);
-        within(aimX, aimY, skill.r).forEach(m => hit(m, 1, aimX, aimY));
-        if (skill.rod) plantRod(aimX, aimY);
-        break;
-      }
-      case 'pull': {
-        spot = { x: aimX, y: aimY };
-        const isDreadRoar = skill.id === 'sp_void_grasp';
-        const pullCenterX = isDreadRoar ? px : aimX;
-        const pullCenterY = isDreadRoar ? py : aimY;
-        emit({ x: pullCenterX, y: pullCenterY, radius: skill.r }, true);
-        if (isDreadRoar) say(px, py, '💀 MOCKING DREAD ROAR!', '#c084fc', 17);
-        for (const m of within(pullCenterX, pullCenterY, skill.r)) {
-          const nx = pullCenterX + (m.x - pullCenterX) * (isDreadRoar ? 0.25 : 0.3);
-          const ny = pullCenterY + (m.y - pullCenterY) * (isDreadRoar ? 0.25 : 0.3);
-          if (!this.isColliding(nx, ny, zone)) { m.x = nx; m.y = ny; }
-          if (isDreadRoar) {
-            m.attackCooldown = Math.max(m.attackCooldown || 0, 1.2);
-            m.targetPlayerId = player.id;
-          }
-          hit(m, 1, pullCenterX, pullCenterY);
-        }
-        break;
-      }
-      case 'cone': {
-        emit({ x: px, y: py, dirX: dir.normX, dirY: dir.normY, range: skill.range, arc: skill.arc }, true);
-        if (skill.id === 'sp_dread_wave') say(px, py, '🪓 CATACLYSMIC AXE DRAG!', '#f43f5e', 17);
-        const half = (skill.arc * Math.PI) / 360;
-        for (const m of within(px, py, skill.range)) {
-          const d = Math.hypot(m.x - px, m.y - py);
-          if (d < 0.5) { hit(m); continue; }
-          const cos = ((m.x - px) * dir.normX + (m.y - py) * dir.normY) / d;
-          if (Math.acos(Math.max(-1, Math.min(1, cos))) <= half) {
-            hit(m);
-            if (skill.id === 'sp_dread_wave' && m.state !== 'dead') {
-              m.burnTimer = Math.max(m.burnTimer || 0, 3.5);
-              m.burnDmg = Math.max(m.burnDmg || 0, Math.round(player.dmg * 0.28));
-            }
-          }
-        }
-        break;
-      }
-      case 'line': {
-        const ex = px + dir.normX * skill.len, ey = py + dir.normY * skill.len;
-        emit({ startX: px, startY: py, x: ex, y: ey, width: skill.width }, true);
-        if (skill.id === 'sp_abyss_cleave') say(px, py, '🪓 ABYSSAL GUILLOTINE!', '#c084fc', 17);
-        for (const m of alive()) {
-          if (this.distToSegment(m.x, m.y, px, py, ex, ey) <= skill.width) hit(m);
-        }
-        if (skill.id === 'sp_abyss_cleave') {
-          later(0.32, () => {
-            emit({ startX: px, startY: py, x: ex, y: ey, width: skill.width * 1.15, wave: 1 }, false);
-            for (const m of alive()) {
-              if (this.distToSegment(m.x, m.y, px, py, ex, ey) <= skill.width * 1.15) hit(m, 0.45);
-            }
-          });
-        }
-        break;
-      }
-      case 'strike': {
-        // Prefer the enemy at the aim point, else the closest one in reach
-        const atAim = nearest(aimX, aimY, 2.5);
-        const target = atAim && Math.hypot(atAim.x - px, atAim.y - py) <= skill.range + 1 ? atAim : nearest(px, py, skill.range);
-        const tx = target ? target.x : aimX, ty = target ? target.y : aimY;
-        emit({ startX: px, startY: py, x: tx, y: ty, radius: 0.9 }, true);
-        if (target) {
-          if (skill.id === 'sp_soul_rend') {
-            const isExec = target.maxHp && target.hp <= target.maxHp * 0.45;
-            say(target.x, target.y, isExec ? '🪓 GUILLOTINE EXECUTE!' : '🪓 BEHEADING!', '#f43f5e', isExec ? 19 : 17);
-            hit(target, isExec ? 1.35 : 1.0);
-          } else {
-            hit(target);
-          }
-        }
-        break;
-      }
-      case 'volley': {
-        const targets = within(px, py, skill.range)
-          .sort((a, b) => Math.hypot(a.x - px, a.y - py) - Math.hypot(b.x - px, b.y - py))
-          .slice(0, skill.n);
-        emit({ x: px, y: py, startX: px, startY: py, points: targets.map(m => ({ x: m.x, y: m.y })) }, true);
-        targets.forEach(m => hit(m));
-        break;
-      }
-      case 'chain': {
-        const visited = new Set();
-        const points = [];
-        let cur = nearest(px, py, skill.range);
-        let mult = 1;
-        while (cur && points.length < skill.n) {
-          visited.add(cur);
-          points.push({ x: cur.x, y: cur.y });
-          hit(cur, mult, points.length > 1 ? points[points.length - 2].x : px, points.length > 1 ? points[points.length - 2].y : py);
-          mult *= skill.decay || 0.85;
-          cur = nearest(cur.x, cur.y, skill.jump || 4, visited);
-        }
-        emit({ x: px, y: py, startX: px, startY: py, points }, true);
-        break;
-      }
-      case 'pulse': {
-        const onTarget = skill.at === 'target';
-        let seekX = aimX, seekY = aimY, lastPrey = null;
-        if (skill.id === 'sp_soul_bastion') {
-          const missingShare = Math.max(0, 1 - (player.hp / Math.max(1, player.maxHp)));
-          const bloodlustHeal = Math.max(1, Math.round(player.maxHp * (0.12 + 0.18 * missingShare)));
-          player.hp = Math.min(player.maxHp, player.hp + bloodlustHeal);
-          say(px, py, `🔥 UNDYING RAGE! (+${bloodlustHeal} HP)`, '#f43f5e', 18);
-        }
-        const wave = (i) => {
-          let cx = onTarget ? seekX : player.x, cy = onTarget ? seekY : player.y;
-          if (skill.seek) {
-            // hop to a different enemy each pulse (stay put only if it is the last one)
-            const prey = nearest(cx, cy, skill.seek, lastPrey ? new Set([lastPrey]) : null) || (lastPrey && lastPrey.state !== 'dead' ? lastPrey : nearest(cx, cy, skill.seek));
-            if (prey) { lastPrey = prey; seekX = cx = prey.x; seekY = cy = prey.y; }
-          }
-          emit({ x: cx, y: cy, radius: skill.r, wave: i }, i === 0);
-          within(cx, cy, skill.r).forEach(m => hit(m, 1, cx, cy));
-        };
-        wave(0);
-        for (let i = 1; i < skill.n; i++) later(i * skill.every, () => wave(i));
-        break;
-      }
-      case 'rain': {
-        // Each strike lands on a random enemy in the area, or a random spot if none
-        if (skill.id === 'sp_grave_rain') say(aimX, aimY, '🪓 GUILLOTINE SKYFALL!', '#c084fc', 17);
-        const strike = (i) => {
-          const inArea = within(aimX, aimY, skill.r);
-          const a = Math.random() * Math.PI * 2, d = Math.sqrt(Math.random()) * skill.r;
-          const pick = inArea.length ? inArea[Math.floor(Math.random() * inArea.length)] : null;
-          const sx = pick ? pick.x : aimX + Math.cos(a) * d, sy = pick ? pick.y : aimY + Math.sin(a) * d;
-          emit({ x: sx, y: sy, radius: skill.hit, wave: i, areaX: aimX, areaY: aimY, areaR: skill.r }, i === 0);
-          within(sx, sy, skill.hit).forEach(m => hit(m, 1, sx, sy));
-          if (skill.id === 'sp_grave_rain' && i === skill.n - 1) {
-            within(aimX, aimY, skill.r).forEach(m => hit(m, 0.75, aimX, aimY));
-          }
-        };
-        strike(0);
-        for (let i = 1; i < skill.n; i++) later(i * skill.every, () => strike(i));
-        break;
-      }
-      case 'dash': {
-        const end = travel(skill.len);
-        spot = { x0: px, y0: py, x1: end.x, y1: end.y };
-        let resetDash = false;
-        let spinHits = 0;
-        for (const m of alive()) {
-          if (this.distToSegment(m.x, m.y, px, py, end.x, end.y) <= skill.width) {
-            if (skill.resetOnStatic && m.staticCharge && m.staticCharge > 0) {
-              m.staticCharge = 0;
-              resetDash = true;
-            }
-            spinHits++;
-            hit(m);
-            if (skill.plow && m.state !== 'dead' && !m.isBoss) {
-              const side = ((m.x - px) * -dir.normY + (m.y - py) * dir.normX) >= 0 ? 0.6 : -0.6;
-              const nx = end.x + dir.normX * 0.8 - dir.normY * side, ny = end.y + dir.normY * 0.8 + dir.normX * side;
-              if (!this.isColliding(nx, ny, zone)) { m.x = nx; m.y = ny; }
-            }
-          }
-        }
-        if (resetDash) {
-          player.skillCooldowns['dash'] = 0;
-          player.skillCooldowns[slot] = 0;
-          this.emitZone(zone, 'floating_text', { x: end.x, y: end.y - 0.7, text: '⚡ DASH RESET!', color: '#facc15', size: 16 });
-          const socket = this.io.sockets.sockets.get(player.id);
-          if (socket) socket.emit('player_updated', player);
-        } else if (skill.spinReset && spinHits > 0) {
-          const cdReduce = spinHits * skill.spinReset;
-          player.skillCooldowns['dash'] = Math.max(0, (player.skillCooldowns['dash'] || 0) - cdReduce);
-          if (player.skillCooldowns[slot] !== undefined) {
-            player.skillCooldowns[slot] = Math.max(0, (player.skillCooldowns[slot] || 0) - cdReduce);
-          }
-          this.emitZone(zone, 'floating_text', { x: end.x, y: end.y - 0.7, text: `🪓 SPIN SLAUGHTER -${cdReduce.toFixed(1)}s CD!`, color: '#c084fc', size: 15 });
-          const socket = this.io.sockets.sockets.get(player.id);
-          if (socket) socket.emit('player_updated', player);
-        }
-        emit({ startX: px, startY: py, x: end.x, y: end.y, width: skill.width, facing: player.facing }, true);
-        break;
-      }
-      case 'backstep': {
-        const target = nearest(aimX, aimY, 3.5) || nearest(px, py, skill.range || 7);
-        if (target) {
-          const tdir = { normX: dir.normX || 1, normY: dir.normY || 0 };
-          let destX = target.x - tdir.normX * 1.0;
-          let destY = target.y - tdir.normY * 1.0;
-          if (this.isColliding(destX, destY, zone)) {
-            destX = target.x + tdir.normX * 1.0;
-            destY = target.y + tdir.normY * 1.0;
-          }
-          emit({ startX: px, startY: py, x: destX, y: destY, radius: 1.5 }, true);
-          hit(target, 2.2);
-          target.shadowMarkTimer = 6.0;
-          if (!isShadow) {
-            player.x = destX; player.y = destY;
-            player.targetX = null; player.targetY = null;
-            player.facing = this.calculateFacing(destX, destY, target.x, target.y);
-            this.emitZone(zone, 'floating_text', { x: player.x, y: player.y - 0.7, text: '👤 SHADOWSTEP!', color: '#a855f7' });
-            const socket = this.io.sockets.sockets.get(player.id);
-            if (socket) socket.emit('player_updated', player);
-          }
-        } else {
-          const end = travel(skill.len || 6);
-          emit({ startX: px, startY: py, x: end.x, y: end.y, radius: 1.5 }, true);
-        }
-        break;
-      }
-      case 'blink': {
-        const end = travel(skill.len);
-        emit({ startX: px, startY: py, x: end.x, y: end.y, radius: skill.r || 0, origin: !!(skill.origin || skill.originOnly), landing: !skill.originOnly && !!skill.dmg, facing: player.facing }, true);
-        if (skill.id === 'sp_void_step') say(end.x, end.y, '🪓 OBLIVION SLAM!', '#c084fc', 17);
-        if (skill.leaveRune && !isShadow && SP.SP_SKILLS[skill.leaveRune]) placeRune(SP.SP_SKILLS[skill.leaveRune], px, py, false);
-        if (skill.riftPull) {
-          within(px, py, skill.riftPull).forEach((m, i) => {
-            const a = (i / 6) * Math.PI * 2;
-            const nx = end.x + Math.cos(a) * 1.2, ny = end.y + Math.sin(a) * 1.2;
-            if (!this.isColliding(nx, ny, zone)) { m.x = nx; m.y = ny; }
-          });
-        }
-        if (skill.taunt) {
-          for (const m of within(px, py, 8)) {
-            m.targetPlayerId = null;
-            m.state = 'idle';
-            m.wanderTarget = { x: px, y: py };
-            m.nextWanderTime = Date.now() + skill.taunt * 1000;
-          }
-        }
-        if (skill.dmg) {
-          const struck = new Set();
-          if (skill.origin || skill.originOnly) within(px, py, skill.r).forEach(m => { struck.add(m); hit(m, 1, px, py); });
-          if (!skill.originOnly) within(end.x, end.y, skill.r).filter(m => !struck.has(m)).forEach(m => hit(m, 1, end.x, end.y));
-        }
-        break;
-      }
-      case 'alpha': {
-        // Eternal Alpha (Nightfall Twinblades): blink from enemy to enemy,
-        // striking each, landing beside the last one; drawn as a chain of blinks
-        const struck = new Set();
-        let from = { x: px, y: py };
-        const hop = (i: number) => {
-          const target = nearest(from.x, from.y, i === 0 ? skill.range : skill.jump, struck);
-          if (!target) return false;
-          struck.add(target);
-          const d = Math.hypot(target.x - from.x, target.y - from.y) || 1;
-          let lx = target.x - ((target.x - from.x) / d) * 0.9, ly = target.y - ((target.y - from.y) / d) * 0.9;
-          if (this.isColliding(lx, ly, zone)) { lx = target.x; ly = target.y; }
-          if (!isShadow) {
-            player.x = lx; player.y = ly;
-            player.targetX = null; player.targetY = null;
-            player.facing = this.calculateFacing(lx, ly, target.x, target.y);
-          }
-          emit({ shape: 'blink', startX: from.x, startY: from.y, x: lx, y: ly, radius: 1.1, landing: true, facing: player.facing }, i === 0);
-          hit(target, 1, lx, ly);
-          from = { x: lx, y: ly };
-          return true;
-        };
-        if (!hop(0)) {
-          // nobody in reach: a short blink forward instead
-          const end = travel(3);
-          emit({ shape: 'blink', startX: px, startY: py, x: end.x, y: end.y, radius: 0, facing: player.facing }, true);
-          break;
-        }
-        for (let i = 1; i < skill.n; i++) later(i * skill.every, () => hop(i));
-        break;
-      }
-    }
-
-    // Dragoon: every Lightning Rod answers the cast with a bolt
-    if (skill.rodArc) rodArcs(skill.rodArc);
-    // Lingering ground: burning crater / fire trail / gravity well, ticking on its own
-    if (skill.field && spot) {
-      const F = skill.field;
-      const line = spot.x1 !== undefined;
-      const cx = line ? (spot.x0 + spot.x1) / 2 : spot.x, cy = line ? (spot.y0 + spot.y1) / 2 : spot.y;
-      emit(line
-        ? { shape: 'field', startX: spot.x0, startY: spot.y0, x: spot.x1, y: spot.y1, radius: F.r, duration: F.dur, pull: !!F.pull }
-        : { shape: 'field', x: cx, y: cy, radius: F.r, duration: F.dur, pull: !!F.pull }, false);
-      const ticks = Math.round(F.dur / F.every);
-      for (let i = 1; i <= ticks; i++) {
-        later(i * F.every, () => {
-          const victims = line
-            ? alive().filter(m => this.distToSegment(m.x, m.y, spot.x0, spot.y0, spot.x1, spot.y1) <= F.r)
-            : within(cx, cy, F.r);
-          for (const m of victims) {
-            if (F.pull) {
-              const nx = cx + (m.x - cx) * (1 - F.pull), ny = cy + (m.y - cy) * (1 - F.pull);
-              if (!this.isColliding(nx, ny, zone)) { m.x = nx; m.y = ny; }
-            }
-            hit(m, F.mult, cx, cy);
-          }
-        });
-      }
-    }
-    // Singularity: after a beat, everything nearby falls into the point and is crushed
-    if (skill.implode) {
-      const I = skill.implode;
-      later(I.delay, () => {
-        emit({ shape: 'pull', x: aimX, y: aimY, radius: I.r, implode: true }, false);
-        for (const m of within(aimX, aimY, I.r)) {
-          const nx = aimX + (m.x - aimX) * 0.2, ny = aimY + (m.y - aimY) * 0.2;
-          if (!this.isColliding(nx, ny, zone)) { m.x = nx; m.y = ny; }
-          hit(m, I.mult, aimX, aimY);
-        }
-      });
-    }
-    // a shadow's copy only deals damage: no self buffs, cooldown cuts or echoes
-    if (isShadow) {
-      settleLeech();
-      return;
-    }
-    // Chronomancer Echo: the whole skill replays later at reduced strength
-    if (skill.echo && !isEcho) {
-      later(skill.echo, () => {
-        say(aimX, aimY, '⏳ ECHO', '#fde68a', 15);
-        const echoSkill = Object.assign({}, skill, {
-          dmgMult: skill.dmgMult * ECHO_DAMAGE, echo: 0, heal: 0, mana: 0, shield: 0, fortress: 0, haste: 0, sprint: 0, smoke: 0
-        });
-        this.castSpSkill(player, echoSkill, Object.assign({}, ctx, { skillData: Object.assign({}, skillData, { targetX: aimX, targetY: aimY }), isEcho: true }));
-      });
-    }
-    // Reaver Heat: at 100 the hero Overheats
-    if (skill.heat && !(player.overheatUntil > Date.now())) {
-      player.heat = Math.min(HEAT_MAX, (player.heat || 0) + skill.heat);
-      player.heatAt = Date.now();
-      if (player.heat >= HEAT_MAX) {
-        player.heat = 0;
-        player.overheatUntil = Date.now() + OVERHEAT_SECONDS * 1000;
-        say(player.x, player.y - 0.3, '🔥 OVERHEAT!', '#f97316', 20);
-        emit({ shape: 'aura', x: player.x, y: player.y, radius: 2.4 }, false);
-      }
-    }
-    if (skill.parry) {
-      player.parry = { until: Date.now() + skill.parry * 1000, riposte: skill.riposte || 2 };
-      say(player.x, player.y - 0.3, '🛡️ RIPOSTE STANCE', '#fde68a', 16);
-    }
-    if (skill.rekindle) {
-      player.rebirthReadyAt = 0;
-      say(player.x, player.y - 0.3, '🔥 REBIRTH READY', '#fbbf24', 16);
-    }
-    if (skill.haste && player.skillCooldowns) {
-      for (const k of Object.keys(player.skillCooldowns)) {
-        if (k !== slot && player.skillCooldowns[k] > 0) player.skillCooldowns[k] = Math.max(0, player.skillCooldowns[k] - skill.haste);
-      }
-    }
-
-    // Self effects
-    const buffs = [];
-    if (skill.haste) buffs.push(`HASTE -${skill.haste}s`);
-    if (skill.cleanse) {
-      player.statusEffects = [];
-      buffs.push('CLEANSED');
-    }
-    if (skill.flowGain) {
-      player.flowStacks = Math.min(5, (player.flowStacks || 0) + skill.flowGain);
-      player.flowTimer = 5.0;
-      buffs.push(`FLOW x${player.flowStacks}`);
-    }
-    if (skill.invuln) {
-      player.smokeScreenTimer = Math.max(player.smokeScreenTimer || 0, skill.invuln);
-    }
-    if (skill.hpCost) player.hp = Math.max(1, player.hp - Math.round(player.hp * skill.hpCost));
-    if (skill.undying) { player.undyingTimer = Math.max(player.undyingTimer || 0, skill.undying); buffs.push('UNDYING RAGE'); }
-    if (skill.berserk) { player.berserkTimer = Math.max(player.berserkTimer || 0, skill.berserk); buffs.push('RAGE'); }
-    if (skill.bloodlust) {
-      const b = skill.bloodlust;
-      player.bloodlust = { timer: b.dur, rage: b.rage, atkSpeed: b.atkSpeed, thirst: b.thirst };
-      this.recalculatePlayerStats(player);
-      buffs.push('BLOODLUST');
-    }
-    if (skill.fortress) { player.ironFortressTimer = Math.max(player.ironFortressTimer || 0, skill.fortress); buffs.push('FORTRESS'); }
-    if (skill.sprint) player.sprintTimer = Math.max(player.sprintTimer || 0, skill.sprint);
-    if (skill.smoke) { player.smokeScreenTimer = Math.max(player.smokeScreenTimer || 0, skill.smoke); buffs.push('VANISH'); }
-    if (skill.shield) { const v = Math.round(player.maxHp * skill.shield); player.shieldHp = (player.shieldHp || 0) + v; buffs.push(`+${v} SHIELD`); }
-    if (skill.heal) { const v = Math.round(player.maxHp * skill.heal); player.hp = Math.min(player.maxHp, player.hp + v); buffs.push(`+${v} HP`); }
-    if (skill.mana) player.mp = Math.min(player.maxMp, player.mp + Math.round(player.maxMp * skill.mana));
-    if (buffs.length && !isEcho) {
-      this.emitZone(zone, 'floating_text', { x: player.x, y: player.y - 0.8, text: `${skill.name.toUpperCase()} (${buffs.join(' / ')})`, color: skill.color || '#e2e8f0' });
-    }
-    if (isSoulCard && player.voidSouls > 0 && !isEcho) say(player.x, player.y - 0.3, `👻 SOULS ${player.voidSouls}/${VOID_SOUL_MAX}`, '#c084fc', 13);
-    settleLeech();
-    if (skill.haste || skill.spShape === 'rewind') {
-      const socket = this.io.sockets.sockets.get(player.id);
-      if (socket) socket.emit('player_updated', player);
-    }
+  castSpSkill(player: Player, skill: any, ctx: any) {
+    return this.spSkills.castSpSkill(player, skill, ctx);
   }
 
-  // Chance a monster's attack on this hero misses because they stand in a Smoke Bomb cloud
-  smokeMissChance(player) {
-    const now = Date.now();
-    if (this.smokeClouds.length) this.smokeClouds = this.smokeClouds.filter(c => c.until > now);
-    const instanceId = player.dungeonInstanceId || null;
-    let miss = 0;
-    for (const c of this.smokeClouds) {
-      if (c.zone === player.zone && c.instanceId === instanceId && Math.hypot(player.x - c.x, player.y - c.y) <= c.r) miss = Math.max(miss, c.miss);
-    }
-    return miss;
+  smokeMissChance(player: Player) {
+    return this.statusFx.smokeMissChance(player);
   }
 
   handlePlayerSkill(socketId: any, skillData: any = {}) {
-    const player = this.players.get(socketId);
-    if (!player || player.isDead) return;
-
-    const rawSlot = skillData.skillSlot || 'slot1';
-    const slot = (rawSlot === 'skill1') ? 'slot1' : (rawSlot === 'skill2') ? 'slot2' : rawSlot;
-    if (!CLIENT_SKILL_SLOTS.has(slot)) return;
-
-    if (!player.equippedSkills) {
-      player.equippedSkills = JSON.parse(JSON.stringify(DEFAULT_EQUIPPED_SKILLS[player.characterClass] || DEFAULT_EQUIPPED_SKILLS.warrior));
-    }
-    if (!player.skillCooldowns) {
-      player.skillCooldowns = { slot1: 0, slot2: 0, slot3: 0, dash: 0, skill1: 0, skill2: 0 };
-    }
-    // Nightblade: casting Phantom Shuriken again while its stars are out calls them back (free, ignores cooldown)
-    // Dragoon: casting Sky Lance again while it is planted dives onto it (also free)
-    const recast = (o) => !!(o && o.slot === slot && Date.now() < o.until && player.equippedSkills && player.equippedSkills[slot] === o.skillId
-      && o.zone === player.zone && o.instanceId === (player.dungeonInstanceId || null));
-    const recall = recast(player.nbStars) || recast(player.dgSpear);
-    if (!recall && (player.skillCooldowns[slot] > 0 || (player.skillCooldowns[rawSlot] > 0))) return;
-
-    const socket0 = this.io.sockets.sockets.get(socketId);
-    const skillId = slot === 'weapon' ? 'weapon' : slot === 'ult' ? 'ult'
-      : player.equippedSkills[slot] || (DEFAULT_EQUIPPED_SKILLS[player.characterClass] && DEFAULT_EQUIPPED_SKILLS[player.characterClass][slot]) || 'whirlwind';
-    const skill = this.resolvePlayerSkill(player, slot, skillId);
-    if (!skill) {
-      if (socket0) socket0.emit('floating_text', { x: player.x, y: player.y - 0.7, text: slot === 'ult' ? 'Transform with an SP card to use its Signature' : 'This weapon has no ability', color: '#94a3b8' });
-      return;
-    }
-    // Signature: needs a full charge instead of mana
-    if (slot === 'ult' && (player.ultCharge || 0) < ULT_CHARGE_MAX) {
-      if (socket0) socket0.emit('floating_text', { x: player.x, y: player.y - 0.7, text: `✦ Signature charging ... ${Math.floor(player.ultCharge || 0)}%`, color: '#94a3b8' });
-      return;
-    }
-    const runeId = (player.equippedSkills.runes && player.equippedSkills.runes[slot]) || 'none';
-
-    const socket = this.io.sockets.sockets.get(socketId);
-    const playerTalents = player.skills || {};
-
-    if (skill.spShape === 'aura') {
-      // casting an active blood aura again switches it off, for free
-      if (player.spToggles && player.spToggles[skill.id]) {
-        player.skillCooldowns[slot] = player.skillCooldowns[rawSlot] = skill.cooldown;
-        this.endSpToggle(player, skill.id);
-        this.emitZone(player.zone, 'skill_fx', {
-          type: 'sp_skill', shape: 'aura', off: true, x: player.x, y: player.y, radius: skill.r || 1.4, element: skill.element, color: skill.color,
-          cardId: skill.cardId, skillId: skill.id, name: skill.name, skillSlot: slot, cooldown: skill.cooldown, playerId: player.id
-        });
-        if (socket) socket.emit('player_updated', player);
-        return;
-      }
-      if (skill.drain && player.hp <= player.maxHp * BLOOD_AURA_START_HP) {
-        if (socket) socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: '🩸 Not enough blood!', color: '#ef4444' });
-        return;
-      }
-    }
-
-    let mpCost = Math.round(skill.mpCost * (player.manaCostMult || 1));
-    if (playerTalents.mana_flow) {
-      mpCost = Math.max(2, Math.round(mpCost * (1 - playerTalents.mana_flow * 0.30)));
-    }
-
-    if (skill.cardId === 'sp_reaver' && player.overheatUntil > Date.now()) mpCost = 0;
-
-    if (!recall && player.mp < mpCost) {
-      if (socket) {
-        socket.emit('floating_text', {
-          x: player.x,
-          y: player.y - 0.7,
-          text: '⚠️ Not enough Mana!',
-          color: '#38bdf8'
-        });
-      }
-      return;
-    }
-
-    const runeCounts = this.getWeaponRuneCounts(player);
-    let cooldown = skill.cooldown;
-    if (runeCounts.tempest > 0) {
-      // (the 0.4s floor never lengthens a cooldown that is already shorter, e.g. Rift Step's 0.1s)
-      cooldown = Math.max(Math.min(0.4, cooldown), Number((cooldown * Math.pow(0.8, runeCounts.tempest)).toFixed(2)));
-    }
-    // Cooldown reduction from gear and attributes
-    if (player.cdr > 0) cooldown = Number((cooldown * (1 - player.cdr)).toFixed(2));
-    // Stormcaller 2-piece: shorter cooldowns
-    if (player.set2 && player.set2.stormcaller) cooldown = Number((cooldown * (1 - player.set2.stormcaller.cdr)).toFixed(2));
-    // Exhausting dungeon modifier: longer cooldowns for the whole run
-    if (player.zone === 'dungeon') {
-      const dInst = this.getPlayerDungeonInstance(player);
-      if (dInst && dInst.mods && dInst.mods.includes('exhausting')) cooldown = Number((cooldown * 1.25).toFixed(2));
-    }
-    if (slot === 'dash') {
-      if (playerTalents.sundering_dash) cooldown = Math.max(0.4, cooldown - playerTalents.sundering_dash * 0.4);
-      if (playerTalents.arcane_haste) cooldown = Math.max(0.4, cooldown - playerTalents.arcane_haste * 0.5);
-      if (playerTalents.shadow_sprint) cooldown = Math.max(0.4, cooldown - playerTalents.shadow_sprint * 0.4);
-    }
-
-    if (!recall) {
-      player.mp -= mpCost;
-      player.skillCooldowns[slot] = cooldown;
-      player.skillCooldowns[rawSlot] = cooldown;
-      if (slot === 'slot1') player.skillCooldown = cooldown;
-      if (slot === 'ult') {
-        player.ultCharge = 0;
-        player.ultLockUntil = Date.now() + ULT_LOCK_SECONDS * 1000;
-        this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 1.6, text: `✦ ${skill.name.toUpperCase()} ✦`, color: skill.color || '#facc15', size: 26 });
-      }
-      this.applySetOnSkillCast(player, skill.cooldown);
-      if (socket) socket.emit('player_updated', player);
-    }
-
-    const mobsMap = this.getMobsMap(player.zone);
-    let totalDmgDealt = 0;
-
-    // `canCrit` only allows a crit; it is rolled like a basic attack, plus the
-    // skill's own critBonus (e.g. Fan of Knives, Shadowstep).
-    const skillCritChance = 0.15 + (player.critChanceBonus || 0) + (skill.critBonus || 0);
-    const applySkillDamage = (mob, baseDmg, canCrit = false) => {
-      const isCrit = canCrit && Math.random() < skillCritChance;
-      let dmg = Math.max(1, Math.round(baseDmg * SKILL_DAMAGE_SCALE));
-      if (runeId === 'flame') {
-        dmg = Math.round(dmg * 1.25);
-        mob.burnTimer = 3.5;
-        mob.burnDmg = 16;
-      }
-      if (runeId === 'frost') {
-        mob.chillTimer = 3.5;
-        if (Math.random() < 0.25) mob.chillTimer = 5.0;
-      }
-      if (runeId === 'tempest') {
-        dmg = Math.round(dmg * 1.10);
-      }
-      if (player.berserkTimer > 0) {
-        dmg = Math.round(dmg * 1.35);
-      }
-      if (player.bloodlust) dmg = Math.round(dmg * this.bloodRage(player));
-      this.applyDamageToMob(player, mob, dmg, isCrit);
-      totalDmgDealt += dmg;
-    };
-
-    // Helper for Dash vector calculations
-    const computeDashVector = () => {
-      let dirX = 0, dirY = 0;
-      if (skillData.dirX !== undefined && skillData.dirY !== undefined && (skillData.dirX !== 0 || skillData.dirY !== 0)) {
-        dirX = skillData.dirX;
-        dirY = skillData.dirY;
-      } else if (player.moveDir && (player.moveDir.dx !== 0 || player.moveDir.dy !== 0)) {
-        const sLen = Math.hypot(player.moveDir.dx, player.moveDir.dy);
-        const nx = player.moveDir.dx / sLen;
-        const ny = player.moveDir.dy / sLen;
-        dirX = (nx + ny * 2) * 0.5;
-        dirY = (ny * 2 - nx) * 0.5;
-      } else if (player.targetX !== null && player.targetY !== null) {
-        const td = Math.hypot(player.targetX - player.x, player.targetY - player.y);
-        if (td > 0.1) {
-          dirX = (player.targetX - player.x) / td;
-          dirY = (player.targetY - player.y) / td;
-        }
-      }
-      if (Math.hypot(dirX, dirY) < 0.001) {
-        const facingVectors = {
-          'E': { dx: 1, dy: -1 }, 'SE': { dx: 1, dy: 0 }, 'S': { dx: 1, dy: 1 },
-          'SW': { dx: 0, dy: 1 }, 'W': { dx: -1, dy: 1 }, 'NW': { dx: -1, dy: 0 },
-          'N': { dx: -1, dy: -1 }, 'NE': { dx: 0, dy: -1 }
-        };
-        const vec = facingVectors[player.facing] || { dx: 1, dy: 0 };
-        dirX = vec.dx; dirY = vec.dy;
-      }
-      const dirLen = Math.hypot(dirX, dirY) || 1;
-      return { normX: dirX / dirLen, normY: dirY / dirLen };
-    };
-
-    // field props near the caster, and near where the skill was aimed, take a hit
-    if (this.fields.has(player.zone)) {
-      this.damageFieldProps(player, player.x, player.y, 3);
-      if (Number.isFinite(skillData && skillData.targetX) && Number.isFinite(skillData && skillData.targetY)) {
-        this.damageFieldProps(player, skillData.targetX, skillData.targetY, 1.8);
-      }
-    }
-
-    // EXECUTE SPECIFIC ABILITY
-    switch (skill.spShape ? 'sp_skill' : skill.id) {
-      case 'sp_skill': {
-        const spCtx = { slot, cooldown, runeId, skillData, mobsMap, applySkillDamage, computeDashVector, recall };
-        if (skill.ultStages) {
-          // Signature: every stage after the first lands on its delay, from
-          // wherever the hero is by then (the first may have moved them)
-          const zone0 = player.zone, inst0 = player.dungeonInstanceId || null;
-          skill.ultStages.forEach((stage, i) => {
-            const run = () => {
-              if (player.isDead || player.zone !== zone0 || (player.dungeonInstanceId || null) !== inst0) return;
-              this.castSpSkill(player, stage, i === 0 ? spCtx : Object.assign({}, spCtx, { quiet: true }));
-            };
-            if (i === 0 || !(stage.delay > 0)) run(); else setTimeout(run, stage.delay * 1000);
-          });
-          if (socket) socket.emit('player_updated', player);
-          break;
-        }
-        this.castSpSkill(player, skill, spCtx);
-        // Nightblade's tossed shadow casts the same skill from where it stands
-        const shadow = player.nbShadow;
-        if (shadow && Date.now() < shadow.until && shadow.zone === player.zone && shadow.instanceId === (player.dungeonInstanceId || null)
-          && !recall && !SHADOW_SKIPS_SHAPES.has(skill.spShape)) {
-          const echo = Object.assign({}, skill, { dmgMult: skill.dmgMult * shadow.mirror });
-          this.castSpSkill(player, echo, Object.assign({}, spCtx, { isShadow: true, origin: { x: shadow.x, y: shadow.y } }));
-        }
-        break;
-      }
-
-      // === WARRIOR SKILLS ===
-      case 'whirlwind': {
-        const wwRadius = skill.radius + (playerTalents.cyclone_cleave ? playerTalents.cyclone_cleave * 1.2 : 0);
-        const wwDmgMult = skill.dmgMult + (playerTalents.cyclone_cleave ? playerTalents.cyclone_cleave * 0.5 : 0);
-        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'whirlwind', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: wwRadius, playerId: player.id });
-        for (const mob of mobsMap.values()) {
-          if (mob.state === 'dead') continue;
-          if (Math.hypot(mob.x - player.x, mob.y - player.y) <= wwRadius) {
-            applySkillDamage(mob, Math.round(player.dmg * wwDmgMult), true);
-          }
-        }
-        break;
-      }
-
-      case 'earthshaker': {
-        const slamDmgMult = skill.dmgMult + (playerTalents.seismic_shatter ? playerTalents.seismic_shatter * 0.60 : 0);
-        const slowDur = (skill.slowDuration || 2.5) + (playerTalents.seismic_shatter ? playerTalents.seismic_shatter * 3 : 0);
-        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'earthshaker', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
-        for (const mob of mobsMap.values()) {
-          if (mob.state === 'dead') continue;
-          if (Math.hypot(mob.x - player.x, mob.y - player.y) <= skill.radius) {
-            applySkillDamage(mob, Math.round(player.dmg * slamDmgMult), true);
-            mob.chillTimer = slowDur;
-          }
-        }
-        break;
-      }
-
-      case 'blade_charge': {
-        const { normX, normY } = computeDashVector();
-        const startX = player.x, startY = player.y;
-        const dashDist = skill.distance || 4.8;
-        let newX = startX, newY = startY;
-        const steps = Math.floor(dashDist / 0.25);
-        for (let s = 1; s <= steps; s++) {
-          const tx = startX + normX * (s * 0.25);
-          const ty = startY + normY * (s * 0.25);
-          if (this.isColliding(tx, ty, player.zone)) break;
-          newX = tx; newY = ty;
-        }
-        player.x = newX; player.y = newY;
-        player.targetX = null; player.targetY = null;
-        player.facing = this.calculateFacing(startX, startY, newX, newY);
-        const chargeDmgMult = skill.dmgMult + (playerTalents.sundering_dash ? playerTalents.sundering_dash * 0.5 : 0);
-        for (const mob of mobsMap.values()) {
-          if (mob.state === 'dead') continue;
-          const dist = this.distToSegment(mob.x, mob.y, startX, startY, newX, newY);
-          if (dist <= 1.4) {
-            applySkillDamage(mob, Math.round(player.dmg * chargeDmgMult), true);
-            const kx = mob.x + normX * 0.8;
-            const ky = mob.y + normY * 0.8;
-            if (!this.isColliding(kx, ky, player.zone)) { mob.x = kx; mob.y = ky; }
-          }
-        }
-        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'blade_charge', skillSlot: slot, cooldown, startX, startY, x: newX, y: newY, playerId: player.id });
-        break;
-      }
-
-      case 'shield_slam': {
-        let targetMob = null;
-        let minDist = 3.2;
-        for (const mob of mobsMap.values()) {
-          if (mob.state === 'dead') continue;
-          const dist = Math.hypot(mob.x - player.x, mob.y - player.y);
-          if (dist < minDist) { minDist = dist; targetMob = mob; }
-        }
-        const hitX = targetMob ? targetMob.x : player.x;
-        const hitY = targetMob ? targetMob.y : player.y;
-        player.shieldHp = (player.shieldHp || 0) + (skill.shieldHp || 80);
-        this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.7, text: `🛡️ Shield Barrier +${skill.shieldHp || 80}!`, color: '#38bdf8' });
-        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'shield_slam', skillSlot: slot, cooldown, x: hitX, y: hitY, playerId: player.id });
-        if (targetMob) {
-          applySkillDamage(targetMob, Math.round(player.dmg * skill.dmgMult), true);
-          targetMob.chillTimer = skill.stunDuration || 2.0;
-        }
-        break;
-      }
-
-      case 'blood_rage': {
-        const hpLoss = Math.max(10, Math.round(player.hp * 0.10));
-        player.hp = Math.max(1, player.hp - hpLoss);
-        player.berserkTimer = skill.duration || 6.0;
-        this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.7, text: '🩸 BERSERK RAGE (+35% DMG & 20% Leech)', color: '#ef4444' });
-        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'blood_rage', skillSlot: slot, cooldown, x: player.x, y: player.y, playerId: player.id });
-        break;
-      }
-
-      case 'colossus_strike': {
-        const hitX = skillData.targetX !== undefined ? skillData.targetX : player.x;
-        const hitY = skillData.targetY !== undefined ? skillData.targetY : player.y;
-        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'colossus_strike', skillSlot: slot, cooldown, x: hitX, y: hitY, radius: skill.radius, playerId: player.id });
-        for (const mob of mobsMap.values()) {
-          if (mob.state === 'dead') continue;
-          if (Math.hypot(mob.x - hitX, mob.y - hitY) <= skill.radius) {
-            applySkillDamage(mob, Math.round(player.dmg * skill.dmgMult), true);
-          }
-        }
-        break;
-      }
-
-      case 'iron_fortress': {
-        player.ironFortressTimer = skill.duration || 4.5;
-        this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.7, text: '🏰 IRON FORTRESS (60% Shield & Thorns)', color: '#94a3b8' });
-        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'iron_fortress', skillSlot: slot, cooldown, x: player.x, y: player.y, playerId: player.id });
-        break;
-      }
-
-      case 'war_stomp': {
-        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'war_stomp', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
-        for (const mob of mobsMap.values()) {
-          if (mob.state === 'dead') continue;
-          const dist = Math.hypot(mob.x - player.x, mob.y - player.y);
-          if (dist <= skill.radius) {
-            mob.x = player.x + (mob.x - player.x) * 0.35;
-            mob.y = player.y + (mob.y - player.y) * 0.35;
-            applySkillDamage(mob, Math.round(player.dmg * skill.dmgMult), true);
-            mob.chillTimer = skill.stunDuration || 1.8;
-          }
-        }
-        break;
-      }
-
-      case 'dragon_roar': {
-        player.berserkTimer = skill.duration || 6.0;
-        this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.7, text: "🐲 DRAGON'S ROAR (+40% ATK & FEAR)", color: '#f97316', size: 19 });
-        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'dragon_roar', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
-        for (const mob of mobsMap.values()) {
-          if (mob.state === 'dead') continue;
-          if (Math.hypot(mob.x - player.x, mob.y - player.y) <= skill.radius) {
-            applySkillDamage(mob, Math.round(player.dmg * skill.dmgMult), true);
-            mob.chillTimer = 2.0;
-          }
-        }
-        break;
-      }
-
-      case 'meteor_dive': {
-        const tx = skillData.targetX !== undefined ? skillData.targetX : player.x;
-        const ty = skillData.targetY !== undefined ? skillData.targetY : player.y;
-        if (!this.isColliding(tx, ty, player.zone)) {
-          player.x = tx; player.y = ty;
-        }
-        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'meteor_dive', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
-        for (const mob of mobsMap.values()) {
-          if (mob.state === 'dead') continue;
-          if (Math.hypot(mob.x - player.x, mob.y - player.y) <= skill.radius) {
-            applySkillDamage(mob, Math.round(player.dmg * skill.dmgMult), true);
-            mob.burnTimer = 4.0;
-            mob.burnDmg = 18;
-          }
-        }
-        break;
-      }
-
-      case 'bladestorm_frenzy': {
-        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'bladestorm_frenzy', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
-        for (const mob of mobsMap.values()) {
-          if (mob.state === 'dead') continue;
-          if (Math.hypot(mob.x - player.x, mob.y - player.y) <= skill.radius) {
-            applySkillDamage(mob, Math.round(player.dmg * skill.dmgMult), true);
-          }
-        }
-        break;
-      }
-
-      case 'titan_bastion': {
-        player.shieldHp = (player.shieldHp || 0) + (skill.shieldHp || 350);
-        player.ironFortressTimer = skill.duration || 5.0;
-        this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.7, text: `🏛️ TITAN BASTION (+${skill.shieldHp || 350} Shield & Armor)`, color: '#facc15', size: 19 });
-        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'titan_bastion', skillSlot: slot, cooldown, x: player.x, y: player.y, playerId: player.id });
-        break;
-      }
-
-      case 'sundering_cleave': {
-        const { normX, normY } = computeDashVector();
-        const cleaveDist = skill.distance || 9.0;
-        const cleaveX = player.x + normX * cleaveDist;
-        const cleaveY = player.y + normY * cleaveDist;
-        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'sundering_cleave', skillSlot: slot, cooldown, startX: player.x, startY: player.y, x: cleaveX, y: cleaveY, playerId: player.id });
-        for (const mob of mobsMap.values()) {
-          if (mob.state === 'dead') continue;
-          const dist = this.distToSegment(mob.x, mob.y, player.x, player.y, cleaveX, cleaveY);
-          if (dist <= 1.8) {
-            applySkillDamage(mob, Math.round(player.dmg * skill.dmgMult), true);
-            mob.chillTimer = 3.0;
-          }
-        }
-        break;
-      }
-
-      case 'ragnarok_slash': {
-        this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.9, text: '👑 RAGNARÖK GODSLAYER!', color: '#eab308', size: 24 });
-        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'ragnarok_slash', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
-        for (const mob of mobsMap.values()) {
-          if (mob.state === 'dead') continue;
-          if (Math.hypot(mob.x - player.x, mob.y - player.y) <= skill.radius) {
-            applySkillDamage(mob, Math.round(player.dmg * skill.dmgMult), true);
-          }
-        }
-        break;
-      }
-
-      // === MAGE SKILLS ===
-      case 'firestorm': {
-        const tx = skillData.targetX !== undefined ? skillData.targetX : player.x;
-        const ty = skillData.targetY !== undefined ? skillData.targetY : player.y;
-        const meteorRadius = skill.radius + (playerTalents.infernal_cataclysm ? playerTalents.infernal_cataclysm * 2.0 : 0);
-        const meteorDmgMult = skill.dmgMult + (playerTalents.infernal_cataclysm ? playerTalents.infernal_cataclysm * 0.60 : 0);
-        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'firestorm', skillSlot: slot, cooldown, x: tx, y: ty, radius: meteorRadius, playerId: player.id });
-        for (const mob of mobsMap.values()) {
-          if (mob.state === 'dead') continue;
-          if (Math.hypot(mob.x - tx, mob.y - ty) <= meteorRadius) {
-            applySkillDamage(mob, Math.round(player.dmg * meteorDmgMult), true);
-            mob.burnTimer = skill.burnDuration || 3.0;
-            mob.burnDmg = (skill.burnDmg || 12) + (playerTalents.infernal_cataclysm ? playerTalents.infernal_cataclysm * 10 : 0);
-          }
-        }
-        break;
-      }
-
-      case 'frost_nova': {
-        const novaDmgMult = skill.dmgMult + (playerTalents.glacial_tomb ? playerTalents.glacial_tomb * 0.5 : 0);
-        const chillDur = (skill.chillDuration || 3.5) + (playerTalents.glacial_tomb ? playerTalents.glacial_tomb * 3 : 0);
-        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'frost_nova', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
-        for (const mob of mobsMap.values()) {
-          if (mob.state === 'dead') continue;
-          if (Math.hypot(mob.x - player.x, mob.y - player.y) <= skill.radius) {
-            applySkillDamage(mob, Math.round(player.dmg * novaDmgMult), false);
-            mob.chillTimer = chillDur;
-          }
-        }
-        break;
-      }
-
-      case 'arcane_blink': {
-        const { normX, normY } = computeDashVector();
-        const startX = player.x, startY = player.y;
-        let dashDist = skill.distance || 5.2;
-        if (playerTalents.arcane_haste) dashDist += playerTalents.arcane_haste * 3;
-        let newX = startX, newY = startY;
-        const steps = Math.floor(dashDist / 0.25);
-        for (let s = steps; s >= 1; s--) {
-          const tx = startX + normX * (s * 0.25);
-          const ty = startY + normY * (s * 0.25);
-          if (!this.isColliding(tx, ty, player.zone)) {
-            newX = tx; newY = ty;
-            break;
-          }
-        }
-        player.x = newX; player.y = newY;
-        player.targetX = null; player.targetY = null;
-        player.statusEffects = [];
-        player.speedFactor = 1.0;
-        player.facing = this.calculateFacing(startX, startY, newX, newY);
-        for (const mob of mobsMap.values()) {
-          if (mob.state === 'dead') continue;
-          if (Math.hypot(mob.x - newX, mob.y - newY) <= (skill.radius || 2.4)) {
-            applySkillDamage(mob, Math.round(player.dmg * skill.dmgMult), false);
-            mob.chillTimer = skill.chillDuration || 2.0;
-          }
-        }
-        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'arcane_blink', skillSlot: slot, cooldown, startX, startY, x: newX, y: newY, playerId: player.id });
-        break;
-      }
-
-      case 'chain_lightning': {
-        let currentTarget = null;
-        let minDist = 7.0;
-        for (const mob of mobsMap.values()) {
-          if (mob.state === 'dead') continue;
-          const dist = Math.hypot(mob.x - player.x, mob.y - player.y);
-          if (dist < minDist) { minDist = dist; currentTarget = mob; }
-        }
-        const points = [{ x: player.x, y: player.y }];
-        const hitMobIds = new Set();
-        let chainTarget = currentTarget;
-        for (let b = 0; b < (skill.bounces || 5); b++) {
-          if (!chainTarget) break;
-          hitMobIds.add(chainTarget.id);
-          points.push({ x: chainTarget.x, y: chainTarget.y });
-          applySkillDamage(chainTarget, Math.round(player.dmg * skill.dmgMult), true);
-          let nextTarget = null;
-          let nextDist = 5.0;
-          for (const mob of mobsMap.values()) {
-            if (mob.state === 'dead' || hitMobIds.has(mob.id)) continue;
-            const dist = Math.hypot(mob.x - chainTarget.x, mob.y - chainTarget.y);
-            if (dist < nextDist) { nextDist = dist; nextTarget = mob; }
-          }
-          chainTarget = nextTarget;
-        }
-        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'chain_lightning', skillSlot: slot, cooldown, points, playerId: player.id });
-        break;
-      }
-
-      case 'mana_shield': {
-        player.shieldHp = (player.shieldHp || 0) + (skill.absorbHp || 120);
-        this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.7, text: `✨ Mana Barrier +${skill.absorbHp || 120} Shield!`, color: '#67e8f9' });
-        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'mana_shield', skillSlot: slot, cooldown, x: player.x, y: player.y, playerId: player.id });
-        break;
-      }
-
-      case 'black_hole': {
-        const tx = skillData.targetX !== undefined ? skillData.targetX : player.x;
-        const ty = skillData.targetY !== undefined ? skillData.targetY : player.y;
-        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'black_hole', skillSlot: slot, cooldown, x: tx, y: ty, radius: skill.radius, playerId: player.id });
-        for (const mob of mobsMap.values()) {
-          if (mob.state === 'dead') continue;
-          const dist = Math.hypot(mob.x - tx, mob.y - ty);
-          if (dist <= skill.radius) {
-            mob.x = tx + (mob.x - tx) * 0.2;
-            mob.y = ty + (mob.y - ty) * 0.2;
-            applySkillDamage(mob, Math.round(player.dmg * skill.dmgMult), true);
-          }
-        }
-        break;
-      }
-
-      case 'blizzard': {
-        const tx = skillData.targetX !== undefined ? skillData.targetX : player.x;
-        const ty = skillData.targetY !== undefined ? skillData.targetY : player.y;
-        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'blizzard', skillSlot: slot, cooldown, x: tx, y: ty, radius: skill.radius, playerId: player.id });
-        for (const mob of mobsMap.values()) {
-          if (mob.state === 'dead') continue;
-          if (Math.hypot(mob.x - tx, mob.y - ty) <= skill.radius) {
-            applySkillDamage(mob, Math.round(player.dmg * skill.dmgMult), false);
-            mob.chillTimer = 4.0;
-          }
-        }
-        break;
-      }
-
-      case 'pyroblast': {
-        const { normX, normY } = computeDashVector();
-        const hitX = player.x + normX * 4.5;
-        const hitY = player.y + normY * 4.5;
-        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'pyroblast', skillSlot: slot, cooldown, startX: player.x, startY: player.y, x: hitX, y: hitY, radius: skill.radius, playerId: player.id });
-        for (const mob of mobsMap.values()) {
-          if (mob.state === 'dead') continue;
-          if (Math.hypot(mob.x - hitX, mob.y - hitY) <= skill.radius) {
-            applySkillDamage(mob, Math.round(player.dmg * skill.dmgMult), true);
-            mob.burnTimer = skill.burnDuration || 4.0;
-            mob.burnDmg = skill.burnDmg || 16;
-          }
-        }
-        break;
-      }
-
-      case 'thunder_storm': {
-        const tx = skillData.targetX !== undefined ? skillData.targetX : player.x;
-        const ty = skillData.targetY !== undefined ? skillData.targetY : player.y;
-        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'thunder_storm', skillSlot: slot, cooldown, x: tx, y: ty, radius: skill.radius, playerId: player.id });
-        for (const mob of mobsMap.values()) {
-          if (mob.state === 'dead') continue;
-          if (Math.hypot(mob.x - tx, mob.y - ty) <= skill.radius) {
-            applySkillDamage(mob, Math.round(player.dmg * skill.dmgMult), true);
-            mob.chillTimer = 1.5;
-          }
-        }
-        break;
-      }
-
-      case 'glacial_comet': {
-        const tx = skillData.targetX !== undefined ? skillData.targetX : player.x;
-        const ty = skillData.targetY !== undefined ? skillData.targetY : player.y;
-        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'glacial_comet', skillSlot: slot, cooldown, x: tx, y: ty, radius: skill.radius, playerId: player.id });
-        for (const mob of mobsMap.values()) {
-          if (mob.state === 'dead') continue;
-          if (Math.hypot(mob.x - tx, mob.y - ty) <= skill.radius) {
-            applySkillDamage(mob, Math.round(player.dmg * skill.dmgMult), true);
-            mob.chillTimer = 4.0;
-          }
-        }
-        break;
-      }
-
-      case 'arcane_hyperbeam': {
-        const { normX, normY } = computeDashVector();
-        const beamDist = skill.distance || 10.0;
-        const beamEndX = player.x + normX * beamDist;
-        const beamEndY = player.y + normY * beamDist;
-        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'arcane_hyperbeam', skillSlot: slot, cooldown, startX: player.x, startY: player.y, x: beamEndX, y: beamEndY, playerId: player.id });
-        for (const mob of mobsMap.values()) {
-          if (mob.state === 'dead') continue;
-          const dist = this.distToSegment(mob.x, mob.y, player.x, player.y, beamEndX, beamEndY);
-          if (dist <= 1.6) {
-            applySkillDamage(mob, Math.round(player.dmg * skill.dmgMult), true);
-          }
-        }
-        break;
-      }
-
-      case 'time_dilation': {
-        this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.7, text: '⏳ CHRONOSPHERE (80% Slow & Haste)', color: '#38bdf8', size: 19 });
-        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'time_dilation', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
-        for (const mob of mobsMap.values()) {
-          if (mob.state === 'dead') continue;
-          if (Math.hypot(mob.x - player.x, mob.y - player.y) <= skill.radius) {
-            mob.chillTimer = skill.duration || 4.5;
-          }
-        }
-        break;
-      }
-
-      case 'supernova_blast': {
-        const tx = skillData.targetX !== undefined ? skillData.targetX : player.x;
-        const ty = skillData.targetY !== undefined ? skillData.targetY : player.y;
-        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'supernova_blast', skillSlot: slot, cooldown, x: tx, y: ty, radius: skill.radius, playerId: player.id });
-        for (const mob of mobsMap.values()) {
-          if (mob.state === 'dead') continue;
-          if (Math.hypot(mob.x - tx, mob.y - ty) <= skill.radius) {
-            applySkillDamage(mob, Math.round(player.dmg * skill.dmgMult), true);
-            mob.burnTimer = 5.0;
-            mob.burnDmg = 25;
-          }
-        }
-        break;
-      }
-
-      case 'genesis_cataclysm': {
-        this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.9, text: '✨ CATACLYSM OF GENESIS!', color: '#a855f7', size: 24 });
-        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'genesis_cataclysm', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
-        for (const mob of mobsMap.values()) {
-          if (mob.state === 'dead') continue;
-          if (Math.hypot(mob.x - player.x, mob.y - player.y) <= skill.radius) {
-            applySkillDamage(mob, Math.round(player.dmg * skill.dmgMult), true);
-          }
-        }
-        break;
-      }
-
-      // === ROGUE SKILLS ===
-      case 'fan_of_knives': {
-        const knifeDmgMult = skill.dmgMult + (playerTalents.venomous_knives ? playerTalents.venomous_knives * 0.60 : 0);
-        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'fan_of_knives', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
-        for (const mob of mobsMap.values()) {
-          if (mob.state === 'dead') continue;
-          if (Math.hypot(mob.x - player.x, mob.y - player.y) <= skill.radius) {
-            applySkillDamage(mob, Math.round(player.dmg * knifeDmgMult), true);
-            if (playerTalents.venomous_knives) {
-              mob.poisonTimer = 4.0;
-              mob.poisonDmg = 16 * playerTalents.venomous_knives;
-            }
-          }
-        }
-        break;
-      }
-
-      case 'toxic_bomb': {
-        const tx = skillData.targetX !== undefined ? skillData.targetX : player.x;
-        const ty = skillData.targetY !== undefined ? skillData.targetY : player.y;
-        const smokeRad = skill.radius + (playerTalents.noxious_cloud ? playerTalents.noxious_cloud * 1.6 : 0);
-        const smokeDmg = (skill.poisonDmg || 9) + (playerTalents.noxious_cloud ? playerTalents.noxious_cloud * 8 : 0);
-        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'toxic_bomb', skillSlot: slot, cooldown, x: tx, y: ty, radius: smokeRad, playerId: player.id });
-        for (const mob of mobsMap.values()) {
-          if (mob.state === 'dead') continue;
-          if (Math.hypot(mob.x - tx, mob.y - ty) <= smokeRad) {
-            applySkillDamage(mob, Math.round(player.dmg * skill.dmgMult), false);
-            mob.poisonTimer = skill.poisonDuration || 4.5;
-            mob.poisonDmg = smokeDmg;
-          }
-        }
-        break;
-      }
-
-      case 'shadow_dash': {
-        const { normX, normY } = computeDashVector();
-        const startX = player.x, startY = player.y;
-        const dashDist = skill.distance || 4.8;
-        let newX = startX, newY = startY;
-        const steps = Math.floor(dashDist / 0.25);
-        for (let s = 1; s <= steps; s++) {
-          const tx = startX + normX * (s * 0.25);
-          const ty = startY + normY * (s * 0.25);
-          if (this.isColliding(tx, ty, player.zone)) break;
-          newX = tx; newY = ty;
-        }
-        player.x = newX; player.y = newY;
-        player.targetX = null; player.targetY = null;
-        player.facing = this.calculateFacing(startX, startY, newX, newY);
-        player.sprintTimer = (skill.sprintDuration || 2.0) + (playerTalents.shadow_sprint ? playerTalents.shadow_sprint * 2.0 : 0);
-        for (const mob of mobsMap.values()) {
-          if (mob.state === 'dead') continue;
-          const dist = this.distToSegment(mob.x, mob.y, startX, startY, newX, newY);
-          if (dist <= 1.4) {
-            applySkillDamage(mob, Math.round(player.dmg * skill.dmgMult), true);
-          }
-        }
-        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'shadow_dash', skillSlot: slot, cooldown, startX, startY, x: newX, y: newY, playerId: player.id });
-        break;
-      }
-
-      case 'shadowstep': {
-        let targetMob = null;
-        let minDist = 7.0;
-        for (const mob of mobsMap.values()) {
-          if (mob.state === 'dead') continue;
-          const dist = Math.hypot(mob.x - player.x, mob.y - player.y);
-          if (dist < minDist) { minDist = dist; targetMob = mob; }
-        }
-        if (targetMob) {
-          const startX = player.x, startY = player.y;
-          const behindX = targetMob.x + 0.6;
-          const behindY = targetMob.y + 0.6;
-          if (!this.isColliding(behindX, behindY, player.zone)) {
-            player.x = behindX; player.y = behindY;
-          }
-          player.facing = this.calculateFacing(player.x, player.y, targetMob.x, targetMob.y);
-          applySkillDamage(targetMob, Math.round(player.dmg * skill.dmgMult), true);
-          this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'shadowstep', skillSlot: slot, cooldown, startX, startY, x: targetMob.x, y: targetMob.y, playerId: player.id });
-        }
-        break;
-      }
-
-      case 'smoke_screen': {
-        player.smokeScreenTimer = skill.duration || 3.5;
-        player.sprintTimer = skill.duration || 3.5;
-        this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.7, text: '🌫️ VANISH! (Stealth & 100% Crit)', color: '#a855f7' });
-        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'smoke_screen', skillSlot: slot, cooldown, x: player.x, y: player.y, playerId: player.id });
-        break;
-      }
-
-      case 'death_blossom': {
-        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'death_blossom', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
-        for (const mob of mobsMap.values()) {
-          if (mob.state === 'dead') continue;
-          if (Math.hypot(mob.x - player.x, mob.y - player.y) <= skill.radius) {
-            applySkillDamage(mob, Math.round(player.dmg * skill.dmgMult), true);
-          }
-        }
-        break;
-      }
-
-      case 'poison_darts': {
-        const { normX, normY } = computeDashVector();
-        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'poison_darts', skillSlot: slot, cooldown, x: player.x, y: player.y, dirX: normX, dirY: normY, playerId: player.id });
-        // Eight shurikens fly out in a ring, curve, turn at their reach and come back to the thrower.
-        // Whatever one of them passes through is hit (once per shuriken on the way out, once on the
-        // way back). The path is the same one the client draws (renderer.js, poison_darts).
-        {
-          const N = 8, REACH = 5.2, DURATION_MS = 950, HIT_R = 0.95, TICK_MS = 40;
-          const zone0 = player.zone, inst0 = player.dungeonInstanceId || null;
-          const ox0 = player.x, oy0 = player.y, base = Math.atan2(normY, normX) + Math.PI / N;
-          const perHit = Math.round(player.dmg * skill.dmgMult * 0.5);
-          const shurikenAt = (i: number, u: number) => {
-            const ang = base + (i / N) * Math.PI * 2;
-            const tx = ox0 + Math.cos(ang) * REACH, ty = oy0 + Math.sin(ang) * REACH;
-            const bow = Math.sin(Math.PI * u) * 1.1 * (i % 2 ? 1 : -1);
-            let x: number, y: number;
-            if (u < 0.5) {
-              const t = 1 - Math.pow(1 - u / 0.5, 2.4);
-              x = ox0 + (tx - ox0) * t; y = oy0 + (ty - oy0) * t;
-            } else {
-              const k = (u - 0.5) / 0.5, t = k * k * (1.6 - 0.6 * k);
-              x = tx + (player.x - tx) * t; y = ty + (player.y - ty) * t;   // home to wherever the thrower is now
-            }
-            return { x: x - Math.sin(ang) * bow, y: y + Math.cos(ang) * bow };
-          };
-          const hitOnce = new Set<string>();
-          const startedAt = Date.now();
-          let prevU = 0;
-          const tick = setInterval(() => {
-            const p = this.players.get(player.id);
-            if (!p || p !== player || p.isDead || p.zone !== zone0 || (p.dungeonInstanceId || null) !== inst0) { clearInterval(tick); return; }
-            const u = Math.min(1, (Date.now() - startedAt) / DURATION_MS);
-            this.runAs(player.id, () => {
-              for (let i = 0; i < N; i++) {
-                for (let s = 1; s <= 3; s++) {                       // sample the stretch since the last tick so none slip through
-                  const pos = shurikenAt(i, prevU + ((u - prevU) * s) / 3);
-                  const phase = u < 0.5 ? 0 : 1;
-                  for (const mob of mobsMap.values()) {
-                    if (mob.state === 'dead' || mob.hp <= 0) continue;
-                    const key = `${i}|${phase}|${mob.id}`;
-                    if (hitOnce.has(key)) continue;
-                    if (Math.hypot(mob.x - pos.x, mob.y - pos.y) > HIT_R + (mob.isBoss ? 0.8 : 0)) continue;
-                    hitOnce.add(key);
-                    applySkillDamage(mob, perHit, false);
-                  }
-                }
-              }
-            });
-            prevU = u;
-            if (u >= 1) clearInterval(tick);
-          }, TICK_MS);
-        }
-        break;
-      }
-
-      case 'caltrops': {
-        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'caltrops', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
-        for (const mob of mobsMap.values()) {
-          if (mob.state === 'dead') continue;
-          if (Math.hypot(mob.x - player.x, mob.y - player.y) <= skill.radius) {
-            applySkillDamage(mob, Math.round(player.dmg * skill.dmgMult), false);
-            mob.chillTimer = skill.slowDuration || 4.0;
-          }
-        }
-        break;
-      }
-
-      case 'venomous_barrage': {
-        const { normX, normY } = computeDashVector();
-        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'venomous_barrage', skillSlot: slot, cooldown, x: player.x, y: player.y, dirX: normX, dirY: normY, playerId: player.id });
-        for (const mob of mobsMap.values()) {
-          if (mob.state === 'dead') continue;
-          const dist = Math.hypot(mob.x - player.x, mob.y - player.y);
-          if (dist <= 7.5) {
-            applySkillDamage(mob, Math.round(player.dmg * skill.dmgMult), true);
-            mob.poisonTimer = 5.0;
-            mob.poisonDmg = 18;
-          }
-        }
-        break;
-      }
-
-      case 'phantom_assassins': {
-        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'phantom_assassins', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
-        for (const mob of mobsMap.values()) {
-          if (mob.state === 'dead') continue;
-          if (Math.hypot(mob.x - player.x, mob.y - player.y) <= skill.radius) {
-            applySkillDamage(mob, Math.round(player.dmg * skill.dmgMult), true);
-          }
-        }
-        break;
-      }
-
-      case 'assassins_cull': {
-        let cullTarget = null;
-        let cDist = 4.5;
-        for (const mob of mobsMap.values()) {
-          if (mob.state === 'dead') continue;
-          const d = Math.hypot(mob.x - player.x, mob.y - player.y);
-          if (d < cDist) { cDist = d; cullTarget = mob; }
-        }
-        if (cullTarget) {
-          const isExecute = (cullTarget.hp / cullTarget.maxHp) <= 0.5;
-          const executeMult = isExecute ? skill.dmgMult * 2.0 : skill.dmgMult;
-          applySkillDamage(cullTarget, Math.round(player.dmg * executeMult), true);
-          this.emitZone(player.zone, 'floating_text', { x: cullTarget.x, y: cullTarget.y - 0.8, text: isExecute ? '🩸 EXECUTION CULL (x2 DMG)!' : '🗡️ Cull Strike!', color: '#ef4444', size: isExecute ? 22 : 16 });
-          this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'assassins_cull', skillSlot: slot, cooldown, x: cullTarget.x, y: cullTarget.y, playerId: player.id });
-        }
-        break;
-      }
-
-      case 'abyssal_tether': {
-        this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.7, text: '⛓️ ABYSSAL SHADOW CHAINS (ROOT)', color: '#a855f7', size: 18 });
-        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'abyssal_tether', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
-        for (const mob of mobsMap.values()) {
-          if (mob.state === 'dead') continue;
-          if (Math.hypot(mob.x - player.x, mob.y - player.y) <= skill.radius) {
-            mob.x = player.x + (mob.x - player.x) * 0.25;
-            mob.y = player.y + (mob.y - player.y) * 0.25;
-            mob.chillTimer = skill.rootDuration || 3.0;
-          }
-        }
-        break;
-      }
-
-      case 'blade_dance': {
-        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'blade_dance', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
-        for (const mob of mobsMap.values()) {
-          if (mob.state === 'dead') continue;
-          if (Math.hypot(mob.x - player.x, mob.y - player.y) <= skill.radius) {
-            applySkillDamage(mob, Math.round(player.dmg * skill.dmgMult), true);
-          }
-        }
-        break;
-      }
-
-      case 'eclipse_execution': {
-        this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.9, text: '🌑 VOID ECLIPSE OMNISLASH!', color: '#c084fc', size: 24 });
-        this.emitZone(player.zone, 'skill_fx', { rune: runeId, type: 'eclipse_execution', skillSlot: slot, cooldown, x: player.x, y: player.y, radius: skill.radius, playerId: player.id });
-        for (const mob of mobsMap.values()) {
-          if (mob.state === 'dead') continue;
-          if (Math.hypot(mob.x - player.x, mob.y - player.y) <= skill.radius) {
-            applySkillDamage(mob, Math.round(player.dmg * skill.dmgMult), true);
-          }
-        }
-        break;
-      }
-    }
-
-    // Process Vampiric & Berserk heals (balanced with Max HP caps)
-    if (runeId === 'vampiric' && totalDmgDealt > 0) {
-      const maxDrain = Math.max(2, Math.round(player.maxHp * 0.08));
-      const vHeal = Math.min(maxDrain, Math.max(1, Math.round(totalDmgDealt * 0.05)));
-      player.hp = Math.min(player.maxHp, player.hp + vHeal);
-      this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.6, text: `+${vHeal} HP (Vampiric Drain)`, color: '#c084fc' });
-    }
-    if (player.berserkTimer > 0 && totalDmgDealt > 0) {
-      const maxBHeal = Math.max(2, Math.round(player.maxHp * 0.06));
-      const bHeal = Math.min(maxBHeal, Math.max(1, Math.round(totalDmgDealt * 0.04)));
-      player.hp = Math.min(player.maxHp, player.hp + bHeal);
-      this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.45, text: `+${bHeal} HP (Lifesteal)`, color: '#ef4444' });
-    }
-
+    return this.skills.handlePlayerSkill(socketId, skillData);
   }
 
-  // Multiplier on natural HP regen: Wayfarer 2-piece and Renewal runes
-  hpRegenMult(player) {
-    return ((player.set2 && player.set2.wayfarer && player.set2.wayfarer.regenMult) || 1)
-      * (1 + 0.35 * ((player.armorRunes && player.armorRunes.renewal) || 0));
+  hpRegenMult(player: Player) {
+    return this.stats.hpRegenMult(player);
   }
 
-  recalculatePlayerStats(player) {
-    if (!player || !player.baseStats) return;
-
-    let totalBonusDmg = 0;
-    let totalBonusDef = 0;
-    let totalBonusHp = 0;
-    let totalBonusMp = 0;
-    let totalBonusSpeed = 0;
-    let totalBonusAttackSpeed = 0;
-    let totalBonusSwipe = 0;
-    let totalCritChanceBonus = 0;
-    let totalCritDmgBonus = 0;
-    let totalThorns = 0;
-    let totalDodgeChance = 0;
-    let totalLifeSteal = 0;
-    // talent percentages of (base + gear): damage, HP, armor, MP, and thorns as a share of armor
-    const talentPct = { dmgPct: 0, hpPct: 0, defPct: 0, mpPct: 0, thornsPct: 0 };
-    const totalElementResist: Record<string, number> = {};
-    this.refundStaleTalents(player);
-
-    if (player.equipment) {
-      for (const eq of Object.values(player.equipment) as any[]) ensureSockets(eq);
-      for (const eq of (Object.values(player.equipment) as any[])) {
-        if (!eq) continue;
-        if (eq.elementResist) {
-          for (const [el, val] of Object.entries(eq.elementResist)) {
-            totalElementResist[el] = (totalElementResist[el] || 0) + (val as number);
-          }
-        }
-        if (eq.bonusDmg) totalBonusDmg += eq.bonusDmg;
-        if (eq.bonusDef) totalBonusDef += eq.bonusDef;
-        if (eq.bonusHp) totalBonusHp += eq.bonusHp;
-        if (eq.bonusMp) totalBonusMp += eq.bonusMp;
-        if (eq.bonusSpeed) totalBonusSpeed += eq.bonusSpeed;
-        if (eq.bonusAttackSpeed) totalBonusAttackSpeed += eq.bonusAttackSpeed;
-        if (eq.bonusSwipe) totalBonusSwipe += eq.bonusSwipe;
-        if (eq.critChance) totalCritChanceBonus += eq.critChance / 100;
-        if (eq.critDmg) totalCritDmgBonus += eq.critDmg / 100;
-
-        // Hypixel Skyblock Reforge Modifier Stats
-        if (eq.reforgeStats) {
-          if (eq.reforgeStats.bonusDmg) totalBonusDmg += eq.reforgeStats.bonusDmg;
-          if (eq.reforgeStats.bonusDef) totalBonusDef += eq.reforgeStats.bonusDef;
-          if (eq.reforgeStats.bonusHp) totalBonusHp += eq.reforgeStats.bonusHp;
-          if (eq.reforgeStats.bonusMp) totalBonusMp += eq.reforgeStats.bonusMp;
-          if (eq.reforgeStats.bonusSpeed) totalBonusSpeed += eq.reforgeStats.bonusSpeed;
-          if (eq.reforgeStats.bonusAttackSpeed) totalBonusAttackSpeed += eq.reforgeStats.bonusAttackSpeed;
-          if (eq.reforgeStats.bonusSwipe) totalBonusSwipe += eq.reforgeStats.bonusSwipe;
-          if (eq.reforgeStats.critChance) totalCritChanceBonus += eq.reforgeStats.critChance / 100;
-          if (eq.reforgeStats.critDmg) totalCritDmgBonus += eq.reforgeStats.critDmg / 100;
-        }
-      }
-    }
-
-    const weaponRunes = this.getWeaponRuneCounts(player);
-    if (weaponRunes.vampiric > 0) {
-      totalLifeSteal += 0.25 * weaponRunes.vampiric;
-    }
-    // Defensive runes in armor sockets (data/items/runes.json, socketFor: armor)
-    const armorRunes = this.getArmorRuneCounts(player);
-    talentPct.hpPct += 0.06 * (armorRunes.bulwark || 0);
-    talentPct.defPct += 0.08 * (armorRunes.aegis || 0);
-    totalBonusSpeed += 0.25 * (armorRunes.swiftness || 0);
-    if (armorRunes.warding) {
-      for (const el of ['fire', 'ice', 'lightning', 'earth', 'holy', 'dark']) totalElementResist[el] = (totalElementResist[el] || 0) + 0.06 * armorRunes.warding;
-    }
-    player.armorRunes = armorRunes;
-
-    // Item attributes (Jerry) plus HP / MP regen and cooldown reduction written on gear
-    const attrs = ATTR.sumAttrs(player.equipment);
-    let hpRegenFlat = attrs.hpRegen, mpRegenFlat = attrs.mpRegen, cdrPct = attrs.cdr;
-    for (const eq of Object.values(player.equipment || {}) as any[]) {
-      if (!eq) continue;
-      hpRegenFlat += eq.hpRegen || 0;
-      mpRegenFlat += eq.mpRegen || 0;
-      cdrPct += eq.cdr || 0;
-    }
-    totalBonusDmg += attrs.dmg;
-    totalBonusDef += attrs.def;
-    totalBonusHp += attrs.hp;
-    totalBonusMp += attrs.mp;
-    totalCritChanceBonus += attrs.critChance / 100;
-    totalCritDmgBonus += attrs.critDmg / 100;
-    totalBonusAttackSpeed += attrs.atkSpeed / 100;
-    totalBonusSpeed += attrs.moveSpeed;
-
-    // Passive tree bonuses (every node has one rank)
-    const procs = {};
-    let killHeal = 0, killMana = 0;
-    if (player.skills) {
-      for (const [id, owned] of Object.entries(player.skills)) {
-        const talent = PASSIVES.BY_ID.get(id);
-        const rank = Number(owned) || 0;
-        if (talent && rank > 0 && talent.effects) {
-          killHeal += (talent.effects.killHealPercent || 0) * rank;
-          killMana += (talent.effects.killManaPercent || 0) * rank;
-          for (const stat of Object.keys(TALENT_PROCS.base)) {
-            if (talent.effects[stat]) procs[stat] = (procs[stat] || 0) + talent.effects[stat] * rank;
-          }
-          if (talent.effects.bonusDmg) totalBonusDmg += talent.effects.bonusDmg * rank;
-          if (talent.effects.bonusDef) totalBonusDef += talent.effects.bonusDef * rank;
-          if (talent.effects.bonusHp) totalBonusHp += talent.effects.bonusHp * rank;
-          if (talent.effects.bonusMp) totalBonusMp += talent.effects.bonusMp * rank;
-          if (talent.effects.bonusSpeed) totalBonusSpeed += talent.effects.bonusSpeed * rank;
-          if (talent.effects.bonusAttackSpeed) totalBonusAttackSpeed += talent.effects.bonusAttackSpeed * rank;
-          if (talent.effects.bonusSwipe) totalBonusSwipe += talent.effects.bonusSwipe * rank;
-          if (talent.effects.critChanceBonus) totalCritChanceBonus += talent.effects.critChanceBonus * rank;
-          if (talent.effects.critDmgBonus) totalCritDmgBonus += talent.effects.critDmgBonus * rank;
-          if (talent.effects.thorns) totalThorns += talent.effects.thorns * rank;
-          if (talent.effects.dodgeChance) totalDodgeChance += talent.effects.dodgeChance * rank;
-          if (talent.effects.lifeSteal) totalLifeSteal += talent.effects.lifeSteal * rank;
-          for (const k of Object.keys(talentPct)) if (talent.effects[k]) talentPct[k] += talent.effects[k] * rank;
-        }
-      }
-    }
-
-    // Armor sets: 2-piece stat bonuses here; the 4-piece effects are read by
-    // combat code through player.set4[setId] (see the SET EFFECTS section)
-    const setCounts = equippedSetCounts(player.equipment);
-    player.setCounts = setCounts;
-    player.set2 = {};
-    player.set4 = {};
-    for (const [setId, n] of Object.entries(setCounts)) {
-      const set = ARMOR_SETS[setId];
-      if (n >= 2) {
-        const b2 = set.bonuses['2'] || {};
-        player.set2[setId] = b2;
-        if (b2.hpPct) talentPct.hpPct += b2.hpPct;
-        for (const [el, v] of Object.entries(b2.resist || {})) totalElementResist[el] = (totalElementResist[el] || 0) + (v as number);
-      }
-      if (n >= 4) player.set4[setId] = set.bonuses['4'];
-    }
-    if (!player.set4.eclipse) player.eclipsePhase = null;
-    else if (!player.eclipsePhase) { player.eclipsePhase = 'dusk'; player.eclipseTimer = player.set4.eclipse.period; }
-
-    // Job level bonus
-    const jobSteps = Math.max(0, (player.jobLevel || 1) - 1);
-    totalBonusDmg += jobSteps * SP.JOB_LEVEL_BONUS.bonusDmg;
-    totalBonusHp += jobSteps * SP.JOB_LEVEL_BONUS.bonusHp;
-    totalBonusMp += jobSteps * SP.JOB_LEVEL_BONUS.bonusMp;
-
-    // Specialist card stats apply only while transformed
-    const spCard = player.equipment && player.equipment.sp;
-    if (player.spTransformed && spCard) {
-      const cs: any = SP.cardStats(spCard.cardId, spCard.upgradeLevel || 0);
-      totalBonusDmg += cs.bonusDmg || 0;
-      totalBonusDef += cs.bonusDef || 0;
-      totalBonusHp += cs.bonusHp || 0;
-      totalBonusMp += cs.bonusMp || 0;
-      totalBonusSpeed += cs.bonusSpeed || 0;
-      totalBonusAttackSpeed += cs.bonusAttackSpeed || 0;
-      totalCritChanceBonus += (cs.critChance || 0) / 100;
-    }
-    if (player.bloodlust) totalBonusAttackSpeed += player.bloodlust.atkSpeed || 0;
-
-    // Combat Mastery multiplies every source of damage at high level
-    player.mastery = Number(masteryMult(player.level).toFixed(2));
-    // James the Gatekeeper's weapons: passive powers (Gatekeeper's Greatsword -30%, Sunfire Conduit +10%)
-    const power = weaponPower(player.equipment && player.equipment.weapon);
-    player.weaponPower = power;
-    const pctMult = (v) => Math.max(0.1, 1 + v);   // a keystone trade-off can lower a stat, never zero it
-    player.dmg = Math.round((player.baseStats.dmg + totalBonusDmg) * pctMult(talentPct.dmgPct) * player.mastery * ((power && power.dmgMult) || 1));
-    // (Eclipse set, Dawn phase: +20% Defense)
-    const dawnDef = player.eclipsePhase === 'dawn' && player.set4.eclipse ? player.set4.eclipse.dawnDef : 0;
-    player.def = Math.round((player.baseStats.def + totalBonusDef) * pctMult(talentPct.defPct + dawnDef));
-    player.maxHp = Math.round((player.baseStats.maxHp + totalBonusHp) * pctMult(talentPct.hpPct));
-    player.maxMp = Math.round((player.baseStats.maxMp + totalBonusMp) * pctMult(talentPct.mpPct));
-    totalThorns += Math.max(0, player.def) * talentPct.thornsPct;
-    player.manaCostMult = Number((MANA_COST_SCALE * (1 + MANA_COST_PER_LEVEL * ((player.level || 1) - 1))).toFixed(3));
-    player.speed = Number((player.baseStats.speed + totalBonusSpeed).toFixed(2));
-    player.attackSpeed = Number(((player.baseStats.attackSpeed || 1.0) + totalBonusAttackSpeed).toFixed(2));
-    player.swipe = Math.round((player.baseStats.swipe || 0) + totalBonusSwipe);
-    player.critChanceBonus = Math.min(0.75, Number(totalCritChanceBonus.toFixed(3)));
-    player.critDmgBonus = Number(totalCritDmgBonus.toFixed(3));
-    player.thorns = Math.round(totalThorns);
-    player.dodgeChance = Math.min(0.50, Number(totalDodgeChance.toFixed(3)));
-    player.lifeSteal = Math.min(0.08, Number(totalLifeSteal.toFixed(3)));
-    // Branch mechanics (burn, chill, echo, venom): the first rank unlocks the base strength
-    player.talentKill = { hp: Number(killHeal.toFixed(4)), mp: Number(killMana.toFixed(4)) };
-    player.talentProcs = {};
-    for (const [stat, v] of Object.entries(procs)) {
-      player.talentProcs[stat] = Number((TALENT_PROCS.base[stat] + v).toFixed(4));
-    }
-    // Elemental resistance from gear, capped so no element is fully negated
-    player.elementResist = {};
-    for (const [el, val] of Object.entries(totalElementResist)) {
-      player.elementResist[el] = Number(Math.min(MAX_PLAYER_ELEMENT_RESIST, val as number).toFixed(2));
-    }
-
-    player.hp = Math.min(player.hp, player.maxHp);
-    player.mp = Math.min(player.mp, player.maxMp);
-
-    // Regeneration per second (natural + gear) and cooldown reduction, read by the tick and skill casts
-    player.hpRegenFlat = Number(hpRegenFlat.toFixed(1));
-    player.mpRegenFlat = Number(mpRegenFlat.toFixed(1));
-    player.hpRegen = Number((player.maxHp * HP_REGEN_PCT * this.hpRegenMult(player) + player.hpRegenFlat).toFixed(1));
-    player.mpRegen = Number((player.maxMp * MANA_REGEN_PCT + MANA_REGEN_FLAT + player.mpRegenFlat).toFixed(1));
-    player.cdr = Number(Math.min(ATTR.MAX_CDR, cdrPct / 100).toFixed(3));
-
-    // Mage Energy Shield: a passive barrier that soaks hits before HP and
-    // recharges after a moment without taking damage (see tickEnergyShield)
-    if (player.characterClass === 'mage') {
-      player.esMax = Math.round(player.maxHp * ENERGY_SHIELD.hpShare + player.maxMp * ENERGY_SHIELD.mpShare);
-      if (player.es === undefined || player.es === null) player.es = player.esMax;
-      player.es = Math.min(player.es, player.esMax);
-    } else {
-      player.esMax = 0;
-      player.es = 0;
-    }
+  recalculatePlayerStats(player: Player) {
+    return this.stats.recalculatePlayerStats(player);
   }
 
-  handleEquipItem(socketId, itemIndex) {
-    const player = this.players.get(socketId);
-    if (!player || player.isDead) return;
-
-    if (itemIndex < 0 || itemIndex >= player.inventory.items.length) return;
-    const item = player.inventory.items[itemIndex];
-    if (item && item.type === 'sp_card') return this.equipSpCard(player, itemIndex);
-    if (!item || item.type !== 'equipment' || !item.slot) return;
-
-    const cls = requiredClass(item);
-    if (cls && cls !== player.characterClass) {
-      const socket = this.io.sockets.sockets.get(socketId);
-      if (socket) socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: `Only a ${cls} can use this weapon!`, color: '#ef4444' });
-      return;
-    }
-
-    const slot = item.slot;
-    const oldEquipped = player.equipment[slot];
-
-    // Remove 1 from inventory
-    if (item.count > 1) {
-      item.count--;
-    } else {
-      player.inventory.items.splice(itemIndex, 1);
-    }
-
-    // If an item was previously equipped in this slot, return it to inventory
-    if (oldEquipped) {
-      const existing = player.inventory.items.find(i => i.id === oldEquipped.id);
-      if (existing && existing.type !== 'equipment') {
-        existing.count = (existing.count || 1) + 1;
-      } else {
-        player.inventory.items.push({ ...oldEquipped, count: 1 });
-      }
-    }
-
-    // Equip the new item
-    player.equipment[slot] = { ...item, count: 1 };
-    this.recalculatePlayerStats(player);
-
-    const socket = this.io.sockets.sockets.get(socketId);
-    if (socket) {
-      socket.emit('player_updated', player);
-      socket.emit('floating_text', {
-        x: player.x,
-        y: player.y - 0.7,
-        text: `⚔️ Equipped ${item.name}!`,
-        color: '#4ade80'
-      });
-    }
-
-    this.sendDirectMessage(player.id, `🛡️ [${player.name}] equipped [${item.name}]!`);
+  handleEquipItem(socketId: any, itemIndex: any) {
+    return this.inventory.handleEquipItem(socketId, itemIndex);
   }
 
-  handleUnequipItem(socketId, slot) {
-    const player = this.players.get(socketId);
-    if (!player || player.isDead) return;
-    if (slot === 'sp' && player.spTransformed) this.setTransformed(player, false);
-
-    if (!player.equipment || !player.equipment[slot]) return;
-    const item = player.equipment[slot];
-
-    // Check bag capacity
-    const maxUnequipCap = player.inventory.maxSlots || DEFAULT_BAG_SLOTS;
-    if (player.inventory.items.length >= maxUnequipCap) {
-      const socket = this.io.sockets.sockets.get(socketId);
-      if (socket) {
-        socket.emit('floating_text', {
-          x: player.x,
-          y: player.y - 0.7,
-          text: `⚠️ Inventory is full!`,
-          color: '#ef4444'
-        });
-      }
-      return;
-    }
-
-    player.equipment[slot] = null;
-    player.inventory.items.push({ ...item, count: 1 });
-    this.recalculatePlayerStats(player);
-
-    const socket = this.io.sockets.sockets.get(socketId);
-    if (socket) {
-      socket.emit('player_updated', player);
-      socket.emit('floating_text', {
-        x: player.x,
-        y: player.y - 0.7,
-        text: `Unequipped ${item.name}`,
-        color: '#94a3b8'
-      });
-    }
+  handleUnequipItem(socketId: any, slot: any) {
+    return this.inventory.handleUnequipItem(socketId, slot);
   }
 
-  // Merchant Shop Actions: Buy & Sell
-  handleBuyItem(socketId, itemId, count = 1) {
-    const player = this.players.get(socketId);
-    if (!player || player.isDead) return;
-
-    const qty = Math.max(1, Math.min(999, parseInt(String(count), 10) || 1));
-    const itemDef = ITEMS[itemId];
-    if (!itemDef || !itemDef.buyPrice || itemDef.type !== 'consumable') return;
-
-    const totalPrice = itemDef.buyPrice * qty;
-    const socket = this.io.sockets.sockets.get(socketId);
-
-    if (player.gold < totalPrice) {
-      if (socket) {
-        socket.emit('floating_text', {
-          x: player.x,
-          y: player.y - 0.6,
-          text: `⚠️ Need ${totalPrice.toLocaleString('en-US')} Gold! (Have ${(player.gold || 0).toLocaleString('en-US')})`,
-          color: '#ef4444'
-        });
-      }
-      return;
-    }
-
-    player.gold -= totalPrice;
-
-    if (itemDef.id === 'health_potion') {
-      player.inventory.healthPotions = (player.inventory.healthPotions || 0) + qty;
-    } else if (itemDef.id === 'mana_potion') {
-      player.inventory.manaPotions = (player.inventory.manaPotions || 0) + qty;
-    } else {
-      const existing = player.inventory.items.find(i => i.id === itemDef.id);
-      if (existing) {
-        existing.count = (existing.count || 1) + qty;
-      } else {
-        player.inventory.items.push({ ...itemDef, count: qty });
-      }
-    }
-
-    if (socket) {
-      socket.emit('player_updated', player);
-      socket.emit('floating_text', {
-        x: player.x,
-        y: player.y - 0.6,
-        text: `Bought ${itemDef.name} x${qty}! (-${totalPrice.toLocaleString('en-US')}g)`,
-        color: '#facc15'
-      });
-    }
+  handleBuyItem(socketId: any, itemId: any, count = 1) {
+    return this.inventory.handleBuyItem(socketId, itemId, count);
   }
 
-  // Favorite items: a flag on the item; favorites can never be sold (unfavorite first)
-  handleToggleFavorite(socketId, data) {
-    const player = this.players.get(socketId);
-    if (!player || !data) return;
-    const item = data.target === 'equipped'
-      ? player.equipment && player.equipment[data.slot]
-      : Number.isInteger(data.itemIndex) ? player.inventory.items[data.itemIndex] : null;
-    if (!item || item.type === 'gold') return;
-    if (item.favorite) delete item.favorite;
-    else item.favorite = true;
-    this.savePlayerAccount(socketId);
-    const socket = this.io.sockets.sockets.get(socketId);
-    if (socket) socket.emit('player_updated', player);
+  handleToggleFavorite(socketId: any, data: any) {
+    return this.inventory.handleToggleFavorite(socketId, data);
   }
 
-  handleSellItem(socketId, itemIndex, quantity = 1) {
-    const player = this.players.get(socketId);
-    if (!player || player.isDead || player.zone !== 'town') return;
-
-    if (!Number.isInteger(itemIndex) || itemIndex < 0 || itemIndex >= player.inventory.items.length) return;
-
-    const item = player.inventory.items[itemIndex];
-    if (item.favorite) {
-      const socket = this.io.sockets.sockets.get(socketId);
-      if (socket) socket.emit('floating_text', { x: player.x, y: player.y - 0.6, text: 'Favorite items can\'t be sold', color: '#ef4444' });
-      return;
-    }
-    const stackCount = item.count || 1;
-    const sellCount = Math.max(1, Math.min(stackCount, parseInt(String(quantity), 10) || 1));
-    const sellPrice = (item.sellPrice || 10) * sellCount;
-
-    player.gold += sellPrice;
-
-    if (stackCount > sellCount) {
-      item.count = stackCount - sellCount;
-    } else {
-      player.inventory.items.splice(itemIndex, 1);
-    }
-
-    const socket = this.io.sockets.sockets.get(socketId);
-    if (socket) {
-      socket.emit('player_updated', player);
-      socket.emit('floating_text', {
-        x: player.x,
-        y: player.y - 0.6,
-        text: `+${sellPrice.toLocaleString('en-US')} Gold (Sold ${sellCount > 1 ? `${sellCount}x ` : ''}${item.name})`,
-        color: '#facc15'
-      });
-    }
+  handleSellItem(socketId: any, itemIndex: any, quantity = 1) {
+    return this.inventory.handleSellItem(socketId, itemIndex, quantity);
   }
 
-  // Sell several bag slots at once: entries = [{ itemIndex, quantity }]
-  handleSellItems(socketId, entries) {
-    const player = this.players.get(socketId);
-    if (!player || player.isDead || player.zone !== 'town') return;
-    if (!Array.isArray(entries) || entries.length === 0) return;
-
-    const items = player.inventory.items;
-    const qtyByIndex = new Map<any, any>();
-    for (const e of entries.slice(0, items.length)) {
-      if (!e || !Number.isInteger(e.itemIndex) || e.itemIndex < 0 || e.itemIndex >= items.length) continue;
-      const item = items[e.itemIndex];
-      // Special Cards and favorites are protected and will never be sold via Sell All / bulk selling
-      if (item && (item.type === 'sp_card' || (item.id && item.id.startsWith('sp_card_')))) continue;
-      if (item && item.favorite) continue;
-      qtyByIndex.set(e.itemIndex, e.quantity);
-    }
-    if (qtyByIndex.size === 0) return;
-
-    let total = 0;
-    let soldCount = 0;
-    // Highest index first so splicing does not shift the slots still to be sold
-    for (const index of [...qtyByIndex.keys()].sort((a, b) => b - a)) {
-      const item = items[index];
-      const stackCount = item.count || 1;
-      const sellCount = Math.max(1, Math.min(stackCount, parseInt(qtyByIndex.get(index), 10) || 1));
-      total += (item.sellPrice || 10) * sellCount;
-      soldCount += sellCount;
-      if (stackCount > sellCount) item.count = stackCount - sellCount;
-      else items.splice(index, 1);
-    }
-    player.gold += total;
-
-    const socket = this.io.sockets.sockets.get(socketId);
-    if (socket) {
-      socket.emit('player_updated', player);
-      socket.emit('floating_text', {
-        x: player.x,
-        y: player.y - 0.6,
-        text: `+${total.toLocaleString('en-US')} Gold (Sold ${soldCount} item${soldCount > 1 ? 's' : ''})`,
-        color: '#facc15'
-      });
-    }
+  handleSellItems(socketId: any, entries: any) {
+    return this.inventory.handleSellItems(socketId, entries);
   }
 
-  // Hypixel Skyblock Reforge Anvil Actions (Brom the Master Smith)
-  handleReforgeItem(socketId, data) {
-    const player = this.players.get(socketId);
-    if (!player || player.isDead || player.zone !== 'town') return;
-
-    let targetItem = null;
-    let isEquipped = false;
-
-    if (data.target === 'equipped') {
-      if (player.equipment && player.equipment[data.slot]) {
-        targetItem = player.equipment[data.slot];
-        isEquipped = true;
-      }
-    } else if (data.target === 'inventory') {
-      if (player.inventory && player.inventory.items && player.inventory.items[data.itemIndex]) {
-        targetItem = player.inventory.items[data.itemIndex];
-      }
-    }
-
-    if (!targetItem || targetItem.type !== 'equipment') return;
-
-    const rarity = targetItem.rarity || 'common';
-    const reforgeCost = REFORGE_COSTS[rarity] || 50;
-    const socket = this.io.sockets.sockets.get(socketId);
-
-    if (player.gold < reforgeCost) {
-      if (socket) {
-        socket.emit('floating_text', {
-          x: player.x,
-          y: player.y - 0.7,
-          text: `⚠️ ต้องการ ${reforgeCost.toLocaleString('en-US')} Gold!`,
-          color: '#ef4444'
-        });
-      }
-      return;
-    }
-
-    // Deduct reforge fee
-    player.gold -= reforgeCost;
-
-    // Roll Hypixel Skyblock Reforge
-    const rolledReforge = rollSkyblockReforge(targetItem);
-    if (!rolledReforge) return;
-
-    applySkyblockReforge(targetItem, rolledReforge);
-    this.applyItemUpgradeStats(targetItem);
-
-    if (isEquipped) {
-      this.recalculatePlayerStats(player);
-    }
-
-    this.savePlayerAccount(socketId);
-
-    if (socket) {
-      socket.emit('player_updated', player);
-      socket.emit('reforge_result', {
-        success: true,
-        item: targetItem,
-        reforge: rolledReforge,
-        reforgeStats: targetItem.reforgeStats,
-        cost: reforgeCost,
-        target: data.target,
-        slot: data.slot,
-        itemIndex: data.itemIndex
-      });
-      socket.emit('floating_text', {
-        x: player.x,
-        y: player.y - 0.8,
-        text: `🔨 REFORGED: ${rolledReforge}!`,
-        color: '#facc15',
-        size: 20
-      });
-    }
-
-    this.emitZone(player.zone, 'skill_fx', {
-      type: 'whirlwind',
-      x: player.x,
-      y: player.y,
-      radius: 1.5,
-      playerId: player.id
-    });
-
-    if (targetItem.rarity === 'legendary' || targetItem.rarity === 'epic' || targetItem.rarity === 'divine') {
-      this.broadcastSystemMessage(`🌟 [${player.name}] reforged [${targetItem.name}] with [${rolledReforge}] at Brom's Anvil!`);
-    }
+  handleReforgeItem(socketId: any, data: any) {
+    return this.itemUpgrade.handleReforgeItem(socketId, data);
   }
 
   // Volatile dungeon modifier: a dead monster bursts after a short warning,
   // hurting every hero of the run standing close to it
-  scheduleVolatileBurst(inst, mob) {
+  scheduleVolatileBurst(inst: DungeonInstance, mob: Mob) {
     const V = DMODS.VOLATILE, x = mob.x, y = mob.y;
     this.emitZone('dungeon', 'skill_fx', { type: 'set_proc', set: 'emberheart', x, y, radius: V.radius * 0.6, color: '#f97316' }, inst.id);
     setTimeout(() => {
@@ -6151,1143 +1256,119 @@ class GameServer {
     }, V.delayMs);
   }
 
-  // Crafting window: craft `times` of a recipe (crafting.ts does every check)
   handleCraft(socketId: string, data: any) {
-    const player = this.players.get(socketId);
-    const socket = this.io.sockets.sockets.get(socketId);
-    if (!player || !socket || player.isDead || !data) return;
-    const res: any = CRAFT.craft(this, player, String(data.recipeId || ''), Number(data.times) || 1);
-    socket.emit('craft_result', { ok: res.ok, message: res.message, recipeId: data.recipeId, items: res.items || [] });
-    if (!res.ok) return;
-    const top = res.items[0];
-    this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.8, text: `🔨 ${res.message}`, color: top && top.rarity === 'legendary' ? '#f59e0b' : '#4ade80', size: 16 });
-    if (top && top.setId) this.broadcastSystemMessage(`🔨 [${player.name}] crafted [${top.name}]!`);
-    this.savePlayerAccount(socketId);
-    socket.emit('player_updated', player);
+    return this.itemUpgrade.handleCraft(socketId, data);
   }
 
-  // Defensive runes socketed in the worn armor pieces: { bulwark: 2, aegis: 1, ... }
   getArmorRuneCounts(player: any): Record<string, number> {
-    const counts: Record<string, number> = {};
-    for (const slot of ARMOR_SOCKET_SLOTS) {
-      const it = player?.equipment?.[slot];
-      if (!it || !Array.isArray(it.sockets)) continue;
-      for (const s of it.sockets) {
-        if (!s) continue;
-        const def = ITEMS[s];
-        if (def && def.socketFor === 'armor') counts[def.runeType] = (counts[def.runeType] || 0) + 1;
-      }
-    }
-    return counts;
+    return this.stats.getArmorRuneCounts(player);
   }
 
   getWeaponRuneCounts(player: any): Record<string, number> {
-    const counts: Record<string, number> = { flame: 0, frost: 0, tempest: 0, vampiric: 0 };
-    const weapon = player?.equipment?.weapon;
-    if (!weapon || !Array.isArray(weapon.sockets)) return counts;
-    for (const s of weapon.sockets) {
-      if (!s) continue;
-      const key = String(s).replace(/^rune_/, '');
-      if (counts[key] !== undefined) {
-        counts[key]++;
-      }
-    }
-    return counts;
+    return this.stats.getWeaponRuneCounts(player);
   }
 
-  // ---- Jerry the Attribute Smith (itemAttributes.ts) ----
-  // data: { action: 'socket' | 'roll' | 'reset', target: 'equipped' | 'inventory', slot?, itemIndex?, locks?: number[] }
   handleAttributes(socketId: string, data: any) {
-    const player = this.players.get(socketId);
-    const socket = this.io.sockets.sockets.get(socketId);
-    if (!player || !socket || player.isDead || !data) return;
-    const reply = (ok: boolean, message: string, extra: any = {}) => socket.emit('attr_result', { ok, message, action: data.action, ...extra });
-    const jerry = player.zone === 'town' && this.townMap.obstacles.find((o: any) => o.id === 'npc_jerry');
-    if (!jerry || Math.hypot(jerry.x - player.x, jerry.y - player.y) > 4.5) return reply(false, 'Walk up to Jerry first');
-
-    let item: any = null;
-    const isEquipped = data.target === 'equipped';
-    if (isEquipped) item = player.equipment && player.equipment[data.slot];
-    else if (Number.isInteger(data.itemIndex)) item = player.inventory.items[data.itemIndex];
-    if (!ATTR.canHoldAttributes(item)) return reply(false, 'Pick a piece of gear');
-    ATTR.ensureAttrs(item);
-    const cap = ATTR.attrSlotCap(item);
-    if (cap <= 0) return reply(false, 'Common gear has no attribute slots');
-
-    const stackOf = (id: string) => player.inventory.items.find((i: any) => i && i.id === id);
-    const have = (id: string) => { const st = stackOf(id); return st ? (st.count || 1) : 0; };
-    const spend = (id: string, n: number) => {
-      const st = stackOf(id);
-      if ((st.count || 1) > n) st.count -= n;
-      else player.inventory.items.splice(player.inventory.items.indexOf(st), 1);
-    };
-    // locked slots: only filled ones count
-    const locks = new Set<number>((Array.isArray(data.locks) ? data.locks : [])
-      .map(Number).filter((i: number) => Number.isInteger(i) && i >= 0 && i < item.attrSlots && item.attrs[i]));
-
-    let changed: number[] = [];
-    let message = '';
-    if (data.action === 'socket') {
-      if (item.attrSlots >= cap) return reply(false, `All ${cap} slots are open already`);
-      if (have('attr_socketer') < 1) return reply(false, 'You need an Attribute Socketer');
-      spend('attr_socketer', 1);
-      item.attrSlots += 1;
-      item.attrs.push(null);
-      changed = [item.attrSlots - 1];
-      message = `Slot ${item.attrSlots} opened`;
-    } else if (data.action === 'roll') {
-      if (item.attrSlots <= 0) return reply(false, 'No open slots: open one with a Socketer first');
-      if (locks.size >= item.attrSlots) return reply(false, 'Unlock at least one slot to roll');
-      const cost = Math.max(1, locks.size);
-      if (have('attr_roller') < cost) return reply(false, `This roll needs ${cost} Attribute Roller${cost > 1 ? 's' : ''}`);
-      spend('attr_roller', cost);
-      changed = ATTR.rerollAttrs(item, locks);
-      message = 'Attributes rolled';
-    } else if (data.action === 'reset') {
-      const open = item.attrs.filter((a: any, i: number) => a && !locks.has(i)).length;
-      if (!open) return reply(false, 'No unlocked attributes to reset');
-      if (have('attr_reseter') < 1) return reply(false, 'You need an Attribute Reseter');
-      spend('attr_reseter', 1);
-      changed = ATTR.rerollAttrValues(item, locks);
-      message = 'Values rolled again';
-    } else {
-      return;
-    }
-
-    if (isEquipped) this.recalculatePlayerStats(player);
-    this.savePlayerAccount(socketId);
-    // (a material stack that ran out shifts the bag: send the item's index as it is now)
-    reply(true, message, { changed, target: data.target, slot: data.slot, itemIndex: isEquipped ? undefined : player.inventory.items.indexOf(item) });
-    socket.emit('player_updated', player);
+    return this.itemUpgrade.handleAttributes(socketId, data);
   }
 
   handleSocketRune(socketId: string, data: any) {
-    const player = this.players.get(socketId);
-    const socket = this.io.sockets.sockets.get(socketId);
-    if (!player || !socket || player.isDead || !data) return;
-
-    let targetItem: any = null;
-    let isEquipped = false;
-    if (data.target === 'equipped' && player.equipment && player.equipment[data.slot || 'weapon']) {
-      targetItem = player.equipment[data.slot || 'weapon'];
-      isEquipped = true;
-    } else if (data.target === 'inventory' && Number.isInteger(data.itemIndex)) {
-      targetItem = player.inventory.items[data.itemIndex];
-    }
-    if (!socketKind(targetItem)) {
-      socket.emit('socket_result', { ok: false, message: 'Only weapons and armor pieces have sockets!' });
-      return;
-    }
-
-    ensureSockets(targetItem);
-
-    const runeIndex = Number(data.runeIndex);
-    const runeItem = player.inventory.items[runeIndex];
-    if (!runeItem || runeItem.type !== 'rune') {
-      socket.emit('socket_result', { ok: false, message: 'Select a valid rune item!' });
-      return;
-    }
-    if (!runeFits(runeItem, targetItem)) {
-      socket.emit('socket_result', { ok: false, message: socketKind(targetItem) === 'armor' ? 'Armor takes defensive runes only!' : 'Weapons take elemental runes only!' });
-      return;
-    }
-
-    const maxSockets = targetItem.maxSockets || 0;
-    const brokenSockets = targetItem.brokenSockets || 0;
-    const usableSockets = Math.max(0, maxSockets - brokenSockets);
-    let slotIdx = Number(data.socketSlotIndex !== undefined ? data.socketSlotIndex : targetItem.sockets.findIndex((s: any) => s === null));
-
-    if (slotIdx < 0 || slotIdx >= usableSockets) {
-      socket.emit('socket_result', { ok: false, message: 'No available socket slot!' });
-      return;
-    }
-
-    // If slot has an existing rune, return it to inventory if possible
-    const existingRune = targetItem.sockets[slotIdx];
-    if (existingRune) {
-      const existingDef = ITEMS[existingRune] || ITEMS[`rune_${existingRune}`];
-      if (existingDef) {
-        const stack = player.inventory.items.find((i: any) => i.id === existingDef.id);
-        if (stack) {
-          stack.count = (stack.count || 1) + 1;
-        } else {
-          player.inventory.items.push({ ...existingDef, count: 1 });
-        }
-      }
-    }
-
-    // Deduct 1 rune item from inventory
-    if (runeItem.count && runeItem.count > 1) {
-      runeItem.count--;
-    } else {
-      player.inventory.items.splice(runeIndex, 1);
-    }
-
-    targetItem.sockets[slotIdx] = runeItem.id;
-
-    if (isEquipped) {
-      this.recalculatePlayerStats(player);
-    }
-    this.savePlayerAccount(socketId);
-
-    socket.emit('player_updated', player);
-    socket.emit('socket_result', {
-      ok: true,
-      action: 'socket',
-      slotIdx,
-      runeId: runeItem.id,
-      item: targetItem,
-      target: data.target,
-      slot: data.slot,
-      itemIndex: data.itemIndex
-    });
-    this.emitZone(player.zone, 'floating_text', {
-      x: player.x,
-      y: player.y - 0.7,
-      text: `✨ SOCKETED: ${runeItem.name}!`,
-      color: runeItem.color || '#f59e0b',
-      size: 18
-    });
+    return this.itemUpgrade.handleSocketRune(socketId, data);
   }
 
   handleUnsocketRune(socketId: string, data: any) {
-    const player = this.players.get(socketId);
-    const socket = this.io.sockets.sockets.get(socketId);
-    if (!player || !socket || player.isDead || !data) return;
-
-    let targetItem: any = null;
-    let isEquipped = false;
-    if (data.target === 'equipped' && player.equipment && player.equipment[data.slot || 'weapon']) {
-      targetItem = player.equipment[data.slot || 'weapon'];
-      isEquipped = true;
-    } else if (data.target === 'inventory' && Number.isInteger(data.itemIndex)) {
-      targetItem = player.inventory.items[data.itemIndex];
-    }
-    if (!socketKind(targetItem)) return;
-
-    ensureSockets(targetItem);
-
-    const slotIdx = Number(data.socketSlotIndex);
-    if (slotIdx < 0 || slotIdx >= targetItem.sockets.length || !targetItem.sockets[slotIdx]) {
-      socket.emit('socket_result', { ok: false, message: 'No rune socketed in this slot!' });
-      return;
-    }
-
-    const runeId = targetItem.sockets[slotIdx];
-    const runeDef = ITEMS[runeId] || ITEMS[`rune_${runeId}`];
-    if (!runeDef) return;
-
-    // Check inventory capacity
-    const maxUnsocketCap = player.inventory.maxSlots || DEFAULT_BAG_SLOTS;
-    if (player.inventory.items.length >= maxUnsocketCap && !player.inventory.items.some((i: any) => i.id === runeDef.id)) {
-      socket.emit('socket_result', { ok: false, message: 'Inventory is full!' });
-      return;
-    }
-
-    targetItem.sockets[slotIdx] = null;
-
-    const stack = player.inventory.items.find((i: any) => i.id === runeDef.id);
-    if (stack) {
-      stack.count = (stack.count || 1) + 1;
-    } else {
-      player.inventory.items.push({ ...runeDef, count: 1 });
-    }
-
-    if (isEquipped) {
-      this.recalculatePlayerStats(player);
-    }
-    this.savePlayerAccount(socketId);
-
-    socket.emit('player_updated', player);
-    socket.emit('socket_result', {
-      ok: true,
-      action: 'unsocket',
-      slotIdx,
-      runeId,
-      item: targetItem,
-      target: data.target,
-      slot: data.slot,
-      itemIndex: data.itemIndex
-    });
-    this.emitZone(player.zone, 'floating_text', {
-      x: player.x,
-      y: player.y - 0.7,
-      text: `🔄 EXTRACTED: ${runeDef.name}`,
-      color: '#94a3b8',
-      size: 16
-    });
+    return this.itemUpgrade.handleUnsocketRune(socketId, data);
   }
 
   handleExpandSocket(socketId: string, data: any) {
-    const player = this.players.get(socketId);
-    const socket = this.io.sockets.sockets.get(socketId);
-    if (!player || !socket || player.isDead || !data) return;
-
-    let targetItem: any = null;
-    let isEquipped = false;
-    if (data.target === 'equipped' && player.equipment && player.equipment[data.slot || 'weapon']) {
-      targetItem = player.equipment[data.slot || 'weapon'];
-      isEquipped = true;
-    } else if (data.target === 'inventory' && Number.isInteger(data.itemIndex)) {
-      targetItem = player.inventory.items[data.itemIndex];
-    }
-    const kind = socketKind(targetItem);
-    if (!kind) {
-      socket.emit('socket_result', { ok: false, message: 'Can only expand sockets on weapons and armor!' });
-      return;
-    }
-
-    ensureSockets(targetItem);
-
-    const maxAllowed = SOCKET_MAX[kind];
-    if (targetItem.maxSockets >= maxAllowed) {
-      socket.emit('socket_result', { ok: false, message: `This ${kind} already has maximum sockets (${maxAllowed})!` });
-      return;
-    }
-
-    let expanderIndex = Number(data.expanderIndex);
-    let expanderItem = player.inventory.items[expanderIndex];
-    if (!expanderItem || expanderItem.id !== 'socket_expander') {
-      expanderIndex = player.inventory.items.findIndex((i: any) => i && i.id === 'socket_expander');
-      expanderItem = player.inventory.items[expanderIndex];
-    }
-    if (!expanderItem) {
-      socket.emit('socket_result', { ok: false, message: 'You need an Ancient Socket Expander!' });
-      return;
-    }
-
-    // Consume 1 socket expander
-    if (expanderItem.count && expanderItem.count > 1) {
-      expanderItem.count--;
-    } else {
-      player.inventory.items.splice(expanderIndex, 1);
-    }
-
-    const currentSockets = targetItem.maxSockets || 0;
-    const roll = Math.random();
-    let success = false;
-    let broken = false;
-
-    if (currentSockets === 0) {
-      success = roll < 0.70;
-    } else if (currentSockets === 1) {
-      if (roll < 0.50) success = true;
-      else if (roll < 0.70) broken = true;
-    } else if (currentSockets === 2) {
-      if (roll < 0.35) success = true;
-      else if (roll < 0.65) broken = true;
-    } else {
-      if (roll < 0.20) success = true;
-      else if (roll < 0.65) broken = true;
-    }
-
-    if (success) {
-      targetItem.maxSockets++;
-      targetItem.sockets.push(null);
-    } else if (broken) {
-      targetItem.brokenSockets = (targetItem.brokenSockets || 0) + 1;
-    }
-
-    if (isEquipped) {
-      this.recalculatePlayerStats(player);
-    }
-    this.savePlayerAccount(socketId);
-
-    socket.emit('player_updated', player);
-    socket.emit('socket_expand_result', {
-      ok: true,
-      success,
-      broken,
-      maxSockets: targetItem.maxSockets,
-      brokenSockets: targetItem.brokenSockets,
-      item: targetItem,
-      target: data.target,
-      slot: data.slot,
-      itemIndex: data.itemIndex
-    });
-
-    const msg = success
-      ? `💎 SOCKET EXPANDED! (+1 Slot, total ${targetItem.maxSockets})`
-      : broken
-        ? `💥 DRILL FAILED! A socket broke! (${targetItem.brokenSockets} broken)`
-        : `⚠️ EXPANSION FAILED! (Drill shattered harmlessly)`;
-    const color = success ? '#22c55e' : broken ? '#ef4444' : '#eab308';
-
-    this.emitZone(player.zone, 'floating_text', {
-      x: player.x,
-      y: player.y - 0.8,
-      text: msg,
-      color,
-      size: 19
-    });
-
-    if (success && targetItem.maxSockets >= 3) {
-      this.broadcastSystemMessage(`🔮 [${player.name}] expanded [${targetItem.name}] to ${targetItem.maxSockets} Sockets!`);
-    }
+    return this.itemUpgrade.handleExpandSocket(socketId, data);
   }
 
-  // Town Portal Scroll: back to town from a field or a dungeon. A boss room
-  // stays sealed, the same as leaving through the menu, and then the scroll
-  // is not used up.
   handleUseTownScroll(socketId: string, data: any) {
-    const player = this.players.get(socketId);
-    const socket = this.io.sockets.sockets.get(socketId);
-    if (!player || !socket || player.isDead || !data) return;
-
-    const item = player.inventory.items[Number(data.itemIndex)];
-    if (!item || item.id !== 'town_scroll') return;
-    if (player.zone === 'town') {
-      socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: 'You are already in town!', color: '#ef4444' });
-      return;
-    }
-
-    if (player.zone === 'dungeon') this.handleLeaveDungeon(socketId);
-    else this.teleportPlayerToTown(player, socket);
-    if (player.zone !== 'town') return;
-
-    const idx = player.inventory.items.indexOf(item);
-    if (item.count && item.count > 1) item.count--;
-    else if (idx >= 0) player.inventory.items.splice(idx, 1);
-
-    this.savePlayerAccount(socketId);
-    socket.emit('player_updated', player);
-    socket.emit('floating_text', { x: player.x, y: player.y - 0.8, text: '📜 Returned to town!', color: '#facc15', size: 18 });
+    return this.inventory.handleUseTownScroll(socketId, data);
   }
 
   handleUseBagExpander(socketId: string, data: any) {
-    const player = this.players.get(socketId);
-    const socket = this.io.sockets.sockets.get(socketId);
-    if (!player || !socket || player.isDead || !data) return;
-
-    const itemIndex = Number(data.itemIndex);
-    const item = player.inventory.items[itemIndex];
-    if (!item || !['bag_expander_sm', 'bag_expander_md', 'bag_expander_lg'].includes(item.id)) {
-      socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: 'Invalid backpack expander!', color: '#ef4444' });
-      return;
-    }
-
-    const curSlots = player.inventory.maxSlots || DEFAULT_BAG_SLOTS;
-    const MAX_BAG_CAPACITY = MAX_BAG_SLOTS;
-    if (curSlots >= MAX_BAG_CAPACITY) {
-      socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: `Backpack is already at maximum capacity (${MAX_BAG_SLOTS} slots)!`, color: '#ef4444' });
-      return;
-    }
-
-    const slotsAdded = item.id === 'bag_expander_sm' ? 6 : item.id === 'bag_expander_md' ? 12 : 30;
-    const rowsAdded = item.id === 'bag_expander_sm' ? 1 : item.id === 'bag_expander_md' ? 2 : 5;
-
-    // Deduct 1 expander item
-    if (item.count && item.count > 1) {
-      item.count--;
-    } else {
-      player.inventory.items.splice(itemIndex, 1);
-    }
-
-    player.inventory.maxSlots = Math.min(MAX_BAG_CAPACITY, curSlots + slotsAdded);
-    this.savePlayerAccount(socketId);
-
-    socket.emit('player_updated', player);
-    socket.emit('floating_text', {
-      x: player.x,
-      y: player.y - 0.8,
-      text: `🎒 Backpack Expanded! (+${rowsAdded} ${rowsAdded === 1 ? 'Row' : 'Rows'}, ${player.inventory.maxSlots} Slots)`,
-      color: '#facc15',
-      size: 19
-    });
+    return this.inventory.handleUseBagExpander(socketId, data);
   }
 
   handleOpenPersonalChest(socketId: string) {
-    const player = this.players.get(socketId);
-    const socket = this.io.sockets.sockets.get(socketId);
-    if (!player || !socket || player.isDead) return;
-
-    if (player.zone !== 'town') {
-      socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: 'The Personal Chest is located in Town!', color: '#ef4444' });
-      return;
-    }
-
-    const dist = Math.hypot(player.x - 15.6, player.y - 17.1);
-    if (dist > 5.0) {
-      socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: 'You are too far from the Personal Chest!', color: '#ef4444' });
-      return;
-    }
-
-    player.storage = player.storage || { maxSlots: 50, items: [] };
-    if (!Array.isArray(player.storage.items)) player.storage.items = [];
-    if (!player.storage.maxSlots) player.storage.maxSlots = 50;
-
-    socket.emit('personal_chest_data', {
-      storage: player.storage,
-      inventory: player.inventory
-    });
+    return this.inventory.handleOpenPersonalChest(socketId);
   }
 
   handleDepositToChest(socketId: string, data: any) {
-    const player = this.players.get(socketId);
-    const socket = this.io.sockets.sockets.get(socketId);
-    if (!player || !socket || player.isDead || !data) return;
-
-    if (player.zone !== 'town') {
-      socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: 'The Personal Chest is in Town!', color: '#ef4444' });
-      return;
-    }
-    const dist = Math.hypot(player.x - 15.6, player.y - 17.1);
-    if (dist > 5.0) {
-      socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: 'Too far from Personal Chest!', color: '#ef4444' });
-      return;
-    }
-
-    player.storage = player.storage || { maxSlots: 50, items: [] };
-    if (!Array.isArray(player.storage.items)) player.storage.items = [];
-    const maxStorage = player.storage.maxSlots || 50;
-
-    const canStack = (a: any, b: any) => {
-      return a && b && a.id === b.id &&
-        a.type !== 'equipment' && b.type !== 'equipment' &&
-        !a.upgradeLevel && !b.upgradeLevel &&
-        !a.sockets && !b.sockets &&
-        !a.maxSockets && !b.maxSockets &&
-        !a.brokenSockets && !b.brokenSockets &&
-        !a.reforgeBonus && !b.reforgeBonus &&
-        !a.custom && !b.custom;
-    };
-
-    if (data.all) {
-      let movedCount = 0;
-      for (let i = player.inventory.items.length - 1; i >= 0; i--) {
-        const item = player.inventory.items[i];
-        if (!item) continue;
-        let deposited = false;
-        if (canStack(item, item)) {
-          const target = player.storage.items.find((s: any) => canStack(s, item));
-          if (target) {
-            target.count = (target.count || 1) + (item.count || 1);
-            player.inventory.items.splice(i, 1);
-            movedCount++;
-            deposited = true;
-          }
-        }
-        if (!deposited && player.storage.items.length < maxStorage) {
-          player.storage.items.push(item);
-          player.inventory.items.splice(i, 1);
-          movedCount++;
-        }
-      }
-
-      if (movedCount > 0) {
-        this.savePlayerAccount(socketId);
-        socket.emit('player_updated', player);
-        socket.emit('personal_chest_data', {
-          storage: player.storage,
-          inventory: player.inventory
-        });
-        socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: `Deposited ${movedCount} items!`, color: '#6ee7b7' });
-      } else {
-        socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: 'Personal Chest is full or no items to deposit!', color: '#ef4444' });
-      }
-      return;
-    }
-
-    const itemIndex = Number(data.itemIndex);
-    if (!Number.isInteger(itemIndex) || itemIndex < 0 || itemIndex >= player.inventory.items.length) {
-      return;
-    }
-
-    const invItem = player.inventory.items[itemIndex];
-    if (!invItem) return;
-
-    const depositQty = Math.max(1, Math.min(invItem.count || 1, parseInt(String(data.count), 10) || (invItem.count || 1)));
-
-    let stacked = false;
-    if (canStack(invItem, invItem)) {
-      const match = player.storage.items.find((s: any) => canStack(s, invItem));
-      if (match) {
-        match.count = (match.count || 1) + depositQty;
-        stacked = true;
-      }
-    }
-
-    if (!stacked) {
-      if (player.storage.items.length >= maxStorage) {
-        socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: 'Personal Chest is full!', color: '#ef4444' });
-        return;
-      }
-      player.storage.items.push({
-        ...invItem,
-        count: depositQty
-      });
-    }
-
-    if ((invItem.count || 1) > depositQty) {
-      invItem.count = (invItem.count || 1) - depositQty;
-    } else {
-      player.inventory.items.splice(itemIndex, 1);
-    }
-
-    this.savePlayerAccount(socketId);
-    socket.emit('player_updated', player);
-    socket.emit('personal_chest_data', {
-      storage: player.storage,
-      inventory: player.inventory
-    });
+    return this.inventory.handleDepositToChest(socketId, data);
   }
 
   handleWithdrawFromChest(socketId: string, data: any) {
-    const player = this.players.get(socketId);
-    const socket = this.io.sockets.sockets.get(socketId);
-    if (!player || !socket || player.isDead || !data) return;
-
-    if (player.zone !== 'town') {
-      socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: 'The Personal Chest is in Town!', color: '#ef4444' });
-      return;
-    }
-    const dist = Math.hypot(player.x - 15.6, player.y - 17.1);
-    if (dist > 5.0) {
-      socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: 'Too far from Personal Chest!', color: '#ef4444' });
-      return;
-    }
-
-    player.storage = player.storage || { maxSlots: 50, items: [] };
-    if (!Array.isArray(player.storage.items)) player.storage.items = [];
-    const maxBag = player.inventory.maxSlots || DEFAULT_BAG_SLOTS;
-
-    const itemIndex = Number(data.itemIndex);
-    if (!Number.isInteger(itemIndex) || itemIndex < 0 || itemIndex >= player.storage.items.length) {
-      return;
-    }
-
-    const storageItem = player.storage.items[itemIndex];
-    if (!storageItem) return;
-
-    const withdrawQty = Math.max(1, Math.min(storageItem.count || 1, parseInt(String(data.count), 10) || (storageItem.count || 1)));
-
-    const canStack = (a: any, b: any) => {
-      return a && b && a.id === b.id &&
-        a.type !== 'equipment' && b.type !== 'equipment' &&
-        !a.upgradeLevel && !b.upgradeLevel &&
-        !a.sockets && !b.sockets &&
-        !a.maxSockets && !b.maxSockets &&
-        !a.brokenSockets && !b.brokenSockets &&
-        !a.reforgeBonus && !b.reforgeBonus &&
-        !a.custom && !b.custom;
-    };
-
-    let stacked = false;
-    if (canStack(storageItem, storageItem)) {
-      const match = player.inventory.items.find((i: any) => canStack(i, storageItem));
-      if (match) {
-        match.count = (match.count || 1) + withdrawQty;
-        stacked = true;
-      }
-    }
-
-    if (!stacked) {
-      if (player.inventory.items.length >= maxBag) {
-        socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: 'Backpack is full!', color: '#ef4444' });
-        return;
-      }
-      player.inventory.items.push({
-        ...storageItem,
-        count: withdrawQty
-      });
-    }
-
-    if ((storageItem.count || 1) > withdrawQty) {
-      storageItem.count = (storageItem.count || 1) - withdrawQty;
-    } else {
-      player.storage.items.splice(itemIndex, 1);
-    }
-
-    this.savePlayerAccount(socketId);
-    socket.emit('player_updated', player);
-    socket.emit('personal_chest_data', {
-      storage: player.storage,
-      inventory: player.inventory
-    });
+    return this.inventory.handleWithdrawFromChest(socketId, data);
   }
 
   handleUseChestExpander(socketId: string, data: any) {
-    const player = this.players.get(socketId);
-    const socket = this.io.sockets.sockets.get(socketId);
-    if (!player || !socket || player.isDead || !data) return;
-
-    const itemIndex = Number(data.itemIndex);
-    const item = player.inventory.items[itemIndex];
-    if (!item || !['chest_expander_sm', 'chest_expander_md', 'chest_expander_lg'].includes(item.id)) {
-      socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: 'Invalid chest expander!', color: '#ef4444' });
-      return;
-    }
-
-    player.storage = player.storage || { maxSlots: 50, items: [] };
-    const curSlots = player.storage.maxSlots || 50;
-    const MAX_CHEST_CAPACITY = 300;
-    if (curSlots >= MAX_CHEST_CAPACITY) {
-      socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: `Chest is already at maximum capacity (${MAX_CHEST_CAPACITY} slots)!`, color: '#ef4444' });
-      return;
-    }
-
-    const slotsAdded = item.id === 'chest_expander_sm' ? 10 : item.id === 'chest_expander_md' ? 20 : 50;
-    const newSlots = Math.min(MAX_CHEST_CAPACITY, curSlots + slotsAdded);
-    const actualAdded = newSlots - curSlots;
-
-    if (item.count && item.count > 1) {
-      item.count--;
-    } else {
-      player.inventory.items.splice(itemIndex, 1);
-    }
-
-    player.storage.maxSlots = newSlots;
-    this.savePlayerAccount(socketId);
-
-    socket.emit('player_updated', player);
-    socket.emit('personal_chest_data', {
-      storage: player.storage,
-      inventory: player.inventory
-    });
-    socket.emit('floating_text', {
-      x: player.x,
-      y: player.y - 0.8,
-      text: `📦 Personal Chest Expanded! (+${actualAdded} Slots, Total ${player.storage.maxSlots})`,
-      color: '#facc15',
-      size: 19
-    });
+    return this.inventory.handleUseChestExpander(socketId, data);
   }
 
-  applyItemUpgradeStats(item) {
-    if (!item) return;
-    const lvl = item.upgradeLevel || 0;
-    if (item.baseBonusDmg === undefined) item.baseBonusDmg = item.bonusDmg || 0;
-    if (item.baseBonusDef === undefined) item.baseBonusDef = item.bonusDef || 0;
-    if (item.baseBonusHp === undefined) item.baseBonusHp = item.bonusHp || 0;
-    if (item.baseBonusMp === undefined) item.baseBonusMp = item.bonusMp || 0;
-    if (item.baseBonusSpeed === undefined) item.baseBonusSpeed = item.bonusSpeed || 0;
-    if (item.baseBonusAttackSpeed === undefined) item.baseBonusAttackSpeed = item.bonusAttackSpeed || 0;
-    if (item.baseBonusSwipe === undefined) item.baseBonusSwipe = item.bonusSwipe || 0;
-    if (!item.baseName) item.baseName = item.name.replace(/\s\+\d+$/, '');
-
-    let addDmg = 0, addDef = 0, addHp = 0, addMp = 0, addSpeed = 0, addAtkSpd = 0, addSwipe = 0;
-    // Each level also adds a share of the item's own base stats
-    const pct = lvl * 0.05;
-    addDmg += Math.round(item.baseBonusDmg * pct);
-    addDef += Math.round(item.baseBonusDef * pct);
-    addHp += Math.round(item.baseBonusHp * pct);
-    addMp += Math.round(item.baseBonusMp * pct);
-    if (item.slot === 'weapon') {
-      addDmg += lvl * 4;
-      addSwipe = lvl * 3;
-      addAtkSpd = lvl * 0.02;
-    } else if (item.slot === 'armor') {
-      addDef += lvl * 2;
-      addHp += lvl * 25;
-    } else if (item.slot === 'helmet') {
-      addDef += lvl * 2;
-      addHp += lvl * 15;
-      addMp += lvl * 10;
-    } else if (item.slot === 'boots') {
-      addDef += lvl * 1;
-      addSpeed = lvl * 0.08;
-      addHp += lvl * 10;
-    } else if (item.slot === 'gloves') {
-      addDmg += lvl * 4;
-      addAtkSpd = lvl * 0.01;
-    } else if (item.slot === 'cape') {
-      addDef += lvl * 2;
-      addHp += lvl * 12;
-    } else if (item.slot === 'ring') {
-      addDmg += lvl * 3;
-      addHp += lvl * 15;
-      addMp += lvl * 15;
-      addAtkSpd = lvl * 0.01;
-    }
-
-    item.bonusDmg = item.baseBonusDmg + addDmg;
-    item.bonusDef = item.baseBonusDef + addDef;
-    item.bonusHp = item.baseBonusHp + addHp;
-    item.bonusMp = item.baseBonusMp + addMp;
-    item.bonusSpeed = Number((item.baseBonusSpeed + addSpeed).toFixed(2));
-    item.bonusAttackSpeed = Number((item.baseBonusAttackSpeed + addAtkSpd).toFixed(2));
-    item.bonusSwipe = Math.round(item.baseBonusSwipe + addSwipe);
-    const named = item.reforge ? `${item.reforge} ${item.baseName}` : item.baseName;
-    item.name = lvl > 0 ? `${named} +${lvl}` : named;
+  applyItemUpgradeStats(item: Item) {
+    return this.itemUpgrade.applyItemUpgradeStats(item);
   }
 
-  // Enchanter: try to raise an item's +level. Gold is spent either way; from
-  // +${ENHANCE_SAFE_LEVEL} upward a failure also drops the item one level.
-  handleEnhanceItem(socketId, data) {
-    const player = this.players.get(socketId);
-    const socket = this.io.sockets.sockets.get(socketId);
-    if (!player || !socket || player.isDead || player.zone !== 'town' || !data) return;
-
-    let item = null;
-    let isEquipped = false;
-    if (data.target === 'equipped' && player.equipment && player.equipment[data.slot]) {
-      item = player.equipment[data.slot];
-      isEquipped = true;
-    } else if (data.target === 'inventory' && Number.isInteger(data.itemIndex)) {
-      item = player.inventory.items[data.itemIndex] || null;
-    }
-    if (!item || item.type !== 'equipment') return;
-
-    const lvl = item.upgradeLevel || 0;
-    const fail = (text) => socket.emit('enhance_result', { ok: false, message: text });
-    if (lvl >= ENHANCE_MAX) return fail(`Already at the maximum +${ENHANCE_MAX}!`);
-    const cost = enhanceCost(item);
-    if (player.gold < cost) return fail(`Need ${cost.toLocaleString()} Gold!`);
-
-    player.gold -= cost;
-    const chance = enhanceChance(item);
-    const success = Math.random() < chance;
-    let downgraded = false;
-    if (success) {
-      item.upgradeLevel = lvl + 1;
-    } else if (lvl >= ENHANCE_SAFE_LEVEL) {
-      item.upgradeLevel = lvl - 1;
-      downgraded = true;
-    }
-    this.applyItemUpgradeStats(item);
-    if (isEquipped) this.recalculatePlayerStats(player);
-    this.savePlayerAccount(socketId);
-
-    socket.emit('player_updated', player);
-    socket.emit('enhance_result', { ok: true, success, downgraded, level: item.upgradeLevel || 0, cost, item, target: data.target, slot: data.slot, itemIndex: data.itemIndex });
-    this.emitZone(player.zone, 'floating_text', {
-      x: player.x, y: player.y - 0.8,
-      text: success ? `ENHANCED +${item.upgradeLevel}!` : downgraded ? `FAILED - dropped to +${item.upgradeLevel}` : 'ENHANCE FAILED',
-      color: success ? '#facc15' : '#ef4444', size: 20
-    });
-    if (success && item.upgradeLevel >= 10) {
-      this.broadcastSystemMessage(`[${player.name}] enhanced [${item.name}] to +${item.upgradeLevel}!`);
-    }
+  handleEnhanceItem(socketId: any, data: any) {
+    return this.itemUpgrade.handleEnhanceItem(socketId, data);
   }
 
-  getPotionSlots(player) {
-    if (!player.inventory.potionSlots) {
-      player.inventory.potionSlots = { health: 'health_potion', mana: 'mana_potion' };
-    }
-    return player.inventory.potionSlots;
+  getPotionSlots(player: Player) {
+    return this.potions.getPotionSlots(player);
   }
 
-  getPotionCount(player, itemId) {
-    if (itemId === 'health_potion') return player.inventory.healthPotions || 0;
-    if (itemId === 'mana_potion') return player.inventory.manaPotions || 0;
-    const stack = player.inventory.items.find(i => i.id === itemId);
-    return stack ? (stack.count || 1) : 0;
+  getPotionCount(player: Player, itemId: any) {
+    return this.potions.getPotionCount(player, itemId);
   }
 
-  consumePotion(player, itemId) {
-    if (itemId === 'health_potion') { player.inventory.healthPotions--; return; }
-    if (itemId === 'mana_potion') { player.inventory.manaPotions--; return; }
-    const idx = player.inventory.items.findIndex(i => i.id === itemId);
-    if (idx === -1) return;
-    const stack = player.inventory.items[idx];
-    if ((stack.count || 1) > 1) stack.count--;
-    else player.inventory.items.splice(idx, 1);
+  consumePotion(player: Player, itemId: any) {
+    return this.potions.consumePotion(player, itemId);
   }
 
-  // potionType: 'health' | 'mana' drinks the potion assigned to that quick slot;
-  // { itemId } drinks that specific potion (clicked in the bag).
-  handleUsePotion(socketId, potionType) {
-    const player = this.players.get(socketId);
-    if (!player || player.isDead) return;
-
-    const slots = this.getPotionSlots(player);
-    let itemId = null;
-    if (potionType === 'health' || potionType === 'mana') itemId = slots[potionType];
-    else if (potionType && typeof potionType.itemId === 'string') itemId = potionType.itemId;
-    const potion = POTIONS[itemId];
-    if (!potion) return;
-
-    const socket = this.io.sockets.sockets.get(socketId);
-    const now = Date.now();
-    if (!player.potionCdUntil) player.potionCdUntil = { health: 0, mana: 0 };
-    const cdLeft = (player.potionCdUntil[potion.kind] || 0) - now;
-    if (cdLeft > 0) {
-      if (socket) socket.emit('potion_cooldown', { kind: potion.kind, remainingMs: cdLeft, totalMs: POTION_COOLDOWN_MS[potion.kind] });
-      return;
-    }
-    if (this.getPotionCount(player, itemId) <= 0) {
-      if (socket) socket.emit('floating_text', { x: player.x, y: player.y - 0.6, text: `⚠️ Out of ${ITEMS[itemId].name}!`, color: '#ef4444' });
-      return;
-    }
-
-    if (potion.kind === 'health') {
-      if (player.hp >= player.maxHp) return;
-      this.consumePotion(player, itemId);
-      const healAmount = Math.round(player.maxHp * potion.pct);
-      player.hp = Math.min(player.maxHp, player.hp + healAmount);
-
-      this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.5, text: `+${healAmount} HP`, color: '#4ade80' });
-      this.emitZone(player.zone, 'heal_fx', { targetId: player.id, type: 'health' });
-    } else {
-      if (player.mp >= player.maxMp) return;
-      this.consumePotion(player, itemId);
-      const manaAmount = Math.round(player.maxMp * potion.pct);
-      player.mp = Math.min(player.maxMp, player.mp + manaAmount);
-
-      this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.5, text: `+${manaAmount} MP`, color: '#38bdf8' });
-      this.emitZone(player.zone, 'heal_fx', { targetId: player.id, type: 'mana' });
-    }
-    // Both sizes of a kind share one cooldown
-    const cdMs = POTION_COOLDOWN_MS[potion.kind];
-    player.potionCdUntil[potion.kind] = now + cdMs;
-    if (socket) socket.emit('potion_cooldown', { kind: potion.kind, remainingMs: cdMs, totalMs: cdMs });
-    if (socket) socket.emit('player_updated', player);
+  handleUsePotion(socketId: any, potionType: any) {
+    return this.potions.handleUsePotion(socketId, potionType);
   }
 
-  // Choose which potion the HP / MP quick slot drinks
-  handleSetPotionSlot(socketId, data) {
-    const player = this.players.get(socketId);
-    if (!player || !data) return;
-    const potion = POTIONS[data.itemId];
-    if (!potion || potion.kind !== data.kind) return;
-    this.getPotionSlots(player)[data.kind] = data.itemId;
-    const socket = this.io.sockets.sockets.get(socketId);
-    if (socket) socket.emit('player_updated', player);
+  handleSetPotionSlot(socketId: any, data: any) {
+    return this.potions.handleSetPotionSlot(socketId, data);
   }
 
-  applyStatusEffect(player, type, duration, value) {
-    if (!player || player.isDead) return;
-    if (!player.statusEffects) player.statusEffects = [];
-
-    const existing = player.statusEffects.find(e => e.type === type);
-    if (existing) {
-      existing.duration = Math.max(existing.duration, duration);
-      existing.value = Math.max(existing.value, value);
-    } else {
-      player.statusEffects.push({
-        type,
-        duration,
-        value,
-        tickTimer: 0.8
-      });
-
-      const icon = type === 'poison' ? '☠️' : type === 'burn' ? '🔥' : '❄️';
-      const color = type === 'poison' ? '#22c55e' : type === 'burn' ? '#f97316' : '#38bdf8';
-      this.emitZone(player.zone, 'floating_text', {
-        x: player.x,
-        y: player.y - 0.7,
-        text: `${icon} ${type.toUpperCase()}!`,
-        color,
-        size: 15
-      });
-    }
+  applyStatusEffect(player: Player, type: any, duration: any, value: any) {
+    return this.statusFx.applyStatusEffect(player, type, duration, value);
   }
 
-  // Add one loot entry ({ type: 'gold', amount } or { itemId, amount, customItemData })
-  // to the player's purse / inventory, with a floating pickup label.
-  giveLootToPlayer(player, entry, showText = true) {
-    const text = (label, color) => {
-      if (showText) this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 0.6, text: label, color });
-    };
-    if (entry.type === 'gold') {
-      player.gold += entry.amount;
-      text(`+${entry.amount.toLocaleString('en-US')} Gold`, '#facc15');
-    } else if (entry.itemId === 'health_potion') {
-      player.inventory.healthPotions += (entry.amount || 1);
-      text(`+${entry.amount || 1} Health Potion`, '#f87171');
-    } else if (entry.itemId === 'mana_potion') {
-      player.inventory.manaPotions += (entry.amount || 1);
-      text(`+${entry.amount || 1} Mana Potion`, '#60a5fa');
-    } else {
-      // Collectible Relic / Equipment / Consumables
-      const def = entry.customItemData || ITEMS[entry.itemId];
-      if (def) {
-        const n = entry.amount || 1;
-        const existing = player.inventory.items.find(i => i.id === def.id && !def.custom);
-        if (existing && def.type !== 'equipment') {
-          existing.count = (existing.count || 1) + n;
-        } else {
-          const maxLootCap = player.inventory.maxSlots || DEFAULT_BAG_SLOTS;
-          if (player.inventory.items.length >= maxLootCap) {
-            text('⚠️ Inventory full!', '#ef4444');
-            return;
-          }
-          player.inventory.items.push({ ...def, count: def.type === 'equipment' ? 1 : n });
-        }
-        text(`+${def.name}`, def.rarity === 'legendary' ? '#f59e0b' : def.rarity === 'epic' ? '#a855f7' : def.rarity === 'rare' ? '#38bdf8' : '#4ade80');
-      }
-    }
+  giveLootToPlayer(player: Player, entry: any, showText = true) {
+    return this.loot.giveLootToPlayer(player, entry, showText);
   }
 
-  lootEntryName(entry) {
-    if (entry.type === 'gold') return `${entry.amount.toLocaleString('en-US')} Gold`;
-    const def = entry.customItemData || ITEMS[entry.itemId];
-    const name = def ? def.name : entry.itemId;
-    return (entry.amount || 1) > 1 ? `${name} x${entry.amount}` : name;
+  lootEntryName(entry: any) {
+    return this.loot.lootEntryName(entry);
   }
 
-  lootEntryToItem(entry) {
-    if (!entry) return null;
-    if (entry.type === 'gold') {
-      return { id: 'gold', name: `${entry.amount.toLocaleString('en-US')} Gold`, count: entry.amount, type: 'gold', rarity: 'common' };
-    }
-    if (entry.itemId === 'health_potion') {
-      return { id: 'health_potion', name: 'Health Potion', count: entry.amount || 1, type: 'consumable', rarity: 'common', desc: 'Restores 60 Health instantly.' };
-    }
-    if (entry.itemId === 'mana_potion') {
-      return { id: 'mana_potion', name: 'Mana Potion', count: entry.amount || 1, type: 'consumable', rarity: 'common', desc: 'Restores 50 Mana instantly.' };
-    }
-    const def = entry.customItemData || ITEMS[entry.itemId];
-    if (def) {
-      return { ...def, count: entry.amount || 1 };
-    }
-    return { id: entry.itemId || 'unknown', name: this.lootEntryName(entry), count: entry.amount || 1, rarity: 'common' };
+  lootEntryToItem(entry: any) {
+    return this.loot.lootEntryToItem(entry);
   }
 
   emitDungeonRunUpdate(player: any, socket?: any) {
-    socket = socket || this.io.sockets.sockets.get(player.id);
-    if (!socket) return;
-    const run = player.dungeonRun;
-    const inst = this.getPlayerDungeonInstance(player);
-    socket.emit('dungeon_run_update', run ? {
-      active: true,
-      cleared: run.cleared,
-      gold: run.gold,
-      items: run.items.map(it => this.lootEntryName(it)),
-      lootItems: run.items.map(it => this.lootEntryToItem(it)),
-      startedAt: run.startedAt,
-      serverNow: Date.now(),
-      clearedMs: run.clearedAt ? run.clearedAt - run.startedAt : null,
-      floor: run.floor,
-      difficulty: run.difficulty,
-      deaths: run.deaths || 0,
-      roomsCleared: inst && inst.roomsCleared ? inst.roomsCleared.size : 0,
-      mode: inst && inst.mode ? inst.mode : 'classic',
-      mods: inst && inst.mods ? inst.mods : [],
-      modReward: inst ? (inst.modReward || 0) : 0,
-      roomsTotal: inst && inst.dungeon.rooms ? inst.dungeon.rooms.length : 0,
-      clearedRooms: inst && inst.roomsCleared ? [...inst.roomsCleared] : [], // minimap ticks
-      killPercent: inst ? (inst.killPercent || 0) : 0,
-      killedMobs: inst ? (inst.killedTrashCount || 0) : 0,
-      requiredMobs: inst ? (inst.requiredKills || 0) : 0,
-      bossPortalReady: !!(inst && inst.bossPortalReady),
-      bossPortalSpawned: !!(inst && inst.bossPortalSpawned)
-    } : { active: false });
+    return this.dungeonRun.emitDungeonRunUpdate(player, socket);
   }
 
-  // Boss defeated: everything in the loot bag is secured immediately.
-  completeDungeonRun(player) {
-    const run = player.dungeonRun;
-    if (!run || run.cleared) return;
-    run.cleared = true;
-    run.clearedAt = Date.now();
-    const secured = [];
-    const securedItems = [];
-    if (run.gold > 0) {
-      this.giveLootToPlayer(player, { type: 'gold', amount: run.gold }, false);
-      secured.push(`${run.gold.toLocaleString('en-US')} Gold`);
-      securedItems.push({ id: 'gold', name: `${run.gold.toLocaleString('en-US')} Gold`, count: run.gold, type: 'gold', rarity: 'common' });
-    }
-    run.items.forEach(it => {
-      this.giveLootToPlayer(player, it, false);
-      secured.push(this.lootEntryName(it));
-      securedItems.push(this.lootEntryToItem(it));
-    });
-    const chestGold = run.gold;
-    run.gold = 0;
-    run.items = [];
-
-    // Grade the clear: deaths and running over par time cost points
-    const inst = this.getPlayerDungeonInstance(player);
-    const roomsTotal = inst && inst.dungeon.rooms ? inst.dungeon.rooms.length : 0;
-    const timeMs = Date.now() - (run.startedAt || Date.now());
-    const parSec = RUN_PAR_BASE_SEC + roomsTotal * RUN_PAR_PER_ROOM_SEC;
-    const overPar = Math.max(0, timeMs / 1000 - parSec) / parSec;
-    const score = 100 - (run.deaths || 0) * 12 - Math.min(40, overPar * 40);
-    const rank = score >= 90 ? 'S' : score >= 75 ? 'A' : score >= 55 ? 'B' : 'C';
-    const mult = RUN_RANK_MULT[rank];
-    const bonusGold = Math.round(run.floor * 120 * mult);
-    const bonusExp = Math.round(baseExpCurve(player.level || 1) * 0.06 * mult);
-    const runExp = run.exp || 0;
-    player.gold += bonusGold;
-    this.awardExp(player, bonusExp);
-
-    const floorConfig: any = DUNGEON_FLOORS[run.floor - 1] || {};
-    const socket = this.io.sockets.sockets.get(player.id);
-    if (socket) {
-      socket.emit('player_updated', player);
-      socket.emit('dungeon_result', {
-        success: true, kept: secured, keptItems: securedItems, lost: [], lostItems: [],
-        rank, timeMs, deaths: run.deaths || 0, kills: run.kills || 0,
-        floor: run.floor, difficulty: run.difficulty, floorName: floorConfig.name, bossName: floorConfig.bossName,
-        roomsTotal, roomsCleared: inst && inst.roomsCleared ? inst.roomsCleared.size : roomsTotal,
-        rewards: { chestGold, bonusGold, runExp, bonusExp }
-      });
-    }
-    this.emitDungeonRunUpdate(player, socket);
+  completeDungeonRun(player: Player) {
+    return this.dungeonRun.completeDungeonRun(player);
   }
 
-  // Leaving the dungeon. Without a boss kill the run counts as failed and only
-  // FAILED_RUN_LOOT_KEEP of the escrowed chest loot is kept.
-  endDungeonRun(player, socket) {
-    const run = player.dungeonRun;
-    player.dungeonRun = null;
-    socket = socket || this.io.sockets.sockets.get(player.id);
-    if (!run) return;
-    if (run.cleared) {
-      this.emitDungeonRunUpdate(player, socket);
-      return;
-    }
-
-    const kept = [];
-    const lost = [];
-    const keptItems = [];
-    const lostItems = [];
-    const keptGold = Math.floor(run.gold * FAILED_RUN_LOOT_KEEP);
-    if (keptGold > 0) {
-      this.giveLootToPlayer(player, { type: 'gold', amount: keptGold }, false);
-      kept.push(`${keptGold.toLocaleString('en-US')} Gold`);
-      keptItems.push({ id: 'gold', name: `${keptGold.toLocaleString('en-US')} Gold`, count: keptGold, type: 'gold', rarity: 'common' });
-    }
-    if (run.gold - keptGold > 0) {
-      const lostGold = run.gold - keptGold;
-      lost.push(`${lostGold.toLocaleString('en-US')} Gold`);
-      lostItems.push({ id: 'gold', name: `${lostGold.toLocaleString('en-US')} Gold`, count: lostGold, type: 'gold', rarity: 'common' });
-    }
-
-    const shuffled = [...run.items].sort(() => Math.random() - 0.5);
-    const keepCount = Math.floor(shuffled.length * FAILED_RUN_LOOT_KEEP);
-    shuffled.forEach((it, i) => {
-      const itemObj = this.lootEntryToItem(it);
-      if (i < keepCount) {
-        this.giveLootToPlayer(player, it, false);
-        kept.push(this.lootEntryName(it));
-        if (itemObj) keptItems.push(itemObj);
-      } else {
-        lost.push(this.lootEntryName(it));
-        if (itemObj) lostItems.push(itemObj);
-      }
-    });
-
-    if (socket) {
-      socket.emit('player_updated', player);
-      socket.emit('dungeon_result', { success: false, kept, lost, keptItems, lostItems });
-    }
-    this.broadcastSystemMessage(`💀 [${player.name}] failed the dungeon run on B${run.floor}.`);
-    this.emitDungeonRunUpdate(player, socket);
+  endDungeonRun(player: Player, socket: any) {
+    return this.dungeonRun.endDungeonRun(player, socket);
   }
 
-  handlePickupItem(socketId, itemId) {
-    const player = this.players.get(socketId);
-    if (!player || player.isDead) return;
-
-    const itemsMap = this.getGroundItemsMap(player.zone);
-    const item = itemsMap.get(itemId);
-    if (!item) return;
-
-    const dist = Math.hypot(item.x - player.x, item.y - player.y);
-    if (dist <= 2.2) {
-      this.giveLootToPlayer(player, item);
-
-      itemsMap.delete(itemId);
-      this.emitZone(player.zone, 'item_picked', { itemId, pickerId: player.id });
-
-      const socket = this.io.sockets.sockets.get(socketId);
-      if (socket) socket.emit('player_updated', player);
-    }
+  handlePickupItem(socketId: any, itemId: any) {
+    return this.inventory.handlePickupItem(socketId, itemId);
   }
 
-  handleChatMessage(socketId, message) {
+  handleChatMessage(socketId: any, message: any) {
     const player = this.players.get(socketId);
     if (!player) return;
 
@@ -7311,752 +1392,65 @@ class GameServer {
     });
   }
 
-  spawnProjectile(caster, targetX, targetY, targetId, targetType, damage, opts: any = {}) {
-    const element = (caster.equipment && caster.equipment.weapon && caster.equipment.weapon.element) || 'neutral';
-    const id = `proj_${this.nextEntityId++}`;
-    let dx = (targetX !== undefined ? targetX : caster.x) - caster.x;
-    let dy = (targetY !== undefined ? targetY : caster.y) - caster.y;
-    let angle = Math.atan2(dy, dx);
-    if (Math.hypot(dx, dy) < 0.001) {
-      const facingAngles = { E: 0, SE: Math.PI / 4, S: Math.PI / 2, SW: 3 * Math.PI / 4, W: Math.PI, NW: -3 * Math.PI / 4, N: -Math.PI / 2, NE: -Math.PI / 4 };
-      angle = facingAngles[caster.facing] !== undefined ? facingAngles[caster.facing] : 0;
-    }
-    const speed = 9.0;
-    // a transformed mage throws its card's own bolt (drawn per card on the client)
-    const cardId = caster.spTransformed && caster.equipment && caster.equipment.sp ? caster.equipment.sp.cardId : null;
-
-    this.projectiles.set(id, {
-      cardId,
-      instanceId: caster.zone === 'dungeon' ? (caster.dungeonInstanceId || null) : null,
-      id,
-      zone: caster.zone,
-      casterId: caster.id,
-      x: caster.x,
-      y: caster.y,
-      targetX,
-      targetY,
-      targetId,
-      targetType,
-      vx: Math.cos(angle) * speed,
-      vy: Math.sin(angle) * speed,
-      damage,
-      splash: opts.splash || 0,
-      crit: !!opts.crit,
-      element,
-      life: 2.0,
-      color: '#f97316'
-    });
-
-    this.emitZone(caster.zone, 'projectile_spawned', {
-      id,
-      zone: caster.zone,
-      x: caster.x,
-      y: caster.y,
-      vx: Math.cos(angle) * speed,
-      vy: Math.sin(angle) * speed,
-      casterId: caster.id,
-      element,
-      cardId,
-      splash: opts.splash || 0,
-      color: '#f97316'
-    });
+  spawnProjectile(caster: Player, targetX: any, targetY: any, targetId: any, targetType: any, damage: any, opts: any = {}) {
+    return this.combat.spawnProjectile(caster, targetX, targetY, targetId, targetType, damage, opts);
   }
 
-  // Area burst around a projectile's impact (mage basic attack)
-  applyProjectileSplash(caster, proj, primary, mobsMap) {
-    const splashDmg = Math.max(1, Math.round(proj.damage * proj.splash));
-    for (const other of mobsMap.values()) {
-      if (other === primary || other.state === 'dead') continue;
-      if (Math.hypot(other.x - primary.x, other.y - primary.y) > MAGE_SPLASH_RADIUS) continue;
-      this.applyDamageToMob(caster, other, splashDmg, false);
-    }
+  applyProjectileSplash(caster: Player, proj: any, primary: Mob, mobsMap: any) {
+    return this.combat.applyProjectileSplash(caster, proj, primary, mobsMap);
   }
 
-  // isEcho: a Void Echo repeat hit, which must not trigger talent procs again
-  applyDamageToMob(player, mob, baseDamage, isCritical = false, isEcho = false) {
-    if (mob.spawnUntil && Date.now() < mob.spawnUntil) return; // still rising: untouchable
-    const variation = (Math.random() * 0.4) - 0.2;
-    let rawDamage = Math.round(baseDamage * (1 + variation));
-
-    // Weapon Element vs Monster Element / Resist
-    const spEl = player && player.spTransformed && player.equipment && player.equipment.sp && SP.CARD_BY_ID[player.equipment.sp.cardId];
-    const atkElement = spEl ? spEl.element
-      : (player && player.equipment && player.equipment.weapon && player.equipment.weapon.element)
-        ? player.equipment.weapon.element
-        : 'neutral';
-    const mobElement = mob.element || 'neutral';
-    const mobResists = mob.elementResist || {};
-    const elemMult = calculateElementalMultiplier(atkElement, mobElement, mobResists);
-    rawDamage = Math.max(1, Math.round(rawDamage * elemMult));
-
-    // Elemental Rune Weapon Empowerment
-    const runeCounts = this.getWeaponRuneCounts(player);
-    if (runeCounts.flame > 0) {
-      rawDamage = Math.round(rawDamage * (1 + 0.25 * runeCounts.flame));
-      mob.burnTimer = Math.max(mob.burnTimer || 0, 4.0);
-      mob.burnDmg = Math.max(mob.burnDmg || 0, Math.round(rawDamage * 0.15));
-    }
-    if (runeCounts.tempest > 0) {
-      rawDamage = Math.round(rawDamage * (1 + 0.10 * runeCounts.tempest));
-    }
-
-    // Bannerman: fighting inside your own War Standard
-    const banner = player && this.ownBanner(player);
-    if (banner && Math.hypot(player.x - banner.x, player.y - banner.y) <= banner.r) rawDamage = Math.round(rawDamage * (1 + banner.bonus));
-
-    // Cryomancer Frostbite: chilled enemies take extra damage
-    const procs = player && player.talentProcs;
-    if (procs && procs.shatterBonus && mob.chillTimer > 0) {
-      rawDamage = Math.round(rawDamage * (1 + procs.shatterBonus));
-    }
-    // Armor sets: Emberheart (vs burning), Eclipse Dusk
-    if (player && (player.set2 || player.set4)) rawDamage = Math.round(rawDamage * this.setDamageMult(player, mob));
-    // SP card passive: bonus vs statuses, executes, openers, fighting wounded
-    if (player && player.spTransformed) rawDamage = Math.round(rawDamage * this.passiveDamageMult(player, mob));
-
-    // Level Gap Mitigation & Deflection
-    let isGlancing = false;
-    let isDeflected = false;
-    // (Eternal Rift monsters outlevel the party on purpose: their stats carry the challenge)
-    if (player && mob.level && player.level && !mob.noLevelGap) {
-      const levelGap = mob.level - player.level;
-      if (levelGap >= 20) {
-        // Enormous level gap: attacks deflect completely!
-        isDeflected = true;
-        isCritical = false;
-      } else if (levelGap > 3) {
-        // High level gap: glancing blows and steep defense penalty
-        isGlancing = true;
-        const penaltyMult = Math.pow(0.85, levelGap - 3);
-        rawDamage = Math.max(1, Math.round(rawDamage * penaltyMult));
-        if (levelGap >= 8) {
-          isCritical = false; // Cannot score critical hits on foes 8+ levels higher
-        }
-      }
-    }
-
-    if (isCritical) {
-      const critMultiplier = 1.5 + (player && player.critDmgBonus ? player.critDmgBonus : 0);
-      rawDamage = Math.round(rawDamage * critMultiplier);
-    }
-
-    // Mob defense removes a share of every hit (see MOB_DEF_K)
-    const mobDef = (mob.def || 0) + (mob.hasCommanderBuff ? 8 : 0);
-    let damage = isDeflected ? 1 : Math.max(1, Math.round(rawDamage * MOB_DEF_K / (MOB_DEF_K + mobDef)));
-
-    // Fortified affix absorbs 30% damage
-    if (mob.buffs && mob.buffs.includes('fortified')) {
-      damage = Math.max(1, Math.round(damage * 0.7));
-    }
-
-    // Shielded Elites (dungeon modifier): the shield soaks hits before HP
-    if (mob.shield > 0 && !isDeflected) {
-      const soak = Math.min(mob.shield, damage);
-      mob.shield -= soak;
-      damage -= soak;
-      if (mob.shield <= 0) {
-        this.emitZone((player && player.zone) || mob.fieldZone, 'floating_text', { x: mob.x, y: mob.y - 1.0, text: '🛡️ SHIELD BROKEN!', color: '#93c5fd', size: 16 },
-          player && player.zone === 'dungeon' ? player.dungeonInstanceId : null);
-      }
-    }
-    mob.hp -= damage;
-    // Duskblade Doom brand soaks up what its owner deals (replayed when it ends)
-    if (player && mob.doom && mob.doom.owner === player.id && mob.doom.until > Date.now()) mob.doom.stored += damage;
-    mob.state = 'chase';
-    mob.targetPlayerId = player ? player.id : null;
-    if (player) mob.lastHitBy = player.id; // burn / poison kills are credited to them
-
-    if (runeCounts.frost > 0) {
-      mob.chillTimer = Math.max(mob.chillTimer || 0, 3.5);
-      mob.chillSlow = 0.40;
-      if (Math.random() < Math.min(0.75, 0.25 * runeCounts.frost)) {
-        mob.freezeTimer = Math.max(mob.freezeTimer || 0, mob.isBoss ? BOSS_FREEZE_SECONDS : FREEZE_SECONDS);
-        this.emitZone((player && player.zone) || mob.fieldZone, 'floating_text', {
-          x: mob.x,
-          y: mob.y - 0.7,
-          text: '❄️ FROZEN!',
-          color: '#38bdf8',
-          size: 16
-        });
-      }
-    }
-    if (runeCounts.vampiric > 0 && damage > 0 && !isDeflected) {
-      const vLeech = Math.round(damage * 0.25 * runeCounts.vampiric);
-      player.hp = Math.min(player.maxHp, player.hp + vLeech);
-      const now = Date.now();
-      if (!player._lastRuneLeechText || now - player._lastRuneLeechText > 250) {
-        player._lastRuneLeechText = now;
-        this.emitZone((player && player.zone) || mob.fieldZone, 'floating_text', {
-          x: player.x,
-          y: player.y - 0.5,
-          text: `+${vLeech} HP (Vampiric Rune)`,
-          color: '#a855f7',
-          size: 14
-        });
-      }
-    }
-
-    // Field raid boss: feed the live leaderboard (actual damage dealt)
-    if (mob.isRaidBoss && player) {
-      this.recordRaidDamage(mob.fieldZone || player.zone, player.id, damage);
-    }
-
-    // Apply Talent Life Steal (balanced with per-hit cap and throttled floating text)
-    if (player && player.lifeSteal && player.lifeSteal > 0 && damage > 0 && !isDeflected) {
-      const maxLeech = Math.max(2, Math.round(player.maxHp * 0.04));
-      const leech = Math.min(maxLeech, Math.max(1, Math.round(damage * player.lifeSteal)));
-      player.hp = Math.min(player.maxHp, player.hp + leech);
-      const now = Date.now();
-      if (!player._lastLeechText || now - player._lastLeechText > 250) {
-        player._lastLeechText = now;
-        this.emitZone((player && player.zone) || mob.fieldZone, 'floating_text', {
-          x: player.x,
-          y: player.y - 0.5,
-          text: `+${leech} HP (Leech)`,
-          color: '#c084fc',
-          size: 13
-        });
-      }
-    }
-
-    let text = `${damage}`;
-    let textColor = '#ffea00'; // Iconic Ragnarok Online yellow damage text
-    let textSize = 17;
-
-    // Plain numbers: colour and size show weak / resisted / glancing hits
-    if (elemMult >= 1.25) {
-      textColor = '#f59e0b';
-      textSize = 20;
-    } else if (elemMult <= 0.75) {
-      textColor = '#94a3b8';
-      textSize = 15;
-    }
-
-    if (isDeflected) {
-      text = 'MISS';
-      textColor = '#94a3b8';
-      textSize = 15;
-    } else if (isCritical) {
-      text = `${damage}`;
-      textColor = '#ff3366';
-      textSize = 24;
-    } else if (isGlancing) {
-      text = `${damage}`;
-      textColor = '#fb923c';
-      textSize = 15;
-    }
-    if (isEcho && !isDeflected) {
-      text = `✦ ${damage}`;
-      textColor = '#c084fc';
-    }
-
-    const instId = player && player.zone === 'dungeon' ? player.dungeonInstanceId : null;
-    this.emitZone((player && player.zone) || mob.fieldZone, 'floating_text', {
-      x: mob.x,
-      y: mob.y - 0.7,
-      text,
-      color: textColor,
-      size: textSize,
-      crit: !!isCritical
-    }, instId);
-
-    if (player && player.set4 && !isDeflected) this.applySetOnHit(player, mob, damage);
-
-    if (player && player.spTransformed && !isEcho && !isDeflected && damage > 0) this.gainUltCharge(player, ULT_GAIN_HIT);
-    if (mob.hp <= 0) {
-      this.handleMobDeath(mob, player);
-    } else if (player && !isDeflected && !isEcho) {
-      this.applyTalentProcs(player, mob, baseDamage, damage);
-      if (player.spTransformed) this.passiveOnHit(player, mob, damage);
-    }
+  applyDamageToMob(player: Player, mob: Mob, baseDamage: any, isCritical = false, isEcho = false) {
+    return this.combat.applyDamageToMob(player, mob, baseDamage, isCritical, isEcho);
   }
 
-  // Talent branch mechanics (talents.js BRANCH_SIGNATURES), run on every hit
-  // that lands and leaves the enemy alive
-  applyTalentProcs(player, mob, baseDamage, damage) {
-    const tp = player.talentProcs;
-    if (!tp) return;
-    if (tp.manaLeech) {
-      player.mp = Math.min(player.maxMp, player.mp + Math.max(1, Math.round(damage * tp.manaLeech)));
-    }
-    if (tp.burnPower) {
-      mob.burnTimer = Math.max(mob.burnTimer || 0, TALENT_PROCS.burnSeconds);
-      mob.burnDmg = Math.max(mob.burnDmg || 0, Math.round(player.dmg * tp.burnPower));
-    }
-    if (tp.poisonPower) {
-      const stacks = Math.min(TALENT_PROCS.poisonMaxStacks, (mob.poisonTimer > 0 ? mob.poisonStacks || 0 : 0) + 1);
-      mob.poisonStacks = stacks;
-      mob.poisonTimer = Math.max(mob.poisonTimer || 0, TALENT_PROCS.poisonSeconds);
-      mob.poisonDmg = Math.max(mob.poisonDmg || 0, Math.round(player.dmg * tp.poisonPower * stacks));
-    }
-    if (tp.chillChance && Math.random() < tp.chillChance) {
-      mob.chillTimer = Math.max(mob.chillTimer || 0, TALENT_PROCS.chillSeconds);
-    }
-    if (tp.echoChance && Math.random() < tp.echoChance) {
-      this.applyDamageToMob(player, mob, Math.max(1, Math.round(baseDamage * TALENT_PROCS.echoShare)), false, true);
-    }
+  applyTalentProcs(player: Player, mob: Mob, baseDamage: any, damage: any) {
+    return this.statusFx.applyTalentProcs(player, mob, baseDamage, damage);
   }
 
-  // ---- Gravelord: corpses and undead minions ----
-  corpseKey(zone, instId) { return zone === 'dungeon' ? 'dungeon:' + (instId || '') : zone; }
-  addCorpse(mob, zone, instId) {
-    if (!this.corpses) this.corpses = new Map();
-    const key = this.corpseKey(zone, instId);
-    const now = Date.now();
-    const list = (this.corpses.get(key) || []).filter(c => now - c.at < GRAVE_CORPSE_MS);
-    list.push({ x: mob.x, y: mob.y, type: mob.type, hue: mob.hue || 0, scale: mob.scale || 1, name: mob.name, at: now });
-    while (list.length > GRAVE_CORPSE_MAX) list.shift();
-    this.corpses.set(key, list);
+  corpseKey(zone: any, instId: any) {
+    return this.minions.corpseKey(zone, instId);
   }
-  // corpses within r of (x, y), nearest first (up to n), taken off the ground
-  takeCorpses(zone, instId, x, y, r, n) {
-    if (!this.corpses) return [];
-    const key = this.corpseKey(zone, instId);
-    const now = Date.now();
-    const list = (this.corpses.get(key) || []).filter(c => now - c.at < GRAVE_CORPSE_MS);
-    const picks = list.filter(c => Math.hypot(c.x - x, c.y - y) <= r)
-      .sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y)).slice(0, n);
-    this.corpses.set(key, list.filter(c => !picks.includes(c)));
-    return picks;
+  addCorpse(mob: Mob, zone: any, instId: any) {
+    return this.minions.addCorpse(mob, zone, instId);
   }
-  raiseMinion(player, corpse, skill) {
-    const now = Date.now();
-    const lvl = skill.dmg ? (skill.dmgMult || skill.dmg) / skill.dmg : 1;
-    player.minions = (player.minions || []).filter(m => m.until > now);
-    while (player.minions.length >= MINION_MAX) this.crumbleMinion(player, player.minions.shift());
-    player.minions.push({
-      id: 'minion_' + (++minionSeq), type: corpse.type, hue: corpse.hue || 0, scale: Math.min(1.15, (corpse.scale || 1) * 0.95),
-      name: corpse.thrall ? 'Grave Thrall' : `Risen ${corpse.name || 'Dead'}`,
-      x: corpse.x, y: corpse.y, facing: 'S', born: now, until: now + skill.dur * 1000, dur: skill.dur * 1000,
-      mult: skill.minion * lvl, nextAtk: now + 500, atkAt: 0, targetId: null,
-      zone: player.zone, instanceId: player.dungeonInstanceId || null
-    });
+  takeCorpses(zone: any, instId: any, x: any, y: any, r: any, n: any) {
+    return this.minions.takeCorpses(zone, instId, x, y, r, n);
   }
-  crumbleMinion(player, m) {
-    if (!m) return;
-    this.emitZone(m.zone, 'skill_fx', { type: 'sp_skill', shape: 'crumble', element: 'earth', color: '#4ade80', cardId: 'sp_gravelord', skillId: 'sp_gravelord_raise', x: m.x, y: m.y, duration: 0.7 }, m.instanceId);
+  raiseMinion(player: Player, corpse: any, skill: any) {
+    return this.minions.raiseMinion(player, corpse, skill);
   }
-  dismissMinions(player) {
-    for (const m of player.minions || []) this.crumbleMinion(player, m);
-    player.minions = [];
+  crumbleMinion(player: Player, m: any) {
+    return this.minions.crumbleMinion(player, m);
   }
-  // each tick: walk to the nearest enemy and strike it, or follow the lord
-  tickMinions(player, dt) {
-    const now = Date.now();
-    const zone = player.zone, inst = player.dungeonInstanceId || null;
-    const keep = [];
-    for (const m of player.minions) {
-      if (now >= m.until || m.zone !== zone || m.instanceId !== inst) this.crumbleMinion(player, m);
-      else keep.push(m);
-    }
-    player.minions = keep;
-    if (!keep.length) return;
-    const mobs = ([...this.getMobsMap(zone).values()] as any[]).filter(o => o.state !== 'dead' && o.hp > 0 && !o.isDummy);
-    const rage = player.minionRage && player.minionRage.until > now ? player.minionRage : null;
-    const step = (m, tx, ty, speed) => {
-      const d = Math.hypot(tx - m.x, ty - m.y);
-      if (d < 0.05) return;
-      const k = Math.min(1, (speed * dt) / d);
-      const nx = m.x + (tx - m.x) * k, ny = m.y + (ty - m.y) * k;
-      if (!this.isColliding(nx, ny, zone)) { m.x = nx; m.y = ny; }
-      else if (!this.isColliding(nx, m.y, zone)) m.x = nx;
-      else if (!this.isColliding(m.x, ny, zone)) m.y = ny;
-      m.facing = this.calculateFacing(m.x, m.y, tx, ty);
-    };
-    keep.forEach((m, i) => {
-      let tgt = m.targetId ? mobs.find(o => o.id === m.targetId) : null;
-      if (tgt && (Math.hypot(tgt.x - player.x, tgt.y - player.y) > MINION_LEASH)) tgt = null;
-      if (!tgt) {
-        let best = null, bestD = MINION_AGGRO;
-        for (const o of mobs) {
-          if (Math.hypot(o.x - player.x, o.y - player.y) > MINION_LEASH) continue;
-          const d = Math.hypot(o.x - m.x, o.y - m.y);
-          if (d < bestD) { best = o; bestD = d; }
-        }
-        tgt = best;
-        m.targetId = tgt ? tgt.id : null;
-      }
-      if (tgt) {
-        const d = Math.hypot(tgt.x - m.x, tgt.y - m.y);
-        if (d > MINION_REACH) step(m, tgt.x, tgt.y, MINION_SPEED * (rage ? 1.25 : 1));
-        else {
-          m.facing = this.calculateFacing(m.x, m.y, tgt.x, tgt.y);
-          if (now >= m.nextAtk) {
-            // Grave Frenzy: harder, faster, and now and then a crit
-            m.nextAtk = now + (MINION_ATTACK_EVERY / (rage ? 1 + rage.aspd : 1)) * 1000;
-            m.atkAt = now;
-            let dmg = player.dmg * m.mult * (rage ? 1 + rage.dmg : 1);
-            const crit = !!rage && Math.random() < rage.crit;
-            if (crit) dmg *= rage.critMult;
-            this.applyDamageToMob(player, tgt, Math.max(1, Math.round(dmg)), crit, true);
-          }
-        }
-      } else {
-        // no prey: fall in behind the lord, spread round him
-        const a = (i / keep.length) * Math.PI * 2 + 0.6;
-        const fx = player.x + Math.cos(a) * 1.6, fy = player.y + Math.sin(a) * 1.6;
-        if (Math.hypot(fx - m.x, fy - m.y) > 0.6) step(m, fx, fy, MINION_SPEED * (Math.hypot(player.x - m.x, player.y - m.y) > 5 ? 1.6 : 1));
-      }
-    });
+  dismissMinions(player: Player) {
+    return this.minions.dismissMinions(player);
+  }
+  tickMinions(player: Player, dt: any) {
+    return this.minions.tickMinions(player, dt);
   }
 
-  // Dungeon progress toward the boss portal: a weighted kill count (dungeonProgressWeight)
-  countDungeonProgress(mob, instId, killerPlayer) {
-    const inst = instId ? this.dungeonInstances.get(instId) : null;
-    if (!inst || inst.cleared || mob.progressCounted || mob.isBoss || mob.roomIdx === undefined || mob.roomIdx === inst.bossRoomIdx) return;
-    mob.progressCounted = true;
-    inst.killedTrashCount = (inst.killedTrashCount || 0) + dungeonProgressWeight(mob);
-    const req = Math.max(1, inst.requiredKills || 1);
-    inst.killPercent = Math.min(100, Math.floor((inst.killedTrashCount / req) * 100));
-
-    if (inst.killPercent >= 100 && !inst.bossPortalReady) {
-      inst.bossPortalReady = true;
-      this.emitZone('dungeon', 'floating_text', {
-        x: killerPlayer ? killerPlayer.x : mob.x,
-        y: (killerPlayer ? killerPlayer.y : mob.y) - 1.2,
-        text: '🌀 BOSS PORTAL READY (100%)!',
-        color: '#c084fc',
-        size: 24
-      }, instId);
-    }
-    for (const p of this.players.values()) {
-      if (p.zone === 'dungeon' && p.dungeonInstanceId === instId) this.emitDungeonRunUpdate(p);
-    }
+  countDungeonProgress(mob: Mob, instId: any, killerPlayer: Player) {
+    return this.dungeonRun.countDungeonProgress(mob, instId, killerPlayer);
   }
 
-  handleMobDeath(mob, killerPlayer) {
-    if (killerPlayer && killerPlayer.spTransformed) this.passiveOnKill(killerPlayer, mob);
-    // Field raid bosses are paid out by participation rank, not ground loot:
-    // give everyone their bounty, broadcast the kill, and let the schedule reset.
-    if (mob.isRaidBoss) {
-      this.onRaidBossDeath(mob, killerPlayer);
-      return;
-    }
-    mob.state = 'dead';
-    mob.hp = 0;
-    const isDungeon = (mob.zone === 'dungeon') || (mob.id && mob.id.startsWith('dungeon_')) || (killerPlayer && killerPlayer.zone === 'dungeon');
-    mob.respawnTimer = isDungeon ? Infinity : (mob.isBoss ? 25.0 : 10.0);
-
-    const zone = killerPlayer ? killerPlayer.zone : (mob.fieldZone || (mob.id.startsWith('frost_') ? 'frostfell' : 'town'));
-    const isBoss = !!mob.isBoss;
-    const isMiniboss = !!mob.isMiniboss;
-    const instId = (killerPlayer && killerPlayer.zone === 'dungeon' ? killerPlayer.dungeonInstanceId : null) || (mob && (mob as any).dungeonInstanceId) || (this as any).ctxInstanceId || null;
-    if (mob.mechanics) this.bossMech.onDeath(mob, mob.fieldZone || (instId ? 'dungeon' : zone), instId);
-    // every monster of the run counts toward the boss portal, whatever killed it (burns, poison, blasts...)
-    this.countDungeonProgress(mob, instId, killerPlayer);
-    // its body lies where it fell for a while: the Gravelord can raise it
-    if (!isBoss) this.addCorpse(mob, zone, instId);
-    // Item drops fade out when the killer is far above the monster's level
-    // (gold still drops); `lucky` scales every item roll below
-    const lootMult = killerPlayer ? lootGapMult(killerPlayer.level, mob.level) : 1;
-    const lucky = chance => Math.random() < chance * lootMult;
-
-    if (killerPlayer) {
-      // Venom Lord Epidemic Spread on Kill
-      if ((mob.poisonStacks && mob.poisonStacks > 0) || (mob.poisonTimer && mob.poisonTimer > 0)) {
-        const stacks = mob.poisonStacks || 2;
-        const mobsMap = this.getMobsMap(zone);
-        let spreadCount = 0;
-        for (const nearby of mobsMap.values()) {
-          if (nearby === mob || nearby.state === 'dead') continue;
-          if (Math.hypot(nearby.x - mob.x, nearby.y - mob.y) <= 4.2) {
-            nearby.poisonStacks = Math.min(10, (nearby.poisonStacks || 0) + stacks);
-            nearby.poisonTimer = Math.max(nearby.poisonTimer || 0, 7.0);
-            nearby.poisonDmg = Math.max(nearby.poisonDmg || 0, Math.round((killerPlayer.dmg || 30) * 0.12 * nearby.poisonStacks));
-            spreadCount++;
-          }
-        }
-        if (spreadCount > 0) {
-          this.emitZone(zone, 'floating_text', { x: mob.x, y: mob.y - 0.7, text: `☣️ EPIDEMIC (${spreadCount})`, color: '#4ade80' });
-        }
-      }
-
-      // Nightblade Shadow Mark Dash Reset on Kill
-      if (mob.shadowMarkTimer > 0) {
-        if (killerPlayer.skillCooldowns && killerPlayer.skillCooldowns.dash > 0) {
-          killerPlayer.skillCooldowns.dash = 0;
-          const kSocket = this.io.sockets.sockets.get(killerPlayer.id);
-          if (kSocket) kSocket.emit('player_updated', killerPlayer);
-          this.emitZone(zone, 'floating_text', { x: killerPlayer.x, y: killerPlayer.y - 0.7, text: `🗡️ SHADOW RESET!`, color: '#a855f7' });
-        }
-      }
-
-      killerPlayer.inventory.kills++;
-      if (killerPlayer.dungeonRun) killerPlayer.dungeonRun.kills = (killerPlayer.dungeonRun.kills || 0) + 1;
-
-      // full EXP near your level, much less for monsters far below you; party
-      // members nearby on the same map split it (see partyExpSharers)
-      const sharers = this.partyExpSharers(killerPlayer);
-      const share = mob.exp * (1 + PARTY_EXP_BONUS * (sharers.length - 1)) / sharers.length;
-      for (const member of sharers) {
-        const memberExp = Math.max(1, Math.round(share * levelGapMult(member.level, mob.level)));
-        this.awardExp(member, memberExp);
-        this.awardJobExp(member, memberExp);
-        if (member !== killerPlayer) {
-          const mSocket = this.io.sockets.sockets.get(member.id);
-          if (mSocket) mSocket.emit('player_updated', member);
-        }
-      }
-
-      // Passive on-kill effects: restore a share of max HP / MP (summed over the tree in recalc)
-      const tk = killerPlayer.talentKill;
-      if (tk && tk.hp > 0 && killerPlayer.hp < killerPlayer.maxHp) {
-        const heal = Math.round(killerPlayer.maxHp * tk.hp);
-        killerPlayer.hp = Math.min(killerPlayer.maxHp, killerPlayer.hp + heal);
-        if (heal > 0) this.emitZone(zone, 'floating_text', { x: killerPlayer.x, y: killerPlayer.y - 0.5, text: `+${heal} HP`, color: '#4ade80' });
-      }
-      if (tk && tk.mp > 0 && killerPlayer.mp < killerPlayer.maxMp) {
-        const mana = Math.round(killerPlayer.maxMp * tk.mp);
-        killerPlayer.mp = Math.min(killerPlayer.maxMp, killerPlayer.mp + mana);
-        if (mana > 0) this.emitZone(zone, 'floating_text', { x: killerPlayer.x, y: killerPlayer.y - 0.5, text: `+${mana} MP`, color: '#38bdf8' });
-      }
-
-      if (mob.riftMob) {
-        // Rift kills pay Rift Points only; the wave logic handles the rest
-      } else if (mob.isBoss) {
-        this.broadcastSystemMessage(`👑 Legendary Conquest! [${killerPlayer.name}] vanquished [${mob.name}]!`);
-        const bossInst = this.getPlayerDungeonInstance(killerPlayer);
-        if (bossInst) this.rollBossSpLoot(bossInst, mob.level);
-        if (killerPlayer.zone === 'dungeon') {
-          this.broadcastSystemMessage(`🎉 The Dungeon Boss fell! A portal to deeper dungeon depths has unlocked.`);
-          for (const p of this.players.values()) {
-            if (p.zone === 'dungeon' && p.dungeonInstanceId === killerPlayer.dungeonInstanceId && p.dungeonRun && !p.dungeonRun.cleared) {
-              this.completeDungeonRun(p);
-            }
-          }
-        }
-      } else if (mob.isMiniboss) {
-        this.broadcastSystemMessage(`⚔️ Miniboss Slain! [${killerPlayer.name}] vanquished [${mob.name}]!`);
-        this.spawnGroundItem(zone, 'item', 'spirit_fragment', mob.x, mob.y, 1, null, instId);
-        if (lucky(0.40)) {
-          const cls = killerPlayer && killerPlayer.characterClass;
-          let gear = generateRandomizedGear(pickGearForLevel(mob.level || 1, { boss: false, cls }), mob.level || 1, false);
-          const reforge = rollSkyblockReforge(gear);
-          if (reforge) gear = applySkyblockReforge(gear, reforge);
-          this.spawnGroundItem(zone, 'item', gear.id, mob.x + (Math.random() - 0.5) * 1.0, mob.y + (Math.random() - 0.5) * 1.0, 1, gear, instId);
-          this.broadcastSystemMessage(`💎 Miniboss Bounty! [${mob.name}] dropped [${gear.name}]!`);
-        }
-      }
-    }
-
-    // Eternal Rift monsters drop nothing: they pay Rift Points to whoever slew them
-    if (mob.riftMob) {
-      const riftInst = this.dungeonInstances.get(mob.riftInstanceId);
-      if (riftInst && riftInst.rift) this.onRiftMobDeath(riftInst, mob, killerPlayer);
-      this.emitZone('dungeon', 'mob_died', { mobId: mob.id, killerId: killerPlayer ? killerPlayer.id : null }, mob.riftInstanceId);
-      return;
-    }
-
-    // Spirit fragments from elite (commander) monsters and, rarely, any dungeon monster
-    if (!isBoss && !isMiniboss && zone === 'dungeon' && lucky(mob.isCommander ? SP.FRAGMENT_DROP.commander : SP.FRAGMENT_DROP.mob)) {
-      this.spawnGroundItem(zone, 'item', 'spirit_fragment', mob.x, mob.y, 1, null, instId);
-    }
-
-    // Drop Gold: Reduced drop rate (45% for trash mobs, 100% for bosses/minibosses/commanders) and rebalanced amount
-    const shouldDropGold = isBoss || isMiniboss || mob.isCommander || Math.random() < 0.45;
-    if (shouldDropGold && mob.gold > 0) {
-      const goldScale = isBoss ? 0.7 : isMiniboss ? 0.6 : 0.45;
-      const goldDrop = Math.max(1, Math.round(mob.gold * goldScale * (0.8 + Math.random() * 0.4)));
-      this.spawnGroundItem(zone, 'gold', 'Gold Coins', mob.x + (Math.random() - 0.5) * 0.5, mob.y + (Math.random() - 0.5) * 0.5, goldDrop, null, instId);
-    }
-
-    if (isBoss) {
-      // Boss gear is high quality with a rolled reforge ("ออฟสวยๆ"), but kept rare:
-      // 35% for one piece, 6% for a second.
-      const equipCount = (lucky(BOSS_GEAR_DROP_CHANCE) ? 1 : 0) + (lucky(BOSS_BONUS_GEAR_DROP_CHANCE) ? 1 : 0);
-      const cls = killerPlayer && killerPlayer.characterClass;
-      for (let i = 0; i < equipCount; i++) {
-        let gear = generateRandomizedGear(pickGearForLevel(mob.level || 1, { boss: true, cls }), mob.level || 1, true);
-        const reforge = rollSkyblockReforge(gear);
-        if (reforge) {
-          gear = applySkyblockReforge(gear, reforge);
-        }
-        this.spawnGroundItem(zone, 'item', gear.id, mob.x + (Math.random() - 0.5) * 1.2, mob.y + (Math.random() - 0.5) * 1.2, 1, gear, instId);
-        if (killerPlayer) {
-          this.broadcastSystemMessage(`👑 Boss Loot! [${mob.name}] dropped [${gear.name}] (${gear.rarity ? gear.rarity.toUpperCase() : 'RARE'})!`);
-        }
-      }
-
-      if (lucky(BOSS_REVIVAL_STONE_CHANCE)) {
-        this.spawnGroundItem(zone, 'item', 'revival_stone', mob.x + (Math.random() - 0.5) * 0.8, mob.y + (Math.random() - 0.5) * 0.8, 1, null, instId);
-      }
-
-      // High-tier Potions
-      if (lucky(1)) {
-        this.spawnGroundItem(zone, 'item', 'health_potion', mob.x + 0.4, mob.y, 2, null, instId);
-        this.spawnGroundItem(zone, 'item', 'mana_potion', mob.x - 0.4, mob.y, 2, null, instId);
-      }
-    } else {
-      // Normal mobs:
-      // "แต่อัตราการดรอปของ ทำให้น้อยๆหน่อย" (Low drop rate: ~3.5% equipment, ~6% potions/stone)
-      if (lucky(MOB_GEAR_DROP_CHANCE)) {
-        const cls = killerPlayer && killerPlayer.characterClass;
-        let gear = generateRandomizedGear(pickGearForLevel(mob.level || 1, { cls }), mob.level || 1, false);
-        if (Math.random() < 0.25) {
-          const reforge = rollSkyblockReforge(gear);
-          if (reforge) gear = applySkyblockReforge(gear, reforge);
-        }
-        this.spawnGroundItem(zone, 'item', gear.id, mob.x + (Math.random() - 0.5) * 0.8, mob.y + (Math.random() - 0.5) * 0.8, 1, gear, instId);
-      }
-
-      if (lucky(0.06)) {
-        const cChoice = Math.random();
-        if (cChoice < 0.45) {
-          this.spawnGroundItem(zone, 'item', 'health_potion', mob.x + (Math.random() - 0.5) * 0.6, mob.y + (Math.random() - 0.5) * 0.6, 1, null, instId);
-        } else if (cChoice < 0.90) {
-          this.spawnGroundItem(zone, 'item', 'mana_potion', mob.x + (Math.random() - 0.5) * 0.6, mob.y + (Math.random() - 0.5) * 0.6, 1, null, instId);
-        } else {
-          // Rare revival stone drop from regular mob!
-          this.spawnGroundItem(zone, 'item', 'revival_stone', mob.x, mob.y, 1, null, instId);
-        }
-      }
-
-      // Relic drops in dungeon/field (reduced to 12%)
-      if ((zone === 'dungeon' || (this.fields && this.fields.has(zone))) && lucky(0.12)) {
-        const relics = ['ancient_ruby', 'cursed_chalice', 'shadow_essence'];
-        const r = relics[Math.floor(Math.random() * relics.length)];
-        this.spawnGroundItem(zone, 'item', r, mob.x + (Math.random() - 0.5) * 0.8, mob.y + (Math.random() - 0.5) * 0.8, 1, null, instId);
-      }
-    }
-
-    // Elemental Rune drop: 0.005% chance (0.00005) from any monster kill
-    if (Math.random() < RUNE_DROP_CHANCE) {
-      const runeKeys = ['rune_flame', 'rune_frost', 'rune_tempest', 'rune_vampiric'];
-      const chosenRune = runeKeys[Math.floor(Math.random() * runeKeys.length)];
-      this.spawnGroundItem(zone, 'item', chosenRune, mob.x + (Math.random() - 0.5) * 0.8, mob.y + (Math.random() - 0.5) * 0.8, 1, null, instId);
-      this.broadcastSystemMessage(`✨ MYTHICAL DROP! [${killerPlayer ? killerPlayer.name : 'A hero'}] uncovered a rare [${ITEMS[chosenRune]?.name || chosenRune}]!`);
-    }
-
-    // Attribute materials for Jerry: each has its own small chance on any monster
-    for (const [matId, chance] of Object.entries(ATTR.ATTR_MATERIAL_DROP)) {
-      if (Math.random() < chance) this.spawnGroundItem(zone, 'item', matId, mob.x + (Math.random() - 0.5) * 0.8, mob.y + (Math.random() - 0.5) * 0.8, 1, null, instId);
-    }
-
-    // Armor set fragments (crafting.ts): bosses usually, other monsters rarely
-    const frag = CRAFT.rollFragmentDrop(mob);
-    if (frag) this.spawnGroundItem(zone, 'item', frag.itemId, mob.x + (Math.random() - 0.5) * 0.8, mob.y + (Math.random() - 0.5) * 0.8, frag.n, null, instId);
-
-    // Dungeon modifiers: a modded boss pays out extra fragments; Volatile monsters burst
-    const modInst = zone === 'dungeon' && instId ? this.dungeonInstances.get(instId) : null;
-    if (modInst && modInst.mods && modInst.mods.length) {
-      const extra = isBoss ? DMODS.bonusBossFragments(modInst.mods) : 0;
-      if (extra > 0) {
-        const pick = CRAFT.rollFragmentDrop({ isBoss: true, level: Math.max(40, mob.level || 1) }) || { itemId: 'fragment_wayfarer' };
-        this.spawnGroundItem(zone, 'item', pick.itemId, mob.x, mob.y + 0.4, extra, null, instId);
-      }
-      if (modInst.mods.includes('volatile')) this.scheduleVolatileBurst(modInst, mob);
-    }
-
-    // Defensive armor runes: rarer than gear, far more common than the elemental ones
-    if (Math.random() < (isBoss ? ARMOR_RUNE_DROP.boss : ARMOR_RUNE_DROP.normal)) {
-      const armorRunes = Object.values(ITEMS).filter((it: any) => it.type === 'rune' && it.socketFor === 'armor') as any[];
-      const r = armorRunes[Math.floor(Math.random() * armorRunes.length)];
-      if (r) {
-        this.spawnGroundItem(zone, 'item', r.id, mob.x + (Math.random() - 0.5) * 0.8, mob.y + (Math.random() - 0.5) * 0.8, 1, null, instId);
-        if (isBoss) this.broadcastSystemMessage(`🔷 [${killerPlayer ? killerPlayer.name : 'A hero'}] found a [${r.name}] on [${mob.name}]!`);
-      }
-    }
-
-    // Ancient Socket Expander drop: 0.00005% chance (0.0000005) from boss monsters
-    if (isBoss && Math.random() < SOCKET_EXPANDER_DROP_CHANCE) {
-      this.spawnGroundItem(zone, 'item', 'socket_expander', mob.x + (Math.random() - 0.5) * 0.8, mob.y + (Math.random() - 0.5) * 0.8, 1, null, instId);
-      this.broadcastSystemMessage(`🌟 TITAN RELIC! [${killerPlayer ? killerPlayer.name : 'A hero'}] found an [Ancient Socket Expander] from [${mob.name}]!`);
-    }
-
-    this.emitZone(zone, 'mob_died', { mobId: mob.id, killerId: killerPlayer ? killerPlayer.id : null }, instId);
+  handleMobDeath(mob: Mob, killerPlayer: Player) {
+    return this.combat.handleMobDeath(mob, killerPlayer);
   }
 
-  // Who shares the EXP of a kill: the killer plus party members who are alive,
-  // on the same map (same field zone, or the same dungeon run) and within
-  // PARTY_EXP_RANGE tiles of the killer
-  partyExpSharers(killer) {
-    const party = killer.partyId && this.parties.get(killer.partyId);
-    if (!party) return [killer];
-    const out = [killer];
-    for (const id of party.memberIds) {
-      const m = this.players.get(id);
-      if (!m || m === killer || m.isDead || m.zone !== killer.zone) continue;
-      if (killer.zone === 'dungeon' && m.dungeonInstanceId !== killer.dungeonInstanceId) continue;
-      if (Math.hypot(m.x - killer.x, m.y - killer.y) > PARTY_EXP_RANGE) continue;
-      out.push(m);
-    }
-    return out;
+  partyExpSharers(killer: any) {
+    return this.party.partyExpSharers(killer);
   }
 
-  awardExp(player, amount) {
-    if (player.level >= 150) return;
-    if (player.dungeonRun && !player.dungeonRun.cleared) player.dungeonRun.exp = (player.dungeonRun.exp || 0) + amount;
-    player.exp += amount;
-    this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 1.0, text: `+${amount} EXP`, color: '#a855f7' });
-
-    while (player.level < 150 && player.exp >= player.expNext) {
-      player.exp -= player.expNext;
-      player.level++;
-      player.expNext = expToNext(player.level);
-
-      if (!player.baseStats) {
-        player.baseStats = {
-          maxHp: player.maxHp,
-          maxMp: player.maxMp,
-          dmg: player.dmg,
-          def: player.def,
-          speed: player.speed,
-          attackRange: player.attackRange
-        };
-      }
-      player.baseStats.maxHp += 20;
-      player.baseStats.maxMp += 15;
-      player.baseStats.dmg += 4;
-      player.baseStats.def += 2;
-
-      // Award Talent Point on level up
-      player.skillPoints = (player.skillPoints || 0) + 1;
-
-      this.recalculatePlayerStats(player);
-
-      player.hp = player.maxHp;
-      player.mp = player.maxMp;
-
-      this.emitZone(player.zone, 'level_up', { playerId: player.id, level: player.level, x: player.x, y: player.y });
-      this.emitZone(player.zone, 'floating_text', {
-        x: player.x,
-        y: player.y - 1.4,
-        text: `🌳 +1 Skill Point! (Total: ${player.skillPoints})`,
-        color: '#4ade80',
-        size: 18
-      });
-      this.sendDirectMessage(player.id, `✨ [${player.name}] reached Level ${player.level}! Earned 1 Skill Point.`);
-    }
-
-    if (player.level >= 150) {
-      player.exp = 0;
-    }
+  awardExp(player: Player, amount: any) {
+    return this.level.awardExp(player, amount);
   }
 
-  spawnGroundItem(zone, type, itemIdOrName, x, y, amount, customItemData = null, instanceId = null) {
-    const id = `item_${this.nextEntityId++}`;
-    const itemsMap = this.getGroundItemsMap(zone, instanceId);
-
-    const baseDef = ITEMS[itemIdOrName];
-    const item = {
-      id,
-      zone,
-      type,
-      itemId: type === 'item' ? itemIdOrName : null,
-      name: type === 'gold' ? `${Number(amount).toLocaleString('en-US')} Gold` : (customItemData && customItemData.name ? customItemData.name : (baseDef ? baseDef.name : itemIdOrName)),
-      x,
-      y,
-      amount,
-      customItemData,
-      createdAt: Date.now(),
-      expiresAt: Date.now() + ITEM_DESPAWN_MS
-    };
-
-    itemsMap.set(id, item);
-    this.emitZone(zone, 'item_dropped', item, instanceId);
+  spawnGroundItem(zone: any, type: any, itemIdOrName: any, x: any, y: any, amount: any, customItemData: any = null, instanceId: any = null) {
+    return this.loot.spawnGroundItem(zone, type, itemIdOrName, x, y, amount, customItemData, instanceId);
   }
 
-  calculateFacing(fromX, fromY, toX, toY) {
+  calculateFacing(fromX: any, fromY: any, toX: any, toY: any) {
     const dx = toX - fromX;
     const dy = toY - fromY;
     if (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001) return 'S';
@@ -8080,7 +1474,7 @@ class GameServer {
     return 'S';
   }
 
-  broadcastSystemMessage(text) {
+  broadcastSystemMessage(text: any) {
     this.io.emit('chat_broadcast', {
       senderId: 'system',
       senderName: 'SYSTEM',
@@ -8090,7 +1484,7 @@ class GameServer {
     });
   }
 
-  sendDirectMessage(socketId, text) {
+  sendDirectMessage(socketId: any, text: any) {
     const socket = this.io.sockets.sockets.get(socketId);
     if (socket) {
       socket.emit('chat_broadcast', {
@@ -8133,25 +1527,11 @@ class GameServer {
     }, 1000 / this.TICK_RATE);
   }
 
-  // Remove ground loot older than ITEM_DESPAWN_MS in every zone and instance
   sweepGroundItems() {
-    const now = Date.now();
-    if (this._lastItemSweep && now - this._lastItemSweep < ITEM_SWEEP_INTERVAL_MS) return;
-    this._lastItemSweep = now;
-    const sweep = (map: any, zone: string, instanceId: any = null) => {
-      for (const [id, item] of map) {
-        if (item.expiresAt && item.expiresAt <= now) {
-          map.delete(id);
-          this.emitZone(zone, 'item_despawned', { itemId: id, x: item.x, y: item.y }, instanceId);
-        }
-      }
-    };
-    sweep(this.townGroundItems, 'town');
-    for (const [fieldId, field] of this.fields) sweep(field.groundItems, fieldId);
-    for (const inst of this.dungeonInstances.values()) sweep(inst.groundItems, 'dungeon', inst.id);
+    return this.loot.sweepGroundItems();
   }
 
-  update(dt) {
+  update(dt: any) {
     this.syncZoneRooms();
     this.sweepGroundItems();
     // 1. Update Players
@@ -8236,7 +1616,7 @@ class GameServer {
       if (player.timeTrailClock >= REWIND_SAMPLE_S && !player.isDead) {
         player.timeTrailClock = 0;
         const now = Date.now();
-        player.timeTrail = (player.timeTrail || []).filter(t => now - t.t <= REWIND_KEEP_S * 1000);
+        player.timeTrail = (player.timeTrail || []).filter((t: any) => now - t.t <= REWIND_KEEP_S * 1000);
         player.timeTrail.push({ t: now, x: player.x, y: player.y, hp: player.hp });
       }
       if (player.flowTimer > 0) {
@@ -8478,206 +1858,8 @@ class GameServer {
     this.ctxInstanceId = null;
   }
 
-  updateMobsList(mobsMap, zone, dt, instanceId = null) {
-    for (const mob of mobsMap.values()) {
-      if (mob.state === 'dead') {
-        if (zone === 'dungeon' || (mob.id && mob.id.startsWith('dungeon_'))) {
-          // Dungeon mobs NEVER respawn during an active run! Must leave and re-enter.
-          continue;
-        }
-        mob.respawnTimer -= dt;
-        if (mob.respawnTimer <= 0) {
-          mob.state = 'idle';
-          mob.hp = mob.maxHp;
-          mob.x = mob.spawnX;
-          mob.y = mob.spawnY;
-          mob.targetPlayerId = null;
-        }
-        continue;
-      }
-
-      // Still rising from its room's summon: no AI yet
-      if (mob.spawnUntil) {
-        if (Date.now() < mob.spawnUntil) continue;
-        mob.spawnUntil = 0;
-      }
-
-      if (mob.attackCooldown > 0) mob.attackCooldown = Math.max(0, mob.attackCooldown - dt);
-
-      // Mob Status Effects (Chill, Burn DoT, Poison DoT). A DoT kill is
-      // credited to the last hero who hit the mob, if still in this zone.
-      const dotOwner = () => {
-        const p = mob.lastHitBy && this.players.get(mob.lastHitBy);
-        return p && p.zone === zone && !p.isDead && (!instanceId || p.dungeonInstanceId === instanceId) ? p : null;
-      };
-      if (mob.chillTimer > 0) {
-        mob.chillTimer = Math.max(0, mob.chillTimer - dt);
-      }
-      if (mob.burnTimer > 0) {
-        mob.burnTimer = Math.max(0, mob.burnTimer - dt);
-        mob.burnTickTimer = (mob.burnTickTimer || 0) - dt;
-        if (mob.burnTickTimer <= 0) {
-          mob.burnTickTimer = 0.6;
-          const dotDmg = Math.max(1, Math.round(mob.burnDmg || 8));
-          mob.hp -= dotDmg;
-          this.emitZone(zone, 'floating_text', { x: mob.x, y: mob.y - 0.7, text: `🔥 -${dotDmg}`, color: '#f97316', size: 14 }, instanceId);
-          if (mob.hp <= 0) {
-            this.handleMobDeath(mob, dotOwner());
-            continue;
-          }
-        }
-        if (mob.burnTimer <= 0) mob.burnDmg = 0; // next ignite starts fresh
-      }
-      if (mob.poisonTimer > 0) {
-        mob.poisonTimer = Math.max(0, mob.poisonTimer - dt);
-        mob.poisonTickTimer = (mob.poisonTickTimer || 0) - dt;
-        if (mob.poisonTickTimer <= 0) {
-          mob.poisonTickTimer = 0.8;
-          const dotDmg = Math.max(1, Math.round(mob.poisonDmg || 6));
-          mob.hp -= dotDmg;
-          const stackTag = mob.poisonStacks > 1 ? ` x${mob.poisonStacks}` : '';
-          this.emitZone(zone, 'floating_text', { x: mob.x, y: mob.y - 0.7, text: `☠️ -${dotDmg}${stackTag}`, color: '#22c55e', size: 14 }, instanceId);
-          if (mob.hp <= 0) {
-            this.handleMobDeath(mob, dotOwner());
-            continue;
-          }
-        }
-        if (mob.poisonTimer <= 0) { mob.poisonDmg = 0; mob.poisonStacks = 0; }
-      }
-      if (mob.shadowMarkTimer > 0) mob.shadowMarkTimer = Math.max(0, mob.shadowMarkTimer - dt);
-      if (mob.staticCharge > 0) mob.staticCharge = Math.max(0, mob.staticCharge - dt);
-      if (mob.conductTimer > 0) { mob.conductTimer -= dt; if (mob.conductTimer <= 0) mob.conduct = 0; }
-      if (mob.scorchTimer > 0) { mob.scorchTimer -= dt; if (mob.scorchTimer <= 0) mob.scorchStacks = 0; }
-      if (mob.frostTimer > 0) { mob.frostTimer -= dt; if (mob.frostTimer <= 0) mob.frostStacks = 0; }
-      // Bosses run their telegraphed moveset; while one winds up, charges or roars it skips
-      // the plain chase / melee below (bossMechanics.ts)
-      if (mob.mechanics && this.bossMech.update(mob, zone, dt, instanceId)) continue;
-
-      // Frozen solid (Cryo) or stopped in time (Chrono): no moving, no attacking
-      if (mob.frozenTimer > 0) {
-        mob.frozenTimer = Math.max(0, mob.frozenTimer - dt);
-        mob.attackCooldown = Math.max(mob.attackCooldown, 0.3);
-        continue;
-      }
-
-      // Eternal Rift monsters march on the Holy Fountain instead of idling
-      if (mob.riftMob) {
-        const riftInst = instanceId && this.dungeonInstances.get(instanceId);
-        if (riftInst && riftInst.rift) this.updateRiftMob(mob, riftInst, dt);
-        continue;
-      }
-
-      if (mob.state === 'idle') {
-        let closestPlayer = null;
-        // a boss notices anyone who steps into its arena
-        let closestDist = mob.mechanics === 'boss' ? 16.0 : 5.0;
-
-        for (const p of this.players.values()) {
-          if (p.isDead || p.zone !== zone || (instanceId && p.dungeonInstanceId !== instanceId)) continue;
-          const d = Math.hypot(p.x - mob.x, p.y - mob.y);
-          if (d < closestDist) {
-            closestDist = d;
-            closestPlayer = p;
-          }
-        }
-
-        if (closestPlayer) {
-          mob.state = 'chase';
-          mob.targetPlayerId = closestPlayer.id;
-          // Wind-up so freshly aggroed mobs don't all land a hit the instant they arrive
-          mob.attackCooldown = Math.max(mob.attackCooldown, 0.6 + Math.random() * 0.5);
-        } else {
-          if (Date.now() > mob.nextWanderTime) {
-            mob.nextWanderTime = Date.now() + 2000 + Math.random() * 4000;
-            const angle = Math.random() * Math.PI * 2;
-            const dist = Math.random() * 2.5;
-            mob.wanderTarget = {
-              x: mob.spawnX + Math.cos(angle) * dist,
-              y: mob.spawnY + Math.sin(angle) * dist
-            };
-          }
-
-          if (mob.wanderTarget) {
-            const wd = Math.hypot(mob.wanderTarget.x - mob.x, mob.wanderTarget.y - mob.y);
-            if (wd > 0.2) {
-              const step = Math.min(wd, (mob.speed * 0.4) * dt);
-              const wx = ((mob.wanderTarget.x - mob.x) / wd) * step;
-              const wy = ((mob.wanderTarget.y - mob.y) / wd) * step;
-              if (!this.isColliding(mob.x + wx, mob.y + wy, zone)) {
-                mob.x += wx;
-                mob.y += wy;
-                mob.facing = this.calculateFacing(0, 0, wx, wy);
-              } else {
-                mob.wanderTarget = null;
-              }
-            } else {
-              mob.wanderTarget = null;
-            }
-          }
-        }
-      } else if (mob.state === 'chase') {
-        const targetPlayer = this.players.get(mob.targetPlayerId);
-        if (!targetPlayer || targetPlayer.isDead || targetPlayer.zone !== zone) {
-          mob.state = 'return';
-          mob.targetPlayerId = null;
-          continue;
-        }
-
-        const distToPlayer = Math.hypot(targetPlayer.x - mob.x, targetPlayer.y - mob.y);
-        const distToSpawn = Math.hypot(mob.spawnX - mob.x, mob.spawnY - mob.y);
-
-        // bosses fight across their whole arena; everything else gives up a short way from home
-        if (distToPlayer > (mob.mechanics === 'boss' ? 30 : 10.0) || distToSpawn > (mob.mechanics === 'boss' ? 40 : 14.0)) {
-          mob.state = 'return';
-          mob.targetPlayerId = null;
-          continue;
-        }
-
-        if (distToPlayer <= 1.2) {
-          mob.facing = this.calculateFacing(mob.x, mob.y, targetPlayer.x, targetPlayer.y);
-          // Brief global hit lockout per player so a whole pack can't machine-gun one target
-          const now = Date.now();
-          if (mob.attackCooldown <= 0 && now < (targetPlayer.nextMobHitAt || 0)) {
-            mob.attackCooldown = 0.15 + Math.random() * 0.2;
-          } else if (mob.attackCooldown <= 0) {
-            mob.attackCooldown = 1.2 + Math.random() * 0.5; // jitter desyncs packs
-            targetPlayer.nextMobHitAt = now + (mob.isBoss ? 150 : 350);
-
-            this.mobStrikePlayer(mob, targetPlayer, zone);
-          }
-        } else {
-          let effectiveSpeed = mob.hasCommanderBuff ? mob.speed * 1.25 : mob.speed;
-          if (mob.chillTimer > 0) effectiveSpeed *= 0.5;
-          const step = Math.min(distToPlayer, effectiveSpeed * dt);
-          const mx = ((targetPlayer.x - mob.x) / distToPlayer) * step;
-          const my = ((targetPlayer.y - mob.y) / distToPlayer) * step;
-
-          // slide along pillars and pools instead of sticking to them
-          if (!this.isColliding(mob.x + mx, mob.y + my, zone)) {
-            mob.x += mx;
-            mob.y += my;
-          } else if (Math.abs(mx) > 1e-4 && !this.isColliding(mob.x + Math.sign(mx) * step, mob.y, zone)) {
-            mob.x += Math.sign(mx) * step;
-          } else if (Math.abs(my) > 1e-4 && !this.isColliding(mob.x, mob.y + Math.sign(my) * step, zone)) {
-            mob.y += Math.sign(my) * step;
-          }
-          mob.facing = this.calculateFacing(mob.x, mob.y, targetPlayer.x, targetPlayer.y);
-        }
-      } else if (mob.state === 'return') {
-        const distToSpawn = Math.hypot(mob.spawnX - mob.x, mob.spawnY - mob.y);
-        if (distToSpawn > 0.2) {
-          mob.facing = this.calculateFacing(mob.x, mob.y, mob.spawnX, mob.spawnY);
-          const step = Math.min(distToSpawn, (mob.speed * 1.2) * dt);
-          mob.x += ((mob.spawnX - mob.x) / distToSpawn) * step;
-          mob.y += ((mob.spawnY - mob.y) / distToSpawn) * step;
-          mob.hp = Math.min(mob.maxHp, mob.hp + (mob.maxHp * 0.2 * dt));
-        } else {
-          mob.state = 'idle';
-          mob.hp = mob.maxHp;
-          if (mob.mechanics) this.bossMech.reset(mob);
-        }
-      }
-    }
+  updateMobsList(mobsMap: any, zone: any, dt: any, instanceId: any = null) {
+    return this.mobAI.updateMobsList(mobsMap, zone, dt, instanceId);
   }
 
   // ==========================================
@@ -8685,27 +1867,27 @@ class GameServer {
   // A rift run is a dungeon instance with a `rift` state: the zone stays
   // 'dungeon', so rooms, snapshots, combat and parties all work unchanged.
   // ==========================================
-  getRiftInstance(player) {
+  getRiftInstance(player: Player) {
     const inst = this.getPlayerDungeonInstance(player);
     return inst && inst.rift ? inst : null;
   }
 
-  riftHeroes(inst) {
+  riftHeroes(inst: DungeonInstance) {
     return (Array.from(this.players.values()) as any[]).filter(p => p.zone === 'dungeon' && p.dungeonInstanceId === inst.id);
   }
 
-  riftOver(R) {
+  riftOver(R: any) {
     return R.phase === 'victory' || R.phase === 'defeat';
   }
 
   // What the town gate shows before entering: is the party already in there?
-  riftPortalInfo(player) {
+  riftPortalInfo(player: Player) {
     const inst = player.partyId ? this.dungeonInstances.get(`rift_party_${player.partyId}`) : null;
     const live = inst && inst.rift && !this.riftOver(inst.rift) ? inst.rift : null;
     return { partyRun: live ? { wave: live.wave, phase: live.phase } : null, inParty: !!player.partyId };
   }
 
-  handleEnterRift(socketId, options: any = {}) {
+  handleEnterRift(socketId: any, options: any = {}) {
     const player = this.players.get(socketId);
     if (!player || player.zone !== 'town' || player.isDead) return;
     const socket = this.io.sockets.sockets.get(socketId);
@@ -8726,7 +1908,7 @@ class GameServer {
     if (options && options.inviteParty) this.handlePartySummon(socketId);
   }
 
-  createRiftInstance(id, leader, modeId = 'normal') {
+  createRiftInstance(id: any, leader: any, modeId = 'normal') {
     // Normal and Hard start at a fixed level; Nightmare follows the party
     // members online when it opens (and spawns twice the monsters)
     const mode = RIFT.RIFT_MODES[modeId] ? modeId : 'normal';
@@ -8736,36 +1918,23 @@ class GameServer {
     const avgLevel = members.reduce((t, p) => t + (p.level || 1), 0) / members.length;
     const baseLevel = M.start !== null ? M.start : Math.max(1, Math.round(avgLevel) - 2);
     const fountainHp = RIFT.fountainMaxHp(baseLevel, members.length);
-    const inst: any = {
+    const inst: any = createRiftInstance({
       id,
       partyId: leader.partyId || null,
-      floor: 0,
-      difficulty: 'rift',
       dungeon: RIFT.generateRiftArena(),
-      mobs: new Map<any, any>(),
-      pendingMobs: new Map<any, any>(),
-      groundItems: new Map<any, any>(),
-      chests: [],
-      cleared: false,
-      startedAt: Date.now(),
-      rift: {
-        phase: 'prep', wave: 0, timer: RIFT.RIFT_PREP_S, baseLevel, mode, perWave: M.perWave, spawnMult: M.spawn,
-        fountain: { hp: fountainHp, maxHp: fountainHp },
-        queue: [], spawnEvery: 0.5, spawnClock: 0, gateTurn: 0,
-        structures: [], structSeq: 0,
-        points: new Map<string, number>(),   // heroId -> Rift Points (gone when they leave)
-        banked: new Map<string, any>(),      // heroId -> { gold, essence } paid out at a checkpoint
-        choices: new Map<string, string>(),  // heroId -> 'continue' during a checkpoint prompt
-        stateClock: 0
-      }
-    };
+      baseLevel,
+      mode,
+      perWave: M.perWave,
+      spawnMult: M.spawn,
+      fountainHp
+    });
     this.dungeonInstances.set(id, inst);
     return inst;
   }
 
   // Put a hero in the arena (from the town gate or a party summon).
   // Returns false if that run has already ended.
-  joinRift(player, socket, inst, at = null) {
+  joinRift(player: Player, socket: any, inst: DungeonInstance, at: any = null) {
     const R = inst.rift;
     if (this.riftOver(R)) return false;
     player.dungeonRun = null;
@@ -8801,7 +1970,7 @@ class GameServer {
     return true;
   }
 
-  riftStatePayload(inst) {
+  riftStatePayload(inst: DungeonInstance) {
     const R = inst.rift;
     let alive = 0;
     for (const m of inst.mobs.values()) if (m.state !== 'dead') alive++;
@@ -8815,7 +1984,7 @@ class GameServer {
       timer: Math.max(0, Math.ceil(R.timer)),
       level: RIFT.waveLevel(R.baseLevel, upcoming, R.perWave), mode: R.mode,
       fountain: { hp: Math.round(R.fountain.hp), maxHp: R.fountain.maxHp },
-      structures: R.structures.map(s => ({ id: s.id, kind: s.kind, x: s.x, y: s.y, hp: Math.round(s.hp), maxHp: s.maxHp, owner: s.ownerName })),
+      structures: R.structures.map((s: any) => ({ id: s.id, kind: s.kind, x: s.x, y: s.y, hp: Math.round(s.hp), maxHp: s.maxHp, owner: s.ownerName })),
       points: Object.fromEntries(R.points),
       banked: Object.fromEntries(R.banked),
       choices: Object.fromEntries(R.choices),
@@ -8823,13 +1992,13 @@ class GameServer {
     };
   }
 
-  emitRiftState(inst) {
+  emitRiftState(inst: DungeonInstance) {
     inst.rift.stateClock = 0.25;
     this.emitZone('dungeon', 'rift_state', this.riftStatePayload(inst), inst.id);
   }
 
   // Every tick, per rift instance (ctxInstanceId is this instance)
-  updateRift(inst, dt) {
+  updateRift(inst: DungeonInstance, dt: any) {
     const R = inst.rift;
     const heroes = this.riftHeroes(inst);
     // the slain linger a moment for their death animation, then go
@@ -8877,7 +2046,7 @@ class GameServer {
     if (R.stateClock <= 0 && heroes.length) this.emitRiftState(inst);
   }
 
-  startRiftWave(inst, wave, heroCount) {
+  startRiftWave(inst: DungeonInstance, wave: any, heroCount: any) {
     const R = inst.rift;
     R.wave = wave;
     R.phase = 'wave';
@@ -8894,24 +2063,18 @@ class GameServer {
   }
 
   // A monster steps out of one of the four gates (in turn)
-  spawnRiftMob(inst, def) {
+  spawnRiftMob(inst: DungeonInstance, def: any) {
     const R = inst.rift;
     const gate = RIFT.RIFT_GATES[R.gateTurn++ % RIFT.RIFT_GATES.length];
     const x = gate.x + (Math.random() - 0.5) * 1.6;
     const y = gate.y + (Math.random() - 0.5) * 1.6;
     const id = `rift_mob_${this.nextEntityId++}`;
-    const mob = {
-      ...def, id, x, y, spawnX: x, spawnY: y, hp: def.maxHp, state: 'chase', facing: 'S',
-      attackCooldown: 0.8 + Math.random() * 0.6, targetPlayerId: null, structTargetId: null,
-      isCommander: false, auraRadius: 0, hasCommanderBuff: false,
-      riftMob: true, riftInstanceId: inst.id, noLevelGap: true, zone: 'dungeon',
-      spawnUntil: Date.now() + 700
-    };
+    const mob = MobFactory.riftMob(def, inst.id, id, x, y);
     inst.mobs.set(id, mob);
     this.emitZone('dungeon', 'dungeon_mobs_spawned', { mobs: [{ id, x, y, isBoss: !!mob.isBoss, element: mob.element || 'neutral' }] }, inst.id);
   }
 
-  riftWaveCleared(inst, heroes) {
+  riftWaveCleared(inst: DungeonInstance, heroes: any) {
     const R = inst.rift;
     const wave = R.wave;
     // a clear bonus for everyone holding the line, so supports can build too
@@ -8949,7 +2112,7 @@ class GameServer {
 
   // The fountain fell (defeat) or the last wave was cleared (victory).
   // Victory pays every hero's bank now; defeat forfeits it.
-  finishRift(inst, victory) {
+  finishRift(inst: DungeonInstance, victory: any) {
     const R = inst.rift;
     R.phase = victory ? 'victory' : 'defeat';
     R.timer = victory ? 8 : 5;
@@ -8970,18 +2133,18 @@ class GameServer {
     this.emitRiftState(inst);
   }
 
-  payRiftReward(player, bank) {
+  payRiftReward(player: Player, bank: any) {
     if (bank.gold > 0) player.gold += bank.gold;
     if (bank.essence > 0) {
-      const stack = player.inventory.items.find(i => i && i.id === RIFT.RIFT_ESSENCE_ID);
+      const stack = player.inventory.items.find((i: any) => i && i.id === RIFT.RIFT_ESSENCE_ID);
       if (stack) stack.count = (stack.count || 1) + bank.essence;
-      else if (player.inventory.items.length < (player.inventory.maxSlots || DEFAULT_BAG_SLOTS)) player.inventory.items.push({ ...ITEMS[RIFT.RIFT_ESSENCE_ID], count: bank.essence });
+      else if (player.inventory.items.length < (player.inventory.maxSlots || DEFAULT_BAG_SLOTS)) player.inventory.items.push(ItemFactory.stack(ITEMS[RIFT.RIFT_ESSENCE_ID], bank.essence));
       else {
         // a full bag never eats essence: it goes to the personal chest instead
         if (!player.storage) player.storage = { maxSlots: 50, items: [] };
-        const stored = player.storage.items.find(i => i && i.id === RIFT.RIFT_ESSENCE_ID);
+        const stored = player.storage.items.find((i: any) => i && i.id === RIFT.RIFT_ESSENCE_ID);
         if (stored) stored.count = (stored.count || 1) + bank.essence;
-        else player.storage.items.push({ ...ITEMS[RIFT.RIFT_ESSENCE_ID], count: bank.essence });
+        else player.storage.items.push(ItemFactory.stack(ITEMS[RIFT.RIFT_ESSENCE_ID], bank.essence));
         const socket = this.io.sockets.sockets.get(player.id);
         if (socket) socket.emit('chat_message', { sender: 'System', text: `📦 Your bag was full: ${bank.essence} Rift Essence went to your Personal Storage Chest.`, color: '#c084fc' });
       }
@@ -8991,7 +2154,7 @@ class GameServer {
 
   // Walking out (the Leave button, a checkpoint "leave", or the run ending).
   // Only a checkpoint prompt pays the bank; leaving mid-wave forfeits it.
-  leaveRift(player, socket) {
+  leaveRift(player: Player, socket: any) {
     const inst = this.getRiftInstance(player);
     if (!inst) return;
     const R = inst.rift;
@@ -9018,7 +2181,7 @@ class GameServer {
     }
   }
 
-  handleRiftChoice(socketId, data) {
+  handleRiftChoice(socketId: any, data: any) {
     const player = this.players.get(socketId);
     const inst = player && this.getRiftInstance(player);
     if (!inst || inst.rift.phase !== 'choice') return;
@@ -9031,7 +2194,7 @@ class GameServer {
   }
 
   // Buy a structure with Rift Points and place it at (x, y), or a blessing
-  handleRiftBuild(socketId, data) {
+  handleRiftBuild(socketId: any, data: any) {
     const player = this.players.get(socketId);
     const socket = this.io.sockets.sockets.get(socketId);
     const inst = player && this.getRiftInstance(player);
@@ -9039,7 +2202,7 @@ class GameServer {
     const R = inst.rift;
     const def = RIFT.RIFT_STRUCTURES[data.kind];
     if (!def || this.riftOver(R)) return;
-    const say = (text, color = '#ef4444') => socket.emit('floating_text', { x: player.x, y: player.y - 0.8, text, color });
+    const say = (text: any, color = '#ef4444') => socket.emit('floating_text', { x: player.x, y: player.y - 0.8, text, color });
     const points = R.points.get(player.id) || 0;
     if (points < def.cost) return say(`Need ${def.cost} Rift Points (you have ${points})`);
     const F = R.fountain;
@@ -9058,11 +2221,11 @@ class GameServer {
     const x = Number(data.x), y = Number(data.y);
     if (!Number.isFinite(x) || !Number.isFinite(y)) return;
     if (Math.hypot(x - player.x, y - player.y) > RIFT.RIFT_STRUCT_REACH) return say('Too far away - build closer to you');
-    if (R.structures.filter(s => s.kind === data.kind).length >= def.max) return say(`At most ${def.max} ${def.name}s per run`);
+    if (R.structures.filter((s: any) => s.kind === data.kind).length >= def.max) return say(`At most ${def.max} ${def.name}s per run`);
     const FT = RIFT.RIFT_FOUNTAIN;
     if (Math.hypot(x - FT.x, y - FT.y) < FT.radius + def.radius + 0.8) return say('Too close to the fountain');
     if (RIFT.RIFT_GATES.some(g => Math.hypot(x - g.x, y - g.y) < 2.5)) return say('Too close to a rift gate');
-    if (R.structures.some(s => Math.hypot(s.x - x, s.y - y) < s.radius + def.radius + 0.1)) return say('Something is already built there');
+    if (R.structures.some((s: any) => Math.hypot(s.x - x, s.y - y) < s.radius + def.radius + 0.1)) return say('Something is already built there');
     if (this.isColliding(x, y, 'dungeon', def.radius)) return say("Can't build there");
 
     const maxHp = Math.round(def.hp + def.hpPerLevel * R.baseLevel);
@@ -9076,7 +2239,7 @@ class GameServer {
   }
 
   // Turrets fire, frost spires pulse, totems heal; the builder's attack powers them
-  updateRiftStructures(inst, dt, heroes) {
+  updateRiftStructures(inst: DungeonInstance, dt: any, heroes: any) {
     const R = inst.rift;
     if (!R.structures.length) return;
     const now = Date.now();
@@ -9088,7 +2251,7 @@ class GameServer {
       if (s.clock > 0) continue;
       s.clock = def.every;
       // a structure keeps working for the party after its builder leaves
-      const owner = heroes.find(p => p.id === s.ownerId) || heroes[0];
+      const owner = heroes.find((p: any) => p.id === s.ownerId) || heroes[0];
       if (s.kind === 'turret') {
         let target = null, best = def.range;
         for (const m of foes) {
@@ -9119,16 +2282,16 @@ class GameServer {
   }
 
   // A turret bolt: an ordinary projectile that starts at the turret
-  spawnRiftBolt(inst, s, owner, target, damage) {
+  spawnRiftBolt(inst: DungeonInstance, s: any, owner: any, target: any, damage: any) {
     const id = `proj_${this.nextEntityId++}`;
     const angle = Math.atan2(target.y - s.y, target.x - s.x);
     const speed = 11;
     const vx = Math.cos(angle) * speed, vy = Math.sin(angle) * speed;
-    this.projectiles.set(id, {
+    this.projectiles.set(id, createProjectile({
       cardId: null, instanceId: inst.id, id, zone: 'dungeon', casterId: owner.id,
       x: s.x, y: s.y, targetX: target.x, targetY: target.y, targetId: target.id, targetType: 'mob',
       vx, vy, damage, splash: 0, crit: false, element: 'holy', life: 1.0, color: '#fde68a'
-    });
+    }));
     this.emitZone('dungeon', 'projectile_spawned', {
       id, zone: 'dungeon', x: s.x, y: s.y, vx, vy, casterId: null, element: 'holy', cardId: null, splash: 0, color: '#fde68a'
     }, inst.id);
@@ -9136,7 +2299,7 @@ class GameServer {
 
   // Rift monster AI: march on the fountain; turn on a hero who comes close;
   // a structure in the way gets torn down first
-  updateRiftMob(mob, inst, dt) {
+  updateRiftMob(mob: Mob, inst: DungeonInstance, dt: any) {
     const R = inst.rift;
     if (this.riftOver(R)) return;
     const F = RIFT.RIFT_FOUNTAIN;
@@ -9154,7 +2317,7 @@ class GameServer {
       }
     }
     mob.targetPlayerId = hero ? hero.id : null;
-    const struct = !hero && mob.structTargetId ? R.structures.find(s => s.id === mob.structTargetId) : null;
+    const struct = !hero && mob.structTargetId ? R.structures.find((s: any) => s.id === mob.structTargetId) : null;
     if (!struct) mob.structTargetId = null;
 
     const goal = hero ? { x: hero.x, y: hero.y, reach: 1.2 }
@@ -9189,9 +2352,9 @@ class GameServer {
     const step = Math.min(dist, speed * dt);
     const nx = (goal.x - mob.x) / dist, ny = (goal.y - mob.y) / dist;
     // returns what stopped the step (a structure, or true for a wall), or null if it moved
-    const tryMove = (dx, dy) => {
+    const tryMove = (dx: any, dy: any) => {
       const tx = mob.x + dx, ty = mob.y + dy;
-      const blocker = R.structures.find(s => Math.hypot(s.x - tx, s.y - ty) < s.radius + 0.35);
+      const blocker = R.structures.find((s: any) => Math.hypot(s.x - tx, s.y - ty) < s.radius + 0.35);
       if (blocker) return blocker;
       if (this.isColliding(tx, ty, 'dungeon')) return true;
       mob.x = tx;
@@ -9208,7 +2371,7 @@ class GameServer {
     mob.facing = this.calculateFacing(mob.x, mob.y, goal.x, goal.y);
   }
 
-  damageRiftFountain(inst, dmg) {
+  damageRiftFountain(inst: DungeonInstance, dmg: any) {
     const R = inst.rift;
     const F = R.fountain;
     if (this.riftOver(R)) return;
@@ -9217,15 +2380,15 @@ class GameServer {
     if (F.hp <= 0) this.finishRift(inst, false);
   }
 
-  destroyRiftStructure(inst, s) {
+  destroyRiftStructure(inst: DungeonInstance, s: any) {
     const R = inst.rift;
-    R.structures = R.structures.filter(o => o !== s);
+    R.structures = R.structures.filter((o: any) => o !== s);
     const def = RIFT.RIFT_STRUCTURES[s.kind];
     this.emitZone('dungeon', 'floating_text', { x: s.x, y: s.y - 0.8, text: `💥 ${def.name} destroyed`, color: '#f87171', size: 15 }, inst.id);
     this.emitRiftState(inst);
   }
 
-  onRiftMobDeath(inst, mob, killer) {
+  onRiftMobDeath(inst: DungeonInstance, mob: Mob, killer: any) {
     const R = inst.rift;
     mob.diedAt = Date.now();
     if (killer && killer.zone === 'dungeon' && killer.dungeonInstanceId === inst.id) {
@@ -9238,7 +2401,7 @@ class GameServer {
   }
 
   // Fallen heroes stand up again beside the fountain
-  respawnInRift(player, socket) {
+  respawnInRift(player: Player, socket: any) {
     player.isDead = false;
     player.riftRespawnSet = false;
     player.respawnTimer = 0;
@@ -9254,18 +2417,18 @@ class GameServer {
   }
 
   // James the Gatekeeper forges unique gear from Rift Essence
-  handleJamesForge(socketId, data) {
+  handleJamesForge(socketId: any, data: any) {
     const player = this.players.get(socketId);
     const socket = this.io.sockets.sockets.get(socketId);
     if (!player || !socket || player.isDead || player.zone !== 'town') return;
-    const say = (text, color = '#ef4444') => socket.emit('floating_text', { x: player.x, y: player.y - 0.8, text, color });
-    const james = this.townMap.obstacles.find(o => o.id === 'npc_james');
+    const say = (text: any, color = '#ef4444') => socket.emit('floating_text', { x: player.x, y: player.y - 0.8, text, color });
+    const james = this.townMap.obstacles.find((o: any) => o.id === 'npc_james');
     if (!james || Math.hypot(james.x - player.x, james.y - player.y) > 4.5) return say('Walk up to James first');
     const recipe = RIFT.JAMES_RECIPES.find(r => r.itemId === (data && data.itemId));
     const def = recipe && ITEMS[recipe.itemId];
     if (!def) return;
     const items = player.inventory.items;
-    const essenceStack = items.find(i => i && i.id === RIFT.RIFT_ESSENCE_ID);
+    const essenceStack = items.find((i: any) => i && i.id === RIFT.RIFT_ESSENCE_ID);
     const essence = essenceStack ? (essenceStack.count || 1) : 0;
     if (essence < recipe.essence) return say(`Need ${recipe.essence} Rift Essence (you have ${essence})`);
     if ((player.gold || 0) < recipe.gold) return say(`Need ${recipe.gold.toLocaleString()} gold`);
@@ -9277,7 +2440,7 @@ class GameServer {
     if (essenceStack.count <= 0) items.splice(items.indexOf(essenceStack), 1);
     player.gold -= recipe.gold;
     if (recipe.fragments) this.spendFragments(player, recipe.fragments);
-    const item = { ...def, count: 1, uniqueId: `${def.id}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}` };
+    const item = ItemFactory.forged(def);
     items.push(item);
 
     socket.emit('player_updated', player);
@@ -9287,151 +2450,34 @@ class GameServer {
     this.savePlayerAccount(socketId);
   }
 
-  // Absorption layers on a hero, outermost first: shields (skills, set
-  // effects) then the mage's Energy Shield. Returns the damage left for HP.
-  absorbIncomingDamage(player, damage, zone) {
-    player.lastHitAt = Date.now();   // pauses the Energy Shield recharge
-    if (player.shieldHp > 0 && damage > 0) {
-      const absorbed = Math.min(player.shieldHp, damage);
-      player.shieldHp -= absorbed;
-      damage -= absorbed;
-      this.emitZone(zone, 'floating_text', { x: player.x, y: player.y - 0.5, text: `🛡️ Absorbed -${absorbed}`, color: '#e2e8f0' });
-    }
-    if (player.es > 0 && damage > 0) {
-      const soaked = Math.min(player.es, damage);
-      player.es -= soaked;
-      damage -= soaked;
-      this.emitZone(zone, 'floating_text', { x: player.x, y: player.y - 0.5, text: `💠 -${Math.round(soaked)}`, color: '#67e8f9' });
-      if (player.es <= 0) {
-        this.emitZone(zone, 'floating_text', { x: player.x, y: player.y - 1.0, text: '💠 ENERGY SHIELD BROKEN', color: '#38bdf8', size: 15 });
-      }
-    }
-    return damage;
+  absorbIncomingDamage(player: Player, damage: any, zone: any) {
+    return this.passives.absorbIncomingDamage(player, damage, zone);
   }
 
   // ===== SET EFFECTS (armor set 4-piece bonuses, data/items/sets.json) =====
 
-  // Wayfarer's Resolve: Second Wind when HP falls under the threshold
-  checkSecondWind(player, zone) {
-    const sw = player.set4 && player.set4.wayfarer;
-    const now = Date.now();
-    if (!sw || player.isDead || player.hp <= 0 || player.hp > player.maxHp * sw.hpThreshold) return;
-    if ((player.secondWindReadyAt || 0) > now) return;
-    player.secondWindReadyAt = now + sw.cooldown * 1000;
-    const shield = Math.round(player.maxHp * sw.shieldPct);
-    player.shieldHp = (player.shieldHp || 0) + shield;
-    player.sprintTimer = Math.max(player.sprintTimer || 0, sw.hasteSec);
-    if (player.statusEffects) player.statusEffects = player.statusEffects.filter(e => e.type !== 'chill');
-    player.speedFactor = 1.0;
-    this.emitZone(zone, 'floating_text', { x: player.x, y: player.y - 1.0, text: `🌿 SECOND WIND! +${shield} Shield`, color: '#4ade80', size: 18 });
-    this.emitZone(zone, 'skill_fx', { type: 'set_proc', set: 'wayfarer', x: player.x, y: player.y, radius: 1.6, color: '#4ade80', playerId: player.id });
+  checkSecondWind(player: Player, zone: any) {
+    return this.combat.checkSecondWind(player, zone);
   }
 
-  // Damage multiplier from set bonuses for one hit on `mob`
-  setDamageMult(player, mob) {
-    let m = 1;
-    if (player.set2 && player.set2.emberheart && mob.burnTimer > 0) m += player.set2.emberheart.dmgVsBurning;
-    if (player.eclipsePhase === 'dusk' && player.set4 && player.set4.eclipse) m += player.set4.eclipse.duskDmg;
-    return m;
+  setDamageMult(player: Player, mob: Mob) {
+    return this.combat.setDamageMult(player, mob);
   }
 
-  // On-hit set effects after a hit of `damage` landed on a living or dead mob.
-  // Hits made by these procs pass player._inSetProc so they never chain again.
-  applySetOnHit(player, mob, damage) {
-    if (!player.set4 || player._inSetProc) return;
-    const zone = player.zone;
-    const instId = player.zone === 'dungeon' ? player.dungeonInstanceId : null;
-    const mobs = () => this.getMobsMap(player.zone, player);
-
-    // Eclipse, Dusk: heal from damage dealt (capped per hit like other leech)
-    const ec = player.set4.eclipse;
-    if (ec && player.eclipsePhase === 'dusk' && damage > 0) {
-      const heal = Math.min(Math.round(player.maxHp * 0.05), Math.max(1, Math.round(damage * ec.duskLeech)));
-      player.hp = Math.min(player.maxHp, player.hp + heal);
-    }
-
-    // Emberheart: Ember brands, erupting at full stacks
-    const em = player.set4.emberheart;
-    if (em) {
-      if (!mob.embers) mob.embers = {};
-      const n = (mob.embers[player.id] || 0) + 1;
-      if (n < em.stacks) {
-        mob.embers[player.id] = n;
-      } else {
-        mob.embers[player.id] = 0;
-        player._inSetProc = true;
-        try {
-          const hit = Math.max(1, Math.round(player.dmg * em.dmgMult * SKILL_DAMAGE_SCALE));
-          for (const other of mobs().values()) {
-            if (other.state === 'dead' || other.hp <= 0) continue;
-            if (Math.hypot(other.x - mob.x, other.y - mob.y) > em.radius) continue;
-            other.burnTimer = Math.max(other.burnTimer || 0, em.burnSec);
-            other.burnDmg = Math.max(other.burnDmg || 0, Math.round(player.dmg * em.burnMult));
-            this.applyDamageToMob(player, other, hit, false);
-          }
-        } finally { player._inSetProc = false; }
-        this.emitZone(zone, 'skill_fx', { type: 'set_proc', set: 'emberheart', x: mob.x, y: mob.y, radius: em.radius, color: '#f97316', playerId: player.id }, instId);
-        this.emitZone(zone, 'floating_text', { x: mob.x, y: mob.y - 1.1, text: '🔥 CINDER CASCADE!', color: '#fb923c', size: 17 }, instId);
-      }
-    }
-
-    // Stormcaller: a full Static charge discharges into a lightning chain
-    const st = player.set4.stormcaller;
-    if (st && (player.staticStacks || 0) >= st.stacks) {
-      player.staticStacks = 0;
-      const points = [{ x: mob.x, y: mob.y }];
-      const struck = new Set([mob.id]);
-      let from = mob;
-      let mult = st.dmgMult;
-      player._inSetProc = true;
-      try {
-        for (let i = 0; i < st.chains; i++) {
-          let next = null, best = st.range;
-          for (const other of mobs().values()) {
-            if (struck.has(other.id) || other.state === 'dead' || other.hp <= 0) continue;
-            const d = Math.hypot(other.x - from.x, other.y - from.y);
-            if (d <= best) { best = d; next = other; }
-          }
-          if (!next) break;
-          struck.add(next.id);
-          points.push({ x: next.x, y: next.y });
-          this.applyDamageToMob(player, next, Math.max(1, Math.round(player.dmg * mult * SKILL_DAMAGE_SCALE)), false);
-          mult *= (1 - st.falloff);
-          from = next;
-        }
-      } finally { player._inSetProc = false; }
-      if (player.skillCooldowns) {
-        for (const k of Object.keys(player.skillCooldowns)) {
-          if (player.skillCooldowns[k] > 0) player.skillCooldowns[k] = Number((player.skillCooldowns[k] * (1 - st.cdCut)).toFixed(2));
-        }
-      }
-      this.emitZone(zone, 'skill_fx', { type: 'set_proc', set: 'stormcaller', x: mob.x, y: mob.y, points, color: '#facc15', playerId: player.id }, instId);
-      this.emitZone(zone, 'floating_text', { x: player.x, y: player.y - 1.0, text: '⚡ STATIC OVERLOAD!', color: '#facc15', size: 17 }, instId);
-    }
+  applySetOnHit(player: Player, mob: Mob, damage: any) {
+    return this.combat.applySetOnHit(player, mob, damage);
   }
 
-  // Skill cast hooks: Stormcaller Static stacks, Eclipse phase flip
-  applySetOnSkillCast(player, cooldown) {
-    if (!player.set4) return;
-    const st = player.set4.stormcaller;
-    if (st) player.staticStacks = Math.min(st.stacks, (player.staticStacks || 0) + 1);
-    const ec = player.set4.eclipse;
-    if (ec && cooldown >= ec.flipCooldown) this.flipEclipse(player);
+  applySetOnSkillCast(player: Player, cooldown: any) {
+    return this.skills.applySetOnSkillCast(player, cooldown);
   }
 
-  flipEclipse(player) {
-    const ec = player.set4 && player.set4.eclipse;
-    if (!ec) return;
-    player.eclipsePhase = player.eclipsePhase === 'dusk' ? 'dawn' : 'dusk';
-    player.eclipseTimer = ec.period;
-    this.recalculatePlayerStats(player);   // Dawn's Defense bonus
-    const dusk = player.eclipsePhase === 'dusk';
-    this.emitZone(player.zone, 'floating_text', { x: player.x, y: player.y - 1.0, text: dusk ? '🌑 DUSK' : '🌕 DAWN', color: dusk ? '#a855f7' : '#fde68a', size: 16 });
-    this.emitZone(player.zone, 'skill_fx', { type: 'set_proc', set: 'eclipse', phase: player.eclipsePhase, x: player.x, y: player.y, radius: dusk ? 1.4 : ec.dawnRadius, color: dusk ? '#a855f7' : '#fde68a', playerId: player.id });
+  flipEclipse(player: Player) {
+    return this.skills.flipEclipse(player);
   }
 
   // Per-tick upkeep: Energy Shield recharge, Eclipse phase clock and Dawn's party heal
-  tickPlayerShields(player, dt) {
+  tickPlayerShields(player: Player, dt: any) {
     if (player.esMax > 0 && player.es < player.esMax && Date.now() - (player.lastHitAt || 0) >= ENERGY_SHIELD.delay * 1000) {
       player.es = Math.min(player.esMax, player.es + player.esMax * ENERGY_SHIELD.rechargePerSec * dt);
     }
@@ -9450,132 +2496,12 @@ class GameServer {
     }
   }
 
-  // One monster blow landing on a hero: immunities, dodges, shields, thorns,
-  // elemental resistance and on-hit affixes. The caller handles reach and cooldown.
-  // opts.mechanic: a telegraphed boss attack (bossMechanics.ts). It can't be dodged, smoked or
-  // parried (you dodge it by moving), armor counts half, it reflects no thorns, and opts.mult
-  // scales the boss's damage.
-  mobStrikePlayer(mob, targetPlayer, zone, opts: any = {}) {
-    const now = Date.now();
-    const mech = !!opts.mechanic;
-    if (targetPlayer.godMode) {
-      this.emitZone(zone, 'floating_text', { x: targetPlayer.x, y: targetPlayer.y - 0.7, text: '🛡️ IMMUNE (God Mode)', color: '#facc15' });
-      return;
-    }
-    // Dragoon in the air: nothing on the ground can reach him
-    if (mech && targetPlayer.airborneUntil > now) return;
-    if (mech) return this.landMobDamage(mob, targetPlayer, zone, Math.round((mob.dmg || 0) * (opts.mult || 1)), 0.25, true);
-
-    if (targetPlayer.smokeScreenTimer > 0) {
-      this.emitZone(zone, 'floating_text', { x: targetPlayer.x, y: targetPlayer.y - 0.7, text: '💨 MISS! (Stealth)', color: '#94a3b8' });
-      return;
-    }
-    // Dragoon in the air: nothing on the ground can reach him
-    if (targetPlayer.airborneUntil > now) return;
-    // Sentinel Riposte Stance: the blow is blocked and returned
-    if (targetPlayer.parry && targetPlayer.parry.until > now) {
-      const back = Math.max(1, Math.round(targetPlayer.dmg * targetPlayer.parry.riposte * SKILL_DAMAGE_SCALE));
-      this.applyDamageToMob(targetPlayer, mob, back, false);
-      mob.attackCooldown = Math.max(mob.attackCooldown, 1.6);
-      this.emitZone(zone, 'skill_fx', { type: 'sp_skill', shape: 'riposte', startX: targetPlayer.x, startY: targetPlayer.y, x: mob.x, y: mob.y, element: 'holy', color: '#fde68a', cardId: 'sp_sentinel', skillId: 'sp_sentinel_riposte' });
-      this.emitZone(zone, 'floating_text', { x: targetPlayer.x, y: targetPlayer.y - 0.7, text: '🛡️ RIPOSTE!', color: '#fde68a', size: 16 });
-      return;
-    }
-    if (Math.random() < this.smokeMissChance(targetPlayer)) {
-      this.emitZone(zone, 'floating_text', { x: targetPlayer.x, y: targetPlayer.y - 0.7, text: '💨 MISS! (Smoke)', color: '#94a3b8' });
-      return;
-    }
-
-    // Dodge chance from talents
-    if (targetPlayer.dodgeChance && Math.random() < targetPlayer.dodgeChance) {
-      this.emitZone(zone, 'floating_text', { x: targetPlayer.x, y: targetPlayer.y - 0.7, text: '💨 DODGE!', color: '#38bdf8' });
-      return;
-    }
-
-    const effectiveDmg = mob.hasCommanderBuff ? Math.round(mob.dmg * 1.35) : mob.dmg;
-    this.landMobDamage(mob, targetPlayer, zone, effectiveDmg, 0.5, false);
+  mobStrikePlayer(mob: Mob, targetPlayer: Player, zone: any, opts: any = {}) {
+    return this.mobAI.mobStrikePlayer(mob, targetPlayer, zone, opts);
   }
 
-  // The shared tail of a monster hit: armor (armorShare of Defense is subtracted), element,
-  // crushing blows, thorns (not for mechanics), shields, death
-  landMobDamage(mob, targetPlayer, zone, effectiveDmg, armorShare, mech) {
-    let damageDealt = Math.max(1, Math.round(effectiveDmg - (targetPlayer.def * armorShare)));
-
-    // Monster element vs the player's elemental resistance from gear
-    const elemResistMult = calculateElementalMultiplier(mob.element || 'neutral', 'neutral', targetPlayer.elementResist || {});
-    damageDealt = Math.max(1, Math.round(damageDealt * elemResistMult));
-
-    // Crushing Blow from high level monsters against underleveled players!
-    let isCrushing = false;
-    if (!mob.noLevelGap && mob.level && targetPlayer.level && (mob.level - targetPlayer.level >= 5)) {
-      const gap = mob.level - targetPlayer.level;
-      const crushingMult = 1.0 + Math.min(4.0, (gap - 3) * 0.08);
-      damageDealt = Math.round(damageDealt * crushingMult);
-      isCrushing = true;
-    }
-
-    // Thorns reflection (Iron Fortress + passive Unyielding Spikes/Colossus Avatar)
-    const runeThorns = targetPlayer.armorRunes && targetPlayer.armorRunes.thorns ? Math.round(targetPlayer.maxHp * 0.03 * targetPlayer.armorRunes.thorns) : 0;
-    const thornsDmg = mech ? 0 : (targetPlayer.ironFortressTimer > 0 ? 25 : 0) + (targetPlayer.thorns || 0) + runeThorns;
-    if (thornsDmg > 0) {
-      this.applyDamageToMob(targetPlayer, mob, thornsDmg, false);
-      this.emitZone(zone, 'floating_text', { x: mob.x, y: mob.y - 0.7, text: `🌵 ${thornsDmg} Thorns!`, color: '#e2e8f0' });
-    }
-
-    // Iron Fortress: -60% damage
-    if (targetPlayer.ironFortressTimer > 0) {
-      damageDealt = Math.max(1, Math.round(damageDealt * 0.40));
-    }
-
-    // SP card passive (damage reduction, reflect, shields) and signature charge
-    if (targetPlayer.spTransformed) damageDealt = this.passiveOnHurt(targetPlayer, mob, damageDealt, zone);
-
-    // Shield Barrier absorption, then the mage's Energy Shield
-    damageDealt = this.absorbIncomingDamage(targetPlayer, damageDealt, zone);
-
-    targetPlayer.hp -= damageDealt;
-    if (damageDealt > 0) this.checkSecondWind(targetPlayer, zone);
-    if (targetPlayer.undyingTimer > 0 && targetPlayer.hp < 1) {
-      targetPlayer.hp = 1;
-      this.emitZone(zone, 'floating_text', { x: targetPlayer.x, y: targetPlayer.y - 1.0, text: '💀 UNDYING RAGE!', color: '#c084fc', size: 18 });
-    }
-    if (targetPlayer.hp <= 0) this.phoenixRebirth(targetPlayer);
-
-    // Apply Mob Buffs/Affixes to targetPlayer
-    if (mob.buffs && mob.buffs.length > 0) {
-      if (mob.buffs.includes('venomous')) {
-        this.applyStatusEffect(targetPlayer, 'poison', 4.5, 9);
-      }
-      if (mob.buffs.includes('frostbite')) {
-        this.applyStatusEffect(targetPlayer, 'chill', 2.5, 0.45);
-      }
-      if (mob.buffs.includes('ignited')) {
-        this.applyStatusEffect(targetPlayer, 'burn', 3.0, 14);
-      }
-    }
-
-    if (isCrushing) {
-      this.emitZone(zone, 'floating_text', { x: targetPlayer.x, y: targetPlayer.y - 0.7, text: `-${damageDealt}`, color: '#dc2626', size: 18 });
-    } else if (elemResistMult < 1) {
-      this.emitZone(zone, 'floating_text', { x: targetPlayer.x, y: targetPlayer.y - 0.7, text: `-${damageDealt}`, color: '#fca5a5' });
-    } else {
-      this.emitZone(zone, 'floating_text', { x: targetPlayer.x, y: targetPlayer.y - 0.7, text: `-${damageDealt}`, color: '#ef4444' });
-    }
-    if (!mech) this.emitZone(zone, 'entity_attack_fx', { attackerId: mob.id, attackerType: 'mob', targetId: targetPlayer.id, x: mob.x, y: mob.y });
-
-    if (targetPlayer.hp <= 0) {
-      targetPlayer.hp = 0;
-      targetPlayer.isDead = true;
-      if (targetPlayer.dungeonRun) targetPlayer.dungeonRun.deaths = (targetPlayer.dungeonRun.deaths || 0) + 1;
-      targetPlayer.respawnTimer = 5.0;
-      this.emitZone(zone, 'player_died', { playerId: targetPlayer.id, killerName: mob.name });
-      this.broadcastSystemMessage(`☠️ [${targetPlayer.name}] was slain by [${mob.name}]!`);
-      // a boss turns on the next hero still fighting it instead of walking home to heal
-      const next = mob.isBoss ? (Array.from(this.players.values()) as any[]).find(p => !p.isDead && p.zone === zone
-        && p.dungeonInstanceId === targetPlayer.dungeonInstanceId && Math.hypot(p.x - mob.x, p.y - mob.y) < 30) : null;
-      if (next) { mob.state = 'chase'; mob.targetPlayerId = next.id; }
-      else mob.state = 'return';
-    }
+  landMobDamage(mob: Mob, targetPlayer: Player, zone: any, effectiveDmg: any, armorShare: any, mech: any) {
+    return this.mobAI.landMobDamage(mob, targetPlayer, zone, effectiveDmg, armorShare, mech);
   }
 
   broadcastSnapshot() {
@@ -9584,9 +2510,9 @@ class GameServer {
     this._snapTick = (this._snapTick || 0) + 1;
     const fullRefresh = this._snapTick % this.TICK_RATE === 0;
     if (!this._heavySigs) this._heavySigs = new WeakMap();
-    const round2 = v => Math.round(v * 100) / 100;
+    const round2 = (v: any) => Math.round(v * 100) / 100;
     const playersArr = Array.from(this.players.values()).map(p => {
-      const sweep = p.characterClass === 'mage' ? { reach: 0, arc: 0 } : this.meleeSweep(p);
+      const sweep = isRangedClass(p.characterClass) ? { reach: 0, arc: 0 } : this.meleeSweep(p);
       const snap = {
       id: p.id,
       name: p.name,
@@ -9612,13 +2538,13 @@ class GameServer {
       gold: p.gold,
       speechBubble: p.speechBubble,
       isDead: p.isDead,
-      statusEffects: (p.statusEffects || []).map(e => ({ type: e.type, duration: Math.ceil(e.duration) })),
+      statusEffects: (p.statusEffects || []).map((e: any) => ({ type: e.type, duration: Math.ceil(e.duration) })),
       skillCooldowns: p.skillCooldowns,
       attackSpeed: p.attackSpeed || 1.0,
       swipe: p.swipe || 0,
       // melee cleave reach / arc, so the client draws the local swing at its true size
-      sweepReach: p.characterClass === 'mage' ? 0 : round2(sweep.reach),
-      sweepArc: p.characterClass === 'mage' ? 0 : sweep.arc,
+      sweepReach: isRangedClass(p.characterClass) ? 0 : round2(sweep.reach),
+      sweepArc: isRangedClass(p.characterClass) ? 0 : sweep.arc,
       jobLevel: p.jobLevel || 1,
       spTransformed: !!p.spTransformed,
       spCardId: p.spTransformed && p.equipment && p.equipment.sp ? p.equipment.sp.cardId : null,
@@ -9636,7 +2562,7 @@ class GameServer {
       smokeScreenTimer: Number((p.smokeScreenTimer || 0).toFixed(1)),
       trail: (p.effects && p.effects.trail) || null,
       // Gravelord undead minions (drawn by the client like monsters, in grave colours)
-      minions: p.minions && p.minions.length ? p.minions.map(m => ({ id: m.id, type: m.type, hue: m.hue, scale: m.scale, x: round2(m.x), y: round2(m.y), facing: m.facing, atk: m.atkAt, life: round2(Math.max(0, (m.until - Date.now()) / m.dur)), name: m.name, rage: !!(p.minionRage && p.minionRage.until > Date.now()) })) : undefined
+      minions: p.minions && p.minions.length ? p.minions.map((m: any) => ({ id: m.id, type: m.type, hue: m.hue, scale: m.scale, x: round2(m.x), y: round2(m.y), facing: m.facing, atk: m.atkAt, life: round2(Math.max(0, (m.until - Date.now()) / m.dur)), name: m.name, rage: !!(p.minionRage && p.minionRage.until > Date.now()) })) : undefined
       };
       const heavy = {
         inventory: p.inventory, equipment: p.equipment, baseStats: p.baseStats,
@@ -9655,7 +2581,7 @@ class GameServer {
       return snap;
     });
 
-    const snapMob = m => ({
+    const snapMob = (m: any) => ({
       id: m.id, type: m.type, name: m.name, level: m.level, x: round2(m.x), y: round2(m.y),
       facing: m.facing, hp: Math.round(m.hp), maxHp: m.maxHp, state: m.state, isBoss: m.isBoss, isMiniboss: !!m.isMiniboss,
       buffs: m.buffs || [], isCommander: !!m.isCommander, auraRadius: m.auraRadius || 0, hasCommanderBuff: !!m.hasCommanderBuff,

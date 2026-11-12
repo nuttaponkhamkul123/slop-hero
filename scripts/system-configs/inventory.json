@@ -1,0 +1,6 @@
+{
+  "className": "InventorySystem",
+  "field": "inventory",
+  "description": "Bag and equipment actions: equip, unequip, shop buy/sell, favorites, town scroll, bag and chest expanders, the personal chest and picking up ground items.",
+  "methods": ["handleEquipItem", "handleUnequipItem", "handleBuyItem", "handleToggleFavorite", "handleSellItem", "handleSellItems", "handleUseTownScroll", "handleUseBagExpander", "handleOpenPersonalChest", "handleDepositToChest", "handleWithdrawFromChest", "handleUseChestExpander", "handlePickupItem"]
+}

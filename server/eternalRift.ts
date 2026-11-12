@@ -73,9 +73,9 @@ export function generateRiftArena() {
     height: SIZE,
     tiles,
     obstacles,
-    rooms: [],
-    doors: [],
-    chests: [],
+    rooms: [] as any,
+    doors: [] as any,
+    chests: [] as any,
     spawnPoint: RIFT_SPAWN,
     theme: 'dungeon_oblivion',
     name: 'The Eternal Rift',
@@ -168,7 +168,7 @@ export function buildRiftWave(wave: number, baseLevel: number, heroes: number, m
       type: r.type, name: `${r.name}${boss ? ' [Boss]' : elite ? ' [Elite]' : ''}`, level,
       hue: r.hue, scale: r.scale || 1, speed: r.speed,
       element: r.element || 'dark', elementResist: { holy: -0.3, dark: 0.3 },
-      buffs: [],
+      buffs: [] as any,
       maxHp: Math.round(s.maxHp * hpMult),
       dmg: Math.round(s.dmg * dmgMult),
       def: s.def,
@@ -199,7 +199,7 @@ export function spawnInterval(wave: number, count: number) {
 const ESSENCE_AT_CHECKPOINT = { 5: 1, 10: 2, 15: 3, 20: 5, 25: 7, 30: 12 };
 export function checkpointReward(wave: number, baseLevel: number) {
   return {
-    essence: ESSENCE_AT_CHECKPOINT[wave] || 0,
+    essence: (ESSENCE_AT_CHECKPOINT as any)[wave] || 0,
     gold: Math.round(wave * (5 + baseLevel) * 0.5)
   };
 }

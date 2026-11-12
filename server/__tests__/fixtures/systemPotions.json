@@ -1,0 +1,1199 @@
+{
+  "basics": {
+    "slots1": {
+      "health": "health_potion",
+      "mana": "mana_potion"
+    },
+    "slots2": {
+      "health": "greater_health_potion",
+      "mana": "mana_potion"
+    },
+    "counts": [
+      3,
+      2,
+      2,
+      1,
+      0
+    ],
+    "afterConsume": {
+      "healthPotions": 2,
+      "manaPotions": 1,
+      "items": [
+        {
+          "id": "greater_health_potion",
+          "count": 1
+        }
+      ],
+      "potionSlots": {
+        "health": "greater_health_potion",
+        "mana": "mana_potion"
+      }
+    }
+  },
+  "drink": {
+    "healthSlot": {
+      "hero": {
+        "id": "h1",
+        "zone": "town",
+        "x": 3,
+        "y": 4,
+        "hp": 190,
+        "maxHp": 200,
+        "mp": 10,
+        "maxMp": 100,
+        "inventory": {
+          "healthPotions": 2,
+          "manaPotions": 2,
+          "items": [
+            {
+              "id": "greater_health_potion",
+              "count": 2
+            },
+            {
+              "id": "greater_mana_potion"
+            }
+          ],
+          "potionSlots": {
+            "health": "health_potion",
+            "mana": "mana_potion"
+          }
+        },
+        "potionCdUntil": {
+          "health": 1700000010000,
+          "mana": 0
+        }
+      },
+      "log": [
+        [
+          "zone",
+          "town",
+          "floating_text",
+          {
+            "x": 3,
+            "y": 3.5,
+            "text": "+90 HP",
+            "color": "#4ade80"
+          }
+        ],
+        [
+          "zone",
+          "town",
+          "heal_fx",
+          {
+            "targetId": "h1",
+            "type": "health"
+          }
+        ],
+        [
+          "socket",
+          "potion_cooldown",
+          {
+            "kind": "health",
+            "remainingMs": 10000,
+            "totalMs": 10000
+          }
+        ],
+        [
+          "socket",
+          "player_updated",
+          {
+            "id": "h1",
+            "zone": "town",
+            "x": 3,
+            "y": 4,
+            "hp": 190,
+            "maxHp": 200,
+            "mp": 10,
+            "maxMp": 100,
+            "inventory": {
+              "healthPotions": 2,
+              "manaPotions": 2,
+              "items": [
+                {
+                  "id": "greater_health_potion",
+                  "count": 2
+                },
+                {
+                  "id": "greater_mana_potion"
+                }
+              ],
+              "potionSlots": {
+                "health": "health_potion",
+                "mana": "mana_potion"
+              }
+            },
+            "potionCdUntil": {
+              "health": 1700000010000,
+              "mana": 0
+            }
+          }
+        ]
+      ]
+    },
+    "manaSlot": {
+      "hero": {
+        "id": "h1",
+        "zone": "town",
+        "x": 3,
+        "y": 4,
+        "hp": 100,
+        "maxHp": 200,
+        "mp": 60,
+        "maxMp": 100,
+        "inventory": {
+          "healthPotions": 3,
+          "manaPotions": 1,
+          "items": [
+            {
+              "id": "greater_health_potion",
+              "count": 2
+            },
+            {
+              "id": "greater_mana_potion"
+            }
+          ],
+          "potionSlots": {
+            "health": "health_potion",
+            "mana": "mana_potion"
+          }
+        },
+        "potionCdUntil": {
+          "health": 0,
+          "mana": 1700000005000
+        }
+      },
+      "log": [
+        [
+          "zone",
+          "town",
+          "floating_text",
+          {
+            "x": 3,
+            "y": 3.5,
+            "text": "+50 MP",
+            "color": "#38bdf8"
+          }
+        ],
+        [
+          "zone",
+          "town",
+          "heal_fx",
+          {
+            "targetId": "h1",
+            "type": "mana"
+          }
+        ],
+        [
+          "socket",
+          "potion_cooldown",
+          {
+            "kind": "mana",
+            "remainingMs": 5000,
+            "totalMs": 5000
+          }
+        ],
+        [
+          "socket",
+          "player_updated",
+          {
+            "id": "h1",
+            "zone": "town",
+            "x": 3,
+            "y": 4,
+            "hp": 100,
+            "maxHp": 200,
+            "mp": 60,
+            "maxMp": 100,
+            "inventory": {
+              "healthPotions": 3,
+              "manaPotions": 1,
+              "items": [
+                {
+                  "id": "greater_health_potion",
+                  "count": 2
+                },
+                {
+                  "id": "greater_mana_potion"
+                }
+              ],
+              "potionSlots": {
+                "health": "health_potion",
+                "mana": "mana_potion"
+              }
+            },
+            "potionCdUntil": {
+              "health": 0,
+              "mana": 1700000005000
+            }
+          }
+        ]
+      ]
+    },
+    "specificGreaterHealth": {
+      "hero": {
+        "id": "h1",
+        "zone": "town",
+        "x": 3,
+        "y": 4,
+        "hp": 200,
+        "maxHp": 200,
+        "mp": 10,
+        "maxMp": 100,
+        "inventory": {
+          "healthPotions": 3,
+          "manaPotions": 2,
+          "items": [
+            {
+              "id": "greater_health_potion",
+              "count": 1
+            },
+            {
+              "id": "greater_mana_potion"
+            }
+          ],
+          "potionSlots": {
+            "health": "health_potion",
+            "mana": "mana_potion"
+          }
+        },
+        "potionCdUntil": {
+          "health": 1700000010000,
+          "mana": 0
+        }
+      },
+      "log": [
+        [
+          "zone",
+          "town",
+          "floating_text",
+          {
+            "x": 3,
+            "y": 3.5,
+            "text": "+150 HP",
+            "color": "#4ade80"
+          }
+        ],
+        [
+          "zone",
+          "town",
+          "heal_fx",
+          {
+            "targetId": "h1",
+            "type": "health"
+          }
+        ],
+        [
+          "socket",
+          "potion_cooldown",
+          {
+            "kind": "health",
+            "remainingMs": 10000,
+            "totalMs": 10000
+          }
+        ],
+        [
+          "socket",
+          "player_updated",
+          {
+            "id": "h1",
+            "zone": "town",
+            "x": 3,
+            "y": 4,
+            "hp": 200,
+            "maxHp": 200,
+            "mp": 10,
+            "maxMp": 100,
+            "inventory": {
+              "healthPotions": 3,
+              "manaPotions": 2,
+              "items": [
+                {
+                  "id": "greater_health_potion",
+                  "count": 1
+                },
+                {
+                  "id": "greater_mana_potion"
+                }
+              ],
+              "potionSlots": {
+                "health": "health_potion",
+                "mana": "mana_potion"
+              }
+            },
+            "potionCdUntil": {
+              "health": 1700000010000,
+              "mana": 0
+            }
+          }
+        ]
+      ]
+    },
+    "specificGreaterMana": {
+      "hero": {
+        "id": "h1",
+        "zone": "town",
+        "x": 3,
+        "y": 4,
+        "hp": 100,
+        "maxHp": 200,
+        "mp": 90,
+        "maxMp": 100,
+        "inventory": {
+          "healthPotions": 3,
+          "manaPotions": 2,
+          "items": [
+            {
+              "id": "greater_health_potion",
+              "count": 2
+            }
+          ],
+          "potionSlots": {
+            "health": "health_potion",
+            "mana": "mana_potion"
+          }
+        },
+        "potionCdUntil": {
+          "health": 0,
+          "mana": 1700000005000
+        }
+      },
+      "log": [
+        [
+          "zone",
+          "town",
+          "floating_text",
+          {
+            "x": 3,
+            "y": 3.5,
+            "text": "+80 MP",
+            "color": "#38bdf8"
+          }
+        ],
+        [
+          "zone",
+          "town",
+          "heal_fx",
+          {
+            "targetId": "h1",
+            "type": "mana"
+          }
+        ],
+        [
+          "socket",
+          "potion_cooldown",
+          {
+            "kind": "mana",
+            "remainingMs": 5000,
+            "totalMs": 5000
+          }
+        ],
+        [
+          "socket",
+          "player_updated",
+          {
+            "id": "h1",
+            "zone": "town",
+            "x": 3,
+            "y": 4,
+            "hp": 100,
+            "maxHp": 200,
+            "mp": 90,
+            "maxMp": 100,
+            "inventory": {
+              "healthPotions": 3,
+              "manaPotions": 2,
+              "items": [
+                {
+                  "id": "greater_health_potion",
+                  "count": 2
+                }
+              ],
+              "potionSlots": {
+                "health": "health_potion",
+                "mana": "mana_potion"
+              }
+            },
+            "potionCdUntil": {
+              "health": 0,
+              "mana": 1700000005000
+            }
+          }
+        ]
+      ]
+    },
+    "hpAlreadyFull": {
+      "hero": {
+        "id": "h1",
+        "zone": "town",
+        "x": 3,
+        "y": 4,
+        "hp": 200,
+        "maxHp": 200,
+        "mp": 10,
+        "maxMp": 100,
+        "inventory": {
+          "healthPotions": 3,
+          "manaPotions": 2,
+          "items": [
+            {
+              "id": "greater_health_potion",
+              "count": 2
+            },
+            {
+              "id": "greater_mana_potion"
+            }
+          ],
+          "potionSlots": {
+            "health": "health_potion",
+            "mana": "mana_potion"
+          }
+        },
+        "potionCdUntil": {
+          "health": 0,
+          "mana": 0
+        }
+      },
+      "log": []
+    },
+    "mpAlreadyFull": {
+      "hero": {
+        "id": "h1",
+        "zone": "town",
+        "x": 3,
+        "y": 4,
+        "hp": 100,
+        "maxHp": 200,
+        "mp": 100,
+        "maxMp": 100,
+        "inventory": {
+          "healthPotions": 3,
+          "manaPotions": 2,
+          "items": [
+            {
+              "id": "greater_health_potion",
+              "count": 2
+            },
+            {
+              "id": "greater_mana_potion"
+            }
+          ],
+          "potionSlots": {
+            "health": "health_potion",
+            "mana": "mana_potion"
+          }
+        },
+        "potionCdUntil": {
+          "health": 0,
+          "mana": 0
+        }
+      },
+      "log": []
+    },
+    "outOfPotions": {
+      "hero": {
+        "id": "h1",
+        "zone": "town",
+        "x": 3,
+        "y": 4,
+        "hp": 100,
+        "maxHp": 200,
+        "mp": 10,
+        "maxMp": 100,
+        "inventory": {
+          "healthPotions": 0,
+          "manaPotions": 0,
+          "items": [],
+          "potionSlots": {
+            "health": "health_potion",
+            "mana": "mana_potion"
+          }
+        },
+        "potionCdUntil": {
+          "health": 0,
+          "mana": 0
+        }
+      },
+      "log": [
+        [
+          "socket",
+          "floating_text",
+          {
+            "x": 3,
+            "y": 3.4,
+            "text": "⚠️ Out of Health Potion!",
+            "color": "#ef4444"
+          }
+        ]
+      ]
+    },
+    "onCooldown": {
+      "hero": {
+        "id": "h1",
+        "zone": "town",
+        "x": 3,
+        "y": 4,
+        "hp": 100,
+        "maxHp": 200,
+        "mp": 10,
+        "maxMp": 100,
+        "inventory": {
+          "healthPotions": 3,
+          "manaPotions": 2,
+          "items": [
+            {
+              "id": "greater_health_potion",
+              "count": 2
+            },
+            {
+              "id": "greater_mana_potion"
+            }
+          ],
+          "potionSlots": {
+            "health": "health_potion",
+            "mana": "mana_potion"
+          }
+        },
+        "potionCdUntil": {
+          "health": 1700000004000,
+          "mana": 0
+        }
+      },
+      "log": [
+        [
+          "socket",
+          "potion_cooldown",
+          {
+            "kind": "health",
+            "remainingMs": 4000,
+            "totalMs": 10000
+          }
+        ]
+      ]
+    },
+    "cooldownOver": {
+      "hero": {
+        "id": "h1",
+        "zone": "town",
+        "x": 3,
+        "y": 4,
+        "hp": 190,
+        "maxHp": 200,
+        "mp": 10,
+        "maxMp": 100,
+        "inventory": {
+          "healthPotions": 2,
+          "manaPotions": 2,
+          "items": [
+            {
+              "id": "greater_health_potion",
+              "count": 2
+            },
+            {
+              "id": "greater_mana_potion"
+            }
+          ],
+          "potionSlots": {
+            "health": "health_potion",
+            "mana": "mana_potion"
+          }
+        },
+        "potionCdUntil": {
+          "health": 1700000010000,
+          "mana": 0
+        }
+      },
+      "log": [
+        [
+          "zone",
+          "town",
+          "floating_text",
+          {
+            "x": 3,
+            "y": 3.5,
+            "text": "+90 HP",
+            "color": "#4ade80"
+          }
+        ],
+        [
+          "zone",
+          "town",
+          "heal_fx",
+          {
+            "targetId": "h1",
+            "type": "health"
+          }
+        ],
+        [
+          "socket",
+          "potion_cooldown",
+          {
+            "kind": "health",
+            "remainingMs": 10000,
+            "totalMs": 10000
+          }
+        ],
+        [
+          "socket",
+          "player_updated",
+          {
+            "id": "h1",
+            "zone": "town",
+            "x": 3,
+            "y": 4,
+            "hp": 190,
+            "maxHp": 200,
+            "mp": 10,
+            "maxMp": 100,
+            "inventory": {
+              "healthPotions": 2,
+              "manaPotions": 2,
+              "items": [
+                {
+                  "id": "greater_health_potion",
+                  "count": 2
+                },
+                {
+                  "id": "greater_mana_potion"
+                }
+              ],
+              "potionSlots": {
+                "health": "health_potion",
+                "mana": "mana_potion"
+              }
+            },
+            "potionCdUntil": {
+              "health": 1700000010000,
+              "mana": 0
+            }
+          }
+        ]
+      ]
+    },
+    "sharedCooldownBlocksOtherSize": {
+      "hero": {
+        "id": "h1",
+        "zone": "town",
+        "x": 3,
+        "y": 4,
+        "hp": 100,
+        "maxHp": 200,
+        "mp": 10,
+        "maxMp": 100,
+        "inventory": {
+          "healthPotions": 3,
+          "manaPotions": 2,
+          "items": [
+            {
+              "id": "greater_health_potion",
+              "count": 2
+            },
+            {
+              "id": "greater_mana_potion"
+            }
+          ],
+          "potionSlots": {
+            "health": "health_potion",
+            "mana": "mana_potion"
+          }
+        },
+        "potionCdUntil": {
+          "health": 1700000001000,
+          "mana": 0
+        }
+      },
+      "log": [
+        [
+          "socket",
+          "potion_cooldown",
+          {
+            "kind": "health",
+            "remainingMs": 1000,
+            "totalMs": 10000
+          }
+        ]
+      ]
+    },
+    "healsAtMost": {
+      "hero": {
+        "id": "h1",
+        "zone": "town",
+        "x": 3,
+        "y": 4,
+        "hp": 200,
+        "maxHp": 200,
+        "mp": 10,
+        "maxMp": 100,
+        "inventory": {
+          "healthPotions": 2,
+          "manaPotions": 2,
+          "items": [
+            {
+              "id": "greater_health_potion",
+              "count": 2
+            },
+            {
+              "id": "greater_mana_potion"
+            }
+          ],
+          "potionSlots": {
+            "health": "health_potion",
+            "mana": "mana_potion"
+          }
+        },
+        "potionCdUntil": {
+          "health": 1700000010000,
+          "mana": 0
+        }
+      },
+      "log": [
+        [
+          "zone",
+          "town",
+          "floating_text",
+          {
+            "x": 3,
+            "y": 3.5,
+            "text": "+90 HP",
+            "color": "#4ade80"
+          }
+        ],
+        [
+          "zone",
+          "town",
+          "heal_fx",
+          {
+            "targetId": "h1",
+            "type": "health"
+          }
+        ],
+        [
+          "socket",
+          "potion_cooldown",
+          {
+            "kind": "health",
+            "remainingMs": 10000,
+            "totalMs": 10000
+          }
+        ],
+        [
+          "socket",
+          "player_updated",
+          {
+            "id": "h1",
+            "zone": "town",
+            "x": 3,
+            "y": 4,
+            "hp": 200,
+            "maxHp": 200,
+            "mp": 10,
+            "maxMp": 100,
+            "inventory": {
+              "healthPotions": 2,
+              "manaPotions": 2,
+              "items": [
+                {
+                  "id": "greater_health_potion",
+                  "count": 2
+                },
+                {
+                  "id": "greater_mana_potion"
+                }
+              ],
+              "potionSlots": {
+                "health": "health_potion",
+                "mana": "mana_potion"
+              }
+            },
+            "potionCdUntil": {
+              "health": 1700000010000,
+              "mana": 0
+            }
+          }
+        ]
+      ]
+    },
+    "unknownKind": {
+      "hero": {
+        "id": "h1",
+        "zone": "town",
+        "x": 3,
+        "y": 4,
+        "hp": 100,
+        "maxHp": 200,
+        "mp": 10,
+        "maxMp": 100,
+        "inventory": {
+          "healthPotions": 3,
+          "manaPotions": 2,
+          "items": [
+            {
+              "id": "greater_health_potion",
+              "count": 2
+            },
+            {
+              "id": "greater_mana_potion"
+            }
+          ],
+          "potionSlots": {
+            "health": "health_potion",
+            "mana": "mana_potion"
+          }
+        }
+      },
+      "log": []
+    },
+    "unknownItem": {
+      "hero": {
+        "id": "h1",
+        "zone": "town",
+        "x": 3,
+        "y": 4,
+        "hp": 100,
+        "maxHp": 200,
+        "mp": 10,
+        "maxMp": 100,
+        "inventory": {
+          "healthPotions": 3,
+          "manaPotions": 2,
+          "items": [
+            {
+              "id": "greater_health_potion",
+              "count": 2
+            },
+            {
+              "id": "greater_mana_potion"
+            }
+          ],
+          "potionSlots": {
+            "health": "health_potion",
+            "mana": "mana_potion"
+          }
+        }
+      },
+      "log": []
+    },
+    "badPayload": {
+      "hero": {
+        "id": "h1",
+        "zone": "town",
+        "x": 3,
+        "y": 4,
+        "hp": 100,
+        "maxHp": 200,
+        "mp": 10,
+        "maxMp": 100,
+        "inventory": {
+          "healthPotions": 3,
+          "manaPotions": 2,
+          "items": [
+            {
+              "id": "greater_health_potion",
+              "count": 2
+            },
+            {
+              "id": "greater_mana_potion"
+            }
+          ],
+          "potionSlots": {
+            "health": "health_potion",
+            "mana": "mana_potion"
+          }
+        }
+      },
+      "log": []
+    },
+    "dead": {
+      "hero": {
+        "id": "h1",
+        "zone": "town",
+        "x": 3,
+        "y": 4,
+        "hp": 100,
+        "maxHp": 200,
+        "mp": 10,
+        "maxMp": 100,
+        "inventory": {
+          "healthPotions": 3,
+          "manaPotions": 2,
+          "items": [
+            {
+              "id": "greater_health_potion",
+              "count": 2
+            },
+            {
+              "id": "greater_mana_potion"
+            }
+          ]
+        },
+        "isDead": true
+      },
+      "log": []
+    },
+    "customSlot": {
+      "hero": {
+        "id": "h1",
+        "zone": "town",
+        "x": 3,
+        "y": 4,
+        "hp": 200,
+        "maxHp": 200,
+        "mp": 10,
+        "maxMp": 100,
+        "inventory": {
+          "healthPotions": 3,
+          "manaPotions": 2,
+          "items": [
+            {
+              "id": "greater_health_potion",
+              "count": 1
+            },
+            {
+              "id": "greater_mana_potion"
+            }
+          ],
+          "potionSlots": {
+            "health": "greater_health_potion",
+            "mana": "mana_potion"
+          }
+        },
+        "potionCdUntil": {
+          "health": 1700000010000,
+          "mana": 0
+        }
+      },
+      "log": [
+        [
+          "zone",
+          "town",
+          "floating_text",
+          {
+            "x": 3,
+            "y": 3.5,
+            "text": "+150 HP",
+            "color": "#4ade80"
+          }
+        ],
+        [
+          "zone",
+          "town",
+          "heal_fx",
+          {
+            "targetId": "h1",
+            "type": "health"
+          }
+        ],
+        [
+          "socket",
+          "potion_cooldown",
+          {
+            "kind": "health",
+            "remainingMs": 10000,
+            "totalMs": 10000
+          }
+        ],
+        [
+          "socket",
+          "player_updated",
+          {
+            "id": "h1",
+            "zone": "town",
+            "x": 3,
+            "y": 4,
+            "hp": 200,
+            "maxHp": 200,
+            "mp": 10,
+            "maxMp": 100,
+            "inventory": {
+              "healthPotions": 3,
+              "manaPotions": 2,
+              "items": [
+                {
+                  "id": "greater_health_potion",
+                  "count": 1
+                },
+                {
+                  "id": "greater_mana_potion"
+                }
+              ],
+              "potionSlots": {
+                "health": "greater_health_potion",
+                "mana": "mana_potion"
+              }
+            },
+            "potionCdUntil": {
+              "health": 1700000010000,
+              "mana": 0
+            }
+          }
+        ]
+      ]
+    },
+    "unknownSocket": {
+      "log": [],
+      "hp": 100
+    },
+    "twice": {
+      "hero": {
+        "id": "h1",
+        "zone": "town",
+        "x": 3,
+        "y": 4,
+        "hp": 190,
+        "maxHp": 200,
+        "mp": 10,
+        "maxMp": 100,
+        "inventory": {
+          "healthPotions": 2,
+          "manaPotions": 2,
+          "items": [
+            {
+              "id": "greater_health_potion",
+              "count": 2
+            },
+            {
+              "id": "greater_mana_potion"
+            }
+          ],
+          "potionSlots": {
+            "health": "health_potion",
+            "mana": "mana_potion"
+          }
+        },
+        "potionCdUntil": {
+          "health": 1700000010000,
+          "mana": 0
+        }
+      },
+      "log": [
+        [
+          "zone",
+          "town",
+          "floating_text",
+          {
+            "x": 3,
+            "y": 3.5,
+            "text": "+90 HP",
+            "color": "#4ade80"
+          }
+        ],
+        [
+          "zone",
+          "town",
+          "heal_fx",
+          {
+            "targetId": "h1",
+            "type": "health"
+          }
+        ],
+        [
+          "socket",
+          "potion_cooldown",
+          {
+            "kind": "health",
+            "remainingMs": 10000,
+            "totalMs": 10000
+          }
+        ],
+        [
+          "socket",
+          "player_updated",
+          {
+            "id": "h1",
+            "zone": "town",
+            "x": 3,
+            "y": 4,
+            "hp": 190,
+            "maxHp": 200,
+            "mp": 10,
+            "maxMp": 100,
+            "inventory": {
+              "healthPotions": 2,
+              "manaPotions": 2,
+              "items": [
+                {
+                  "id": "greater_health_potion",
+                  "count": 2
+                },
+                {
+                  "id": "greater_mana_potion"
+                }
+              ],
+              "potionSlots": {
+                "health": "health_potion",
+                "mana": "mana_potion"
+              }
+            },
+            "potionCdUntil": {
+              "health": 1700000010000,
+              "mana": 0
+            }
+          }
+        ],
+        [
+          "socket",
+          "potion_cooldown",
+          {
+            "kind": "health",
+            "remainingMs": 10000,
+            "totalMs": 10000
+          }
+        ]
+      ]
+    }
+  },
+  "setSlot": {
+    "valid": {
+      "health": "greater_health_potion",
+      "mana": "mana_potion"
+    },
+    "kindMismatch": {
+      "health": "greater_health_potion",
+      "mana": "mana_potion"
+    },
+    "unknownItem": {
+      "health": "greater_health_potion",
+      "mana": "mana_potion"
+    },
+    "noData": {
+      "health": "greater_health_potion",
+      "mana": "mana_potion"
+    },
+    "noPlayer": {
+      "health": "greater_health_potion",
+      "mana": "mana_potion"
+    },
+    "log": [
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "zone": "town",
+          "x": 3,
+          "y": 4,
+          "hp": 100,
+          "maxHp": 200,
+          "mp": 10,
+          "maxMp": 100,
+          "inventory": {
+            "healthPotions": 3,
+            "manaPotions": 2,
+            "items": [
+              {
+                "id": "greater_health_potion",
+                "count": 2
+              },
+              {
+                "id": "greater_mana_potion"
+              }
+            ],
+            "potionSlots": {
+              "health": "greater_health_potion",
+              "mana": "mana_potion"
+            }
+          }
+        }
+      ]
+    ]
+  }
+}

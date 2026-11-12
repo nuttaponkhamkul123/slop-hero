@@ -1,0 +1,1093 @@
+{
+  "projectiles": [
+    {
+      "stored": [
+        {
+          "cardId": null,
+          "instanceId": null,
+          "id": "proj_7000",
+          "zone": "town",
+          "casterId": "p1",
+          "x": 5,
+          "y": 5,
+          "targetX": 8,
+          "targetY": 9,
+          "targetId": "m1",
+          "targetType": "mob",
+          "vx": 5.4,
+          "vy": 7.199999999999999,
+          "damage": 40,
+          "splash": 0.3,
+          "crit": true,
+          "element": "fire",
+          "life": 2,
+          "color": "#f97316"
+        }
+      ],
+      "emitted": [
+        [
+          "town",
+          "projectile_spawned",
+          {
+            "id": "proj_7000",
+            "zone": "town",
+            "x": 5,
+            "y": 5,
+            "vx": 5.4,
+            "vy": 7.199999999999999,
+            "casterId": "p1",
+            "element": "fire",
+            "cardId": null,
+            "splash": 0.3,
+            "color": "#f97316"
+          }
+        ]
+      ],
+      "nextEntityId": 7001
+    },
+    {
+      "stored": [
+        {
+          "cardId": "sp_x",
+          "instanceId": "party_7",
+          "id": "proj_7000",
+          "zone": "dungeon",
+          "casterId": "p2",
+          "x": 10,
+          "y": 12,
+          "targetX": 11,
+          "targetY": 12,
+          "targetId": "m2",
+          "targetType": "mob",
+          "vx": 9,
+          "vy": 0,
+          "damage": 15,
+          "splash": 0,
+          "crit": false,
+          "element": "neutral",
+          "life": 2,
+          "color": "#f97316"
+        }
+      ],
+      "emitted": [
+        [
+          "dungeon",
+          "projectile_spawned",
+          {
+            "id": "proj_7000",
+            "zone": "dungeon",
+            "x": 10,
+            "y": 12,
+            "vx": 9,
+            "vy": 0,
+            "casterId": "p2",
+            "element": "neutral",
+            "cardId": "sp_x",
+            "splash": 0,
+            "color": "#f97316"
+          }
+        ]
+      ],
+      "nextEntityId": 7001
+    },
+    {
+      "stored": [
+        {
+          "cardId": null,
+          "instanceId": null,
+          "id": "proj_7000",
+          "zone": "frostfell",
+          "casterId": "p3",
+          "x": 1,
+          "y": 1,
+          "targetX": 1,
+          "targetY": 1,
+          "vx": -6.363961030678928,
+          "vy": 6.3639610306789285,
+          "damage": 9,
+          "splash": 0,
+          "crit": false,
+          "element": "neutral",
+          "life": 2,
+          "color": "#f97316"
+        }
+      ],
+      "emitted": [
+        [
+          "frostfell",
+          "projectile_spawned",
+          {
+            "id": "proj_7000",
+            "zone": "frostfell",
+            "x": 1,
+            "y": 1,
+            "vx": -6.363961030678928,
+            "vy": 6.3639610306789285,
+            "casterId": "p3",
+            "element": "neutral",
+            "cardId": null,
+            "splash": 0,
+            "color": "#f97316"
+          }
+        ]
+      ],
+      "nextEntityId": 7001
+    },
+    {
+      "stored": [
+        {
+          "cardId": null,
+          "instanceId": null,
+          "id": "proj_7000",
+          "zone": "dungeon",
+          "casterId": "p4",
+          "x": 2,
+          "y": 2,
+          "targetId": "m3",
+          "targetType": "mob",
+          "vx": 9,
+          "vy": 0,
+          "damage": 1,
+          "splash": 0,
+          "crit": false,
+          "element": "neutral",
+          "life": 2,
+          "color": "#f97316"
+        }
+      ],
+      "emitted": [
+        [
+          "dungeon",
+          "projectile_spawned",
+          {
+            "id": "proj_7000",
+            "zone": "dungeon",
+            "x": 2,
+            "y": 2,
+            "vx": 9,
+            "vy": 0,
+            "casterId": "p4",
+            "element": "neutral",
+            "cardId": null,
+            "splash": 0,
+            "color": "#f97316"
+          }
+        ]
+      ],
+      "nextEntityId": 7001
+    }
+  ],
+  "riftBolt": {
+    "stored": [
+      {
+        "cardId": null,
+        "instanceId": "rift_t",
+        "id": "proj_7100",
+        "zone": "dungeon",
+        "casterId": "owner1",
+        "x": 3,
+        "y": 4,
+        "targetX": 9,
+        "targetY": 1,
+        "targetId": "m9",
+        "targetType": "mob",
+        "vx": 9.838699100999074,
+        "vy": -4.919349550499537,
+        "damage": 33,
+        "splash": 0,
+        "crit": false,
+        "element": "holy",
+        "life": 1,
+        "color": "#fde68a"
+      }
+    ],
+    "emitted": [
+      [
+        "dungeon",
+        "projectile_spawned",
+        {
+          "id": "proj_7100",
+          "zone": "dungeon",
+          "x": 3,
+          "y": 4,
+          "vx": 9.838699100999074,
+          "vy": -4.919349550499537,
+          "casterId": null,
+          "element": "holy",
+          "cardId": null,
+          "splash": 0,
+          "color": "#fde68a"
+        },
+        "rift_t"
+      ]
+    ],
+    "nextEntityId": 7101
+  },
+  "groundItems": [
+    {
+      "stored": [
+        {
+          "id": "item_8000",
+          "zone": "town",
+          "type": "gold",
+          "itemId": null,
+          "name": "1,500 Gold",
+          "x": 1,
+          "y": 2,
+          "amount": 1500,
+          "customItemData": null,
+          "createdAt": 1700000000000,
+          "expiresAt": 1700000300000
+        }
+      ],
+      "emitted": [
+        [
+          "town",
+          "item_dropped",
+          {
+            "id": "item_8000",
+            "zone": "town",
+            "type": "gold",
+            "itemId": null,
+            "name": "1,500 Gold",
+            "x": 1,
+            "y": 2,
+            "amount": 1500,
+            "customItemData": null,
+            "createdAt": 1700000000000,
+            "expiresAt": 1700000300000
+          },
+          null
+        ]
+      ],
+      "nextEntityId": 8001
+    },
+    {
+      "stored": [
+        {
+          "id": "item_8000",
+          "zone": "town",
+          "type": "item",
+          "itemId": "ancient_ruby",
+          "name": "Ancient Ruby",
+          "x": 3,
+          "y": 4,
+          "amount": 2,
+          "customItemData": null,
+          "createdAt": 1700000000000,
+          "expiresAt": 1700000300000
+        }
+      ],
+      "emitted": [
+        [
+          "town",
+          "item_dropped",
+          {
+            "id": "item_8000",
+            "zone": "town",
+            "type": "item",
+            "itemId": "ancient_ruby",
+            "name": "Ancient Ruby",
+            "x": 3,
+            "y": 4,
+            "amount": 2,
+            "customItemData": null,
+            "createdAt": 1700000000000,
+            "expiresAt": 1700000300000
+          },
+          null
+        ]
+      ],
+      "nextEntityId": 8001
+    },
+    {
+      "stored": [
+        {
+          "id": "item_8000",
+          "zone": "frostfell",
+          "type": "item",
+          "itemId": "sp_card",
+          "name": "Custom Card",
+          "x": 5,
+          "y": 6,
+          "amount": 1,
+          "customItemData": {
+            "id": "sp_card_x",
+            "name": "Custom Card",
+            "custom": true
+          },
+          "createdAt": 1700000000000,
+          "expiresAt": 1700000300000
+        }
+      ],
+      "emitted": [
+        [
+          "frostfell",
+          "item_dropped",
+          {
+            "id": "item_8000",
+            "zone": "frostfell",
+            "type": "item",
+            "itemId": "sp_card",
+            "name": "Custom Card",
+            "x": 5,
+            "y": 6,
+            "amount": 1,
+            "customItemData": {
+              "id": "sp_card_x",
+              "name": "Custom Card",
+              "custom": true
+            },
+            "createdAt": 1700000000000,
+            "expiresAt": 1700000300000
+          },
+          null
+        ]
+      ],
+      "nextEntityId": 8001
+    },
+    {
+      "stored": [
+        {
+          "id": "item_8000",
+          "zone": "town",
+          "type": "item",
+          "itemId": "not_in_items",
+          "name": "not_in_items",
+          "x": 7,
+          "y": 8,
+          "amount": 5,
+          "customItemData": null,
+          "createdAt": 1700000000000,
+          "expiresAt": 1700000300000
+        }
+      ],
+      "emitted": [
+        [
+          "town",
+          "item_dropped",
+          {
+            "id": "item_8000",
+            "zone": "town",
+            "type": "item",
+            "itemId": "not_in_items",
+            "name": "not_in_items",
+            "x": 7,
+            "y": 8,
+            "amount": 5,
+            "customItemData": null,
+            "createdAt": 1700000000000,
+            "expiresAt": 1700000300000
+          },
+          null
+        ]
+      ],
+      "nextEntityId": 8001
+    },
+    {
+      "stored": [
+        {
+          "id": "item_8000",
+          "zone": "dungeon",
+          "type": "item",
+          "itemId": "iron_blade",
+          "name": "Knight Broadsword",
+          "x": 9,
+          "y": 10,
+          "amount": 1,
+          "customItemData": null,
+          "createdAt": 1700000000000,
+          "expiresAt": 1700000300000
+        }
+      ],
+      "emitted": [
+        [
+          "dungeon",
+          "item_dropped",
+          {
+            "id": "item_8000",
+            "zone": "dungeon",
+            "type": "item",
+            "itemId": "iron_blade",
+            "name": "Knight Broadsword",
+            "x": 9,
+            "y": 10,
+            "amount": 1,
+            "customItemData": null,
+            "createdAt": 1700000000000,
+            "expiresAt": 1700000300000
+          },
+          "party_3"
+        ]
+      ],
+      "nextEntityId": 8001
+    }
+  ],
+  "dungeonInstances": [
+    {
+      "scalars": {
+        "id": "solo_sock1",
+        "partyId": null,
+        "floor": 1,
+        "difficulty": "normal",
+        "mode": "classic",
+        "mods": [],
+        "modReward": 0,
+        "cleared": false,
+        "startedAt": 1700000000000,
+        "bossRoomIdx": 14,
+        "totalTrashMobs": 89,
+        "requiredKills": 52,
+        "killedTrashCount": 0,
+        "killPercent": 0,
+        "bossPortalReady": false,
+        "bossPortalSpawned": false,
+        "bossPortalPos": null,
+        "announce": true
+      },
+      "dungeonHash": "a1637823d9cb346c9a919c45b88b9eced3d878f8",
+      "mobsSize": 0,
+      "groundItemsSize": 0,
+      "chestsHash": "b3a36254c2d263abf0039591661f8d17792d89ef",
+      "pending": [
+        [
+          1,
+          8
+        ],
+        [
+          2,
+          8
+        ],
+        [
+          3,
+          10
+        ],
+        [
+          4,
+          11
+        ],
+        [
+          5,
+          9
+        ],
+        [
+          6,
+          5
+        ],
+        [
+          7,
+          5
+        ],
+        [
+          8,
+          6
+        ],
+        [
+          10,
+          10
+        ],
+        [
+          11,
+          8
+        ],
+        [
+          13,
+          9
+        ],
+        [
+          14,
+          5
+        ]
+      ],
+      "stored": true
+    },
+    {
+      "scalars": {
+        "id": "party_p9",
+        "partyId": "p9",
+        "floor": 3,
+        "difficulty": "hard",
+        "mode": "classic",
+        "mods": [
+          "fortified"
+        ],
+        "modReward": 0.2,
+        "cleared": false,
+        "startedAt": 1700000000000,
+        "bossRoomIdx": 23,
+        "totalTrashMobs": 254,
+        "requiredKills": 134,
+        "killedTrashCount": 0,
+        "killPercent": 0,
+        "bossPortalReady": false,
+        "bossPortalSpawned": false,
+        "bossPortalPos": null,
+        "announce": true
+      },
+      "dungeonHash": "052f3ce27cf4f7bb50fe126b71758fa1b58a43f3",
+      "mobsSize": 0,
+      "groundItemsSize": 0,
+      "chestsHash": "bee9ca276a917ea9a2372014f0769e45cee8c7ca",
+      "pending": [
+        [
+          1,
+          14
+        ],
+        [
+          2,
+          18
+        ],
+        [
+          4,
+          15
+        ],
+        [
+          5,
+          11
+        ],
+        [
+          6,
+          13
+        ],
+        [
+          7,
+          15
+        ],
+        [
+          8,
+          10
+        ],
+        [
+          9,
+          10
+        ],
+        [
+          10,
+          17
+        ],
+        [
+          11,
+          5
+        ],
+        [
+          12,
+          5
+        ],
+        [
+          13,
+          11
+        ],
+        [
+          15,
+          20
+        ],
+        [
+          16,
+          20
+        ],
+        [
+          17,
+          13
+        ],
+        [
+          18,
+          13
+        ],
+        [
+          19,
+          13
+        ],
+        [
+          20,
+          18
+        ],
+        [
+          22,
+          13
+        ],
+        [
+          23,
+          5
+        ]
+      ],
+      "stored": true
+    },
+    {
+      "scalars": {
+        "id": "solo_sock3",
+        "partyId": null,
+        "floor": 6,
+        "difficulty": "nightmare",
+        "mode": "classic",
+        "mods": [
+          "swift",
+          "volatile"
+        ],
+        "modReward": 0.4,
+        "cleared": false,
+        "startedAt": 1700000000000,
+        "bossRoomIdx": 35,
+        "totalTrashMobs": 546,
+        "requiredKills": 280,
+        "killedTrashCount": 0,
+        "killPercent": 0,
+        "bossPortalReady": false,
+        "bossPortalSpawned": false,
+        "bossPortalPos": null,
+        "announce": true
+      },
+      "dungeonHash": "f775d6edb0d35a40194ed7d6d389d8538724a39c",
+      "mobsSize": 0,
+      "groundItemsSize": 0,
+      "chestsHash": "bff9a7837df6de2cd5686a4323524305c62f1d03",
+      "pending": [
+        [
+          1,
+          22
+        ],
+        [
+          3,
+          19
+        ],
+        [
+          4,
+          24
+        ],
+        [
+          5,
+          22
+        ],
+        [
+          6,
+          21
+        ],
+        [
+          7,
+          20
+        ],
+        [
+          8,
+          16
+        ],
+        [
+          10,
+          19
+        ],
+        [
+          11,
+          15
+        ],
+        [
+          12,
+          18
+        ],
+        [
+          13,
+          22
+        ],
+        [
+          14,
+          19
+        ],
+        [
+          15,
+          16
+        ],
+        [
+          16,
+          18
+        ],
+        [
+          17,
+          5
+        ],
+        [
+          19,
+          5
+        ],
+        [
+          20,
+          19
+        ],
+        [
+          21,
+          26
+        ],
+        [
+          22,
+          23
+        ],
+        [
+          23,
+          19
+        ],
+        [
+          24,
+          26
+        ],
+        [
+          26,
+          25
+        ],
+        [
+          28,
+          22
+        ],
+        [
+          30,
+          23
+        ],
+        [
+          31,
+          23
+        ],
+        [
+          32,
+          22
+        ],
+        [
+          33,
+          16
+        ],
+        [
+          34,
+          21
+        ],
+        [
+          35,
+          5
+        ]
+      ],
+      "stored": true
+    }
+  ],
+  "riftInstances": [
+    {
+      "inst": {
+        "id": "rift_solo_rl",
+        "partyId": null,
+        "floor": 0,
+        "difficulty": "rift",
+        "mobs": {
+          "__map": []
+        },
+        "pendingMobs": {
+          "__map": []
+        },
+        "groundItems": {
+          "__map": []
+        },
+        "chests": [],
+        "cleared": false,
+        "startedAt": 1700000000000,
+        "rift": {
+          "phase": "prep",
+          "wave": 0,
+          "timer": 20,
+          "baseLevel": 20,
+          "mode": "normal",
+          "perWave": 2,
+          "spawnMult": 1,
+          "fountain": {
+            "hp": 9400,
+            "maxHp": 9400
+          },
+          "queue": [],
+          "spawnEvery": 0.5,
+          "spawnClock": 0,
+          "gateTurn": 0,
+          "structures": [],
+          "structSeq": 0,
+          "points": {
+            "__map": []
+          },
+          "banked": {
+            "__map": []
+          },
+          "choices": {
+            "__map": []
+          },
+          "stateClock": 0
+        }
+      },
+      "dungeonHash": "a862cb4de1adb54fb19a84b9836dbe4c98087d88",
+      "stored": true
+    },
+    {
+      "inst": {
+        "id": "rift_solo_rl",
+        "partyId": null,
+        "floor": 0,
+        "difficulty": "rift",
+        "mobs": {
+          "__map": []
+        },
+        "pendingMobs": {
+          "__map": []
+        },
+        "groundItems": {
+          "__map": []
+        },
+        "chests": [],
+        "cleared": false,
+        "startedAt": 1700000000000,
+        "rift": {
+          "phase": "prep",
+          "wave": 0,
+          "timer": 20,
+          "baseLevel": 50,
+          "mode": "hard",
+          "perWave": 3,
+          "spawnMult": 1,
+          "fountain": {
+            "hp": 19000,
+            "maxHp": 19000
+          },
+          "queue": [],
+          "spawnEvery": 0.5,
+          "spawnClock": 0,
+          "gateTurn": 0,
+          "structures": [],
+          "structSeq": 0,
+          "points": {
+            "__map": []
+          },
+          "banked": {
+            "__map": []
+          },
+          "choices": {
+            "__map": []
+          },
+          "stateClock": 0
+        }
+      },
+      "dungeonHash": "a862cb4de1adb54fb19a84b9836dbe4c98087d88",
+      "stored": true
+    },
+    {
+      "inst": {
+        "id": "rift_solo_rl",
+        "partyId": null,
+        "floor": 0,
+        "difficulty": "rift",
+        "mobs": {
+          "__map": []
+        },
+        "pendingMobs": {
+          "__map": []
+        },
+        "groundItems": {
+          "__map": []
+        },
+        "chests": [],
+        "cleared": false,
+        "startedAt": 1700000000000,
+        "rift": {
+          "phase": "prep",
+          "wave": 0,
+          "timer": 20,
+          "baseLevel": 38,
+          "mode": "nightmare",
+          "perWave": 1,
+          "spawnMult": 2,
+          "fountain": {
+            "hp": 15160,
+            "maxHp": 15160
+          },
+          "queue": [],
+          "spawnEvery": 0.5,
+          "spawnClock": 0,
+          "gateTurn": 0,
+          "structures": [],
+          "structSeq": 0,
+          "points": {
+            "__map": []
+          },
+          "banked": {
+            "__map": []
+          },
+          "choices": {
+            "__map": []
+          },
+          "stateClock": 0
+        }
+      },
+      "dungeonHash": "a862cb4de1adb54fb19a84b9836dbe4c98087d88",
+      "stored": true
+    },
+    {
+      "inst": {
+        "id": "rift_solo_rl",
+        "partyId": null,
+        "floor": 0,
+        "difficulty": "rift",
+        "mobs": {
+          "__map": []
+        },
+        "pendingMobs": {
+          "__map": []
+        },
+        "groundItems": {
+          "__map": []
+        },
+        "chests": [],
+        "cleared": false,
+        "startedAt": 1700000000000,
+        "rift": {
+          "phase": "prep",
+          "wave": 0,
+          "timer": 20,
+          "baseLevel": 20,
+          "mode": "normal",
+          "perWave": 2,
+          "spawnMult": 1,
+          "fountain": {
+            "hp": 9400,
+            "maxHp": 9400
+          },
+          "queue": [],
+          "spawnEvery": 0.5,
+          "spawnClock": 0,
+          "gateTurn": 0,
+          "structures": [],
+          "structSeq": 0,
+          "points": {
+            "__map": []
+          },
+          "banked": {
+            "__map": []
+          },
+          "choices": {
+            "__map": []
+          },
+          "stateClock": 0
+        }
+      },
+      "dungeonHash": "a862cb4de1adb54fb19a84b9836dbe4c98087d88",
+      "stored": true
+    },
+    {
+      "inst": {
+        "id": "rift_solo_rl",
+        "partyId": null,
+        "floor": 0,
+        "difficulty": "rift",
+        "mobs": {
+          "__map": []
+        },
+        "pendingMobs": {
+          "__map": []
+        },
+        "groundItems": {
+          "__map": []
+        },
+        "chests": [],
+        "cleared": false,
+        "startedAt": 1700000000000,
+        "rift": {
+          "phase": "prep",
+          "wave": 0,
+          "timer": 20,
+          "baseLevel": 20,
+          "mode": "normal",
+          "perWave": 2,
+          "spawnMult": 1,
+          "fountain": {
+            "hp": 9400,
+            "maxHp": 9400
+          },
+          "queue": [],
+          "spawnEvery": 0.5,
+          "spawnClock": 0,
+          "gateTurn": 0,
+          "structures": [],
+          "structSeq": 0,
+          "points": {
+            "__map": []
+          },
+          "banked": {
+            "__map": []
+          },
+          "choices": {
+            "__map": []
+          },
+          "stateClock": 0
+        }
+      },
+      "dungeonHash": "a862cb4de1adb54fb19a84b9836dbe4c98087d88",
+      "stored": true
+    },
+    {
+      "inst": {
+        "id": "rift_party_party_1",
+        "partyId": "party_1",
+        "floor": 0,
+        "difficulty": "rift",
+        "mobs": {
+          "__map": []
+        },
+        "pendingMobs": {
+          "__map": []
+        },
+        "groundItems": {
+          "__map": []
+        },
+        "chests": [],
+        "cleared": false,
+        "startedAt": 1700000000000,
+        "rift": {
+          "phase": "prep",
+          "wave": 0,
+          "timer": 20,
+          "baseLevel": 38,
+          "mode": "nightmare",
+          "perWave": 1,
+          "spawnMult": 2,
+          "fountain": {
+            "hp": 20466,
+            "maxHp": 20466
+          },
+          "queue": [],
+          "spawnEvery": 0.5,
+          "spawnClock": 0,
+          "gateTurn": 0,
+          "structures": [],
+          "structSeq": 0,
+          "points": {
+            "__map": []
+          },
+          "banked": {
+            "__map": []
+          },
+          "choices": {
+            "__map": []
+          },
+          "stateClock": 0
+        }
+      },
+      "dungeonHash": "a862cb4de1adb54fb19a84b9836dbe4c98087d88",
+      "stored": true
+    }
+  ],
+  "parties": {
+    "parties": {
+      "__map": [
+        [
+          "party_1",
+          {
+            "id": "party_1",
+            "leaderId": "a",
+            "memberIds": {
+              "__set": [
+                "a"
+              ]
+            }
+          }
+        ]
+      ]
+    },
+    "nextPartyId": 2,
+    "aPartyId": "party_1",
+    "bPartyId": null
+  }
+}

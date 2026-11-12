@@ -1,0 +1,9584 @@
+{
+  "equip dead": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": true,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "iron_blade",
+            "name": "Knight Broadsword",
+            "type": "equipment",
+            "slot": "weapon",
+            "count": 1
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "equip no player": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "equip bad index": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "iron_blade",
+            "name": "Knight Broadsword",
+            "type": "equipment",
+            "slot": "weapon",
+            "count": 1
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "equip negative": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "iron_blade",
+            "name": "Knight Broadsword",
+            "type": "equipment",
+            "slot": "weapon",
+            "count": 1
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "equip sp card": {
+    "log": [
+      [
+        "call",
+        "equipSpCard",
+        "h1",
+        0
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "sp_card_x",
+            "type": "sp_card",
+            "count": 1
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "equip not equipment": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "health_potion",
+            "type": "consumable",
+            "count": 2
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "equip no slot": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "q",
+            "type": "equipment",
+            "count": 1
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "equip wrong class": {
+    "log": [
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.3,
+          "text": "Only a warrior can use this weapon!",
+          "color": "#ef4444"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "mage",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "iron_blade",
+            "name": "Knight Broadsword",
+            "type": "equipment",
+            "slot": "weapon",
+            "count": 1
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "equip wrong class no socket": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "mage",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "iron_blade",
+            "name": "Knight Broadsword",
+            "type": "equipment",
+            "slot": "weapon",
+            "count": 1
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "equip empty slot": {
+    "log": [
+      [
+        "call",
+        "recalculatePlayerStats",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "items": []
+          },
+          "equipment": {
+            "weapon": {
+              "id": "iron_blade",
+              "name": "Knight Broadsword",
+              "type": "equipment",
+              "slot": "weapon",
+              "count": 1
+            }
+          }
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.3,
+          "text": "⚔️ Equipped Knight Broadsword!",
+          "color": "#4ade80"
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "🛡️ [Hero] equipped [Knight Broadsword]!"
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": []
+      },
+      "equipment": {
+        "weapon": {
+          "id": "iron_blade",
+          "name": "Knight Broadsword",
+          "type": "equipment",
+          "slot": "weapon",
+          "count": 1
+        }
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "equip swap": {
+    "log": [
+      [
+        "call",
+        "recalculatePlayerStats",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "items": [
+              {
+                "id": "helm_x",
+                "name": "Test Helm",
+                "type": "equipment",
+                "slot": "helmet",
+                "count": 1
+              },
+              {
+                "id": "old_blade",
+                "name": "Old",
+                "type": "equipment",
+                "slot": "weapon",
+                "count": 1
+              }
+            ]
+          },
+          "equipment": {
+            "weapon": {
+              "id": "iron_blade",
+              "name": "Knight Broadsword",
+              "type": "equipment",
+              "slot": "weapon",
+              "count": 1,
+              "upgradeLevel": 3
+            }
+          }
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.3,
+          "text": "⚔️ Equipped Knight Broadsword!",
+          "color": "#4ade80"
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "🛡️ [Hero] equipped [Knight Broadsword]!"
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "helm_x",
+            "name": "Test Helm",
+            "type": "equipment",
+            "slot": "helmet",
+            "count": 1
+          },
+          {
+            "id": "old_blade",
+            "name": "Old",
+            "type": "equipment",
+            "slot": "weapon",
+            "count": 1
+          }
+        ]
+      },
+      "equipment": {
+        "weapon": {
+          "id": "iron_blade",
+          "name": "Knight Broadsword",
+          "type": "equipment",
+          "slot": "weapon",
+          "count": 1,
+          "upgradeLevel": 3
+        }
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "equip stack of two": {
+    "log": [
+      [
+        "call",
+        "recalculatePlayerStats",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "items": [
+              {
+                "id": "helm_x",
+                "name": "Test Helm",
+                "type": "equipment",
+                "slot": "helmet",
+                "count": 1
+              },
+              {
+                "id": "helm_old",
+                "name": "Old Helm",
+                "type": "equipment",
+                "slot": "helmet",
+                "count": 1
+              }
+            ]
+          },
+          "equipment": {
+            "helmet": {
+              "id": "helm_x",
+              "name": "Test Helm",
+              "type": "equipment",
+              "slot": "helmet",
+              "count": 1
+            }
+          }
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.3,
+          "text": "⚔️ Equipped Test Helm!",
+          "color": "#4ade80"
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "🛡️ [Hero] equipped [Test Helm]!"
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "helm_x",
+            "name": "Test Helm",
+            "type": "equipment",
+            "slot": "helmet",
+            "count": 1
+          },
+          {
+            "id": "helm_old",
+            "name": "Old Helm",
+            "type": "equipment",
+            "slot": "helmet",
+            "count": 1
+          }
+        ]
+      },
+      "equipment": {
+        "helmet": {
+          "id": "helm_x",
+          "name": "Test Helm",
+          "type": "equipment",
+          "slot": "helmet",
+          "count": 1
+        }
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "equip old matches non-equipment": {
+    "log": [
+      [
+        "call",
+        "recalculatePlayerStats",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "items": [
+              {
+                "id": "old_blade",
+                "type": "material",
+                "count": 5
+              }
+            ]
+          },
+          "equipment": {
+            "weapon": {
+              "id": "iron_blade",
+              "name": "Knight Broadsword",
+              "type": "equipment",
+              "slot": "weapon",
+              "count": 1
+            }
+          }
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.3,
+          "text": "⚔️ Equipped Knight Broadsword!",
+          "color": "#4ade80"
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "🛡️ [Hero] equipped [Knight Broadsword]!"
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "old_blade",
+            "type": "material",
+            "count": 5
+          }
+        ]
+      },
+      "equipment": {
+        "weapon": {
+          "id": "iron_blade",
+          "name": "Knight Broadsword",
+          "type": "equipment",
+          "slot": "weapon",
+          "count": 1
+        }
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "equip old matches equipment": {
+    "log": [
+      [
+        "call",
+        "recalculatePlayerStats",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "items": [
+              {
+                "id": "old_blade",
+                "type": "equipment",
+                "slot": "weapon",
+                "count": 1
+              },
+              {
+                "id": "old_blade",
+                "name": "Old",
+                "type": "equipment",
+                "slot": "weapon",
+                "count": 1
+              }
+            ]
+          },
+          "equipment": {
+            "weapon": {
+              "id": "iron_blade",
+              "name": "Knight Broadsword",
+              "type": "equipment",
+              "slot": "weapon",
+              "count": 1
+            }
+          }
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.3,
+          "text": "⚔️ Equipped Knight Broadsword!",
+          "color": "#4ade80"
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "🛡️ [Hero] equipped [Knight Broadsword]!"
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "old_blade",
+            "type": "equipment",
+            "slot": "weapon",
+            "count": 1
+          },
+          {
+            "id": "old_blade",
+            "name": "Old",
+            "type": "equipment",
+            "slot": "weapon",
+            "count": 1
+          }
+        ]
+      },
+      "equipment": {
+        "weapon": {
+          "id": "iron_blade",
+          "name": "Knight Broadsword",
+          "type": "equipment",
+          "slot": "weapon",
+          "count": 1
+        }
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "equip no socket": {
+    "log": [
+      [
+        "call",
+        "recalculatePlayerStats",
+        "h1"
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "🛡️ [Hero] equipped [Knight Broadsword]!"
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": []
+      },
+      "equipment": {
+        "weapon": {
+          "id": "iron_blade",
+          "name": "Knight Broadsword",
+          "type": "equipment",
+          "slot": "weapon",
+          "count": 1
+        }
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "unequip dead": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": true,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {
+        "weapon": {
+          "id": "iron_blade",
+          "name": "Knight Broadsword",
+          "type": "equipment",
+          "slot": "weapon",
+          "count": 1
+        }
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "unequip nothing": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "unequip no equipment": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": null
+    },
+    "ground": [],
+    "threw": null
+  },
+  "unequip ok": {
+    "log": [
+      [
+        "call",
+        "recalculatePlayerStats",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "maxSlots": 30,
+            "items": [
+              {
+                "id": "iron_blade",
+                "name": "Knight Broadsword",
+                "type": "equipment",
+                "slot": "weapon",
+                "count": 1,
+                "upgradeLevel": 2
+              }
+            ],
+            "healthPotions": 1,
+            "manaPotions": 1
+          },
+          "equipment": {
+            "weapon": null
+          }
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.3,
+          "text": "Unequipped Knight Broadsword",
+          "color": "#94a3b8"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [
+          {
+            "id": "iron_blade",
+            "name": "Knight Broadsword",
+            "type": "equipment",
+            "slot": "weapon",
+            "count": 1,
+            "upgradeLevel": 2
+          }
+        ],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {
+        "weapon": null
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "unequip bag full": {
+    "log": [
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.3,
+          "text": "⚠️ Inventory is full!",
+          "color": "#ef4444"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 2,
+        "items": [
+          {
+            "id": "helm_x",
+            "name": "Test Helm",
+            "type": "equipment",
+            "slot": "helmet",
+            "count": 1
+          },
+          {
+            "id": "helm_x",
+            "name": "Test Helm",
+            "type": "equipment",
+            "slot": "helmet",
+            "count": 1
+          }
+        ]
+      },
+      "equipment": {
+        "weapon": {
+          "id": "iron_blade",
+          "name": "Knight Broadsword",
+          "type": "equipment",
+          "slot": "weapon",
+          "count": 1
+        }
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "unequip bag full no socket": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 1,
+        "items": [
+          {
+            "id": "helm_x",
+            "name": "Test Helm",
+            "type": "equipment",
+            "slot": "helmet",
+            "count": 1
+          }
+        ]
+      },
+      "equipment": {
+        "weapon": {
+          "id": "iron_blade",
+          "name": "Knight Broadsword",
+          "type": "equipment",
+          "slot": "weapon",
+          "count": 1
+        }
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "unequip default cap": {
+    "log": [
+      [
+        "call",
+        "recalculatePlayerStats",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "items": [
+              {
+                "id": "helm_x",
+                "name": "Test Helm",
+                "type": "equipment",
+                "slot": "helmet",
+                "count": 1
+              },
+              {
+                "id": "iron_blade",
+                "name": "Knight Broadsword",
+                "type": "equipment",
+                "slot": "weapon",
+                "count": 1
+              }
+            ]
+          },
+          "equipment": {
+            "weapon": null
+          }
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.3,
+          "text": "Unequipped Knight Broadsword",
+          "color": "#94a3b8"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "helm_x",
+            "name": "Test Helm",
+            "type": "equipment",
+            "slot": "helmet",
+            "count": 1
+          },
+          {
+            "id": "iron_blade",
+            "name": "Knight Broadsword",
+            "type": "equipment",
+            "slot": "weapon",
+            "count": 1
+          }
+        ]
+      },
+      "equipment": {
+        "weapon": null
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "unequip sp transformed": {
+    "log": [
+      [
+        "call",
+        "setTransformed",
+        "h1",
+        false
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "maxSlots": 30,
+            "items": [
+              {
+                "id": "sp_card_x",
+                "type": "sp_card",
+                "count": 1
+              }
+            ],
+            "healthPotions": 1,
+            "manaPotions": 1
+          },
+          "equipment": {
+            "sp": null
+          },
+          "spTransformed": false
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.3,
+          "text": "Unequipped undefined",
+          "color": "#94a3b8"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [
+          {
+            "id": "sp_card_x",
+            "type": "sp_card",
+            "count": 1
+          }
+        ],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {
+        "sp": null
+      },
+      "spTransformed": false
+    },
+    "ground": [],
+    "threw": null
+  },
+  "unequip sp not transformed": {
+    "log": [
+      [
+        "call",
+        "recalculatePlayerStats",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "maxSlots": 30,
+            "items": [
+              {
+                "id": "sp_card_x",
+                "type": "sp_card",
+                "count": 1
+              }
+            ],
+            "healthPotions": 1,
+            "manaPotions": 1
+          },
+          "equipment": {
+            "sp": null
+          }
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.3,
+          "text": "Unequipped undefined",
+          "color": "#94a3b8"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [
+          {
+            "id": "sp_card_x",
+            "type": "sp_card",
+            "count": 1
+          }
+        ],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {
+        "sp": null
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "unequip no socket": {
+    "log": [
+      [
+        "call",
+        "recalculatePlayerStats",
+        "h1"
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [
+          {
+            "id": "iron_blade",
+            "name": "Knight Broadsword",
+            "type": "equipment",
+            "slot": "weapon",
+            "count": 1
+          }
+        ],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {
+        "weapon": null
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "buy dead": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": true,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "buy unknown item": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "buy not consumable": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "buy health x1": {
+    "log": [
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 975,
+          "inventory": {
+            "maxSlots": 30,
+            "items": [],
+            "healthPotions": 2,
+            "manaPotions": 1
+          },
+          "equipment": {}
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.4,
+          "text": "Bought Health Potion x1! (-25g)",
+          "color": "#facc15"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 975,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 2,
+        "manaPotions": 1
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "buy health x10 default count": {
+    "log": [
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 975,
+          "inventory": {
+            "maxSlots": 30,
+            "items": [],
+            "healthPotions": 2,
+            "manaPotions": 1
+          },
+          "equipment": {}
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.4,
+          "text": "Bought Health Potion x1! (-25g)",
+          "color": "#facc15"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 975,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 2,
+        "manaPotions": 1
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "buy mana x7": {
+    "log": [
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 790,
+          "inventory": {
+            "maxSlots": 30,
+            "items": [],
+            "healthPotions": 1,
+            "manaPotions": 8
+          },
+          "equipment": {}
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.4,
+          "text": "Bought Mana Potion x7! (-210g)",
+          "color": "#facc15"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 790,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 1,
+        "manaPotions": 8
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "buy poor": {
+    "log": [
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.4,
+          "text": "⚠️ Need 125 Gold! (Have 3)",
+          "color": "#ef4444"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 3,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "buy poor no gold field": {
+    "log": [
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": null,
+          "inventory": {
+            "maxSlots": 30,
+            "items": [],
+            "healthPotions": 6,
+            "manaPotions": 1
+          },
+          "equipment": {}
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.4,
+          "text": "Bought Health Potion x5! (-125g)",
+          "color": "#facc15"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": null,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 6,
+        "manaPotions": 1
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "buy poor no socket": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 3,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "buy qty clamped high": {
+    "log": [
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 99975024,
+          "inventory": {
+            "maxSlots": 30,
+            "items": [],
+            "healthPotions": 1000,
+            "manaPotions": 1
+          },
+          "equipment": {}
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.4,
+          "text": "Bought Health Potion x999! (-24,975g)",
+          "color": "#facc15"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 99975024,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 1000,
+        "manaPotions": 1
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "buy qty clamped low": {
+    "log": [
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 975,
+          "inventory": {
+            "maxSlots": 30,
+            "items": [],
+            "healthPotions": 2,
+            "manaPotions": 1
+          },
+          "equipment": {}
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.4,
+          "text": "Bought Health Potion x1! (-25g)",
+          "color": "#facc15"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 975,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 2,
+        "manaPotions": 1
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "buy qty garbage": {
+    "log": [
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 975,
+          "inventory": {
+            "maxSlots": 30,
+            "items": [],
+            "healthPotions": 2,
+            "manaPotions": 1
+          },
+          "equipment": {}
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.4,
+          "text": "Bought Health Potion x1! (-25g)",
+          "color": "#facc15"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 975,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 2,
+        "manaPotions": 1
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "buy qty string": {
+    "log": [
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 925,
+          "inventory": {
+            "maxSlots": 30,
+            "items": [],
+            "healthPotions": 4,
+            "manaPotions": 1
+          },
+          "equipment": {}
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.4,
+          "text": "Bought Health Potion x3! (-75g)",
+          "color": "#facc15"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 925,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 4,
+        "manaPotions": 1
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "buy no potion counters": {
+    "log": [
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 950,
+          "inventory": {
+            "items": [],
+            "healthPotions": 2
+          },
+          "equipment": {}
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.4,
+          "text": "Bought Health Potion x2! (-50g)",
+          "color": "#facc15"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 950,
+      "inventory": {
+        "items": [],
+        "healthPotions": 2
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "buy elixir new stack": {
+    "log": [
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 810,
+          "inventory": {
+            "maxSlots": 30,
+            "items": [
+              {
+                "id": "elixir_of_fury",
+                "name": "Elixir of Fury",
+                "type": "consumable",
+                "icon": "⚗️",
+                "rarity": "rare",
+                "buyPrice": 95,
+                "sellPrice": 45,
+                "desc": "Restores 40 Mana and grants ferocious battle vigor.",
+                "count": 2
+              }
+            ],
+            "healthPotions": 1,
+            "manaPotions": 1
+          },
+          "equipment": {}
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.4,
+          "text": "Bought Elixir of Fury x2! (-190g)",
+          "color": "#facc15"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 810,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [
+          {
+            "id": "elixir_of_fury",
+            "name": "Elixir of Fury",
+            "type": "consumable",
+            "icon": "⚗️",
+            "rarity": "rare",
+            "buyPrice": 95,
+            "sellPrice": 45,
+            "desc": "Restores 40 Mana and grants ferocious battle vigor.",
+            "count": 2
+          }
+        ],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "buy elixir existing stack": {
+    "log": [
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 810,
+          "inventory": {
+            "items": [
+              {
+                "id": "elixir_of_fury",
+                "count": 5
+              }
+            ]
+          },
+          "equipment": {}
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.4,
+          "text": "Bought Elixir of Fury x2! (-190g)",
+          "color": "#facc15"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 810,
+      "inventory": {
+        "items": [
+          {
+            "id": "elixir_of_fury",
+            "count": 5
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "buy elixir existing no count": {
+    "log": [
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 810,
+          "inventory": {
+            "items": [
+              {
+                "id": "elixir_of_fury",
+                "count": 3
+              }
+            ]
+          },
+          "equipment": {}
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.4,
+          "text": "Bought Elixir of Fury x2! (-190g)",
+          "color": "#facc15"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 810,
+      "inventory": {
+        "items": [
+          {
+            "id": "elixir_of_fury",
+            "count": 3
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "buy town scroll": {
+    "log": [
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 950,
+          "inventory": {
+            "maxSlots": 30,
+            "items": [
+              {
+                "id": "town_scroll",
+                "name": "Town Portal Scroll",
+                "type": "consumable",
+                "icon": "📜",
+                "rarity": "rare",
+                "buyPrice": 50,
+                "sellPrice": 25,
+                "desc": "Instantly teleports you back to town safely.",
+                "count": 1
+              }
+            ],
+            "healthPotions": 1,
+            "manaPotions": 1
+          },
+          "equipment": {}
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.4,
+          "text": "Bought Town Portal Scroll x1! (-50g)",
+          "color": "#facc15"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 950,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [
+          {
+            "id": "town_scroll",
+            "name": "Town Portal Scroll",
+            "type": "consumable",
+            "icon": "📜",
+            "rarity": "rare",
+            "buyPrice": 50,
+            "sellPrice": 25,
+            "desc": "Instantly teleports you back to town safely.",
+            "count": 1
+          }
+        ],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "buy no socket": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 975,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 2,
+        "manaPotions": 1
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "fav no data": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "fav bag on": {
+    "log": [
+      [
+        "call",
+        "savePlayerAccount",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "items": [
+              {
+                "id": "iron_blade",
+                "name": "Knight Broadsword",
+                "type": "equipment",
+                "slot": "weapon",
+                "count": 1,
+                "favorite": true
+              }
+            ]
+          },
+          "equipment": {}
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "iron_blade",
+            "name": "Knight Broadsword",
+            "type": "equipment",
+            "slot": "weapon",
+            "count": 1,
+            "favorite": true
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "fav bag off": {
+    "log": [
+      [
+        "call",
+        "savePlayerAccount",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "items": [
+              {
+                "id": "iron_blade",
+                "name": "Knight Broadsword",
+                "type": "equipment",
+                "slot": "weapon",
+                "count": 1
+              }
+            ]
+          },
+          "equipment": {}
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "iron_blade",
+            "name": "Knight Broadsword",
+            "type": "equipment",
+            "slot": "weapon",
+            "count": 1
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "fav bag bad index": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "iron_blade",
+            "name": "Knight Broadsword",
+            "type": "equipment",
+            "slot": "weapon",
+            "count": 1
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "fav bag non-integer": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "iron_blade",
+            "name": "Knight Broadsword",
+            "type": "equipment",
+            "slot": "weapon",
+            "count": 1
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "fav equipped on": {
+    "log": [
+      [
+        "call",
+        "savePlayerAccount",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "maxSlots": 30,
+            "items": [],
+            "healthPotions": 1,
+            "manaPotions": 1
+          },
+          "equipment": {
+            "weapon": {
+              "id": "iron_blade",
+              "name": "Knight Broadsword",
+              "type": "equipment",
+              "slot": "weapon",
+              "count": 1,
+              "favorite": true
+            }
+          }
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {
+        "weapon": {
+          "id": "iron_blade",
+          "name": "Knight Broadsword",
+          "type": "equipment",
+          "slot": "weapon",
+          "count": 1,
+          "favorite": true
+        }
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "fav equipped none": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {
+        "weapon": {
+          "id": "iron_blade",
+          "name": "Knight Broadsword",
+          "type": "equipment",
+          "slot": "weapon",
+          "count": 1
+        }
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "fav equipped no equipment": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": null
+    },
+    "ground": [],
+    "threw": null
+  },
+  "fav gold": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "type": "gold",
+            "amount": 5
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "fav dead still works": {
+    "log": [
+      [
+        "call",
+        "savePlayerAccount",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": true,
+          "gold": 1000,
+          "inventory": {
+            "items": [
+              {
+                "id": "iron_blade",
+                "name": "Knight Broadsword",
+                "type": "equipment",
+                "slot": "weapon",
+                "count": 1,
+                "favorite": true
+              }
+            ]
+          },
+          "equipment": {}
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": true,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "iron_blade",
+            "name": "Knight Broadsword",
+            "type": "equipment",
+            "slot": "weapon",
+            "count": 1,
+            "favorite": true
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "fav no socket": {
+    "log": [
+      [
+        "call",
+        "savePlayerAccount",
+        "h1"
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "iron_blade",
+            "name": "Knight Broadsword",
+            "type": "equipment",
+            "slot": "weapon",
+            "count": 1,
+            "favorite": true
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "sell dead": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": true,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "iron_blade",
+            "name": "Knight Broadsword",
+            "type": "equipment",
+            "slot": "weapon",
+            "count": 1,
+            "sellPrice": 50
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "sell not in town": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "frostfell",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "iron_blade",
+            "name": "Knight Broadsword",
+            "type": "equipment",
+            "slot": "weapon",
+            "count": 1,
+            "sellPrice": 50
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "sell bad index": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "iron_blade",
+            "name": "Knight Broadsword",
+            "type": "equipment",
+            "slot": "weapon",
+            "count": 1
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "sell float index": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "iron_blade",
+            "name": "Knight Broadsword",
+            "type": "equipment",
+            "slot": "weapon",
+            "count": 1
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "sell favorite": {
+    "log": [
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.4,
+          "text": "Favorite items can't be sold",
+          "color": "#ef4444"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "iron_blade",
+            "name": "Knight Broadsword",
+            "type": "equipment",
+            "slot": "weapon",
+            "count": 1,
+            "favorite": true,
+            "sellPrice": 50
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "sell favorite no socket": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "iron_blade",
+            "name": "Knight Broadsword",
+            "type": "equipment",
+            "slot": "weapon",
+            "count": 1,
+            "favorite": true
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "sell whole single": {
+    "log": [
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1050,
+          "inventory": {
+            "items": []
+          },
+          "equipment": {}
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.4,
+          "text": "+50 Gold (Sold Knight Broadsword)",
+          "color": "#facc15"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1050,
+      "inventory": {
+        "items": []
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "sell default price": {
+    "log": [
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1010,
+          "inventory": {
+            "items": []
+          },
+          "equipment": {}
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.4,
+          "text": "+10 Gold (Sold Knight Broadsword)",
+          "color": "#facc15"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1010,
+      "inventory": {
+        "items": []
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "sell part of stack": {
+    "log": [
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1021,
+          "inventory": {
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 7,
+                "sellPrice": 7
+              }
+            ]
+          },
+          "equipment": {}
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.4,
+          "text": "+21 Gold (Sold 3x Ore)",
+          "color": "#facc15"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1021,
+      "inventory": {
+        "items": [
+          {
+            "id": "ore",
+            "name": "Ore",
+            "count": 7,
+            "sellPrice": 7
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "sell stack default qty": {
+    "log": [
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1007,
+          "inventory": {
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 9,
+                "sellPrice": 7
+              }
+            ]
+          },
+          "equipment": {}
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.4,
+          "text": "+7 Gold (Sold Ore)",
+          "color": "#facc15"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1007,
+      "inventory": {
+        "items": [
+          {
+            "id": "ore",
+            "name": "Ore",
+            "count": 9,
+            "sellPrice": 7
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "sell all of stack": {
+    "log": [
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1070,
+          "inventory": {
+            "items": []
+          },
+          "equipment": {}
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.4,
+          "text": "+70 Gold (Sold 10x Ore)",
+          "color": "#facc15"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1070,
+      "inventory": {
+        "items": []
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "sell qty garbage": {
+    "log": [
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1007,
+          "inventory": {
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 3,
+                "sellPrice": 7
+              }
+            ]
+          },
+          "equipment": {}
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.4,
+          "text": "+7 Gold (Sold Ore)",
+          "color": "#facc15"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1007,
+      "inventory": {
+        "items": [
+          {
+            "id": "ore",
+            "name": "Ore",
+            "count": 3,
+            "sellPrice": 7
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "sell qty zero": {
+    "log": [
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1007,
+          "inventory": {
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 3,
+                "sellPrice": 7
+              }
+            ]
+          },
+          "equipment": {}
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.4,
+          "text": "+7 Gold (Sold Ore)",
+          "color": "#facc15"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1007,
+      "inventory": {
+        "items": [
+          {
+            "id": "ore",
+            "name": "Ore",
+            "count": 3,
+            "sellPrice": 7
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "sell no socket": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1014,
+      "inventory": {
+        "items": [
+          {
+            "id": "ore",
+            "name": "Ore",
+            "count": 2,
+            "sellPrice": 7
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "bulk dead": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": true,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "a",
+            "name": "A",
+            "count": 5,
+            "sellPrice": 3
+          },
+          {
+            "id": "b",
+            "name": "B",
+            "count": 1,
+            "sellPrice": 40
+          },
+          {
+            "id": "sp_card_q",
+            "name": "Card",
+            "count": 1,
+            "sellPrice": 999
+          },
+          {
+            "id": "c",
+            "name": "C",
+            "count": 2,
+            "sellPrice": 11,
+            "favorite": true
+          },
+          {
+            "id": "d",
+            "name": "D",
+            "count": 3
+          },
+          {
+            "id": "e",
+            "type": "sp_card",
+            "name": "E",
+            "count": 1,
+            "sellPrice": 77
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "bulk not in town": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "dungeon",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "a",
+            "name": "A",
+            "count": 5,
+            "sellPrice": 3
+          },
+          {
+            "id": "b",
+            "name": "B",
+            "count": 1,
+            "sellPrice": 40
+          },
+          {
+            "id": "sp_card_q",
+            "name": "Card",
+            "count": 1,
+            "sellPrice": 999
+          },
+          {
+            "id": "c",
+            "name": "C",
+            "count": 2,
+            "sellPrice": 11,
+            "favorite": true
+          },
+          {
+            "id": "d",
+            "name": "D",
+            "count": 3
+          },
+          {
+            "id": "e",
+            "type": "sp_card",
+            "name": "E",
+            "count": 1,
+            "sellPrice": 77
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "bulk not array": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "a",
+            "name": "A",
+            "count": 5,
+            "sellPrice": 3
+          },
+          {
+            "id": "b",
+            "name": "B",
+            "count": 1,
+            "sellPrice": 40
+          },
+          {
+            "id": "sp_card_q",
+            "name": "Card",
+            "count": 1,
+            "sellPrice": 999
+          },
+          {
+            "id": "c",
+            "name": "C",
+            "count": 2,
+            "sellPrice": 11,
+            "favorite": true
+          },
+          {
+            "id": "d",
+            "name": "D",
+            "count": 3
+          },
+          {
+            "id": "e",
+            "type": "sp_card",
+            "name": "E",
+            "count": 1,
+            "sellPrice": 77
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "bulk empty": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "a",
+            "name": "A",
+            "count": 5,
+            "sellPrice": 3
+          },
+          {
+            "id": "b",
+            "name": "B",
+            "count": 1,
+            "sellPrice": 40
+          },
+          {
+            "id": "sp_card_q",
+            "name": "Card",
+            "count": 1,
+            "sellPrice": 999
+          },
+          {
+            "id": "c",
+            "name": "C",
+            "count": 2,
+            "sellPrice": 11,
+            "favorite": true
+          },
+          {
+            "id": "d",
+            "name": "D",
+            "count": 3
+          },
+          {
+            "id": "e",
+            "type": "sp_card",
+            "name": "E",
+            "count": 1,
+            "sellPrice": 77
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "bulk only protected": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "a",
+            "name": "A",
+            "count": 5,
+            "sellPrice": 3
+          },
+          {
+            "id": "b",
+            "name": "B",
+            "count": 1,
+            "sellPrice": 40
+          },
+          {
+            "id": "sp_card_q",
+            "name": "Card",
+            "count": 1,
+            "sellPrice": 999
+          },
+          {
+            "id": "c",
+            "name": "C",
+            "count": 2,
+            "sellPrice": 11,
+            "favorite": true
+          },
+          {
+            "id": "d",
+            "name": "D",
+            "count": 3
+          },
+          {
+            "id": "e",
+            "type": "sp_card",
+            "name": "E",
+            "count": 1,
+            "sellPrice": 77
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "bulk invalid entries": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "a",
+            "name": "A",
+            "count": 5,
+            "sellPrice": 3
+          },
+          {
+            "id": "b",
+            "name": "B",
+            "count": 1,
+            "sellPrice": 40
+          },
+          {
+            "id": "sp_card_q",
+            "name": "Card",
+            "count": 1,
+            "sellPrice": 999
+          },
+          {
+            "id": "c",
+            "name": "C",
+            "count": 2,
+            "sellPrice": 11,
+            "favorite": true
+          },
+          {
+            "id": "d",
+            "name": "D",
+            "count": 3
+          },
+          {
+            "id": "e",
+            "type": "sp_card",
+            "name": "E",
+            "count": 1,
+            "sellPrice": 77
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "bulk mixed": {
+    "log": [
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1076,
+          "inventory": {
+            "items": [
+              {
+                "id": "a",
+                "name": "A",
+                "count": 3,
+                "sellPrice": 3
+              },
+              {
+                "id": "sp_card_q",
+                "name": "Card",
+                "count": 1,
+                "sellPrice": 999
+              },
+              {
+                "id": "c",
+                "name": "C",
+                "count": 2,
+                "sellPrice": 11,
+                "favorite": true
+              },
+              {
+                "id": "e",
+                "type": "sp_card",
+                "name": "E",
+                "count": 1,
+                "sellPrice": 77
+              }
+            ]
+          },
+          "equipment": {}
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.4,
+          "text": "+76 Gold (Sold 6 items)",
+          "color": "#facc15"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1076,
+      "inventory": {
+        "items": [
+          {
+            "id": "a",
+            "name": "A",
+            "count": 3,
+            "sellPrice": 3
+          },
+          {
+            "id": "sp_card_q",
+            "name": "Card",
+            "count": 1,
+            "sellPrice": 999
+          },
+          {
+            "id": "c",
+            "name": "C",
+            "count": 2,
+            "sellPrice": 11,
+            "favorite": true
+          },
+          {
+            "id": "e",
+            "type": "sp_card",
+            "name": "E",
+            "count": 1,
+            "sellPrice": 77
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "bulk sell everything sellable": {
+    "log": [
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1085,
+          "inventory": {
+            "items": [
+              {
+                "id": "sp_card_q",
+                "name": "Card",
+                "count": 1,
+                "sellPrice": 999
+              },
+              {
+                "id": "c",
+                "name": "C",
+                "count": 2,
+                "sellPrice": 11,
+                "favorite": true
+              },
+              {
+                "id": "e",
+                "type": "sp_card",
+                "name": "E",
+                "count": 1,
+                "sellPrice": 77
+              }
+            ]
+          },
+          "equipment": {}
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.4,
+          "text": "+85 Gold (Sold 9 items)",
+          "color": "#facc15"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1085,
+      "inventory": {
+        "items": [
+          {
+            "id": "sp_card_q",
+            "name": "Card",
+            "count": 1,
+            "sellPrice": 999
+          },
+          {
+            "id": "c",
+            "name": "C",
+            "count": 2,
+            "sellPrice": 11,
+            "favorite": true
+          },
+          {
+            "id": "e",
+            "type": "sp_card",
+            "name": "E",
+            "count": 1,
+            "sellPrice": 77
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "bulk duplicate index last wins": {
+    "log": [
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1012,
+          "inventory": {
+            "items": [
+              {
+                "id": "a",
+                "name": "A",
+                "count": 1,
+                "sellPrice": 3
+              },
+              {
+                "id": "b",
+                "name": "B",
+                "count": 1,
+                "sellPrice": 40
+              },
+              {
+                "id": "sp_card_q",
+                "name": "Card",
+                "count": 1,
+                "sellPrice": 999
+              },
+              {
+                "id": "c",
+                "name": "C",
+                "count": 2,
+                "sellPrice": 11,
+                "favorite": true
+              },
+              {
+                "id": "d",
+                "name": "D",
+                "count": 3
+              },
+              {
+                "id": "e",
+                "type": "sp_card",
+                "name": "E",
+                "count": 1,
+                "sellPrice": 77
+              }
+            ]
+          },
+          "equipment": {}
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.4,
+          "text": "+12 Gold (Sold 4 items)",
+          "color": "#facc15"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1012,
+      "inventory": {
+        "items": [
+          {
+            "id": "a",
+            "name": "A",
+            "count": 1,
+            "sellPrice": 3
+          },
+          {
+            "id": "b",
+            "name": "B",
+            "count": 1,
+            "sellPrice": 40
+          },
+          {
+            "id": "sp_card_q",
+            "name": "Card",
+            "count": 1,
+            "sellPrice": 999
+          },
+          {
+            "id": "c",
+            "name": "C",
+            "count": 2,
+            "sellPrice": 11,
+            "favorite": true
+          },
+          {
+            "id": "d",
+            "name": "D",
+            "count": 3
+          },
+          {
+            "id": "e",
+            "type": "sp_card",
+            "name": "E",
+            "count": 1,
+            "sellPrice": 77
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "bulk single item word": {
+    "log": [
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1040,
+          "inventory": {
+            "items": [
+              {
+                "id": "a",
+                "name": "A",
+                "count": 5,
+                "sellPrice": 3
+              },
+              {
+                "id": "sp_card_q",
+                "name": "Card",
+                "count": 1,
+                "sellPrice": 999
+              },
+              {
+                "id": "c",
+                "name": "C",
+                "count": 2,
+                "sellPrice": 11,
+                "favorite": true
+              },
+              {
+                "id": "d",
+                "name": "D",
+                "count": 3
+              },
+              {
+                "id": "e",
+                "type": "sp_card",
+                "name": "E",
+                "count": 1,
+                "sellPrice": 77
+              }
+            ]
+          },
+          "equipment": {}
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.4,
+          "text": "+40 Gold (Sold 1 item)",
+          "color": "#facc15"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1040,
+      "inventory": {
+        "items": [
+          {
+            "id": "a",
+            "name": "A",
+            "count": 5,
+            "sellPrice": 3
+          },
+          {
+            "id": "sp_card_q",
+            "name": "Card",
+            "count": 1,
+            "sellPrice": 999
+          },
+          {
+            "id": "c",
+            "name": "C",
+            "count": 2,
+            "sellPrice": 11,
+            "favorite": true
+          },
+          {
+            "id": "d",
+            "name": "D",
+            "count": 3
+          },
+          {
+            "id": "e",
+            "type": "sp_card",
+            "name": "E",
+            "count": 1,
+            "sellPrice": 77
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "bulk more entries than slots": {
+    "log": [
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1002,
+          "inventory": {
+            "items": [
+              {
+                "id": "a",
+                "count": 1,
+                "sellPrice": 2
+              }
+            ]
+          },
+          "equipment": {}
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.4,
+          "text": "+2 Gold (Sold 1 item)",
+          "color": "#facc15"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1002,
+      "inventory": {
+        "items": [
+          {
+            "id": "a",
+            "count": 1,
+            "sellPrice": 2
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "bulk no socket": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1003,
+      "inventory": {
+        "items": [
+          {
+            "id": "a",
+            "name": "A",
+            "count": 4,
+            "sellPrice": 3
+          },
+          {
+            "id": "b",
+            "name": "B",
+            "count": 1,
+            "sellPrice": 40
+          },
+          {
+            "id": "sp_card_q",
+            "name": "Card",
+            "count": 1,
+            "sellPrice": 999
+          },
+          {
+            "id": "c",
+            "name": "C",
+            "count": 2,
+            "sellPrice": 11,
+            "favorite": true
+          },
+          {
+            "id": "d",
+            "name": "D",
+            "count": 3
+          },
+          {
+            "id": "e",
+            "type": "sp_card",
+            "name": "E",
+            "count": 1,
+            "sellPrice": 77
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "scroll no data": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "frostfell",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "town_scroll",
+            "name": "Town Scroll",
+            "count": 2
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "scroll dead": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "frostfell",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": true,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "town_scroll",
+            "name": "Town Scroll",
+            "count": 2
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "scroll no socket": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "frostfell",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "town_scroll",
+            "name": "Town Scroll",
+            "count": 2
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "scroll wrong item": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "frostfell",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "iron_blade",
+            "name": "Knight Broadsword",
+            "type": "equipment",
+            "slot": "weapon",
+            "count": 1
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "scroll bad index": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "frostfell",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "town_scroll",
+            "name": "Town Scroll",
+            "count": 2
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "scroll already in town": {
+    "log": [
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.3,
+          "text": "You are already in town!",
+          "color": "#ef4444"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "town_scroll",
+            "name": "Town Scroll",
+            "count": 2
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "scroll from field stack": {
+    "log": [
+      [
+        "call",
+        "teleportPlayerToTown",
+        "h1"
+      ],
+      [
+        "call",
+        "savePlayerAccount",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "items": [
+              {
+                "id": "town_scroll",
+                "name": "Town Scroll",
+                "count": 2
+              }
+            ]
+          },
+          "equipment": {}
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.2,
+          "text": "📜 Returned to town!",
+          "color": "#facc15",
+          "size": 18
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "town_scroll",
+            "name": "Town Scroll",
+            "count": 2
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "scroll from field last": {
+    "log": [
+      [
+        "call",
+        "teleportPlayerToTown",
+        "h1"
+      ],
+      [
+        "call",
+        "savePlayerAccount",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "items": []
+          },
+          "equipment": {}
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.2,
+          "text": "📜 Returned to town!",
+          "color": "#facc15",
+          "size": 18
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": []
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "scroll from field no count": {
+    "log": [
+      [
+        "call",
+        "teleportPlayerToTown",
+        "h1"
+      ],
+      [
+        "call",
+        "savePlayerAccount",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "items": []
+          },
+          "equipment": {}
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.2,
+          "text": "📜 Returned to town!",
+          "color": "#facc15",
+          "size": 18
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": []
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "scroll from dungeon": {
+    "log": [
+      [
+        "call",
+        "handleLeaveDungeon",
+        "h1"
+      ],
+      [
+        "call",
+        "savePlayerAccount",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "items": [
+              {
+                "id": "town_scroll",
+                "name": "Town Scroll",
+                "count": 1
+              }
+            ]
+          },
+          "equipment": {}
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.2,
+          "text": "📜 Returned to town!",
+          "color": "#facc15",
+          "size": 18
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "town_scroll",
+            "name": "Town Scroll",
+            "count": 1
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "scroll from dungeon fails": {
+    "log": [
+      [
+        "call",
+        "handleLeaveDungeon",
+        "h1"
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "dungeon",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "town_scroll",
+            "name": "Town Scroll",
+            "count": 2
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "scroll teleport fails": {
+    "log": [
+      [
+        "call",
+        "teleportPlayerToTown",
+        "h1"
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "frostfell",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "town_scroll",
+            "name": "Town Scroll",
+            "count": 2
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "bag no data": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "bag_expander_sm",
+            "name": "bag_expander_sm",
+            "count": 1
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "bag dead": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": true,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "bag_expander_sm",
+            "name": "bag_expander_sm",
+            "count": 1
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "bag invalid item": {
+    "log": [
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.3,
+          "text": "Invalid backpack expander!",
+          "color": "#ef4444"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "iron_blade",
+            "name": "Knight Broadsword",
+            "type": "equipment",
+            "slot": "weapon",
+            "count": 1
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "bag invalid index": {
+    "log": [
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.3,
+          "text": "Invalid backpack expander!",
+          "color": "#ef4444"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "bag_expander_sm",
+            "name": "bag_expander_sm",
+            "count": 1
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "bag at max": {
+    "log": [
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.3,
+          "text": "Backpack is already at maximum capacity (240 slots)!",
+          "color": "#ef4444"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 9999,
+        "items": [
+          {
+            "id": "bag_expander_sm",
+            "name": "bag_expander_sm",
+            "count": 1
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "bag small": {
+    "log": [
+      [
+        "call",
+        "savePlayerAccount",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "maxSlots": 36,
+            "items": []
+          },
+          "equipment": {}
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.2,
+          "text": "🎒 Backpack Expanded! (+1 Row, 36 Slots)",
+          "color": "#facc15",
+          "size": 19
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 36,
+        "items": []
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "bag medium stack": {
+    "log": [
+      [
+        "call",
+        "savePlayerAccount",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "maxSlots": 42,
+            "items": [
+              {
+                "id": "bag_expander_md",
+                "name": "bag_expander_md",
+                "count": 2
+              }
+            ]
+          },
+          "equipment": {}
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.2,
+          "text": "🎒 Backpack Expanded! (+2 Rows, 42 Slots)",
+          "color": "#facc15",
+          "size": 19
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 42,
+        "items": [
+          {
+            "id": "bag_expander_md",
+            "name": "bag_expander_md",
+            "count": 2
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "bag large": {
+    "log": [
+      [
+        "call",
+        "savePlayerAccount",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "maxSlots": 60,
+            "items": []
+          },
+          "equipment": {}
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.2,
+          "text": "🎒 Backpack Expanded! (+5 Rows, 60 Slots)",
+          "color": "#facc15",
+          "size": 19
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 60,
+        "items": []
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "bag large near cap": {
+    "log": [
+      [
+        "call",
+        "savePlayerAccount",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "maxSlots": 220,
+            "items": []
+          },
+          "equipment": {}
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.2,
+          "text": "🎒 Backpack Expanded! (+5 Rows, 220 Slots)",
+          "color": "#facc15",
+          "size": 19
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 220,
+        "items": []
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "bag no maxSlots": {
+    "log": [
+      [
+        "call",
+        "savePlayerAccount",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "items": [],
+            "maxSlots": 162
+          },
+          "equipment": {}
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.2,
+          "text": "🎒 Backpack Expanded! (+2 Rows, 162 Slots)",
+          "color": "#facc15",
+          "size": 19
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [],
+        "maxSlots": 162
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "bag no count": {
+    "log": [
+      [
+        "call",
+        "savePlayerAccount",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "items": [],
+            "maxSlots": 156
+          },
+          "equipment": {}
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.2,
+          "text": "🎒 Backpack Expanded! (+1 Row, 156 Slots)",
+          "color": "#facc15",
+          "size": 19
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [],
+        "maxSlots": 156
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "bag no socket": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "bag_expander_sm",
+            "name": "bag_expander_sm",
+            "count": 1
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "chest open dead": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": true,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "chest open no socket": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "chest open not town": {
+    "log": [
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.3,
+          "text": "The Personal Chest is located in Town!",
+          "color": "#ef4444"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "frostfell",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "chest open too far": {
+    "log": [
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 40,
+          "y": 39.3,
+          "text": "You are too far from the Personal Chest!",
+          "color": "#ef4444"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 40,
+      "y": 40,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "chest open creates storage": {
+    "log": [
+      [
+        "socket",
+        "personal_chest_data",
+        {
+          "storage": {
+            "maxSlots": 50,
+            "items": []
+          },
+          "inventory": {
+            "maxSlots": 30,
+            "items": [],
+            "healthPotions": 1,
+            "manaPotions": 1
+          }
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15.6,
+      "y": 17.1,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {},
+      "storage": {
+        "maxSlots": 50,
+        "items": []
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "chest open at the limit": {
+    "log": [
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 20.6,
+          "y": 16.400000000000002,
+          "text": "You are too far from the Personal Chest!",
+          "color": "#ef4444"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 20.6,
+      "y": 17.1,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "chest open just past the limit": {
+    "log": [
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 20.61,
+          "y": 16.400000000000002,
+          "text": "You are too far from the Personal Chest!",
+          "color": "#ef4444"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 20.61,
+      "y": 17.1,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "chest open repairs storage": {
+    "log": [
+      [
+        "socket",
+        "personal_chest_data",
+        {
+          "storage": {
+            "items": [],
+            "maxSlots": 50
+          },
+          "inventory": {
+            "maxSlots": 30,
+            "items": [],
+            "healthPotions": 1,
+            "manaPotions": 1
+          }
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {},
+      "storage": {
+        "items": [],
+        "maxSlots": 50
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "chest open keeps storage": {
+    "log": [
+      [
+        "socket",
+        "personal_chest_data",
+        {
+          "storage": {
+            "maxSlots": 80,
+            "items": [
+              {
+                "id": "ore",
+                "count": 2
+              }
+            ]
+          },
+          "inventory": {
+            "maxSlots": 30,
+            "items": [],
+            "healthPotions": 1,
+            "manaPotions": 1
+          }
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {},
+      "storage": {
+        "maxSlots": 80,
+        "items": [
+          {
+            "id": "ore",
+            "count": 2
+          }
+        ]
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "dep no data": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "dep dead": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": true,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "dep no socket": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "dep not town": {
+    "log": [
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.3,
+          "text": "The Personal Chest is in Town!",
+          "color": "#ef4444"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "dungeon",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "dep too far": {
+    "log": [
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 1,
+          "y": 0.30000000000000004,
+          "text": "Too far from Personal Chest!",
+          "color": "#ef4444"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 1,
+      "y": 1,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "dep bad index": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "ore",
+            "name": "Ore",
+            "count": 4
+          }
+        ]
+      },
+      "equipment": {},
+      "storage": {
+        "maxSlots": 50,
+        "items": []
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "dep non-integer index": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "ore",
+            "name": "Ore",
+            "count": 4
+          }
+        ]
+      },
+      "equipment": {},
+      "storage": {
+        "maxSlots": 50,
+        "items": []
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "dep negative index": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "ore",
+            "name": "Ore",
+            "count": 4
+          }
+        ]
+      },
+      "equipment": {},
+      "storage": {
+        "maxSlots": 50,
+        "items": []
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "dep hole in bag": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          null
+        ]
+      },
+      "equipment": {},
+      "storage": {
+        "maxSlots": 50,
+        "items": []
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "dep whole stack": {
+    "log": [
+      [
+        "call",
+        "savePlayerAccount",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "items": []
+          },
+          "equipment": {},
+          "storage": {
+            "maxSlots": 50,
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 4
+              }
+            ]
+          }
+        }
+      ],
+      [
+        "socket",
+        "personal_chest_data",
+        {
+          "storage": {
+            "maxSlots": 50,
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 4
+              }
+            ]
+          },
+          "inventory": {
+            "items": []
+          }
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": []
+      },
+      "equipment": {},
+      "storage": {
+        "maxSlots": 50,
+        "items": [
+          {
+            "id": "ore",
+            "name": "Ore",
+            "count": 4
+          }
+        ]
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "dep part of stack": {
+    "log": [
+      [
+        "call",
+        "savePlayerAccount",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 3
+              }
+            ]
+          },
+          "equipment": {},
+          "storage": {
+            "maxSlots": 50,
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 1
+              }
+            ]
+          }
+        }
+      ],
+      [
+        "socket",
+        "personal_chest_data",
+        {
+          "storage": {
+            "maxSlots": 50,
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 1
+              }
+            ]
+          },
+          "inventory": {
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 3
+              }
+            ]
+          }
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "ore",
+            "name": "Ore",
+            "count": 3
+          }
+        ]
+      },
+      "equipment": {},
+      "storage": {
+        "maxSlots": 50,
+        "items": [
+          {
+            "id": "ore",
+            "name": "Ore",
+            "count": 1
+          }
+        ]
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "dep count too big": {
+    "log": [
+      [
+        "call",
+        "savePlayerAccount",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "items": []
+          },
+          "equipment": {},
+          "storage": {
+            "maxSlots": 50,
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 4
+              }
+            ]
+          }
+        }
+      ],
+      [
+        "socket",
+        "personal_chest_data",
+        {
+          "storage": {
+            "maxSlots": 50,
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 4
+              }
+            ]
+          },
+          "inventory": {
+            "items": []
+          }
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": []
+      },
+      "equipment": {},
+      "storage": {
+        "maxSlots": 50,
+        "items": [
+          {
+            "id": "ore",
+            "name": "Ore",
+            "count": 4
+          }
+        ]
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "dep count garbage": {
+    "log": [
+      [
+        "call",
+        "savePlayerAccount",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "items": []
+          },
+          "equipment": {},
+          "storage": {
+            "maxSlots": 50,
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 4
+              }
+            ]
+          }
+        }
+      ],
+      [
+        "socket",
+        "personal_chest_data",
+        {
+          "storage": {
+            "maxSlots": 50,
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 4
+              }
+            ]
+          },
+          "inventory": {
+            "items": []
+          }
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": []
+      },
+      "equipment": {},
+      "storage": {
+        "maxSlots": 50,
+        "items": [
+          {
+            "id": "ore",
+            "name": "Ore",
+            "count": 4
+          }
+        ]
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "dep onto matching stack": {
+    "log": [
+      [
+        "call",
+        "savePlayerAccount",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 2
+              }
+            ]
+          },
+          "equipment": {},
+          "storage": {
+            "maxSlots": 50,
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 7
+              }
+            ]
+          }
+        }
+      ],
+      [
+        "socket",
+        "personal_chest_data",
+        {
+          "storage": {
+            "maxSlots": 50,
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 7
+              }
+            ]
+          },
+          "inventory": {
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 2
+              }
+            ]
+          }
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "ore",
+            "name": "Ore",
+            "count": 2
+          }
+        ]
+      },
+      "equipment": {},
+      "storage": {
+        "maxSlots": 50,
+        "items": [
+          {
+            "id": "ore",
+            "name": "Ore",
+            "count": 7
+          }
+        ]
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "dep onto matching stack no count": {
+    "log": [
+      [
+        "call",
+        "savePlayerAccount",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 2
+              }
+            ]
+          },
+          "equipment": {},
+          "storage": {
+            "maxSlots": 50,
+            "items": [
+              {
+                "id": "ore",
+                "count": 3
+              }
+            ]
+          }
+        }
+      ],
+      [
+        "socket",
+        "personal_chest_data",
+        {
+          "storage": {
+            "maxSlots": 50,
+            "items": [
+              {
+                "id": "ore",
+                "count": 3
+              }
+            ]
+          },
+          "inventory": {
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 2
+              }
+            ]
+          }
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "ore",
+            "name": "Ore",
+            "count": 2
+          }
+        ]
+      },
+      "equipment": {},
+      "storage": {
+        "maxSlots": 50,
+        "items": [
+          {
+            "id": "ore",
+            "count": 3
+          }
+        ]
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "dep matching stack but gear": {
+    "log": [
+      [
+        "call",
+        "savePlayerAccount",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "items": []
+          },
+          "equipment": {},
+          "storage": {
+            "maxSlots": 50,
+            "items": [
+              {
+                "id": "iron_blade",
+                "name": "Knight Broadsword",
+                "type": "equipment",
+                "slot": "weapon",
+                "count": 1
+              },
+              {
+                "id": "iron_blade",
+                "name": "Knight Broadsword",
+                "type": "equipment",
+                "slot": "weapon",
+                "count": 1
+              }
+            ]
+          }
+        }
+      ],
+      [
+        "socket",
+        "personal_chest_data",
+        {
+          "storage": {
+            "maxSlots": 50,
+            "items": [
+              {
+                "id": "iron_blade",
+                "name": "Knight Broadsword",
+                "type": "equipment",
+                "slot": "weapon",
+                "count": 1
+              },
+              {
+                "id": "iron_blade",
+                "name": "Knight Broadsword",
+                "type": "equipment",
+                "slot": "weapon",
+                "count": 1
+              }
+            ]
+          },
+          "inventory": {
+            "items": []
+          }
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": []
+      },
+      "equipment": {},
+      "storage": {
+        "maxSlots": 50,
+        "items": [
+          {
+            "id": "iron_blade",
+            "name": "Knight Broadsword",
+            "type": "equipment",
+            "slot": "weapon",
+            "count": 1
+          },
+          {
+            "id": "iron_blade",
+            "name": "Knight Broadsword",
+            "type": "equipment",
+            "slot": "weapon",
+            "count": 1
+          }
+        ]
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "dep upgraded item": {
+    "log": [
+      [
+        "call",
+        "savePlayerAccount",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "items": []
+          },
+          "equipment": {},
+          "storage": {
+            "maxSlots": 50,
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 5
+              },
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 1,
+                "upgradeLevel": 2
+              }
+            ]
+          }
+        }
+      ],
+      [
+        "socket",
+        "personal_chest_data",
+        {
+          "storage": {
+            "maxSlots": 50,
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 5
+              },
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 1,
+                "upgradeLevel": 2
+              }
+            ]
+          },
+          "inventory": {
+            "items": []
+          }
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": []
+      },
+      "equipment": {},
+      "storage": {
+        "maxSlots": 50,
+        "items": [
+          {
+            "id": "ore",
+            "name": "Ore",
+            "count": 5
+          },
+          {
+            "id": "ore",
+            "name": "Ore",
+            "count": 1,
+            "upgradeLevel": 2
+          }
+        ]
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "dep socketed item": {
+    "log": [
+      [
+        "call",
+        "savePlayerAccount",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "items": []
+          },
+          "equipment": {},
+          "storage": {
+            "maxSlots": 50,
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 5
+              },
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 1,
+                "sockets": [
+                  1
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      [
+        "socket",
+        "personal_chest_data",
+        {
+          "storage": {
+            "maxSlots": 50,
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 5
+              },
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 1,
+                "sockets": [
+                  1
+                ]
+              }
+            ]
+          },
+          "inventory": {
+            "items": []
+          }
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": []
+      },
+      "equipment": {},
+      "storage": {
+        "maxSlots": 50,
+        "items": [
+          {
+            "id": "ore",
+            "name": "Ore",
+            "count": 5
+          },
+          {
+            "id": "ore",
+            "name": "Ore",
+            "count": 1,
+            "sockets": [
+              1
+            ]
+          }
+        ]
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "dep custom item": {
+    "log": [
+      [
+        "call",
+        "savePlayerAccount",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "items": []
+          },
+          "equipment": {},
+          "storage": {
+            "maxSlots": 50,
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 5
+              },
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 1,
+                "custom": true
+              }
+            ]
+          }
+        }
+      ],
+      [
+        "socket",
+        "personal_chest_data",
+        {
+          "storage": {
+            "maxSlots": 50,
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 5
+              },
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 1,
+                "custom": true
+              }
+            ]
+          },
+          "inventory": {
+            "items": []
+          }
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": []
+      },
+      "equipment": {},
+      "storage": {
+        "maxSlots": 50,
+        "items": [
+          {
+            "id": "ore",
+            "name": "Ore",
+            "count": 5
+          },
+          {
+            "id": "ore",
+            "name": "Ore",
+            "count": 1,
+            "custom": true
+          }
+        ]
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "dep chest full": {
+    "log": [
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.3,
+          "text": "Personal Chest is full!",
+          "color": "#ef4444"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "ore",
+            "name": "Ore",
+            "count": 4
+          }
+        ]
+      },
+      "equipment": {},
+      "storage": {
+        "maxSlots": 1,
+        "items": [
+          {
+            "id": "other"
+          }
+        ]
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "dep chest full but stacks": {
+    "log": [
+      [
+        "call",
+        "savePlayerAccount",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "items": []
+          },
+          "equipment": {},
+          "storage": {
+            "maxSlots": 1,
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 6
+              }
+            ]
+          }
+        }
+      ],
+      [
+        "socket",
+        "personal_chest_data",
+        {
+          "storage": {
+            "maxSlots": 1,
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 6
+              }
+            ]
+          },
+          "inventory": {
+            "items": []
+          }
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": []
+      },
+      "equipment": {},
+      "storage": {
+        "maxSlots": 1,
+        "items": [
+          {
+            "id": "ore",
+            "name": "Ore",
+            "count": 6
+          }
+        ]
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "dep repairs storage": {
+    "log": [
+      [
+        "call",
+        "savePlayerAccount",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "items": []
+          },
+          "equipment": {},
+          "storage": {
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 4
+              }
+            ]
+          }
+        }
+      ],
+      [
+        "socket",
+        "personal_chest_data",
+        {
+          "storage": {
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 4
+              }
+            ]
+          },
+          "inventory": {
+            "items": []
+          }
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": []
+      },
+      "equipment": {},
+      "storage": {
+        "items": [
+          {
+            "id": "ore",
+            "name": "Ore",
+            "count": 4
+          }
+        ]
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "dep all": {
+    "log": [
+      [
+        "call",
+        "savePlayerAccount",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "items": [
+              null
+            ]
+          },
+          "equipment": {},
+          "storage": {
+            "maxSlots": 50,
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 15
+              },
+              {
+                "id": "gem",
+                "count": 1
+              },
+              {
+                "id": "helm_x",
+                "name": "Test Helm",
+                "type": "equipment",
+                "slot": "helmet",
+                "count": 1,
+                "upgradeLevel": 1
+              },
+              {
+                "id": "iron_blade",
+                "name": "Knight Broadsword",
+                "type": "equipment",
+                "slot": "weapon",
+                "count": 1
+              }
+            ]
+          }
+        }
+      ],
+      [
+        "socket",
+        "personal_chest_data",
+        {
+          "storage": {
+            "maxSlots": 50,
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 15
+              },
+              {
+                "id": "gem",
+                "count": 1
+              },
+              {
+                "id": "helm_x",
+                "name": "Test Helm",
+                "type": "equipment",
+                "slot": "helmet",
+                "count": 1,
+                "upgradeLevel": 1
+              },
+              {
+                "id": "iron_blade",
+                "name": "Knight Broadsword",
+                "type": "equipment",
+                "slot": "weapon",
+                "count": 1
+              }
+            ]
+          },
+          "inventory": {
+            "items": [
+              null
+            ]
+          }
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.3,
+          "text": "Deposited 5 items!",
+          "color": "#6ee7b7"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          null
+        ]
+      },
+      "equipment": {},
+      "storage": {
+        "maxSlots": 50,
+        "items": [
+          {
+            "id": "ore",
+            "name": "Ore",
+            "count": 15
+          },
+          {
+            "id": "gem",
+            "count": 1
+          },
+          {
+            "id": "helm_x",
+            "name": "Test Helm",
+            "type": "equipment",
+            "slot": "helmet",
+            "count": 1,
+            "upgradeLevel": 1
+          },
+          {
+            "id": "iron_blade",
+            "name": "Knight Broadsword",
+            "type": "equipment",
+            "slot": "weapon",
+            "count": 1
+          }
+        ]
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "dep all with a small chest": {
+    "log": [
+      [
+        "call",
+        "savePlayerAccount",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "items": [
+              {
+                "id": "iron_blade",
+                "name": "Knight Broadsword",
+                "type": "equipment",
+                "slot": "weapon",
+                "count": 1
+              },
+              {
+                "id": "helm_x",
+                "name": "Test Helm",
+                "type": "equipment",
+                "slot": "helmet",
+                "count": 1
+              }
+            ]
+          },
+          "equipment": {},
+          "storage": {
+            "maxSlots": 2,
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 3
+              },
+              {
+                "id": "gem",
+                "count": 1
+              }
+            ]
+          }
+        }
+      ],
+      [
+        "socket",
+        "personal_chest_data",
+        {
+          "storage": {
+            "maxSlots": 2,
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 3
+              },
+              {
+                "id": "gem",
+                "count": 1
+              }
+            ]
+          },
+          "inventory": {
+            "items": [
+              {
+                "id": "iron_blade",
+                "name": "Knight Broadsword",
+                "type": "equipment",
+                "slot": "weapon",
+                "count": 1
+              },
+              {
+                "id": "helm_x",
+                "name": "Test Helm",
+                "type": "equipment",
+                "slot": "helmet",
+                "count": 1
+              }
+            ]
+          }
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.3,
+          "text": "Deposited 2 items!",
+          "color": "#6ee7b7"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "iron_blade",
+            "name": "Knight Broadsword",
+            "type": "equipment",
+            "slot": "weapon",
+            "count": 1
+          },
+          {
+            "id": "helm_x",
+            "name": "Test Helm",
+            "type": "equipment",
+            "slot": "helmet",
+            "count": 1
+          }
+        ]
+      },
+      "equipment": {},
+      "storage": {
+        "maxSlots": 2,
+        "items": [
+          {
+            "id": "ore",
+            "name": "Ore",
+            "count": 3
+          },
+          {
+            "id": "gem",
+            "count": 1
+          }
+        ]
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "dep all nothing moves": {
+    "log": [
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.3,
+          "text": "Personal Chest is full or no items to deposit!",
+          "color": "#ef4444"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "iron_blade",
+            "name": "Knight Broadsword",
+            "type": "equipment",
+            "slot": "weapon",
+            "count": 1
+          }
+        ]
+      },
+      "equipment": {},
+      "storage": {
+        "maxSlots": 1,
+        "items": [
+          {
+            "id": "x"
+          }
+        ]
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "dep all empty bag": {
+    "log": [
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.3,
+          "text": "Personal Chest is full or no items to deposit!",
+          "color": "#ef4444"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": []
+      },
+      "equipment": {},
+      "storage": {
+        "maxSlots": 50,
+        "items": []
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "wd no data": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "wd dead": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": true,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "wd no socket": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "wd not town": {
+    "log": [
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.3,
+          "text": "The Personal Chest is in Town!",
+          "color": "#ef4444"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "frostfell",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "wd too far": {
+    "log": [
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 0,
+          "y": -0.7,
+          "text": "Too far from Personal Chest!",
+          "color": "#ef4444"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 0,
+      "y": 0,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "wd no storage yet": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {},
+      "storage": {
+        "maxSlots": 50,
+        "items": []
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "wd bad index": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {},
+      "storage": {
+        "maxSlots": 50,
+        "items": [
+          {
+            "id": "ore",
+            "name": "Ore",
+            "count": 4
+          }
+        ]
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "wd non-integer index": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {},
+      "storage": {
+        "maxSlots": 50,
+        "items": [
+          {
+            "id": "ore",
+            "name": "Ore",
+            "count": 4
+          }
+        ]
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "wd hole in chest": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {},
+      "storage": {
+        "maxSlots": 50,
+        "items": [
+          null
+        ]
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "wd whole stack": {
+    "log": [
+      [
+        "call",
+        "savePlayerAccount",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "maxSlots": 30,
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 4
+              }
+            ],
+            "healthPotions": 1,
+            "manaPotions": 1
+          },
+          "equipment": {},
+          "storage": {
+            "maxSlots": 50,
+            "items": []
+          }
+        }
+      ],
+      [
+        "socket",
+        "personal_chest_data",
+        {
+          "storage": {
+            "maxSlots": 50,
+            "items": []
+          },
+          "inventory": {
+            "maxSlots": 30,
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 4
+              }
+            ],
+            "healthPotions": 1,
+            "manaPotions": 1
+          }
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [
+          {
+            "id": "ore",
+            "name": "Ore",
+            "count": 4
+          }
+        ],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {},
+      "storage": {
+        "maxSlots": 50,
+        "items": []
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "wd part of stack": {
+    "log": [
+      [
+        "call",
+        "savePlayerAccount",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "maxSlots": 30,
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 3
+              }
+            ],
+            "healthPotions": 1,
+            "manaPotions": 1
+          },
+          "equipment": {},
+          "storage": {
+            "maxSlots": 50,
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 1
+              }
+            ]
+          }
+        }
+      ],
+      [
+        "socket",
+        "personal_chest_data",
+        {
+          "storage": {
+            "maxSlots": 50,
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 1
+              }
+            ]
+          },
+          "inventory": {
+            "maxSlots": 30,
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 3
+              }
+            ],
+            "healthPotions": 1,
+            "manaPotions": 1
+          }
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [
+          {
+            "id": "ore",
+            "name": "Ore",
+            "count": 3
+          }
+        ],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {},
+      "storage": {
+        "maxSlots": 50,
+        "items": [
+          {
+            "id": "ore",
+            "name": "Ore",
+            "count": 1
+          }
+        ]
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "wd count too big": {
+    "log": [
+      [
+        "call",
+        "savePlayerAccount",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "maxSlots": 30,
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 4
+              }
+            ],
+            "healthPotions": 1,
+            "manaPotions": 1
+          },
+          "equipment": {},
+          "storage": {
+            "maxSlots": 50,
+            "items": []
+          }
+        }
+      ],
+      [
+        "socket",
+        "personal_chest_data",
+        {
+          "storage": {
+            "maxSlots": 50,
+            "items": []
+          },
+          "inventory": {
+            "maxSlots": 30,
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 4
+              }
+            ],
+            "healthPotions": 1,
+            "manaPotions": 1
+          }
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [
+          {
+            "id": "ore",
+            "name": "Ore",
+            "count": 4
+          }
+        ],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {},
+      "storage": {
+        "maxSlots": 50,
+        "items": []
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "wd count garbage": {
+    "log": [
+      [
+        "call",
+        "savePlayerAccount",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "maxSlots": 30,
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 4
+              }
+            ],
+            "healthPotions": 1,
+            "manaPotions": 1
+          },
+          "equipment": {},
+          "storage": {
+            "maxSlots": 50,
+            "items": []
+          }
+        }
+      ],
+      [
+        "socket",
+        "personal_chest_data",
+        {
+          "storage": {
+            "maxSlots": 50,
+            "items": []
+          },
+          "inventory": {
+            "maxSlots": 30,
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 4
+              }
+            ],
+            "healthPotions": 1,
+            "manaPotions": 1
+          }
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [
+          {
+            "id": "ore",
+            "name": "Ore",
+            "count": 4
+          }
+        ],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {},
+      "storage": {
+        "maxSlots": 50,
+        "items": []
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "wd onto matching stack": {
+    "log": [
+      [
+        "call",
+        "savePlayerAccount",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 8
+              }
+            ]
+          },
+          "equipment": {},
+          "storage": {
+            "maxSlots": 50,
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 2
+              }
+            ]
+          }
+        }
+      ],
+      [
+        "socket",
+        "personal_chest_data",
+        {
+          "storage": {
+            "maxSlots": 50,
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 2
+              }
+            ]
+          },
+          "inventory": {
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 8
+              }
+            ]
+          }
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "ore",
+            "name": "Ore",
+            "count": 8
+          }
+        ]
+      },
+      "equipment": {},
+      "storage": {
+        "maxSlots": 50,
+        "items": [
+          {
+            "id": "ore",
+            "name": "Ore",
+            "count": 2
+          }
+        ]
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "wd onto matching stack no count": {
+    "log": [
+      [
+        "call",
+        "savePlayerAccount",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "items": [
+              {
+                "id": "ore",
+                "count": 3
+              }
+            ]
+          },
+          "equipment": {},
+          "storage": {
+            "maxSlots": 50,
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 2
+              }
+            ]
+          }
+        }
+      ],
+      [
+        "socket",
+        "personal_chest_data",
+        {
+          "storage": {
+            "maxSlots": 50,
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 2
+              }
+            ]
+          },
+          "inventory": {
+            "items": [
+              {
+                "id": "ore",
+                "count": 3
+              }
+            ]
+          }
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "ore",
+            "count": 3
+          }
+        ]
+      },
+      "equipment": {},
+      "storage": {
+        "maxSlots": 50,
+        "items": [
+          {
+            "id": "ore",
+            "name": "Ore",
+            "count": 2
+          }
+        ]
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "wd gear is never merged": {
+    "log": [
+      [
+        "call",
+        "savePlayerAccount",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "items": [
+              {
+                "id": "iron_blade",
+                "name": "Knight Broadsword",
+                "type": "equipment",
+                "slot": "weapon",
+                "count": 1
+              },
+              {
+                "id": "iron_blade",
+                "name": "Knight Broadsword",
+                "type": "equipment",
+                "slot": "weapon",
+                "count": 1
+              }
+            ]
+          },
+          "equipment": {},
+          "storage": {
+            "maxSlots": 50,
+            "items": []
+          }
+        }
+      ],
+      [
+        "socket",
+        "personal_chest_data",
+        {
+          "storage": {
+            "maxSlots": 50,
+            "items": []
+          },
+          "inventory": {
+            "items": [
+              {
+                "id": "iron_blade",
+                "name": "Knight Broadsword",
+                "type": "equipment",
+                "slot": "weapon",
+                "count": 1
+              },
+              {
+                "id": "iron_blade",
+                "name": "Knight Broadsword",
+                "type": "equipment",
+                "slot": "weapon",
+                "count": 1
+              }
+            ]
+          }
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "iron_blade",
+            "name": "Knight Broadsword",
+            "type": "equipment",
+            "slot": "weapon",
+            "count": 1
+          },
+          {
+            "id": "iron_blade",
+            "name": "Knight Broadsword",
+            "type": "equipment",
+            "slot": "weapon",
+            "count": 1
+          }
+        ]
+      },
+      "equipment": {},
+      "storage": {
+        "maxSlots": 50,
+        "items": []
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "wd custom is never merged": {
+    "log": [
+      [
+        "call",
+        "savePlayerAccount",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 6
+              },
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 2,
+                "custom": true
+              }
+            ]
+          },
+          "equipment": {},
+          "storage": {
+            "maxSlots": 50,
+            "items": []
+          }
+        }
+      ],
+      [
+        "socket",
+        "personal_chest_data",
+        {
+          "storage": {
+            "maxSlots": 50,
+            "items": []
+          },
+          "inventory": {
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 6
+              },
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 2,
+                "custom": true
+              }
+            ]
+          }
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "ore",
+            "name": "Ore",
+            "count": 6
+          },
+          {
+            "id": "ore",
+            "name": "Ore",
+            "count": 2,
+            "custom": true
+          }
+        ]
+      },
+      "equipment": {},
+      "storage": {
+        "maxSlots": 50,
+        "items": []
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "wd reforged is never merged": {
+    "log": [
+      [
+        "call",
+        "savePlayerAccount",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 6
+              },
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 2,
+                "reforgeBonus": 1
+              }
+            ]
+          },
+          "equipment": {},
+          "storage": {
+            "maxSlots": 50,
+            "items": []
+          }
+        }
+      ],
+      [
+        "socket",
+        "personal_chest_data",
+        {
+          "storage": {
+            "maxSlots": 50,
+            "items": []
+          },
+          "inventory": {
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 6
+              },
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 2,
+                "reforgeBonus": 1
+              }
+            ]
+          }
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "ore",
+            "name": "Ore",
+            "count": 6
+          },
+          {
+            "id": "ore",
+            "name": "Ore",
+            "count": 2,
+            "reforgeBonus": 1
+          }
+        ]
+      },
+      "equipment": {},
+      "storage": {
+        "maxSlots": 50,
+        "items": []
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "wd bag full": {
+    "log": [
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.3,
+          "text": "Backpack is full!",
+          "color": "#ef4444"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 1,
+        "items": [
+          {
+            "id": "x"
+          }
+        ]
+      },
+      "equipment": {},
+      "storage": {
+        "maxSlots": 50,
+        "items": [
+          {
+            "id": "ore",
+            "name": "Ore",
+            "count": 4
+          }
+        ]
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "wd bag full but stacks": {
+    "log": [
+      [
+        "call",
+        "savePlayerAccount",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "maxSlots": 1,
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 5
+              }
+            ]
+          },
+          "equipment": {},
+          "storage": {
+            "maxSlots": 50,
+            "items": []
+          }
+        }
+      ],
+      [
+        "socket",
+        "personal_chest_data",
+        {
+          "storage": {
+            "maxSlots": 50,
+            "items": []
+          },
+          "inventory": {
+            "maxSlots": 1,
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 5
+              }
+            ]
+          }
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 1,
+        "items": [
+          {
+            "id": "ore",
+            "name": "Ore",
+            "count": 5
+          }
+        ]
+      },
+      "equipment": {},
+      "storage": {
+        "maxSlots": 50,
+        "items": []
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "wd bag default cap": {
+    "log": [
+      [
+        "call",
+        "savePlayerAccount",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "items": [
+              {
+                "id": "x"
+              },
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 4
+              }
+            ]
+          },
+          "equipment": {},
+          "storage": {
+            "maxSlots": 50,
+            "items": []
+          }
+        }
+      ],
+      [
+        "socket",
+        "personal_chest_data",
+        {
+          "storage": {
+            "maxSlots": 50,
+            "items": []
+          },
+          "inventory": {
+            "items": [
+              {
+                "id": "x"
+              },
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 4
+              }
+            ]
+          }
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "x"
+          },
+          {
+            "id": "ore",
+            "name": "Ore",
+            "count": 4
+          }
+        ]
+      },
+      "equipment": {},
+      "storage": {
+        "maxSlots": 50,
+        "items": []
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "wd repairs storage": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {},
+      "storage": {
+        "maxSlots": 50,
+        "items": []
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "cx no data": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "cx dead": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": true,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "chest_expander_sm",
+            "name": "chest_expander_sm",
+            "count": 1
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "cx no socket": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "chest_expander_sm",
+            "name": "chest_expander_sm",
+            "count": 1
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "cx invalid item": {
+    "log": [
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.3,
+          "text": "Invalid chest expander!",
+          "color": "#ef4444"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "bag_expander_sm",
+            "name": "bag_expander_sm",
+            "count": 1
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "cx invalid index": {
+    "log": [
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.3,
+          "text": "Invalid chest expander!",
+          "color": "#ef4444"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "chest_expander_sm",
+            "name": "chest_expander_sm",
+            "count": 1
+          }
+        ]
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "cx at max": {
+    "log": [
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.3,
+          "text": "Chest is already at maximum capacity (300 slots)!",
+          "color": "#ef4444"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "chest_expander_sm",
+            "name": "chest_expander_sm",
+            "count": 1
+          }
+        ]
+      },
+      "equipment": {},
+      "storage": {
+        "maxSlots": 300,
+        "items": []
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "cx small, creates storage": {
+    "log": [
+      [
+        "call",
+        "savePlayerAccount",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "items": []
+          },
+          "equipment": {},
+          "storage": {
+            "maxSlots": 60,
+            "items": []
+          }
+        }
+      ],
+      [
+        "socket",
+        "personal_chest_data",
+        {
+          "storage": {
+            "maxSlots": 60,
+            "items": []
+          },
+          "inventory": {
+            "items": []
+          }
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.2,
+          "text": "📦 Personal Chest Expanded! (+10 Slots, Total 60)",
+          "color": "#facc15",
+          "size": 19
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": []
+      },
+      "equipment": {},
+      "storage": {
+        "maxSlots": 60,
+        "items": []
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "cx medium stack": {
+    "log": [
+      [
+        "call",
+        "savePlayerAccount",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "items": [
+              {
+                "id": "chest_expander_md",
+                "name": "chest_expander_md",
+                "count": 1
+              }
+            ]
+          },
+          "equipment": {},
+          "storage": {
+            "maxSlots": 120,
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 4
+              }
+            ]
+          }
+        }
+      ],
+      [
+        "socket",
+        "personal_chest_data",
+        {
+          "storage": {
+            "maxSlots": 120,
+            "items": [
+              {
+                "id": "ore",
+                "name": "Ore",
+                "count": 4
+              }
+            ]
+          },
+          "inventory": {
+            "items": [
+              {
+                "id": "chest_expander_md",
+                "name": "chest_expander_md",
+                "count": 1
+              }
+            ]
+          }
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.2,
+          "text": "📦 Personal Chest Expanded! (+20 Slots, Total 120)",
+          "color": "#facc15",
+          "size": 19
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": [
+          {
+            "id": "chest_expander_md",
+            "name": "chest_expander_md",
+            "count": 1
+          }
+        ]
+      },
+      "equipment": {},
+      "storage": {
+        "maxSlots": 120,
+        "items": [
+          {
+            "id": "ore",
+            "name": "Ore",
+            "count": 4
+          }
+        ]
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "cx large": {
+    "log": [
+      [
+        "call",
+        "savePlayerAccount",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "items": []
+          },
+          "equipment": {},
+          "storage": {
+            "maxSlots": 100,
+            "items": []
+          }
+        }
+      ],
+      [
+        "socket",
+        "personal_chest_data",
+        {
+          "storage": {
+            "maxSlots": 100,
+            "items": []
+          },
+          "inventory": {
+            "items": []
+          }
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.2,
+          "text": "📦 Personal Chest Expanded! (+50 Slots, Total 100)",
+          "color": "#facc15",
+          "size": 19
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": []
+      },
+      "equipment": {},
+      "storage": {
+        "maxSlots": 100,
+        "items": []
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "cx large near cap": {
+    "log": [
+      [
+        "call",
+        "savePlayerAccount",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "items": []
+          },
+          "equipment": {},
+          "storage": {
+            "maxSlots": 300,
+            "items": []
+          }
+        }
+      ],
+      [
+        "socket",
+        "personal_chest_data",
+        {
+          "storage": {
+            "maxSlots": 300,
+            "items": []
+          },
+          "inventory": {
+            "items": []
+          }
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.2,
+          "text": "📦 Personal Chest Expanded! (+20 Slots, Total 300)",
+          "color": "#facc15",
+          "size": 19
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": []
+      },
+      "equipment": {},
+      "storage": {
+        "maxSlots": 300,
+        "items": []
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "cx no maxSlots": {
+    "log": [
+      [
+        "call",
+        "savePlayerAccount",
+        "h1"
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "items": []
+          },
+          "equipment": {},
+          "storage": {
+            "items": [],
+            "maxSlots": 70
+          }
+        }
+      ],
+      [
+        "socket",
+        "personal_chest_data",
+        {
+          "storage": {
+            "items": [],
+            "maxSlots": 70
+          },
+          "inventory": {
+            "items": []
+          }
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 15,
+          "y": 16.2,
+          "text": "📦 Personal Chest Expanded! (+20 Slots, Total 70)",
+          "color": "#facc15",
+          "size": 19
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "items": []
+      },
+      "equipment": {},
+      "storage": {
+        "items": [],
+        "maxSlots": 70
+      }
+    },
+    "ground": [],
+    "threw": null
+  },
+  "pickup dead": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": true,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {}
+    },
+    "ground": [
+      "g1"
+    ],
+    "threw": null
+  },
+  "pickup no player": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {}
+    },
+    "ground": [
+      "g1"
+    ],
+    "threw": null
+  },
+  "pickup missing": {
+    "log": [
+      [
+        "call",
+        "getGroundItemsMap",
+        "town"
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {}
+    },
+    "ground": [
+      "g1"
+    ],
+    "threw": null
+  },
+  "pickup too far": {
+    "log": [
+      [
+        "call",
+        "getGroundItemsMap",
+        "town"
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {}
+    },
+    "ground": [
+      "g1"
+    ],
+    "threw": null
+  },
+  "pickup at the limit": {
+    "log": [
+      [
+        "call",
+        "getGroundItemsMap",
+        "town"
+      ],
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "id": "g1",
+          "x": 17.2,
+          "y": 17,
+          "type": "item",
+          "itemId": "ore"
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "item_picked",
+        {
+          "itemId": "g1",
+          "pickerId": "h1"
+        }
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "maxSlots": 30,
+            "items": [],
+            "healthPotions": 1,
+            "manaPotions": 1
+          },
+          "equipment": {}
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "pickup in range": {
+    "log": [
+      [
+        "call",
+        "getGroundItemsMap",
+        "town"
+      ],
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "id": "g1",
+          "x": 16,
+          "y": 18,
+          "type": "item",
+          "itemId": "ore"
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "item_picked",
+        {
+          "itemId": "g1",
+          "pickerId": "h1"
+        }
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "maxSlots": 30,
+            "items": [],
+            "healthPotions": 1,
+            "manaPotions": 1
+          },
+          "equipment": {}
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  },
+  "pickup in range no socket": {
+    "log": [
+      [
+        "call",
+        "getGroundItemsMap",
+        "town"
+      ],
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "id": "g1",
+          "x": 16,
+          "y": 18,
+          "type": "item",
+          "itemId": "ore"
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "item_picked",
+        {
+          "itemId": "g1",
+          "pickerId": "h1"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {}
+    },
+    "ground": [
+      "g2"
+    ],
+    "threw": null
+  },
+  "pickup from dungeon zone": {
+    "log": [
+      [
+        "call",
+        "getGroundItemsMap",
+        "dungeon"
+      ],
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "id": "g1",
+          "x": 15,
+          "y": 17,
+          "type": "item",
+          "itemId": "ore"
+        }
+      ],
+      [
+        "zone",
+        "dungeon",
+        "item_picked",
+        {
+          "itemId": "g1",
+          "pickerId": "h1"
+        }
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "dungeon",
+          "x": 15,
+          "y": 17,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 1000,
+          "inventory": {
+            "maxSlots": 30,
+            "items": [],
+            "healthPotions": 1,
+            "manaPotions": 1
+          },
+          "equipment": {}
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "dungeon",
+      "x": 15,
+      "y": 17,
+      "characterClass": "warrior",
+      "isDead": false,
+      "gold": 1000,
+      "inventory": {
+        "maxSlots": 30,
+        "items": [],
+        "healthPotions": 1,
+        "manaPotions": 1
+      },
+      "equipment": {}
+    },
+    "ground": [],
+    "threw": null
+  }
+}

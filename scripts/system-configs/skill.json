@@ -1,0 +1,6 @@
+{
+  "className": "SkillSystem",
+  "field": "skills",
+  "description": "Class skills: casting every slot (class skills, weapon abilities, dispatch to SP skills), loadout customizing, skill resolution and the armor-set cast hooks.",
+  "methods": ["handleCustomizeSkill", "resolvePlayerSkill", "handlePlayerSkill", "applySetOnSkillCast", "flipEclipse"]
+}

@@ -1,0 +1,3717 @@
+{
+  "scenarios": {
+    "partyData": {
+      "result": {
+        "none": null,
+        "unknown": null,
+        "data": {
+          "id": "party_1",
+          "leaderId": "a",
+          "members": [
+            {
+              "id": "a",
+              "name": "Alice",
+              "level": 10,
+              "characterClass": "warrior",
+              "hp": 50,
+              "maxHp": 100,
+              "mp": 5,
+              "maxMp": 10,
+              "zone": "town",
+              "isLeader": true
+            },
+            {
+              "id": "b",
+              "name": "Bob",
+              "level": 10,
+              "characterClass": "warrior",
+              "hp": 50,
+              "maxHp": 100,
+              "mp": 5,
+              "maxMp": 10,
+              "zone": "town",
+              "isLeader": false
+            },
+            {
+              "id": "c",
+              "name": "Cara",
+              "level": 10,
+              "characterClass": "warrior",
+              "hp": 50,
+              "maxHp": 100,
+              "mp": 5,
+              "maxMp": 10,
+              "zone": "town",
+              "isLeader": false
+            }
+          ]
+        }
+      },
+      "log": [],
+      "state": {
+        "parties": [
+          [
+            "party_1",
+            {
+              "id": "party_1",
+              "leaderId": "a",
+              "memberIds": {
+                "__set": [
+                  "a",
+                  "b",
+                  "c"
+                ]
+              }
+            }
+          ]
+        ],
+        "nextPartyId": 2,
+        "players": [
+          {
+            "id": "a",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "b",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "c",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "d",
+            "partyId": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "e",
+            "partyId": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          }
+        ]
+      }
+    },
+    "partyDataSkipsOffline": {
+      "result": {
+        "id": "party_1",
+        "leaderId": "a",
+        "members": [
+          {
+            "id": "a",
+            "name": "Alice",
+            "level": 10,
+            "characterClass": "warrior",
+            "hp": 50,
+            "maxHp": 100,
+            "mp": 5,
+            "maxMp": 10,
+            "zone": "town",
+            "isLeader": true
+          },
+          {
+            "id": "b",
+            "name": "Bob",
+            "level": 10,
+            "characterClass": "warrior",
+            "hp": 50,
+            "maxHp": 100,
+            "mp": 5,
+            "maxMp": 10,
+            "zone": "town",
+            "isLeader": false
+          }
+        ]
+      },
+      "log": [],
+      "state": {
+        "parties": [
+          [
+            "party_1",
+            {
+              "id": "party_1",
+              "leaderId": "a",
+              "memberIds": {
+                "__set": [
+                  "a",
+                  "b",
+                  "c"
+                ]
+              }
+            }
+          ]
+        ],
+        "nextPartyId": 2,
+        "players": [
+          {
+            "id": "a",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "b",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "d",
+            "partyId": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "e",
+            "partyId": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          }
+        ]
+      }
+    },
+    "broadcast": {
+      "result": null,
+      "log": [
+        [
+          "a",
+          "party_updated",
+          {
+            "id": "party_1",
+            "leaderId": "a",
+            "members": [
+              {
+                "id": "a",
+                "name": "Alice",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": true
+              },
+              {
+                "id": "b",
+                "name": "Bob",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": false
+              },
+              {
+                "id": "c",
+                "name": "Cara",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": false
+              }
+            ]
+          }
+        ],
+        [
+          "b",
+          "party_updated",
+          {
+            "id": "party_1",
+            "leaderId": "a",
+            "members": [
+              {
+                "id": "a",
+                "name": "Alice",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": true
+              },
+              {
+                "id": "b",
+                "name": "Bob",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": false
+              },
+              {
+                "id": "c",
+                "name": "Cara",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": false
+              }
+            ]
+          }
+        ],
+        [
+          "c",
+          "party_updated",
+          {
+            "id": "party_1",
+            "leaderId": "a",
+            "members": [
+              {
+                "id": "a",
+                "name": "Alice",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": true
+              },
+              {
+                "id": "b",
+                "name": "Bob",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": false
+              },
+              {
+                "id": "c",
+                "name": "Cara",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": false
+              }
+            ]
+          }
+        ]
+      ],
+      "state": {
+        "parties": [
+          [
+            "party_1",
+            {
+              "id": "party_1",
+              "leaderId": "a",
+              "memberIds": {
+                "__set": [
+                  "a",
+                  "b",
+                  "c"
+                ]
+              }
+            }
+          ]
+        ],
+        "nextPartyId": 2,
+        "players": [
+          {
+            "id": "a",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "b",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "c",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "d",
+            "partyId": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "e",
+            "partyId": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          }
+        ]
+      }
+    },
+    "inviteUnknownTarget": {
+      "result": null,
+      "log": [
+        [
+          "a",
+          "floating_text",
+          {
+            "x": 1,
+            "y": 0.30000000000000004,
+            "text": "⚠️ Player not found!",
+            "color": "#ef4444"
+          }
+        ]
+      ],
+      "state": {
+        "parties": [],
+        "nextPartyId": 1,
+        "players": [
+          {
+            "id": "a",
+            "partyId": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "b",
+            "partyId": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          }
+        ]
+      }
+    },
+    "inviteSelf": {
+      "result": null,
+      "log": [
+        [
+          "a",
+          "floating_text",
+          {
+            "x": 1,
+            "y": 0.30000000000000004,
+            "text": "⚠️ Player not found!",
+            "color": "#ef4444"
+          }
+        ]
+      ],
+      "state": {
+        "parties": [],
+        "nextPartyId": 1,
+        "players": [
+          {
+            "id": "a",
+            "partyId": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "b",
+            "partyId": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          }
+        ]
+      }
+    },
+    "inviteNoData": {
+      "result": null,
+      "log": [],
+      "state": {
+        "parties": [],
+        "nextPartyId": 1,
+        "players": [
+          {
+            "id": "a",
+            "partyId": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "b",
+            "partyId": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          }
+        ]
+      }
+    },
+    "inviteByNameCreatesParty": {
+      "result": null,
+      "log": [
+        [
+          "a",
+          "party_updated",
+          {
+            "id": "party_1",
+            "leaderId": "a",
+            "members": [
+              {
+                "id": "a",
+                "name": "Alice",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": true
+              }
+            ]
+          }
+        ],
+        [
+          "b",
+          "party_invite_received",
+          {
+            "partyId": "party_1",
+            "inviterId": "a",
+            "inviterName": "Alice"
+          }
+        ],
+        [
+          "a",
+          "floating_text",
+          {
+            "x": 1,
+            "y": 0.30000000000000004,
+            "text": "📨 Sent party invite to [Bob]!",
+            "color": "#38bdf8"
+          }
+        ]
+      ],
+      "state": {
+        "parties": [
+          [
+            "party_1",
+            {
+              "id": "party_1",
+              "leaderId": "a",
+              "memberIds": {
+                "__set": [
+                  "a"
+                ]
+              }
+            }
+          ]
+        ],
+        "nextPartyId": 2,
+        "players": [
+          {
+            "id": "a",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "b",
+            "partyId": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          }
+        ]
+      }
+    },
+    "inviteByIdCreatesParty": {
+      "result": null,
+      "log": [
+        [
+          "a",
+          "party_updated",
+          {
+            "id": "party_7",
+            "leaderId": "a",
+            "members": [
+              {
+                "id": "a",
+                "name": "Alice",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": true
+              }
+            ]
+          }
+        ],
+        [
+          "b",
+          "party_invite_received",
+          {
+            "partyId": "party_7",
+            "inviterId": "a",
+            "inviterName": "Alice"
+          }
+        ],
+        [
+          "a",
+          "floating_text",
+          {
+            "x": 1,
+            "y": 0.30000000000000004,
+            "text": "📨 Sent party invite to [Bob]!",
+            "color": "#38bdf8"
+          }
+        ]
+      ],
+      "state": {
+        "parties": [
+          [
+            "party_7",
+            {
+              "id": "party_7",
+              "leaderId": "a",
+              "memberIds": {
+                "__set": [
+                  "a"
+                ]
+              }
+            }
+          ]
+        ],
+        "nextPartyId": 8,
+        "players": [
+          {
+            "id": "a",
+            "partyId": "party_7",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "b",
+            "partyId": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          }
+        ]
+      }
+    },
+    "inviteTargetAlreadyInParty": {
+      "result": null,
+      "log": [
+        [
+          "a",
+          "floating_text",
+          {
+            "x": 1,
+            "y": 0.30000000000000004,
+            "text": "⚠️ [Bob] is already in a party!",
+            "color": "#ef4444"
+          }
+        ]
+      ],
+      "state": {
+        "parties": [],
+        "nextPartyId": 1,
+        "players": [
+          {
+            "id": "a",
+            "partyId": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "b",
+            "partyId": "party_9",
+            "zone": "town",
+            "dungeonInstanceId": null
+          }
+        ]
+      }
+    },
+    "inviteExistingParty": {
+      "result": null,
+      "log": [
+        [
+          "d",
+          "party_invite_received",
+          {
+            "partyId": "party_1",
+            "inviterId": "a",
+            "inviterName": "Alice"
+          }
+        ],
+        [
+          "a",
+          "floating_text",
+          {
+            "x": 1,
+            "y": 0.30000000000000004,
+            "text": "📨 Sent party invite to [Dan]!",
+            "color": "#38bdf8"
+          }
+        ]
+      ],
+      "state": {
+        "parties": [
+          [
+            "party_1",
+            {
+              "id": "party_1",
+              "leaderId": "a",
+              "memberIds": {
+                "__set": [
+                  "a",
+                  "b",
+                  "c"
+                ]
+              }
+            }
+          ]
+        ],
+        "nextPartyId": 2,
+        "players": [
+          {
+            "id": "a",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "b",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "c",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "d",
+            "partyId": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "e",
+            "partyId": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          }
+        ]
+      }
+    },
+    "inviteFullParty": {
+      "result": null,
+      "log": [
+        [
+          "a",
+          "floating_text",
+          {
+            "x": 1,
+            "y": 0.30000000000000004,
+            "text": "⚠️ Party is full! (Max 4 members)",
+            "color": "#ef4444"
+          }
+        ]
+      ],
+      "state": {
+        "parties": [
+          [
+            "party_1",
+            {
+              "id": "party_1",
+              "leaderId": "a",
+              "memberIds": {
+                "__set": [
+                  "a",
+                  "b",
+                  "c",
+                  "d"
+                ]
+              }
+            }
+          ]
+        ],
+        "nextPartyId": 1,
+        "players": [
+          {
+            "id": "a",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "b",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "c",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "d",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "e",
+            "partyId": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          }
+        ]
+      }
+    },
+    "inviteTargetWithoutSocket": {
+      "result": null,
+      "log": [
+        [
+          "a",
+          "party_updated",
+          {
+            "id": "party_1",
+            "leaderId": "a",
+            "members": [
+              {
+                "id": "a",
+                "name": "Alice",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": true
+              }
+            ]
+          }
+        ]
+      ],
+      "state": {
+        "parties": [
+          [
+            "party_1",
+            {
+              "id": "party_1",
+              "leaderId": "a",
+              "memberIds": {
+                "__set": [
+                  "a"
+                ]
+              }
+            }
+          ]
+        ],
+        "nextPartyId": 2,
+        "players": [
+          {
+            "id": "a",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "b",
+            "partyId": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          }
+        ]
+      }
+    },
+    "acceptJoins": {
+      "result": null,
+      "log": [
+        [
+          "a",
+          "party_updated",
+          {
+            "id": "party_1",
+            "leaderId": "a",
+            "members": [
+              {
+                "id": "a",
+                "name": "Alice",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": true
+              },
+              {
+                "id": "b",
+                "name": "Bob",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": false
+              },
+              {
+                "id": "c",
+                "name": "Cara",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": false
+              },
+              {
+                "id": "d",
+                "name": "Dan",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": false
+              }
+            ]
+          }
+        ],
+        [
+          "b",
+          "party_updated",
+          {
+            "id": "party_1",
+            "leaderId": "a",
+            "members": [
+              {
+                "id": "a",
+                "name": "Alice",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": true
+              },
+              {
+                "id": "b",
+                "name": "Bob",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": false
+              },
+              {
+                "id": "c",
+                "name": "Cara",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": false
+              },
+              {
+                "id": "d",
+                "name": "Dan",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": false
+              }
+            ]
+          }
+        ],
+        [
+          "c",
+          "party_updated",
+          {
+            "id": "party_1",
+            "leaderId": "a",
+            "members": [
+              {
+                "id": "a",
+                "name": "Alice",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": true
+              },
+              {
+                "id": "b",
+                "name": "Bob",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": false
+              },
+              {
+                "id": "c",
+                "name": "Cara",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": false
+              },
+              {
+                "id": "d",
+                "name": "Dan",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": false
+              }
+            ]
+          }
+        ],
+        [
+          "d",
+          "party_updated",
+          {
+            "id": "party_1",
+            "leaderId": "a",
+            "members": [
+              {
+                "id": "a",
+                "name": "Alice",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": true
+              },
+              {
+                "id": "b",
+                "name": "Bob",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": false
+              },
+              {
+                "id": "c",
+                "name": "Cara",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": false
+              },
+              {
+                "id": "d",
+                "name": "Dan",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": false
+              }
+            ]
+          }
+        ],
+        [
+          "d",
+          "floating_text",
+          {
+            "x": 0,
+            "y": -0.7,
+            "text": "⚔️ Joined party of [Alice]!",
+            "color": "#4ade80"
+          }
+        ],
+        [
+          "system",
+          "⚔️ [Dan] joined the party!"
+        ]
+      ],
+      "state": {
+        "parties": [
+          [
+            "party_1",
+            {
+              "id": "party_1",
+              "leaderId": "a",
+              "memberIds": {
+                "__set": [
+                  "a",
+                  "b",
+                  "c",
+                  "d"
+                ]
+              }
+            }
+          ]
+        ],
+        "nextPartyId": 2,
+        "players": [
+          {
+            "id": "a",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "b",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "c",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "d",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "e",
+            "partyId": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          }
+        ]
+      }
+    },
+    "acceptNoData": {
+      "result": null,
+      "log": [],
+      "state": {
+        "parties": [
+          [
+            "party_1",
+            {
+              "id": "party_1",
+              "leaderId": "a",
+              "memberIds": {
+                "__set": [
+                  "a",
+                  "b",
+                  "c"
+                ]
+              }
+            }
+          ]
+        ],
+        "nextPartyId": 2,
+        "players": [
+          {
+            "id": "a",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "b",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "c",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "d",
+            "partyId": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "e",
+            "partyId": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          }
+        ]
+      }
+    },
+    "acceptGonePartyOrFull": {
+      "result": null,
+      "log": [
+        [
+          "e",
+          "floating_text",
+          {
+            "x": 0,
+            "y": -0.7,
+            "text": "⚠️ Party no longer exists or is full!",
+            "color": "#ef4444"
+          }
+        ],
+        [
+          "e",
+          "floating_text",
+          {
+            "x": 0,
+            "y": -0.7,
+            "text": "⚠️ Party no longer exists or is full!",
+            "color": "#ef4444"
+          }
+        ]
+      ],
+      "state": {
+        "parties": [
+          [
+            "party_1",
+            {
+              "id": "party_1",
+              "leaderId": "a",
+              "memberIds": {
+                "__set": [
+                  "a",
+                  "b",
+                  "c",
+                  "d"
+                ]
+              }
+            }
+          ]
+        ],
+        "nextPartyId": 1,
+        "players": [
+          {
+            "id": "a",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "b",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "c",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "d",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "e",
+            "partyId": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          }
+        ]
+      }
+    },
+    "acceptLeavesOldPartyFirst": {
+      "result": null,
+      "log": [
+        [
+          "d",
+          "party_left",
+          null
+        ],
+        [
+          "c",
+          "party_updated",
+          {
+            "id": "party_2",
+            "leaderId": "c",
+            "members": [
+              {
+                "id": "c",
+                "name": "Cara",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": true
+              }
+            ]
+          }
+        ],
+        [
+          "a",
+          "party_updated",
+          {
+            "id": "party_1",
+            "leaderId": "a",
+            "members": [
+              {
+                "id": "a",
+                "name": "Alice",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": true
+              },
+              {
+                "id": "b",
+                "name": "Bob",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": false
+              },
+              {
+                "id": "d",
+                "name": "Dan",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": false
+              }
+            ]
+          }
+        ],
+        [
+          "b",
+          "party_updated",
+          {
+            "id": "party_1",
+            "leaderId": "a",
+            "members": [
+              {
+                "id": "a",
+                "name": "Alice",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": true
+              },
+              {
+                "id": "b",
+                "name": "Bob",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": false
+              },
+              {
+                "id": "d",
+                "name": "Dan",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": false
+              }
+            ]
+          }
+        ],
+        [
+          "d",
+          "party_updated",
+          {
+            "id": "party_1",
+            "leaderId": "a",
+            "members": [
+              {
+                "id": "a",
+                "name": "Alice",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": true
+              },
+              {
+                "id": "b",
+                "name": "Bob",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": false
+              },
+              {
+                "id": "d",
+                "name": "Dan",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": false
+              }
+            ]
+          }
+        ],
+        [
+          "d",
+          "floating_text",
+          {
+            "x": 0,
+            "y": -0.7,
+            "text": "⚔️ Joined party of [Alice]!",
+            "color": "#4ade80"
+          }
+        ],
+        [
+          "system",
+          "⚔️ [Dan] joined the party!"
+        ]
+      ],
+      "state": {
+        "parties": [
+          [
+            "party_1",
+            {
+              "id": "party_1",
+              "leaderId": "a",
+              "memberIds": {
+                "__set": [
+                  "a",
+                  "b",
+                  "d"
+                ]
+              }
+            }
+          ],
+          [
+            "party_2",
+            {
+              "id": "party_2",
+              "leaderId": "c",
+              "memberIds": {
+                "__set": [
+                  "c"
+                ]
+              }
+            }
+          ]
+        ],
+        "nextPartyId": 1,
+        "players": [
+          {
+            "id": "a",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "b",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "c",
+            "partyId": "party_2",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "d",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          }
+        ]
+      }
+    },
+    "acceptLeaderGone": {
+      "result": null,
+      "log": [
+        [
+          "b",
+          "party_updated",
+          {
+            "id": "party_1",
+            "leaderId": "a",
+            "members": [
+              {
+                "id": "b",
+                "name": "Bob",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": false
+              },
+              {
+                "id": "d",
+                "name": "Dan",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": false
+              }
+            ]
+          }
+        ],
+        [
+          "d",
+          "party_updated",
+          {
+            "id": "party_1",
+            "leaderId": "a",
+            "members": [
+              {
+                "id": "b",
+                "name": "Bob",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": false
+              },
+              {
+                "id": "d",
+                "name": "Dan",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": false
+              }
+            ]
+          }
+        ],
+        [
+          "d",
+          "floating_text",
+          {
+            "x": 0,
+            "y": -0.7,
+            "text": "⚔️ Joined party of [Party]!",
+            "color": "#4ade80"
+          }
+        ],
+        [
+          "system",
+          "⚔️ [Dan] joined the party!"
+        ]
+      ],
+      "state": {
+        "parties": [
+          [
+            "party_1",
+            {
+              "id": "party_1",
+              "leaderId": "a",
+              "memberIds": {
+                "__set": [
+                  "b",
+                  "d"
+                ]
+              }
+            }
+          ]
+        ],
+        "nextPartyId": 1,
+        "players": [
+          {
+            "id": "b",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "d",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          }
+        ]
+      }
+    },
+    "decline": {
+      "result": null,
+      "log": [
+        [
+          "a",
+          "floating_text",
+          {
+            "x": 0,
+            "y": 0,
+            "text": "[Bob] declined party invitation.",
+            "color": "#94a3b8"
+          }
+        ]
+      ],
+      "state": {
+        "parties": [],
+        "nextPartyId": 1,
+        "players": [
+          {
+            "id": "a",
+            "partyId": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "b",
+            "partyId": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          }
+        ]
+      }
+    },
+    "leaveMember": {
+      "result": null,
+      "log": [
+        [
+          "b",
+          "party_left",
+          null
+        ],
+        [
+          "a",
+          "party_updated",
+          {
+            "id": "party_1",
+            "leaderId": "a",
+            "members": [
+              {
+                "id": "a",
+                "name": "Alice",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": true
+              },
+              {
+                "id": "c",
+                "name": "Cara",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": false
+              }
+            ]
+          }
+        ],
+        [
+          "c",
+          "party_updated",
+          {
+            "id": "party_1",
+            "leaderId": "a",
+            "members": [
+              {
+                "id": "a",
+                "name": "Alice",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": true
+              },
+              {
+                "id": "c",
+                "name": "Cara",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": false
+              }
+            ]
+          }
+        ]
+      ],
+      "state": {
+        "parties": [
+          [
+            "party_1",
+            {
+              "id": "party_1",
+              "leaderId": "a",
+              "memberIds": {
+                "__set": [
+                  "a",
+                  "c"
+                ]
+              }
+            }
+          ]
+        ],
+        "nextPartyId": 2,
+        "players": [
+          {
+            "id": "a",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "b",
+            "partyId": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "c",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "d",
+            "partyId": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "e",
+            "partyId": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          }
+        ]
+      }
+    },
+    "leaveLeaderPassesLeadership": {
+      "result": null,
+      "log": [
+        [
+          "a",
+          "party_left",
+          null
+        ],
+        [
+          "system",
+          "👑 [Bob] is now the Party Leader!"
+        ],
+        [
+          "b",
+          "party_updated",
+          {
+            "id": "party_1",
+            "leaderId": "b",
+            "members": [
+              {
+                "id": "b",
+                "name": "Bob",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": true
+              },
+              {
+                "id": "c",
+                "name": "Cara",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": false
+              }
+            ]
+          }
+        ],
+        [
+          "c",
+          "party_updated",
+          {
+            "id": "party_1",
+            "leaderId": "b",
+            "members": [
+              {
+                "id": "b",
+                "name": "Bob",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": true
+              },
+              {
+                "id": "c",
+                "name": "Cara",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": false
+              }
+            ]
+          }
+        ]
+      ],
+      "state": {
+        "parties": [
+          [
+            "party_1",
+            {
+              "id": "party_1",
+              "leaderId": "b",
+              "memberIds": {
+                "__set": [
+                  "b",
+                  "c"
+                ]
+              }
+            }
+          ]
+        ],
+        "nextPartyId": 2,
+        "players": [
+          {
+            "id": "a",
+            "partyId": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "b",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "c",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "d",
+            "partyId": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "e",
+            "partyId": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          }
+        ]
+      }
+    },
+    "leaveLastMemberDeletesParty": {
+      "result": null,
+      "log": [
+        [
+          "a",
+          "party_left",
+          null
+        ]
+      ],
+      "state": {
+        "parties": [],
+        "nextPartyId": 1,
+        "players": [
+          {
+            "id": "a",
+            "partyId": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "b",
+            "partyId": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          }
+        ]
+      }
+    },
+    "leaveWithoutParty": {
+      "result": null,
+      "log": [],
+      "state": {
+        "parties": [
+          [
+            "party_1",
+            {
+              "id": "party_1",
+              "leaderId": "a",
+              "memberIds": {
+                "__set": [
+                  "a",
+                  "b",
+                  "c"
+                ]
+              }
+            }
+          ]
+        ],
+        "nextPartyId": 2,
+        "players": [
+          {
+            "id": "a",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "b",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "c",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "d",
+            "partyId": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "e",
+            "partyId": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          }
+        ]
+      }
+    },
+    "leaveWithMissingPartyRecord": {
+      "result": null,
+      "log": [
+        [
+          "a",
+          "party_left",
+          null
+        ]
+      ],
+      "state": {
+        "parties": [],
+        "nextPartyId": 1,
+        "players": [
+          {
+            "id": "a",
+            "partyId": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          }
+        ]
+      }
+    },
+    "kickByLeader": {
+      "result": null,
+      "log": [
+        [
+          "b",
+          "floating_text",
+          {
+            "x": 2,
+            "y": 1.3,
+            "text": "⚠️ You were removed from the party.",
+            "color": "#ef4444"
+          }
+        ],
+        [
+          "b",
+          "party_left",
+          null
+        ],
+        [
+          "a",
+          "party_updated",
+          {
+            "id": "party_1",
+            "leaderId": "a",
+            "members": [
+              {
+                "id": "a",
+                "name": "Alice",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": true
+              },
+              {
+                "id": "c",
+                "name": "Cara",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": false
+              }
+            ]
+          }
+        ],
+        [
+          "c",
+          "party_updated",
+          {
+            "id": "party_1",
+            "leaderId": "a",
+            "members": [
+              {
+                "id": "a",
+                "name": "Alice",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": true
+              },
+              {
+                "id": "c",
+                "name": "Cara",
+                "level": 10,
+                "characterClass": "warrior",
+                "hp": 50,
+                "maxHp": 100,
+                "mp": 5,
+                "maxMp": 10,
+                "zone": "town",
+                "isLeader": false
+              }
+            ]
+          }
+        ]
+      ],
+      "state": {
+        "parties": [
+          [
+            "party_1",
+            {
+              "id": "party_1",
+              "leaderId": "a",
+              "memberIds": {
+                "__set": [
+                  "a",
+                  "c"
+                ]
+              }
+            }
+          ]
+        ],
+        "nextPartyId": 2,
+        "players": [
+          {
+            "id": "a",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "b",
+            "partyId": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "c",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "d",
+            "partyId": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "e",
+            "partyId": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          }
+        ]
+      }
+    },
+    "kickByNonLeader": {
+      "result": null,
+      "log": [],
+      "state": {
+        "parties": [
+          [
+            "party_1",
+            {
+              "id": "party_1",
+              "leaderId": "a",
+              "memberIds": {
+                "__set": [
+                  "a",
+                  "b",
+                  "c"
+                ]
+              }
+            }
+          ]
+        ],
+        "nextPartyId": 2,
+        "players": [
+          {
+            "id": "a",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "b",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "c",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "d",
+            "partyId": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "e",
+            "partyId": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          }
+        ]
+      }
+    },
+    "kickSelfOrInvalid": {
+      "result": null,
+      "log": [],
+      "state": {
+        "parties": [
+          [
+            "party_1",
+            {
+              "id": "party_1",
+              "leaderId": "a",
+              "memberIds": {
+                "__set": [
+                  "a",
+                  "b",
+                  "c"
+                ]
+              }
+            }
+          ]
+        ],
+        "nextPartyId": 2,
+        "players": [
+          {
+            "id": "a",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "b",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "c",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "d",
+            "partyId": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "e",
+            "partyId": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          }
+        ]
+      }
+    },
+    "candidates": {
+      "result": null,
+      "log": [
+        [
+          "a",
+          "party_candidates",
+          [
+            {
+              "id": "d",
+              "name": "Dan",
+              "level": 10,
+              "characterClass": "warrior",
+              "zone": "town"
+            },
+            {
+              "id": "e",
+              "name": "Eve",
+              "level": 10,
+              "characterClass": "warrior",
+              "zone": "town"
+            }
+          ]
+        ],
+        [
+          "d",
+          "party_candidates",
+          [
+            {
+              "id": "e",
+              "name": "Eve",
+              "level": 10,
+              "characterClass": "warrior",
+              "zone": "town"
+            }
+          ]
+        ]
+      ],
+      "state": {
+        "parties": [
+          [
+            "party_1",
+            {
+              "id": "party_1",
+              "leaderId": "a",
+              "memberIds": {
+                "__set": [
+                  "a",
+                  "b",
+                  "c"
+                ]
+              }
+            }
+          ]
+        ],
+        "nextPartyId": 2,
+        "players": [
+          {
+            "id": "a",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "b",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "c",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "d",
+            "partyId": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "e",
+            "partyId": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          }
+        ]
+      }
+    },
+    "summonFromTown": {
+      "result": null,
+      "log": [
+        [
+          "b",
+          "party_summon_received",
+          {
+            "fromId": "a",
+            "fromName": "Alice",
+            "where": "Town",
+            "isDungeon": false
+          }
+        ],
+        [
+          "a",
+          "floating_text",
+          {
+            "x": 1,
+            "y": 0.30000000000000004,
+            "text": "📣 Summoned 1 party member to Town!",
+            "color": "#38bdf8"
+          }
+        ]
+      ],
+      "state": {
+        "parties": [
+          [
+            "party_1",
+            {
+              "id": "party_1",
+              "leaderId": "a",
+              "memberIds": {
+                "__set": [
+                  "a",
+                  "b",
+                  "c"
+                ]
+              }
+            }
+          ]
+        ],
+        "nextPartyId": 1,
+        "players": [
+          {
+            "id": "a",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "b",
+            "partyId": "party_1",
+            "pendingSummon": {
+              "fromId": "a",
+              "expiresAt": 1700000030000
+            },
+            "zone": "wildwood",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "c",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "d",
+            "partyId": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "e",
+            "partyId": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          }
+        ]
+      }
+    },
+    "summonAllHere": {
+      "result": null,
+      "log": [
+        [
+          "a",
+          "floating_text",
+          {
+            "x": 1,
+            "y": 0.30000000000000004,
+            "text": "✅ Your party is already here!",
+            "color": "#38bdf8"
+          }
+        ]
+      ],
+      "state": {
+        "parties": [
+          [
+            "party_1",
+            {
+              "id": "party_1",
+              "leaderId": "a",
+              "memberIds": {
+                "__set": [
+                  "a",
+                  "b",
+                  "c"
+                ]
+              }
+            }
+          ]
+        ],
+        "nextPartyId": 2,
+        "players": [
+          {
+            "id": "a",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "b",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "c",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "d",
+            "partyId": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "e",
+            "partyId": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          }
+        ]
+      }
+    },
+    "summonNoParty": {
+      "result": null,
+      "log": [],
+      "state": {
+        "parties": [
+          [
+            "party_1",
+            {
+              "id": "party_1",
+              "leaderId": "a",
+              "memberIds": {
+                "__set": [
+                  "a",
+                  "b",
+                  "c"
+                ]
+              }
+            }
+          ]
+        ],
+        "nextPartyId": 2,
+        "players": [
+          {
+            "id": "a",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "b",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "c",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "d",
+            "partyId": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "e",
+            "partyId": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          }
+        ]
+      }
+    },
+    "summonDeadOrAlone": {
+      "result": null,
+      "log": [
+        [
+          "b",
+          "floating_text",
+          {
+            "x": 2,
+            "y": 1.3,
+            "text": "⚠️ No party members to summon!",
+            "color": "#ef4444"
+          }
+        ]
+      ],
+      "state": {
+        "parties": [
+          [
+            "party_1",
+            {
+              "id": "party_1",
+              "leaderId": "a",
+              "memberIds": {
+                "__set": [
+                  "a"
+                ]
+              }
+            }
+          ],
+          [
+            "party_2",
+            {
+              "id": "party_2",
+              "leaderId": "b",
+              "memberIds": {
+                "__set": [
+                  "b"
+                ]
+              }
+            }
+          ]
+        ],
+        "nextPartyId": 1,
+        "players": [
+          {
+            "id": "a",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "b",
+            "partyId": "party_2",
+            "zone": "town",
+            "dungeonInstanceId": null
+          }
+        ]
+      }
+    },
+    "summonFromField": {
+      "result": null,
+      "log": [
+        [
+          "b",
+          "party_summon_received",
+          {
+            "fromId": "a",
+            "fromName": "Alice",
+            "where": "Wildwood",
+            "isDungeon": false
+          }
+        ],
+        [
+          "a",
+          "floating_text",
+          {
+            "x": 1,
+            "y": 0.30000000000000004,
+            "text": "📣 Summoned 1 party member to Wildwood!",
+            "color": "#38bdf8"
+          }
+        ]
+      ],
+      "state": {
+        "parties": [
+          [
+            "party_1",
+            {
+              "id": "party_1",
+              "leaderId": "a",
+              "memberIds": {
+                "__set": [
+                  "a",
+                  "b"
+                ]
+              }
+            }
+          ]
+        ],
+        "nextPartyId": 1,
+        "players": [
+          {
+            "id": "a",
+            "partyId": "party_1",
+            "zone": "wildwood",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "b",
+            "partyId": "party_1",
+            "pendingSummon": {
+              "fromId": "a",
+              "expiresAt": 1700000030000
+            },
+            "zone": "town",
+            "dungeonInstanceId": null
+          }
+        ]
+      }
+    },
+    "summonFromDungeon": {
+      "result": null,
+      "log": [
+        [
+          "b",
+          "party_summon_received",
+          {
+            "fromId": "a",
+            "fromName": "Alice",
+            "where": "Dungeon B3",
+            "isDungeon": true
+          }
+        ],
+        [
+          "a",
+          "floating_text",
+          {
+            "x": 1,
+            "y": 0.30000000000000004,
+            "text": "📣 Summoned 1 party member to Dungeon B3!",
+            "color": "#38bdf8"
+          }
+        ]
+      ],
+      "state": {
+        "parties": [
+          [
+            "party_1",
+            {
+              "id": "party_1",
+              "leaderId": "a",
+              "memberIds": {
+                "__set": [
+                  "a",
+                  "b"
+                ]
+              }
+            }
+          ]
+        ],
+        "nextPartyId": 1,
+        "players": [
+          {
+            "id": "a",
+            "partyId": "party_1",
+            "zone": "dungeon",
+            "dungeonInstanceId": "party_party_1"
+          },
+          {
+            "id": "b",
+            "partyId": "party_1",
+            "pendingSummon": {
+              "fromId": "a",
+              "expiresAt": 1700000030000
+            },
+            "zone": "town",
+            "dungeonInstanceId": null
+          }
+        ]
+      }
+    },
+    "summonFromRift": {
+      "result": null,
+      "log": [
+        [
+          "b",
+          "party_summon_received",
+          {
+            "fromId": "a",
+            "fromName": "Alice",
+            "where": "the Eternal Rift",
+            "isDungeon": true
+          }
+        ],
+        [
+          "a",
+          "floating_text",
+          {
+            "x": 1,
+            "y": 0.30000000000000004,
+            "text": "📣 Summoned 1 party member to the Eternal Rift!",
+            "color": "#38bdf8"
+          }
+        ]
+      ],
+      "state": {
+        "parties": [
+          [
+            "party_1",
+            {
+              "id": "party_1",
+              "leaderId": "a",
+              "memberIds": {
+                "__set": [
+                  "a",
+                  "b",
+                  "c"
+                ]
+              }
+            }
+          ]
+        ],
+        "nextPartyId": 1,
+        "players": [
+          {
+            "id": "a",
+            "partyId": "party_1",
+            "zone": "dungeon",
+            "dungeonInstanceId": "rift_party_party_1"
+          },
+          {
+            "id": "b",
+            "partyId": "party_1",
+            "pendingSummon": {
+              "fromId": "a",
+              "expiresAt": 1700000030000
+            },
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "c",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          }
+        ]
+      }
+    },
+    "acceptSummonField": {
+      "result": null,
+      "log": [
+        [
+          "call",
+          "teleportPlayerToField",
+          "id:b",
+          {},
+          "wildwood",
+          "south",
+          {
+            "x": 1,
+            "y": 1
+          }
+        ]
+      ],
+      "state": {
+        "parties": [
+          [
+            "party_1",
+            {
+              "id": "party_1",
+              "leaderId": "a",
+              "memberIds": {
+                "__set": [
+                  "a",
+                  "b"
+                ]
+              }
+            }
+          ]
+        ],
+        "nextPartyId": 1,
+        "players": [
+          {
+            "id": "a",
+            "partyId": "party_1",
+            "zone": "wildwood",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "b",
+            "partyId": "party_1",
+            "pendingSummon": null,
+            "portalCooldown": 4,
+            "zone": "town",
+            "dungeonInstanceId": null
+          }
+        ]
+      }
+    },
+    "acceptSummonTown": {
+      "result": null,
+      "log": [
+        [
+          "call",
+          "teleportPlayerToTown",
+          "id:b",
+          {},
+          {
+            "x": 1,
+            "y": 1
+          }
+        ]
+      ],
+      "state": {
+        "parties": [
+          [
+            "party_1",
+            {
+              "id": "party_1",
+              "leaderId": "a",
+              "memberIds": {
+                "__set": [
+                  "a",
+                  "b"
+                ]
+              }
+            }
+          ]
+        ],
+        "nextPartyId": 1,
+        "players": [
+          {
+            "id": "a",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "b",
+            "partyId": "party_1",
+            "pendingSummon": null,
+            "portalCooldown": 4,
+            "zone": "town",
+            "dungeonInstanceId": null
+          }
+        ]
+      }
+    },
+    "acceptSummonExpired": {
+      "result": 1,
+      "log": [
+        [
+          "b",
+          "floating_text",
+          {
+            "x": 2,
+            "y": 1.3,
+            "text": "⚠️ The summon has expired.",
+            "color": "#ef4444"
+          }
+        ]
+      ],
+      "state": {
+        "parties": [
+          [
+            "party_1",
+            {
+              "id": "party_1",
+              "leaderId": "a",
+              "memberIds": {
+                "__set": [
+                  "a",
+                  "b"
+                ]
+              }
+            }
+          ]
+        ],
+        "nextPartyId": 1,
+        "players": [
+          {
+            "id": "a",
+            "partyId": "party_1",
+            "zone": "wildwood",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "b",
+            "partyId": "party_1",
+            "pendingSummon": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          }
+        ]
+      }
+    },
+    "acceptSummonWrongSender": {
+      "result": 1,
+      "log": [
+        [
+          "b",
+          "floating_text",
+          {
+            "x": 2,
+            "y": 1.3,
+            "text": "⚠️ The summon has expired.",
+            "color": "#ef4444"
+          }
+        ]
+      ],
+      "state": {
+        "parties": [
+          [
+            "party_1",
+            {
+              "id": "party_1",
+              "leaderId": "a",
+              "memberIds": {
+                "__set": [
+                  "a",
+                  "b"
+                ]
+              }
+            }
+          ]
+        ],
+        "nextPartyId": 1,
+        "players": [
+          {
+            "id": "a",
+            "partyId": "party_1",
+            "zone": "wildwood",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "b",
+            "partyId": "party_1",
+            "pendingSummon": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          }
+        ]
+      }
+    },
+    "acceptSummonNothingPending": {
+      "result": 1,
+      "log": [
+        [
+          "b",
+          "floating_text",
+          {
+            "x": 2,
+            "y": 1.3,
+            "text": "⚠️ The summon has expired.",
+            "color": "#ef4444"
+          }
+        ]
+      ],
+      "state": {
+        "parties": [
+          [
+            "party_1",
+            {
+              "id": "party_1",
+              "leaderId": "a",
+              "memberIds": {
+                "__set": [
+                  "a",
+                  "b"
+                ]
+              }
+            }
+          ]
+        ],
+        "nextPartyId": 1,
+        "players": [
+          {
+            "id": "a",
+            "partyId": "party_1",
+            "zone": "wildwood",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "b",
+            "partyId": "party_1",
+            "pendingSummon": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          }
+        ]
+      }
+    },
+    "acceptSummonSummonerDead": {
+      "result": 1,
+      "log": [
+        [
+          "b",
+          "floating_text",
+          {
+            "x": 2,
+            "y": 1.3,
+            "text": "⚠️ The summoner is no longer available.",
+            "color": "#ef4444"
+          }
+        ]
+      ],
+      "state": {
+        "parties": [
+          [
+            "party_1",
+            {
+              "id": "party_1",
+              "leaderId": "a",
+              "memberIds": {
+                "__set": [
+                  "a",
+                  "b"
+                ]
+              }
+            }
+          ]
+        ],
+        "nextPartyId": 1,
+        "players": [
+          {
+            "id": "a",
+            "partyId": "party_1",
+            "zone": "wildwood",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "b",
+            "partyId": "party_1",
+            "pendingSummon": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          }
+        ]
+      }
+    },
+    "acceptSummonSummonerLeftParty": {
+      "result": 1,
+      "log": [
+        [
+          "b",
+          "floating_text",
+          {
+            "x": 2,
+            "y": 1.3,
+            "text": "⚠️ The summoner is no longer available.",
+            "color": "#ef4444"
+          }
+        ]
+      ],
+      "state": {
+        "parties": [
+          [
+            "party_1",
+            {
+              "id": "party_1",
+              "leaderId": "a",
+              "memberIds": {
+                "__set": [
+                  "a",
+                  "b"
+                ]
+              }
+            }
+          ]
+        ],
+        "nextPartyId": 1,
+        "players": [
+          {
+            "id": "a",
+            "partyId": null,
+            "zone": "wildwood",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "b",
+            "partyId": "party_1",
+            "pendingSummon": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          }
+        ]
+      }
+    },
+    "acceptSummonFieldLevelGate": {
+      "result": 1,
+      "log": [
+        [
+          "b",
+          "floating_text",
+          {
+            "x": 2,
+            "y": 1.3,
+            "text": "⛔ Wildwood requires Level 10+!",
+            "color": "#ef4444"
+          }
+        ]
+      ],
+      "state": {
+        "parties": [
+          [
+            "party_1",
+            {
+              "id": "party_1",
+              "leaderId": "a",
+              "memberIds": {
+                "__set": [
+                  "a",
+                  "b"
+                ]
+              }
+            }
+          ]
+        ],
+        "nextPartyId": 1,
+        "players": [
+          {
+            "id": "a",
+            "partyId": "party_1",
+            "zone": "wildwood",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "b",
+            "partyId": "party_1",
+            "pendingSummon": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          }
+        ]
+      }
+    },
+    "acceptSummonDeadSelf": {
+      "result": null,
+      "log": [],
+      "state": {
+        "parties": [
+          [
+            "party_1",
+            {
+              "id": "party_1",
+              "leaderId": "a",
+              "memberIds": {
+                "__set": [
+                  "a",
+                  "b"
+                ]
+              }
+            }
+          ]
+        ],
+        "nextPartyId": 1,
+        "players": [
+          {
+            "id": "a",
+            "partyId": "party_1",
+            "zone": "wildwood",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "b",
+            "partyId": "party_1",
+            "pendingSummon": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          }
+        ]
+      }
+    },
+    "acceptSummonNoData": {
+      "result": null,
+      "log": [],
+      "state": {
+        "parties": [
+          [
+            "party_1",
+            {
+              "id": "party_1",
+              "leaderId": "a",
+              "memberIds": {
+                "__set": [
+                  "a",
+                  "b"
+                ]
+              }
+            }
+          ]
+        ],
+        "nextPartyId": 1,
+        "players": [
+          {
+            "id": "a",
+            "partyId": "party_1",
+            "zone": "wildwood",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "b",
+            "partyId": "party_1",
+            "pendingSummon": {
+              "fromId": "a",
+              "expiresAt": 1700000030000
+            },
+            "zone": "town",
+            "dungeonInstanceId": null
+          }
+        ]
+      }
+    },
+    "acceptSummonDungeon": {
+      "result": null,
+      "log": [
+        [
+          "call",
+          "newDungeonRun",
+          "party_party_1",
+          true
+        ],
+        [
+          "call",
+          "teleportPlayerToDungeon",
+          "id:b",
+          {},
+          "id:party_party_1",
+          {
+            "x": 1,
+            "y": 1
+          }
+        ],
+        [
+          "call",
+          "emitDungeonRunUpdate",
+          "id:b",
+          {}
+        ]
+      ],
+      "state": {
+        "parties": [
+          [
+            "party_1",
+            {
+              "id": "party_1",
+              "leaderId": "a",
+              "memberIds": {
+                "__set": [
+                  "a",
+                  "b"
+                ]
+              }
+            }
+          ]
+        ],
+        "nextPartyId": 1,
+        "players": [
+          {
+            "id": "a",
+            "partyId": "party_1",
+            "zone": "dungeon",
+            "dungeonInstanceId": "party_party_1",
+            "dungeonRun": {
+              "cleared": true
+            }
+          },
+          {
+            "id": "b",
+            "partyId": "party_1",
+            "pendingSummon": null,
+            "portalCooldown": 4,
+            "zone": "town",
+            "dungeonInstanceId": null,
+            "dungeonRun": {
+              "run": true,
+              "cleared": true
+            }
+          }
+        ]
+      }
+    },
+    "acceptSummonDungeonLevelGate": {
+      "result": 1,
+      "log": [
+        [
+          "b",
+          "floating_text",
+          {
+            "x": 2,
+            "y": 1.3,
+            "text": "⛔ Requires Level 121+ for B9!",
+            "color": "#ef4444"
+          }
+        ]
+      ],
+      "state": {
+        "parties": [
+          [
+            "party_1",
+            {
+              "id": "party_1",
+              "leaderId": "a",
+              "memberIds": {
+                "__set": [
+                  "a",
+                  "b"
+                ]
+              }
+            }
+          ]
+        ],
+        "nextPartyId": 1,
+        "players": [
+          {
+            "id": "a",
+            "partyId": "party_1",
+            "zone": "dungeon",
+            "dungeonInstanceId": "party_party_1"
+          },
+          {
+            "id": "b",
+            "partyId": "party_1",
+            "pendingSummon": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          }
+        ]
+      }
+    },
+    "acceptSummonLeavesOtherDungeonFirst": {
+      "result": null,
+      "log": [
+        [
+          "call",
+          "endDungeonRun",
+          "id:b",
+          {}
+        ],
+        [
+          "call",
+          "cleanupDungeonInstanceIfEmpty",
+          "solo_b"
+        ],
+        [
+          "call",
+          "newDungeonRun",
+          "party_party_1",
+          false
+        ],
+        [
+          "call",
+          "teleportPlayerToDungeon",
+          "id:b",
+          {},
+          "id:party_party_1",
+          {
+            "x": 1,
+            "y": 1
+          }
+        ],
+        [
+          "call",
+          "emitDungeonRunUpdate",
+          "id:b",
+          {}
+        ]
+      ],
+      "state": {
+        "parties": [
+          [
+            "party_1",
+            {
+              "id": "party_1",
+              "leaderId": "a",
+              "memberIds": {
+                "__set": [
+                  "a",
+                  "b"
+                ]
+              }
+            }
+          ]
+        ],
+        "nextPartyId": 1,
+        "players": [
+          {
+            "id": "a",
+            "partyId": "party_1",
+            "zone": "dungeon",
+            "dungeonInstanceId": "party_party_1"
+          },
+          {
+            "id": "b",
+            "partyId": "party_1",
+            "pendingSummon": null,
+            "portalCooldown": 4,
+            "zone": "dungeon",
+            "dungeonInstanceId": null,
+            "dungeonRun": {
+              "run": true,
+              "cleared": false
+            }
+          }
+        ]
+      }
+    },
+    "acceptSummonRift": {
+      "result": null,
+      "log": [
+        [
+          "call",
+          "joinRift",
+          "id:b",
+          {},
+          "id:rift_party_party_1",
+          {
+            "x": 1,
+            "y": 1
+          }
+        ]
+      ],
+      "state": {
+        "parties": [
+          [
+            "party_1",
+            {
+              "id": "party_1",
+              "leaderId": "a",
+              "memberIds": {
+                "__set": [
+                  "a",
+                  "b"
+                ]
+              }
+            }
+          ]
+        ],
+        "nextPartyId": 1,
+        "players": [
+          {
+            "id": "a",
+            "partyId": "party_1",
+            "zone": "dungeon",
+            "dungeonInstanceId": "rift_party_party_1"
+          },
+          {
+            "id": "b",
+            "partyId": "party_1",
+            "pendingSummon": null,
+            "portalCooldown": 4,
+            "zone": "town",
+            "dungeonInstanceId": null
+          }
+        ]
+      }
+    },
+    "acceptSummonRiftEnded": {
+      "result": 2,
+      "log": [
+        [
+          "call",
+          "joinRift",
+          "id:b",
+          {},
+          "id:rift_party_party_1",
+          {
+            "x": 1,
+            "y": 1
+          }
+        ],
+        [
+          "b",
+          "floating_text",
+          {
+            "x": 2,
+            "y": 1.3,
+            "text": "⚠️ That Eternal Rift run has already ended.",
+            "color": "#ef4444"
+          }
+        ]
+      ],
+      "state": {
+        "parties": [
+          [
+            "party_1",
+            {
+              "id": "party_1",
+              "leaderId": "a",
+              "memberIds": {
+                "__set": [
+                  "a",
+                  "b"
+                ]
+              }
+            }
+          ]
+        ],
+        "nextPartyId": 1,
+        "players": [
+          {
+            "id": "a",
+            "partyId": "party_1",
+            "zone": "dungeon",
+            "dungeonInstanceId": "rift_party_party_1"
+          },
+          {
+            "id": "b",
+            "partyId": "party_1",
+            "pendingSummon": null,
+            "zone": "town",
+            "dungeonInstanceId": null
+          }
+        ]
+      }
+    },
+    "expSharers": {
+      "result": {
+        "field": [
+          "k",
+          "near",
+          "edge"
+        ],
+        "solo": [
+          "solo"
+        ],
+        "dungeon": [
+          "dk",
+          "dsame"
+        ],
+        "noPartyRecord": [
+          "x"
+        ]
+      },
+      "log": [],
+      "state": {
+        "parties": [
+          [
+            "party_1",
+            {
+              "id": "party_1",
+              "leaderId": "k",
+              "memberIds": {
+                "__set": [
+                  "k",
+                  "near",
+                  "edge",
+                  "far",
+                  "dead",
+                  "other",
+                  "ghost"
+                ]
+              }
+            }
+          ],
+          [
+            "party_2",
+            {
+              "id": "party_2",
+              "leaderId": "dk",
+              "memberIds": {
+                "__set": [
+                  "dk",
+                  "dsame",
+                  "ddiff"
+                ]
+              }
+            }
+          ]
+        ],
+        "nextPartyId": 1,
+        "players": [
+          {
+            "id": "k",
+            "partyId": "party_1",
+            "zone": "wildwood",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "near",
+            "partyId": "party_1",
+            "zone": "wildwood",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "edge",
+            "partyId": "party_1",
+            "zone": "wildwood",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "far",
+            "partyId": "party_1",
+            "zone": "wildwood",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "dead",
+            "partyId": "party_1",
+            "zone": "wildwood",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "other",
+            "partyId": "party_1",
+            "zone": "town",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "solo",
+            "partyId": null,
+            "zone": "wildwood",
+            "dungeonInstanceId": null
+          },
+          {
+            "id": "dk",
+            "partyId": "party_2",
+            "zone": "dungeon",
+            "dungeonInstanceId": "i1"
+          },
+          {
+            "id": "dsame",
+            "partyId": "party_2",
+            "zone": "dungeon",
+            "dungeonInstanceId": "i1"
+          },
+          {
+            "id": "ddiff",
+            "partyId": "party_2",
+            "zone": "dungeon",
+            "dungeonInstanceId": "i2"
+          }
+        ]
+      }
+    }
+  }
+}

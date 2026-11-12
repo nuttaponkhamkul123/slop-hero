@@ -1,0 +1,7 @@
+{
+  "className": "LevelSystem",
+  "field": "level",
+  "description": "Experience and levelling, plus the passive tree: allocate, refund, respec and the free refund of broken builds.",
+  "methods": ["handleAllocateSkillPoint", "handleAllocatePassives", "handleRefundPassive", "refundStaleTalents", "handleResetSkillPoints", "awardExp"],
+  "extraTop": ["const PASSIVES = require('../talents');"]
+}

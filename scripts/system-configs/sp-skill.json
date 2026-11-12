@@ -1,0 +1,8 @@
+{
+  "className": "SpSkillSystem",
+  "field": "spSkills",
+  "description": "Specialist card skills and signatures: every spShape (strikes, novas, dashes, auras, summons, ...) in one dispatcher.",
+  "methods": ["castSpSkill"],
+  "extraTop": ["let spObjSeq = 0; // ids for placed card objects (glyphs, banners, lances) so the client can clear them"],
+  "deleteLines": ["let spObjSeq = 0; // ids for placed card objects (glyphs, banners, lances) so the client can clear them"]
+}

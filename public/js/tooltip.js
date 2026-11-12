@@ -152,8 +152,8 @@
           const RUNE_INFO = {
             rune_flame: { name: 'Infernal Flame Rune', icon: '🔴', effect: '+25% DMG & Burn DoT', color: '#ef4444' },
             flame: { name: 'Infernal Flame Rune', icon: '🔴', effect: '+25% DMG & Burn DoT', color: '#ef4444' },
-            rune_frost: { name: 'Glacial Frost Rune', icon: '🔵', effect: '40% Chill Slow & Freeze', color: '#38bdf8' },
-            frost: { name: 'Glacial Frost Rune', icon: '🔵', effect: '40% Chill Slow & Freeze', color: '#38bdf8' },
+            rune_frost: { name: 'Glacial Frost Rune', icon: '🔵', effect: '50% Chill Slow & Freeze', color: '#38bdf8' },
+            frost: { name: 'Glacial Frost Rune', icon: '🔵', effect: '50% Chill Slow & Freeze', color: '#38bdf8' },
             rune_tempest: { name: 'Tempest Surge Rune', icon: '⚡', effect: '-20% CD & +10% Shock', color: '#eab308' },
             tempest: { name: 'Tempest Surge Rune', icon: '⚡', effect: '-20% CD & +10% Shock', color: '#eab308' },
             rune_vampiric: { name: 'Vampiric Drain Rune', icon: '🟣', effect: '25% Life Leech', color: '#a855f7' },
@@ -182,7 +182,7 @@
     } else if (item.type === 'rune') {
       const RUNE_BONUS = {
         flame: '+25% Damage & Persistent Burn DoT',
-        frost: '40% Chill Slow for 3.5s & 25% Freeze Chance',
+        frost: '50% Chill Slow for 3.5s & 25% Freeze Chance',
         tempest: '-20% Cooldown Reduction & +10% Electric Shock DMG',
         vampiric: '25% Damage Dealt as HP Life Leech'
       };

@@ -1,0 +1,7 @@
+{
+  "className": "StatusEffectSystem",
+  "field": "statusFx",
+  "description": "Status effects: afflictions on heroes, smoke clouds, talent procs on hit.",
+  "methods": ["applyStatusEffect", "smokeMissChance", "applyTalentProcs"],
+  "extraTop": ["const { TALENT_PROCS } = require('../talents');"]
+}

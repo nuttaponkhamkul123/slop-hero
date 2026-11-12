@@ -1,0 +1,6 @@
+{
+  "className": "CombatSystem",
+  "field": "combat",
+  "description": "Hero combat: basic attacks and cleave, projectiles, damage to monsters, monster death and drops, and the armor-set combat procs.",
+  "methods": ["handlePlayerAttack", "meleeSweep", "chainBasicAttack", "spawnProjectile", "applyProjectileSplash", "applyDamageToMob", "handleMobDeath", "checkSecondWind", "setDamageMult", "applySetOnHit"]
+}

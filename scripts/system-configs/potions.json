@@ -1,0 +1,6 @@
+{
+  "className": "PotionSystem",
+  "field": "potions",
+  "description": "Potions: the HP / MP quick slots, drinking, the shared cooldown and the potion stacks.",
+  "methods": ["getPotionSlots", "getPotionCount", "consumePotion", "handleUsePotion", "handleSetPotionSlot"]
+}

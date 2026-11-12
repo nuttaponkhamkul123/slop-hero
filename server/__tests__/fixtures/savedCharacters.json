@@ -1,0 +1,222 @@
+{
+  "full": {
+    "name": "Full",
+    "characterClass": "mage",
+    "level": 9,
+    "exp": 250,
+    "expNext": 700,
+    "skillPoints": 4,
+    "skills": {
+      "firestorm": 3
+    },
+    "equippedSkills": {
+      "slot1": "firestorm",
+      "runes": {
+        "slot1": "flame"
+      }
+    },
+    "jobLevel": 5,
+    "spLoadouts": {
+      "sp_x": {
+        "slot1": "a"
+      }
+    },
+    "jobExp": 77,
+    "equipment": {
+      "weapon": {
+        "id": "archmage_staff",
+        "count": 1
+      },
+      "armor": null
+    },
+    "gold": 1234,
+    "inventory": {
+      "healthPotions": 9,
+      "manaPotions": 8,
+      "maxSlots": 200,
+      "items": [
+        {
+          "id": "ancient_ruby",
+          "count": 3
+        }
+      ]
+    },
+    "storage": {
+      "maxSlots": 70,
+      "items": [
+        {
+          "id": "revival_stone",
+          "count": 1
+        }
+      ]
+    },
+    "zone": "frostfell",
+    "x": 11.5,
+    "y": 22.25,
+    "savedAt": 1700000000000
+  },
+  "minimal": {
+    "name": "Minimal",
+    "characterClass": "rogue",
+    "level": 1,
+    "exp": 0,
+    "skillPoints": 0,
+    "skills": {},
+    "equippedSkills": null,
+    "jobLevel": 1,
+    "spLoadouts": {},
+    "jobExp": 0,
+    "equipment": {},
+    "gold": 0,
+    "inventory": {
+      "healthPotions": 3,
+      "manaPotions": 2,
+      "maxSlots": 150,
+      "items": []
+    },
+    "storage": {
+      "maxSlots": 50,
+      "items": []
+    },
+    "zone": "town",
+    "savedAt": 1700000000000
+  },
+  "falsyNumbers": {
+    "name": "Zeros",
+    "characterClass": "warrior",
+    "level": 1,
+    "exp": 0,
+    "skillPoints": 0,
+    "skills": {},
+    "equippedSkills": null,
+    "jobLevel": 1,
+    "spLoadouts": {},
+    "jobExp": 0,
+    "equipment": {},
+    "gold": 0,
+    "inventory": {
+      "healthPotions": 3,
+      "manaPotions": 2,
+      "maxSlots": 150,
+      "items": []
+    },
+    "storage": {
+      "maxSlots": 50,
+      "items": []
+    },
+    "zone": "town",
+    "x": 0,
+    "y": 0,
+    "savedAt": 1700000000000
+  },
+  "transformedWithBase": {
+    "name": "T1",
+    "characterClass": "warrior",
+    "level": 1,
+    "exp": 0,
+    "skillPoints": 0,
+    "skills": {},
+    "equippedSkills": {
+      "slot1": "base_skill"
+    },
+    "jobLevel": 1,
+    "spLoadouts": {},
+    "jobExp": 0,
+    "equipment": {},
+    "gold": 0,
+    "inventory": {
+      "healthPotions": 3,
+      "manaPotions": 2,
+      "maxSlots": 150,
+      "items": []
+    },
+    "storage": {
+      "maxSlots": 50,
+      "items": []
+    },
+    "zone": "town",
+    "savedAt": 1700000000000
+  },
+  "transformedWithoutBase": {
+    "name": "T2",
+    "characterClass": "warrior",
+    "level": 1,
+    "exp": 0,
+    "skillPoints": 0,
+    "skills": {},
+    "equippedSkills": {
+      "slot1": "card_skill"
+    },
+    "jobLevel": 1,
+    "spLoadouts": {},
+    "jobExp": 0,
+    "equipment": {},
+    "gold": 0,
+    "inventory": {
+      "healthPotions": 3,
+      "manaPotions": 2,
+      "maxSlots": 150,
+      "items": []
+    },
+    "storage": {
+      "maxSlots": 50,
+      "items": []
+    },
+    "zone": "town",
+    "savedAt": 1700000000000
+  },
+  "notTransformed": {
+    "name": "T3",
+    "characterClass": "warrior",
+    "level": 1,
+    "exp": 0,
+    "skillPoints": 0,
+    "skills": {},
+    "equippedSkills": {
+      "slot1": "real_skill"
+    },
+    "jobLevel": 1,
+    "spLoadouts": {},
+    "jobExp": 0,
+    "equipment": {},
+    "gold": 0,
+    "inventory": {
+      "healthPotions": 3,
+      "manaPotions": 2,
+      "maxSlots": 150,
+      "items": []
+    },
+    "storage": {
+      "maxSlots": 50,
+      "items": []
+    },
+    "zone": "town",
+    "savedAt": 1700000000000
+  },
+  "noSkillsAtAll": {
+    "name": "T4",
+    "characterClass": "mage",
+    "level": 1,
+    "exp": 0,
+    "skillPoints": 0,
+    "skills": {},
+    "equippedSkills": null,
+    "jobLevel": 1,
+    "spLoadouts": {},
+    "jobExp": 0,
+    "equipment": {},
+    "gold": 0,
+    "inventory": {
+      "healthPotions": 3,
+      "manaPotions": 2,
+      "maxSlots": 150,
+      "items": []
+    },
+    "storage": {
+      "maxSlots": 50,
+      "items": []
+    },
+    "zone": "town",
+    "savedAt": 1700000000000
+  }
+}

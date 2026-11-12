@@ -6,6 +6,7 @@
 // from the armor sets; later systems (gathering, food, runes, furniture) add
 // their recipes to RECIPES the same way.
 import { ITEMS, ARMOR_SETS, generateRandomizedGear } from './items';
+import { ItemFactory } from './entities/item';
 
 export const CRAFT_CATEGORIES = [
   { id: 'set', name: 'Set Pieces', icon: '🛡️' }
@@ -89,12 +90,12 @@ export function craft(gs: any, player: any, recipeId: string, times = 1) {
   player.gold -= gold;
   const made: any[] = [];
   if (r.output.gear) {
-    const item = generateRandomizedGear(r.output.id, player.level || 1, true);
+    const item = ItemFactory.gear(r.output.id, player.level || 1, true);
     gs.giveLootToPlayer(player, { type: 'item', itemId: item.id, customItemData: item, amount: 1 }, false);
     made.push(item);
   } else {
     gs.giveLootToPlayer(player, { type: 'item', itemId: out.id, amount: r.output.n * times }, false);
-    made.push({ ...out, count: r.output.n * times });
+    made.push(ItemFactory.stack(out, r.output.n * times));
   }
   return { ok: true, message: `Crafted ${made[0].name}${made[0].count > 1 ? ` x${made[0].count}` : ''}!`, items: made };
 }

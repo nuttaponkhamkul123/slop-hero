@@ -6,11 +6,14 @@ import * as SP from './spCards';
 import { mobStats, FIELD_ZONES } from './fieldZones';
 import accountManager from './accountManager';
 import { UserRole } from './types';
+import { ItemFactory } from './entities/item';
+import { MobFactory } from './entities/mob';
+import type { Player } from './entities/types';
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'slopadmin';
 
 // Helper: send system feedback message directly to a player's chat
-function sendFeedback(gameServer, player, text, color = '#facc15') {
+function sendFeedback(gameServer: any, player: Player, text: any, color = '#facc15') {
   const socket = gameServer.io.sockets.sockets.get(player.id);
   if (socket) {
     socket.emit('chat_broadcast', {
@@ -24,7 +27,7 @@ function sendFeedback(gameServer, player, text, color = '#facc15') {
 }
 
 // Helper: find online player by name (case-insensitive)
-function findPlayerByName(gameServer, name) {
+function findPlayerByName(gameServer: any, name: any) {
   if (!name) return null;
   const target = name.trim().toLowerCase();
   for (const p of gameServer.players.values()) {
@@ -34,7 +37,7 @@ function findPlayerByName(gameServer, name) {
 }
 
 // Helper: get mobs Map for the player's current zone/instance
-function getMobsMapForPlayer(gameServer, player) {
+function getMobsMapForPlayer(gameServer: any, player: Player) {
   if (player.zone === 'town') return gameServer.townMobs;
   if (player.zone === 'dungeon') {
     const inst = gameServer.getPlayerDungeonInstance(player);
@@ -45,7 +48,7 @@ function getMobsMapForPlayer(gameServer, player) {
 }
 
 // Helper: check if player has admin rights (via role, account name, or character name)
-function isPlayerAdmin(player) {
+function isPlayerAdmin(player: Player) {
   if (!player) return false;
   if (player.role === 'admin') return true;
   const username = String(player.accountUsername || '').trim().toLowerCase();
@@ -167,7 +170,7 @@ const COMMANDS: Record<string, AdminCommandDef> = {
 
       // 4. Give SP Card
       const cleanCardId = rawId.startsWith('sp_card_') ? rawId.replace('sp_card_', '') : rawId;
-      const spDef = SP.CARD_BY_ID[cleanCardId] || SP.CARD_BY_ID[rawId] || SP.CARD_BY_ID['sp_' + rawId];
+      const spDef = (SP.CARD_BY_ID as any)[cleanCardId] || (SP.CARD_BY_ID as any)[rawId] || (SP.CARD_BY_ID as any)['sp_' + rawId];
       if (spDef) {
         if (!targetPlayer.inventory || !targetPlayer.inventory.items) {
           targetPlayer.inventory = { items: [], healthPotions: 3, manaPotions: 3 };
@@ -176,7 +179,7 @@ const COMMANDS: Record<string, AdminCommandDef> = {
         if (targetPlayer.inventory.items.length >= maxSlots) {
           return sendFeedback(gameServer, player, `❌ กระเป๋าของ ${targetPlayer.name} เต็มแล้ว (${maxSlots}/${maxSlots} ช่อง)`);
         }
-        const cardItem = { ...SP.makeCardItem(spDef.id), custom: true, count: 1 };
+        const cardItem = ItemFactory.card(spDef.id);
         targetPlayer.inventory.items.push(cardItem);
 
         gameServer.emitZone(targetPlayer.zone, 'floating_text', {
@@ -209,8 +212,8 @@ const COMMANDS: Record<string, AdminCommandDef> = {
             sendFeedback(gameServer, player, `⚠️ กระเป๋าเต็ม เสกได้ ${i} ชิ้น`);
             break;
           }
-          const gear = generateRandomizedGear(rawId, targetPlayer.level || 1, false);
-          targetPlayer.inventory.items.push({ ...gear, count: 1 });
+          const gear = ItemFactory.gear(rawId, targetPlayer.level || 1, false);
+          targetPlayer.inventory.items.push(ItemFactory.stack(gear));
         }
       } else {
         // Consumable, material, relic
@@ -234,7 +237,7 @@ const COMMANDS: Record<string, AdminCommandDef> = {
       }
 
       const rawId = args[0].toLowerCase().replace(/^sp_card_/, '');
-      const spDef = SP.CARD_BY_ID[rawId] || SP.CARD_BY_ID['sp_' + rawId];
+      const spDef = (SP.CARD_BY_ID as any)[rawId] || (SP.CARD_BY_ID as any)['sp_' + rawId];
       if (!spDef) {
         return sendFeedback(gameServer, player, `❌ ไม่พบ SP Card: ${args[0]} (ดูชื่อการ์ดพิมพ์ /items sp)`);
       }
@@ -252,7 +255,7 @@ const COMMANDS: Record<string, AdminCommandDef> = {
         return sendFeedback(gameServer, player, `❌ กระเป๋าของ ${targetPlayer.name} เต็มแล้ว (${maxSlots}/${maxSlots} ช่อง)`);
       }
 
-      const cardItem = { ...SP.makeCardItem(spDef.id, upgrade), custom: true, count: 1 };
+      const cardItem = ItemFactory.card(spDef.id, upgrade);
       targetPlayer.inventory.items.push(cardItem);
 
       gameServer.emitZone(targetPlayer.zone, 'floating_text', {
@@ -273,7 +276,7 @@ const COMMANDS: Record<string, AdminCommandDef> = {
       let matched = [];
 
       if (filter === 'sp') {
-        matched = Object.keys(SP.CARD_BY_ID).map(id => `SP: ${id} (${SP.CARD_BY_ID[id].name})`);
+        matched = Object.keys(SP.CARD_BY_ID).map(id => `SP: ${id} (${(SP.CARD_BY_ID as any)[id].name})`);
       } else {
         matched = Object.entries(ITEMS)
           .filter(([id, it]) => !filter || id.includes(filter) || (it.name && it.name.toLowerCase().includes(filter)))
@@ -561,32 +564,7 @@ const COMMANDS: Record<string, AdminCommandDef> = {
         const id = `admin_mob_${gameServer.nextEntityId++}`;
         const jitterX = (Math.random() - 0.5) * 1.5;
         const jitterY = (Math.random() - 0.5) * 1.5;
-        const mob = {
-          id,
-          type: mobType,
-          name: (isBoss ? '👑 Boss ' : '') + mobType.charAt(0).toUpperCase() + mobType.slice(1),
-          level: lvl,
-          x: player.x + jitterX,
-          y: player.y + jitterY,
-          spawnX: player.x + jitterX,
-          spawnY: player.y + jitterY,
-          zone: player.zone,
-          fieldZone: player.zone,
-          isBoss,
-          hp: stats.maxHp,
-          maxHp: stats.maxHp,
-          dmg: stats.dmg,
-          def: stats.def,
-          speed: isBoss ? 2.8 : 2.5,
-          exp: stats.exp,
-          gold: stats.gold,
-          state: 'idle',
-          facing: 'S',
-          attackCooldown: 1.0,
-          buffs: [],
-          targetPlayerId: null,
-          respawnTimer: 0
-        };
+        const mob = MobFactory.adminSpawn({ id, mobType, isBoss, level: lvl, stats, x: player.x + jitterX, y: player.y + jitterY, zone: player.zone });
         mobsMap.set(id, mob);
       }
 
@@ -735,7 +713,7 @@ const COMMANDS: Record<string, AdminCommandDef> = {
 const MOB_TYPES = ['slime', 'goblin', 'skeleton', 'golem', 'frost_wolf', 'ice_elemental', 'frost_titan'];
 
 // Dropdown data for the in-game admin menu. Non-admins only learn that they aren't one.
-function buildCatalog(gameServer, player) {
+function buildCatalog(gameServer: any, player: Player) {
   if (!isPlayerAdmin(player)) return { isAdmin: false };
   if (player.role !== 'admin') player.role = 'admin';
   return {
@@ -750,7 +728,7 @@ function buildCatalog(gameServer, player) {
 }
 
 // Main Command Dispatcher
-function handleCommand(gameServer, player, rawText) {
+function handleCommand(gameServer: any, player: Player, rawText: any) {
   if (!rawText || !rawText.startsWith('/')) return false;
 
   const parts = rawText.slice(1).trim().split(/\s+/);

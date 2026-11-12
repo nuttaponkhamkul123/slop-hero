@@ -24,7 +24,7 @@
     "color": "#38bdf8",
     "buyPrice": 1200,
     "sellPrice": 500,
-    "desc": "An icy elemental rune frozen for millennia. Socket into a weapon to inflict 40% Chill Slow for 3.5s and 25% chance to Freeze enemies solid.",
+    "desc": "An icy elemental rune frozen for millennia. Socket into a weapon to inflict 50% Chill Slow for 3.5s and 25% chance to Freeze enemies solid.",
     "socketFor": "weapon"
   },
   "rune_tempest": {

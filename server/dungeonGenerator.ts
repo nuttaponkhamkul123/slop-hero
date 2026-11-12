@@ -1,6 +1,7 @@
 // Procedural Dungeon Generator for Aetheria Online
 // Generates randomized rooms, corridors, chests, and dungeon monsters
 import { ITEMS, generateRandomizedGear, pickGearForLevel } from './items';
+import { ItemFactory } from './entities/item';
 import { mobExp, mobHpMult, mobDefMult, DUNGEON_EXP_MULT, DUNGEON_TRASH_FACTOR } from './progression';
 
 // The floor boss keeps only this share of its defense (minibosses and trash are unaffected)
@@ -48,7 +49,7 @@ const BOSS_ARENA = 25;
 
 // [w, h] of a room by kind: the entrance and treasure rooms are compact, minibosses get a big
 // square hall, ordinary rooms vary from 11x11 up to 15x15 (and long 11x15 / 15x11 galleries)
-function roomSize(kind) {
+function roomSize(kind: any) {
   if (kind === 'entrance' || kind === 'treasure') return [11, 11];
   if (kind === 'miniboss') return [15, 15];
   const sizes = [11, 13, 13, 15];
@@ -59,7 +60,7 @@ function roomSize(kind) {
 
 // Rooms per floor (entrance and boss included) grows with depth/difficulty
 const ROOM_COUNT_MULT = 3;
-function roomCountFor(floorLevel, difficulty) {
+function roomCountFor(floorLevel: any, difficulty: any) {
   const bonus = difficulty === 'nightmare' ? 2 : difficulty === 'hard' ? 1 : 0;
   return Math.min(16, 4 + floorLevel + bonus) * ROOM_COUNT_MULT;
 }
@@ -371,45 +372,45 @@ const FLOOR_STYLES = {
 // would cut a doorway off from the centre, the room falls back to plain floor.
 // Works for any odd-sized room (rooms are 11-15 tiles a side; the doorways sit on the middle row
 // and column, the 3-wide "spine" through the centre always stays open).
-function shapeRoom(tiles, r, style, calm) {
+function shapeRoom(tiles: any, r: any, style: any, calm: any) {
   const F = DUNGEON_TILES.FLOOR, T = FEATURE_TILES;
   const W = r.w, H = r.h, CX = (W - 1) / 2, CY = (H - 1) / 2;
-  const get = (lx, ly) => tiles[r.y + ly][r.x + lx];
-  const set = (lx, ly, t) => { tiles[r.y + ly][r.x + lx] = t; };
-  const each = (fn) => { for (let ly = 0; ly < H; ly++) for (let lx = 0; lx < W; lx++) fn(lx, ly); };
-  const spine = (lx, ly) => Math.abs(lx - CX) <= 1 || Math.abs(ly - CY) <= 1;
-  const cheb = (lx, ly) => Math.max(Math.abs(lx - CX), Math.abs(ly - CY));
-  const edge = (lx, ly) => Math.min(lx, W - 1 - lx, ly, H - 1 - ly);
-  const pillar = (lx, ly) => set(lx, ly, DUNGEON_TILES.VOID);
-  const scatter = (t: number, chance: number, where: (lx: number, ly: number) => boolean = () => true) => each((lx, ly) => {
+  const get = (lx: any, ly: any) => tiles[r.y + ly][r.x + lx];
+  const set = (lx: any, ly: any, t: any) => { tiles[r.y + ly][r.x + lx] = t; };
+  const each = (fn: any) => { for (let ly = 0; ly < H; ly++) for (let lx = 0; lx < W; lx++) fn(lx, ly); };
+  const spine = (lx: any, ly: any) => Math.abs(lx - CX) <= 1 || Math.abs(ly - CY) <= 1;
+  const cheb = (lx: any, ly: any) => Math.max(Math.abs(lx - CX), Math.abs(ly - CY));
+  const edge = (lx: any, ly: any) => Math.min(lx, W - 1 - lx, ly, H - 1 - ly);
+  const pillar = (lx: any, ly: any) => set(lx, ly, DUNGEON_TILES.VOID);
+  const scatter = (t: number, chance: number, where: (lx: number, ly: number) => boolean = () => true) => each((lx: any, ly: any) => {
     if (get(lx, ly) === F && where(lx, ly) && Math.random() < chance) set(lx, ly, t);
   });
-  const blob = (t, n, rad) => {
+  const blob = (t: any, n: any, rad: any) => {
     for (let i = 0; i < n; i++) {
       const bx = 1 + Math.random() * (W - 3), by = 1 + Math.random() * (H - 3);
-      each((lx, ly) => { if (get(lx, ly) === F && Math.hypot(lx - bx, ly - by) <= rad) set(lx, ly, t); });
+      each((lx: any, ly: any) => { if (get(lx, ly) === F && Math.hypot(lx - bx, ly - by) <= rad) set(lx, ly, t); });
     }
   };
-  const erode = (outer, inner) => each((lx, ly) => {
+  const erode = (outer: any, inner: any) => each((lx: any, ly: any) => {
     if (spine(lx, ly)) return;
     const e = edge(lx, ly);
     if ((e === 0 && Math.random() < outer) || (e === 1 && Math.random() < inner)) pillar(lx, ly);
   });
   // pillar columns / rows: 2 in from each wall, plus every 4 tiles between, never on the spine
-  const lanes = (n, c) => {
+  const lanes = (n: any, c: any) => {
     const out = new Set([2, n - 3]);
     for (let v = 6; v < n - 4; v += 4) out.add(v);
     return [...out].filter(v => Math.abs(v - c) > 1);
   };
   const area = W * H;
-  const blobs = (n) => Math.max(n, Math.round(n * area / 81));
+  const blobs = (n: any) => Math.max(n, Math.round(n * area / 81));
 
   switch (style.layout) {
     case 'pillars':
       for (const lx of lanes(W, CX)) for (const ly of lanes(H, CY)) pillar(lx, ly);
       break;
     case 'flooded': // corner pools ringed by chilling shallows
-      each((lx, ly) => {
+      each((lx: any, ly: any) => {
         if (spine(lx, ly)) return;
         const c = Math.min(lx, W - 1 - lx) + Math.min(ly, H - 1 - ly);
         if (c <= 1) set(lx, ly, T.WATER);
@@ -423,7 +424,7 @@ function shapeRoom(tiles, r, style, calm) {
       scatter(T.RUBBLE, 0.1);
       break;
     case 'round': // rounded chamber with patches of slick frost
-      each((lx, ly) => { if (((lx - CX) / (CX + 0.65)) ** 2 + ((ly - CY) / (CY + 0.65)) ** 2 > 1) pillar(lx, ly); });
+      each((lx: any, ly: any) => { if (((lx - CX) / (CX + 0.65)) ** 2 + ((ly - CY) / (CY + 0.65)) ** 2 > 1) pillar(lx, ly); });
       blob(T.FROST, blobs(3), 1.3);
       break;
     case 'acid':
@@ -431,7 +432,7 @@ function shapeRoom(tiles, r, style, calm) {
       break;
     case 'moat': { // a lava ring around the centre, crossed by four bridges
       const ring = Math.max(2, Math.floor(Math.min(CX, CY) / 2));
-      each((lx, ly) => {
+      each((lx: any, ly: any) => {
         const d = cheb(lx, ly);
         if (d === ring && lx !== CX && ly !== CY) set(lx, ly, T.LAVA);
         else if (d > ring && Math.random() < 0.12) set(lx, ly, T.EMBERS);
@@ -439,7 +440,7 @@ function shapeRoom(tiles, r, style, calm) {
       break;
     }
     case 'islands': // a floating platform: the corners fall away into the stars
-      each((lx, ly) => { if (Math.abs(lx - CX) / CX + Math.abs(ly - CY) / CY >= 1.45) set(lx, ly, T.STARS); });
+      each((lx: any, ly: any) => { if (Math.abs(lx - CX) / CX + Math.abs(ly - CY) / CY >= 1.45) set(lx, ly, T.STARS); });
       for (const lx of lanes(W, CX)) for (const ly of lanes(H, CY)) if (Math.random() < 0.6) set(lx, ly, T.STARS);
       break;
     case 'colonnade': // rows of columns and pools of clinging shadow
@@ -450,7 +451,7 @@ function shapeRoom(tiles, r, style, calm) {
       erode(0.45, 0.15);
       {
         const px = Math.random() < 0.5 ? 1.5 : W - 2.5, py = Math.random() < 0.5 ? 1.5 : H - 2.5;
-        each((lx, ly) => { if (get(lx, ly) === F && Math.hypot(lx - px, ly - py) <= 1.6) set(lx, ly, T.LAVA); });
+        each((lx: any, ly: any) => { if (get(lx, ly) === F && Math.hypot(lx - px, ly - py) <= 1.6) set(lx, ly, T.LAVA); });
       }
       scatter(T.SCORCH, 0.16);
       break;
@@ -465,10 +466,10 @@ function shapeRoom(tiles, r, style, calm) {
     for (const [lx, ly] of [[0, CY + k], [W - 1, CY + k], [CX + k, 0], [CX + k, H - 1]]) set(lx, ly, F);
   }
   set(CX, CY, F);
-  if (calm) each((lx, ly) => { if (DUNGEON_HAZARDS[get(lx, ly)]) set(lx, ly, F); });
+  if (calm) each((lx: any, ly: any) => { if (DUNGEON_HAZARDS[get(lx, ly)]) set(lx, ly, F); });
 
   // Flood from the centre; every doorway mouth must be reachable
-  const walk = (t) => OPEN_TILES.has(t) && !BLOCKING_FEATURES.has(t);
+  const walk = (t: any) => OPEN_TILES.has(t) && !BLOCKING_FEATURES.has(t);
   const seen = new Set([CX + ',' + CY]);
   const queue = [[CX, CY]];
   while (queue.length) {
@@ -481,18 +482,18 @@ function shapeRoom(tiles, r, style, calm) {
     }
   }
   if (![[0, CY], [W - 1, CY], [CX, 0], [CX, H - 1]].every(([lx, ly]) => seen.has(lx + ',' + ly))) {
-    each((lx, ly) => set(lx, ly, F));
+    each((lx: any, ly: any) => set(lx, ly, F));
     return;
   }
   // Seal walkable pockets nobody could reach
-  each((lx, ly) => { if (walk(get(lx, ly)) && !seen.has(lx + ',' + ly)) pillar(lx, ly); });
+  each((lx: any, ly: any) => { if (walk(get(lx, ly)) && !seen.has(lx + ',' + ly)) pillar(lx, ly); });
 }
 
 // The boss arena: a big octagonal hall with four stone pillars to hide behind (boss beams and
 // charges stop at walls) and a scatter of rubble. No hazards: the boss brings its own.
-function shapeArena(tiles, r) {
+function shapeArena(tiles: any, r: any) {
   const W = r.w, H = r.h, CX = (W - 1) / 2, CY = (H - 1) / 2;
-  const set = (lx, ly, t) => { tiles[r.y + ly][r.x + lx] = t; };
+  const set = (lx: any, ly: any, t: any) => { tiles[r.y + ly][r.x + lx] = t; };
   const cut = Math.round(Math.min(W, H) * 0.22);
   for (let ly = 0; ly < H; ly++) for (let lx = 0; lx < W; lx++) {
     if (Math.min(lx, W - 1 - lx) + Math.min(ly, H - 1 - ly) < cut) set(lx, ly, DUNGEON_TILES.VOID);
@@ -507,7 +508,7 @@ function shapeArena(tiles, r) {
 // mode 'classic': a labyrinth of rooms behind sealed doors. mode 'rush': one very long hall that holds
 // every monster at once (see layoutRush), then the isolated boss arena
 function generateProceduralDungeon(floorLevel = 1, difficulty = 'normal', mode = 'classic') {
-  const diff = DIFFICULTIES[difficulty] || DIFFICULTIES.normal;
+  const diff = (DIFFICULTIES as any)[difficulty] || DIFFICULTIES.normal;
   if (mode === 'rush') return finishDungeon(floorLevel, diff, layoutRush(floorLevel, diff));
 
   // 1. Grid layout: grow a random tree of rooms from the entrance cell. The boss arena is not on
@@ -519,13 +520,13 @@ function generateProceduralDungeon(floorLevel = 1, difficulty = 'normal', mode =
   const arenaX = gridW + 3;
   const width = arenaX + BOSS_ARENA + 4;
   const height = Math.max(grid * ROOM_CELL + 4, BOSS_ARENA + 8);
-  const tiles = [];
+  const tiles: any[][] = [];
   for (let y = 0; y < height; y++) {
     tiles[y] = [];
     for (let x = 0; x < width; x++) tiles[y][x] = DUNGEON_TILES.VOID;
   }
 
-  const key = (cx, cy) => cx + ',' + cy;
+  const key = (cx: any, cy: any) => cx + ',' + cy;
   const start = { cx: Math.floor(Math.random() * (grid - 2)) + 1, cy: grid - 2 };
   const cells = new Map([[key(start.cx, start.cy), { ...start, parent: null, depth: 0 }]]);
   const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
@@ -555,7 +556,7 @@ function generateProceduralDungeon(floorLevel = 1, difficulty = 'normal', mode =
   });
   rooms[0].kind = 'entrance';
   // A few mob-free treasure rooms along the way, and 1-2 miniboss rooms in the middle depths
-  const combatRoomIndices = [];
+  const combatRoomIndices: any = [];
   rooms.forEach((r, i) => {
     if (i > 0) {
       if (Math.random() < 0.12) r.kind = 'treasure';
@@ -563,7 +564,7 @@ function generateProceduralDungeon(floorLevel = 1, difficulty = 'normal', mode =
     }
   });
   const minibossCount = combatRoomIndices.length >= 6 ? 2 : (combatRoomIndices.length >= 3 ? 1 : 0);
-  const midIndices = combatRoomIndices.filter(idx => idx > 1);
+  const midIndices = combatRoomIndices.filter((idx: any) => idx > 1);
   for (let m = 0; m < minibossCount && midIndices.length > 0; m++) {
     const pickIdx = midIndices.splice(Math.floor(midIndices.length / 2), 1)[0];
     if (rooms[pickIdx]) rooms[pickIdx].kind = 'miniboss';
@@ -587,7 +588,7 @@ function generateProceduralDungeon(floorLevel = 1, difficulty = 'normal', mode =
   for (const r of rooms) {
     for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) tiles[y][x] = DUNGEON_TILES.FLOOR;
   }
-  const style = FLOOR_STYLES[(DUNGEON_FLOORS[floorLevel - 1] || DUNGEON_FLOORS[0]).theme] || FLOOR_STYLES.dungeon_crypt;
+  const style = (FLOOR_STYLES as any)[(DUNGEON_FLOORS[floorLevel - 1] || DUNGEON_FLOORS[0]).theme] || FLOOR_STYLES.dungeon_crypt;
   for (const r of rooms) {
     if (r.arena) shapeArena(tiles, r);
     else shapeRoom(tiles, r, style, r.kind === 'entrance');
@@ -654,20 +655,20 @@ function generateProceduralDungeon(floorLevel = 1, difficulty = 'normal', mode =
 // Rush layout: the entrance, one hall of chained chambers running south (each is shaped like a
 // normal room, joined with no walls between, so it plays like a gauntlet), and the boss arena kept
 // apart. The only door is the entrance's: when it opens the server spawns every hall chamber at once.
-function layoutRush(floorLevel, diff) {
+function layoutRush(floorLevel: any, diff: any) {
   const segs = Math.max(6, roomCountFor(floorLevel, diff.id) - 2);
   const S = RUSH_CHAMBER;
   const x0 = 3, entranceY = 3, hallTop = entranceY + S + 2;
   const arenaX = x0 + S + 5;
   const width = arenaX + BOSS_ARENA + 4;
   const height = Math.max(hallTop + segs * S + 4, entranceY + BOSS_ARENA + 4);
-  const tiles = [];
+  const tiles: any[][] = [];
   for (let y = 0; y < height; y++) {
     tiles[y] = [];
     for (let x = 0; x < width; x++) tiles[y][x] = DUNGEON_TILES.VOID;
   }
   const rooms: any[] = [];
-  const mk = (x, y, kind, w = S, h = S) => {
+  const mk = (x: any, y: any, kind: any, w = S, h = S) => {
     const r: any = { x, y, w, h, cx: x + (w - 1) / 2, cy: y + (h - 1) / 2, kind, grid: { x: 0, y: rooms.length } };
     rooms.push(r);
     return r;
@@ -678,7 +679,7 @@ function layoutRush(floorLevel, diff) {
   arena.arena = true;
 
   // a few mob-free treasure chambers and 1-2 minibosses in the middle of the hall, as in a classic floor
-  const combatIdx = [];
+  const combatIdx: any = [];
   rooms.forEach((r, i) => {
     if (i > 0 && i < rooms.length - 1) {
       if (Math.random() < 0.12) r.kind = 'treasure';
@@ -686,14 +687,14 @@ function layoutRush(floorLevel, diff) {
     }
   });
   const minibossCount = combatIdx.length >= 6 ? 2 : (combatIdx.length >= 3 ? 1 : 0);
-  const mid = combatIdx.filter(idx => idx > 1);
+  const mid = combatIdx.filter((idx: any) => idx > 1);
   for (let m = 0; m < minibossCount && mid.length > 0; m++) {
     const pick = mid.splice(Math.floor(mid.length / 2), 1)[0];
     if (rooms[pick]) rooms[pick].kind = 'miniboss';
   }
 
   for (const r of rooms) for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) tiles[y][x] = DUNGEON_TILES.FLOOR;
-  const style = FLOOR_STYLES[(DUNGEON_FLOORS[floorLevel - 1] || DUNGEON_FLOORS[0]).theme] || FLOOR_STYLES.dungeon_crypt;
+  const style = (FLOOR_STYLES as any)[(DUNGEON_FLOORS[floorLevel - 1] || DUNGEON_FLOORS[0]).theme] || FLOOR_STYLES.dungeon_crypt;
   for (const r of rooms) {
     if (r.arena) shapeArena(tiles, r);
     else shapeRoom(tiles, r, style, r.kind === 'entrance');
@@ -712,9 +713,9 @@ function layoutRush(floorLevel, diff) {
 }
 
 // Everything after the layout: walls, torches, props, chests and every monster. Shared by both modes.
-function finishDungeon(floorLevel, diff, layout) {
+function finishDungeon(floorLevel: any, diff: any, layout: any) {
   const { width, height, tiles, rooms, doors } = layout;
-  const style = FLOOR_STYLES[(DUNGEON_FLOORS[floorLevel - 1] || DUNGEON_FLOORS[0]).theme] || FLOOR_STYLES.dungeon_crypt;
+  const style = (FLOOR_STYLES as any)[(DUNGEON_FLOORS[floorLevel - 1] || DUNGEON_FLOORS[0]).theme] || FLOOR_STYLES.dungeon_crypt;
 
   const spawnRoom = rooms[0];
   const bossRoom = rooms[rooms.length - 1];
@@ -724,7 +725,7 @@ function finishDungeon(floorLevel, diff, layout) {
   // boss is reached through its door
 
   // Random floor tile inside a room
-  const randomFloor = (r, margin = 1) => {
+  const randomFloor = (r: any, margin = 1) => {
     for (let tries = 0; tries < 40; tries++) {
       const x = r.x + margin + Math.random() * (r.w - margin * 2);
       const y = r.y + margin + Math.random() * (r.h - margin * 2);
@@ -765,8 +766,8 @@ function finishDungeon(floorLevel, diff, layout) {
   }
 
   // 4. Place Obstacles, Torches & Treasure Chests
-  const obstacles = [];
-  const chests = [];
+  const obstacles: any[] = [];
+  const chests: any = [];
   let nextEntityId = 5000;
 
   // Return portal inside isolated boss chamber
@@ -780,7 +781,7 @@ function finishDungeon(floorLevel, diff, layout) {
   });
 
   // Sealed doorways (removed by the server as rooms are cleared)
-  const doorTileSet = new Set(doors.flatMap(d => d.tiles.map(([x, y]) => x + ',' + y)));
+  const doorTileSet = new Set(doors.flatMap((d: any) => d.tiles.map(([x, y]: any[]) => x + ',' + y)));
   for (const d of doors) {
     obstacles.push({ id: d.id, x: d.x, y: d.y, type: 'dungeon_door', axis: d.axis, boss: d.boss, tiles: d.tiles, collidable: false });
   }
@@ -788,7 +789,7 @@ function finishDungeon(floorLevel, diff, layout) {
   // Wall-mounted torches on the room's back walls (the north and west walls
   // are the tall ones facing the camera). side 'left' = sconce on the face
   // toward +y, 'right' = toward +x.
-  rooms.forEach((r, idx) => {
+  rooms.forEach((r: any, idx: any) => {
     const sconces = [
       { x: r.x + Math.floor(r.w / 3), y: r.y - 1, side: 'left' },
       { x: r.x + Math.floor((r.w * 2) / 3), y: r.y - 1, side: 'left' },
@@ -842,7 +843,7 @@ function finishDungeon(floorLevel, diff, layout) {
   });
 
   // Helper to roll random unique affixes
-  function rollAffixes(count, isBoss = false) {
+  function rollAffixes(count: any, isBoss = false) {
     const pool = [...AFFIX_POOL];
     const chosen = [];
     while (chosen.length < count && pool.length > 0) {
@@ -853,10 +854,10 @@ function finishDungeon(floorLevel, diff, layout) {
   }
 
   // 5. Populate Dungeon Monsters with Difficulty & Affixes
-  const mobs = [];
+  const mobs: any = [];
   // Boss telegraphs are shorter on harder difficulties (bossMechanics.ts)
   const mechWindup = diff.id === 'nightmare' ? 0.8 : diff.id === 'hard' ? 0.9 : 1;
-  rooms.forEach((r, idx) => {
+  rooms.forEach((r: any, idx: any) => {
     if (idx === 0 || r.kind === 'treasure') return; // Entrance and treasure rooms are safe
 
     const isBossRoom = idx === rooms.length - 1;
@@ -1156,8 +1157,8 @@ function finishDungeon(floorLevel, diff, layout) {
     m.def = Math.round((m.def || 0) * mobDefMult(m.level) * (m.isBoss ? DUNGEON_BOSS_DEF_MULT : 1));
   }
   // The boss calls copies of its guard mid-fight
-  const boss = mobs.find(m => m.isBoss);
-  const guard = mobs.find(m => m.isGuard);
+  const boss = mobs.find((m: any) => m.isBoss);
+  const guard = mobs.find((m: any) => m.isGuard);
   if (boss && guard) {
     const t = JSON.parse(JSON.stringify(guard));
     t.exp = Math.max(1, Math.round(t.exp * 0.5));
@@ -1190,7 +1191,7 @@ function finishDungeon(floorLevel, diff, layout) {
 };
 
 // Generate Loot Table for Chests or Monsters
-function rollDungeonLoot(isBoss = false, floorLevel = 1, cls = null) {
+function rollDungeonLoot(isBoss = false, floorLevel = 1, cls: any = null) {
   const drops = [];
 
   // Gold drops
@@ -1230,7 +1231,7 @@ function rollDungeonLoot(isBoss = false, floorLevel = 1, cls = null) {
     const band = DUNGEON_FLOORS[floorLevel - 1] || { minLevel: floorLevel * 15 - 14, maxLevel: floorLevel * 15 };
     const itemLevel = isBoss ? band.maxLevel : band.minLevel + Math.floor(Math.random() * (band.maxLevel - band.minLevel + 1));
     const gearId = pickGearForLevel(itemLevel, { boss: isBoss, cls });
-    const customGear = generateRandomizedGear(gearId, itemLevel, isBoss);
+    const customGear = ItemFactory.gear(gearId, itemLevel, isBoss);
     drops.push({ type: 'item', itemId: gearId, customItemData: customGear, amount: 1 });
   }
 

@@ -1,0 +1,688 @@
+{
+  "warrior": {
+    "name": "Hero",
+    "characterClass": "warrior",
+    "level": 1,
+    "exp": 0,
+    "expNext": 158,
+    "skillPoints": 1,
+    "skills": {},
+    "equippedSkills": {
+      "slot1": "whirlwind",
+      "slot2": "earthshaker",
+      "slot3": "colossus_strike",
+      "dash": "blade_charge",
+      "runes": {
+        "slot1": "none",
+        "slot2": "none",
+        "slot3": "none",
+        "dash": "none"
+      }
+    },
+    "equipment": {
+      "weapon": {
+        "id": "iron_blade",
+        "name": "Knight Broadsword",
+        "type": "equipment",
+        "slot": "weapon",
+        "icon": "🗡️",
+        "rarity": "common",
+        "sellPrice": 50,
+        "bonusDmg": 10,
+        "bonusSwipe": 30,
+        "element": "neutral",
+        "desc": "+10 Attack Power, +30% Swipe (Cleave) [⚪ Neutral Element].",
+        "cls": "warrior",
+        "abilityId": "wpn_iron_blade",
+        "count": 1
+      },
+      "armor": null,
+      "helmet": {
+        "id": "iron_helm",
+        "name": "Knight Great Helm",
+        "type": "equipment",
+        "slot": "helmet",
+        "icon": "🪖",
+        "rarity": "common",
+        "sellPrice": 40,
+        "bonusDef": 5,
+        "bonusHp": 25,
+        "desc": "+5 Defense, +25 Max Health.",
+        "count": 1
+      },
+      "boots": null,
+      "gloves": null,
+      "cape": null,
+      "ring": null
+    },
+    "gold": 50,
+    "inventory": {
+      "healthPotions": 3,
+      "manaPotions": 2,
+      "kills": 0,
+      "maxSlots": 150,
+      "items": [
+        {
+          "id": "ancient_ruby",
+          "name": "Ancient Ruby",
+          "type": "treasure",
+          "icon": "💎",
+          "rarity": "rare",
+          "sellPrice": 65,
+          "desc": "A sparkling blood-red gem mined from the abyss. High sell value.",
+          "count": 1
+        },
+        {
+          "id": "revival_stone",
+          "name": "หินชุบชีวิต (Revival Stone)",
+          "type": "consumable",
+          "icon": "💎",
+          "iconKey": "gem",
+          "rarity": "legendary",
+          "buyPrice": 5000,
+          "sellPrice": 1500,
+          "reviveShare": 0.3,
+          "desc": "หินเวทมนตร์ศักดิ์สิทธิ์ ชุบชีวิตฟื้นคืนชีพ ณ จุดที่ตาย พร้อม 30% HP & MP โดยไม่ถูกส่งกลับเมืองและไม่สูญเสียความคืบหน้าดันเจี้ยน",
+          "count": 1
+        }
+      ]
+    },
+    "storage": {
+      "maxSlots": 50,
+      "items": []
+    },
+    "zone": "town",
+    "x": 20,
+    "y": 23
+  },
+  "mage": {
+    "name": "Hero",
+    "characterClass": "mage",
+    "level": 1,
+    "exp": 0,
+    "expNext": 158,
+    "skillPoints": 1,
+    "skills": {},
+    "equippedSkills": {
+      "slot1": "firestorm",
+      "slot2": "frost_nova",
+      "slot3": "black_hole",
+      "dash": "arcane_blink",
+      "runes": {
+        "slot1": "none",
+        "slot2": "none",
+        "slot3": "none",
+        "dash": "none"
+      }
+    },
+    "equipment": {
+      "weapon": {
+        "id": "archmage_staff",
+        "name": "Archmage Staff",
+        "type": "equipment",
+        "slot": "weapon",
+        "icon": "🪄",
+        "rarity": "epic",
+        "sellPrice": 150,
+        "bonusDmg": 24,
+        "bonusMp": 40,
+        "bonusAttackSpeed": 0.1,
+        "element": "fire",
+        "desc": "+24 Attack Power, +40 Max Mana, +10% Attack Speed [🔥 Arcane Fire Element].",
+        "cls": "mage",
+        "abilityId": "wpn_archmage_staff",
+        "count": 1
+      },
+      "armor": {
+        "id": "mystic_robe",
+        "name": "Ethereal Silk Robes",
+        "type": "equipment",
+        "slot": "armor",
+        "icon": "🥻",
+        "rarity": "epic",
+        "sellPrice": 155,
+        "bonusHp": 40,
+        "bonusMp": 60,
+        "bonusDef": 6,
+        "elementResist": {
+          "dark": 0.12,
+          "holy": 0.12
+        },
+        "desc": "+40 HP, +60 MP, +6 Defense, 💀 Dark / ✨ Holy RES +12%.",
+        "count": 1
+      },
+      "helmet": null,
+      "boots": null,
+      "gloves": null,
+      "cape": null,
+      "ring": null
+    },
+    "gold": 50,
+    "inventory": {
+      "healthPotions": 3,
+      "manaPotions": 2,
+      "kills": 0,
+      "maxSlots": 150,
+      "items": [
+        {
+          "id": "ancient_ruby",
+          "name": "Ancient Ruby",
+          "type": "treasure",
+          "icon": "💎",
+          "rarity": "rare",
+          "sellPrice": 65,
+          "desc": "A sparkling blood-red gem mined from the abyss. High sell value.",
+          "count": 1
+        },
+        {
+          "id": "revival_stone",
+          "name": "หินชุบชีวิต (Revival Stone)",
+          "type": "consumable",
+          "icon": "💎",
+          "iconKey": "gem",
+          "rarity": "legendary",
+          "buyPrice": 5000,
+          "sellPrice": 1500,
+          "reviveShare": 0.3,
+          "desc": "หินเวทมนตร์ศักดิ์สิทธิ์ ชุบชีวิตฟื้นคืนชีพ ณ จุดที่ตาย พร้อม 30% HP & MP โดยไม่ถูกส่งกลับเมืองและไม่สูญเสียความคืบหน้าดันเจี้ยน",
+          "count": 1
+        }
+      ]
+    },
+    "storage": {
+      "maxSlots": 50,
+      "items": []
+    },
+    "zone": "town",
+    "x": 20,
+    "y": 23
+  },
+  "rogue": {
+    "name": "Hero",
+    "characterClass": "rogue",
+    "level": 1,
+    "exp": 0,
+    "expNext": 158,
+    "skillPoints": 1,
+    "skills": {},
+    "equippedSkills": {
+      "slot1": "fan_of_knives",
+      "slot2": "toxic_bomb",
+      "slot3": "death_blossom",
+      "dash": "shadow_dash",
+      "runes": {
+        "slot1": "none",
+        "slot2": "none",
+        "slot3": "none",
+        "dash": "none"
+      }
+    },
+    "equipment": {
+      "weapon": {
+        "id": "shadow_daggers",
+        "name": "Obsidian Daggers",
+        "type": "equipment",
+        "slot": "weapon",
+        "icon": "🔪",
+        "rarity": "rare",
+        "sellPrice": 95,
+        "bonusDmg": 16,
+        "bonusSpeed": 0.5,
+        "bonusAttackSpeed": 0.25,
+        "element": "dark",
+        "desc": "+16 Attack Power, +25% Attack Speed, +0.5 Speed [💀 Dark Element].",
+        "cls": "rogue",
+        "abilityId": "wpn_shadow_daggers",
+        "count": 1
+      },
+      "armor": {
+        "id": "leather_tunic",
+        "name": "Rogue Leather Armor",
+        "type": "equipment",
+        "slot": "armor",
+        "icon": "🥋",
+        "rarity": "common",
+        "sellPrice": 45,
+        "bonusDef": 4,
+        "bonusSpeed": 0.4,
+        "desc": "+4 Defense, +0.4 Speed.",
+        "count": 1
+      },
+      "helmet": null,
+      "boots": null,
+      "gloves": null,
+      "cape": null,
+      "ring": null
+    },
+    "gold": 50,
+    "inventory": {
+      "healthPotions": 3,
+      "manaPotions": 2,
+      "kills": 0,
+      "maxSlots": 150,
+      "items": [
+        {
+          "id": "ancient_ruby",
+          "name": "Ancient Ruby",
+          "type": "treasure",
+          "icon": "💎",
+          "rarity": "rare",
+          "sellPrice": 65,
+          "desc": "A sparkling blood-red gem mined from the abyss. High sell value.",
+          "count": 1
+        },
+        {
+          "id": "revival_stone",
+          "name": "หินชุบชีวิต (Revival Stone)",
+          "type": "consumable",
+          "icon": "💎",
+          "iconKey": "gem",
+          "rarity": "legendary",
+          "buyPrice": 5000,
+          "sellPrice": 1500,
+          "reviveShare": 0.3,
+          "desc": "หินเวทมนตร์ศักดิ์สิทธิ์ ชุบชีวิตฟื้นคืนชีพ ณ จุดที่ตาย พร้อม 30% HP & MP โดยไม่ถูกส่งกลับเมืองและไม่สูญเสียความคืบหน้าดันเจี้ยน",
+          "count": 1
+        }
+      ]
+    },
+    "storage": {
+      "maxSlots": 50,
+      "items": []
+    },
+    "zone": "town",
+    "x": 20,
+    "y": 23
+  },
+  "banana": {
+    "name": "Hero",
+    "characterClass": "warrior",
+    "level": 1,
+    "exp": 0,
+    "expNext": 158,
+    "skillPoints": 1,
+    "skills": {},
+    "equippedSkills": {
+      "slot1": "whirlwind",
+      "slot2": "earthshaker",
+      "slot3": "colossus_strike",
+      "dash": "blade_charge",
+      "runes": {
+        "slot1": "none",
+        "slot2": "none",
+        "slot3": "none",
+        "dash": "none"
+      }
+    },
+    "equipment": {
+      "weapon": {
+        "id": "iron_blade",
+        "name": "Knight Broadsword",
+        "type": "equipment",
+        "slot": "weapon",
+        "icon": "🗡️",
+        "rarity": "common",
+        "sellPrice": 50,
+        "bonusDmg": 10,
+        "bonusSwipe": 30,
+        "element": "neutral",
+        "desc": "+10 Attack Power, +30% Swipe (Cleave) [⚪ Neutral Element].",
+        "cls": "warrior",
+        "abilityId": "wpn_iron_blade",
+        "count": 1
+      },
+      "armor": null,
+      "helmet": {
+        "id": "iron_helm",
+        "name": "Knight Great Helm",
+        "type": "equipment",
+        "slot": "helmet",
+        "icon": "🪖",
+        "rarity": "common",
+        "sellPrice": 40,
+        "bonusDef": 5,
+        "bonusHp": 25,
+        "desc": "+5 Defense, +25 Max Health.",
+        "count": 1
+      },
+      "boots": null,
+      "gloves": null,
+      "cape": null,
+      "ring": null
+    },
+    "gold": 50,
+    "inventory": {
+      "healthPotions": 3,
+      "manaPotions": 2,
+      "kills": 0,
+      "maxSlots": 150,
+      "items": [
+        {
+          "id": "ancient_ruby",
+          "name": "Ancient Ruby",
+          "type": "treasure",
+          "icon": "💎",
+          "rarity": "rare",
+          "sellPrice": 65,
+          "desc": "A sparkling blood-red gem mined from the abyss. High sell value.",
+          "count": 1
+        },
+        {
+          "id": "revival_stone",
+          "name": "หินชุบชีวิต (Revival Stone)",
+          "type": "consumable",
+          "icon": "💎",
+          "iconKey": "gem",
+          "rarity": "legendary",
+          "buyPrice": 5000,
+          "sellPrice": 1500,
+          "reviveShare": 0.3,
+          "desc": "หินเวทมนตร์ศักดิ์สิทธิ์ ชุบชีวิตฟื้นคืนชีพ ณ จุดที่ตาย พร้อม 30% HP & MP โดยไม่ถูกส่งกลับเมืองและไม่สูญเสียความคืบหน้าดันเจี้ยน",
+          "count": 1
+        }
+      ]
+    },
+    "storage": {
+      "maxSlots": 50,
+      "items": []
+    },
+    "zone": "town",
+    "x": 20,
+    "y": 23
+  },
+  "undefined": {
+    "name": "Hero",
+    "characterClass": "warrior",
+    "level": 1,
+    "exp": 0,
+    "expNext": 158,
+    "skillPoints": 1,
+    "skills": {},
+    "equippedSkills": {
+      "slot1": "whirlwind",
+      "slot2": "earthshaker",
+      "slot3": "colossus_strike",
+      "dash": "blade_charge",
+      "runes": {
+        "slot1": "none",
+        "slot2": "none",
+        "slot3": "none",
+        "dash": "none"
+      }
+    },
+    "equipment": {
+      "weapon": {
+        "id": "iron_blade",
+        "name": "Knight Broadsword",
+        "type": "equipment",
+        "slot": "weapon",
+        "icon": "🗡️",
+        "rarity": "common",
+        "sellPrice": 50,
+        "bonusDmg": 10,
+        "bonusSwipe": 30,
+        "element": "neutral",
+        "desc": "+10 Attack Power, +30% Swipe (Cleave) [⚪ Neutral Element].",
+        "cls": "warrior",
+        "abilityId": "wpn_iron_blade",
+        "count": 1
+      },
+      "armor": null,
+      "helmet": {
+        "id": "iron_helm",
+        "name": "Knight Great Helm",
+        "type": "equipment",
+        "slot": "helmet",
+        "icon": "🪖",
+        "rarity": "common",
+        "sellPrice": 40,
+        "bonusDef": 5,
+        "bonusHp": 25,
+        "desc": "+5 Defense, +25 Max Health.",
+        "count": 1
+      },
+      "boots": null,
+      "gloves": null,
+      "cape": null,
+      "ring": null
+    },
+    "gold": 50,
+    "inventory": {
+      "healthPotions": 3,
+      "manaPotions": 2,
+      "kills": 0,
+      "maxSlots": 150,
+      "items": [
+        {
+          "id": "ancient_ruby",
+          "name": "Ancient Ruby",
+          "type": "treasure",
+          "icon": "💎",
+          "rarity": "rare",
+          "sellPrice": 65,
+          "desc": "A sparkling blood-red gem mined from the abyss. High sell value.",
+          "count": 1
+        },
+        {
+          "id": "revival_stone",
+          "name": "หินชุบชีวิต (Revival Stone)",
+          "type": "consumable",
+          "icon": "💎",
+          "iconKey": "gem",
+          "rarity": "legendary",
+          "buyPrice": 5000,
+          "sellPrice": 1500,
+          "reviveShare": 0.3,
+          "desc": "หินเวทมนตร์ศักดิ์สิทธิ์ ชุบชีวิตฟื้นคืนชีพ ณ จุดที่ตาย พร้อม 30% HP & MP โดยไม่ถูกส่งกลับเมืองและไม่สูญเสียความคืบหน้าดันเจี้ยน",
+          "count": 1
+        }
+      ]
+    },
+    "storage": {
+      "maxSlots": 50,
+      "items": []
+    },
+    "zone": "town",
+    "x": 20,
+    "y": 23
+  },
+  "longName": {
+    "name": "ABCDEFGHIJKL",
+    "characterClass": "mage",
+    "level": 1,
+    "exp": 0,
+    "expNext": 158,
+    "skillPoints": 1,
+    "skills": {},
+    "equippedSkills": {
+      "slot1": "firestorm",
+      "slot2": "frost_nova",
+      "slot3": "black_hole",
+      "dash": "arcane_blink",
+      "runes": {
+        "slot1": "none",
+        "slot2": "none",
+        "slot3": "none",
+        "dash": "none"
+      }
+    },
+    "equipment": {
+      "weapon": {
+        "id": "archmage_staff",
+        "name": "Archmage Staff",
+        "type": "equipment",
+        "slot": "weapon",
+        "icon": "🪄",
+        "rarity": "epic",
+        "sellPrice": 150,
+        "bonusDmg": 24,
+        "bonusMp": 40,
+        "bonusAttackSpeed": 0.1,
+        "element": "fire",
+        "desc": "+24 Attack Power, +40 Max Mana, +10% Attack Speed [🔥 Arcane Fire Element].",
+        "cls": "mage",
+        "abilityId": "wpn_archmage_staff",
+        "count": 1
+      },
+      "armor": {
+        "id": "mystic_robe",
+        "name": "Ethereal Silk Robes",
+        "type": "equipment",
+        "slot": "armor",
+        "icon": "🥻",
+        "rarity": "epic",
+        "sellPrice": 155,
+        "bonusHp": 40,
+        "bonusMp": 60,
+        "bonusDef": 6,
+        "elementResist": {
+          "dark": 0.12,
+          "holy": 0.12
+        },
+        "desc": "+40 HP, +60 MP, +6 Defense, 💀 Dark / ✨ Holy RES +12%.",
+        "count": 1
+      },
+      "helmet": null,
+      "boots": null,
+      "gloves": null,
+      "cape": null,
+      "ring": null
+    },
+    "gold": 50,
+    "inventory": {
+      "healthPotions": 3,
+      "manaPotions": 2,
+      "kills": 0,
+      "maxSlots": 150,
+      "items": [
+        {
+          "id": "ancient_ruby",
+          "name": "Ancient Ruby",
+          "type": "treasure",
+          "icon": "💎",
+          "rarity": "rare",
+          "sellPrice": 65,
+          "desc": "A sparkling blood-red gem mined from the abyss. High sell value.",
+          "count": 1
+        },
+        {
+          "id": "revival_stone",
+          "name": "หินชุบชีวิต (Revival Stone)",
+          "type": "consumable",
+          "icon": "💎",
+          "iconKey": "gem",
+          "rarity": "legendary",
+          "buyPrice": 5000,
+          "sellPrice": 1500,
+          "reviveShare": 0.3,
+          "desc": "หินเวทมนตร์ศักดิ์สิทธิ์ ชุบชีวิตฟื้นคืนชีพ ณ จุดที่ตาย พร้อม 30% HP & MP โดยไม่ถูกส่งกลับเมืองและไม่สูญเสียความคืบหน้าดันเจี้ยน",
+          "count": 1
+        }
+      ]
+    },
+    "storage": {
+      "maxSlots": 50,
+      "items": []
+    },
+    "zone": "town",
+    "x": 20,
+    "y": 23
+  },
+  "noName": {
+    "name": "Hero",
+    "characterClass": "rogue",
+    "level": 1,
+    "exp": 0,
+    "expNext": 158,
+    "skillPoints": 1,
+    "skills": {},
+    "equippedSkills": {
+      "slot1": "fan_of_knives",
+      "slot2": "toxic_bomb",
+      "slot3": "death_blossom",
+      "dash": "shadow_dash",
+      "runes": {
+        "slot1": "none",
+        "slot2": "none",
+        "slot3": "none",
+        "dash": "none"
+      }
+    },
+    "equipment": {
+      "weapon": {
+        "id": "shadow_daggers",
+        "name": "Obsidian Daggers",
+        "type": "equipment",
+        "slot": "weapon",
+        "icon": "🔪",
+        "rarity": "rare",
+        "sellPrice": 95,
+        "bonusDmg": 16,
+        "bonusSpeed": 0.5,
+        "bonusAttackSpeed": 0.25,
+        "element": "dark",
+        "desc": "+16 Attack Power, +25% Attack Speed, +0.5 Speed [💀 Dark Element].",
+        "cls": "rogue",
+        "abilityId": "wpn_shadow_daggers",
+        "count": 1
+      },
+      "armor": {
+        "id": "leather_tunic",
+        "name": "Rogue Leather Armor",
+        "type": "equipment",
+        "slot": "armor",
+        "icon": "🥋",
+        "rarity": "common",
+        "sellPrice": 45,
+        "bonusDef": 4,
+        "bonusSpeed": 0.4,
+        "desc": "+4 Defense, +0.4 Speed.",
+        "count": 1
+      },
+      "helmet": null,
+      "boots": null,
+      "gloves": null,
+      "cape": null,
+      "ring": null
+    },
+    "gold": 50,
+    "inventory": {
+      "healthPotions": 3,
+      "manaPotions": 2,
+      "kills": 0,
+      "maxSlots": 150,
+      "items": [
+        {
+          "id": "ancient_ruby",
+          "name": "Ancient Ruby",
+          "type": "treasure",
+          "icon": "💎",
+          "rarity": "rare",
+          "sellPrice": 65,
+          "desc": "A sparkling blood-red gem mined from the abyss. High sell value.",
+          "count": 1
+        },
+        {
+          "id": "revival_stone",
+          "name": "หินชุบชีวิต (Revival Stone)",
+          "type": "consumable",
+          "icon": "💎",
+          "iconKey": "gem",
+          "rarity": "legendary",
+          "buyPrice": 5000,
+          "sellPrice": 1500,
+          "reviveShare": 0.3,
+          "desc": "หินเวทมนตร์ศักดิ์สิทธิ์ ชุบชีวิตฟื้นคืนชีพ ณ จุดที่ตาย พร้อม 30% HP & MP โดยไม่ถูกส่งกลับเมืองและไม่สูญเสียความคืบหน้าดันเจี้ยน",
+          "count": 1
+        }
+      ]
+    },
+    "storage": {
+      "maxSlots": 50,
+      "items": []
+    },
+    "zone": "town",
+    "x": 20,
+    "y": 23
+  }
+}

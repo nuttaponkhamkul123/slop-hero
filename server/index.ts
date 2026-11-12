@@ -389,7 +389,7 @@ function shutdown(signal: string) {
   io.emit('server_restarting');
   try {
     gameServer.saveAllOnlinePlayers();
-    accountManager.saveAccounts();
+    accountManager.saveAccountsSync(); // blocking on purpose: must finish before exit
     accountManager.saveSessions();
   } catch (err) {
     console.error('[Shutdown] Save failed:', err);

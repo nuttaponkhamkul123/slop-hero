@@ -20,6 +20,8 @@
 //   mechWindup: windup multiplier (Hard / Nightmare telegraphs are shorter)
 //   addTemplate: a mob definition to clone when the boss calls its guard
 
+import { MobFactory } from './entities/mob';
+
 type Pt = { x: number; y: number };
 type Shape =
   | { shape: 'circle'; x: number; y: number; r: number }
@@ -249,12 +251,7 @@ export function createBossMechanics(gs: any) {
         if (!gs.isColliding(x, y, zone, 0.4)) pos = { x, y };
       }
       if (!pos) continue;
-      const add = JSON.parse(JSON.stringify(mob.addTemplate));
-      Object.assign(add, {
-        id: `${mob.id}_add_${++seq}`, x: pos.x, y: pos.y, spawnX: pos.x, spawnY: pos.y, roomIdx: mob.roomIdx,
-        summonedBy: mob.id, state: 'chase', targetPlayerId: heroes[i % heroes.length].id,
-        spawnUntil: Date.now() + 900, attackCooldown: 1.2
-      });
+      const add = MobFactory.bossAdd(mob, pos, heroes[i % heroes.length].id, `${mob.id}_add_${++seq}`);
       inst.mobs.set(add.id, add);
       spawned.push({ id: add.id, x: add.x, y: add.y, isBoss: false, element: add.element || 'dark' });
     }

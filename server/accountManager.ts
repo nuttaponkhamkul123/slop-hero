@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { UserRole } from './types';
+import { toSavedCharacter } from './entities/savedCharacter';
 
 // Check local directory or root project server/data directory
 const DATA_DIR = process.env.DATA_DIR || (
@@ -9,9 +10,7 @@ const DATA_DIR = process.env.DATA_DIR || (
     ? path.join(__dirname, 'data') 
     : path.join(process.cwd(), 'server', 'data')
 );
-const ACCOUNTS_FILE = path.join(DATA_DIR, 'accounts.json');
-// Login sessions survive a server restart, so connected players rejoin by themselves
-const SESSIONS_FILE = path.join(DATA_DIR, 'sessions.json');
+// (login sessions survive a server restart, so connected players rejoin by themselves: sessions.json)
 const MAX_CHARACTERS = 10;
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 const ROLES: UserRole[] = ['player', 'admin'];
@@ -54,7 +53,20 @@ export class AccountManager {
   public accounts: Record<string, AccountRecord>;
   public sessions: Map<string, { key: string; expiresAt: number }>;
 
-  constructor() {
+  // true when accounts.json existed but could not be loaded; saving is then refused
+  public loadFailed = false;
+  private writing = false;
+  private pendingSave = false;
+  private syncEpoch = 0;
+  private idle: Promise<void> = Promise.resolve();
+  private dataDir: string;
+  private accountsFile: string;
+  private sessionsFile: string;
+
+  constructor(dataDir: string = DATA_DIR) {
+    this.dataDir = dataDir;
+    this.accountsFile = path.join(dataDir, 'accounts.json');
+    this.sessionsFile = path.join(dataDir, 'sessions.json');
     this.accounts = {};
     this.sessions = new Map(); // token -> { key, expiresAt }
     this.init();
@@ -110,7 +122,9 @@ export class AccountManager {
     try {
       const now = Date.now();
       for (const [token, s] of this.sessions) if (now > s.expiresAt) this.sessions.delete(token);
-      fs.writeFileSync(SESSIONS_FILE, JSON.stringify(Object.fromEntries(this.sessions)), 'utf-8');
+      const tmp = this.sessionsFile + '.tmp';
+      fs.writeFileSync(tmp, JSON.stringify(Object.fromEntries(this.sessions)), 'utf-8');
+      fs.renameSync(tmp, this.sessionsFile); // atomic replace
     } catch (err) {
       console.error('[AccountManager] Error saving sessions:', err);
     }
@@ -118,9 +132,9 @@ export class AccountManager {
 
   loadSessions(): void {
     try {
-      if (!fs.existsSync(SESSIONS_FILE)) return;
+      if (!fs.existsSync(this.sessionsFile)) return;
       const now = Date.now();
-      const raw = JSON.parse(fs.readFileSync(SESSIONS_FILE, 'utf-8'));
+      const raw = JSON.parse(fs.readFileSync(this.sessionsFile, 'utf-8'));
       for (const [token, s] of Object.entries<any>(raw)) {
         if (s && typeof s.key === 'string' && s.expiresAt > now) this.sessions.set(token, { key: s.key, expiresAt: s.expiresAt });
       }
@@ -185,11 +199,11 @@ export class AccountManager {
 
   init(): void {
     try {
-      if (!fs.existsSync(DATA_DIR)) {
-        fs.mkdirSync(DATA_DIR, { recursive: true });
+      if (!fs.existsSync(this.dataDir)) {
+        fs.mkdirSync(this.dataDir, { recursive: true });
       }
-      if (fs.existsSync(ACCOUNTS_FILE)) {
-        const raw = fs.readFileSync(ACCOUNTS_FILE, 'utf-8');
+      if (fs.existsSync(this.accountsFile)) {
+        const raw = fs.readFileSync(this.accountsFile, 'utf-8');
         this.accounts = JSON.parse(raw);
         for (const acc of Object.values(this.accounts)) this.normalize(acc);
         console.log(`[AccountManager] Loaded ${Object.keys(this.accounts).length} accounts.`);
@@ -200,17 +214,85 @@ export class AccountManager {
     } catch (err) {
       console.error('[AccountManager] Error initializing accounts:', err);
       this.accounts = {};
+      // The file exists but could not be read/parsed: keep a copy and refuse to
+      // save, otherwise the next save would overwrite every real account with {}.
+      try {
+        if (fs.existsSync(this.accountsFile)) {
+          const backup = path.join(this.dataDir, `accounts.corrupt-${Date.now()}.json`);
+          fs.copyFileSync(this.accountsFile, backup);
+          console.error(`[AccountManager] !!! accounts file unreadable. Copied to ${backup}. Saving is DISABLED until it is fixed and the server restarted.`);
+        }
+      } catch (copyErr) {
+        console.error('[AccountManager] Could not back up the unreadable accounts file:', copyErr);
+      }
+      this.loadFailed = true;
     }
   }
 
+  // Async save: the game loop is not blocked by the disk write. The file is written to
+  // <file>.tmp and renamed over the real one, so a crash can never leave a half-written file.
+  // Calls made while a write is running are coalesced into one follow-up write.
   saveAccounts(): void {
+    if (this.loadFailed) {
+      console.error('[AccountManager] Save skipped: accounts file failed to load earlier (see accounts.corrupt-*.json).');
+      return;
+    }
+    if (this.writing) { this.pendingSave = true; return; }
+    this.writing = true;
+    this.idle = this.writeLoop();
+  }
+
+  // Resolves once every requested save has reached the disk (used by tests / graceful shutdown)
+  flush(): Promise<void> {
+    return this.idle;
+  }
+
+  // Blocking save with the same atomic tmp+rename; use it only on the shutdown path.
+  saveAccountsSync(): void {
+    if (this.loadFailed) return;
     try {
-      if (!fs.existsSync(DATA_DIR)) {
-        fs.mkdirSync(DATA_DIR, { recursive: true });
-      }
-      fs.writeFileSync(ACCOUNTS_FILE, JSON.stringify(this.accounts, null, 2), 'utf-8');
+      this.syncEpoch++; // makes any in-flight async write discard its stale snapshot
+      this.pendingSave = false;
+      if (!fs.existsSync(this.dataDir)) fs.mkdirSync(this.dataDir, { recursive: true });
+      const tmp = this.accountsFile + '.tmp';
+      fs.writeFileSync(tmp, JSON.stringify(this.accounts, null, 2), 'utf-8');
+      fs.renameSync(tmp, this.accountsFile);
     } catch (err) {
-      console.error('[AccountManager] Error saving accounts:', err);
+      console.error('[AccountManager] Error saving accounts (sync):', err);
+    }
+  }
+
+  private async writeLoop(): Promise<void> {
+    try {
+      do {
+        this.pendingSave = false;
+        try {
+          const epoch = this.syncEpoch;
+          const json = JSON.stringify(this.accounts, null, 2);
+          await fs.promises.mkdir(this.dataDir, { recursive: true });
+          const tmp = this.accountsFile + '.tmp';
+          await fs.promises.writeFile(tmp, json, 'utf-8');
+          if (epoch !== this.syncEpoch) { await fs.promises.rm(tmp, { force: true }); continue; }
+          await this.renameWithRetry(tmp, this.accountsFile);
+        } catch (err) {
+          console.error('[AccountManager] Error saving accounts:', err);
+        }
+      } while (this.pendingSave);
+    } finally {
+      this.writing = false;
+    }
+  }
+
+  // Windows can briefly refuse to replace a file that antivirus/indexers have open
+  private async renameWithRetry(from: string, to: string): Promise<void> {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        await fs.promises.rename(from, to);
+        return;
+      } catch (err: any) {
+        if (attempt >= 4 || (err.code !== 'EPERM' && err.code !== 'EBUSY' && err.code !== 'EACCES')) throw err;
+        await new Promise(r => setTimeout(r, 50 * (attempt + 1)));
+      }
     }
   }
 
@@ -310,7 +392,8 @@ export class AccountManager {
     return acc ? (this.normalize(acc).characters[slot] || null) : null;
   }
 
-  saveCharacter(username: string, characterData: any, slot: number = 0): boolean {
+  // flush=false updates memory only; the caller must call saveAccounts() afterwards (used to batch autosaves)
+  saveCharacter(username: string, characterData: any, slot: number = 0, flush: boolean = true): boolean {
     if (!username || !characterData) return false;
     const key = username.trim().toLowerCase();
     if (!this.accounts[key]) return false;
@@ -318,30 +401,9 @@ export class AccountManager {
     if (!acc.characters[slot]) return false;
 
     // Filter serializable fields to keep file clean
-    acc.characters[slot] = {
-      name: characterData.name,
-      characterClass: characterData.characterClass,
-      level: characterData.level || 1,
-      exp: characterData.exp || 0,
-      expNext: characterData.expNext,
-      skillPoints: characterData.skillPoints || 0,
-      skills: characterData.skills || {},
-      // a transformed hero is saved with their own skills, not the card's
-      equippedSkills: (characterData.spTransformed && characterData.baseEquippedSkills) || characterData.equippedSkills || null,
-      jobLevel: characterData.jobLevel || 1,
-      spLoadouts: characterData.spLoadouts || {},
-      jobExp: characterData.jobExp || 0,
-      equipment: characterData.equipment || {},
-      gold: characterData.gold || 0,
-      inventory: characterData.inventory || { healthPotions: 3, manaPotions: 2, maxSlots: 150, items: [] },
-      storage: characterData.storage || { maxSlots: 50, items: [] },
-      zone: characterData.zone || 'town',
-      x: characterData.x,
-      y: characterData.y,
-      savedAt: Date.now()
-    };
+    acc.characters[slot] = toSavedCharacter(characterData);
 
-    this.saveAccounts();
+    if (flush) this.saveAccounts();
     return true;
   }
 }

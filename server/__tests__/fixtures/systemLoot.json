@@ -1,0 +1,1192 @@
+{
+  "gold": {
+    "log": [
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 5,
+          "y": 5.4,
+          "text": "+1,500 Gold",
+          "color": "#facc15"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "zone": "town",
+      "x": 5,
+      "y": 6,
+      "gold": 1600,
+      "inventory": {
+        "maxSlots": 3,
+        "healthPotions": 1,
+        "manaPotions": 1,
+        "items": []
+      }
+    },
+    "threw": null
+  },
+  "gold silent": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "zone": "town",
+      "x": 5,
+      "y": 6,
+      "gold": 120,
+      "inventory": {
+        "maxSlots": 3,
+        "healthPotions": 1,
+        "manaPotions": 1,
+        "items": []
+      }
+    },
+    "threw": null
+  },
+  "health potion": {
+    "log": [
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 5,
+          "y": 5.4,
+          "text": "+3 Health Potion",
+          "color": "#f87171"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "zone": "town",
+      "x": 5,
+      "y": 6,
+      "gold": 100,
+      "inventory": {
+        "maxSlots": 3,
+        "healthPotions": 4,
+        "manaPotions": 1,
+        "items": []
+      }
+    },
+    "threw": null
+  },
+  "health potion default amount": {
+    "log": [
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 5,
+          "y": 5.4,
+          "text": "+1 Health Potion",
+          "color": "#f87171"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "zone": "town",
+      "x": 5,
+      "y": 6,
+      "gold": 100,
+      "inventory": {
+        "maxSlots": 3,
+        "healthPotions": 2,
+        "manaPotions": 1,
+        "items": []
+      }
+    },
+    "threw": null
+  },
+  "mana potion": {
+    "log": [
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 5,
+          "y": 5.4,
+          "text": "+2 Mana Potion",
+          "color": "#60a5fa"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "zone": "town",
+      "x": 5,
+      "y": 6,
+      "gold": 100,
+      "inventory": {
+        "maxSlots": 3,
+        "healthPotions": 1,
+        "manaPotions": 3,
+        "items": []
+      }
+    },
+    "threw": null
+  },
+  "mana potion silent": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "zone": "town",
+      "x": 5,
+      "y": 6,
+      "gold": 100,
+      "inventory": {
+        "maxSlots": 3,
+        "healthPotions": 1,
+        "manaPotions": 2,
+        "items": []
+      }
+    },
+    "threw": null
+  },
+  "new stack common": {
+    "log": [
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 5,
+          "y": 5.4,
+          "text": "+Town Portal Scroll",
+          "color": "#38bdf8"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "zone": "town",
+      "x": 5,
+      "y": 6,
+      "gold": 100,
+      "inventory": {
+        "maxSlots": 3,
+        "healthPotions": 1,
+        "manaPotions": 1,
+        "items": [
+          {
+            "id": "town_scroll",
+            "name": "Town Portal Scroll",
+            "type": "consumable",
+            "icon": "📜",
+            "rarity": "rare",
+            "buyPrice": 50,
+            "sellPrice": 25,
+            "desc": "Instantly teleports you back to town safely.",
+            "count": 2
+          }
+        ]
+      }
+    },
+    "threw": null
+  },
+  "existing stack": {
+    "log": [
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 5,
+          "y": 5.4,
+          "text": "+Town Portal Scroll",
+          "color": "#38bdf8"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "zone": "town",
+      "x": 5,
+      "y": 6,
+      "gold": 100,
+      "inventory": {
+        "maxSlots": 3,
+        "items": [
+          {
+            "id": "town_scroll",
+            "type": "consumable",
+            "count": 6
+          }
+        ]
+      }
+    },
+    "threw": null
+  },
+  "existing stack no count": {
+    "log": [
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 5,
+          "y": 5.4,
+          "text": "+Town Portal Scroll",
+          "color": "#38bdf8"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "zone": "town",
+      "x": 5,
+      "y": 6,
+      "gold": 100,
+      "inventory": {
+        "maxSlots": 3,
+        "items": [
+          {
+            "id": "town_scroll",
+            "type": "consumable",
+            "count": 2
+          }
+        ]
+      }
+    },
+    "threw": null
+  },
+  "bag full new item": {
+    "log": [
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 5,
+          "y": 5.4,
+          "text": "⚠️ Inventory full!",
+          "color": "#ef4444"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "zone": "town",
+      "x": 5,
+      "y": 6,
+      "gold": 100,
+      "inventory": {
+        "maxSlots": 1,
+        "items": [
+          {
+            "id": "x",
+            "type": "material",
+            "count": 1
+          }
+        ]
+      }
+    },
+    "threw": null
+  },
+  "bag full silent": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "zone": "town",
+      "x": 5,
+      "y": 6,
+      "gold": 100,
+      "inventory": {
+        "maxSlots": 1,
+        "items": [
+          {
+            "id": "x"
+          }
+        ]
+      }
+    },
+    "threw": null
+  },
+  "bag full but stacks": {
+    "log": [
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 5,
+          "y": 5.4,
+          "text": "+Town Portal Scroll",
+          "color": "#38bdf8"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "zone": "town",
+      "x": 5,
+      "y": 6,
+      "gold": 100,
+      "inventory": {
+        "maxSlots": 1,
+        "items": [
+          {
+            "id": "town_scroll",
+            "count": 3
+          }
+        ]
+      }
+    },
+    "threw": null
+  },
+  "default bag cap": {
+    "log": [
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 5,
+          "y": 5.4,
+          "text": "+Town Portal Scroll",
+          "color": "#38bdf8"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "zone": "town",
+      "x": 5,
+      "y": 6,
+      "gold": 100,
+      "inventory": {
+        "items": [
+          {
+            "id": "x"
+          },
+          {
+            "id": "town_scroll",
+            "name": "Town Portal Scroll",
+            "type": "consumable",
+            "icon": "📜",
+            "rarity": "rare",
+            "buyPrice": 50,
+            "sellPrice": 25,
+            "desc": "Instantly teleports you back to town safely.",
+            "count": 1
+          }
+        ]
+      }
+    },
+    "threw": null
+  },
+  "equipment ignores amount": {
+    "log": [
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 5,
+          "y": 5.4,
+          "text": "+Knight Broadsword",
+          "color": "#4ade80"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "zone": "town",
+      "x": 5,
+      "y": 6,
+      "gold": 100,
+      "inventory": {
+        "maxSlots": 3,
+        "healthPotions": 1,
+        "manaPotions": 1,
+        "items": [
+          {
+            "id": "iron_blade",
+            "name": "Knight Broadsword",
+            "type": "equipment",
+            "slot": "weapon",
+            "icon": "🗡️",
+            "rarity": "common",
+            "sellPrice": 50,
+            "bonusDmg": 10,
+            "bonusSwipe": 30,
+            "element": "neutral",
+            "desc": "+10 Attack Power, +30% Swipe (Cleave) [⚪ Neutral Element].",
+            "cls": "warrior",
+            "abilityId": "wpn_iron_blade",
+            "count": 1
+          }
+        ]
+      }
+    },
+    "threw": null
+  },
+  "equipment never stacks": {
+    "log": [
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 5,
+          "y": 5.4,
+          "text": "+Knight Broadsword",
+          "color": "#4ade80"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "zone": "town",
+      "x": 5,
+      "y": 6,
+      "gold": 100,
+      "inventory": {
+        "maxSlots": 3,
+        "items": [
+          {
+            "id": "iron_blade",
+            "type": "equipment",
+            "count": 1
+          },
+          {
+            "id": "iron_blade",
+            "name": "Knight Broadsword",
+            "type": "equipment",
+            "slot": "weapon",
+            "icon": "🗡️",
+            "rarity": "common",
+            "sellPrice": 50,
+            "bonusDmg": 10,
+            "bonusSwipe": 30,
+            "element": "neutral",
+            "desc": "+10 Attack Power, +30% Swipe (Cleave) [⚪ Neutral Element].",
+            "cls": "warrior",
+            "abilityId": "wpn_iron_blade",
+            "count": 1
+          }
+        ]
+      }
+    },
+    "threw": null
+  },
+  "custom item rare": {
+    "log": [
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 5,
+          "y": 5.4,
+          "text": "+Odd Thing",
+          "color": "#38bdf8"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "zone": "town",
+      "x": 5,
+      "y": 6,
+      "gold": 100,
+      "inventory": {
+        "maxSlots": 3,
+        "healthPotions": 1,
+        "manaPotions": 1,
+        "items": [
+          {
+            "id": "zz",
+            "name": "Odd Thing",
+            "type": "equipment",
+            "slot": "ring",
+            "rarity": "rare",
+            "count": 1
+          }
+        ]
+      }
+    },
+    "threw": null
+  },
+  "custom item epic": {
+    "log": [
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 5,
+          "y": 5.4,
+          "text": "+Epic Thing",
+          "color": "#a855f7"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "zone": "town",
+      "x": 5,
+      "y": 6,
+      "gold": 100,
+      "inventory": {
+        "maxSlots": 3,
+        "healthPotions": 1,
+        "manaPotions": 1,
+        "items": [
+          {
+            "id": "zz",
+            "name": "Epic Thing",
+            "type": "equipment",
+            "slot": "ring",
+            "rarity": "epic",
+            "count": 1
+          }
+        ]
+      }
+    },
+    "threw": null
+  },
+  "custom item legendary": {
+    "log": [
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 5,
+          "y": 5.4,
+          "text": "+Leg Thing",
+          "color": "#f59e0b"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "zone": "town",
+      "x": 5,
+      "y": 6,
+      "gold": 100,
+      "inventory": {
+        "maxSlots": 3,
+        "healthPotions": 1,
+        "manaPotions": 1,
+        "items": [
+          {
+            "id": "zz",
+            "name": "Leg Thing",
+            "type": "equipment",
+            "slot": "ring",
+            "rarity": "legendary",
+            "count": 1
+          }
+        ]
+      }
+    },
+    "threw": null
+  },
+  "custom stackable never merges": {
+    "log": [
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 5,
+          "y": 5.4,
+          "text": "+Card",
+          "color": "#4ade80"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "zone": "town",
+      "x": 5,
+      "y": 6,
+      "gold": 100,
+      "inventory": {
+        "maxSlots": 3,
+        "items": [
+          {
+            "id": "sp_card_x",
+            "type": "sp_card",
+            "count": 1
+          },
+          {
+            "id": "sp_card_x",
+            "name": "Card",
+            "type": "sp_card",
+            "custom": true,
+            "count": 2
+          }
+        ]
+      }
+    },
+    "threw": null
+  },
+  "unknown item is ignored": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "zone": "town",
+      "x": 5,
+      "y": 6,
+      "gold": 100,
+      "inventory": {
+        "maxSlots": 3,
+        "healthPotions": 1,
+        "manaPotions": 1,
+        "items": []
+      }
+    },
+    "threw": null
+  },
+  "relic or material": {
+    "log": [
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 5,
+          "y": 5.4,
+          "text": "+Ancient Ruby",
+          "color": "#38bdf8"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "zone": "town",
+      "x": 5,
+      "y": 6,
+      "gold": 100,
+      "inventory": {
+        "maxSlots": 3,
+        "healthPotions": 1,
+        "manaPotions": 1,
+        "items": [
+          {
+            "id": "ancient_ruby",
+            "name": "Ancient Ruby",
+            "type": "treasure",
+            "icon": "💎",
+            "rarity": "rare",
+            "sellPrice": 65,
+            "desc": "A sparkling blood-red gem mined from the abyss. High sell value.",
+            "count": 3
+          }
+        ]
+      }
+    },
+    "threw": null
+  },
+  "entryNames": {
+    "gold": "1,234,567 Gold",
+    "hp": "Health Potion x3",
+    "hp1": "Health Potion",
+    "mp": "Mana Potion x2",
+    "stack": "Town Portal Scroll x4",
+    "single": "Town Portal Scroll",
+    "custom": "Odd x2",
+    "unknown": "nope x2",
+    "unknownSingle": "nope"
+  },
+  "entryItems": {
+    "gold": {
+      "id": "gold",
+      "name": "1,234,567 Gold",
+      "count": 1234567,
+      "type": "gold",
+      "rarity": "common"
+    },
+    "hp": {
+      "id": "health_potion",
+      "name": "Health Potion",
+      "count": 3,
+      "type": "consumable",
+      "rarity": "common",
+      "desc": "Restores 60 Health instantly."
+    },
+    "hp1": {
+      "id": "health_potion",
+      "name": "Health Potion",
+      "count": 1,
+      "type": "consumable",
+      "rarity": "common",
+      "desc": "Restores 60 Health instantly."
+    },
+    "mp": {
+      "id": "mana_potion",
+      "name": "Mana Potion",
+      "count": 2,
+      "type": "consumable",
+      "rarity": "common",
+      "desc": "Restores 50 Mana instantly."
+    },
+    "stack": {
+      "id": "town_scroll",
+      "name": "Town Portal Scroll",
+      "type": "consumable",
+      "icon": "📜",
+      "rarity": "rare",
+      "buyPrice": 50,
+      "sellPrice": 25,
+      "desc": "Instantly teleports you back to town safely.",
+      "count": 4
+    },
+    "single": {
+      "id": "town_scroll",
+      "name": "Town Portal Scroll",
+      "type": "consumable",
+      "icon": "📜",
+      "rarity": "rare",
+      "buyPrice": 50,
+      "sellPrice": 25,
+      "desc": "Instantly teleports you back to town safely.",
+      "count": 1
+    },
+    "custom": {
+      "id": "zz",
+      "name": "Odd",
+      "type": "equipment",
+      "rarity": "rare",
+      "count": 2
+    },
+    "unknown": {
+      "id": "nope",
+      "name": "nope x2",
+      "count": 2,
+      "rarity": "common"
+    },
+    "unknownSingle": {
+      "id": "nope",
+      "name": "nope",
+      "count": 1,
+      "rarity": "common"
+    },
+    "none": null
+  },
+  "maps": {
+    "town": "town",
+    "field": "field",
+    "dungeonByCtx": "instance",
+    "dungeonByString": "instance",
+    "dungeonByPlayer": "instance",
+    "dungeonUnknownInst": "legacy dungeon",
+    "dungeonPlayerNoInst": "instance",
+    "unknownZone": "legacy dungeon",
+    "dungeonNoCtx": "legacy dungeon"
+  },
+  "spawn town gold": {
+    "log": [
+      [
+        "zone",
+        "town",
+        "item_dropped",
+        {
+          "id": "item_100",
+          "zone": "town",
+          "type": "gold",
+          "itemId": null,
+          "name": "500 Gold",
+          "x": 1,
+          "y": 2,
+          "amount": 500,
+          "customItemData": null,
+          "createdAt": 1700000000000,
+          "expiresAt": 1700000300000
+        },
+        null
+      ]
+    ],
+    "nextEntityId": 101,
+    "stored": {
+      "town": {
+        "__map": [
+          [
+            "item_100",
+            {
+              "id": "item_100",
+              "zone": "town",
+              "type": "gold",
+              "itemId": null,
+              "name": "500 Gold",
+              "x": 1,
+              "y": 2,
+              "amount": 500,
+              "customItemData": null,
+              "createdAt": 1700000000000,
+              "expiresAt": 1700000300000
+            }
+          ]
+        ]
+      },
+      "legacy": {
+        "__map": []
+      }
+    }
+  },
+  "spawn town item": {
+    "log": [
+      [
+        "zone",
+        "town",
+        "item_dropped",
+        {
+          "id": "item_100",
+          "zone": "town",
+          "type": "item",
+          "itemId": "ancient_ruby",
+          "name": "Ancient Ruby",
+          "x": 3,
+          "y": 4,
+          "amount": 2,
+          "customItemData": null,
+          "createdAt": 1700000000000,
+          "expiresAt": 1700000300000
+        },
+        null
+      ]
+    ],
+    "nextEntityId": 101,
+    "stored": {
+      "town": {
+        "__map": [
+          [
+            "item_100",
+            {
+              "id": "item_100",
+              "zone": "town",
+              "type": "item",
+              "itemId": "ancient_ruby",
+              "name": "Ancient Ruby",
+              "x": 3,
+              "y": 4,
+              "amount": 2,
+              "customItemData": null,
+              "createdAt": 1700000000000,
+              "expiresAt": 1700000300000
+            }
+          ]
+        ]
+      },
+      "legacy": {
+        "__map": []
+      }
+    }
+  },
+  "spawn legacy dungeon item": {
+    "log": [
+      [
+        "zone",
+        "dungeon",
+        "item_dropped",
+        {
+          "id": "item_100",
+          "zone": "dungeon",
+          "type": "item",
+          "itemId": "iron_blade",
+          "name": "Knight Broadsword",
+          "x": 5,
+          "y": 6,
+          "amount": 1,
+          "customItemData": null,
+          "createdAt": 1700000000000,
+          "expiresAt": 1700000300000
+        },
+        null
+      ]
+    ],
+    "nextEntityId": 101,
+    "stored": {
+      "town": {
+        "__map": []
+      },
+      "legacy": {
+        "__map": [
+          [
+            "item_100",
+            {
+              "id": "item_100",
+              "zone": "dungeon",
+              "type": "item",
+              "itemId": "iron_blade",
+              "name": "Knight Broadsword",
+              "x": 5,
+              "y": 6,
+              "amount": 1,
+              "customItemData": null,
+              "createdAt": 1700000000000,
+              "expiresAt": 1700000300000
+            }
+          ]
+        ]
+      }
+    }
+  },
+  "spawn custom": {
+    "log": [
+      [
+        "zone",
+        "town",
+        "item_dropped",
+        {
+          "id": "item_100",
+          "zone": "town",
+          "type": "item",
+          "itemId": "sp_card",
+          "name": "Card",
+          "x": 7,
+          "y": 8,
+          "amount": 1,
+          "customItemData": {
+            "id": "sp_card_x",
+            "name": "Card",
+            "custom": true
+          },
+          "createdAt": 1700000000000,
+          "expiresAt": 1700000300000
+        },
+        null
+      ]
+    ],
+    "nextEntityId": 101,
+    "stored": {
+      "town": {
+        "__map": [
+          [
+            "item_100",
+            {
+              "id": "item_100",
+              "zone": "town",
+              "type": "item",
+              "itemId": "sp_card",
+              "name": "Card",
+              "x": 7,
+              "y": 8,
+              "amount": 1,
+              "customItemData": {
+                "id": "sp_card_x",
+                "name": "Card",
+                "custom": true
+              },
+              "createdAt": 1700000000000,
+              "expiresAt": 1700000300000
+            }
+          ]
+        ]
+      },
+      "legacy": {
+        "__map": []
+      }
+    }
+  },
+  "spawn into instance": {
+    "log": [
+      [
+        "zone",
+        "dungeon",
+        "item_dropped",
+        {
+          "id": "item_100",
+          "zone": "dungeon",
+          "type": "item",
+          "itemId": "iron_blade",
+          "name": "Knight Broadsword",
+          "x": 9,
+          "y": 9,
+          "amount": 1,
+          "customItemData": null,
+          "createdAt": 1700000000000,
+          "expiresAt": 1700000300000
+        },
+        "inst1"
+      ]
+    ],
+    "nextEntityId": 101,
+    "stored": {
+      "town": {
+        "__map": []
+      },
+      "legacy": {
+        "__map": []
+      }
+    }
+  },
+  "spawn instance stored": {
+    "log": [
+      [
+        "zone",
+        "dungeon",
+        "item_dropped",
+        {
+          "id": "item_100",
+          "zone": "dungeon",
+          "type": "item",
+          "itemId": "iron_blade",
+          "name": "Knight Broadsword",
+          "x": 9,
+          "y": 9,
+          "amount": 1,
+          "customItemData": null,
+          "createdAt": 1700000000000,
+          "expiresAt": 1700000300000
+        },
+        "inst1"
+      ]
+    ],
+    "stored": {
+      "__map": [
+        [
+          "item_100",
+          {
+            "id": "item_100",
+            "zone": "dungeon",
+            "type": "item",
+            "itemId": "iron_blade",
+            "name": "Knight Broadsword",
+            "x": 9,
+            "y": 9,
+            "amount": 1,
+            "customItemData": null,
+            "createdAt": 1700000000000,
+            "expiresAt": 1700000300000
+          }
+        ]
+      ]
+    }
+  },
+  "sweep1": {
+    "log": [
+      [
+        "zone",
+        "town",
+        "item_despawned",
+        {
+          "itemId": "t_old",
+          "x": 1,
+          "y": 2
+        },
+        null
+      ],
+      [
+        "zone",
+        "frostfell",
+        "item_despawned",
+        {
+          "itemId": "f_old",
+          "x": 1,
+          "y": 2
+        },
+        null
+      ],
+      [
+        "zone",
+        "frostfell",
+        "item_despawned",
+        {
+          "itemId": "f_exact",
+          "x": 1,
+          "y": 2
+        },
+        null
+      ],
+      [
+        "zone",
+        "dungeon",
+        "item_despawned",
+        {
+          "itemId": "i_old",
+          "x": 1,
+          "y": 2
+        },
+        "inst9"
+      ]
+    ],
+    "left": {
+      "town": [
+        "t_new",
+        "t_never"
+      ],
+      "field": [],
+      "inst": [
+        "i_new"
+      ]
+    }
+  },
+  "sweepTooSoon": {
+    "log": [],
+    "left": {
+      "town": [
+        "t_new",
+        "t_never",
+        "t_late"
+      ],
+      "field": [],
+      "inst": [
+        "i_new"
+      ]
+    }
+  },
+  "sweepLater": {
+    "log": [
+      [
+        "zone",
+        "town",
+        "item_despawned",
+        {
+          "itemId": "t_new",
+          "x": 1,
+          "y": 2
+        },
+        null
+      ],
+      [
+        "zone",
+        "town",
+        "item_despawned",
+        {
+          "itemId": "t_late",
+          "x": 0,
+          "y": 0
+        },
+        null
+      ],
+      [
+        "zone",
+        "dungeon",
+        "item_despawned",
+        {
+          "itemId": "i_new",
+          "x": 1,
+          "y": 2
+        },
+        "inst9"
+      ]
+    ],
+    "left": {
+      "town": [
+        "t_never"
+      ],
+      "field": [],
+      "inst": []
+    }
+  },
+  "sweepNothingLeft": {
+    "log": [],
+    "left": {
+      "town": [
+        "t_never"
+      ],
+      "field": [],
+      "inst": []
+    }
+  }
+}

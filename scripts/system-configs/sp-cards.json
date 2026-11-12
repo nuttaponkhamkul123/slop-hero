@@ -1,0 +1,6 @@
+{
+  "className": "SpCardSystem",
+  "field": "spCards",
+  "description": "SP cards: equipping, transforming, skill loadouts and spellbook, enhancing, exchange, fragments, job EXP, boss card loot and the toggled auras.",
+  "methods": ["equipSpCard", "handleSpTransform", "spLoadout", "customizeSpSkill", "setTransformed", "fragmentCount", "spendFragments", "handleSpCardEnhance", "handleSpCardExchange", "awardJobExp", "rollBossSpLoot", "endSpToggle", "tickSpToggles"]
+}

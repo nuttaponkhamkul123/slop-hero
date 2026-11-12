@@ -1,0 +1,9 @@
+{
+  "className": "MinionSystem",
+  "field": "minions",
+  "description": "Gravelord: corpses left by dead monsters and the undead minions raised from them.",
+  "methods": ["corpseKey", "addCorpse", "takeCorpses", "raiseMinion", "crumbleMinion", "dismissMinions", "tickMinions"],
+  "privateFields": ["private minionSeq = 0; // ids of raised minions"],
+  "textReplacements": [["(++minionSeq)", "(++this.minionSeq)"]],
+  "deleteLines": ["let minionSeq = 0;"]
+}

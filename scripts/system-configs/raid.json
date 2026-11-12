@@ -1,0 +1,7 @@
+{
+  "className": "RaidSystem",
+  "field": "raid",
+  "description": "Field raids (world bosses): spawn schedule, damage standings, leaderboard and the payout by rank.",
+  "methods": ["updateRaidEvents", "spawnRaidBoss", "despawnRaidBoss", "recordRaidDamage", "raidStandings", "broadcastRaidLeaderboard", "raidInfo", "onRaidBossDeath", "payRaidReward"],
+  "extraTop": ["const RAID = require('../raidBosses');"]
+}

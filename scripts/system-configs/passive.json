@@ -1,0 +1,6 @@
+{
+  "className": "PassiveSystem",
+  "field": "passives",
+  "description": "SP card passives and hero state: bloodlust, signature charge, on-hit/kill/hurt procs, leech, rebirth, shield absorption, banners and the HUD buff list.",
+  "methods": ["bloodRage", "spCard", "gainUltCharge", "passiveDamageMult", "passiveOnHit", "passiveOnKill", "passiveOnHurt", "cardPassiveLeech", "ownBanner", "phoenixRebirth", "heroBuffs", "absorbIncomingDamage"]
+}
