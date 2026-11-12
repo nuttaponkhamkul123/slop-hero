@@ -1,0 +1,7887 @@
+{
+  "newRun": {
+    "plain": {
+      "floor": 2,
+      "difficulty": "normal",
+      "cleared": false,
+      "gold": 0,
+      "items": [],
+      "startedAt": 1700000000000,
+      "deaths": 0,
+      "kills": 0,
+      "exp": 0,
+      "revivalsUsed": 0,
+      "maxRevivals": 10
+    },
+    "withStart": {
+      "floor": 4,
+      "difficulty": "hard",
+      "cleared": false,
+      "gold": 0,
+      "items": [],
+      "startedAt": 12345,
+      "deaths": 0,
+      "kills": 0,
+      "exp": 0,
+      "revivalsUsed": 0,
+      "maxRevivals": 10
+    },
+    "cleared": {
+      "floor": 1,
+      "difficulty": "easy",
+      "cleared": true,
+      "gold": 0,
+      "items": [],
+      "startedAt": 1,
+      "deaths": 0,
+      "kills": 0,
+      "exp": 0,
+      "revivalsUsed": 0,
+      "maxRevivals": 10
+    }
+  },
+  "lookup": {
+    "ok": true,
+    "null": null,
+    "notDungeon": null,
+    "noId": null,
+    "unknownId": null
+  },
+  "cleanup occupied": {
+    "log": [],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        }
+      }
+    },
+    "has": true
+  },
+  "cleanup empty": {
+    "log": [],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "town",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        }
+      },
+      "h2": {
+        "id": "h2",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "other",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        }
+      }
+    },
+    "has": false
+  },
+  "cleanup unknown": {
+    "log": [],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        }
+      }
+    },
+    "has": true
+  },
+  "spawn announced": {
+    "log": [],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        }
+      }
+    },
+    "ret": [
+      {
+        "id": "m1a",
+        "x": 1.5,
+        "y": 2,
+        "isBoss": false,
+        "element": "fire"
+      },
+      {
+        "id": "m1b",
+        "x": 1.5,
+        "y": 2,
+        "isBoss": false,
+        "element": "fire"
+      }
+    ],
+    "mobs": {
+      "__map": [
+        [
+          "m1a",
+          {
+            "id": "m1a",
+            "roomIdx": 1,
+            "x": 1.5,
+            "y": 2,
+            "state": "idle",
+            "hp": 10,
+            "element": "fire",
+            "isBoss": false,
+            "spawnUntil": 1700000001000,
+            "dungeonInstanceId": "inst1"
+          }
+        ],
+        [
+          "m1b",
+          {
+            "id": "m1b",
+            "roomIdx": 1,
+            "x": 1.5,
+            "y": 2,
+            "state": "idle",
+            "hp": 10,
+            "element": "fire",
+            "isBoss": false,
+            "isMiniboss": true,
+            "spawnUntil": 1700000001000,
+            "dungeonInstanceId": "inst1"
+          }
+        ]
+      ]
+    },
+    "pending": {
+      "__map": [
+        [
+          0,
+          [
+            {
+              "id": "m0a",
+              "roomIdx": 0,
+              "x": 0.5,
+              "y": 2,
+              "state": "idle",
+              "hp": 10,
+              "element": "fire",
+              "isBoss": false
+            },
+            {
+              "id": "m0b",
+              "roomIdx": 0,
+              "x": 0.5,
+              "y": 2,
+              "state": "idle",
+              "hp": 10,
+              "element": "fire",
+              "isBoss": false
+            }
+          ]
+        ],
+        [
+          3,
+          [
+            {
+              "id": "boss",
+              "roomIdx": 3,
+              "x": 3.5,
+              "y": 2,
+              "state": "idle",
+              "hp": 10,
+              "isBoss": true
+            }
+          ]
+        ],
+        [
+          4,
+          [
+            {
+              "id": "rush4",
+              "roomIdx": 4,
+              "x": 4.5,
+              "y": 2,
+              "state": "idle",
+              "hp": 10,
+              "element": "fire",
+              "isBoss": false
+            }
+          ]
+        ],
+        [
+          5,
+          [
+            {
+              "id": "rush5",
+              "roomIdx": 5,
+              "x": 5.5,
+              "y": 2,
+              "state": "idle",
+              "hp": 10,
+              "element": "fire",
+              "isBoss": false
+            }
+          ]
+        ]
+      ]
+    },
+    "spawned": {
+      "__set": [
+        1
+      ]
+    }
+  },
+  "spawn not announced": {
+    "log": [],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        }
+      }
+    },
+    "ret": [
+      {
+        "id": "m1a",
+        "x": 1.5,
+        "y": 2,
+        "isBoss": false,
+        "element": "fire"
+      },
+      {
+        "id": "m1b",
+        "x": 1.5,
+        "y": 2,
+        "isBoss": false,
+        "element": "fire"
+      }
+    ],
+    "mobs": {
+      "__map": [
+        [
+          "m1a",
+          {
+            "id": "m1a",
+            "roomIdx": 1,
+            "x": 1.5,
+            "y": 2,
+            "state": "idle",
+            "hp": 10,
+            "element": "fire",
+            "isBoss": false,
+            "spawnUntil": 0,
+            "dungeonInstanceId": "inst1"
+          }
+        ],
+        [
+          "m1b",
+          {
+            "id": "m1b",
+            "roomIdx": 1,
+            "x": 1.5,
+            "y": 2,
+            "state": "idle",
+            "hp": 10,
+            "element": "fire",
+            "isBoss": false,
+            "isMiniboss": true,
+            "spawnUntil": 0,
+            "dungeonInstanceId": "inst1"
+          }
+        ]
+      ]
+    },
+    "pending": {
+      "__map": [
+        [
+          0,
+          [
+            {
+              "id": "m0a",
+              "roomIdx": 0,
+              "x": 0.5,
+              "y": 2,
+              "state": "idle",
+              "hp": 10,
+              "element": "fire",
+              "isBoss": false
+            },
+            {
+              "id": "m0b",
+              "roomIdx": 0,
+              "x": 0.5,
+              "y": 2,
+              "state": "idle",
+              "hp": 10,
+              "element": "fire",
+              "isBoss": false
+            }
+          ]
+        ],
+        [
+          3,
+          [
+            {
+              "id": "boss",
+              "roomIdx": 3,
+              "x": 3.5,
+              "y": 2,
+              "state": "idle",
+              "hp": 10,
+              "isBoss": true
+            }
+          ]
+        ],
+        [
+          4,
+          [
+            {
+              "id": "rush4",
+              "roomIdx": 4,
+              "x": 4.5,
+              "y": 2,
+              "state": "idle",
+              "hp": 10,
+              "element": "fire",
+              "isBoss": false
+            }
+          ]
+        ],
+        [
+          5,
+          [
+            {
+              "id": "rush5",
+              "roomIdx": 5,
+              "x": 5.5,
+              "y": 2,
+              "state": "idle",
+              "hp": 10,
+              "element": "fire",
+              "isBoss": false
+            }
+          ]
+        ]
+      ]
+    },
+    "spawned": {
+      "__set": [
+        1
+      ]
+    }
+  },
+  "spawn missing room": {
+    "log": [],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        }
+      }
+    },
+    "ret": [],
+    "mobs": {
+      "__map": []
+    },
+    "pending": {
+      "__map": [
+        [
+          0,
+          [
+            {
+              "id": "m0a",
+              "roomIdx": 0,
+              "x": 0.5,
+              "y": 2,
+              "state": "idle",
+              "hp": 10,
+              "element": "fire",
+              "isBoss": false
+            },
+            {
+              "id": "m0b",
+              "roomIdx": 0,
+              "x": 0.5,
+              "y": 2,
+              "state": "idle",
+              "hp": 10,
+              "element": "fire",
+              "isBoss": false
+            }
+          ]
+        ],
+        [
+          1,
+          [
+            {
+              "id": "m1a",
+              "roomIdx": 1,
+              "x": 1.5,
+              "y": 2,
+              "state": "idle",
+              "hp": 10,
+              "element": "fire",
+              "isBoss": false
+            },
+            {
+              "id": "m1b",
+              "roomIdx": 1,
+              "x": 1.5,
+              "y": 2,
+              "state": "idle",
+              "hp": 10,
+              "element": "fire",
+              "isBoss": false,
+              "isMiniboss": true
+            }
+          ]
+        ],
+        [
+          3,
+          [
+            {
+              "id": "boss",
+              "roomIdx": 3,
+              "x": 3.5,
+              "y": 2,
+              "state": "idle",
+              "hp": 10,
+              "isBoss": true
+            }
+          ]
+        ],
+        [
+          4,
+          [
+            {
+              "id": "rush4",
+              "roomIdx": 4,
+              "x": 4.5,
+              "y": 2,
+              "state": "idle",
+              "hp": 10,
+              "element": "fire",
+              "isBoss": false
+            }
+          ]
+        ],
+        [
+          5,
+          [
+            {
+              "id": "rush5",
+              "roomIdx": 5,
+              "x": 5.5,
+              "y": 2,
+              "state": "idle",
+              "hp": 10,
+              "element": "fire",
+              "isBoss": false
+            }
+          ]
+        ]
+      ]
+    },
+    "spawned": {
+      "__set": [
+        9
+      ]
+    }
+  },
+  "spawn boss room": {
+    "log": [],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        }
+      }
+    },
+    "ret": [
+      {
+        "id": "boss",
+        "x": 3.5,
+        "y": 2,
+        "isBoss": true,
+        "element": "neutral"
+      }
+    ],
+    "mobs": {
+      "__map": [
+        [
+          "boss",
+          {
+            "id": "boss",
+            "roomIdx": 3,
+            "x": 3.5,
+            "y": 2,
+            "state": "idle",
+            "hp": 10,
+            "isBoss": true,
+            "spawnUntil": 1700000001000,
+            "dungeonInstanceId": "inst1"
+          }
+        ]
+      ]
+    },
+    "pending": {
+      "__map": [
+        [
+          0,
+          [
+            {
+              "id": "m0a",
+              "roomIdx": 0,
+              "x": 0.5,
+              "y": 2,
+              "state": "idle",
+              "hp": 10,
+              "element": "fire",
+              "isBoss": false
+            },
+            {
+              "id": "m0b",
+              "roomIdx": 0,
+              "x": 0.5,
+              "y": 2,
+              "state": "idle",
+              "hp": 10,
+              "element": "fire",
+              "isBoss": false
+            }
+          ]
+        ],
+        [
+          1,
+          [
+            {
+              "id": "m1a",
+              "roomIdx": 1,
+              "x": 1.5,
+              "y": 2,
+              "state": "idle",
+              "hp": 10,
+              "element": "fire",
+              "isBoss": false
+            },
+            {
+              "id": "m1b",
+              "roomIdx": 1,
+              "x": 1.5,
+              "y": 2,
+              "state": "idle",
+              "hp": 10,
+              "element": "fire",
+              "isBoss": false,
+              "isMiniboss": true
+            }
+          ]
+        ],
+        [
+          4,
+          [
+            {
+              "id": "rush4",
+              "roomIdx": 4,
+              "x": 4.5,
+              "y": 2,
+              "state": "idle",
+              "hp": 10,
+              "element": "fire",
+              "isBoss": false
+            }
+          ]
+        ],
+        [
+          5,
+          [
+            {
+              "id": "rush5",
+              "roomIdx": 5,
+              "x": 5.5,
+              "y": 2,
+              "state": "idle",
+              "hp": 10,
+              "element": "fire",
+              "isBoss": false
+            }
+          ]
+        ]
+      ]
+    },
+    "spawned": {
+      "__set": [
+        3
+      ]
+    }
+  },
+  "spawn no pending": {
+    "log": [],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        }
+      }
+    },
+    "ret": [],
+    "spawned": {
+      "__set": [
+        1
+      ]
+    }
+  },
+  "roomsPlaythrough": [
+    {
+      "label": "first pass (room 0 spawns, nothing dead)",
+      "log": [],
+      "cleared": {
+        "__set": []
+      },
+      "spawned": {
+        "__set": [
+          0
+        ]
+      },
+      "mobs": [
+        "m0a",
+        "m0b"
+      ],
+      "doorsOpen": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "killPercent": 0,
+      "portal": false,
+      "obstacles": [
+        "door_a",
+        "door_b",
+        "door_c",
+        "door_d",
+        "keep"
+      ],
+      "tile": 1
+    },
+    {
+      "label": "room 0 cleared: door a opens, room 1 spawns",
+      "log": [
+        [
+          "zone",
+          "dungeon",
+          "dungeon_mobs_spawned",
+          {
+            "mobs": [
+              {
+                "id": "m1a",
+                "x": 1.5,
+                "y": 2,
+                "isBoss": false,
+                "element": "fire"
+              },
+              {
+                "id": "m1b",
+                "x": 1.5,
+                "y": 2,
+                "isBoss": false,
+                "element": "fire"
+              }
+            ]
+          },
+          "inst1"
+        ],
+        [
+          "zone",
+          "dungeon",
+          "dungeon_doors_opened",
+          {
+            "doors": [
+              {
+                "id": "door_a",
+                "tiles": [
+                  [
+                    3,
+                    2
+                  ]
+                ],
+                "x": 3,
+                "y": 2
+              }
+            ]
+          },
+          "inst1"
+        ],
+        [
+          "socket",
+          "h1",
+          "dungeon_run_update",
+          {
+            "active": false
+          }
+        ]
+      ],
+      "cleared": {
+        "__set": [
+          0
+        ]
+      },
+      "spawned": {
+        "__set": [
+          0,
+          1
+        ]
+      },
+      "mobs": [
+        "m0a",
+        "m0b",
+        "m1a",
+        "m1b"
+      ],
+      "doorsOpen": [
+        true,
+        false,
+        false,
+        false
+      ],
+      "killPercent": 0,
+      "portal": false,
+      "obstacles": [
+        "door_b",
+        "door_c",
+        "door_d",
+        "keep"
+      ],
+      "tile": 4
+    },
+    {
+      "label": "nothing changed",
+      "log": [],
+      "cleared": {
+        "__set": [
+          0
+        ]
+      },
+      "spawned": {
+        "__set": [
+          0,
+          1
+        ]
+      },
+      "mobs": [
+        "m0a",
+        "m0b",
+        "m1a",
+        "m1b"
+      ],
+      "doorsOpen": [
+        true,
+        false,
+        false,
+        false
+      ],
+      "killPercent": 0,
+      "portal": false,
+      "obstacles": [
+        "door_b",
+        "door_c",
+        "door_d",
+        "keep"
+      ],
+      "tile": 4
+    },
+    {
+      "label": "room 1 cleared: treasure room is clear at once, boss door opens",
+      "log": [
+        [
+          "zone",
+          "dungeon",
+          "dungeon_mobs_spawned",
+          {
+            "mobs": [
+              {
+                "id": "rush4",
+                "x": 4.5,
+                "y": 2,
+                "isBoss": false,
+                "element": "fire"
+              },
+              {
+                "id": "rush5",
+                "x": 5.5,
+                "y": 2,
+                "isBoss": false,
+                "element": "fire"
+              },
+              {
+                "id": "boss",
+                "x": 3.5,
+                "y": 2,
+                "isBoss": true,
+                "element": "neutral"
+              }
+            ]
+          },
+          "inst1"
+        ],
+        [
+          "zone",
+          "dungeon",
+          "floating_text",
+          {
+            "x": 4.5,
+            "y": 2,
+            "text": "ROOM CLEARED",
+            "color": "#4ade80",
+            "size": 22
+          },
+          "inst1"
+        ],
+        [
+          "zone",
+          "dungeon",
+          "floating_text",
+          {
+            "x": 6.5,
+            "y": 2,
+            "text": "ROOM CLEARED",
+            "color": "#4ade80",
+            "size": 22
+          },
+          "inst1"
+        ],
+        [
+          "zone",
+          "dungeon",
+          "dungeon_doors_opened",
+          {
+            "doors": [
+              {
+                "id": "door_b",
+                "tiles": [
+                  [
+                    5,
+                    2
+                  ]
+                ],
+                "x": 5,
+                "y": 2
+              },
+              {
+                "id": "door_d",
+                "tiles": [
+                  [
+                    4,
+                    4
+                  ]
+                ],
+                "x": 4,
+                "y": 4
+              },
+              {
+                "id": "door_c",
+                "tiles": [
+                  [
+                    7,
+                    2
+                  ],
+                  [
+                    7,
+                    3
+                  ]
+                ],
+                "boss": true,
+                "x": 7,
+                "y": 2
+              }
+            ]
+          },
+          "inst1"
+        ],
+        [
+          "zone",
+          "dungeon",
+          "floating_text",
+          {
+            "x": 7,
+            "y": 1.5,
+            "text": "THE BOSS ROOM IS OPEN",
+            "color": "#ef4444",
+            "size": 24
+          },
+          "inst1"
+        ],
+        [
+          "socket",
+          "h1",
+          "dungeon_run_update",
+          {
+            "active": false
+          }
+        ]
+      ],
+      "cleared": {
+        "__set": [
+          0,
+          1,
+          2
+        ]
+      },
+      "spawned": {
+        "__set": [
+          0,
+          1,
+          2,
+          4,
+          5,
+          3
+        ]
+      },
+      "mobs": [
+        "m0a",
+        "m0b",
+        "m1a",
+        "m1b",
+        "rush4",
+        "rush5",
+        "boss"
+      ],
+      "doorsOpen": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "killPercent": 0,
+      "portal": false,
+      "obstacles": [
+        "keep"
+      ],
+      "tile": 4
+    },
+    {
+      "label": "everything dead",
+      "log": [
+        [
+          "zone",
+          "dungeon",
+          "floating_text",
+          {
+            "x": 2.5,
+            "y": 0.8,
+            "text": "🌀 BOSS PORTAL READY (100%)!",
+            "color": "#c084fc",
+            "size": 24
+          },
+          "inst1"
+        ],
+        [
+          "zone",
+          "dungeon",
+          "floating_text",
+          {
+            "x": 8.5,
+            "y": 2,
+            "text": "ROOM CLEARED",
+            "color": "#4ade80",
+            "size": 22
+          },
+          "inst1"
+        ],
+        [
+          "socket",
+          "h1",
+          "dungeon_run_update",
+          {
+            "active": false
+          }
+        ]
+      ],
+      "cleared": {
+        "__set": [
+          0,
+          1,
+          2,
+          4,
+          5,
+          3
+        ]
+      },
+      "spawned": {
+        "__set": [
+          0,
+          1,
+          2,
+          4,
+          5,
+          3
+        ]
+      },
+      "mobs": [
+        "m0a",
+        "m0b",
+        "m1a",
+        "m1b",
+        "rush4",
+        "rush5",
+        "boss"
+      ],
+      "doorsOpen": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "killPercent": 100,
+      "portal": true,
+      "obstacles": [
+        "keep"
+      ],
+      "tile": 4
+    }
+  ],
+  "rooms quiet": {
+    "log": [],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        }
+      }
+    },
+    "cleared": {
+      "__set": [
+        0
+      ]
+    },
+    "portal": false,
+    "killPercent": 0
+  },
+  "rooms no dungeon": {
+    "log": [],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        }
+      }
+    }
+  },
+  "rooms no doors": {
+    "log": [],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        }
+      }
+    }
+  },
+  "rooms rush": {
+    "log": [
+      [
+        "zone",
+        "dungeon",
+        "dungeon_mobs_spawned",
+        {
+          "mobs": [
+            {
+              "id": "m1a",
+              "x": 1.5,
+              "y": 2,
+              "isBoss": false,
+              "element": "fire"
+            },
+            {
+              "id": "m1b",
+              "x": 1.5,
+              "y": 2,
+              "isBoss": false,
+              "element": "fire"
+            }
+          ]
+        },
+        "inst1"
+      ],
+      [
+        "zone",
+        "dungeon",
+        "dungeon_doors_opened",
+        {
+          "doors": [
+            {
+              "id": "door_a",
+              "tiles": [
+                [
+                  3,
+                  2
+                ]
+              ],
+              "x": 3,
+              "y": 2
+            }
+          ]
+        },
+        "inst1"
+      ],
+      [
+        "socket",
+        "h1",
+        "dungeon_run_update",
+        {
+          "active": false
+        }
+      ],
+      [
+        "zone",
+        "dungeon",
+        "dungeon_mobs_spawned",
+        {
+          "mobs": [
+            {
+              "id": "rush4",
+              "x": 4.5,
+              "y": 2,
+              "isBoss": false,
+              "element": "fire"
+            },
+            {
+              "id": "rush5",
+              "x": 5.5,
+              "y": 2,
+              "isBoss": false,
+              "element": "fire"
+            },
+            {
+              "id": "boss",
+              "x": 3.5,
+              "y": 2,
+              "isBoss": true,
+              "element": "neutral"
+            }
+          ]
+        },
+        "inst1"
+      ],
+      [
+        "zone",
+        "dungeon",
+        "floating_text",
+        {
+          "x": 4.5,
+          "y": 2,
+          "text": "ROOM CLEARED",
+          "color": "#4ade80",
+          "size": 22
+        },
+        "inst1"
+      ],
+      [
+        "zone",
+        "dungeon",
+        "floating_text",
+        {
+          "x": 6.5,
+          "y": 2,
+          "text": "ROOM CLEARED",
+          "color": "#4ade80",
+          "size": 22
+        },
+        "inst1"
+      ],
+      [
+        "zone",
+        "dungeon",
+        "dungeon_doors_opened",
+        {
+          "doors": [
+            {
+              "id": "door_b",
+              "tiles": [
+                [
+                  5,
+                  2
+                ]
+              ],
+              "x": 5,
+              "y": 2
+            },
+            {
+              "id": "door_d",
+              "tiles": [
+                [
+                  4,
+                  4
+                ]
+              ],
+              "x": 4,
+              "y": 4
+            },
+            {
+              "id": "door_c",
+              "tiles": [
+                [
+                  7,
+                  2
+                ],
+                [
+                  7,
+                  3
+                ]
+              ],
+              "boss": true,
+              "x": 7,
+              "y": 2
+            }
+          ]
+        },
+        "inst1"
+      ],
+      [
+        "zone",
+        "dungeon",
+        "floating_text",
+        {
+          "x": 7,
+          "y": 1.5,
+          "text": "THE BOSS ROOM IS OPEN",
+          "color": "#ef4444",
+          "size": 24
+        },
+        "inst1"
+      ],
+      [
+        "socket",
+        "h1",
+        "dungeon_run_update",
+        {
+          "active": false
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        }
+      }
+    },
+    "spawned": {
+      "__set": [
+        0,
+        1,
+        2,
+        4,
+        5,
+        3
+      ]
+    },
+    "cleared": {
+      "__set": [
+        0,
+        1,
+        2
+      ]
+    },
+    "mobs": [
+      "m0a",
+      "m0b",
+      "m1a",
+      "m1b",
+      "rush4",
+      "rush5",
+      "boss"
+    ]
+  },
+  "progress trash": {
+    "log": [
+      [
+        "socket",
+        "h1",
+        "dungeon_run_update",
+        {
+          "active": false
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        }
+      },
+      "h2": {
+        "id": "h2",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "other",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        }
+      }
+    },
+    "mob": {
+      "id": "a",
+      "roomIdx": 1,
+      "progressCounted": true
+    },
+    "killed": 1,
+    "pct": 25,
+    "portal": false
+  },
+  "progress miniboss counts more": {
+    "log": [
+      [
+        "zone",
+        "dungeon",
+        "floating_text",
+        {
+          "y": null,
+          "text": "🌀 BOSS PORTAL READY (100%)!",
+          "color": "#c084fc",
+          "size": 24
+        },
+        "inst1"
+      ],
+      [
+        "socket",
+        "h1",
+        "dungeon_run_update",
+        {
+          "active": false
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        }
+      },
+      "h2": {
+        "id": "h2",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "other",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        }
+      }
+    },
+    "mob": {
+      "id": "a",
+      "roomIdx": 1,
+      "isMiniboss": true,
+      "progressCounted": true
+    },
+    "killed": 8,
+    "pct": 100,
+    "portal": true
+  },
+  "progress mechanics miniboss": {
+    "log": [
+      [
+        "zone",
+        "dungeon",
+        "floating_text",
+        {
+          "y": null,
+          "text": "🌀 BOSS PORTAL READY (100%)!",
+          "color": "#c084fc",
+          "size": 24
+        },
+        "inst1"
+      ],
+      [
+        "socket",
+        "h1",
+        "dungeon_run_update",
+        {
+          "active": false
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        }
+      },
+      "h2": {
+        "id": "h2",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "other",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        }
+      }
+    },
+    "mob": {
+      "id": "a",
+      "roomIdx": 1,
+      "mechanics": "miniboss",
+      "progressCounted": true
+    },
+    "killed": 8,
+    "pct": 100,
+    "portal": true
+  },
+  "progress reaches 100 by killer": {
+    "log": [
+      [
+        "zone",
+        "dungeon",
+        "floating_text",
+        {
+          "x": 7,
+          "y": 6.8,
+          "text": "🌀 BOSS PORTAL READY (100%)!",
+          "color": "#c084fc",
+          "size": 24
+        },
+        "inst1"
+      ],
+      [
+        "socket",
+        "h1",
+        "dungeon_run_update",
+        {
+          "active": false
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        }
+      },
+      "h2": {
+        "id": "h2",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "other",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        }
+      }
+    },
+    "mob": {
+      "id": "a",
+      "roomIdx": 1,
+      "progressCounted": true
+    },
+    "killed": 4.5,
+    "pct": 100,
+    "portal": true
+  },
+  "progress reaches 100 no killer": {
+    "log": [
+      [
+        "zone",
+        "dungeon",
+        "floating_text",
+        {
+          "x": 2,
+          "y": 1.8,
+          "text": "🌀 BOSS PORTAL READY (100%)!",
+          "color": "#c084fc",
+          "size": 24
+        },
+        "inst1"
+      ],
+      [
+        "socket",
+        "h1",
+        "dungeon_run_update",
+        {
+          "active": false
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        }
+      },
+      "h2": {
+        "id": "h2",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "other",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        }
+      }
+    },
+    "mob": {
+      "id": "a",
+      "roomIdx": 1,
+      "x": 2,
+      "y": 3,
+      "progressCounted": true
+    },
+    "killed": 10,
+    "pct": 100,
+    "portal": true
+  },
+  "progress portal already ready": {
+    "log": [
+      [
+        "socket",
+        "h1",
+        "dungeon_run_update",
+        {
+          "active": false
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        }
+      },
+      "h2": {
+        "id": "h2",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "other",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        }
+      }
+    },
+    "mob": {
+      "id": "a",
+      "roomIdx": 1,
+      "progressCounted": true
+    },
+    "killed": 10,
+    "pct": 100,
+    "portal": true
+  },
+  "progress required zero": {
+    "log": [
+      [
+        "zone",
+        "dungeon",
+        "floating_text",
+        {
+          "y": null,
+          "text": "🌀 BOSS PORTAL READY (100%)!",
+          "color": "#c084fc",
+          "size": 24
+        },
+        "inst1"
+      ],
+      [
+        "socket",
+        "h1",
+        "dungeon_run_update",
+        {
+          "active": false
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        }
+      },
+      "h2": {
+        "id": "h2",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "other",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        }
+      }
+    },
+    "mob": {
+      "id": "a",
+      "roomIdx": 1,
+      "progressCounted": true
+    },
+    "killed": 1,
+    "pct": 100,
+    "portal": true
+  },
+  "progress no instance id": {
+    "log": [],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        }
+      },
+      "h2": {
+        "id": "h2",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "other",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        }
+      }
+    },
+    "mob": {
+      "id": "a",
+      "roomIdx": 1
+    },
+    "killed": 0,
+    "pct": 0,
+    "portal": false
+  },
+  "progress unknown instance": {
+    "log": [],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        }
+      },
+      "h2": {
+        "id": "h2",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "other",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        }
+      }
+    },
+    "mob": {
+      "id": "a",
+      "roomIdx": 1
+    },
+    "killed": 0,
+    "pct": 0,
+    "portal": false
+  },
+  "progress cleared instance": {
+    "log": [],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        }
+      },
+      "h2": {
+        "id": "h2",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "other",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        }
+      }
+    },
+    "mob": {
+      "id": "a",
+      "roomIdx": 1
+    },
+    "killed": 0,
+    "pct": 0,
+    "portal": false
+  },
+  "progress already counted": {
+    "log": [],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        }
+      },
+      "h2": {
+        "id": "h2",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "other",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        }
+      }
+    },
+    "mob": {
+      "id": "a",
+      "roomIdx": 1,
+      "progressCounted": true
+    },
+    "killed": 0,
+    "pct": 0,
+    "portal": false
+  },
+  "progress boss ignored": {
+    "log": [],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        }
+      },
+      "h2": {
+        "id": "h2",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "other",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        }
+      }
+    },
+    "mob": {
+      "id": "a",
+      "roomIdx": 3,
+      "isBoss": true
+    },
+    "killed": 0,
+    "pct": 0,
+    "portal": false
+  },
+  "progress no room": {
+    "log": [],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        }
+      },
+      "h2": {
+        "id": "h2",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "other",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        }
+      }
+    },
+    "mob": {
+      "id": "a"
+    },
+    "killed": 0,
+    "pct": 0,
+    "portal": false
+  },
+  "progress boss room": {
+    "log": [],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        }
+      },
+      "h2": {
+        "id": "h2",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "other",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        }
+      }
+    },
+    "mob": {
+      "id": "a",
+      "roomIdx": 3
+    },
+    "killed": 0,
+    "pct": 0,
+    "portal": false
+  },
+  "update active": {
+    "log": [
+      [
+        "socket",
+        "h1",
+        "dungeon_run_update",
+        {
+          "active": true,
+          "cleared": false,
+          "gold": 12,
+          "items": [
+            "Town Portal Scroll x2",
+            "5 Gold"
+          ],
+          "lootItems": [
+            {
+              "id": "town_scroll",
+              "name": "Town Portal Scroll",
+              "type": "consumable",
+              "icon": "📜",
+              "rarity": "rare",
+              "buyPrice": 50,
+              "sellPrice": 25,
+              "desc": "Instantly teleports you back to town safely.",
+              "count": 2
+            },
+            {
+              "id": "gold",
+              "name": "5 Gold",
+              "count": 5,
+              "type": "gold",
+              "rarity": "common"
+            }
+          ],
+          "startedAt": 1699999995000,
+          "serverNow": 1700000000000,
+          "clearedMs": null,
+          "floor": 3,
+          "difficulty": "hard",
+          "deaths": 1,
+          "roomsCleared": 0,
+          "mode": "classic",
+          "mods": [],
+          "modReward": 0,
+          "roomsTotal": 6,
+          "clearedRooms": [],
+          "killPercent": 0,
+          "killedMobs": 0,
+          "requiredMobs": 4,
+          "bossPortalReady": false,
+          "bossPortalSpawned": false
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        },
+        "dungeonRun": {
+          "cleared": false,
+          "gold": 12,
+          "items": [
+            {
+              "itemId": "town_scroll",
+              "amount": 2
+            },
+            {
+              "type": "gold",
+              "amount": 5
+            }
+          ],
+          "startedAt": 1699999995000,
+          "floor": 3,
+          "difficulty": "hard",
+          "deaths": 1
+        }
+      }
+    }
+  },
+  "update given socket": {
+    "log": [
+      [
+        "passed",
+        "dungeon_run_update",
+        {
+          "active": true,
+          "cleared": false,
+          "gold": 12,
+          "items": [
+            "Town Portal Scroll x2",
+            "5 Gold"
+          ],
+          "lootItems": [
+            {
+              "id": "town_scroll",
+              "name": "Town Portal Scroll",
+              "type": "consumable",
+              "icon": "📜",
+              "rarity": "rare",
+              "buyPrice": 50,
+              "sellPrice": 25,
+              "desc": "Instantly teleports you back to town safely.",
+              "count": 2
+            },
+            {
+              "id": "gold",
+              "name": "5 Gold",
+              "count": 5,
+              "type": "gold",
+              "rarity": "common"
+            }
+          ],
+          "startedAt": 1699999995000,
+          "serverNow": 1700000000000,
+          "clearedMs": null,
+          "floor": 3,
+          "difficulty": "hard",
+          "deaths": 1,
+          "roomsCleared": 0,
+          "mode": "classic",
+          "mods": [],
+          "modReward": 0,
+          "roomsTotal": 6,
+          "clearedRooms": [],
+          "killPercent": 0,
+          "killedMobs": 0,
+          "requiredMobs": 4,
+          "bossPortalReady": false,
+          "bossPortalSpawned": false
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        },
+        "dungeonRun": {
+          "cleared": false,
+          "gold": 12,
+          "items": [
+            {
+              "itemId": "town_scroll",
+              "amount": 2
+            },
+            {
+              "type": "gold",
+              "amount": 5
+            }
+          ],
+          "startedAt": 1699999995000,
+          "floor": 3,
+          "difficulty": "hard",
+          "deaths": 1
+        }
+      }
+    }
+  },
+  "update cleared run": {
+    "log": [
+      [
+        "socket",
+        "h1",
+        "dungeon_run_update",
+        {
+          "active": true,
+          "cleared": true,
+          "gold": 12,
+          "items": [
+            "Town Portal Scroll x2",
+            "5 Gold"
+          ],
+          "lootItems": [
+            {
+              "id": "town_scroll",
+              "name": "Town Portal Scroll",
+              "type": "consumable",
+              "icon": "📜",
+              "rarity": "rare",
+              "buyPrice": 50,
+              "sellPrice": 25,
+              "desc": "Instantly teleports you back to town safely.",
+              "count": 2
+            },
+            {
+              "id": "gold",
+              "name": "5 Gold",
+              "count": 5,
+              "type": "gold",
+              "rarity": "common"
+            }
+          ],
+          "startedAt": 1699999995000,
+          "serverNow": 1700000000000,
+          "clearedMs": 4000,
+          "floor": 3,
+          "difficulty": "hard",
+          "deaths": 1,
+          "roomsCleared": 0,
+          "mode": "classic",
+          "mods": [],
+          "modReward": 0,
+          "roomsTotal": 6,
+          "clearedRooms": [],
+          "killPercent": 0,
+          "killedMobs": 0,
+          "requiredMobs": 4,
+          "bossPortalReady": false,
+          "bossPortalSpawned": false
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        },
+        "dungeonRun": {
+          "cleared": true,
+          "gold": 12,
+          "items": [
+            {
+              "itemId": "town_scroll",
+              "amount": 2
+            },
+            {
+              "type": "gold",
+              "amount": 5
+            }
+          ],
+          "startedAt": 1699999995000,
+          "floor": 3,
+          "difficulty": "hard",
+          "deaths": 1,
+          "clearedAt": 1699999999000
+        }
+      }
+    }
+  },
+  "update inactive": {
+    "log": [
+      [
+        "socket",
+        "h1",
+        "dungeon_run_update",
+        {
+          "active": false
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        }
+      }
+    }
+  },
+  "update no socket": {
+    "log": [],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        },
+        "dungeonRun": {
+          "cleared": false,
+          "gold": 12,
+          "items": [
+            {
+              "itemId": "town_scroll",
+              "amount": 2
+            },
+            {
+              "type": "gold",
+              "amount": 5
+            }
+          ],
+          "startedAt": 1699999995000,
+          "floor": 3,
+          "difficulty": "hard",
+          "deaths": 1
+        }
+      }
+    }
+  },
+  "update rich instance": {
+    "log": [
+      [
+        "socket",
+        "h1",
+        "dungeon_run_update",
+        {
+          "active": true,
+          "cleared": false,
+          "gold": 12,
+          "items": [
+            "Town Portal Scroll x2",
+            "5 Gold"
+          ],
+          "lootItems": [
+            {
+              "id": "town_scroll",
+              "name": "Town Portal Scroll",
+              "type": "consumable",
+              "icon": "📜",
+              "rarity": "rare",
+              "buyPrice": 50,
+              "sellPrice": 25,
+              "desc": "Instantly teleports you back to town safely.",
+              "count": 2
+            },
+            {
+              "id": "gold",
+              "name": "5 Gold",
+              "count": 5,
+              "type": "gold",
+              "rarity": "common"
+            }
+          ],
+          "startedAt": 1699999995000,
+          "serverNow": 1700000000000,
+          "clearedMs": null,
+          "floor": 3,
+          "difficulty": "hard",
+          "deaths": 1,
+          "roomsCleared": 2,
+          "mode": "rush",
+          "mods": [
+            "swift"
+          ],
+          "modReward": 3,
+          "roomsTotal": 6,
+          "clearedRooms": [
+            0,
+            1
+          ],
+          "killPercent": 55,
+          "killedMobs": 2,
+          "requiredMobs": 4,
+          "bossPortalReady": true,
+          "bossPortalSpawned": true
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        },
+        "dungeonRun": {
+          "cleared": false,
+          "gold": 12,
+          "items": [
+            {
+              "itemId": "town_scroll",
+              "amount": 2
+            },
+            {
+              "type": "gold",
+              "amount": 5
+            }
+          ],
+          "startedAt": 1699999995000,
+          "floor": 3,
+          "difficulty": "hard",
+          "deaths": 1
+        }
+      }
+    }
+  },
+  "update outside the dungeon": {
+    "log": [
+      [
+        "socket",
+        "h1",
+        "dungeon_run_update",
+        {
+          "active": true,
+          "cleared": false,
+          "gold": 12,
+          "items": [
+            "Town Portal Scroll x2",
+            "5 Gold"
+          ],
+          "lootItems": [
+            {
+              "id": "town_scroll",
+              "name": "Town Portal Scroll",
+              "type": "consumable",
+              "icon": "📜",
+              "rarity": "rare",
+              "buyPrice": 50,
+              "sellPrice": 25,
+              "desc": "Instantly teleports you back to town safely.",
+              "count": 2
+            },
+            {
+              "id": "gold",
+              "name": "5 Gold",
+              "count": 5,
+              "type": "gold",
+              "rarity": "common"
+            }
+          ],
+          "startedAt": 1699999995000,
+          "serverNow": 1700000000000,
+          "clearedMs": null,
+          "floor": 3,
+          "difficulty": "hard",
+          "deaths": 1,
+          "roomsCleared": 0,
+          "mode": "classic",
+          "mods": [],
+          "modReward": 0,
+          "roomsTotal": 0,
+          "clearedRooms": [],
+          "killPercent": 0,
+          "killedMobs": 0,
+          "requiredMobs": 0,
+          "bossPortalReady": false,
+          "bossPortalSpawned": false
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "town",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": null,
+        "inventory": {
+          "items": [],
+          "kills": 0
+        },
+        "dungeonRun": {
+          "cleared": false,
+          "gold": 12,
+          "items": [
+            {
+              "itemId": "town_scroll",
+              "amount": 2
+            },
+            {
+              "type": "gold",
+              "amount": 5
+            }
+          ],
+          "startedAt": 1699999995000,
+          "floor": 3,
+          "difficulty": "hard",
+          "deaths": 1
+        }
+      }
+    }
+  },
+  "complete fast clear (S)": {
+    "log": [
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "type": "gold",
+          "amount": 500
+        },
+        false
+      ],
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "itemId": "town_scroll",
+          "amount": 3
+        },
+        false
+      ],
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "itemId": "health_potion",
+          "amount": 2
+        },
+        false
+      ],
+      [
+        "call",
+        "awardExp",
+        "h1",
+        1312
+      ],
+      [
+        "socket",
+        "h1",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "dungeon",
+          "x": 5,
+          "y": 5,
+          "level": 40,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 820,
+          "dungeonInstanceId": "inst1",
+          "inventory": {
+            "items": [],
+            "kills": 0
+          },
+          "dungeonRun": {
+            "cleared": true,
+            "gold": 0,
+            "items": [],
+            "startedAt": 1699999940000,
+            "floor": 3,
+            "difficulty": "hard",
+            "deaths": 0,
+            "kills": 17,
+            "exp": 900,
+            "clearedAt": 1700000000000
+          }
+        }
+      ],
+      [
+        "socket",
+        "h1",
+        "dungeon_result",
+        {
+          "success": true,
+          "kept": [
+            "500 Gold",
+            "Town Portal Scroll x3",
+            "Health Potion x2"
+          ],
+          "keptItems": [
+            {
+              "id": "gold",
+              "name": "500 Gold",
+              "count": 500,
+              "type": "gold",
+              "rarity": "common"
+            },
+            {
+              "id": "town_scroll",
+              "name": "Town Portal Scroll",
+              "type": "consumable",
+              "icon": "📜",
+              "rarity": "rare",
+              "buyPrice": 50,
+              "sellPrice": 25,
+              "desc": "Instantly teleports you back to town safely.",
+              "count": 3
+            },
+            {
+              "id": "health_potion",
+              "name": "Health Potion",
+              "count": 2,
+              "type": "consumable",
+              "rarity": "common",
+              "desc": "Restores 60 Health instantly."
+            }
+          ],
+          "lost": [],
+          "lostItems": [],
+          "rank": "S",
+          "timeMs": 60000,
+          "deaths": 0,
+          "kills": 17,
+          "floor": 3,
+          "difficulty": "hard",
+          "floorName": "Obsidian Caverns",
+          "bossName": "Magma Behemoth",
+          "roomsTotal": 6,
+          "roomsCleared": 6,
+          "rewards": {
+            "chestGold": 500,
+            "bonusGold": 720,
+            "runExp": 900,
+            "bonusExp": 1312
+          }
+        }
+      ],
+      [
+        "socket",
+        "h1",
+        "dungeon_run_update",
+        {
+          "active": true,
+          "cleared": true,
+          "gold": 0,
+          "items": [],
+          "lootItems": [],
+          "startedAt": 1699999940000,
+          "serverNow": 1700000000000,
+          "clearedMs": 60000,
+          "floor": 3,
+          "difficulty": "hard",
+          "deaths": 0,
+          "roomsCleared": 0,
+          "mode": "classic",
+          "mods": [],
+          "modReward": 0,
+          "roomsTotal": 6,
+          "clearedRooms": [],
+          "killPercent": 0,
+          "killedMobs": 0,
+          "requiredMobs": 4,
+          "bossPortalReady": false,
+          "bossPortalSpawned": false
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 820,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        },
+        "dungeonRun": {
+          "cleared": true,
+          "gold": 0,
+          "items": [],
+          "startedAt": 1699999940000,
+          "floor": 3,
+          "difficulty": "hard",
+          "deaths": 0,
+          "kills": 17,
+          "exp": 900,
+          "clearedAt": 1700000000000
+        }
+      }
+    },
+    "runAfter": {
+      "cleared": true,
+      "gold": 0,
+      "items": [],
+      "startedAt": 1699999940000,
+      "floor": 3,
+      "difficulty": "hard",
+      "deaths": 0,
+      "kills": 17,
+      "exp": 900,
+      "clearedAt": 1700000000000
+    }
+  },
+  "complete with deaths (A/B)": {
+    "log": [
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "type": "gold",
+          "amount": 500
+        },
+        false
+      ],
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "itemId": "town_scroll",
+          "amount": 3
+        },
+        false
+      ],
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "itemId": "health_potion",
+          "amount": 2
+        },
+        false
+      ],
+      [
+        "call",
+        "awardExp",
+        "h1",
+        984
+      ],
+      [
+        "socket",
+        "h1",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "dungeon",
+          "x": 5,
+          "y": 5,
+          "level": 40,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 640,
+          "dungeonInstanceId": "inst1",
+          "inventory": {
+            "items": [],
+            "kills": 0
+          },
+          "dungeonRun": {
+            "cleared": true,
+            "gold": 0,
+            "items": [],
+            "startedAt": 1699999940000,
+            "floor": 3,
+            "difficulty": "hard",
+            "deaths": 2,
+            "kills": 17,
+            "exp": 900,
+            "clearedAt": 1700000000000
+          }
+        }
+      ],
+      [
+        "socket",
+        "h1",
+        "dungeon_result",
+        {
+          "success": true,
+          "kept": [
+            "500 Gold",
+            "Town Portal Scroll x3",
+            "Health Potion x2"
+          ],
+          "keptItems": [
+            {
+              "id": "gold",
+              "name": "500 Gold",
+              "count": 500,
+              "type": "gold",
+              "rarity": "common"
+            },
+            {
+              "id": "town_scroll",
+              "name": "Town Portal Scroll",
+              "type": "consumable",
+              "icon": "📜",
+              "rarity": "rare",
+              "buyPrice": 50,
+              "sellPrice": 25,
+              "desc": "Instantly teleports you back to town safely.",
+              "count": 3
+            },
+            {
+              "id": "health_potion",
+              "name": "Health Potion",
+              "count": 2,
+              "type": "consumable",
+              "rarity": "common",
+              "desc": "Restores 60 Health instantly."
+            }
+          ],
+          "lost": [],
+          "lostItems": [],
+          "rank": "A",
+          "timeMs": 60000,
+          "deaths": 2,
+          "kills": 17,
+          "floor": 3,
+          "difficulty": "hard",
+          "floorName": "Obsidian Caverns",
+          "bossName": "Magma Behemoth",
+          "roomsTotal": 6,
+          "roomsCleared": 6,
+          "rewards": {
+            "chestGold": 500,
+            "bonusGold": 540,
+            "runExp": 900,
+            "bonusExp": 984
+          }
+        }
+      ],
+      [
+        "socket",
+        "h1",
+        "dungeon_run_update",
+        {
+          "active": true,
+          "cleared": true,
+          "gold": 0,
+          "items": [],
+          "lootItems": [],
+          "startedAt": 1699999940000,
+          "serverNow": 1700000000000,
+          "clearedMs": 60000,
+          "floor": 3,
+          "difficulty": "hard",
+          "deaths": 2,
+          "roomsCleared": 0,
+          "mode": "classic",
+          "mods": [],
+          "modReward": 0,
+          "roomsTotal": 6,
+          "clearedRooms": [],
+          "killPercent": 0,
+          "killedMobs": 0,
+          "requiredMobs": 4,
+          "bossPortalReady": false,
+          "bossPortalSpawned": false
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 640,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        },
+        "dungeonRun": {
+          "cleared": true,
+          "gold": 0,
+          "items": [],
+          "startedAt": 1699999940000,
+          "floor": 3,
+          "difficulty": "hard",
+          "deaths": 2,
+          "kills": 17,
+          "exp": 900,
+          "clearedAt": 1700000000000
+        }
+      }
+    },
+    "runAfter": {
+      "cleared": true,
+      "gold": 0,
+      "items": [],
+      "startedAt": 1699999940000,
+      "floor": 3,
+      "difficulty": "hard",
+      "deaths": 2,
+      "kills": 17,
+      "exp": 900,
+      "clearedAt": 1700000000000
+    }
+  },
+  "complete many deaths (C)": {
+    "log": [
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "type": "gold",
+          "amount": 500
+        },
+        false
+      ],
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "itemId": "town_scroll",
+          "amount": 3
+        },
+        false
+      ],
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "itemId": "health_potion",
+          "amount": 2
+        },
+        false
+      ],
+      [
+        "call",
+        "awardExp",
+        "h1",
+        656
+      ],
+      [
+        "socket",
+        "h1",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "dungeon",
+          "x": 5,
+          "y": 5,
+          "level": 40,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 460,
+          "dungeonInstanceId": "inst1",
+          "inventory": {
+            "items": [],
+            "kills": 0
+          },
+          "dungeonRun": {
+            "cleared": true,
+            "gold": 0,
+            "items": [],
+            "startedAt": 1699999940000,
+            "floor": 3,
+            "difficulty": "hard",
+            "deaths": 5,
+            "kills": 17,
+            "exp": 900,
+            "clearedAt": 1700000000000
+          }
+        }
+      ],
+      [
+        "socket",
+        "h1",
+        "dungeon_result",
+        {
+          "success": true,
+          "kept": [
+            "500 Gold",
+            "Town Portal Scroll x3",
+            "Health Potion x2"
+          ],
+          "keptItems": [
+            {
+              "id": "gold",
+              "name": "500 Gold",
+              "count": 500,
+              "type": "gold",
+              "rarity": "common"
+            },
+            {
+              "id": "town_scroll",
+              "name": "Town Portal Scroll",
+              "type": "consumable",
+              "icon": "📜",
+              "rarity": "rare",
+              "buyPrice": 50,
+              "sellPrice": 25,
+              "desc": "Instantly teleports you back to town safely.",
+              "count": 3
+            },
+            {
+              "id": "health_potion",
+              "name": "Health Potion",
+              "count": 2,
+              "type": "consumable",
+              "rarity": "common",
+              "desc": "Restores 60 Health instantly."
+            }
+          ],
+          "lost": [],
+          "lostItems": [],
+          "rank": "C",
+          "timeMs": 60000,
+          "deaths": 5,
+          "kills": 17,
+          "floor": 3,
+          "difficulty": "hard",
+          "floorName": "Obsidian Caverns",
+          "bossName": "Magma Behemoth",
+          "roomsTotal": 6,
+          "roomsCleared": 6,
+          "rewards": {
+            "chestGold": 500,
+            "bonusGold": 360,
+            "runExp": 900,
+            "bonusExp": 656
+          }
+        }
+      ],
+      [
+        "socket",
+        "h1",
+        "dungeon_run_update",
+        {
+          "active": true,
+          "cleared": true,
+          "gold": 0,
+          "items": [],
+          "lootItems": [],
+          "startedAt": 1699999940000,
+          "serverNow": 1700000000000,
+          "clearedMs": 60000,
+          "floor": 3,
+          "difficulty": "hard",
+          "deaths": 5,
+          "roomsCleared": 0,
+          "mode": "classic",
+          "mods": [],
+          "modReward": 0,
+          "roomsTotal": 6,
+          "clearedRooms": [],
+          "killPercent": 0,
+          "killedMobs": 0,
+          "requiredMobs": 4,
+          "bossPortalReady": false,
+          "bossPortalSpawned": false
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 460,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        },
+        "dungeonRun": {
+          "cleared": true,
+          "gold": 0,
+          "items": [],
+          "startedAt": 1699999940000,
+          "floor": 3,
+          "difficulty": "hard",
+          "deaths": 5,
+          "kills": 17,
+          "exp": 900,
+          "clearedAt": 1700000000000
+        }
+      }
+    },
+    "runAfter": {
+      "cleared": true,
+      "gold": 0,
+      "items": [],
+      "startedAt": 1699999940000,
+      "floor": 3,
+      "difficulty": "hard",
+      "deaths": 5,
+      "kills": 17,
+      "exp": 900,
+      "clearedAt": 1700000000000
+    }
+  },
+  "complete slow clear": {
+    "log": [
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "type": "gold",
+          "amount": 500
+        },
+        false
+      ],
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "itemId": "town_scroll",
+          "amount": 3
+        },
+        false
+      ],
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "itemId": "health_potion",
+          "amount": 2
+        },
+        false
+      ],
+      [
+        "call",
+        "awardExp",
+        "h1",
+        787
+      ],
+      [
+        "socket",
+        "h1",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "dungeon",
+          "x": 5,
+          "y": 5,
+          "level": 40,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 532,
+          "dungeonInstanceId": "inst1",
+          "inventory": {
+            "items": [],
+            "kills": 0
+          },
+          "dungeonRun": {
+            "cleared": true,
+            "gold": 0,
+            "items": [],
+            "startedAt": 1699996400000,
+            "floor": 3,
+            "difficulty": "hard",
+            "deaths": 0,
+            "kills": 17,
+            "exp": 900,
+            "clearedAt": 1700000000000
+          }
+        }
+      ],
+      [
+        "socket",
+        "h1",
+        "dungeon_result",
+        {
+          "success": true,
+          "kept": [
+            "500 Gold",
+            "Town Portal Scroll x3",
+            "Health Potion x2"
+          ],
+          "keptItems": [
+            {
+              "id": "gold",
+              "name": "500 Gold",
+              "count": 500,
+              "type": "gold",
+              "rarity": "common"
+            },
+            {
+              "id": "town_scroll",
+              "name": "Town Portal Scroll",
+              "type": "consumable",
+              "icon": "📜",
+              "rarity": "rare",
+              "buyPrice": 50,
+              "sellPrice": 25,
+              "desc": "Instantly teleports you back to town safely.",
+              "count": 3
+            },
+            {
+              "id": "health_potion",
+              "name": "Health Potion",
+              "count": 2,
+              "type": "consumable",
+              "rarity": "common",
+              "desc": "Restores 60 Health instantly."
+            }
+          ],
+          "lost": [],
+          "lostItems": [],
+          "rank": "B",
+          "timeMs": 3600000,
+          "deaths": 0,
+          "kills": 17,
+          "floor": 3,
+          "difficulty": "hard",
+          "floorName": "Obsidian Caverns",
+          "bossName": "Magma Behemoth",
+          "roomsTotal": 6,
+          "roomsCleared": 6,
+          "rewards": {
+            "chestGold": 500,
+            "bonusGold": 432,
+            "runExp": 900,
+            "bonusExp": 787
+          }
+        }
+      ],
+      [
+        "socket",
+        "h1",
+        "dungeon_run_update",
+        {
+          "active": true,
+          "cleared": true,
+          "gold": 0,
+          "items": [],
+          "lootItems": [],
+          "startedAt": 1699996400000,
+          "serverNow": 1700000000000,
+          "clearedMs": 3600000,
+          "floor": 3,
+          "difficulty": "hard",
+          "deaths": 0,
+          "roomsCleared": 0,
+          "mode": "classic",
+          "mods": [],
+          "modReward": 0,
+          "roomsTotal": 6,
+          "clearedRooms": [],
+          "killPercent": 0,
+          "killedMobs": 0,
+          "requiredMobs": 4,
+          "bossPortalReady": false,
+          "bossPortalSpawned": false
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 532,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        },
+        "dungeonRun": {
+          "cleared": true,
+          "gold": 0,
+          "items": [],
+          "startedAt": 1699996400000,
+          "floor": 3,
+          "difficulty": "hard",
+          "deaths": 0,
+          "kills": 17,
+          "exp": 900,
+          "clearedAt": 1700000000000
+        }
+      }
+    },
+    "runAfter": {
+      "cleared": true,
+      "gold": 0,
+      "items": [],
+      "startedAt": 1699996400000,
+      "floor": 3,
+      "difficulty": "hard",
+      "deaths": 0,
+      "kills": 17,
+      "exp": 900,
+      "clearedAt": 1700000000000
+    }
+  },
+  "complete slow with a death": {
+    "log": [
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "type": "gold",
+          "amount": 500
+        },
+        false
+      ],
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "itemId": "town_scroll",
+          "amount": 3
+        },
+        false
+      ],
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "itemId": "health_potion",
+          "amount": 2
+        },
+        false
+      ],
+      [
+        "call",
+        "awardExp",
+        "h1",
+        656
+      ],
+      [
+        "socket",
+        "h1",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "dungeon",
+          "x": 5,
+          "y": 5,
+          "level": 40,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 460,
+          "dungeonInstanceId": "inst1",
+          "inventory": {
+            "items": [],
+            "kills": 0
+          },
+          "dungeonRun": {
+            "cleared": true,
+            "gold": 0,
+            "items": [],
+            "startedAt": 1699999300000,
+            "floor": 3,
+            "difficulty": "hard",
+            "deaths": 1,
+            "kills": 17,
+            "exp": 900,
+            "clearedAt": 1700000000000
+          }
+        }
+      ],
+      [
+        "socket",
+        "h1",
+        "dungeon_result",
+        {
+          "success": true,
+          "kept": [
+            "500 Gold",
+            "Town Portal Scroll x3",
+            "Health Potion x2"
+          ],
+          "keptItems": [
+            {
+              "id": "gold",
+              "name": "500 Gold",
+              "count": 500,
+              "type": "gold",
+              "rarity": "common"
+            },
+            {
+              "id": "town_scroll",
+              "name": "Town Portal Scroll",
+              "type": "consumable",
+              "icon": "📜",
+              "rarity": "rare",
+              "buyPrice": 50,
+              "sellPrice": 25,
+              "desc": "Instantly teleports you back to town safely.",
+              "count": 3
+            },
+            {
+              "id": "health_potion",
+              "name": "Health Potion",
+              "count": 2,
+              "type": "consumable",
+              "rarity": "common",
+              "desc": "Restores 60 Health instantly."
+            }
+          ],
+          "lost": [],
+          "lostItems": [],
+          "rank": "C",
+          "timeMs": 700000,
+          "deaths": 1,
+          "kills": 17,
+          "floor": 3,
+          "difficulty": "hard",
+          "floorName": "Obsidian Caverns",
+          "bossName": "Magma Behemoth",
+          "roomsTotal": 6,
+          "roomsCleared": 6,
+          "rewards": {
+            "chestGold": 500,
+            "bonusGold": 360,
+            "runExp": 900,
+            "bonusExp": 656
+          }
+        }
+      ],
+      [
+        "socket",
+        "h1",
+        "dungeon_run_update",
+        {
+          "active": true,
+          "cleared": true,
+          "gold": 0,
+          "items": [],
+          "lootItems": [],
+          "startedAt": 1699999300000,
+          "serverNow": 1700000000000,
+          "clearedMs": 700000,
+          "floor": 3,
+          "difficulty": "hard",
+          "deaths": 1,
+          "roomsCleared": 0,
+          "mode": "classic",
+          "mods": [],
+          "modReward": 0,
+          "roomsTotal": 6,
+          "clearedRooms": [],
+          "killPercent": 0,
+          "killedMobs": 0,
+          "requiredMobs": 4,
+          "bossPortalReady": false,
+          "bossPortalSpawned": false
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 460,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        },
+        "dungeonRun": {
+          "cleared": true,
+          "gold": 0,
+          "items": [],
+          "startedAt": 1699999300000,
+          "floor": 3,
+          "difficulty": "hard",
+          "deaths": 1,
+          "kills": 17,
+          "exp": 900,
+          "clearedAt": 1700000000000
+        }
+      }
+    },
+    "runAfter": {
+      "cleared": true,
+      "gold": 0,
+      "items": [],
+      "startedAt": 1699999300000,
+      "floor": 3,
+      "difficulty": "hard",
+      "deaths": 1,
+      "kills": 17,
+      "exp": 900,
+      "clearedAt": 1700000000000
+    }
+  },
+  "complete empty bag": {
+    "log": [
+      [
+        "call",
+        "awardExp",
+        "h1",
+        1312
+      ],
+      [
+        "socket",
+        "h1",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "dungeon",
+          "x": 5,
+          "y": 5,
+          "level": 40,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 820,
+          "dungeonInstanceId": "inst1",
+          "inventory": {
+            "items": [],
+            "kills": 0
+          },
+          "dungeonRun": {
+            "cleared": true,
+            "gold": 0,
+            "items": [],
+            "startedAt": 1699999940000,
+            "floor": 3,
+            "difficulty": "hard",
+            "deaths": 0,
+            "kills": 17,
+            "exp": 900,
+            "clearedAt": 1700000000000
+          }
+        }
+      ],
+      [
+        "socket",
+        "h1",
+        "dungeon_result",
+        {
+          "success": true,
+          "kept": [],
+          "keptItems": [],
+          "lost": [],
+          "lostItems": [],
+          "rank": "S",
+          "timeMs": 60000,
+          "deaths": 0,
+          "kills": 17,
+          "floor": 3,
+          "difficulty": "hard",
+          "floorName": "Obsidian Caverns",
+          "bossName": "Magma Behemoth",
+          "roomsTotal": 6,
+          "roomsCleared": 6,
+          "rewards": {
+            "chestGold": 0,
+            "bonusGold": 720,
+            "runExp": 900,
+            "bonusExp": 1312
+          }
+        }
+      ],
+      [
+        "socket",
+        "h1",
+        "dungeon_run_update",
+        {
+          "active": true,
+          "cleared": true,
+          "gold": 0,
+          "items": [],
+          "lootItems": [],
+          "startedAt": 1699999940000,
+          "serverNow": 1700000000000,
+          "clearedMs": 60000,
+          "floor": 3,
+          "difficulty": "hard",
+          "deaths": 0,
+          "roomsCleared": 0,
+          "mode": "classic",
+          "mods": [],
+          "modReward": 0,
+          "roomsTotal": 6,
+          "clearedRooms": [],
+          "killPercent": 0,
+          "killedMobs": 0,
+          "requiredMobs": 4,
+          "bossPortalReady": false,
+          "bossPortalSpawned": false
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 820,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        },
+        "dungeonRun": {
+          "cleared": true,
+          "gold": 0,
+          "items": [],
+          "startedAt": 1699999940000,
+          "floor": 3,
+          "difficulty": "hard",
+          "deaths": 0,
+          "kills": 17,
+          "exp": 900,
+          "clearedAt": 1700000000000
+        }
+      }
+    },
+    "runAfter": {
+      "cleared": true,
+      "gold": 0,
+      "items": [],
+      "startedAt": 1699999940000,
+      "floor": 3,
+      "difficulty": "hard",
+      "deaths": 0,
+      "kills": 17,
+      "exp": 900,
+      "clearedAt": 1700000000000
+    }
+  },
+  "complete no start time": {
+    "log": [
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "type": "gold",
+          "amount": 500
+        },
+        false
+      ],
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "itemId": "town_scroll",
+          "amount": 3
+        },
+        false
+      ],
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "itemId": "health_potion",
+          "amount": 2
+        },
+        false
+      ],
+      [
+        "call",
+        "awardExp",
+        "h1",
+        1312
+      ],
+      [
+        "socket",
+        "h1",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "dungeon",
+          "x": 5,
+          "y": 5,
+          "level": 40,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 820,
+          "dungeonInstanceId": "inst1",
+          "inventory": {
+            "items": [],
+            "kills": 0
+          },
+          "dungeonRun": {
+            "cleared": true,
+            "gold": 0,
+            "items": [],
+            "floor": 3,
+            "difficulty": "hard",
+            "deaths": 0,
+            "kills": 17,
+            "exp": 900,
+            "clearedAt": 1700000000000
+          }
+        }
+      ],
+      [
+        "socket",
+        "h1",
+        "dungeon_result",
+        {
+          "success": true,
+          "kept": [
+            "500 Gold",
+            "Town Portal Scroll x3",
+            "Health Potion x2"
+          ],
+          "keptItems": [
+            {
+              "id": "gold",
+              "name": "500 Gold",
+              "count": 500,
+              "type": "gold",
+              "rarity": "common"
+            },
+            {
+              "id": "town_scroll",
+              "name": "Town Portal Scroll",
+              "type": "consumable",
+              "icon": "📜",
+              "rarity": "rare",
+              "buyPrice": 50,
+              "sellPrice": 25,
+              "desc": "Instantly teleports you back to town safely.",
+              "count": 3
+            },
+            {
+              "id": "health_potion",
+              "name": "Health Potion",
+              "count": 2,
+              "type": "consumable",
+              "rarity": "common",
+              "desc": "Restores 60 Health instantly."
+            }
+          ],
+          "lost": [],
+          "lostItems": [],
+          "rank": "S",
+          "timeMs": 0,
+          "deaths": 0,
+          "kills": 17,
+          "floor": 3,
+          "difficulty": "hard",
+          "floorName": "Obsidian Caverns",
+          "bossName": "Magma Behemoth",
+          "roomsTotal": 6,
+          "roomsCleared": 6,
+          "rewards": {
+            "chestGold": 500,
+            "bonusGold": 720,
+            "runExp": 900,
+            "bonusExp": 1312
+          }
+        }
+      ],
+      [
+        "socket",
+        "h1",
+        "dungeon_run_update",
+        {
+          "active": true,
+          "cleared": true,
+          "gold": 0,
+          "items": [],
+          "lootItems": [],
+          "serverNow": 1700000000000,
+          "clearedMs": null,
+          "floor": 3,
+          "difficulty": "hard",
+          "deaths": 0,
+          "roomsCleared": 0,
+          "mode": "classic",
+          "mods": [],
+          "modReward": 0,
+          "roomsTotal": 6,
+          "clearedRooms": [],
+          "killPercent": 0,
+          "killedMobs": 0,
+          "requiredMobs": 4,
+          "bossPortalReady": false,
+          "bossPortalSpawned": false
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 820,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        },
+        "dungeonRun": {
+          "cleared": true,
+          "gold": 0,
+          "items": [],
+          "floor": 3,
+          "difficulty": "hard",
+          "deaths": 0,
+          "kills": 17,
+          "exp": 900,
+          "clearedAt": 1700000000000
+        }
+      }
+    },
+    "runAfter": {
+      "cleared": true,
+      "gold": 0,
+      "items": [],
+      "floor": 3,
+      "difficulty": "hard",
+      "deaths": 0,
+      "kills": 17,
+      "exp": 900,
+      "clearedAt": 1700000000000
+    }
+  },
+  "complete no exp or kills": {
+    "log": [
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "type": "gold",
+          "amount": 5
+        },
+        false
+      ],
+      [
+        "call",
+        "awardExp",
+        "h1",
+        1312
+      ],
+      [
+        "socket",
+        "h1",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "dungeon",
+          "x": 5,
+          "y": 5,
+          "level": 40,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 340,
+          "dungeonInstanceId": "inst1",
+          "inventory": {
+            "items": [],
+            "kills": 0
+          },
+          "dungeonRun": {
+            "cleared": true,
+            "gold": 0,
+            "items": [],
+            "floor": 1,
+            "difficulty": "normal",
+            "clearedAt": 1700000000000
+          }
+        }
+      ],
+      [
+        "socket",
+        "h1",
+        "dungeon_result",
+        {
+          "success": true,
+          "kept": [
+            "5 Gold"
+          ],
+          "keptItems": [
+            {
+              "id": "gold",
+              "name": "5 Gold",
+              "count": 5,
+              "type": "gold",
+              "rarity": "common"
+            }
+          ],
+          "lost": [],
+          "lostItems": [],
+          "rank": "S",
+          "timeMs": 0,
+          "deaths": 0,
+          "kills": 0,
+          "floor": 1,
+          "difficulty": "normal",
+          "floorName": "Crypt of Whispers",
+          "bossName": "Grave Overlord Malok",
+          "roomsTotal": 6,
+          "roomsCleared": 6,
+          "rewards": {
+            "chestGold": 5,
+            "bonusGold": 240,
+            "runExp": 0,
+            "bonusExp": 1312
+          }
+        }
+      ],
+      [
+        "socket",
+        "h1",
+        "dungeon_run_update",
+        {
+          "active": true,
+          "cleared": true,
+          "gold": 0,
+          "items": [],
+          "lootItems": [],
+          "serverNow": 1700000000000,
+          "clearedMs": null,
+          "floor": 1,
+          "difficulty": "normal",
+          "deaths": 0,
+          "roomsCleared": 0,
+          "mode": "classic",
+          "mods": [],
+          "modReward": 0,
+          "roomsTotal": 6,
+          "clearedRooms": [],
+          "killPercent": 0,
+          "killedMobs": 0,
+          "requiredMobs": 4,
+          "bossPortalReady": false,
+          "bossPortalSpawned": false
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 340,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        },
+        "dungeonRun": {
+          "cleared": true,
+          "gold": 0,
+          "items": [],
+          "floor": 1,
+          "difficulty": "normal",
+          "clearedAt": 1700000000000
+        }
+      }
+    },
+    "runAfter": {
+      "cleared": true,
+      "gold": 0,
+      "items": [],
+      "floor": 1,
+      "difficulty": "normal",
+      "clearedAt": 1700000000000
+    }
+  },
+  "complete already cleared": {
+    "log": [],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        },
+        "dungeonRun": {
+          "cleared": true,
+          "gold": 500,
+          "items": [
+            {
+              "itemId": "town_scroll",
+              "amount": 3
+            },
+            {
+              "itemId": "health_potion",
+              "amount": 2
+            }
+          ],
+          "startedAt": 1699999940000,
+          "floor": 3,
+          "difficulty": "hard",
+          "deaths": 0,
+          "kills": 17,
+          "exp": 900
+        }
+      }
+    },
+    "runAfter": {
+      "cleared": true,
+      "gold": 500,
+      "items": [
+        {
+          "itemId": "town_scroll",
+          "amount": 3
+        },
+        {
+          "itemId": "health_potion",
+          "amount": 2
+        }
+      ],
+      "startedAt": 1699999940000,
+      "floor": 3,
+      "difficulty": "hard",
+      "deaths": 0,
+      "kills": 17,
+      "exp": 900
+    }
+  },
+  "complete no run": {
+    "log": [],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        }
+      }
+    },
+    "runAfter": null
+  },
+  "complete no instance": {
+    "log": [
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "type": "gold",
+          "amount": 500
+        },
+        false
+      ],
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "itemId": "town_scroll",
+          "amount": 3
+        },
+        false
+      ],
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "itemId": "health_potion",
+          "amount": 2
+        },
+        false
+      ],
+      [
+        "call",
+        "awardExp",
+        "h1",
+        1312
+      ],
+      [
+        "socket",
+        "h1",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "dungeon",
+          "x": 5,
+          "y": 5,
+          "level": 40,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 820,
+          "dungeonInstanceId": "gone",
+          "inventory": {
+            "items": [],
+            "kills": 0
+          },
+          "dungeonRun": {
+            "cleared": true,
+            "gold": 0,
+            "items": [],
+            "startedAt": 1699999940000,
+            "floor": 3,
+            "difficulty": "hard",
+            "deaths": 0,
+            "kills": 17,
+            "exp": 900,
+            "clearedAt": 1700000000000
+          }
+        }
+      ],
+      [
+        "socket",
+        "h1",
+        "dungeon_result",
+        {
+          "success": true,
+          "kept": [
+            "500 Gold",
+            "Town Portal Scroll x3",
+            "Health Potion x2"
+          ],
+          "keptItems": [
+            {
+              "id": "gold",
+              "name": "500 Gold",
+              "count": 500,
+              "type": "gold",
+              "rarity": "common"
+            },
+            {
+              "id": "town_scroll",
+              "name": "Town Portal Scroll",
+              "type": "consumable",
+              "icon": "📜",
+              "rarity": "rare",
+              "buyPrice": 50,
+              "sellPrice": 25,
+              "desc": "Instantly teleports you back to town safely.",
+              "count": 3
+            },
+            {
+              "id": "health_potion",
+              "name": "Health Potion",
+              "count": 2,
+              "type": "consumable",
+              "rarity": "common",
+              "desc": "Restores 60 Health instantly."
+            }
+          ],
+          "lost": [],
+          "lostItems": [],
+          "rank": "S",
+          "timeMs": 60000,
+          "deaths": 0,
+          "kills": 17,
+          "floor": 3,
+          "difficulty": "hard",
+          "floorName": "Obsidian Caverns",
+          "bossName": "Magma Behemoth",
+          "roomsTotal": 0,
+          "roomsCleared": 0,
+          "rewards": {
+            "chestGold": 500,
+            "bonusGold": 720,
+            "runExp": 900,
+            "bonusExp": 1312
+          }
+        }
+      ],
+      [
+        "socket",
+        "h1",
+        "dungeon_run_update",
+        {
+          "active": true,
+          "cleared": true,
+          "gold": 0,
+          "items": [],
+          "lootItems": [],
+          "startedAt": 1699999940000,
+          "serverNow": 1700000000000,
+          "clearedMs": 60000,
+          "floor": 3,
+          "difficulty": "hard",
+          "deaths": 0,
+          "roomsCleared": 0,
+          "mode": "classic",
+          "mods": [],
+          "modReward": 0,
+          "roomsTotal": 0,
+          "clearedRooms": [],
+          "killPercent": 0,
+          "killedMobs": 0,
+          "requiredMobs": 0,
+          "bossPortalReady": false,
+          "bossPortalSpawned": false
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 820,
+        "dungeonInstanceId": "gone",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        },
+        "dungeonRun": {
+          "cleared": true,
+          "gold": 0,
+          "items": [],
+          "startedAt": 1699999940000,
+          "floor": 3,
+          "difficulty": "hard",
+          "deaths": 0,
+          "kills": 17,
+          "exp": 900,
+          "clearedAt": 1700000000000
+        }
+      }
+    },
+    "runAfter": {
+      "cleared": true,
+      "gold": 0,
+      "items": [],
+      "startedAt": 1699999940000,
+      "floor": 3,
+      "difficulty": "hard",
+      "deaths": 0,
+      "kills": 17,
+      "exp": 900,
+      "clearedAt": 1700000000000
+    }
+  },
+  "complete no socket": {
+    "log": [
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "type": "gold",
+          "amount": 500
+        },
+        false
+      ],
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "itemId": "town_scroll",
+          "amount": 3
+        },
+        false
+      ],
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "itemId": "health_potion",
+          "amount": 2
+        },
+        false
+      ],
+      [
+        "call",
+        "awardExp",
+        "h1",
+        1312
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 820,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        },
+        "dungeonRun": {
+          "cleared": true,
+          "gold": 0,
+          "items": [],
+          "startedAt": 1699999940000,
+          "floor": 3,
+          "difficulty": "hard",
+          "deaths": 0,
+          "kills": 17,
+          "exp": 900,
+          "clearedAt": 1700000000000
+        }
+      }
+    },
+    "runAfter": {
+      "cleared": true,
+      "gold": 0,
+      "items": [],
+      "startedAt": 1699999940000,
+      "floor": 3,
+      "difficulty": "hard",
+      "deaths": 0,
+      "kills": 17,
+      "exp": 900,
+      "clearedAt": 1700000000000
+    }
+  },
+  "complete last floor": {
+    "log": [
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "type": "gold",
+          "amount": 500
+        },
+        false
+      ],
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "itemId": "town_scroll",
+          "amount": 3
+        },
+        false
+      ],
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "itemId": "health_potion",
+          "amount": 2
+        },
+        false
+      ],
+      [
+        "call",
+        "awardExp",
+        "h1",
+        1312
+      ],
+      [
+        "socket",
+        "h1",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "dungeon",
+          "x": 5,
+          "y": 5,
+          "level": 40,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 23860,
+          "dungeonInstanceId": "inst1",
+          "inventory": {
+            "items": [],
+            "kills": 0
+          },
+          "dungeonRun": {
+            "cleared": true,
+            "gold": 0,
+            "items": [],
+            "startedAt": 1699999940000,
+            "floor": 99,
+            "difficulty": "hard",
+            "deaths": 0,
+            "kills": 17,
+            "exp": 900,
+            "clearedAt": 1700000000000
+          }
+        }
+      ],
+      [
+        "socket",
+        "h1",
+        "dungeon_result",
+        {
+          "success": true,
+          "kept": [
+            "500 Gold",
+            "Town Portal Scroll x3",
+            "Health Potion x2"
+          ],
+          "keptItems": [
+            {
+              "id": "gold",
+              "name": "500 Gold",
+              "count": 500,
+              "type": "gold",
+              "rarity": "common"
+            },
+            {
+              "id": "town_scroll",
+              "name": "Town Portal Scroll",
+              "type": "consumable",
+              "icon": "📜",
+              "rarity": "rare",
+              "buyPrice": 50,
+              "sellPrice": 25,
+              "desc": "Instantly teleports you back to town safely.",
+              "count": 3
+            },
+            {
+              "id": "health_potion",
+              "name": "Health Potion",
+              "count": 2,
+              "type": "consumable",
+              "rarity": "common",
+              "desc": "Restores 60 Health instantly."
+            }
+          ],
+          "lost": [],
+          "lostItems": [],
+          "rank": "S",
+          "timeMs": 60000,
+          "deaths": 0,
+          "kills": 17,
+          "floor": 99,
+          "difficulty": "hard",
+          "roomsTotal": 6,
+          "roomsCleared": 6,
+          "rewards": {
+            "chestGold": 500,
+            "bonusGold": 23760,
+            "runExp": 900,
+            "bonusExp": 1312
+          }
+        }
+      ],
+      [
+        "socket",
+        "h1",
+        "dungeon_run_update",
+        {
+          "active": true,
+          "cleared": true,
+          "gold": 0,
+          "items": [],
+          "lootItems": [],
+          "startedAt": 1699999940000,
+          "serverNow": 1700000000000,
+          "clearedMs": 60000,
+          "floor": 99,
+          "difficulty": "hard",
+          "deaths": 0,
+          "roomsCleared": 0,
+          "mode": "classic",
+          "mods": [],
+          "modReward": 0,
+          "roomsTotal": 6,
+          "clearedRooms": [],
+          "killPercent": 0,
+          "killedMobs": 0,
+          "requiredMobs": 4,
+          "bossPortalReady": false,
+          "bossPortalSpawned": false
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 23860,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        },
+        "dungeonRun": {
+          "cleared": true,
+          "gold": 0,
+          "items": [],
+          "startedAt": 1699999940000,
+          "floor": 99,
+          "difficulty": "hard",
+          "deaths": 0,
+          "kills": 17,
+          "exp": 900,
+          "clearedAt": 1700000000000
+        }
+      }
+    },
+    "runAfter": {
+      "cleared": true,
+      "gold": 0,
+      "items": [],
+      "startedAt": 1699999940000,
+      "floor": 99,
+      "difficulty": "hard",
+      "deaths": 0,
+      "kills": 17,
+      "exp": 900,
+      "clearedAt": 1700000000000
+    }
+  },
+  "complete low level": {
+    "log": [
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "type": "gold",
+          "amount": 500
+        },
+        false
+      ],
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "itemId": "town_scroll",
+          "amount": 3
+        },
+        false
+      ],
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "itemId": "health_potion",
+          "amount": 2
+        },
+        false
+      ],
+      [
+        "call",
+        "awardExp",
+        "h1",
+        15
+      ],
+      [
+        "socket",
+        "h1",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "dungeon",
+          "x": 5,
+          "y": 5,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 820,
+          "dungeonInstanceId": "inst1",
+          "inventory": {
+            "items": [],
+            "kills": 0
+          },
+          "dungeonRun": {
+            "cleared": true,
+            "gold": 0,
+            "items": [],
+            "startedAt": 1699999940000,
+            "floor": 3,
+            "difficulty": "hard",
+            "deaths": 0,
+            "kills": 17,
+            "exp": 900,
+            "clearedAt": 1700000000000
+          }
+        }
+      ],
+      [
+        "socket",
+        "h1",
+        "dungeon_result",
+        {
+          "success": true,
+          "kept": [
+            "500 Gold",
+            "Town Portal Scroll x3",
+            "Health Potion x2"
+          ],
+          "keptItems": [
+            {
+              "id": "gold",
+              "name": "500 Gold",
+              "count": 500,
+              "type": "gold",
+              "rarity": "common"
+            },
+            {
+              "id": "town_scroll",
+              "name": "Town Portal Scroll",
+              "type": "consumable",
+              "icon": "📜",
+              "rarity": "rare",
+              "buyPrice": 50,
+              "sellPrice": 25,
+              "desc": "Instantly teleports you back to town safely.",
+              "count": 3
+            },
+            {
+              "id": "health_potion",
+              "name": "Health Potion",
+              "count": 2,
+              "type": "consumable",
+              "rarity": "common",
+              "desc": "Restores 60 Health instantly."
+            }
+          ],
+          "lost": [],
+          "lostItems": [],
+          "rank": "S",
+          "timeMs": 60000,
+          "deaths": 0,
+          "kills": 17,
+          "floor": 3,
+          "difficulty": "hard",
+          "floorName": "Obsidian Caverns",
+          "bossName": "Magma Behemoth",
+          "roomsTotal": 6,
+          "roomsCleared": 6,
+          "rewards": {
+            "chestGold": 500,
+            "bonusGold": 720,
+            "runExp": 900,
+            "bonusExp": 15
+          }
+        }
+      ],
+      [
+        "socket",
+        "h1",
+        "dungeon_run_update",
+        {
+          "active": true,
+          "cleared": true,
+          "gold": 0,
+          "items": [],
+          "lootItems": [],
+          "startedAt": 1699999940000,
+          "serverNow": 1700000000000,
+          "clearedMs": 60000,
+          "floor": 3,
+          "difficulty": "hard",
+          "deaths": 0,
+          "roomsCleared": 0,
+          "mode": "classic",
+          "mods": [],
+          "modReward": 0,
+          "roomsTotal": 6,
+          "clearedRooms": [],
+          "killPercent": 0,
+          "killedMobs": 0,
+          "requiredMobs": 4,
+          "bossPortalReady": false,
+          "bossPortalSpawned": false
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 820,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        },
+        "dungeonRun": {
+          "cleared": true,
+          "gold": 0,
+          "items": [],
+          "startedAt": 1699999940000,
+          "floor": 3,
+          "difficulty": "hard",
+          "deaths": 0,
+          "kills": 17,
+          "exp": 900,
+          "clearedAt": 1700000000000
+        }
+      }
+    },
+    "runAfter": {
+      "cleared": true,
+      "gold": 0,
+      "items": [],
+      "startedAt": 1699999940000,
+      "floor": 3,
+      "difficulty": "hard",
+      "deaths": 0,
+      "kills": 17,
+      "exp": 900,
+      "clearedAt": 1700000000000
+    }
+  },
+  "end no run": {
+    "log": [],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        },
+        "dungeonRun": null
+      }
+    },
+    "runAfter": null
+  },
+  "end cleared run": {
+    "log": [
+      [
+        "socket",
+        "h1",
+        "dungeon_run_update",
+        {
+          "active": false
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        },
+        "dungeonRun": null
+      }
+    },
+    "runAfter": null
+  },
+  "end failed run": {
+    "log": [
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "type": "gold",
+          "amount": 300
+        },
+        false
+      ],
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "itemId": "health_potion",
+          "amount": 3
+        },
+        false
+      ],
+      [
+        "socket",
+        "h1",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "dungeon",
+          "x": 5,
+          "y": 5,
+          "level": 40,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 100,
+          "dungeonInstanceId": "inst1",
+          "inventory": {
+            "items": [],
+            "kills": 0
+          },
+          "dungeonRun": null
+        }
+      ],
+      [
+        "socket",
+        "h1",
+        "dungeon_result",
+        {
+          "success": false,
+          "kept": [
+            "300 Gold",
+            "Health Potion x3"
+          ],
+          "lost": [
+            "701 Gold",
+            "Town Portal Scroll x6",
+            "Town Portal Scroll x2",
+            "Health Potion x5",
+            "Health Potion",
+            "Town Portal Scroll x4"
+          ],
+          "keptItems": [
+            {
+              "id": "gold",
+              "name": "300 Gold",
+              "count": 300,
+              "type": "gold",
+              "rarity": "common"
+            },
+            {
+              "id": "health_potion",
+              "name": "Health Potion",
+              "count": 3,
+              "type": "consumable",
+              "rarity": "common",
+              "desc": "Restores 60 Health instantly."
+            }
+          ],
+          "lostItems": [
+            {
+              "id": "gold",
+              "name": "701 Gold",
+              "count": 701,
+              "type": "gold",
+              "rarity": "common"
+            },
+            {
+              "id": "town_scroll",
+              "name": "Town Portal Scroll",
+              "type": "consumable",
+              "icon": "📜",
+              "rarity": "rare",
+              "buyPrice": 50,
+              "sellPrice": 25,
+              "desc": "Instantly teleports you back to town safely.",
+              "count": 6
+            },
+            {
+              "id": "town_scroll",
+              "name": "Town Portal Scroll",
+              "type": "consumable",
+              "icon": "📜",
+              "rarity": "rare",
+              "buyPrice": 50,
+              "sellPrice": 25,
+              "desc": "Instantly teleports you back to town safely.",
+              "count": 2
+            },
+            {
+              "id": "health_potion",
+              "name": "Health Potion",
+              "count": 5,
+              "type": "consumable",
+              "rarity": "common",
+              "desc": "Restores 60 Health instantly."
+            },
+            {
+              "id": "health_potion",
+              "name": "Health Potion",
+              "count": 1,
+              "type": "consumable",
+              "rarity": "common",
+              "desc": "Restores 60 Health instantly."
+            },
+            {
+              "id": "town_scroll",
+              "name": "Town Portal Scroll",
+              "type": "consumable",
+              "icon": "📜",
+              "rarity": "rare",
+              "buyPrice": 50,
+              "sellPrice": 25,
+              "desc": "Instantly teleports you back to town safely.",
+              "count": 4
+            }
+          ]
+        }
+      ],
+      [
+        "call",
+        "broadcastSystemMessage",
+        "💀 [Hero] failed the dungeon run on B4."
+      ],
+      [
+        "socket",
+        "h1",
+        "dungeon_run_update",
+        {
+          "active": false
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        },
+        "dungeonRun": null
+      }
+    },
+    "runAfter": null
+  },
+  "end failed run, given socket": {
+    "log": [
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "type": "gold",
+          "amount": 300
+        },
+        false
+      ],
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "itemId": "health_potion",
+          "amount": 1
+        },
+        false
+      ],
+      [
+        "passed",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "dungeon",
+          "x": 5,
+          "y": 5,
+          "level": 40,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 100,
+          "dungeonInstanceId": "inst1",
+          "inventory": {
+            "items": [],
+            "kills": 0
+          },
+          "dungeonRun": null
+        }
+      ],
+      [
+        "passed",
+        "dungeon_result",
+        {
+          "success": false,
+          "kept": [
+            "300 Gold",
+            "Health Potion"
+          ],
+          "lost": [
+            "701 Gold",
+            "Town Portal Scroll x2",
+            "Health Potion x5",
+            "Health Potion x3",
+            "Town Portal Scroll x4",
+            "Town Portal Scroll x6"
+          ],
+          "keptItems": [
+            {
+              "id": "gold",
+              "name": "300 Gold",
+              "count": 300,
+              "type": "gold",
+              "rarity": "common"
+            },
+            {
+              "id": "health_potion",
+              "name": "Health Potion",
+              "count": 1,
+              "type": "consumable",
+              "rarity": "common",
+              "desc": "Restores 60 Health instantly."
+            }
+          ],
+          "lostItems": [
+            {
+              "id": "gold",
+              "name": "701 Gold",
+              "count": 701,
+              "type": "gold",
+              "rarity": "common"
+            },
+            {
+              "id": "town_scroll",
+              "name": "Town Portal Scroll",
+              "type": "consumable",
+              "icon": "📜",
+              "rarity": "rare",
+              "buyPrice": 50,
+              "sellPrice": 25,
+              "desc": "Instantly teleports you back to town safely.",
+              "count": 2
+            },
+            {
+              "id": "health_potion",
+              "name": "Health Potion",
+              "count": 5,
+              "type": "consumable",
+              "rarity": "common",
+              "desc": "Restores 60 Health instantly."
+            },
+            {
+              "id": "health_potion",
+              "name": "Health Potion",
+              "count": 3,
+              "type": "consumable",
+              "rarity": "common",
+              "desc": "Restores 60 Health instantly."
+            },
+            {
+              "id": "town_scroll",
+              "name": "Town Portal Scroll",
+              "type": "consumable",
+              "icon": "📜",
+              "rarity": "rare",
+              "buyPrice": 50,
+              "sellPrice": 25,
+              "desc": "Instantly teleports you back to town safely.",
+              "count": 4
+            },
+            {
+              "id": "town_scroll",
+              "name": "Town Portal Scroll",
+              "type": "consumable",
+              "icon": "📜",
+              "rarity": "rare",
+              "buyPrice": 50,
+              "sellPrice": 25,
+              "desc": "Instantly teleports you back to town safely.",
+              "count": 6
+            }
+          ]
+        }
+      ],
+      [
+        "call",
+        "broadcastSystemMessage",
+        "💀 [Hero] failed the dungeon run on B4."
+      ],
+      [
+        "passed",
+        "dungeon_run_update",
+        {
+          "active": false
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        },
+        "dungeonRun": null
+      }
+    },
+    "runAfter": null
+  },
+  "end failed run, no socket": {
+    "log": [
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "type": "gold",
+          "amount": 300
+        },
+        false
+      ],
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "itemId": "town_scroll",
+          "amount": 4
+        },
+        false
+      ],
+      [
+        "call",
+        "broadcastSystemMessage",
+        "💀 [Hero] failed the dungeon run on B4."
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        },
+        "dungeonRun": null
+      }
+    },
+    "runAfter": null
+  },
+  "end failed, only gold": {
+    "log": [
+      [
+        "socket",
+        "h1",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "dungeon",
+          "x": 5,
+          "y": 5,
+          "level": 40,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 100,
+          "dungeonInstanceId": "inst1",
+          "inventory": {
+            "items": [],
+            "kills": 0
+          },
+          "dungeonRun": null
+        }
+      ],
+      [
+        "socket",
+        "h1",
+        "dungeon_result",
+        {
+          "success": false,
+          "kept": [],
+          "lost": [
+            "3 Gold"
+          ],
+          "keptItems": [],
+          "lostItems": [
+            {
+              "id": "gold",
+              "name": "3 Gold",
+              "count": 3,
+              "type": "gold",
+              "rarity": "common"
+            }
+          ]
+        }
+      ],
+      [
+        "call",
+        "broadcastSystemMessage",
+        "💀 [Hero] failed the dungeon run on B4."
+      ],
+      [
+        "socket",
+        "h1",
+        "dungeon_run_update",
+        {
+          "active": false
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        },
+        "dungeonRun": null
+      }
+    },
+    "runAfter": null
+  },
+  "end failed, tiny gold": {
+    "log": [
+      [
+        "socket",
+        "h1",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "dungeon",
+          "x": 5,
+          "y": 5,
+          "level": 40,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 100,
+          "dungeonInstanceId": "inst1",
+          "inventory": {
+            "items": [],
+            "kills": 0
+          },
+          "dungeonRun": null
+        }
+      ],
+      [
+        "socket",
+        "h1",
+        "dungeon_result",
+        {
+          "success": false,
+          "kept": [],
+          "lost": [
+            "1 Gold"
+          ],
+          "keptItems": [],
+          "lostItems": [
+            {
+              "id": "gold",
+              "name": "1 Gold",
+              "count": 1,
+              "type": "gold",
+              "rarity": "common"
+            }
+          ]
+        }
+      ],
+      [
+        "call",
+        "broadcastSystemMessage",
+        "💀 [Hero] failed the dungeon run on B4."
+      ],
+      [
+        "socket",
+        "h1",
+        "dungeon_run_update",
+        {
+          "active": false
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        },
+        "dungeonRun": null
+      }
+    },
+    "runAfter": null
+  },
+  "end failed, only items": {
+    "log": [
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "itemId": "town_scroll",
+          "amount": 2
+        },
+        false
+      ],
+      [
+        "socket",
+        "h1",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "dungeon",
+          "x": 5,
+          "y": 5,
+          "level": 40,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 100,
+          "dungeonInstanceId": "inst1",
+          "inventory": {
+            "items": [],
+            "kills": 0
+          },
+          "dungeonRun": null
+        }
+      ],
+      [
+        "socket",
+        "h1",
+        "dungeon_result",
+        {
+          "success": false,
+          "kept": [
+            "Town Portal Scroll x2"
+          ],
+          "lost": [
+            "Town Portal Scroll x4",
+            "Health Potion",
+            "Health Potion x5",
+            "Health Potion x3"
+          ],
+          "keptItems": [
+            {
+              "id": "town_scroll",
+              "name": "Town Portal Scroll",
+              "type": "consumable",
+              "icon": "📜",
+              "rarity": "rare",
+              "buyPrice": 50,
+              "sellPrice": 25,
+              "desc": "Instantly teleports you back to town safely.",
+              "count": 2
+            }
+          ],
+          "lostItems": [
+            {
+              "id": "town_scroll",
+              "name": "Town Portal Scroll",
+              "type": "consumable",
+              "icon": "📜",
+              "rarity": "rare",
+              "buyPrice": 50,
+              "sellPrice": 25,
+              "desc": "Instantly teleports you back to town safely.",
+              "count": 4
+            },
+            {
+              "id": "health_potion",
+              "name": "Health Potion",
+              "count": 1,
+              "type": "consumable",
+              "rarity": "common",
+              "desc": "Restores 60 Health instantly."
+            },
+            {
+              "id": "health_potion",
+              "name": "Health Potion",
+              "count": 5,
+              "type": "consumable",
+              "rarity": "common",
+              "desc": "Restores 60 Health instantly."
+            },
+            {
+              "id": "health_potion",
+              "name": "Health Potion",
+              "count": 3,
+              "type": "consumable",
+              "rarity": "common",
+              "desc": "Restores 60 Health instantly."
+            }
+          ]
+        }
+      ],
+      [
+        "call",
+        "broadcastSystemMessage",
+        "💀 [Hero] failed the dungeon run on B4."
+      ],
+      [
+        "socket",
+        "h1",
+        "dungeon_run_update",
+        {
+          "active": false
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        },
+        "dungeonRun": null
+      }
+    },
+    "runAfter": null
+  },
+  "end failed, one item": {
+    "log": [
+      [
+        "socket",
+        "h1",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "dungeon",
+          "x": 5,
+          "y": 5,
+          "level": 40,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 100,
+          "dungeonInstanceId": "inst1",
+          "inventory": {
+            "items": [],
+            "kills": 0
+          },
+          "dungeonRun": null
+        }
+      ],
+      [
+        "socket",
+        "h1",
+        "dungeon_result",
+        {
+          "success": false,
+          "kept": [],
+          "lost": [
+            "Health Potion"
+          ],
+          "keptItems": [],
+          "lostItems": [
+            {
+              "id": "health_potion",
+              "name": "Health Potion",
+              "count": 1,
+              "type": "consumable",
+              "rarity": "common",
+              "desc": "Restores 60 Health instantly."
+            }
+          ]
+        }
+      ],
+      [
+        "call",
+        "broadcastSystemMessage",
+        "💀 [Hero] failed the dungeon run on B4."
+      ],
+      [
+        "socket",
+        "h1",
+        "dungeon_run_update",
+        {
+          "active": false
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        },
+        "dungeonRun": null
+      }
+    },
+    "runAfter": null
+  },
+  "end failed, empty": {
+    "log": [
+      [
+        "socket",
+        "h1",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "dungeon",
+          "x": 5,
+          "y": 5,
+          "level": 40,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 100,
+          "dungeonInstanceId": "inst1",
+          "inventory": {
+            "items": [],
+            "kills": 0
+          },
+          "dungeonRun": null
+        }
+      ],
+      [
+        "socket",
+        "h1",
+        "dungeon_result",
+        {
+          "success": false,
+          "kept": [],
+          "lost": [],
+          "keptItems": [],
+          "lostItems": []
+        }
+      ],
+      [
+        "call",
+        "broadcastSystemMessage",
+        "💀 [Hero] failed the dungeon run on B4."
+      ],
+      [
+        "socket",
+        "h1",
+        "dungeon_run_update",
+        {
+          "active": false
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        },
+        "dungeonRun": null
+      }
+    },
+    "runAfter": null
+  },
+  "end failed, many items": {
+    "log": [
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "type": "gold",
+          "amount": 300
+        },
+        false
+      ],
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "itemId": "health_potion",
+          "amount": 39
+        },
+        false
+      ],
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "itemId": "health_potion",
+          "amount": 1
+        },
+        false
+      ],
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "itemId": "town_scroll",
+          "amount": 8
+        },
+        false
+      ],
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "itemId": "health_potion",
+          "amount": 15
+        },
+        false
+      ],
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "itemId": "town_scroll",
+          "amount": 2
+        },
+        false
+      ],
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "itemId": "health_potion",
+          "amount": 11
+        },
+        false
+      ],
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "itemId": "town_scroll",
+          "amount": 24
+        },
+        false
+      ],
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "itemId": "town_scroll",
+          "amount": 6
+        },
+        false
+      ],
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "itemId": "town_scroll",
+          "amount": 12
+        },
+        false
+      ],
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "itemId": "town_scroll",
+          "amount": 10
+        },
+        false
+      ],
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "itemId": "town_scroll",
+          "amount": 34
+        },
+        false
+      ],
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "itemId": "health_potion",
+          "amount": 29
+        },
+        false
+      ],
+      [
+        "socket",
+        "h1",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "dungeon",
+          "x": 5,
+          "y": 5,
+          "level": 40,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 100,
+          "dungeonInstanceId": "inst1",
+          "inventory": {
+            "items": [],
+            "kills": 0
+          },
+          "dungeonRun": null
+        }
+      ],
+      [
+        "socket",
+        "h1",
+        "dungeon_result",
+        {
+          "success": false,
+          "kept": [
+            "300 Gold",
+            "Health Potion x39",
+            "Health Potion",
+            "Town Portal Scroll x8",
+            "Health Potion x15",
+            "Town Portal Scroll x2",
+            "Health Potion x11",
+            "Town Portal Scroll x24",
+            "Town Portal Scroll x6",
+            "Town Portal Scroll x12",
+            "Town Portal Scroll x10",
+            "Town Portal Scroll x34",
+            "Health Potion x29"
+          ],
+          "lost": [
+            "701 Gold",
+            "Town Portal Scroll x38",
+            "Town Portal Scroll x26",
+            "Health Potion x9",
+            "Health Potion x37",
+            "Health Potion x35",
+            "Health Potion x7",
+            "Town Portal Scroll x40",
+            "Health Potion x13",
+            "Town Portal Scroll x32",
+            "Health Potion x27",
+            "Health Potion x33",
+            "Town Portal Scroll x30",
+            "Town Portal Scroll x16",
+            "Town Portal Scroll x4",
+            "Health Potion x23",
+            "Health Potion x19",
+            "Town Portal Scroll x36",
+            "Health Potion x21",
+            "Town Portal Scroll x28",
+            "Town Portal Scroll x20",
+            "Town Portal Scroll x14",
+            "Health Potion x17",
+            "Town Portal Scroll x18",
+            "Town Portal Scroll x22",
+            "Health Potion x3",
+            "Health Potion x5",
+            "Health Potion x31",
+            "Health Potion x25"
+          ],
+          "keptItems": [
+            {
+              "id": "gold",
+              "name": "300 Gold",
+              "count": 300,
+              "type": "gold",
+              "rarity": "common"
+            },
+            {
+              "id": "health_potion",
+              "name": "Health Potion",
+              "count": 39,
+              "type": "consumable",
+              "rarity": "common",
+              "desc": "Restores 60 Health instantly."
+            },
+            {
+              "id": "health_potion",
+              "name": "Health Potion",
+              "count": 1,
+              "type": "consumable",
+              "rarity": "common",
+              "desc": "Restores 60 Health instantly."
+            },
+            {
+              "id": "town_scroll",
+              "name": "Town Portal Scroll",
+              "type": "consumable",
+              "icon": "📜",
+              "rarity": "rare",
+              "buyPrice": 50,
+              "sellPrice": 25,
+              "desc": "Instantly teleports you back to town safely.",
+              "count": 8
+            },
+            {
+              "id": "health_potion",
+              "name": "Health Potion",
+              "count": 15,
+              "type": "consumable",
+              "rarity": "common",
+              "desc": "Restores 60 Health instantly."
+            },
+            {
+              "id": "town_scroll",
+              "name": "Town Portal Scroll",
+              "type": "consumable",
+              "icon": "📜",
+              "rarity": "rare",
+              "buyPrice": 50,
+              "sellPrice": 25,
+              "desc": "Instantly teleports you back to town safely.",
+              "count": 2
+            },
+            {
+              "id": "health_potion",
+              "name": "Health Potion",
+              "count": 11,
+              "type": "consumable",
+              "rarity": "common",
+              "desc": "Restores 60 Health instantly."
+            },
+            {
+              "id": "town_scroll",
+              "name": "Town Portal Scroll",
+              "type": "consumable",
+              "icon": "📜",
+              "rarity": "rare",
+              "buyPrice": 50,
+              "sellPrice": 25,
+              "desc": "Instantly teleports you back to town safely.",
+              "count": 24
+            },
+            {
+              "id": "town_scroll",
+              "name": "Town Portal Scroll",
+              "type": "consumable",
+              "icon": "📜",
+              "rarity": "rare",
+              "buyPrice": 50,
+              "sellPrice": 25,
+              "desc": "Instantly teleports you back to town safely.",
+              "count": 6
+            },
+            {
+              "id": "town_scroll",
+              "name": "Town Portal Scroll",
+              "type": "consumable",
+              "icon": "📜",
+              "rarity": "rare",
+              "buyPrice": 50,
+              "sellPrice": 25,
+              "desc": "Instantly teleports you back to town safely.",
+              "count": 12
+            },
+            {
+              "id": "town_scroll",
+              "name": "Town Portal Scroll",
+              "type": "consumable",
+              "icon": "📜",
+              "rarity": "rare",
+              "buyPrice": 50,
+              "sellPrice": 25,
+              "desc": "Instantly teleports you back to town safely.",
+              "count": 10
+            },
+            {
+              "id": "town_scroll",
+              "name": "Town Portal Scroll",
+              "type": "consumable",
+              "icon": "📜",
+              "rarity": "rare",
+              "buyPrice": 50,
+              "sellPrice": 25,
+              "desc": "Instantly teleports you back to town safely.",
+              "count": 34
+            },
+            {
+              "id": "health_potion",
+              "name": "Health Potion",
+              "count": 29,
+              "type": "consumable",
+              "rarity": "common",
+              "desc": "Restores 60 Health instantly."
+            }
+          ],
+          "lostItems": [
+            {
+              "id": "gold",
+              "name": "701 Gold",
+              "count": 701,
+              "type": "gold",
+              "rarity": "common"
+            },
+            {
+              "id": "town_scroll",
+              "name": "Town Portal Scroll",
+              "type": "consumable",
+              "icon": "📜",
+              "rarity": "rare",
+              "buyPrice": 50,
+              "sellPrice": 25,
+              "desc": "Instantly teleports you back to town safely.",
+              "count": 38
+            },
+            {
+              "id": "town_scroll",
+              "name": "Town Portal Scroll",
+              "type": "consumable",
+              "icon": "📜",
+              "rarity": "rare",
+              "buyPrice": 50,
+              "sellPrice": 25,
+              "desc": "Instantly teleports you back to town safely.",
+              "count": 26
+            },
+            {
+              "id": "health_potion",
+              "name": "Health Potion",
+              "count": 9,
+              "type": "consumable",
+              "rarity": "common",
+              "desc": "Restores 60 Health instantly."
+            },
+            {
+              "id": "health_potion",
+              "name": "Health Potion",
+              "count": 37,
+              "type": "consumable",
+              "rarity": "common",
+              "desc": "Restores 60 Health instantly."
+            },
+            {
+              "id": "health_potion",
+              "name": "Health Potion",
+              "count": 35,
+              "type": "consumable",
+              "rarity": "common",
+              "desc": "Restores 60 Health instantly."
+            },
+            {
+              "id": "health_potion",
+              "name": "Health Potion",
+              "count": 7,
+              "type": "consumable",
+              "rarity": "common",
+              "desc": "Restores 60 Health instantly."
+            },
+            {
+              "id": "town_scroll",
+              "name": "Town Portal Scroll",
+              "type": "consumable",
+              "icon": "📜",
+              "rarity": "rare",
+              "buyPrice": 50,
+              "sellPrice": 25,
+              "desc": "Instantly teleports you back to town safely.",
+              "count": 40
+            },
+            {
+              "id": "health_potion",
+              "name": "Health Potion",
+              "count": 13,
+              "type": "consumable",
+              "rarity": "common",
+              "desc": "Restores 60 Health instantly."
+            },
+            {
+              "id": "town_scroll",
+              "name": "Town Portal Scroll",
+              "type": "consumable",
+              "icon": "📜",
+              "rarity": "rare",
+              "buyPrice": 50,
+              "sellPrice": 25,
+              "desc": "Instantly teleports you back to town safely.",
+              "count": 32
+            },
+            {
+              "id": "health_potion",
+              "name": "Health Potion",
+              "count": 27,
+              "type": "consumable",
+              "rarity": "common",
+              "desc": "Restores 60 Health instantly."
+            },
+            {
+              "id": "health_potion",
+              "name": "Health Potion",
+              "count": 33,
+              "type": "consumable",
+              "rarity": "common",
+              "desc": "Restores 60 Health instantly."
+            },
+            {
+              "id": "town_scroll",
+              "name": "Town Portal Scroll",
+              "type": "consumable",
+              "icon": "📜",
+              "rarity": "rare",
+              "buyPrice": 50,
+              "sellPrice": 25,
+              "desc": "Instantly teleports you back to town safely.",
+              "count": 30
+            },
+            {
+              "id": "town_scroll",
+              "name": "Town Portal Scroll",
+              "type": "consumable",
+              "icon": "📜",
+              "rarity": "rare",
+              "buyPrice": 50,
+              "sellPrice": 25,
+              "desc": "Instantly teleports you back to town safely.",
+              "count": 16
+            },
+            {
+              "id": "town_scroll",
+              "name": "Town Portal Scroll",
+              "type": "consumable",
+              "icon": "📜",
+              "rarity": "rare",
+              "buyPrice": 50,
+              "sellPrice": 25,
+              "desc": "Instantly teleports you back to town safely.",
+              "count": 4
+            },
+            {
+              "id": "health_potion",
+              "name": "Health Potion",
+              "count": 23,
+              "type": "consumable",
+              "rarity": "common",
+              "desc": "Restores 60 Health instantly."
+            },
+            {
+              "id": "health_potion",
+              "name": "Health Potion",
+              "count": 19,
+              "type": "consumable",
+              "rarity": "common",
+              "desc": "Restores 60 Health instantly."
+            },
+            {
+              "id": "town_scroll",
+              "name": "Town Portal Scroll",
+              "type": "consumable",
+              "icon": "📜",
+              "rarity": "rare",
+              "buyPrice": 50,
+              "sellPrice": 25,
+              "desc": "Instantly teleports you back to town safely.",
+              "count": 36
+            },
+            {
+              "id": "health_potion",
+              "name": "Health Potion",
+              "count": 21,
+              "type": "consumable",
+              "rarity": "common",
+              "desc": "Restores 60 Health instantly."
+            },
+            {
+              "id": "town_scroll",
+              "name": "Town Portal Scroll",
+              "type": "consumable",
+              "icon": "📜",
+              "rarity": "rare",
+              "buyPrice": 50,
+              "sellPrice": 25,
+              "desc": "Instantly teleports you back to town safely.",
+              "count": 28
+            },
+            {
+              "id": "town_scroll",
+              "name": "Town Portal Scroll",
+              "type": "consumable",
+              "icon": "📜",
+              "rarity": "rare",
+              "buyPrice": 50,
+              "sellPrice": 25,
+              "desc": "Instantly teleports you back to town safely.",
+              "count": 20
+            },
+            {
+              "id": "town_scroll",
+              "name": "Town Portal Scroll",
+              "type": "consumable",
+              "icon": "📜",
+              "rarity": "rare",
+              "buyPrice": 50,
+              "sellPrice": 25,
+              "desc": "Instantly teleports you back to town safely.",
+              "count": 14
+            },
+            {
+              "id": "health_potion",
+              "name": "Health Potion",
+              "count": 17,
+              "type": "consumable",
+              "rarity": "common",
+              "desc": "Restores 60 Health instantly."
+            },
+            {
+              "id": "town_scroll",
+              "name": "Town Portal Scroll",
+              "type": "consumable",
+              "icon": "📜",
+              "rarity": "rare",
+              "buyPrice": 50,
+              "sellPrice": 25,
+              "desc": "Instantly teleports you back to town safely.",
+              "count": 18
+            },
+            {
+              "id": "town_scroll",
+              "name": "Town Portal Scroll",
+              "type": "consumable",
+              "icon": "📜",
+              "rarity": "rare",
+              "buyPrice": 50,
+              "sellPrice": 25,
+              "desc": "Instantly teleports you back to town safely.",
+              "count": 22
+            },
+            {
+              "id": "health_potion",
+              "name": "Health Potion",
+              "count": 3,
+              "type": "consumable",
+              "rarity": "common",
+              "desc": "Restores 60 Health instantly."
+            },
+            {
+              "id": "health_potion",
+              "name": "Health Potion",
+              "count": 5,
+              "type": "consumable",
+              "rarity": "common",
+              "desc": "Restores 60 Health instantly."
+            },
+            {
+              "id": "health_potion",
+              "name": "Health Potion",
+              "count": 31,
+              "type": "consumable",
+              "rarity": "common",
+              "desc": "Restores 60 Health instantly."
+            },
+            {
+              "id": "health_potion",
+              "name": "Health Potion",
+              "count": 25,
+              "type": "consumable",
+              "rarity": "common",
+              "desc": "Restores 60 Health instantly."
+            }
+          ]
+        }
+      ],
+      [
+        "call",
+        "broadcastSystemMessage",
+        "💀 [Hero] failed the dungeon run on B4."
+      ],
+      [
+        "socket",
+        "h1",
+        "dungeon_run_update",
+        {
+          "active": false
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        },
+        "dungeonRun": null
+      }
+    },
+    "runAfter": null
+  },
+  "chest dead": {
+    "log": [],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": true,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        }
+      }
+    },
+    "chests": [
+      {
+        "id": "c1",
+        "x": 5,
+        "y": 5,
+        "isGold": false
+      },
+      {
+        "id": "c2",
+        "x": 9,
+        "y": 9,
+        "isGold": true
+      }
+    ]
+  },
+  "chest not in dungeon": {
+    "log": [],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "town",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        }
+      }
+    },
+    "chests": [
+      {
+        "id": "c1",
+        "x": 5,
+        "y": 5,
+        "isGold": false
+      },
+      {
+        "id": "c2",
+        "x": 9,
+        "y": 9,
+        "isGold": true
+      }
+    ]
+  },
+  "chest unknown id": {
+    "log": [],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        }
+      }
+    },
+    "chests": [
+      {
+        "id": "c1",
+        "x": 5,
+        "y": 5,
+        "isGold": false
+      },
+      {
+        "id": "c2",
+        "x": 9,
+        "y": 9,
+        "isGold": true
+      }
+    ]
+  },
+  "chest too far": {
+    "log": [],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 1,
+        "y": 1,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        }
+      }
+    },
+    "chests": [
+      {
+        "id": "c1",
+        "x": 5,
+        "y": 5,
+        "isGold": false,
+        "openedBy": []
+      },
+      {
+        "id": "c2",
+        "x": 9,
+        "y": 9,
+        "isGold": true
+      }
+    ]
+  },
+  "chest at range limit": {
+    "log": [
+      [
+        "socket",
+        "h1",
+        "dungeon_run_update",
+        {
+          "active": true,
+          "cleared": false,
+          "gold": 51,
+          "items": [
+            "Mana Potion",
+            "Town Portal Scroll",
+            "Shadow Essence"
+          ],
+          "lootItems": [
+            {
+              "id": "mana_potion",
+              "name": "Mana Potion",
+              "count": 1,
+              "type": "consumable",
+              "rarity": "common",
+              "desc": "Restores 50 Mana instantly."
+            },
+            {
+              "id": "town_scroll",
+              "name": "Town Portal Scroll",
+              "type": "consumable",
+              "icon": "📜",
+              "rarity": "rare",
+              "buyPrice": 50,
+              "sellPrice": 25,
+              "desc": "Instantly teleports you back to town safely.",
+              "count": 1
+            },
+            {
+              "id": "shadow_essence",
+              "name": "Shadow Essence",
+              "type": "treasure",
+              "icon": "✨",
+              "rarity": "rare",
+              "sellPrice": 75,
+              "desc": "Concentrated dark energy captured from dungeon wraiths.",
+              "count": 1
+            }
+          ],
+          "startedAt": 1699999910000,
+          "serverNow": 1700000000000,
+          "clearedMs": null,
+          "floor": 3,
+          "difficulty": "hard",
+          "deaths": 0,
+          "roomsCleared": 0,
+          "mode": "classic",
+          "mods": [],
+          "modReward": 0,
+          "roomsTotal": 6,
+          "clearedRooms": [],
+          "killPercent": 0,
+          "killedMobs": 0,
+          "requiredMobs": 4,
+          "bossPortalReady": false,
+          "bossPortalSpawned": false
+        }
+      ],
+      [
+        "socket",
+        "h1",
+        "chest_opened",
+        {
+          "chestId": "c1",
+          "openedBy": "Hero"
+        }
+      ],
+      [
+        "socket",
+        "h1",
+        "floating_text",
+        {
+          "x": 5,
+          "y": 4.2,
+          "text": "💎 Loot bagged - defeat the boss to secure it!",
+          "color": "#facc15"
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 7.5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        },
+        "dungeonRun": {
+          "floor": 3,
+          "difficulty": "hard",
+          "cleared": false,
+          "gold": 51,
+          "items": [
+            {
+              "type": "item",
+              "itemId": "mana_potion",
+              "amount": 1
+            },
+            {
+              "type": "item",
+              "itemId": "town_scroll",
+              "amount": 1
+            },
+            {
+              "type": "item",
+              "itemId": "shadow_essence",
+              "amount": 1
+            }
+          ],
+          "startedAt": 1699999910000,
+          "deaths": 0,
+          "kills": 0,
+          "exp": 0,
+          "revivalsUsed": 0,
+          "maxRevivals": 10
+        }
+      }
+    },
+    "chests": [
+      {
+        "id": "c1",
+        "x": 5,
+        "y": 5,
+        "isGold": false,
+        "openedBy": [
+          "h1"
+        ]
+      },
+      {
+        "id": "c2",
+        "x": 9,
+        "y": 9,
+        "isGold": true
+      }
+    ]
+  },
+  "chest just out of range": {
+    "log": [],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 7.51,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        }
+      }
+    },
+    "chests": [
+      {
+        "id": "c1",
+        "x": 5,
+        "y": 5,
+        "isGold": false,
+        "openedBy": []
+      },
+      {
+        "id": "c2",
+        "x": 9,
+        "y": 9,
+        "isGold": true
+      }
+    ]
+  },
+  "chest opens (loot bagged)": {
+    "log": [
+      [
+        "socket",
+        "h1",
+        "dungeon_run_update",
+        {
+          "active": true,
+          "cleared": false,
+          "gold": 29,
+          "items": [
+            "Health Potion",
+            "Cursed Chalice"
+          ],
+          "lootItems": [
+            {
+              "id": "health_potion",
+              "name": "Health Potion",
+              "count": 1,
+              "type": "consumable",
+              "rarity": "common",
+              "desc": "Restores 60 Health instantly."
+            },
+            {
+              "id": "cursed_chalice",
+              "name": "Cursed Chalice",
+              "type": "treasure",
+              "icon": "🏆",
+              "rarity": "rare",
+              "sellPrice": 90,
+              "desc": "An ornate silver goblet inlaid with ancient engravings.",
+              "count": 1
+            }
+          ],
+          "startedAt": 1699999910000,
+          "serverNow": 1700000000000,
+          "clearedMs": null,
+          "floor": 3,
+          "difficulty": "hard",
+          "deaths": 0,
+          "roomsCleared": 0,
+          "mode": "classic",
+          "mods": [],
+          "modReward": 0,
+          "roomsTotal": 6,
+          "clearedRooms": [],
+          "killPercent": 0,
+          "killedMobs": 0,
+          "requiredMobs": 4,
+          "bossPortalReady": false,
+          "bossPortalSpawned": false
+        }
+      ],
+      [
+        "socket",
+        "h1",
+        "chest_opened",
+        {
+          "chestId": "c1",
+          "openedBy": "Hero"
+        }
+      ],
+      [
+        "socket",
+        "h1",
+        "floating_text",
+        {
+          "x": 5,
+          "y": 4.2,
+          "text": "💎 Loot bagged - defeat the boss to secure it!",
+          "color": "#facc15"
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        },
+        "dungeonRun": {
+          "floor": 3,
+          "difficulty": "hard",
+          "cleared": false,
+          "gold": 29,
+          "items": [
+            {
+              "type": "item",
+              "itemId": "health_potion",
+              "amount": 1
+            },
+            {
+              "type": "item",
+              "itemId": "cursed_chalice",
+              "amount": 1
+            }
+          ],
+          "startedAt": 1699999910000,
+          "deaths": 0,
+          "kills": 0,
+          "exp": 0,
+          "revivalsUsed": 0,
+          "maxRevivals": 10
+        }
+      }
+    },
+    "chests": [
+      {
+        "id": "c1",
+        "x": 5,
+        "y": 5,
+        "isGold": false,
+        "openedBy": [
+          "h1"
+        ]
+      },
+      {
+        "id": "c2",
+        "x": 9,
+        "y": 9,
+        "isGold": true
+      }
+    ]
+  },
+  "chest gold chest": {
+    "log": [
+      [
+        "socket",
+        "h1",
+        "dungeon_run_update",
+        {
+          "active": true,
+          "cleared": false,
+          "gold": 269,
+          "items": [
+            "Masterwork Wayfarer's Treads of the Gale"
+          ],
+          "lootItems": [
+            {
+              "id": "wayfarer_treads",
+              "name": "Masterwork Wayfarer's Treads of the Gale",
+              "type": "equipment",
+              "slot": "boots",
+              "iconKey": "boots",
+              "rarity": "epic",
+              "sellPrice": 237,
+              "classReq": "all",
+              "setId": "wayfarer",
+              "bonusDef": 15,
+              "bonusSpeed": 0.7,
+              "desc": "+15 DEF, +0.7 SPD, +29% Atk Spd, 🌿 Earth RES +9% (Masterwork Roll)",
+              "uniqueId": "wayfarer_treads_1700000000000_il3n8r",
+              "custom": true,
+              "quality": "Masterwork",
+              "itemLevel": 45,
+              "maxSockets": 1,
+              "sockets": [
+                null
+              ],
+              "brokenSockets": 0,
+              "elementResist": {
+                "earth": 0.09
+              },
+              "bonusAttackSpeed": 0.29,
+              "suffix": "of the Gale",
+              "attrSlots": 1,
+              "attrs": [
+                {
+                  "k": "atkSpeed",
+                  "v": 5,
+                  "q": 0.309
+                }
+              ],
+              "count": 1
+            }
+          ],
+          "startedAt": 1699999910000,
+          "serverNow": 1700000000000,
+          "clearedMs": null,
+          "floor": 3,
+          "difficulty": "hard",
+          "deaths": 0,
+          "roomsCleared": 0,
+          "mode": "classic",
+          "mods": [],
+          "modReward": 0,
+          "roomsTotal": 6,
+          "clearedRooms": [],
+          "killPercent": 0,
+          "killedMobs": 0,
+          "requiredMobs": 4,
+          "bossPortalReady": false,
+          "bossPortalSpawned": false
+        }
+      ],
+      [
+        "socket",
+        "h1",
+        "chest_opened",
+        {
+          "chestId": "c2",
+          "openedBy": "Hero"
+        }
+      ],
+      [
+        "socket",
+        "h1",
+        "floating_text",
+        {
+          "x": 9,
+          "y": 8.2,
+          "text": "💎 Loot bagged - defeat the boss to secure it!",
+          "color": "#facc15"
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 9,
+        "y": 9,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        },
+        "dungeonRun": {
+          "floor": 3,
+          "difficulty": "hard",
+          "cleared": false,
+          "gold": 269,
+          "items": [
+            {
+              "type": "item",
+              "itemId": "wayfarer_treads",
+              "customItemData": {
+                "id": "wayfarer_treads",
+                "name": "Masterwork Wayfarer's Treads of the Gale",
+                "type": "equipment",
+                "slot": "boots",
+                "iconKey": "boots",
+                "rarity": "epic",
+                "sellPrice": 237,
+                "classReq": "all",
+                "setId": "wayfarer",
+                "bonusDef": 15,
+                "bonusSpeed": 0.7,
+                "desc": "+15 DEF, +0.7 SPD, +29% Atk Spd, 🌿 Earth RES +9% (Masterwork Roll)",
+                "uniqueId": "wayfarer_treads_1700000000000_il3n8r",
+                "custom": true,
+                "quality": "Masterwork",
+                "itemLevel": 45,
+                "maxSockets": 1,
+                "sockets": [
+                  null
+                ],
+                "brokenSockets": 0,
+                "elementResist": {
+                  "earth": 0.09
+                },
+                "bonusAttackSpeed": 0.29,
+                "suffix": "of the Gale",
+                "attrSlots": 1,
+                "attrs": [
+                  {
+                    "k": "atkSpeed",
+                    "v": 5,
+                    "q": 0.309
+                  }
+                ]
+              },
+              "amount": 1
+            }
+          ],
+          "startedAt": 1699999910000,
+          "deaths": 0,
+          "kills": 0,
+          "exp": 0,
+          "revivalsUsed": 0,
+          "maxRevivals": 10
+        }
+      }
+    },
+    "chests": [
+      {
+        "id": "c1",
+        "x": 5,
+        "y": 5,
+        "isGold": false
+      },
+      {
+        "id": "c2",
+        "x": 9,
+        "y": 9,
+        "isGold": true,
+        "openedBy": [
+          "h1"
+        ]
+      }
+    ]
+  },
+  "chest already opened by me": {
+    "log": [],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        }
+      }
+    },
+    "chests": [
+      {
+        "id": "c1",
+        "x": 5,
+        "y": 5,
+        "openedBy": [
+          "h1"
+        ]
+      }
+    ]
+  },
+  "chest opened by others only": {
+    "log": [
+      [
+        "socket",
+        "h1",
+        "dungeon_run_update",
+        {
+          "active": true,
+          "cleared": false,
+          "gold": 63,
+          "items": [
+            "Ancient Ruby",
+            "Honed Crimson Warcape"
+          ],
+          "lootItems": [
+            {
+              "id": "ancient_ruby",
+              "name": "Ancient Ruby",
+              "type": "treasure",
+              "icon": "💎",
+              "rarity": "rare",
+              "sellPrice": 65,
+              "desc": "A sparkling blood-red gem mined from the abyss. High sell value.",
+              "count": 1
+            },
+            {
+              "id": "crimson_warcape",
+              "name": "Honed Crimson Warcape",
+              "type": "equipment",
+              "slot": "cape",
+              "iconKey": "cape_red",
+              "rarity": "rare",
+              "sellPrice": 116,
+              "bonusDef": 14,
+              "bonusHp": 226,
+              "bonusDmg": 16,
+              "desc": "+16 DMG, +14 DEF, +226 HP, ⚡ Lightning RES +8% (Honed Roll)",
+              "uniqueId": "crimson_warcape_1700000000000_dg59c0",
+              "custom": true,
+              "quality": "Honed",
+              "itemLevel": 33,
+              "maxSockets": 1,
+              "sockets": [
+                null
+              ],
+              "brokenSockets": 0,
+              "elementResist": {
+                "lightning": 0.08
+              },
+              "attrSlots": 1,
+              "attrs": [
+                {
+                  "k": "hp",
+                  "v": 71,
+                  "q": 0.804
+                }
+              ],
+              "count": 1
+            }
+          ],
+          "startedAt": 1699999910000,
+          "serverNow": 1700000000000,
+          "clearedMs": null,
+          "floor": 3,
+          "difficulty": "hard",
+          "deaths": 0,
+          "roomsCleared": 0,
+          "mode": "classic",
+          "mods": [],
+          "modReward": 0,
+          "roomsTotal": 6,
+          "clearedRooms": [],
+          "killPercent": 0,
+          "killedMobs": 0,
+          "requiredMobs": 4,
+          "bossPortalReady": false,
+          "bossPortalSpawned": false
+        }
+      ],
+      [
+        "socket",
+        "h1",
+        "chest_opened",
+        {
+          "chestId": "c1",
+          "openedBy": "Hero"
+        }
+      ],
+      [
+        "socket",
+        "h1",
+        "floating_text",
+        {
+          "x": 5,
+          "y": 4.2,
+          "text": "💎 Loot bagged - defeat the boss to secure it!",
+          "color": "#facc15"
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        },
+        "dungeonRun": {
+          "floor": 3,
+          "difficulty": "hard",
+          "cleared": false,
+          "gold": 63,
+          "items": [
+            {
+              "type": "item",
+              "itemId": "ancient_ruby",
+              "amount": 1
+            },
+            {
+              "type": "item",
+              "itemId": "crimson_warcape",
+              "customItemData": {
+                "id": "crimson_warcape",
+                "name": "Honed Crimson Warcape",
+                "type": "equipment",
+                "slot": "cape",
+                "iconKey": "cape_red",
+                "rarity": "rare",
+                "sellPrice": 116,
+                "bonusDef": 14,
+                "bonusHp": 226,
+                "bonusDmg": 16,
+                "desc": "+16 DMG, +14 DEF, +226 HP, ⚡ Lightning RES +8% (Honed Roll)",
+                "uniqueId": "crimson_warcape_1700000000000_dg59c0",
+                "custom": true,
+                "quality": "Honed",
+                "itemLevel": 33,
+                "maxSockets": 1,
+                "sockets": [
+                  null
+                ],
+                "brokenSockets": 0,
+                "elementResist": {
+                  "lightning": 0.08
+                },
+                "attrSlots": 1,
+                "attrs": [
+                  {
+                    "k": "hp",
+                    "v": 71,
+                    "q": 0.804
+                  }
+                ]
+              },
+              "amount": 1
+            }
+          ],
+          "startedAt": 1699999910000,
+          "deaths": 0,
+          "kills": 0,
+          "exp": 0,
+          "revivalsUsed": 0,
+          "maxRevivals": 10
+        }
+      }
+    },
+    "chests": [
+      {
+        "id": "c1",
+        "x": 5,
+        "y": 5,
+        "openedBy": [
+          "someone",
+          "h1"
+        ]
+      }
+    ]
+  },
+  "chest existing run": {
+    "log": [
+      [
+        "socket",
+        "h1",
+        "dungeon_run_update",
+        {
+          "active": true,
+          "cleared": false,
+          "gold": 105,
+          "items": [
+            "x",
+            "Health Potion",
+            "Mana Potion",
+            "Elixir of Iron Skin"
+          ],
+          "lootItems": [
+            {
+              "id": "x",
+              "name": "x",
+              "count": 1,
+              "rarity": "common"
+            },
+            {
+              "id": "health_potion",
+              "name": "Health Potion",
+              "count": 1,
+              "type": "consumable",
+              "rarity": "common",
+              "desc": "Restores 60 Health instantly."
+            },
+            {
+              "id": "mana_potion",
+              "name": "Mana Potion",
+              "count": 1,
+              "type": "consumable",
+              "rarity": "common",
+              "desc": "Restores 50 Mana instantly."
+            },
+            {
+              "id": "elixir_of_iron",
+              "name": "Elixir of Iron Skin",
+              "type": "consumable",
+              "icon": "🛡️",
+              "rarity": "rare",
+              "buyPrice": 90,
+              "sellPrice": 40,
+              "desc": "Alchemical stone draught. Fortifies body against strikes.",
+              "count": 1
+            }
+          ],
+          "serverNow": 1700000000000,
+          "clearedMs": null,
+          "floor": 3,
+          "difficulty": "hard",
+          "deaths": 0,
+          "roomsCleared": 0,
+          "mode": "classic",
+          "mods": [],
+          "modReward": 0,
+          "roomsTotal": 6,
+          "clearedRooms": [],
+          "killPercent": 0,
+          "killedMobs": 0,
+          "requiredMobs": 4,
+          "bossPortalReady": false,
+          "bossPortalSpawned": false
+        }
+      ],
+      [
+        "socket",
+        "h1",
+        "chest_opened",
+        {
+          "chestId": "c1",
+          "openedBy": "Hero"
+        }
+      ],
+      [
+        "socket",
+        "h1",
+        "floating_text",
+        {
+          "x": 5,
+          "y": 4.2,
+          "text": "💎 Loot bagged - defeat the boss to secure it!",
+          "color": "#facc15"
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        },
+        "dungeonRun": {
+          "cleared": false,
+          "gold": 105,
+          "items": [
+            {
+              "itemId": "x",
+              "amount": 1
+            },
+            {
+              "type": "item",
+              "itemId": "health_potion",
+              "amount": 1
+            },
+            {
+              "type": "item",
+              "itemId": "mana_potion",
+              "amount": 1
+            },
+            {
+              "type": "item",
+              "itemId": "elixir_of_iron",
+              "amount": 1
+            }
+          ],
+          "floor": 3,
+          "difficulty": "hard"
+        }
+      }
+    },
+    "chests": [
+      {
+        "id": "c1",
+        "x": 5,
+        "y": 5,
+        "isGold": false,
+        "openedBy": [
+          "h1"
+        ]
+      },
+      {
+        "id": "c2",
+        "x": 9,
+        "y": 9,
+        "isGold": true
+      }
+    ]
+  },
+  "chest after clear gives loot directly": {
+    "log": [
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "type": "gold",
+          "amount": 83,
+          "name": "83 Gold Coins"
+        },
+        null
+      ],
+      [
+        "call",
+        "giveLootToPlayer",
+        "h1",
+        {
+          "type": "item",
+          "itemId": "health_potion",
+          "amount": 1
+        },
+        null
+      ],
+      [
+        "socket",
+        "h1",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "dungeon",
+          "x": 5,
+          "y": 5,
+          "level": 40,
+          "characterClass": "warrior",
+          "isDead": false,
+          "gold": 100,
+          "dungeonInstanceId": "inst1",
+          "inventory": {
+            "items": [],
+            "kills": 0
+          },
+          "dungeonRun": {
+            "cleared": true,
+            "gold": 0,
+            "items": [],
+            "floor": 3,
+            "difficulty": "hard"
+          }
+        }
+      ],
+      [
+        "socket",
+        "h1",
+        "dungeon_run_update",
+        {
+          "active": true,
+          "cleared": true,
+          "gold": 0,
+          "items": [],
+          "lootItems": [],
+          "serverNow": 1700000000000,
+          "clearedMs": null,
+          "floor": 3,
+          "difficulty": "hard",
+          "deaths": 0,
+          "roomsCleared": 0,
+          "mode": "classic",
+          "mods": [],
+          "modReward": 0,
+          "roomsTotal": 6,
+          "clearedRooms": [],
+          "killPercent": 0,
+          "killedMobs": 0,
+          "requiredMobs": 4,
+          "bossPortalReady": false,
+          "bossPortalSpawned": false
+        }
+      ],
+      [
+        "socket",
+        "h1",
+        "chest_opened",
+        {
+          "chestId": "c1",
+          "openedBy": "Hero"
+        }
+      ],
+      [
+        "socket",
+        "h1",
+        "floating_text",
+        {
+          "x": 5,
+          "y": 4.2,
+          "text": "💎 Chest Unlocked!",
+          "color": "#facc15"
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        },
+        "dungeonRun": {
+          "cleared": true,
+          "gold": 0,
+          "items": [],
+          "floor": 3,
+          "difficulty": "hard"
+        }
+      }
+    },
+    "chests": [
+      {
+        "id": "c1",
+        "x": 5,
+        "y": 5,
+        "isGold": false,
+        "openedBy": [
+          "h1"
+        ]
+      },
+      {
+        "id": "c2",
+        "x": 9,
+        "y": 9,
+        "isGold": true
+      }
+    ]
+  },
+  "chest no socket": {
+    "log": [],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": "inst1",
+        "inventory": {
+          "items": [],
+          "kills": 0
+        },
+        "dungeonRun": {
+          "floor": 3,
+          "difficulty": "hard",
+          "cleared": false,
+          "gold": 83,
+          "items": [
+            {
+              "type": "item",
+              "itemId": "greater_mana_potion",
+              "amount": 1
+            }
+          ],
+          "startedAt": 1699999910000,
+          "deaths": 0,
+          "kills": 0,
+          "exp": 0,
+          "revivalsUsed": 0,
+          "maxRevivals": 10
+        }
+      }
+    },
+    "chests": [
+      {
+        "id": "c1",
+        "x": 5,
+        "y": 5,
+        "isGold": false,
+        "openedBy": [
+          "h1"
+        ]
+      },
+      {
+        "id": "c2",
+        "x": 9,
+        "y": 9,
+        "isGold": true
+      }
+    ]
+  },
+  "chest no instance (legacy dungeon)": {
+    "log": [
+      [
+        "socket",
+        "h1",
+        "dungeon_run_update",
+        {
+          "active": true,
+          "cleared": false,
+          "gold": 52,
+          "items": [
+            "Mana Potion"
+          ],
+          "lootItems": [
+            {
+              "id": "mana_potion",
+              "name": "Mana Potion",
+              "count": 1,
+              "type": "consumable",
+              "rarity": "common",
+              "desc": "Restores 50 Mana instantly."
+            }
+          ],
+          "startedAt": 1700000000000,
+          "serverNow": 1700000000000,
+          "clearedMs": null,
+          "floor": 2,
+          "difficulty": "normal",
+          "deaths": 0,
+          "roomsCleared": 0,
+          "mode": "classic",
+          "mods": [],
+          "modReward": 0,
+          "roomsTotal": 0,
+          "clearedRooms": [],
+          "killPercent": 0,
+          "killedMobs": 0,
+          "requiredMobs": 0,
+          "bossPortalReady": false,
+          "bossPortalSpawned": false
+        }
+      ],
+      [
+        "socket",
+        "h1",
+        "chest_opened",
+        {
+          "chestId": "lc",
+          "openedBy": "Hero"
+        }
+      ],
+      [
+        "socket",
+        "h1",
+        "floating_text",
+        {
+          "x": 5,
+          "y": 4.2,
+          "text": "💎 Loot bagged - defeat the boss to secure it!",
+          "color": "#facc15"
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 5,
+        "y": 5,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": null,
+        "inventory": {
+          "items": [],
+          "kills": 0
+        },
+        "dungeonRun": {
+          "floor": 2,
+          "difficulty": "normal",
+          "cleared": false,
+          "gold": 52,
+          "items": [
+            {
+              "type": "item",
+              "itemId": "mana_potion",
+              "amount": 1
+            }
+          ],
+          "startedAt": 1700000000000,
+          "deaths": 0,
+          "kills": 0,
+          "exp": 0
+        }
+      }
+    },
+    "chests": [
+      {
+        "id": "lc",
+        "x": 5,
+        "y": 5,
+        "isGold": false,
+        "openedBy": [
+          "h1"
+        ]
+      }
+    ]
+  },
+  "chest no instance, no run yet, far": {
+    "log": [],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 40,
+        "y": 40,
+        "level": 40,
+        "characterClass": "warrior",
+        "isDead": false,
+        "gold": 100,
+        "dungeonInstanceId": null,
+        "inventory": {
+          "items": [],
+          "kills": 0
+        }
+      }
+    },
+    "chests": [
+      {
+        "id": "lc",
+        "x": 5,
+        "y": 5,
+        "isGold": false,
+        "openedBy": []
+      }
+    ]
+  }
+}
