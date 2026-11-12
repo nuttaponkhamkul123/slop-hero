@@ -457,3 +457,46 @@ export interface DungeonInstance {
   rift?: any;
   [extra: string]: any;
 }
+
+/** The state of one Eternal Rift run (DungeonInstance.rift / RiftInstance.rift). */
+export interface RiftState {
+  phase: string;
+  wave: number;
+  timer: number;
+  baseLevel: number;
+  mode: string;
+  perWave: number;
+  spawnMult: number;
+  fountain: { hp: number; maxHp: number };
+  queue: any[];
+  spawnEvery: number;
+  spawnClock: number;
+  gateTurn: number;
+  structures: any[];
+  structSeq: number;
+  /** heroId -> Rift Points (gone when they leave) */
+  points: Map<string, number>;
+  /** heroId -> { gold, essence } paid out at a checkpoint */
+  banked: Map<string, any>;
+  /** heroId -> 'continue' during a checkpoint prompt */
+  choices: Map<string, string>;
+  stateClock: number;
+  [extra: string]: any;
+}
+
+/** An Eternal Rift run: lives in GameServer.dungeonInstances next to the dungeon runs but has fewer fields. */
+export interface RiftInstance {
+  id: string;
+  partyId: string | null;
+  floor: number;
+  difficulty: string;
+  dungeon: any;
+  mobs: Map<string, Mob>;
+  pendingMobs: Map<number, Mob[]>;
+  groundItems: Map<string, GroundItem>;
+  chests: any[];
+  cleared: boolean;
+  startedAt: number;
+  rift: RiftState;
+  [extra: string]: any;
+}

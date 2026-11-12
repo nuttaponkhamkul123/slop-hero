@@ -160,6 +160,7 @@ import { HERO_CLASSES, isHeroClass, starterEquipment } from './data/heroClasses'
 import { createStarterCharacter, createLivePlayer } from './entities/player';
 import { ItemFactory } from './entities/item';
 import { MobFactory } from './entities/mob';
+import { createProjectile, createGroundItem, createDungeonInstance, createRiftInstance, createParty } from './entities/world';
 let minionSeq = 0;
 let spObjSeq = 0; // ids for placed card objects (glyphs, banners, lances) so the client can clear them
 
@@ -406,7 +407,7 @@ class GameServer {
     const totalWeight = trashMobs.reduce((t, m) => t + dungeonProgressWeight(m), 0);
     const requiredKills = Math.max(1, Math.round(totalWeight * DUNGEON_PORTAL_SHARE));
 
-    const inst: any = {
+    const inst: any = createDungeonInstance({
       id: instanceId,
       partyId: player.partyId || null,
       floor,
@@ -415,21 +416,12 @@ class GameServer {
       mods,                       // dungeon modifiers (dungeonMods.ts)
       modReward: DMODS.modReward(mods),
       dungeon: dungeonMap,
-      mobs: new Map<any, any>(),
       pendingMobs,
-      groundItems: new Map<any, any>(),
       chests: dungeonMap.chests || [],
-      cleared: false,
-      startedAt: Date.now(),
       bossRoomIdx,
       totalTrashMobs,
-      requiredKills,
-      killedTrashCount: 0,
-      killPercent: 0,
-      bossPortalReady: false,
-      bossPortalSpawned: false,
-      bossPortalPos: null
-    };
+      requiredKills
+    });
 
     this.dungeonInstances.set(instanceId, inst);
     // The entrance (no monsters) clears at once, opening its doors and
@@ -879,11 +871,7 @@ class GameServer {
     let partyId = player.partyId;
     if (!partyId) {
       partyId = 'party_' + (this.nextPartyId++);
-      this.parties.set(partyId, {
-        id: partyId,
-        leaderId: player.id,
-        memberIds: new Set([player.id])
-      });
+      this.parties.set(partyId, createParty(partyId, player.id));
       player.partyId = partyId;
       this.broadcastPartyUpdate(partyId);
     }
@@ -6704,7 +6692,7 @@ class GameServer {
     // a transformed mage throws its card's own bolt (drawn per card on the client)
     const cardId = caster.spTransformed && caster.equipment && caster.equipment.sp ? caster.equipment.sp.cardId : null;
 
-    this.projectiles.set(id, {
+    this.projectiles.set(id, createProjectile({
       cardId,
       instanceId: caster.zone === 'dungeon' ? (caster.dungeonInstanceId || null) : null,
       id,
@@ -6724,7 +6712,7 @@ class GameServer {
       element,
       life: 2.0,
       color: '#f97316'
-    });
+    }));
 
     this.emitZone(caster.zone, 'projectile_spawned', {
       id,
@@ -7416,20 +7404,7 @@ class GameServer {
     const id = `item_${this.nextEntityId++}`;
     const itemsMap = this.getGroundItemsMap(zone, instanceId);
 
-    const baseDef = ITEMS[itemIdOrName];
-    const item = {
-      id,
-      zone,
-      type,
-      itemId: type === 'item' ? itemIdOrName : null,
-      name: type === 'gold' ? `${Number(amount).toLocaleString('en-US')} Gold` : (customItemData && customItemData.name ? customItemData.name : (baseDef ? baseDef.name : itemIdOrName)),
-      x,
-      y,
-      amount,
-      customItemData,
-      createdAt: Date.now(),
-      expiresAt: Date.now() + ITEM_DESPAWN_MS
-    };
+    const item = createGroundItem({ id, zone, type, itemIdOrName, x, y, amount, customItemData });
 
     itemsMap.set(id, item);
     this.emitZone(zone, 'item_dropped', item, instanceId);
@@ -8115,29 +8090,16 @@ class GameServer {
     const avgLevel = members.reduce((t, p) => t + (p.level || 1), 0) / members.length;
     const baseLevel = M.start !== null ? M.start : Math.max(1, Math.round(avgLevel) - 2);
     const fountainHp = RIFT.fountainMaxHp(baseLevel, members.length);
-    const inst: any = {
+    const inst: any = createRiftInstance({
       id,
       partyId: leader.partyId || null,
-      floor: 0,
-      difficulty: 'rift',
       dungeon: RIFT.generateRiftArena(),
-      mobs: new Map<any, any>(),
-      pendingMobs: new Map<any, any>(),
-      groundItems: new Map<any, any>(),
-      chests: [],
-      cleared: false,
-      startedAt: Date.now(),
-      rift: {
-        phase: 'prep', wave: 0, timer: RIFT.RIFT_PREP_S, baseLevel, mode, perWave: M.perWave, spawnMult: M.spawn,
-        fountain: { hp: fountainHp, maxHp: fountainHp },
-        queue: [], spawnEvery: 0.5, spawnClock: 0, gateTurn: 0,
-        structures: [], structSeq: 0,
-        points: new Map<string, number>(),   // heroId -> Rift Points (gone when they leave)
-        banked: new Map<string, any>(),      // heroId -> { gold, essence } paid out at a checkpoint
-        choices: new Map<string, string>(),  // heroId -> 'continue' during a checkpoint prompt
-        stateClock: 0
-      }
-    };
+      baseLevel,
+      mode,
+      perWave: M.perWave,
+      spawnMult: M.spawn,
+      fountainHp
+    });
     this.dungeonInstances.set(id, inst);
     return inst;
   }
@@ -8497,11 +8459,11 @@ class GameServer {
     const angle = Math.atan2(target.y - s.y, target.x - s.x);
     const speed = 11;
     const vx = Math.cos(angle) * speed, vy = Math.sin(angle) * speed;
-    this.projectiles.set(id, {
+    this.projectiles.set(id, createProjectile({
       cardId: null, instanceId: inst.id, id, zone: 'dungeon', casterId: owner.id,
       x: s.x, y: s.y, targetX: target.x, targetY: target.y, targetId: target.id, targetType: 'mob',
       vx, vy, damage, splash: 0, crit: false, element: 'holy', life: 1.0, color: '#fde68a'
-    });
+    }));
     this.emitZone('dungeon', 'projectile_spawned', {
       id, zone: 'dungeon', x: s.x, y: s.y, vx, vy, casterId: null, element: 'holy', cardId: null, splash: 0, color: '#fde68a'
     }, inst.id);

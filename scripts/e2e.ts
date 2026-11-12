@@ -114,6 +114,53 @@ async function main() {
     await sleep(400);
     check('the kill rewarded EXP ("+N EXP")', texts.some(t => /^\+\d+ EXP$/.test(t)), texts.slice(-6));
     console.log(`        (loot dropped on the ground: ${(events['item_dropped'] || []).length}; drops are random)`);
+    console.log('second player: party and ranged attack');
+    const mage: Socket = io(URL, { transports: ['websocket'] });
+    try {
+      await new Promise<void>((res, rej) => { mage.on('connect', () => res()); setTimeout(() => rej(new Error('mage connect timeout')), 10000); });
+      const mageEvents: Record<string, any[]> = {};
+      mage.onAny((ev: string, data: any) => { if (ev !== 'game_tick') (mageEvents[ev] = mageEvents[ev] || []).push(data); });
+      const mageInit: any = await new Promise((res, rej) => {
+        mage.once('init_game', res);
+        mage.emit('join_game', { name: 'E2E Mage', characterClass: 'mage' });
+        setTimeout(() => rej(new Error('mage never got init_game')), 10000);
+      });
+      check('a guest mage joins the same world', mageInit && mageInit.player && mageInit.player.characterClass === 'mage' && mageInit.player.maxMp > mageInit.player.maxHp, mageInit && mageInit.player && { cls: mageInit.player.characterClass, maxMp: mageInit.player.maxMp, maxHp: mageInit.player.maxHp });
+
+      // party: the admin invites, the mage accepts
+      events['party_updated'] = [];
+      s.emit('party_invite', { targetPlayerId: mageInit.playerId });
+      const partyUp: any = await until(() => (events['party_updated'] || [])[0], 4000);
+      check('inviting creates a party led by the admin (party_updated)', !!partyUp, Object.keys(events).filter(e => e.startsWith('party')));
+      const invite: any = await until(() => (mageEvents['party_invite_received'] || [])[0], 4000);
+      check('the mage receives the invitation', !!invite && !!invite.partyId, invite);
+      if (invite) {
+        mage.emit('party_accept', { partyId: invite.partyId });
+        const both: any = await until(() => (mageEvents['party_updated'] || []).find((p: any) => p && JSON.stringify(p).includes('E2E Mage') && JSON.stringify(p).includes('E2E Admin')), 4000);
+        check('after accepting, the party holds both heroes', !!both);
+        s.emit('party_leave');
+        mage.emit('party_leave');
+        await sleep(300);
+      }
+
+      // ranged attack: the mage throws a projectile at a monster the admin spawned next to the plaza
+      await say('/spawn e2etarget 1');
+      const tgt = mobsHere('townMobs').find((m: any) => m.type === 'e2etarget');
+      check('a target monster is in town', !!tgt);
+      if (tgt) {
+        let proj: any = null;
+        for (let i = 0; i < 12 && !proj; i++) {
+          mage.emit('player_attack', { targetId: tgt.id, targetType: 'mob' });
+          await sleep(700);
+          proj = (mageEvents['projectile_spawned'] || [])[0];
+        }
+        check('the mage\'s attack spawns a projectile', !!proj, Object.keys(mageEvents));
+        check('  the projectile carries id, zone, position, velocity and caster', !!proj && proj.id && proj.zone === 'town' && typeof proj.x === 'number' && typeof proj.vx === 'number' && proj.casterId === mageInit.playerId, proj);
+      }
+    } finally {
+      mage.disconnect();
+    }
+
     await say('/setlevel 150'); // open every level gate for the zones below
 
     console.log('field zones');
