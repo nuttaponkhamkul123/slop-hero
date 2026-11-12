@@ -618,7 +618,7 @@ class GameServer {
     if (player.inventory.items.length >= maxCap) return fail('Inventory is full!');
     player.gold -= price.gold;
     this.spendFragments(player, price.fragments);
-    player.inventory.items.push({ ...SP.makeCardItem(card.id), custom: true, count: 1 });
+    player.inventory.items.push(ItemFactory.card(card.id));
     this.savePlayerAccount(socketId);
     socket.emit('player_updated', player);
     socket.emit('sp_exchange_result', { ok: true, cardId: card.id });
@@ -654,7 +654,7 @@ class GameServer {
       if (Math.random() >= lootGapMult(p.level, bossLevel)) continue;
       const cardId = SP.rollCardDrop(p.characterClass, inst.floor, inst.difficulty);
       if (cardId) {
-        this.giveLootToPlayer(p, { type: 'item', itemId: 'sp_card', customItemData: { ...SP.makeCardItem(cardId), custom: true }, amount: 1 });
+        this.giveLootToPlayer(p, { type: 'item', itemId: 'sp_card', customItemData: ItemFactory.cardLootData(cardId), amount: 1 });
         this.broadcastSystemMessage(`[${p.name}] found the SP Card [${SP.CARD_BY_ID[cardId].name}] on B${inst.floor}!`);
       }
       if (Math.random() < SP.FRAGMENT_DROP.boss) {
@@ -2914,7 +2914,7 @@ class GameServer {
     // gear roll (top ranks roll guaranteed, boss-quality gear)
     if (Math.random() < bucket.gear) {
       const cls = player.characterClass;
-      let gear = generateRandomizedGear(pickGearForLevel(def.level, { boss: bucket.gearBoss, cls }), def.level, bucket.gearBoss);
+      let gear = ItemFactory.gear(pickGearForLevel(def.level, { boss: bucket.gearBoss, cls }), def.level, bucket.gearBoss);
       const reforge = (bucket.mythic || Math.random() < 0.5) ? rollSkyblockReforge(gear) : null;
       if (reforge) gear = applySkyblockReforge(gear, reforge);
       this.giveLootToPlayer(player, { type: 'item', itemId: gear.id, customItemData: gear, amount: 1 }, false);
@@ -2927,7 +2927,7 @@ class GameServer {
       if (chosen) {
         const cardItem = SP.makeCardItem(chosen.id);
         if (cardItem) {
-          this.giveLootToPlayer(player, { type: 'item', itemId: 'sp_card', customItemData: { ...cardItem, custom: true }, amount: 1 }, false);
+          this.giveLootToPlayer(player, { type: 'item', itemId: 'sp_card', customItemData: ItemFactory.cardLootData(chosen.id), amount: 1 }, false);
           this.broadcastSystemMessage(`🃏 [${player.name}] pulled an SP Card [${chosen.name}] from the raid bounty!`);
         }
       }
@@ -7291,7 +7291,7 @@ class GameServer {
         this.spawnGroundItem(zone, 'item', 'spirit_fragment', mob.x, mob.y, 1, null, instId);
         if (lucky(0.40)) {
           const cls = killerPlayer && killerPlayer.characterClass;
-          let gear = generateRandomizedGear(pickGearForLevel(mob.level || 1, { boss: false, cls }), mob.level || 1, false);
+          let gear = ItemFactory.gear(pickGearForLevel(mob.level || 1, { boss: false, cls }), mob.level || 1, false);
           const reforge = rollSkyblockReforge(gear);
           if (reforge) gear = applySkyblockReforge(gear, reforge);
           this.spawnGroundItem(zone, 'item', gear.id, mob.x + (Math.random() - 0.5) * 1.0, mob.y + (Math.random() - 0.5) * 1.0, 1, gear, instId);
@@ -7327,7 +7327,7 @@ class GameServer {
       const equipCount = (lucky(BOSS_GEAR_DROP_CHANCE) ? 1 : 0) + (lucky(BOSS_BONUS_GEAR_DROP_CHANCE) ? 1 : 0);
       const cls = killerPlayer && killerPlayer.characterClass;
       for (let i = 0; i < equipCount; i++) {
-        let gear = generateRandomizedGear(pickGearForLevel(mob.level || 1, { boss: true, cls }), mob.level || 1, true);
+        let gear = ItemFactory.gear(pickGearForLevel(mob.level || 1, { boss: true, cls }), mob.level || 1, true);
         const reforge = rollSkyblockReforge(gear);
         if (reforge) {
           gear = applySkyblockReforge(gear, reforge);
@@ -7352,7 +7352,7 @@ class GameServer {
       // "แต่อัตราการดรอปของ ทำให้น้อยๆหน่อย" (Low drop rate: ~3.5% equipment, ~6% potions/stone)
       if (lucky(MOB_GEAR_DROP_CHANCE)) {
         const cls = killerPlayer && killerPlayer.characterClass;
-        let gear = generateRandomizedGear(pickGearForLevel(mob.level || 1, { cls }), mob.level || 1, false);
+        let gear = ItemFactory.gear(pickGearForLevel(mob.level || 1, { cls }), mob.level || 1, false);
         if (Math.random() < 0.25) {
           const reforge = rollSkyblockReforge(gear);
           if (reforge) gear = applySkyblockReforge(gear, reforge);

@@ -1,6 +1,7 @@
 // Procedural Dungeon Generator for Aetheria Online
 // Generates randomized rooms, corridors, chests, and dungeon monsters
 import { ITEMS, generateRandomizedGear, pickGearForLevel } from './items';
+import { ItemFactory } from './entities/item';
 import { mobExp, mobHpMult, mobDefMult, DUNGEON_EXP_MULT, DUNGEON_TRASH_FACTOR } from './progression';
 
 // The floor boss keeps only this share of its defense (minibosses and trash are unaffected)
@@ -1230,7 +1231,7 @@ function rollDungeonLoot(isBoss = false, floorLevel = 1, cls = null) {
     const band = DUNGEON_FLOORS[floorLevel - 1] || { minLevel: floorLevel * 15 - 14, maxLevel: floorLevel * 15 };
     const itemLevel = isBoss ? band.maxLevel : band.minLevel + Math.floor(Math.random() * (band.maxLevel - band.minLevel + 1));
     const gearId = pickGearForLevel(itemLevel, { boss: isBoss, cls });
-    const customGear = generateRandomizedGear(gearId, itemLevel, isBoss);
+    const customGear = ItemFactory.gear(gearId, itemLevel, isBoss);
     drops.push({ type: 'item', itemId: gearId, customItemData: customGear, amount: 1 });
   }
 

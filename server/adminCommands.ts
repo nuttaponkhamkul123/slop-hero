@@ -6,6 +6,7 @@ import * as SP from './spCards';
 import { mobStats, FIELD_ZONES } from './fieldZones';
 import accountManager from './accountManager';
 import { UserRole } from './types';
+import { ItemFactory } from './entities/item';
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'slopadmin';
 
@@ -176,7 +177,7 @@ const COMMANDS: Record<string, AdminCommandDef> = {
         if (targetPlayer.inventory.items.length >= maxSlots) {
           return sendFeedback(gameServer, player, `❌ กระเป๋าของ ${targetPlayer.name} เต็มแล้ว (${maxSlots}/${maxSlots} ช่อง)`);
         }
-        const cardItem = { ...SP.makeCardItem(spDef.id), custom: true, count: 1 };
+        const cardItem = ItemFactory.card(spDef.id);
         targetPlayer.inventory.items.push(cardItem);
 
         gameServer.emitZone(targetPlayer.zone, 'floating_text', {
@@ -209,8 +210,8 @@ const COMMANDS: Record<string, AdminCommandDef> = {
             sendFeedback(gameServer, player, `⚠️ กระเป๋าเต็ม เสกได้ ${i} ชิ้น`);
             break;
           }
-          const gear = generateRandomizedGear(rawId, targetPlayer.level || 1, false);
-          targetPlayer.inventory.items.push({ ...gear, count: 1 });
+          const gear = ItemFactory.gear(rawId, targetPlayer.level || 1, false);
+          targetPlayer.inventory.items.push(ItemFactory.stack(gear));
         }
       } else {
         // Consumable, material, relic
@@ -252,7 +253,7 @@ const COMMANDS: Record<string, AdminCommandDef> = {
         return sendFeedback(gameServer, player, `❌ กระเป๋าของ ${targetPlayer.name} เต็มแล้ว (${maxSlots}/${maxSlots} ช่อง)`);
       }
 
-      const cardItem = { ...SP.makeCardItem(spDef.id, upgrade), custom: true, count: 1 };
+      const cardItem = ItemFactory.card(spDef.id, upgrade);
       targetPlayer.inventory.items.push(cardItem);
 
       gameServer.emitZone(targetPlayer.zone, 'floating_text', {
