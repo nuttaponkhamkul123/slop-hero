@@ -3,7 +3,7 @@
 // - They describe plain JSON objects (they are saved to disk and sent to the client as they are).
 // - Fields that are only added later during play are optional.
 // - `[extra: string]: any` keeps the codebase compiling while it still reads/writes ad-hoc fields;
-//   it is removed per entity in Phase E of docs/REFACTOR_PLAN.md.
+//   it has been removed from Mob and DungeonInstance; Item, Player and the small shapes still have it (Phase E).
 // - The older types in ../types.ts (CharacterData, MonsterDef, Party, ...) describe aspirational
 //   shapes the game never used: do not mix them up with these.
 
@@ -378,7 +378,16 @@ export interface Mob {
   shadowMarkTimer?: number;
   staticCharge?: number;
   lastHitBy?: string;
-  [extra: string]: any;
+  /** time of death (ms), set when a rift monster dies */
+  diedAt?: number;
+  /** rift: the structure this monster is attacking */
+  structTargetId?: string | null;
+  /** rift: points paid to whoever slays it */
+  riftPoints?: number;
+  /** Emberheart set: stacks per hero id */
+  embers?: Record<string, number>;
+  /** set once the kill counted toward the dungeon's boss portal */
+  progressCounted?: boolean;
 }
 
 // ---------------------------------------------------------------- world objects
@@ -456,7 +465,6 @@ export interface DungeonInstance {
   roomsCleared?: any;
   roomsSpawned?: any;
   rift?: any;
-  [extra: string]: any;
 }
 
 /** The state of one Eternal Rift run (DungeonInstance.rift / RiftInstance.rift). */
