@@ -183,13 +183,13 @@ server/
 
 ## Phase A — data out of GameServer (move only)
 
-### A1. `config/constants.ts`
+### A1. `config/constants.ts` (DONE, 3f4de73)
 Move verbatim, with `export`: the tuning constants at gameServer.ts ~lines 46–142 (`SP_TRANSFORM_COOLDOWN` ... `FAILED_RUN_LOOT_KEEP`, including the pure helpers `dungeonProgressWeight` and `mobInView`) and ~437–484 (`PORTAL_USE_RANGE` ... `BOSS_REVIVAL_STONE_CHANCE`), except anything built from a `require(...)` (e.g. `TALENT_PROCS = PASSIVES.TALENT_PROCS`) and the mutable `let minionSeq` / `let spObjSeq`, which stay. Import them back with a named import list. Verify each moved name is defined exactly once under `server/`. Commit: `refactor: move tuning constants to config/constants.ts`.
 
-### A2. `data/skills.ts` and `data/potions.ts`
+### A2. `data/skills.ts` and `data/potions.ts` (DONE, b137582)
 Move verbatim: `ALL_CLASS_SKILLS`, `CLASS_SKILLS_CATALOG`, `SKILL_RUNES`, `DEFAULT_EQUIPPED_SKILLS`, `CLIENT_SKILL_SLOTS`, `DEFAULT_SKILL_FOR_SLOT`, `CLASS_SKILLS` (-> `data/skills.ts`); `POTIONS`, `POTION_COOLDOWN_MS` (-> `data/potions.ts`). `gameServer.ts` must keep `export { GameServer, ALL_CLASS_SKILLS }`. Commit: `refactor: move skill and potion data to data/`.
 
-### A3. `data/heroClasses.ts`
+### A3. `data/heroClasses.ts` (DONE, a42fcaf; fixtures f1089ca)
 One table replaces the duplicated `defaultClasses` stat table (in `makeStarterCharacter` and `addPlayer`; note `addPlayer`'s copy also has `skillName`), the duplicated starter-gear blocks, and gives `isRanged` (true for mage). **First** capture a fixture of `makeStarterCharacter(name, cls)` for warrior, mage, rogue and an invalid class, then make both methods read the table and assert deep equality. Do not touch the `=== 'mage'` branches yet (that is D1). Commit: `refactor: single hero class table`.
 
 **Stop after Phase A and report to the user** (they restart their server and play-check).
