@@ -11,7 +11,10 @@ async function loadApplyDamage() {
   const mod: any = await import('../gameServer');
   const GS = mod.default || mod.GameServer;
   const cfg: any = await import('../config/constants');
-  return { dir, apply: GS.prototype.applyDamageToMob, cfg };
+  const { CombatSystem } = await import('../systems/CombatSystem');
+  // the system's method with a stand-in server (the system reaches the server as this.gs)
+  const apply = (fake: any, p: any, m: any, dmg: number) => (new CombatSystem(fake) as any).applyDamageToMob(p, m, dmg);
+  return { dir, apply, cfg };
 }
 
 // `this` stand-in: frost rune x4, everything else a harmless no-op
@@ -27,7 +30,7 @@ test('frost rune freezes through frozenTimer (and sets chill, not the dead chill
   try {
     Math.random = () => 0; // always rolls "freeze"
     const m: any = mob();
-    apply.call(fakeServer(), player(), m, 50);
+    apply(fakeServer(), player(), m, 50);
     assert.equal(m.frozenTimer, cfg.FREEZE_SECONDS);
     assert.equal(m.frozenKind, 'ice');
     assert.equal(m.chillTimer, 3.5);
@@ -35,11 +38,11 @@ test('frost rune freezes through frozenTimer (and sets chill, not the dead chill
     assert.equal('freezeTimer' in m, false);
 
     const boss: any = mob({ isBoss: true });
-    apply.call(fakeServer(), player(), boss, 50);
+    apply(fakeServer(), player(), boss, 50);
     assert.equal(boss.frozenTimer, cfg.BOSS_FREEZE_SECONDS);
 
     const stasis: any = mob({ frozenTimer: 3, frozenKind: 'time' }); // Chrono stasis must stay stasis
-    apply.call(fakeServer(), player(), stasis, 50);
+    apply(fakeServer(), player(), stasis, 50);
     assert.equal(stasis.frozenTimer, 3);
     assert.equal(stasis.frozenKind, 'time');
   } finally {
@@ -55,7 +58,7 @@ test('frost rune does not freeze when the roll fails', async () => {
   try {
     Math.random = () => 0.99;
     const m: any = mob();
-    apply.call(fakeServer(), player(), m, 50);
+    apply(fakeServer(), player(), m, 50);
     assert.ok(!(m.frozenTimer > 0));
     assert.equal(m.chillTimer, 3.5);
   } finally {
