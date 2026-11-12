@@ -126,9 +126,12 @@ test('world object creation sites match the pre-refactor fixture', async () => {
     // 5. parties (created by the first invite)
     {
       const a: any = { id: 'a', name: 'Alice', x: 0, y: 0 }, b: any = { id: 'b', name: 'Bob', x: 1, y: 1 };
-      const fake: any = loose({ players: new Map([['a', a], ['b', b]]), parties: new Map(), nextPartyId: 1, io: { sockets: { sockets: new Map() } } });
-      try { GS.prototype.handlePartyInvite.call(fake, 'a', { targetPlayerId: 'b' }); } catch { /* only the creation matters here */ }
-      GS.prototype.handlePartyInvite.call(fake, 'a', { targetPlayerId: 'zzz' }); // unknown target: no new party
+      // a server without its constructor; its systems are wired when GameServer has initSystems()
+      const fake: any = Object.create(GS.prototype);
+      Object.assign(fake, { players: new Map([['a', a], ['b', b]]), parties: new Map(), nextPartyId: 1, io: { sockets: { sockets: new Map() } } });
+      if (typeof fake.initSystems === 'function') fake.initSystems();
+      try { fake.handlePartyInvite('a', { targetPlayerId: 'b' }); } catch { /* only the creation matters here */ }
+      fake.handlePartyInvite('a', { targetPlayerId: 'zzz' }); // unknown target: no new party
       got.parties = { parties: plain(fake.parties), nextPartyId: fake.nextPartyId, aPartyId: a.partyId, bPartyId: b.partyId ?? null };
     }
 
