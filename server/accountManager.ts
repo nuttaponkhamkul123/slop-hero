@@ -54,7 +54,16 @@ export class AccountManager {
   public accounts: Record<string, AccountRecord>;
   public sessions: Map<string, { key: string; expiresAt: number }>;
 
-  constructor() {
+  // true when accounts.json existed but could not be loaded; saving is then refused
+  public loadFailed = false;
+  private dataDir: string;
+  private accountsFile: string;
+  private sessionsFile: string;
+
+  constructor(dataDir: string = DATA_DIR) {
+    this.dataDir = dataDir;
+    this.accountsFile = path.join(dataDir, 'accounts.json');
+    this.sessionsFile = path.join(dataDir, 'sessions.json');
     this.accounts = {};
     this.sessions = new Map(); // token -> { key, expiresAt }
     this.init();
@@ -110,7 +119,7 @@ export class AccountManager {
     try {
       const now = Date.now();
       for (const [token, s] of this.sessions) if (now > s.expiresAt) this.sessions.delete(token);
-      fs.writeFileSync(SESSIONS_FILE, JSON.stringify(Object.fromEntries(this.sessions)), 'utf-8');
+      fs.writeFileSync(this.sessionsFile, JSON.stringify(Object.fromEntries(this.sessions)), 'utf-8');
     } catch (err) {
       console.error('[AccountManager] Error saving sessions:', err);
     }
@@ -118,9 +127,9 @@ export class AccountManager {
 
   loadSessions(): void {
     try {
-      if (!fs.existsSync(SESSIONS_FILE)) return;
+      if (!fs.existsSync(this.sessionsFile)) return;
       const now = Date.now();
-      const raw = JSON.parse(fs.readFileSync(SESSIONS_FILE, 'utf-8'));
+      const raw = JSON.parse(fs.readFileSync(this.sessionsFile, 'utf-8'));
       for (const [token, s] of Object.entries<any>(raw)) {
         if (s && typeof s.key === 'string' && s.expiresAt > now) this.sessions.set(token, { key: s.key, expiresAt: s.expiresAt });
       }
@@ -185,11 +194,11 @@ export class AccountManager {
 
   init(): void {
     try {
-      if (!fs.existsSync(DATA_DIR)) {
-        fs.mkdirSync(DATA_DIR, { recursive: true });
+      if (!fs.existsSync(this.dataDir)) {
+        fs.mkdirSync(this.dataDir, { recursive: true });
       }
-      if (fs.existsSync(ACCOUNTS_FILE)) {
-        const raw = fs.readFileSync(ACCOUNTS_FILE, 'utf-8');
+      if (fs.existsSync(this.accountsFile)) {
+        const raw = fs.readFileSync(this.accountsFile, 'utf-8');
         this.accounts = JSON.parse(raw);
         for (const acc of Object.values(this.accounts)) this.normalize(acc);
         console.log(`[AccountManager] Loaded ${Object.keys(this.accounts).length} accounts.`);
@@ -200,15 +209,31 @@ export class AccountManager {
     } catch (err) {
       console.error('[AccountManager] Error initializing accounts:', err);
       this.accounts = {};
+      // The file exists but could not be read/parsed: keep a copy and refuse to
+      // save, otherwise the next save would overwrite every real account with {}.
+      try {
+        if (fs.existsSync(this.accountsFile)) {
+          const backup = path.join(this.dataDir, `accounts.corrupt-${Date.now()}.json`);
+          fs.copyFileSync(this.accountsFile, backup);
+          console.error(`[AccountManager] !!! accounts file unreadable. Copied to ${backup}. Saving is DISABLED until it is fixed and the server restarted.`);
+        }
+      } catch (copyErr) {
+        console.error('[AccountManager] Could not back up the unreadable accounts file:', copyErr);
+      }
+      this.loadFailed = true;
     }
   }
 
   saveAccounts(): void {
+    if (this.loadFailed) {
+      console.error('[AccountManager] Save skipped: accounts file failed to load earlier (see accounts.corrupt-*.json).');
+      return;
+    }
     try {
-      if (!fs.existsSync(DATA_DIR)) {
-        fs.mkdirSync(DATA_DIR, { recursive: true });
+      if (!fs.existsSync(this.dataDir)) {
+        fs.mkdirSync(this.dataDir, { recursive: true });
       }
-      fs.writeFileSync(ACCOUNTS_FILE, JSON.stringify(this.accounts, null, 2), 'utf-8');
+      fs.writeFileSync(this.accountsFile, JSON.stringify(this.accounts, null, 2), 'utf-8');
     } catch (err) {
       console.error('[AccountManager] Error saving accounts:', err);
     }

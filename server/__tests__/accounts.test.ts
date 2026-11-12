@@ -30,3 +30,19 @@ test('accountManager: register + saveCharacter round-trips through disk', async 
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('accountManager: a corrupt accounts.json is backed up and never overwritten', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'slop-test-'));
+  fs.writeFileSync(path.join(dir, 'accounts.json'), '{ this is not json', 'utf-8');
+  try {
+    const { default: shared } = await import('../accountManager');
+    const am: any = new (shared.constructor as any)(dir); // constructor loads (and fails to parse) the corrupt file
+    assert.equal(am.loadFailed, true);
+    am.register('someone', 'secret1', { name: 'X', characterClass: 'warrior' });
+    am.saveAccounts();
+    assert.equal(fs.readFileSync(path.join(dir, 'accounts.json'), 'utf-8'), '{ this is not json');
+    assert.ok(fs.readdirSync(dir).some(f => f.startsWith('accounts.corrupt-')));
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
