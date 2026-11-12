@@ -34,6 +34,7 @@ test('saveCharacter: whitelist, defaults and SP-transform handling match the pre
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'slop-test-'));
   const realNow = Date.now;
   try {
+    process.env.DATA_DIR = dir; // before the first import: the singleton must never see the real accounts
     const { default: shared } = await import('../accountManager');
     const am: any = new (shared.constructor as any)(dir);
     am.register('savetester', 'secret1', { name: 'seed', characterClass: 'warrior' });
@@ -60,6 +61,7 @@ test('saveCharacter: whitelist, defaults and SP-transform handling match the pre
 test('saveCharacter: rejects unknown accounts, missing slots and empty input', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'slop-test-'));
   try {
+    process.env.DATA_DIR = dir; // before the first import: the singleton must never see the real accounts
     const { default: shared } = await import('../accountManager');
     const am: any = new (shared.constructor as any)(dir);
     am.register('rejecter', 'secret1', { name: 'seed', characterClass: 'warrior' });
