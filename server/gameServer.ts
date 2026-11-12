@@ -195,8 +195,8 @@ class GameServer {
   dungeonFloor: number;
   dungeonDifficulty: string;
   dungeon: any;
-  players: Map<string, any>;
-  townMobs: Map<string, any>;
+  players: Map<string, Player>;
+  townMobs: Map<string, Mob>;
   frostfellMobs: Map<string, any>;
   dungeonMobs: Map<string, any>;
   townGroundItems: Map<string, any>;
@@ -204,7 +204,7 @@ class GameServer {
   dungeonGroundItems: Map<string, any>;
   parties: Map<string, any>;
   nextPartyId: number;
-  dungeonInstances: Map<string, any>;
+  dungeonInstances: Map<string, DungeonInstance>;
   ctxInstanceId: any;
   projectiles: Map<string, any>;
   smokeClouds: any[];
@@ -899,7 +899,7 @@ class GameServer {
     const inRift = !!this.getRiftInstance(player);
     if (player.zone === 'dungeon' && !inRift) {
       if (!player.dungeonRun) {
-        player.dungeonRun = { revivalsUsed: 0, maxRevivals: 10 };
+        player.dungeonRun = { revivalsUsed: 0, maxRevivals: 10 } as any;
       }
       const used = player.dungeonRun.revivalsUsed || 0;
       const maxRev = player.dungeonRun.maxRevivals || 10;

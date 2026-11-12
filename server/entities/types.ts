@@ -64,6 +64,8 @@ export interface Item {
   bonusMp?: number;
   bonusSpeed?: number;
   bonusAttackSpeed?: number;
+  favorite?: boolean;
+  color?: string;
 }
 
 export interface EquipmentSlots {
@@ -76,6 +78,8 @@ export interface EquipmentSlots {
   ring: Item | null;
   /** the equipped SP card; absent until one is equipped */
   sp?: Item | null;
+  /** slots are also addressed by name from the client (data.slot) */
+  [slot: string]: Item | null | undefined;
 }
 
 export interface Inventory {
@@ -112,6 +116,8 @@ export interface EquippedSkills {
   slot3: string;
   dash: string;
   runes: Record<string, string>;
+  /** slots are also addressed by name from the client (data.slot) */
+  [slot: string]: any;
 }
 
 export interface SkillCooldowns {
@@ -320,6 +326,10 @@ export interface Player {
   _lastLeechText?: number;
   heatAt?: number;
   flowTimer?: number;
+  faceLockTimer?: number;
+  aimFacing?: string;
+  timeTrailClock?: number;
+  nextMobHitAt?: number;
 }
 
 // ---------------------------------------------------------------- monsters
@@ -497,6 +507,9 @@ export interface DungeonInstance {
   roomsCleared?: any;
   roomsSpawned?: any;
   rift?: any;
+  _sentMobs?: Map<string, any>;
+  _mobsStreamed?: boolean;
+  _chestSig?: string;
 }
 
 /** The state of one Eternal Rift run (DungeonInstance.rift / RiftInstance.rift). */
