@@ -1,0 +1,6 @@
+{
+  "className": "PartySystem",
+  "field": "party",
+  "description": "Parties: invites, joining, leaving, kicking, summons and sharing kill EXP.",
+  "methods": ["getPartyData", "broadcastPartyUpdate", "handlePartyInvite", "handlePartyAccept", "handlePartyDecline", "handlePartySummon", "handlePartySummonAccept", "handlePartyListCandidates", "handlePartyLeave", "handlePartyKick", "removePlayerFromParty", "partyExpSharers"]
+}

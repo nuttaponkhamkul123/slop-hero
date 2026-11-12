@@ -204,22 +204,29 @@ One table replaces the duplicated `defaultClasses` stat table (in `makeStarterCh
 - **B4 (DONE: 15f40cc fixture; f198444). Mob**: `MobFactory` with one variant per site (field, raidBoss, riftMob, bossAdd, dungeonMob, adminSpawn). No shared base object: the sites differ in key sets and defaults, and the "same fields" rule forbids unifying them. Replace in this order: admin `/spawn`, raid boss, rift, boss adds (`bossMechanics.ts` `summonAdds`), dungeon pending (`getOrCreateDungeonInstance`), field (`initFieldMonsters`). Leave the dungeon generator's def literals alone (they are input data). Each variant gets a fixture test. Note: `mob.zone` is a leash box on most mobs but the string `'dungeon'` on rift/admin mobs; keep both.
 - **B5 (DONE: 97bb866 fixture; 78ac251). World**: `createProjectile` (dedupes `spawnProjectile` and `spawnRiftBolt`), `createGroundItem`, `createDungeonInstance`, `createRiftInstance`, `createParty`.
 
-## Phase C — system classes
+## Phase C — system classes (IN PROGRESS)
 
-For each system, in this order: StatusEffect, Potion, Minion, Party, Raid, SpCard, Inventory, ItemUpgrade, Level, Loot, DungeonRun, Zone, Passive, Stats, Combat, then Skill, SpSkill, MobAI last. Method lists per system: statusEffects = `applyStatusEffect`, `smokeMissChance`, `applyTalentProcs`; potions = `getPotionSlots`, `getPotionCount`, `consumePotion`, `handleUsePotion`, `handleSetPotionSlot`; minions = `corpseKey`, `addCorpse`, `takeCorpses`, `raiseMinion`, `crumbleMinion`, `dismissMinions`, `tickMinions`; party = `getPartyData`, `broadcastPartyUpdate`, `handleParty*`, `removePlayerFromParty`, `partyExpSharers`; raid = `updateRaidEvents`, `spawnRaidBoss`, `despawnRaidBoss`, `recordRaidDamage`, `raidStandings`, `broadcastRaidLeaderboard`, `raidInfo`, `onRaidBossDeath`, `payRaidReward`; spCard = `equipSpCard`, `handleSpTransform`, `spLoadout`, `customizeSpSkill`, `setTransformed`, `fragmentCount`, `spendFragments`, `handleSpCard*`, `awardJobExp`, `rollBossSpLoot`, `endSpToggle`, `tickSpToggles`; inventory = equip/unequip/buy/sell/favorite/pickup/bag-expander/personal-chest handlers; itemUpgrade = reforge/enhance/socket/rune/attributes/craft handlers; level = `awardExp` and the skill-point/passive handlers; loot = `giveLootToPlayer`, `lootEntryName`, `lootEntryToItem`, `spawnGroundItem`, `sweepGroundItems`; dungeonRun = `newDungeonRun`, `updateDungeonRooms`, `spawnDungeonRoom`, `countDungeonProgress`, `emitDungeonRunUpdate`, `completeDungeonRun`, `endDungeonRun`; zone = `teleportPlayerTo*`, enter/leave dungeon, portal handlers, `init*Monsters`; passive = `passiveDamageMult`, `passiveOnHit`, `passiveOnKill`, `passiveOnHurt`, `cardPassiveLeech`, `heroBuffs`, `bloodRage`, `phoenixRebirth`; stats = `recalculatePlayerStats`, `hpRegenMult`, `handleSetEffects`, rune-count getters; combat = `handlePlayerAttack`, `meleeSweep`, `chainBasicAttack`, `applyDamageToMob`, `handleMobDeath`, `spawnProjectile`, `applyProjectileSplash`, `gainUltCharge`.
+Done: **StatusEffectSystem** (ae0f860), **PotionSystem** (5557b86), **MinionSystem** (6af8bc7), **PartySystem** (2fcea39).
+Next, in this order: Raid, SpCard, Inventory, ItemUpgrade, Level, Loot, DungeonRun, Zone, Passive, Stats, Combat, then Skill, SpSkill, MobAI (the three biggest, last).
 
-Pattern (per system, one commit):
-```ts
-// server/systems/PotionSystem.ts
-import type { GameServer } from '../gameServer';
-export class PotionSystem {
-  constructor(private readonly gs: GameServer) {}
-  use(player: any) { /* original body, `this.` -> `this.gs.` */ }
-}
-// gameServer.ts constructor: this.potions = new PotionSystem(this);
-// gameServer.ts stub:        handleUsePotion(...a) { return this.potions.use(...a); }
-```
-Replace `this.` with `this.gs.` only inside moved bodies; callbacks written as `function () {}` that rely on their own `this` stay unchanged. Keep `createBossMechanics` as it is.
+Method lists per remaining system (grep the names; line numbers drift): raid = `updateRaidEvents`, `spawnRaidBoss`, `despawnRaidBoss`, `recordRaidDamage`, `raidStandings`, `broadcastRaidLeaderboard`, `raidInfo`, `onRaidBossDeath`, `payRaidReward`; spCard = `equipSpCard`, `handleSpTransform`, `spLoadout`, `customizeSpSkill`, `setTransformed`, `fragmentCount`, `spendFragments`, `handleSpCard*`, `awardJobExp`, `rollBossSpLoot`, `endSpToggle`, `tickSpToggles`; inventory = equip/unequip/buy/sell/favorite/pickup/bag-expander/personal-chest handlers; itemUpgrade = reforge/enhance/socket/rune/attributes/craft handlers; level = `awardExp` and the skill-point/passive handlers; loot = `giveLootToPlayer`, `lootEntryName`, `lootEntryToItem`, `spawnGroundItem`, `sweepGroundItems`; dungeonRun = `newDungeonRun`, `updateDungeonRooms`, `spawnDungeonRoom`, `countDungeonProgress`, `emitDungeonRunUpdate`, `completeDungeonRun`, `endDungeonRun`; zone = `teleportPlayerTo*`, enter/leave dungeon, portal handlers, `init*Monsters`; passive = `passiveDamageMult`, `passiveOnHit`, `passiveOnKill`, `passiveOnHurt`, `cardPassiveLeech`, `heroBuffs`, `bloodRage`, `phoenixRebirth`; stats = `recalculatePlayerStats`, `hpRegenMult`, `handleSetEffects`, rune-count getters; combat = `handlePlayerAttack`, `meleeSweep`, `chainBasicAttack`, `applyDamageToMob`, `handleMobDeath`, `spawnProjectile`, `applyProjectileSplash`, `gainUltCharge`.
+
+### The procedure that works (one system per session-step, 3 commits)
+1. **Characterization test first** (`server/__tests__/system<Name>.test.ts`). Build a server WITHOUT its constructor:
+   ```ts
+   const fake = Object.create(GS.prototype); Object.assign(fake, { players, io, emitZone: record, ...stubs });
+   if (typeof fake.initSystems === 'function') fake.initSystems();   // wires the systems once they exist
+   ```
+   Stub everything the methods call that is not under test (teleports, dungeon helpers, sockets, `emitZone`) with recorders. Freeze `Date.now`, seed `Math.random`. Cover every branch (errors and no-ops too), record all emitted events, calls and the resulting state, and write them to `server/__tests__/fixtures/system<Name>.json` with `UPDATE_FIXTURES=1`. Run it twice and diff (must be deterministic) and read the fixture summary to check the scenarios really reach the branches. Commit.
+2. **Extract mechanically**: `node scripts/extract-system.js scripts/system-configs/<name>.json` (config examples: status-effects, potions, minions (private counter + deleteLines), party). Then `npm run typecheck`.
+3. **Verify and commit**: the fixture test must pass unchanged, plus `npm test`, `npm run smoke`, `npm run e2e`. Existing tests that call moved methods on a bare stand-in object (not via `initSystems()`) must be adapted to build the server the way step 1 does (their fixtures stay untouched).
+
+Gotchas found so far:
+- One-line methods (`corpseKey(...) { ... }`) are supported by the tool; methods are matched by their 2-space-indented name and end at the next line that is exactly `  }`.
+- Module-level `let` counters used by a single system become private fields (`privateFields` + `textReplacements` + `deleteLines`). Module-level `const`s built with `require` need `extraTop`.
+- `gameServer.ts` has CRLF line endings in the working tree (git autocrlf); the tool handles both.
+- Do not put `\n`-style escapes in shell heredocs when writing files; use the Write/Edit tools.
+- The party/minion tests show how to test a method that talks to sockets and teleports: stub the callees, log their arguments, fixture the log.
 
 ## Phase D — registries for behavior that varies
 
