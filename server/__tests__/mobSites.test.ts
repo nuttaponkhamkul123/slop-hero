@@ -63,8 +63,11 @@ test('monster creation sites match the pre-refactor fixture', async () => {
     for (const zid of Object.keys(RAID.RAID_BOSSES).slice(0, 3)) {
       seeded(22, () => {
         const field = { zone: FZ.FIELD_ZONES.find((z: any) => z.id === zid), mobs: new Map() };
-        const fake: any = loose({ fields: new Map([[zid, field]]), raidStates: new Map(), nextEntityId: 2000 });
-        GS.prototype.spawnRaidBoss.call(fake, zid);
+        // a server without its constructor; its systems are wired when GameServer has initSystems()
+        const fake: any = Object.create(GS.prototype);
+        Object.assign(fake, { fields: new Map([[zid, field]]), raidStates: new Map(), nextEntityId: 2000, broadcastSystemMessage: noop, emitZone: noop });
+        if (typeof fake.initSystems === 'function') fake.initSystems();
+        fake.spawnRaidBoss(zid);
         got.raid[zid] = clean(Array.from(field.mobs.values()));
       });
     }

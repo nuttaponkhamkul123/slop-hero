@@ -165,6 +165,7 @@ import { StatusEffectSystem } from './systems/StatusEffectSystem';
 import { PotionSystem } from './systems/PotionSystem';
 import { MinionSystem } from './systems/MinionSystem';
 import { PartySystem } from './systems/PartySystem';
+import { RaidSystem } from './systems/RaidSystem';
 let spObjSeq = 0; // ids for placed card objects (glyphs, banners, lances) so the client can clear them
 
 const PASSIVES = require('./talents');
@@ -260,6 +261,7 @@ class GameServer {
 
   // Game systems: classes that own one area of the rules (see server/systems). Each reaches the server through `gs`.
   initSystems() {
+    this.raid = new RaidSystem(this);
     this.party = new PartySystem(this);
     this.minions = new MinionSystem(this);
     this.potions = new PotionSystem(this);
@@ -2444,189 +2446,40 @@ class GameServer {
     return out;
   }
 
-  // =================================================================
-  // FIELD RAID / WORLD BOSS EVENTS
-  // =================================================================
   updateRaidEvents() {
-    const now = Date.now();
-    for (const zoneId of Object.keys(RAID.RAID_BOSSES)) {
-      const st = this.raidStates.get(zoneId);
-      if (!st) {
-        if (now >= (this.raidNextSpawn.get(zoneId) || 0)) this.spawnRaidBoss(zoneId);
-        continue;
-      }
-      // the boss window expired without a kill: it retreats and the clock resets
-      if (now >= st.despawnAt) {
-        this.despawnRaidBoss(zoneId, 'timeup');
-        continue;
-      }
-      if (now - st.lastBroadcast >= 4000) {
-        st.lastBroadcast = now;
-        this.broadcastRaidLeaderboard(zoneId, st);
-      }
-    }
+    return this.raid.updateRaidEvents();
   }
 
   spawnRaidBoss(zoneId) {
-    const conf = RAID.RAID_BOSSES[zoneId];
-    const field = this.fields.get(zoneId);
-    if (!conf || !field || this.raidStates.has(zoneId)) return;
-    const def = RAID.buildRaidMobDef(zoneId);
-    if (!def) return;
-    const id = `${zoneId}_raid_${this.nextEntityId++}`;
-    const mob: any = MobFactory.raidBoss(def, zoneId, id);
-    field.mobs.set(id, mob);
-    const now = Date.now();
-    this.raidStates.set(zoneId, {
-      conf,
-      def,
-      mobId: id,
-      damage: new Map(),
-      despawnAt: now + (conf.windowMinutes || 15) * RAID.MINUTE,
-      lastBroadcast: 0
-    });
-    this.broadcastSystemMessage(`☠️ RAID EVENT! [${def.name}] (Lv.${def.level}) has awakened in [${field.zone.name}]! It won't fall alone.`);
-    this.emitZone(zoneId, 'raid_spawn', {
-      zoneId,
-      name: def.name,
-      level: def.level,
-      hp: mob.maxHp,
-      maxHp: mob.maxHp,
-      endsIn: (conf.windowMinutes || 15) * 60
-    });
+    return this.raid.spawnRaidBoss(zoneId);
   }
 
   despawnRaidBoss(zoneId, why = 'timeup') {
-    const st = this.raidStates.get(zoneId);
-    if (!st) return;
-    const field = this.fields.get(zoneId);
-    if (field) field.mobs.delete(st.mobId);
-    this.raidStates.delete(zoneId);
-    const conf = RAID.RAID_BOSSES[zoneId];
-    this.raidNextSpawn.set(zoneId, Date.now() + (conf ? conf.respawnMinutes : 25) * RAID.MINUTE);
-    if (why === 'timeup') {
-      this.broadcastSystemMessage(`💨 [${st.def.name}] senses the odds and retreats into the deep. It returns in ${conf ? conf.respawnMinutes : 25} minutes.`);
-      this.emitZone(zoneId, 'raid_gone', { zoneId, reason: 'timeup' });
-    }
+    return this.raid.despawnRaidBoss(zoneId, why);
   }
 
   recordRaidDamage(zoneId, playerId, amount) {
-    const st = this.raidStates.get(zoneId);
-    if (!st || !playerId || !(amount > 0)) return;
-    st.damage.set(playerId, (st.damage.get(playerId) || 0) + amount);
+    return this.raid.recordRaidDamage(zoneId, playerId, amount);
   }
 
-  // Live standings for the boss: online players sorted by damage dealt
   raidStandings(st) {
-    const rows = [];
-    for (const [pid, dmg] of st.damage) {
-      const p = this.players.get(pid);
-      if (!p || p.isDead) continue;
-      rows.push({ id: pid, name: p.name, dmg: Math.round(dmg) });
-    }
-    rows.sort((a, b) => b.dmg - a.dmg);
-    return rows;
+    return this.raid.raidStandings(st);
   }
 
   broadcastRaidLeaderboard(zoneId, st) {
-    const mob = this.fields.get(zoneId) && this.fields.get(zoneId).mobs.get(st.mobId);
-    if (!mob || mob.state === 'dead') return;
-    const standings = this.raidStandings(st);   // full board: clients resolve their own rank
-    this.emitZone(zoneId, 'raid_leaderboard', {
-      zoneId,
-      name: st.def.name,
-      level: st.def.level,
-      hp: Math.max(0, Math.round(mob.hp)),
-      maxHp: st.def.maxHp,
-      endsIn: Math.max(0, Math.round((st.despawnAt - Date.now()) / 1000)),
-      top: standings,
-      count: standings.length
-    });
+    return this.raid.broadcastRaidLeaderboard(zoneId, st);
   }
 
-  // Snapshot for players entering the zone mid-fight (rides zone_change)
   raidInfo(zoneId) {
-    const st = this.raidStates.get(zoneId);
-    if (!st) return { active: false };
-    const field = this.fields.get(zoneId);
-    const mob = field && field.mobs.get(st.mobId);
-    if (!mob || mob.state === 'dead') return { active: false };
-    const standings = this.raidStandings(st);   // full board: clients resolve their own rank
-    return {
-      active: true,
-      zoneId,
-      name: st.def.name,
-      level: st.def.level,
-      hp: Math.max(0, Math.round(mob.hp)),
-      maxHp: st.def.maxHp,
-      endsIn: Math.max(0, Math.round((st.despawnAt - Date.now()) / 1000)),
-      top: standings,
-      count: standings.length
-    };
+    return this.raid.raidInfo(zoneId);
   }
 
   onRaidBossDeath(mob, killerPlayer) {
-    const zoneId = mob.fieldZone || (killerPlayer && killerPlayer.zone) || Object.keys(RAID.RAID_BOSSES)[0];
-    const st = this.raidStates.get(zoneId);
-    if (!st || !mob.isRaidBoss) return;
-    const def = st.def;
-    const standings = this.raidStandings(st);
-
-    const podium = standings.slice(0, 5).map((r, i) => `${i + 1}. ${r.name} (${r.dmg.toLocaleString()})`).join('  ');
-    this.broadcastSystemMessage(`🏆 RAID SLAYED! [${def.name}] has fallen! Damage: ${podium || 'no one recorded'}`);
-    this.emitZone(zoneId, 'raid_gone', { zoneId, reason: 'kill' });
-    this.emitZone(zoneId, 'mob_died', { mobId: mob.id, killerId: killerPlayer ? killerPlayer.id : null });
-
-    let rank = 0;
-    const total = standings.length;
-    for (const row of standings) {
-      rank++;
-      const p = this.players.get(row.id);
-      if (!p) continue;
-      this.payRaidReward(p, def, RAID.raidBucketFor(rank), rank, total);
-    }
-    this.despawnRaidBoss(zoneId, 'kill');
+    return this.raid.onRaidBossDeath(mob, killerPlayer);
   }
 
   payRaidReward(player, def, bucket, rank, total) {
-    const gold = Math.max(1, Math.round(def.gold * bucket.gold * (0.85 + Math.random() * 0.3)));
-    this.giveLootToPlayer(player, { type: 'gold', amount: gold }, false);
-
-    const exp = Math.max(1, Math.round(def.exp * bucket.exp * (0.9 + Math.random() * 0.2)));
-    this.awardExp(player, exp);
-    this.awardJobExp(player, exp);
-
-    const [fmin, fmax] = bucket.frag;
-    const frags = fmin + Math.floor(Math.random() * (fmax - fmin + 1));
-    if (frags > 0) this.giveLootToPlayer(player, { type: 'item', itemId: 'spirit_fragment', amount: frags }, false);
-
-    // gear roll (top ranks roll guaranteed, boss-quality gear)
-    if (Math.random() < bucket.gear) {
-      const cls = player.characterClass;
-      let gear = ItemFactory.gear(pickGearForLevel(def.level, { boss: bucket.gearBoss, cls }), def.level, bucket.gearBoss);
-      const reforge = (bucket.mythic || Math.random() < 0.5) ? rollSkyblockReforge(gear) : null;
-      if (reforge) gear = applySkyblockReforge(gear, reforge);
-      this.giveLootToPlayer(player, { type: 'item', itemId: gear.id, customItemData: gear, amount: 1 }, false);
-    }
-
-    // SP-card roll from the boss's card tier pool
-    if (Math.random() < bucket.card) {
-      const pool = (SP.SP_CARDS[player.characterClass] || []).filter(c => c.tier === (def.cardTier || 1));
-      const chosen = pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
-      if (chosen) {
-        const cardItem = SP.makeCardItem(chosen.id);
-        if (cardItem) {
-          this.giveLootToPlayer(player, { type: 'item', itemId: 'sp_card', customItemData: ItemFactory.cardLootData(chosen.id), amount: 1 }, false);
-          this.broadcastSystemMessage(`🃏 [${player.name}] pulled an SP Card [${chosen.name}] from the raid bounty!`);
-        }
-      }
-    }
-
-    const socket = this.io.sockets.sockets.get(player.id);
-    if (socket) {
-      socket.emit('raid_reward', { rank, total, label: bucket.label, gold, exp, fragments: frags, bossName: def.name });
-      socket.emit('player_updated', player);
-    }
+    return this.raid.payRaidReward(player, def, bucket, rank, total);
   }
 
   // Run a card skill from its SP_SKILLS data (see the shape list in spCards.js)
