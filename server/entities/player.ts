@@ -189,7 +189,7 @@ export function createLivePlayer(a: LivePlayerArgs): Player {
   if (!savedChar) {
     // Equip starter gear tailored to chosen class (only the slots the class has gear for)
     for (const [slot, item] of Object.entries(starterEquipment(chosenClass))) {
-      if (item) player.equipment[slot] = item;
+      if (item) (player.equipment as any)[slot] = item;
     }
   }
 

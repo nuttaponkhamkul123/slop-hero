@@ -45,7 +45,25 @@ export interface Item {
   attrs?: any;
   /** SP card items */
   cardId?: string;
-  [extra: string]: any;
+  /** reforge name (also in `name`) and the stats it adds */
+  reforge?: string;
+  baseName?: string;
+  reforgeStats?: any;
+  /** share of the card's stats kept by a scaled SP item */
+  spScale?: number;
+  /** stats before upgrade/reforge, kept so applyItemUpgradeStats can recompute the bonuses */
+  baseBonusDmg?: number;
+  baseBonusDef?: number;
+  baseBonusHp?: number;
+  baseBonusMp?: number;
+  baseBonusSpeed?: number;
+  baseBonusAttackSpeed?: number;
+  baseBonusSwipe?: number;
+  bonusDef?: number;
+  bonusHp?: number;
+  bonusMp?: number;
+  bonusSpeed?: number;
+  bonusAttackSpeed?: number;
 }
 
 export interface EquipmentSlots {
@@ -58,7 +76,6 @@ export interface EquipmentSlots {
   ring: Item | null;
   /** the equipped SP card; absent until one is equipped */
   sp?: Item | null;
-  [extra: string]: any;
 }
 
 export interface Inventory {
@@ -67,7 +84,8 @@ export interface Inventory {
   kills?: number;
   maxSlots: number;
   items: Item[];
-  [extra: string]: any;
+  /** which potion each quick slot drinks */
+  potionSlots?: { health: string; mana: string };
 }
 
 export interface Storage {
@@ -94,7 +112,6 @@ export interface EquippedSkills {
   slot3: string;
   dash: string;
   runes: Record<string, string>;
-  [extra: string]: any;
 }
 
 export interface SkillCooldowns {
@@ -112,7 +129,6 @@ export interface StatusEffect {
   duration: number;
   value?: number;
   tickTimer?: number;
-  [extra: string]: any;
 }
 
 export interface DungeonRun {
@@ -287,7 +303,23 @@ export interface Player {
   effects?: any;
   talentRefunded?: number;
   riftRespawnSet?: any;
-  [extra: string]: any;
+  /** admin /god: takes no damage */
+  godMode?: boolean;
+  /** socket.io room of the zone the hero is in */
+  _room?: string;
+  lastHitAt?: number;
+  eclipseTimer?: number;
+  secondWindReadyAt?: number;
+  staticStacks?: number;
+  airborneUntil?: number;
+  undyingTimer?: number;
+  ultWindow?: { t: number; g: number };
+  inKillNova?: boolean;
+  _inSetProc?: boolean;
+  _lastRuneLeechText?: number;
+  _lastLeechText?: number;
+  heatAt?: number;
+  flowTimer?: number;
 }
 
 // ---------------------------------------------------------------- monsters
@@ -490,7 +522,6 @@ export interface RiftState {
   /** heroId -> 'continue' during a checkpoint prompt */
   choices: Map<string, string>;
   stateClock: number;
-  [extra: string]: any;
 }
 
 /** An Eternal Rift run: lives in GameServer.dungeonInstances next to the dungeon runs but has fewer fields. */
@@ -507,5 +538,4 @@ export interface RiftInstance {
   cleared: boolean;
   startedAt: number;
   rift: RiftState;
-  [extra: string]: any;
 }
