@@ -1,0 +1,9523 @@
+{
+  "exp small": {
+    "log": [
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9,
+          "text": "+30 EXP",
+          "color": "#a855f7"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 10,
+      "y": 10,
+      "level": 1,
+      "exp": 30,
+      "expNext": 100,
+      "hp": 10,
+      "mp": 5,
+      "maxHp": 120,
+      "maxMp": 60,
+      "dmg": 8,
+      "def": 3,
+      "speed": 4,
+      "attackRange": 5,
+      "skillPoints": 0
+    },
+    "threw": null
+  },
+  "exp exact level": {
+    "log": [
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9,
+          "text": "+100 EXP",
+          "color": "#a855f7"
+        }
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        2,
+        {
+          "maxHp": 140,
+          "maxMp": 75,
+          "dmg": 12,
+          "def": 5,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 2,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 1)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 2! Earned 1 Skill Point."
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 10,
+      "y": 10,
+      "level": 2,
+      "exp": 0,
+      "expNext": 317,
+      "hp": 114,
+      "mp": 56,
+      "maxHp": 114,
+      "maxMp": 56,
+      "dmg": 8,
+      "def": 3,
+      "speed": 4,
+      "attackRange": 5,
+      "skillPoints": 1,
+      "baseStats": {
+        "maxHp": 140,
+        "maxMp": 75,
+        "dmg": 12,
+        "def": 5,
+        "speed": 4,
+        "attackRange": 5
+      }
+    },
+    "threw": null
+  },
+  "exp one level with carry": {
+    "log": [
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9,
+          "text": "+150 EXP",
+          "color": "#a855f7"
+        }
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        2,
+        {
+          "maxHp": 140,
+          "maxMp": 75,
+          "dmg": 12,
+          "def": 5,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 2,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 1)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 2! Earned 1 Skill Point."
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 10,
+      "y": 10,
+      "level": 2,
+      "exp": 50,
+      "expNext": 317,
+      "hp": 114,
+      "mp": 56,
+      "maxHp": 114,
+      "maxMp": 56,
+      "dmg": 8,
+      "def": 3,
+      "speed": 4,
+      "attackRange": 5,
+      "skillPoints": 1,
+      "baseStats": {
+        "maxHp": 140,
+        "maxMp": 75,
+        "dmg": 12,
+        "def": 5,
+        "speed": 4,
+        "attackRange": 5
+      }
+    },
+    "threw": null
+  },
+  "exp many levels": {
+    "log": [
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9,
+          "text": "+5000 EXP",
+          "color": "#a855f7"
+        }
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        2,
+        {
+          "maxHp": 140,
+          "maxMp": 75,
+          "dmg": 12,
+          "def": 5,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 2,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 1)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 2! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        3,
+        {
+          "maxHp": 160,
+          "maxMp": 90,
+          "dmg": 16,
+          "def": 7,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 3,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 2)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 3! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        4,
+        {
+          "maxHp": 180,
+          "maxMp": 105,
+          "dmg": 20,
+          "def": 9,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 4,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 3)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 4! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        5,
+        {
+          "maxHp": 200,
+          "maxMp": 120,
+          "dmg": 24,
+          "def": 11,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 5,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 4)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 5! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        6,
+        {
+          "maxHp": 220,
+          "maxMp": 135,
+          "dmg": 28,
+          "def": 13,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 6,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 5)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 6! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        7,
+        {
+          "maxHp": 240,
+          "maxMp": 150,
+          "dmg": 32,
+          "def": 15,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 7,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 6)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 7! Earned 1 Skill Point."
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 10,
+      "y": 10,
+      "level": 7,
+      "exp": 114,
+      "expNext": 2391,
+      "hp": 149,
+      "mp": 71,
+      "maxHp": 149,
+      "maxMp": 71,
+      "dmg": 8,
+      "def": 3,
+      "speed": 4,
+      "attackRange": 5,
+      "skillPoints": 6,
+      "baseStats": {
+        "maxHp": 240,
+        "maxMp": 150,
+        "dmg": 32,
+        "def": 15,
+        "speed": 4,
+        "attackRange": 5
+      }
+    },
+    "threw": null
+  },
+  "exp huge to cap": {
+    "log": [
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9,
+          "text": "+1000000000000 EXP",
+          "color": "#a855f7"
+        }
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        2,
+        {
+          "maxHp": 140,
+          "maxMp": 75,
+          "dmg": 12,
+          "def": 5,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 2,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 1)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 2! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        3,
+        {
+          "maxHp": 160,
+          "maxMp": 90,
+          "dmg": 16,
+          "def": 7,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 3,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 2)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 3! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        4,
+        {
+          "maxHp": 180,
+          "maxMp": 105,
+          "dmg": 20,
+          "def": 9,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 4,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 3)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 4! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        5,
+        {
+          "maxHp": 200,
+          "maxMp": 120,
+          "dmg": 24,
+          "def": 11,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 5,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 4)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 5! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        6,
+        {
+          "maxHp": 220,
+          "maxMp": 135,
+          "dmg": 28,
+          "def": 13,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 6,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 5)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 6! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        7,
+        {
+          "maxHp": 240,
+          "maxMp": 150,
+          "dmg": 32,
+          "def": 15,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 7,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 6)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 7! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        8,
+        {
+          "maxHp": 260,
+          "maxMp": 165,
+          "dmg": 36,
+          "def": 17,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 8,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 7)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 8! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        9,
+        {
+          "maxHp": 280,
+          "maxMp": 180,
+          "dmg": 40,
+          "def": 19,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 9,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 8)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 9! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        10,
+        {
+          "maxHp": 300,
+          "maxMp": 195,
+          "dmg": 44,
+          "def": 21,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 10,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 9)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 10! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        11,
+        {
+          "maxHp": 320,
+          "maxMp": 210,
+          "dmg": 48,
+          "def": 23,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 11,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 10)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 11! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        12,
+        {
+          "maxHp": 340,
+          "maxMp": 225,
+          "dmg": 52,
+          "def": 25,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 12,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 11)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 12! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        13,
+        {
+          "maxHp": 360,
+          "maxMp": 240,
+          "dmg": 56,
+          "def": 27,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 13,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 12)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 13! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        14,
+        {
+          "maxHp": 380,
+          "maxMp": 255,
+          "dmg": 60,
+          "def": 29,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 14,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 13)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 14! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        15,
+        {
+          "maxHp": 400,
+          "maxMp": 270,
+          "dmg": 64,
+          "def": 31,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 15,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 14)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 15! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        16,
+        {
+          "maxHp": 420,
+          "maxMp": 285,
+          "dmg": 68,
+          "def": 33,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 16,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 15)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 16! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        17,
+        {
+          "maxHp": 440,
+          "maxMp": 300,
+          "dmg": 72,
+          "def": 35,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 17,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 16)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 17! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        18,
+        {
+          "maxHp": 460,
+          "maxMp": 315,
+          "dmg": 76,
+          "def": 37,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 18,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 17)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 18! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        19,
+        {
+          "maxHp": 480,
+          "maxMp": 330,
+          "dmg": 80,
+          "def": 39,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 19,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 18)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 19! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        20,
+        {
+          "maxHp": 500,
+          "maxMp": 345,
+          "dmg": 84,
+          "def": 41,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 20,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 19)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 20! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        21,
+        {
+          "maxHp": 520,
+          "maxMp": 360,
+          "dmg": 88,
+          "def": 43,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 21,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 20)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 21! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        22,
+        {
+          "maxHp": 540,
+          "maxMp": 375,
+          "dmg": 92,
+          "def": 45,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 22,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 21)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 22! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        23,
+        {
+          "maxHp": 560,
+          "maxMp": 390,
+          "dmg": 96,
+          "def": 47,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 23,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 22)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 23! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        24,
+        {
+          "maxHp": 580,
+          "maxMp": 405,
+          "dmg": 100,
+          "def": 49,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 24,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 23)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 24! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        25,
+        {
+          "maxHp": 600,
+          "maxMp": 420,
+          "dmg": 104,
+          "def": 51,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 25,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 24)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 25! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        26,
+        {
+          "maxHp": 620,
+          "maxMp": 435,
+          "dmg": 108,
+          "def": 53,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 26,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 25)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 26! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        27,
+        {
+          "maxHp": 640,
+          "maxMp": 450,
+          "dmg": 112,
+          "def": 55,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 27,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 26)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 27! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        28,
+        {
+          "maxHp": 660,
+          "maxMp": 465,
+          "dmg": 116,
+          "def": 57,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 28,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 27)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 28! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        29,
+        {
+          "maxHp": 680,
+          "maxMp": 480,
+          "dmg": 120,
+          "def": 59,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 29,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 28)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 29! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        30,
+        {
+          "maxHp": 700,
+          "maxMp": 495,
+          "dmg": 124,
+          "def": 61,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 30,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 29)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 30! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        31,
+        {
+          "maxHp": 720,
+          "maxMp": 510,
+          "dmg": 128,
+          "def": 63,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 31,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 30)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 31! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        32,
+        {
+          "maxHp": 740,
+          "maxMp": 525,
+          "dmg": 132,
+          "def": 65,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 32,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 31)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 32! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        33,
+        {
+          "maxHp": 760,
+          "maxMp": 540,
+          "dmg": 136,
+          "def": 67,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 33,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 32)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 33! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        34,
+        {
+          "maxHp": 780,
+          "maxMp": 555,
+          "dmg": 140,
+          "def": 69,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 34,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 33)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 34! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        35,
+        {
+          "maxHp": 800,
+          "maxMp": 570,
+          "dmg": 144,
+          "def": 71,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 35,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 34)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 35! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        36,
+        {
+          "maxHp": 820,
+          "maxMp": 585,
+          "dmg": 148,
+          "def": 73,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 36,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 35)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 36! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        37,
+        {
+          "maxHp": 840,
+          "maxMp": 600,
+          "dmg": 152,
+          "def": 75,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 37,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 36)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 37! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        38,
+        {
+          "maxHp": 860,
+          "maxMp": 615,
+          "dmg": 156,
+          "def": 77,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 38,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 37)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 38! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        39,
+        {
+          "maxHp": 880,
+          "maxMp": 630,
+          "dmg": 160,
+          "def": 79,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 39,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 38)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 39! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        40,
+        {
+          "maxHp": 900,
+          "maxMp": 645,
+          "dmg": 164,
+          "def": 81,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 40,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 39)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 40! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        41,
+        {
+          "maxHp": 920,
+          "maxMp": 660,
+          "dmg": 168,
+          "def": 83,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 41,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 40)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 41! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        42,
+        {
+          "maxHp": 940,
+          "maxMp": 675,
+          "dmg": 172,
+          "def": 85,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 42,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 41)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 42! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        43,
+        {
+          "maxHp": 960,
+          "maxMp": 690,
+          "dmg": 176,
+          "def": 87,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 43,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 42)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 43! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        44,
+        {
+          "maxHp": 980,
+          "maxMp": 705,
+          "dmg": 180,
+          "def": 89,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 44,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 43)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 44! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        45,
+        {
+          "maxHp": 1000,
+          "maxMp": 720,
+          "dmg": 184,
+          "def": 91,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 45,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 44)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 45! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        46,
+        {
+          "maxHp": 1020,
+          "maxMp": 735,
+          "dmg": 188,
+          "def": 93,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 46,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 45)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 46! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        47,
+        {
+          "maxHp": 1040,
+          "maxMp": 750,
+          "dmg": 192,
+          "def": 95,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 47,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 46)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 47! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        48,
+        {
+          "maxHp": 1060,
+          "maxMp": 765,
+          "dmg": 196,
+          "def": 97,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 48,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 47)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 48! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        49,
+        {
+          "maxHp": 1080,
+          "maxMp": 780,
+          "dmg": 200,
+          "def": 99,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 49,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 48)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 49! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        50,
+        {
+          "maxHp": 1100,
+          "maxMp": 795,
+          "dmg": 204,
+          "def": 101,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 50,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 49)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 50! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        51,
+        {
+          "maxHp": 1120,
+          "maxMp": 810,
+          "dmg": 208,
+          "def": 103,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 51,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 50)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 51! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        52,
+        {
+          "maxHp": 1140,
+          "maxMp": 825,
+          "dmg": 212,
+          "def": 105,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 52,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 51)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 52! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        53,
+        {
+          "maxHp": 1160,
+          "maxMp": 840,
+          "dmg": 216,
+          "def": 107,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 53,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 52)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 53! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        54,
+        {
+          "maxHp": 1180,
+          "maxMp": 855,
+          "dmg": 220,
+          "def": 109,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 54,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 53)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 54! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        55,
+        {
+          "maxHp": 1200,
+          "maxMp": 870,
+          "dmg": 224,
+          "def": 111,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 55,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 54)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 55! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        56,
+        {
+          "maxHp": 1220,
+          "maxMp": 885,
+          "dmg": 228,
+          "def": 113,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 56,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 55)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 56! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        57,
+        {
+          "maxHp": 1240,
+          "maxMp": 900,
+          "dmg": 232,
+          "def": 115,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 57,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 56)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 57! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        58,
+        {
+          "maxHp": 1260,
+          "maxMp": 915,
+          "dmg": 236,
+          "def": 117,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 58,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 57)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 58! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        59,
+        {
+          "maxHp": 1280,
+          "maxMp": 930,
+          "dmg": 240,
+          "def": 119,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 59,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 58)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 59! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        60,
+        {
+          "maxHp": 1300,
+          "maxMp": 945,
+          "dmg": 244,
+          "def": 121,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 60,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 59)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 60! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        61,
+        {
+          "maxHp": 1320,
+          "maxMp": 960,
+          "dmg": 248,
+          "def": 123,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 61,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 60)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 61! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        62,
+        {
+          "maxHp": 1340,
+          "maxMp": 975,
+          "dmg": 252,
+          "def": 125,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 62,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 61)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 62! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        63,
+        {
+          "maxHp": 1360,
+          "maxMp": 990,
+          "dmg": 256,
+          "def": 127,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 63,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 62)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 63! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        64,
+        {
+          "maxHp": 1380,
+          "maxMp": 1005,
+          "dmg": 260,
+          "def": 129,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 64,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 63)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 64! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        65,
+        {
+          "maxHp": 1400,
+          "maxMp": 1020,
+          "dmg": 264,
+          "def": 131,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 65,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 64)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 65! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        66,
+        {
+          "maxHp": 1420,
+          "maxMp": 1035,
+          "dmg": 268,
+          "def": 133,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 66,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 65)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 66! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        67,
+        {
+          "maxHp": 1440,
+          "maxMp": 1050,
+          "dmg": 272,
+          "def": 135,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 67,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 66)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 67! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        68,
+        {
+          "maxHp": 1460,
+          "maxMp": 1065,
+          "dmg": 276,
+          "def": 137,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 68,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 67)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 68! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        69,
+        {
+          "maxHp": 1480,
+          "maxMp": 1080,
+          "dmg": 280,
+          "def": 139,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 69,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 68)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 69! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        70,
+        {
+          "maxHp": 1500,
+          "maxMp": 1095,
+          "dmg": 284,
+          "def": 141,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 70,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 69)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 70! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        71,
+        {
+          "maxHp": 1520,
+          "maxMp": 1110,
+          "dmg": 288,
+          "def": 143,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 71,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 70)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 71! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        72,
+        {
+          "maxHp": 1540,
+          "maxMp": 1125,
+          "dmg": 292,
+          "def": 145,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 72,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 71)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 72! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        73,
+        {
+          "maxHp": 1560,
+          "maxMp": 1140,
+          "dmg": 296,
+          "def": 147,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 73,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 72)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 73! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        74,
+        {
+          "maxHp": 1580,
+          "maxMp": 1155,
+          "dmg": 300,
+          "def": 149,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 74,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 73)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 74! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        75,
+        {
+          "maxHp": 1600,
+          "maxMp": 1170,
+          "dmg": 304,
+          "def": 151,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 75,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 74)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 75! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        76,
+        {
+          "maxHp": 1620,
+          "maxMp": 1185,
+          "dmg": 308,
+          "def": 153,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 76,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 75)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 76! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        77,
+        {
+          "maxHp": 1640,
+          "maxMp": 1200,
+          "dmg": 312,
+          "def": 155,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 77,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 76)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 77! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        78,
+        {
+          "maxHp": 1660,
+          "maxMp": 1215,
+          "dmg": 316,
+          "def": 157,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 78,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 77)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 78! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        79,
+        {
+          "maxHp": 1680,
+          "maxMp": 1230,
+          "dmg": 320,
+          "def": 159,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 79,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 78)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 79! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        80,
+        {
+          "maxHp": 1700,
+          "maxMp": 1245,
+          "dmg": 324,
+          "def": 161,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 80,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 79)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 80! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        81,
+        {
+          "maxHp": 1720,
+          "maxMp": 1260,
+          "dmg": 328,
+          "def": 163,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 81,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 80)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 81! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        82,
+        {
+          "maxHp": 1740,
+          "maxMp": 1275,
+          "dmg": 332,
+          "def": 165,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 82,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 81)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 82! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        83,
+        {
+          "maxHp": 1760,
+          "maxMp": 1290,
+          "dmg": 336,
+          "def": 167,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 83,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 82)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 83! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        84,
+        {
+          "maxHp": 1780,
+          "maxMp": 1305,
+          "dmg": 340,
+          "def": 169,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 84,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 83)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 84! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        85,
+        {
+          "maxHp": 1800,
+          "maxMp": 1320,
+          "dmg": 344,
+          "def": 171,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 85,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 84)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 85! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        86,
+        {
+          "maxHp": 1820,
+          "maxMp": 1335,
+          "dmg": 348,
+          "def": 173,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 86,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 85)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 86! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        87,
+        {
+          "maxHp": 1840,
+          "maxMp": 1350,
+          "dmg": 352,
+          "def": 175,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 87,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 86)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 87! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        88,
+        {
+          "maxHp": 1860,
+          "maxMp": 1365,
+          "dmg": 356,
+          "def": 177,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 88,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 87)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 88! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        89,
+        {
+          "maxHp": 1880,
+          "maxMp": 1380,
+          "dmg": 360,
+          "def": 179,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 89,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 88)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 89! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        90,
+        {
+          "maxHp": 1900,
+          "maxMp": 1395,
+          "dmg": 364,
+          "def": 181,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 90,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 89)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 90! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        91,
+        {
+          "maxHp": 1920,
+          "maxMp": 1410,
+          "dmg": 368,
+          "def": 183,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 91,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 90)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 91! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        92,
+        {
+          "maxHp": 1940,
+          "maxMp": 1425,
+          "dmg": 372,
+          "def": 185,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 92,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 91)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 92! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        93,
+        {
+          "maxHp": 1960,
+          "maxMp": 1440,
+          "dmg": 376,
+          "def": 187,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 93,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 92)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 93! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        94,
+        {
+          "maxHp": 1980,
+          "maxMp": 1455,
+          "dmg": 380,
+          "def": 189,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 94,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 93)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 94! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        95,
+        {
+          "maxHp": 2000,
+          "maxMp": 1470,
+          "dmg": 384,
+          "def": 191,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 95,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 94)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 95! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        96,
+        {
+          "maxHp": 2020,
+          "maxMp": 1485,
+          "dmg": 388,
+          "def": 193,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 96,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 95)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 96! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        97,
+        {
+          "maxHp": 2040,
+          "maxMp": 1500,
+          "dmg": 392,
+          "def": 195,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 97,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 96)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 97! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        98,
+        {
+          "maxHp": 2060,
+          "maxMp": 1515,
+          "dmg": 396,
+          "def": 197,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 98,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 97)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 98! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        99,
+        {
+          "maxHp": 2080,
+          "maxMp": 1530,
+          "dmg": 400,
+          "def": 199,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 99,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 98)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 99! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        100,
+        {
+          "maxHp": 2100,
+          "maxMp": 1545,
+          "dmg": 404,
+          "def": 201,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 100,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 99)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 100! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        101,
+        {
+          "maxHp": 2120,
+          "maxMp": 1560,
+          "dmg": 408,
+          "def": 203,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 101,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 100)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 101! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        102,
+        {
+          "maxHp": 2140,
+          "maxMp": 1575,
+          "dmg": 412,
+          "def": 205,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 102,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 101)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 102! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        103,
+        {
+          "maxHp": 2160,
+          "maxMp": 1590,
+          "dmg": 416,
+          "def": 207,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 103,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 102)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 103! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        104,
+        {
+          "maxHp": 2180,
+          "maxMp": 1605,
+          "dmg": 420,
+          "def": 209,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 104,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 103)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 104! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        105,
+        {
+          "maxHp": 2200,
+          "maxMp": 1620,
+          "dmg": 424,
+          "def": 211,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 105,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 104)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 105! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        106,
+        {
+          "maxHp": 2220,
+          "maxMp": 1635,
+          "dmg": 428,
+          "def": 213,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 106,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 105)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 106! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        107,
+        {
+          "maxHp": 2240,
+          "maxMp": 1650,
+          "dmg": 432,
+          "def": 215,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 107,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 106)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 107! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        108,
+        {
+          "maxHp": 2260,
+          "maxMp": 1665,
+          "dmg": 436,
+          "def": 217,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 108,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 107)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 108! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        109,
+        {
+          "maxHp": 2280,
+          "maxMp": 1680,
+          "dmg": 440,
+          "def": 219,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 109,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 108)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 109! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        110,
+        {
+          "maxHp": 2300,
+          "maxMp": 1695,
+          "dmg": 444,
+          "def": 221,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 110,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 109)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 110! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        111,
+        {
+          "maxHp": 2320,
+          "maxMp": 1710,
+          "dmg": 448,
+          "def": 223,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 111,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 110)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 111! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        112,
+        {
+          "maxHp": 2340,
+          "maxMp": 1725,
+          "dmg": 452,
+          "def": 225,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 112,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 111)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 112! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        113,
+        {
+          "maxHp": 2360,
+          "maxMp": 1740,
+          "dmg": 456,
+          "def": 227,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 113,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 112)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 113! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        114,
+        {
+          "maxHp": 2380,
+          "maxMp": 1755,
+          "dmg": 460,
+          "def": 229,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 114,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 113)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 114! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        115,
+        {
+          "maxHp": 2400,
+          "maxMp": 1770,
+          "dmg": 464,
+          "def": 231,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 115,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 114)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 115! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        116,
+        {
+          "maxHp": 2420,
+          "maxMp": 1785,
+          "dmg": 468,
+          "def": 233,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 116,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 115)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 116! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        117,
+        {
+          "maxHp": 2440,
+          "maxMp": 1800,
+          "dmg": 472,
+          "def": 235,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 117,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 116)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 117! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        118,
+        {
+          "maxHp": 2460,
+          "maxMp": 1815,
+          "dmg": 476,
+          "def": 237,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 118,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 117)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 118! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        119,
+        {
+          "maxHp": 2480,
+          "maxMp": 1830,
+          "dmg": 480,
+          "def": 239,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 119,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 118)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 119! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        120,
+        {
+          "maxHp": 2500,
+          "maxMp": 1845,
+          "dmg": 484,
+          "def": 241,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 120,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 119)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 120! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        121,
+        {
+          "maxHp": 2520,
+          "maxMp": 1860,
+          "dmg": 488,
+          "def": 243,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 121,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 120)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 121! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        122,
+        {
+          "maxHp": 2540,
+          "maxMp": 1875,
+          "dmg": 492,
+          "def": 245,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 122,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 121)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 122! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        123,
+        {
+          "maxHp": 2560,
+          "maxMp": 1890,
+          "dmg": 496,
+          "def": 247,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 123,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 122)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 123! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        124,
+        {
+          "maxHp": 2580,
+          "maxMp": 1905,
+          "dmg": 500,
+          "def": 249,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 124,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 123)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 124! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        125,
+        {
+          "maxHp": 2600,
+          "maxMp": 1920,
+          "dmg": 504,
+          "def": 251,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 125,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 124)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 125! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        126,
+        {
+          "maxHp": 2620,
+          "maxMp": 1935,
+          "dmg": 508,
+          "def": 253,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 126,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 125)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 126! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        127,
+        {
+          "maxHp": 2640,
+          "maxMp": 1950,
+          "dmg": 512,
+          "def": 255,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 127,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 126)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 127! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        128,
+        {
+          "maxHp": 2660,
+          "maxMp": 1965,
+          "dmg": 516,
+          "def": 257,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 128,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 127)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 128! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        129,
+        {
+          "maxHp": 2680,
+          "maxMp": 1980,
+          "dmg": 520,
+          "def": 259,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 129,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 128)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 129! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        130,
+        {
+          "maxHp": 2700,
+          "maxMp": 1995,
+          "dmg": 524,
+          "def": 261,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 130,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 129)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 130! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        131,
+        {
+          "maxHp": 2720,
+          "maxMp": 2010,
+          "dmg": 528,
+          "def": 263,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 131,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 130)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 131! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        132,
+        {
+          "maxHp": 2740,
+          "maxMp": 2025,
+          "dmg": 532,
+          "def": 265,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 132,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 131)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 132! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        133,
+        {
+          "maxHp": 2760,
+          "maxMp": 2040,
+          "dmg": 536,
+          "def": 267,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 133,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 132)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 133! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        134,
+        {
+          "maxHp": 2780,
+          "maxMp": 2055,
+          "dmg": 540,
+          "def": 269,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 134,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 133)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 134! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        135,
+        {
+          "maxHp": 2800,
+          "maxMp": 2070,
+          "dmg": 544,
+          "def": 271,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 135,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 134)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 135! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        136,
+        {
+          "maxHp": 2820,
+          "maxMp": 2085,
+          "dmg": 548,
+          "def": 273,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 136,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 135)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 136! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        137,
+        {
+          "maxHp": 2840,
+          "maxMp": 2100,
+          "dmg": 552,
+          "def": 275,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 137,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 136)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 137! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        138,
+        {
+          "maxHp": 2860,
+          "maxMp": 2115,
+          "dmg": 556,
+          "def": 277,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 138,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 137)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 138! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        139,
+        {
+          "maxHp": 2880,
+          "maxMp": 2130,
+          "dmg": 560,
+          "def": 279,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 139,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 138)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 139! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        140,
+        {
+          "maxHp": 2900,
+          "maxMp": 2145,
+          "dmg": 564,
+          "def": 281,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 140,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 139)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 140! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        141,
+        {
+          "maxHp": 2920,
+          "maxMp": 2160,
+          "dmg": 568,
+          "def": 283,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 141,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 140)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 141! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        142,
+        {
+          "maxHp": 2940,
+          "maxMp": 2175,
+          "dmg": 572,
+          "def": 285,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 142,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 141)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 142! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        143,
+        {
+          "maxHp": 2960,
+          "maxMp": 2190,
+          "dmg": 576,
+          "def": 287,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 143,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 142)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 143! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        144,
+        {
+          "maxHp": 2980,
+          "maxMp": 2205,
+          "dmg": 580,
+          "def": 289,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 144,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 143)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 144! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        145,
+        {
+          "maxHp": 3000,
+          "maxMp": 2220,
+          "dmg": 584,
+          "def": 291,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 145,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 144)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 145! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        146,
+        {
+          "maxHp": 3020,
+          "maxMp": 2235,
+          "dmg": 588,
+          "def": 293,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 146,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 145)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 146! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        147,
+        {
+          "maxHp": 3040,
+          "maxMp": 2250,
+          "dmg": 592,
+          "def": 295,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 147,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 146)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 147! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        148,
+        {
+          "maxHp": 3060,
+          "maxMp": 2265,
+          "dmg": 596,
+          "def": 297,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 148,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 147)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 148! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        149,
+        {
+          "maxHp": 3080,
+          "maxMp": 2280,
+          "dmg": 600,
+          "def": 299,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 149,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 148)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 149! Earned 1 Skill Point."
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        150,
+        {
+          "maxHp": 3100,
+          "maxMp": 2295,
+          "dmg": 604,
+          "def": 301,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 150,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 149)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 150! Earned 1 Skill Point."
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 10,
+      "y": 10,
+      "level": 150,
+      "exp": 0,
+      "expNext": 6673582,
+      "hp": 1150,
+      "mp": 500,
+      "maxHp": 1150,
+      "maxMp": 500,
+      "dmg": 8,
+      "def": 3,
+      "speed": 4,
+      "attackRange": 5,
+      "skillPoints": 149,
+      "baseStats": {
+        "maxHp": 3100,
+        "maxMp": 2295,
+        "dmg": 604,
+        "def": 301,
+        "speed": 4,
+        "attackRange": 5
+      }
+    },
+    "threw": null
+  },
+  "exp at cap": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 10,
+      "y": 10,
+      "level": 150,
+      "exp": 0,
+      "expNext": 99999,
+      "hp": 10,
+      "mp": 5,
+      "maxHp": 120,
+      "maxMp": 60,
+      "dmg": 8,
+      "def": 3,
+      "speed": 4,
+      "attackRange": 5,
+      "skillPoints": 0
+    },
+    "threw": null
+  },
+  "exp just below cap": {
+    "log": [
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9,
+          "text": "+1000000000000000 EXP",
+          "color": "#a855f7"
+        }
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        150,
+        {
+          "maxHp": 140,
+          "maxMp": 75,
+          "dmg": 12,
+          "def": 5,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 150,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 1)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 150! Earned 1 Skill Point."
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 10,
+      "y": 10,
+      "level": 150,
+      "exp": 0,
+      "expNext": 6673582,
+      "hp": 1150,
+      "mp": 500,
+      "maxHp": 1150,
+      "maxMp": 500,
+      "dmg": 8,
+      "def": 3,
+      "speed": 4,
+      "attackRange": 5,
+      "skillPoints": 1,
+      "baseStats": {
+        "maxHp": 140,
+        "maxMp": 75,
+        "dmg": 12,
+        "def": 5,
+        "speed": 4,
+        "attackRange": 5
+      }
+    },
+    "threw": null
+  },
+  "exp in dungeon run (counts)": {
+    "log": [
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9,
+          "text": "+20 EXP",
+          "color": "#a855f7"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 10,
+      "y": 10,
+      "level": 1,
+      "exp": 20,
+      "expNext": 100,
+      "hp": 10,
+      "mp": 5,
+      "maxHp": 120,
+      "maxMp": 60,
+      "dmg": 8,
+      "def": 3,
+      "speed": 4,
+      "attackRange": 5,
+      "skillPoints": 0,
+      "dungeonRun": {
+        "cleared": false,
+        "exp": 25
+      }
+    },
+    "threw": null
+  },
+  "exp in dungeon run (no exp yet)": {
+    "log": [
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9,
+          "text": "+20 EXP",
+          "color": "#a855f7"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 10,
+      "y": 10,
+      "level": 1,
+      "exp": 20,
+      "expNext": 100,
+      "hp": 10,
+      "mp": 5,
+      "maxHp": 120,
+      "maxMp": 60,
+      "dmg": 8,
+      "def": 3,
+      "speed": 4,
+      "attackRange": 5,
+      "skillPoints": 0,
+      "dungeonRun": {
+        "cleared": false,
+        "exp": 20
+      }
+    },
+    "threw": null
+  },
+  "exp in cleared run (ignored)": {
+    "log": [
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9,
+          "text": "+20 EXP",
+          "color": "#a855f7"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 10,
+      "y": 10,
+      "level": 1,
+      "exp": 20,
+      "expNext": 100,
+      "hp": 10,
+      "mp": 5,
+      "maxHp": 120,
+      "maxMp": 60,
+      "dmg": 8,
+      "def": 3,
+      "speed": 4,
+      "attackRange": 5,
+      "skillPoints": 0,
+      "dungeonRun": {
+        "cleared": true,
+        "exp": 5
+      }
+    },
+    "threw": null
+  },
+  "exp keeps existing baseStats": {
+    "log": [
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9,
+          "text": "+130 EXP",
+          "color": "#a855f7"
+        }
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        2,
+        {
+          "maxHp": 520,
+          "maxMp": 315,
+          "dmg": 44,
+          "def": 22,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 2,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 4)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 2! Earned 1 Skill Point."
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 10,
+      "y": 10,
+      "level": 2,
+      "exp": 30,
+      "expNext": 317,
+      "hp": 114,
+      "mp": 56,
+      "maxHp": 114,
+      "maxMp": 56,
+      "dmg": 8,
+      "def": 3,
+      "speed": 4,
+      "attackRange": 5,
+      "skillPoints": 4,
+      "baseStats": {
+        "maxHp": 520,
+        "maxMp": 315,
+        "dmg": 44,
+        "def": 22,
+        "speed": 4,
+        "attackRange": 5
+      }
+    },
+    "threw": null
+  },
+  "exp zero": {
+    "log": [
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9,
+          "text": "+0 EXP",
+          "color": "#a855f7"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 10,
+      "y": 10,
+      "level": 1,
+      "exp": 0,
+      "expNext": 100,
+      "hp": 10,
+      "mp": 5,
+      "maxHp": 120,
+      "maxMp": 60,
+      "dmg": 8,
+      "def": 3,
+      "speed": 4,
+      "attackRange": 5,
+      "skillPoints": 0
+    },
+    "threw": null
+  },
+  "exp negative": {
+    "log": [
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9,
+          "text": "+-10 EXP",
+          "color": "#a855f7"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 10,
+      "y": 10,
+      "level": 1,
+      "exp": -10,
+      "expNext": 100,
+      "hp": 10,
+      "mp": 5,
+      "maxHp": 120,
+      "maxMp": 60,
+      "dmg": 8,
+      "def": 3,
+      "speed": 4,
+      "attackRange": 5,
+      "skillPoints": 0
+    },
+    "threw": null
+  },
+  "exp from mid level": {
+    "log": [
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9,
+          "text": "+400 EXP",
+          "color": "#a855f7"
+        }
+      ],
+      [
+        "call",
+        "recalculatePlayerStats",
+        21,
+        {
+          "maxHp": 140,
+          "maxMp": 75,
+          "dmg": 12,
+          "def": 5,
+          "speed": 4,
+          "attackRange": 5
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "level_up",
+        {
+          "playerId": "h1",
+          "level": 21,
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "town",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 8.6,
+          "text": "🌳 +1 Skill Point! (Total: 1)",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "✨ [Hero] reached Level 21! Earned 1 Skill Point."
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 10,
+      "y": 10,
+      "level": 21,
+      "exp": 150,
+      "expNext": 23492,
+      "hp": 247,
+      "mp": 113,
+      "maxHp": 247,
+      "maxMp": 113,
+      "dmg": 8,
+      "def": 3,
+      "speed": 4,
+      "attackRange": 5,
+      "skillPoints": 1,
+      "baseStats": {
+        "maxHp": 140,
+        "maxMp": 75,
+        "dmg": 12,
+        "def": 5,
+        "speed": 4,
+        "attackRange": 5
+      }
+    },
+    "threw": null
+  },
+  "allocate one": {
+    "log": [
+      [
+        "call",
+        "recalculatePlayerStats",
+        "h1",
+        1,
+        null
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 10,
+          "y": 10,
+          "level": 1,
+          "exp": 0,
+          "expNext": 100,
+          "characterClass": "mage",
+          "isDead": false,
+          "gold": 5000,
+          "hp": 10,
+          "mp": 5,
+          "maxHp": 107,
+          "maxMp": 53,
+          "dmg": 8,
+          "def": 3,
+          "speed": 4,
+          "attackRange": 5,
+          "skillPoints": 1,
+          "skills": {
+            "p1": 1
+          }
+        }
+      ],
+      [
+        "socket",
+        "skill_tree_updated",
+        {
+          "skillPoints": 1,
+          "skills": {
+            "p1": 1
+          }
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "✨ [Mana]",
+          "color": "#facc15"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 10,
+      "y": 10,
+      "level": 1,
+      "exp": 0,
+      "expNext": 100,
+      "characterClass": "mage",
+      "isDead": false,
+      "gold": 5000,
+      "hp": 10,
+      "mp": 5,
+      "maxHp": 107,
+      "maxMp": 53,
+      "dmg": 8,
+      "def": 3,
+      "speed": 4,
+      "attackRange": 5,
+      "skillPoints": 1,
+      "skills": {
+        "p1": 1
+      }
+    },
+    "threw": null
+  },
+  "allocate one no points": {
+    "log": [
+      [
+        "socket",
+        "skill_tree_updated",
+        {
+          "skillPoints": 0,
+          "skills": {}
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "⚠️ Not enough passive points!",
+          "color": "#ef4444"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 10,
+      "y": 10,
+      "level": 1,
+      "exp": 0,
+      "expNext": 100,
+      "characterClass": "mage",
+      "isDead": false,
+      "gold": 5000,
+      "hp": 10,
+      "mp": 5,
+      "maxHp": 120,
+      "maxMp": 60,
+      "dmg": 8,
+      "def": 3,
+      "speed": 4,
+      "attackRange": 5,
+      "skillPoints": 0,
+      "skills": {}
+    },
+    "threw": null
+  },
+  "allocate dead": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 10,
+      "y": 10,
+      "level": 1,
+      "exp": 0,
+      "expNext": 100,
+      "characterClass": "mage",
+      "isDead": true,
+      "gold": 5000,
+      "hp": 10,
+      "mp": 5,
+      "maxHp": 120,
+      "maxMp": 60,
+      "dmg": 8,
+      "def": 3,
+      "speed": 4,
+      "attackRange": 5,
+      "skillPoints": 9,
+      "skills": {}
+    },
+    "threw": null
+  },
+  "allocate not an array": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 10,
+      "y": 10,
+      "level": 1,
+      "exp": 0,
+      "expNext": 100,
+      "characterClass": "mage",
+      "isDead": false,
+      "gold": 5000,
+      "hp": 10,
+      "mp": 5,
+      "maxHp": 120,
+      "maxMp": 60,
+      "dmg": 8,
+      "def": 3,
+      "speed": 4,
+      "attackRange": 5,
+      "skillPoints": 9,
+      "skills": {}
+    },
+    "threw": null
+  },
+  "allocate no player": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 10,
+      "y": 10,
+      "level": 1,
+      "exp": 0,
+      "expNext": 100,
+      "characterClass": "mage",
+      "isDead": false,
+      "gold": 5000,
+      "hp": 10,
+      "mp": 5,
+      "maxHp": 120,
+      "maxMp": 60,
+      "dmg": 8,
+      "def": 3,
+      "speed": 4,
+      "attackRange": 5,
+      "skillPoints": 0,
+      "skills": {}
+    },
+    "threw": null
+  },
+  "allocate path": {
+    "log": [
+      [
+        "call",
+        "recalculatePlayerStats",
+        "h1",
+        1,
+        null
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 10,
+          "y": 10,
+          "level": 1,
+          "exp": 0,
+          "expNext": 100,
+          "characterClass": "mage",
+          "isDead": false,
+          "gold": 5000,
+          "hp": 10,
+          "mp": 5,
+          "maxHp": 107,
+          "maxMp": 53,
+          "dmg": 8,
+          "def": 3,
+          "speed": 4,
+          "attackRange": 5,
+          "skillPoints": 4,
+          "skills": {
+            "p1": 1,
+            "p10": 1,
+            "p11": 1,
+            "p2": 1,
+            "p12": 1
+          }
+        }
+      ],
+      [
+        "socket",
+        "skill_tree_updated",
+        {
+          "skillPoints": 4,
+          "skills": {
+            "p1": 1,
+            "p10": 1,
+            "p11": 1,
+            "p2": 1,
+            "p12": 1
+          }
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "✨ +5 passives: [Damage]",
+          "color": "#facc15"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 10,
+      "y": 10,
+      "level": 1,
+      "exp": 0,
+      "expNext": 100,
+      "characterClass": "mage",
+      "isDead": false,
+      "gold": 5000,
+      "hp": 10,
+      "mp": 5,
+      "maxHp": 107,
+      "maxMp": 53,
+      "dmg": 8,
+      "def": 3,
+      "speed": 4,
+      "attackRange": 5,
+      "skillPoints": 4,
+      "skills": {
+        "p1": 1,
+        "p10": 1,
+        "p11": 1,
+        "p2": 1,
+        "p12": 1
+      }
+    },
+    "threw": null
+  },
+  "allocate path, points run out": {
+    "log": [
+      [
+        "call",
+        "recalculatePlayerStats",
+        "h1",
+        1,
+        null
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 10,
+          "y": 10,
+          "level": 1,
+          "exp": 0,
+          "expNext": 100,
+          "characterClass": "mage",
+          "isDead": false,
+          "gold": 5000,
+          "hp": 10,
+          "mp": 5,
+          "maxHp": 107,
+          "maxMp": 53,
+          "dmg": 8,
+          "def": 3,
+          "speed": 4,
+          "attackRange": 5,
+          "skillPoints": 0,
+          "skills": {
+            "p1": 1,
+            "p10": 1
+          }
+        }
+      ],
+      [
+        "socket",
+        "skill_tree_updated",
+        {
+          "skillPoints": 0,
+          "skills": {
+            "p1": 1,
+            "p10": 1
+          }
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "⚠️ Not enough passive points!",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "✨ +2 passives: [Damage]",
+          "color": "#facc15"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 10,
+      "y": 10,
+      "level": 1,
+      "exp": 0,
+      "expNext": 100,
+      "characterClass": "mage",
+      "isDead": false,
+      "gold": 5000,
+      "hp": 10,
+      "mp": 5,
+      "maxHp": 107,
+      "maxMp": 53,
+      "dmg": 8,
+      "def": 3,
+      "speed": 4,
+      "attackRange": 5,
+      "skillPoints": 0,
+      "skills": {
+        "p1": 1,
+        "p10": 1
+      }
+    },
+    "threw": null
+  },
+  "allocate path with unknown node": {
+    "log": [
+      [
+        "call",
+        "recalculatePlayerStats",
+        "h1",
+        1,
+        null
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 10,
+          "y": 10,
+          "level": 1,
+          "exp": 0,
+          "expNext": 100,
+          "characterClass": "mage",
+          "isDead": false,
+          "gold": 5000,
+          "hp": 10,
+          "mp": 5,
+          "maxHp": 107,
+          "maxMp": 53,
+          "dmg": 8,
+          "def": 3,
+          "speed": 4,
+          "attackRange": 5,
+          "skillPoints": 8,
+          "skills": {
+            "p1": 1
+          }
+        }
+      ],
+      [
+        "socket",
+        "skill_tree_updated",
+        {
+          "skillPoints": 8,
+          "skills": {
+            "p1": 1
+          }
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "✨ [Mana]",
+          "color": "#facc15"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 10,
+      "y": 10,
+      "level": 1,
+      "exp": 0,
+      "expNext": 100,
+      "characterClass": "mage",
+      "isDead": false,
+      "gold": 5000,
+      "hp": 10,
+      "mp": 5,
+      "maxHp": 107,
+      "maxMp": 53,
+      "dmg": 8,
+      "def": 3,
+      "speed": 4,
+      "attackRange": 5,
+      "skillPoints": 8,
+      "skills": {
+        "p1": 1
+      }
+    },
+    "threw": null
+  },
+  "allocate detached node": {
+    "log": [
+      [
+        "socket",
+        "skill_tree_updated",
+        {
+          "skillPoints": 9,
+          "skills": {}
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "⚠️ Connect it to a passive you already have!",
+          "color": "#ef4444"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 10,
+      "y": 10,
+      "level": 1,
+      "exp": 0,
+      "expNext": 100,
+      "characterClass": "mage",
+      "isDead": false,
+      "gold": 5000,
+      "hp": 10,
+      "mp": 5,
+      "maxHp": 120,
+      "maxMp": 60,
+      "dmg": 8,
+      "def": 3,
+      "speed": 4,
+      "attackRange": 5,
+      "skillPoints": 9,
+      "skills": {}
+    },
+    "threw": null
+  },
+  "allocate wrong class path": {
+    "log": [
+      [
+        "socket",
+        "skill_tree_updated",
+        {
+          "skillPoints": 9,
+          "skills": {}
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "⚠️ Connect it to a passive you already have!",
+          "color": "#ef4444"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 10,
+      "y": 10,
+      "level": 1,
+      "exp": 0,
+      "expNext": 100,
+      "characterClass": "mage",
+      "isDead": false,
+      "gold": 5000,
+      "hp": 10,
+      "mp": 5,
+      "maxHp": 120,
+      "maxMp": 60,
+      "dmg": 8,
+      "def": 3,
+      "speed": 4,
+      "attackRange": 5,
+      "skillPoints": 9,
+      "skills": {}
+    },
+    "threw": null
+  },
+  "allocate already owned": {
+    "log": [
+      [
+        "socket",
+        "skill_tree_updated",
+        {
+          "skillPoints": 9,
+          "skills": {
+            "p1": 1
+          }
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 10,
+      "y": 10,
+      "level": 1,
+      "exp": 0,
+      "expNext": 100,
+      "characterClass": "mage",
+      "isDead": false,
+      "gold": 5000,
+      "hp": 10,
+      "mp": 5,
+      "maxHp": 120,
+      "maxMp": 60,
+      "dmg": 8,
+      "def": 3,
+      "speed": 4,
+      "attackRange": 5,
+      "skillPoints": 9,
+      "skills": {
+        "p1": 1
+      }
+    },
+    "threw": null
+  },
+  "allocate continuing from owned": {
+    "log": [
+      [
+        "call",
+        "recalculatePlayerStats",
+        "h1",
+        1,
+        null
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 10,
+          "y": 10,
+          "level": 1,
+          "exp": 0,
+          "expNext": 100,
+          "characterClass": "mage",
+          "isDead": false,
+          "gold": 5000,
+          "hp": 10,
+          "mp": 5,
+          "maxHp": 107,
+          "maxMp": 53,
+          "dmg": 8,
+          "def": 3,
+          "speed": 4,
+          "attackRange": 5,
+          "skillPoints": 7,
+          "skills": {
+            "p1": 1,
+            "p10": 1,
+            "p11": 1
+          }
+        }
+      ],
+      [
+        "socket",
+        "skill_tree_updated",
+        {
+          "skillPoints": 7,
+          "skills": {
+            "p1": 1,
+            "p10": 1,
+            "p11": 1
+          }
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "✨ +2 passives: [Mana]",
+          "color": "#facc15"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 10,
+      "y": 10,
+      "level": 1,
+      "exp": 0,
+      "expNext": 100,
+      "characterClass": "mage",
+      "isDead": false,
+      "gold": 5000,
+      "hp": 10,
+      "mp": 5,
+      "maxHp": 107,
+      "maxMp": 53,
+      "dmg": 8,
+      "def": 3,
+      "speed": 4,
+      "attackRange": 5,
+      "skillPoints": 7,
+      "skills": {
+        "p1": 1,
+        "p10": 1,
+        "p11": 1
+      }
+    },
+    "threw": null
+  },
+  "allocate with a notable": {
+    "log": [
+      [
+        "call",
+        "recalculatePlayerStats",
+        "h1",
+        1,
+        null
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 10,
+          "y": 10,
+          "level": 1,
+          "exp": 0,
+          "expNext": 100,
+          "characterClass": "mage",
+          "isDead": false,
+          "gold": 5000,
+          "hp": 10,
+          "mp": 5,
+          "maxHp": 107,
+          "maxMp": 53,
+          "dmg": 8,
+          "def": 3,
+          "speed": 4,
+          "attackRange": 5,
+          "skillPoints": 972,
+          "skills": {
+            "p1": 1,
+            "p10": 1,
+            "p11": 1,
+            "p2": 1,
+            "p12": 1,
+            "p13": 1,
+            "p3": 1,
+            "p14": 1,
+            "p15": 1,
+            "p4": 1,
+            "p16": 1,
+            "p17": 1,
+            "p5": 1,
+            "p18": 1,
+            "p19": 1,
+            "p6": 1,
+            "p20": 1,
+            "p21": 1,
+            "p7": 1,
+            "p22": 1,
+            "p23": 1,
+            "p8": 1,
+            "p24": 1,
+            "p25": 1,
+            "p9": 1,
+            "p28": 1,
+            "p29": 1
+          }
+        }
+      ],
+      [
+        "socket",
+        "skill_tree_updated",
+        {
+          "skillPoints": 972,
+          "skills": {
+            "p1": 1,
+            "p10": 1,
+            "p11": 1,
+            "p2": 1,
+            "p12": 1,
+            "p13": 1,
+            "p3": 1,
+            "p14": 1,
+            "p15": 1,
+            "p4": 1,
+            "p16": 1,
+            "p17": 1,
+            "p5": 1,
+            "p18": 1,
+            "p19": 1,
+            "p6": 1,
+            "p20": 1,
+            "p21": 1,
+            "p7": 1,
+            "p22": 1,
+            "p23": 1,
+            "p8": 1,
+            "p24": 1,
+            "p25": 1,
+            "p9": 1,
+            "p28": 1,
+            "p29": 1
+          }
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "✨ +27 passives: [Arcane Focus]",
+          "color": "#facc15"
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "🌳 [Hero] allocated [Arcane Focus]!"
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 10,
+      "y": 10,
+      "level": 1,
+      "exp": 0,
+      "expNext": 100,
+      "characterClass": "mage",
+      "isDead": false,
+      "gold": 5000,
+      "hp": 10,
+      "mp": 5,
+      "maxHp": 107,
+      "maxMp": 53,
+      "dmg": 8,
+      "def": 3,
+      "speed": 4,
+      "attackRange": 5,
+      "skillPoints": 972,
+      "skills": {
+        "p1": 1,
+        "p10": 1,
+        "p11": 1,
+        "p2": 1,
+        "p12": 1,
+        "p13": 1,
+        "p3": 1,
+        "p14": 1,
+        "p15": 1,
+        "p4": 1,
+        "p16": 1,
+        "p17": 1,
+        "p5": 1,
+        "p18": 1,
+        "p19": 1,
+        "p6": 1,
+        "p20": 1,
+        "p21": 1,
+        "p7": 1,
+        "p22": 1,
+        "p23": 1,
+        "p8": 1,
+        "p24": 1,
+        "p25": 1,
+        "p9": 1,
+        "p28": 1,
+        "p29": 1
+      }
+    },
+    "threw": null
+  },
+  "allocate no skills field": {
+    "log": [
+      [
+        "call",
+        "recalculatePlayerStats",
+        "h1",
+        1,
+        null
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 10,
+          "y": 10,
+          "level": 1,
+          "exp": 0,
+          "expNext": 100,
+          "characterClass": "mage",
+          "isDead": false,
+          "gold": 5000,
+          "hp": 10,
+          "mp": 5,
+          "maxHp": 107,
+          "maxMp": 53,
+          "dmg": 8,
+          "def": 3,
+          "speed": 4,
+          "attackRange": 5,
+          "skillPoints": 4,
+          "skills": {
+            "p1": 1,
+            "p10": 1,
+            "p11": 1,
+            "p2": 1,
+            "p12": 1
+          }
+        }
+      ],
+      [
+        "socket",
+        "skill_tree_updated",
+        {
+          "skillPoints": 4,
+          "skills": {
+            "p1": 1,
+            "p10": 1,
+            "p11": 1,
+            "p2": 1,
+            "p12": 1
+          }
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "✨ +5 passives: [Damage]",
+          "color": "#facc15"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 10,
+      "y": 10,
+      "level": 1,
+      "exp": 0,
+      "expNext": 100,
+      "characterClass": "mage",
+      "isDead": false,
+      "gold": 5000,
+      "hp": 10,
+      "mp": 5,
+      "maxHp": 107,
+      "maxMp": 53,
+      "dmg": 8,
+      "def": 3,
+      "speed": 4,
+      "attackRange": 5,
+      "skillPoints": 4,
+      "skills": {
+        "p1": 1,
+        "p10": 1,
+        "p11": 1,
+        "p2": 1,
+        "p12": 1
+      }
+    },
+    "threw": null
+  },
+  "allocate no skillPoints field": {
+    "log": [
+      [
+        "socket",
+        "skill_tree_updated",
+        {
+          "skills": {}
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "⚠️ Not enough passive points!",
+          "color": "#ef4444"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 10,
+      "y": 10,
+      "level": 1,
+      "exp": 0,
+      "expNext": 100,
+      "characterClass": "mage",
+      "isDead": false,
+      "gold": 5000,
+      "hp": 10,
+      "mp": 5,
+      "maxHp": 120,
+      "maxMp": 60,
+      "dmg": 8,
+      "def": 3,
+      "speed": 4,
+      "attackRange": 5,
+      "skills": {}
+    },
+    "threw": null
+  },
+  "allocate no socket": {
+    "log": [
+      [
+        "call",
+        "recalculatePlayerStats",
+        "h1",
+        1,
+        null
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 10,
+      "y": 10,
+      "level": 1,
+      "exp": 0,
+      "expNext": 100,
+      "characterClass": "mage",
+      "isDead": false,
+      "gold": 5000,
+      "hp": 10,
+      "mp": 5,
+      "maxHp": 107,
+      "maxMp": 53,
+      "dmg": 8,
+      "def": 3,
+      "speed": 4,
+      "attackRange": 5,
+      "skillPoints": 4,
+      "skills": {
+        "p1": 1,
+        "p10": 1,
+        "p11": 1,
+        "p2": 1,
+        "p12": 1
+      }
+    },
+    "threw": null
+  },
+  "allocate more than 200 ids": {
+    "log": [
+      [
+        "call",
+        "recalculatePlayerStats",
+        "h1",
+        1,
+        null
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 10,
+          "y": 10,
+          "level": 1,
+          "exp": 0,
+          "expNext": 100,
+          "characterClass": "mage",
+          "isDead": false,
+          "gold": 5000,
+          "hp": 10,
+          "mp": 5,
+          "maxHp": 107,
+          "maxMp": 53,
+          "dmg": 8,
+          "def": 3,
+          "speed": 4,
+          "attackRange": 5,
+          "skillPoints": 998,
+          "skills": {
+            "p1": 1
+          }
+        }
+      ],
+      [
+        "socket",
+        "skill_tree_updated",
+        {
+          "skillPoints": 998,
+          "skills": {
+            "p1": 1
+          }
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "✨ [Mana]",
+          "color": "#facc15"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 10,
+      "y": 10,
+      "level": 1,
+      "exp": 0,
+      "expNext": 100,
+      "characterClass": "mage",
+      "isDead": false,
+      "gold": 5000,
+      "hp": 10,
+      "mp": 5,
+      "maxHp": 107,
+      "maxMp": 53,
+      "dmg": 8,
+      "def": 3,
+      "speed": 4,
+      "attackRange": 5,
+      "skillPoints": 998,
+      "skills": {
+        "p1": 1
+      }
+    },
+    "threw": null
+  },
+  "allocate empty list": {
+    "log": [
+      [
+        "socket",
+        "skill_tree_updated",
+        {
+          "skillPoints": 9,
+          "skills": {}
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 10,
+      "y": 10,
+      "level": 1,
+      "exp": 0,
+      "expNext": 100,
+      "characterClass": "mage",
+      "isDead": false,
+      "gold": 5000,
+      "hp": 10,
+      "mp": 5,
+      "maxHp": 120,
+      "maxMp": 60,
+      "dmg": 8,
+      "def": 3,
+      "speed": 4,
+      "attackRange": 5,
+      "skillPoints": 9,
+      "skills": {}
+    },
+    "threw": null
+  },
+  "refund dead": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 10,
+      "y": 10,
+      "level": 1,
+      "exp": 0,
+      "expNext": 100,
+      "characterClass": "mage",
+      "isDead": true,
+      "gold": 5000,
+      "hp": 10,
+      "mp": 5,
+      "maxHp": 120,
+      "maxMp": 60,
+      "dmg": 8,
+      "def": 3,
+      "speed": 4,
+      "attackRange": 5,
+      "skillPoints": 0,
+      "skills": {
+        "p1": 1,
+        "p10": 1,
+        "p11": 1,
+        "p2": 1,
+        "p12": 1
+      }
+    },
+    "threw": null
+  },
+  "refund no skills": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 10,
+      "y": 10,
+      "level": 1,
+      "exp": 0,
+      "expNext": 100,
+      "characterClass": "mage",
+      "isDead": false,
+      "gold": 5000,
+      "hp": 10,
+      "mp": 5,
+      "maxHp": 120,
+      "maxMp": 60,
+      "dmg": 8,
+      "def": 3,
+      "speed": 4,
+      "attackRange": 5,
+      "skillPoints": 0
+    },
+    "threw": null
+  },
+  "refund not owned": {
+    "log": [
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "⚠️ You do not own that passive.",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "socket",
+        "skill_tree_updated",
+        {
+          "skillPoints": 0,
+          "skills": {
+            "p1": 1,
+            "p10": 1,
+            "p11": 1,
+            "p2": 1,
+            "p12": 1
+          }
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 10,
+      "y": 10,
+      "level": 1,
+      "exp": 0,
+      "expNext": 100,
+      "characterClass": "mage",
+      "isDead": false,
+      "gold": 5000,
+      "hp": 10,
+      "mp": 5,
+      "maxHp": 120,
+      "maxMp": 60,
+      "dmg": 8,
+      "def": 3,
+      "speed": 4,
+      "attackRange": 5,
+      "skillPoints": 0,
+      "skills": {
+        "p1": 1,
+        "p10": 1,
+        "p11": 1,
+        "p2": 1,
+        "p12": 1
+      }
+    },
+    "threw": null
+  },
+  "refund not owned no socket": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 10,
+      "y": 10,
+      "level": 1,
+      "exp": 0,
+      "expNext": 100,
+      "characterClass": "mage",
+      "isDead": false,
+      "gold": 5000,
+      "hp": 10,
+      "mp": 5,
+      "maxHp": 120,
+      "maxMp": 60,
+      "dmg": 8,
+      "def": 3,
+      "speed": 4,
+      "attackRange": 5,
+      "skillPoints": 0,
+      "skills": {
+        "p1": 1,
+        "p10": 1,
+        "p11": 1,
+        "p2": 1,
+        "p12": 1
+      }
+    },
+    "threw": null
+  },
+  "refund a node others depend on": {
+    "log": [
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "⚠️ Other passives depend on it: refund the far end of the path first.",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "socket",
+        "skill_tree_updated",
+        {
+          "skillPoints": 0,
+          "skills": {
+            "p1": 1,
+            "p10": 1,
+            "p11": 1,
+            "p2": 1,
+            "p12": 1
+          }
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 10,
+      "y": 10,
+      "level": 1,
+      "exp": 0,
+      "expNext": 100,
+      "characterClass": "mage",
+      "isDead": false,
+      "gold": 5000,
+      "hp": 10,
+      "mp": 5,
+      "maxHp": 120,
+      "maxMp": 60,
+      "dmg": 8,
+      "def": 3,
+      "speed": 4,
+      "attackRange": 5,
+      "skillPoints": 0,
+      "skills": {
+        "p1": 1,
+        "p10": 1,
+        "p11": 1,
+        "p2": 1,
+        "p12": 1
+      }
+    },
+    "threw": null
+  },
+  "refund far end": {
+    "log": [
+      [
+        "call",
+        "recalculatePlayerStats",
+        "h1",
+        1,
+        null
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 10,
+          "y": 10,
+          "level": 1,
+          "exp": 0,
+          "expNext": 100,
+          "characterClass": "mage",
+          "isDead": false,
+          "gold": 4975,
+          "hp": 10,
+          "mp": 5,
+          "maxHp": 107,
+          "maxMp": 53,
+          "dmg": 8,
+          "def": 3,
+          "speed": 4,
+          "attackRange": 5,
+          "skillPoints": 2,
+          "skills": {
+            "p1": 1,
+            "p10": 1,
+            "p11": 1,
+            "p2": 1
+          }
+        }
+      ],
+      [
+        "socket",
+        "skill_tree_updated",
+        {
+          "skillPoints": 2,
+          "skills": {
+            "p1": 1,
+            "p10": 1,
+            "p11": 1,
+            "p2": 1
+          }
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "↩ Refunded [Damage] (-25 Gold)",
+          "color": "#38bdf8"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 10,
+      "y": 10,
+      "level": 1,
+      "exp": 0,
+      "expNext": 100,
+      "characterClass": "mage",
+      "isDead": false,
+      "gold": 4975,
+      "hp": 10,
+      "mp": 5,
+      "maxHp": 107,
+      "maxMp": 53,
+      "dmg": 8,
+      "def": 3,
+      "speed": 4,
+      "attackRange": 5,
+      "skillPoints": 2,
+      "skills": {
+        "p1": 1,
+        "p10": 1,
+        "p11": 1,
+        "p2": 1
+      }
+    },
+    "threw": null
+  },
+  "refund far end poor": {
+    "log": [
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "⚠️ Need 25 Gold to refund a passive!",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "socket",
+        "skill_tree_updated",
+        {
+          "skillPoints": 0,
+          "skills": {
+            "p1": 1,
+            "p10": 1,
+            "p11": 1,
+            "p2": 1,
+            "p12": 1
+          }
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 10,
+      "y": 10,
+      "level": 1,
+      "exp": 0,
+      "expNext": 100,
+      "characterClass": "mage",
+      "isDead": false,
+      "gold": 0,
+      "hp": 10,
+      "mp": 5,
+      "maxHp": 120,
+      "maxMp": 60,
+      "dmg": 8,
+      "def": 3,
+      "speed": 4,
+      "attackRange": 5,
+      "skillPoints": 0,
+      "skills": {
+        "p1": 1,
+        "p10": 1,
+        "p11": 1,
+        "p2": 1,
+        "p12": 1
+      }
+    },
+    "threw": null
+  },
+  "refund far end no gold field": {
+    "log": [
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "⚠️ Need 25 Gold to refund a passive!",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "socket",
+        "skill_tree_updated",
+        {
+          "skillPoints": 0,
+          "skills": {
+            "p1": 1,
+            "p10": 1,
+            "p11": 1,
+            "p2": 1,
+            "p12": 1
+          }
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 10,
+      "y": 10,
+      "level": 1,
+      "exp": 0,
+      "expNext": 100,
+      "characterClass": "mage",
+      "isDead": false,
+      "hp": 10,
+      "mp": 5,
+      "maxHp": 120,
+      "maxMp": 60,
+      "dmg": 8,
+      "def": 3,
+      "speed": 4,
+      "attackRange": 5,
+      "skillPoints": 0,
+      "skills": {
+        "p1": 1,
+        "p10": 1,
+        "p11": 1,
+        "p2": 1,
+        "p12": 1
+      }
+    },
+    "threw": null
+  },
+  "refund far end no socket": {
+    "log": [
+      [
+        "call",
+        "recalculatePlayerStats",
+        "h1",
+        1,
+        null
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 10,
+      "y": 10,
+      "level": 1,
+      "exp": 0,
+      "expNext": 100,
+      "characterClass": "mage",
+      "isDead": false,
+      "gold": 4975,
+      "hp": 10,
+      "mp": 5,
+      "maxHp": 107,
+      "maxMp": 53,
+      "dmg": 8,
+      "def": 3,
+      "speed": 4,
+      "attackRange": 5,
+      "skillPoints": 1,
+      "skills": {
+        "p1": 1,
+        "p10": 1,
+        "p11": 1,
+        "p2": 1
+      }
+    },
+    "threw": null
+  },
+  "stale null": {
+    "p": {
+      "characterClass": "mage",
+      "skillPoints": 1
+    },
+    "threw": null
+  },
+  "stale valid build": {
+    "p": {
+      "characterClass": "mage",
+      "skillPoints": 1,
+      "skills": {
+        "p1": 1,
+        "p10": 1,
+        "p11": 1,
+        "p2": 1,
+        "p12": 1
+      }
+    },
+    "threw": null
+  },
+  "stale broken build": {
+    "p": {
+      "characterClass": "mage",
+      "skillPoints": 3,
+      "skills": {},
+      "talentRefunded": 2
+    },
+    "threw": null
+  },
+  "stale broken build twice refunded": {
+    "p": {
+      "characterClass": "mage",
+      "skillPoints": 1,
+      "skills": {},
+      "talentRefunded": 5
+    },
+    "threw": null
+  },
+  "stale no skills": {
+    "p": {
+      "characterClass": "mage",
+      "skillPoints": 1
+    },
+    "threw": null
+  },
+  "stale empty skills": {
+    "p": {
+      "characterClass": "mage",
+      "skillPoints": 1,
+      "skills": {}
+    },
+    "threw": null
+  },
+  "reset dead": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 10,
+      "y": 10,
+      "level": 1,
+      "exp": 0,
+      "expNext": 100,
+      "characterClass": "mage",
+      "isDead": true,
+      "gold": 5000,
+      "hp": 10,
+      "mp": 5,
+      "maxHp": 120,
+      "maxMp": 60,
+      "dmg": 8,
+      "def": 3,
+      "speed": 4,
+      "attackRange": 5,
+      "skillPoints": 0,
+      "skills": {
+        "p1": 1,
+        "p10": 1,
+        "p11": 1,
+        "p2": 1,
+        "p12": 1
+      }
+    },
+    "threw": null
+  },
+  "reset no skills": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 10,
+      "y": 10,
+      "level": 1,
+      "exp": 0,
+      "expNext": 100,
+      "characterClass": "mage",
+      "isDead": false,
+      "gold": 5000,
+      "hp": 10,
+      "mp": 5,
+      "maxHp": 120,
+      "maxMp": 60,
+      "dmg": 8,
+      "def": 3,
+      "speed": 4,
+      "attackRange": 5,
+      "skillPoints": 0
+    },
+    "threw": null
+  },
+  "reset nothing spent": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 10,
+      "y": 10,
+      "level": 1,
+      "exp": 0,
+      "expNext": 100,
+      "characterClass": "mage",
+      "isDead": false,
+      "gold": 5000,
+      "hp": 10,
+      "mp": 5,
+      "maxHp": 120,
+      "maxMp": 60,
+      "dmg": 8,
+      "def": 3,
+      "speed": 4,
+      "attackRange": 5,
+      "skillPoints": 0,
+      "skills": {}
+    },
+    "threw": null
+  },
+  "reset poor": {
+    "log": [
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "⚠️ Need 250 Gold to respec talents!",
+          "color": "#ef4444"
+        }
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 10,
+      "y": 10,
+      "level": 1,
+      "exp": 0,
+      "expNext": 100,
+      "characterClass": "mage",
+      "isDead": false,
+      "gold": 10,
+      "hp": 10,
+      "mp": 5,
+      "maxHp": 120,
+      "maxMp": 60,
+      "dmg": 8,
+      "def": 3,
+      "speed": 4,
+      "attackRange": 5,
+      "skillPoints": 0,
+      "skills": {
+        "p1": 1,
+        "p10": 1,
+        "p11": 1,
+        "p2": 1,
+        "p12": 1
+      }
+    },
+    "threw": null
+  },
+  "reset poor no socket": {
+    "log": [],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 10,
+      "y": 10,
+      "level": 1,
+      "exp": 0,
+      "expNext": 100,
+      "characterClass": "mage",
+      "isDead": false,
+      "gold": 10,
+      "hp": 10,
+      "mp": 5,
+      "maxHp": 120,
+      "maxMp": 60,
+      "dmg": 8,
+      "def": 3,
+      "speed": 4,
+      "attackRange": 5,
+      "skillPoints": 0,
+      "skills": {
+        "p1": 1,
+        "p10": 1,
+        "p11": 1,
+        "p2": 1,
+        "p12": 1
+      }
+    },
+    "threw": null
+  },
+  "reset ok": {
+    "log": [
+      [
+        "call",
+        "recalculatePlayerStats",
+        "h1",
+        1,
+        null
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 10,
+          "y": 10,
+          "level": 1,
+          "exp": 0,
+          "expNext": 100,
+          "characterClass": "mage",
+          "isDead": false,
+          "gold": 4750,
+          "hp": 10,
+          "mp": 5,
+          "maxHp": 107,
+          "maxMp": 53,
+          "dmg": 8,
+          "def": 3,
+          "speed": 4,
+          "attackRange": 5,
+          "skillPoints": 6,
+          "skills": {}
+        }
+      ],
+      [
+        "socket",
+        "skill_tree_updated",
+        {
+          "skillPoints": 6,
+          "skills": {}
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "🔄 Talents Reset! Restored 5 points (-250 Gold)",
+          "color": "#38bdf8"
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "🔄 [Hero] redistributed their talent points."
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 10,
+      "y": 10,
+      "level": 1,
+      "exp": 0,
+      "expNext": 100,
+      "characterClass": "mage",
+      "isDead": false,
+      "gold": 4750,
+      "hp": 10,
+      "mp": 5,
+      "maxHp": 107,
+      "maxMp": 53,
+      "dmg": 8,
+      "def": 3,
+      "speed": 4,
+      "attackRange": 5,
+      "skillPoints": 6,
+      "skills": {}
+    },
+    "threw": null
+  },
+  "reset ok no skillPoints field": {
+    "log": [
+      [
+        "call",
+        "recalculatePlayerStats",
+        "h1",
+        1,
+        null
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 10,
+          "y": 10,
+          "level": 1,
+          "exp": 0,
+          "expNext": 100,
+          "characterClass": "mage",
+          "isDead": false,
+          "gold": 4750,
+          "hp": 10,
+          "mp": 5,
+          "maxHp": 107,
+          "maxMp": 53,
+          "dmg": 8,
+          "def": 3,
+          "speed": 4,
+          "attackRange": 5,
+          "skillPoints": 5,
+          "skills": {}
+        }
+      ],
+      [
+        "socket",
+        "skill_tree_updated",
+        {
+          "skillPoints": 5,
+          "skills": {}
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "🔄 Talents Reset! Restored 5 points (-250 Gold)",
+          "color": "#38bdf8"
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "🔄 [Hero] redistributed their talent points."
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 10,
+      "y": 10,
+      "level": 1,
+      "exp": 0,
+      "expNext": 100,
+      "characterClass": "mage",
+      "isDead": false,
+      "gold": 4750,
+      "hp": 10,
+      "mp": 5,
+      "maxHp": 107,
+      "maxMp": 53,
+      "dmg": 8,
+      "def": 3,
+      "speed": 4,
+      "attackRange": 5,
+      "skillPoints": 5,
+      "skills": {}
+    },
+    "threw": null
+  },
+  "reset cost capped": {
+    "log": [
+      [
+        "call",
+        "recalculatePlayerStats",
+        "h1",
+        1,
+        null
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 10,
+          "y": 10,
+          "level": 1,
+          "exp": 0,
+          "expNext": 100,
+          "characterClass": "mage",
+          "isDead": false,
+          "gold": 99500,
+          "hp": 10,
+          "mp": 5,
+          "maxHp": 107,
+          "maxMp": 53,
+          "dmg": 8,
+          "def": 3,
+          "speed": 4,
+          "attackRange": 5,
+          "skillPoints": 40,
+          "skills": {}
+        }
+      ],
+      [
+        "socket",
+        "skill_tree_updated",
+        {
+          "skillPoints": 40,
+          "skills": {}
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "🔄 Talents Reset! Restored 40 points (-500 Gold)",
+          "color": "#38bdf8"
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "🔄 [Hero] redistributed their talent points."
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 10,
+      "y": 10,
+      "level": 1,
+      "exp": 0,
+      "expNext": 100,
+      "characterClass": "mage",
+      "isDead": false,
+      "gold": 99500,
+      "hp": 10,
+      "mp": 5,
+      "maxHp": 107,
+      "maxMp": 53,
+      "dmg": 8,
+      "def": 3,
+      "speed": 4,
+      "attackRange": 5,
+      "skillPoints": 40,
+      "skills": {}
+    },
+    "threw": null
+  },
+  "reset ok no socket": {
+    "log": [
+      [
+        "call",
+        "recalculatePlayerStats",
+        "h1",
+        1,
+        null
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "🔄 [Hero] redistributed their talent points."
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 10,
+      "y": 10,
+      "level": 1,
+      "exp": 0,
+      "expNext": 100,
+      "characterClass": "mage",
+      "isDead": false,
+      "gold": 4750,
+      "hp": 10,
+      "mp": 5,
+      "maxHp": 107,
+      "maxMp": 53,
+      "dmg": 8,
+      "def": 3,
+      "speed": 4,
+      "attackRange": 5,
+      "skillPoints": 5,
+      "skills": {}
+    },
+    "threw": null
+  },
+  "reset ranks above one": {
+    "log": [
+      [
+        "call",
+        "recalculatePlayerStats",
+        "h1",
+        1,
+        null
+      ],
+      [
+        "socket",
+        "player_updated",
+        {
+          "id": "h1",
+          "name": "Hero",
+          "zone": "town",
+          "x": 10,
+          "y": 10,
+          "level": 1,
+          "exp": 0,
+          "expNext": 100,
+          "characterClass": "mage",
+          "isDead": false,
+          "gold": 750,
+          "hp": 10,
+          "mp": 5,
+          "maxHp": 107,
+          "maxMp": 53,
+          "dmg": 8,
+          "def": 3,
+          "speed": 4,
+          "attackRange": 5,
+          "skillPoints": 5,
+          "skills": {}
+        }
+      ],
+      [
+        "socket",
+        "skill_tree_updated",
+        {
+          "skillPoints": 5,
+          "skills": {}
+        }
+      ],
+      [
+        "socket",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "🔄 Talents Reset! Restored 5 points (-250 Gold)",
+          "color": "#38bdf8"
+        }
+      ],
+      [
+        "call",
+        "sendDirectMessage",
+        "h1",
+        "🔄 [Hero] redistributed their talent points."
+      ]
+    ],
+    "hero": {
+      "id": "h1",
+      "name": "Hero",
+      "zone": "town",
+      "x": 10,
+      "y": 10,
+      "level": 1,
+      "exp": 0,
+      "expNext": 100,
+      "characterClass": "mage",
+      "isDead": false,
+      "gold": 750,
+      "hp": 10,
+      "mp": 5,
+      "maxHp": 107,
+      "maxMp": 53,
+      "dmg": 8,
+      "def": 3,
+      "speed": 4,
+      "attackRange": 5,
+      "skillPoints": 5,
+      "skills": {}
+    },
+    "threw": null
+  }
+}
