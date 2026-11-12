@@ -45,7 +45,7 @@ Do not start a step until the previous one is verified and committed.
 
 ---
 
-## Step 0 — Branch and baseline
+## Step 0 — Branch and baseline (DONE)
 
 1. `git status` — if the working tree has uncommitted changes besides untracked media, stop and ask the user.
 2. Create the branch: `git checkout -b refactor/server-structure`
@@ -57,7 +57,7 @@ No commit for this step.
 
 ---
 
-## Step 1 — Safety net (tests + smoke test)
+## Step 1 — Safety net (tests + smoke test) (DONE, a66f3c5)
 
 Node is v22, `tsx` is already a devDependency. Use the built-in `node:test` runner (no new deps).
 
@@ -107,7 +107,7 @@ Run the checklist. Commit: `test: add characterization tests and smoke test`.
 
 ---
 
-## Step 2 — Fix save performance (behavior change, isolated)
+## Step 2 — Fix save performance (DONE: 0d3894e, 19da99e, 45856f4)
 
 Problem: `saveCharacter()` (`server/accountManager.ts` ~line 313) calls `saveAccounts()`, which
 rewrites the **entire** `accounts.json` synchronously. `saveAllOnlinePlayers()`
@@ -142,141 +142,104 @@ Update the round-trip test to `await` the save. Commit: `perf: atomic async acco
 
 ---
 
-## Step 3 — Extract constants (move only)
+# Class + factory structure (replaces the old Steps 3–7)
 
-Create `server/config/constants.ts`. Move these top-level `const`s from `gameServer.ts` verbatim,
-each with `export`:
-- Lines ~46–142 (tuning constants: `SP_TRANSFORM_COOLDOWN` … `FAILED_RUN_LOOT_KEEP`),
-  including the small pure helpers `dungeonProgressWeight` and `mobInView`.
-- Lines ~437–484 (`PORTAL_USE_RANGE` … `BOSS_REVIVAL_STONE_CHANCE`), except anything
-  that is built from a `require(...)` (e.g. `TALENT_PROCS = PASSIVES.TALENT_PROCS`) — leave those.
+Design decision (made with the user):
+- **Entities** (Player, Mob, Item, Projectile, ...) are typed `interface`s built by **factory functions**. They stay plain JSON so saving, `socket.emit` and `{...mob}` spreads keep working.
+- **Systems** (combat, party, loot, ...) become **classes**: `class XSystem { constructor(private readonly gs: GameServer) {} }`.
+- **Behavior that varies** (skills, SP shapes, mob status effects, hero classes) becomes **registries**: `Record<key, handler>`, like `COMMANDS` in `adminCommands.ts`.
 
-Do **not** move the mutable counters `let minionSeq` / `let spObjSeq` — they stay in `gameServer.ts`.
-Keep comments with the constants they describe.
+Existing patterns to copy: `createBossMechanics` (`bossMechanics.ts`, closure factory with a private state Map) and `class AccountManager`.
 
-In `gameServer.ts` add one import: `import * as C from './config/constants';`
-**or** a named import list — prefer named imports so the rest of the file stays unchanged.
+## Hard rules for this refactor (in addition to section 0)
+1. **A factory returns exactly the same fields and values as the literal it replaces.** Do not pre-initialize fields that are added lazily, and do not rename anything. Snapshots and `player_joined` send whole objects to the client, so an extra or missing key changes behavior. Defaults must match each call site (e.g. `def || 12` in the legacy dungeon vs `def || 10` in instances): pass them as parameters when they differ.
+2. **Keep ID formats and counters unchanged** (`this.nextEntityId`, the dungeon generator's own counter, `minionSeq`, `spObjSeq`). Factories receive the id as an argument or a `nextId()` callback.
+3. Systems use `import type { GameServer }` (no circular runtime import). `GameServer` keeps a one-line forwarding method for every moved method, so no call site changes.
+4. **Do not fix bugs found on the way; report them.** Known: the frost rune writes `mob.freezeTimer` (gameServer.ts ~7477) but the game only reads `frozenTimer`; `mob.chillSlow` is never read; `initFrostfellMonsters` is effectively dead code; `this.playerParties` is unused.
+5. One step per commit. Run typecheck, `npm test` and `npm run smoke` after every step.
+6. **Fixture rule for factories:** before replacing a literal, capture its output from the OLD code into a fixture (stub `Math.random` / `Date.now`), then assert the new factory deep-equals it.
 
-Verify: grep that each moved name is defined exactly once across `server/`.
-Run the checklist. Commit: `refactor: move tuning constants to config/constants.ts`.
-
----
-
-## Step 4 — Extract static skill data (move only)
-
-Create `server/data/skills.ts` and move verbatim, with `export`:
-`ALL_CLASS_SKILLS` (~line 145), `CLASS_SKILLS_CATALOG`, `SKILL_RUNES`, `DEFAULT_EQUIPPED_SKILLS`,
-`CLIENT_SKILL_SLOTS`, `DEFAULT_SKILL_FOR_SLOT`, `CLASS_SKILLS`, and `POTIONS` / `POTION_COOLDOWN_MS`
-(or put potions in `server/data/potions.ts`).
-
-`gameServer.ts` imports them back, and must keep re-exporting `ALL_CLASS_SKILLS`
-at the bottom (`export { GameServer, ALL_CLASS_SKILLS }`).
-
-Run the checklist. Commit: `refactor: move skill and potion data to data/`.
-
----
-
-## Step 5 — Extract systems (repeat per system)
-
-### The pattern (use it for every system)
-To keep risk low on a 9k-line class, do it in two passes:
-
-**Pass 1 — move with a delegating stub (move only).**
-1. Create `server/systems/<system>.ts`.
-2. Move each method body into an exported function whose **first parameter is the server**:
-   ```ts
-   // server/systems/statusEffects.ts
-   import type { GameServer } from '../gameServer';
-   export function applyStatusEffect(gs: GameServer, target, effect, ...rest) {
-     // original body, with `this.` replaced by `gs.`
-   }
-   ```
-3. Leave a one-line stub in the class so **no call site changes**:
-   ```ts
-   applyStatusEffect(target, effect, ...rest) { return StatusFx.applyStatusEffect(this, target, effect, ...rest); }
-   ```
-4. Replace `this.` with `gs.` **only inside the moved body**. Watch for:
-   - arrow functions/callbacks inside the body that used `this` — they become `gs` too;
-   - `function () {}` callbacks that relied on their own `this` — leave those alone;
-   - private helpers the body calls (`this.foo()` → `gs.foo()` is fine; it still exists on the class).
-   - module-level constants/imports the body uses — import them in the new file.
-5. Use `import type` for `GameServer` to avoid a circular runtime import.
-
-**Pass 2 (later, optional) — narrow the inputs.** Once a system is in its own file and tested,
-functions can take the specific state they need instead of the whole `gs`. Separate commits.
-
-### Order (smallest/safest first)
-Extract one system per commit. Line numbers are approximate — grep for the method names.
-
-| # | Module | Methods to move |
-|---|---|---|
-| 5.1 | `systems/statusEffects.ts` | `applyStatusEffect`, `smokeMissChance`, `applyTalentProcs` |
-| 5.2 | `systems/potions.ts` | `getPotionSlots`, `getPotionCount`, `consumePotion`, `handleUsePotion`, `handleSetPotionSlot` |
-| 5.3 | `systems/minions.ts` | `corpseKey`, `addCorpse`, `takeCorpses`, `raiseMinion`, `crumbleMinion`, `dismissMinions`, `tickMinions` |
-| 5.4 | `systems/party.ts` | `getPartyData`, `broadcastPartyUpdate`, `handleParty*`, `removePlayerFromParty`, `partyExpSharers` |
-| 5.5 | `systems/raid.ts` | `updateRaidEvents`, `spawnRaidBoss`, `despawnRaidBoss`, `recordRaidDamage`, `raidStandings`, `broadcastRaidLeaderboard`, `raidInfo`, `onRaidBossDeath`, `payRaidReward` |
-| 5.6 | `systems/spCards.ts` (server side; name it `spSystem.ts` to avoid clashing with existing `spCards.ts`) | `equipSpCard`, `handleSpTransform`, `spLoadout`, `customizeSpSkill`, `setTransformed`, `fragmentCount`, `spendFragments`, `handleSpCard*`, `awardJobExp`, `rollBossSpLoot`, `endSpToggle`, `tickSpToggles` |
-| 5.7 | `systems/inventory.ts` | `handleEquipItem`, `handleUnequipItem`, `handleBuy/Sell*`, `handleToggleFavorite`, `handlePickupItem`, `handleUseBagExpander`, chest handlers (`handleOpenPersonalChest`, `handleDepositToChest`, `handleWithdrawFromChest`, `handleUseChestExpander`) |
-| 5.8 | `systems/itemUpgrades.ts` | `handleReforgeItem`, `handleEnhanceItem`, `applyItemUpgradeStats`, socket/rune handlers, `handleAttributes`, `handleCraft` |
-| 5.9 | `systems/progression.ts` (name `levelSystem.ts`; `progression.ts` exists) | `awardExp`, `handleAllocateSkillPoint`, `handleAllocatePassives`, `handleRefundPassive`, `refundStaleTalents`, `handleResetSkillPoints` |
-| 5.10 | `systems/loot.ts` | `giveLootToPlayer`, `lootEntryName`, `lootEntryToItem`, `spawnGroundItem`, `sweepGroundItems` |
-| 5.11 | `systems/dungeonRuns.ts` | `newDungeonRun`, `updateDungeonRooms`, `spawnDungeonRoom`, `countDungeonProgress`, `emitDungeonRunUpdate`, `completeDungeonRun`, `endDungeonRun`, dungeon instance helpers |
-| 5.12 | `systems/zones.ts` | `teleportPlayerTo*`, `handleEnterDungeon`, `handleLeaveDungeon`, `handleUsePortal`, `checkPortalAndInteractions`, `init*Monsters` |
-| 5.13 | `systems/passives.ts` | `passiveDamageMult`, `passiveOnHit`, `passiveOnKill`, `passiveOnHurt`, `cardPassiveLeech`, `heroBuffs`, `bloodRage`, `phoenixRebirth` |
-| 5.14 | `systems/stats.ts` | `recalculatePlayerStats`, `hpRegenMult`, `handleSetEffects`, `getArmorRuneCounts`, `getWeaponRuneCounts` |
-| 5.15 | `systems/combat.ts` | `handlePlayerAttack`, `meleeSweep`, `chainBasicAttack`, `applyDamageToMob`, `handleMobDeath`, `spawnProjectile`, `applyProjectileSplash`, `gainUltCharge` |
-| 5.16 | `systems/skills.ts` | `handlePlayerSkill` (~900 lines), `resolvePlayerSkill`, `handleCustomizeSkill` |
-| 5.17 | `systems/spSkills.ts` | `castSpSkill` (~1,200 lines) |
-| 5.18 | `systems/mobAI.ts` | `updateMobsList` |
-
-For 5.16 and 5.17: after moving (Pass 1, verbatim), the huge functions are likely a big
-`switch`/`if` chain over skill ids. In **separate** commits afterwards, split each case into its
-own small function in a lookup table (`const SKILL_HANDLERS: Record<string, Fn> = {...}`).
-Do this a few cases per commit.
-
-After **each** row: run the checklist, play-check is not possible headless, so the smoke test
-must exercise that system where feasible (extend `scripts/smoke.ts` — e.g. use a potion,
-equip an item, cast a skill). Commit: `refactor: extract <system> from GameServer`.
+## Target structure
+```
+server/
+  config/constants.ts        tuning numbers
+  data/skills.ts             ALL_CLASS_SKILLS, CLASS_SKILLS_CATALOG, SKILL_RUNES, DEFAULT_EQUIPPED_SKILLS, CLASS_SKILLS, ...
+  data/potions.ts            POTIONS, POTION_COOLDOWN_MS
+  data/heroClasses.ts        HERO_CLASSES[cls] = { baseStats, starterGear, isRanged }
+  entities/types.ts          Player, SavedCharacter, Mob, Item, GroundItem, Projectile, DungeonInstance, Party
+  entities/player.ts         createStarterCharacter, createLivePlayer, toSavedCharacter
+  entities/mob.ts            MobFactory.{ field, dungeonPending, raidBoss, riftMob, bossAdd, adminSpawn }
+  entities/item.ts           ItemFactory.{ stack, gear, card, fromLootEntry }
+  entities/world.ts          createProjectile, createGroundItem, createDungeonInstance, createRiftInstance, createParty
+  systems/<Name>System.ts    one class per game system
+  skills/baseSkillHandlers.ts   BASE_SKILL_HANDLERS
+  skills/SpCastContext.ts       holds the closures of castSpSkill
+  skills/spShapeHandlers.ts     SP_SHAPE_HANDLERS
+  effects/mobEffects.ts         MOB_EFFECTS
+  gameServer.ts              wiring + game loop + forwarding stubs
+```
 
 ---
 
-## Step 6 — Thin socket handlers
+## Phase A — data out of GameServer (move only)
 
-Socket handlers live in `server/index.ts` (`socket.on('account_register', ...)` etc., ~60 total).
-Move them into `server/network/handlers.ts` exporting `registerHandlers(io, socket, gameServer)`.
-Each handler should only: validate input → call a `GameServer` method/system → done.
-Keep event names identical. Commit: `refactor: move socket handlers to network/handlers.ts`.
+### A1. `config/constants.ts`
+Move verbatim, with `export`: the tuning constants at gameServer.ts ~lines 46–142 (`SP_TRANSFORM_COOLDOWN` ... `FAILED_RUN_LOOT_KEEP`, including the pure helpers `dungeonProgressWeight` and `mobInView`) and ~437–484 (`PORTAL_USE_RANGE` ... `BOSS_REVIVAL_STONE_CHANCE`), except anything built from a `require(...)` (e.g. `TALENT_PROCS = PASSIVES.TALENT_PROCS`) and the mutable `let minionSeq` / `let spObjSeq`, which stay. Import them back with a named import list. Verify each moved name is defined exactly once under `server/`. Commit: `refactor: move tuning constants to config/constants.ts`.
+
+### A2. `data/skills.ts` and `data/potions.ts`
+Move verbatim: `ALL_CLASS_SKILLS`, `CLASS_SKILLS_CATALOG`, `SKILL_RUNES`, `DEFAULT_EQUIPPED_SKILLS`, `CLIENT_SKILL_SLOTS`, `DEFAULT_SKILL_FOR_SLOT`, `CLASS_SKILLS` (-> `data/skills.ts`); `POTIONS`, `POTION_COOLDOWN_MS` (-> `data/potions.ts`). `gameServer.ts` must keep `export { GameServer, ALL_CLASS_SKILLS }`. Commit: `refactor: move skill and potion data to data/`.
+
+### A3. `data/heroClasses.ts`
+One table replaces the duplicated `defaultClasses` stat table (in `makeStarterCharacter` and `addPlayer`; note `addPlayer`'s copy also has `skillName`), the duplicated starter-gear blocks, and gives `isRanged` (true for mage). **First** capture a fixture of `makeStarterCharacter(name, cls)` for warrior, mage, rogue and an invalid class, then make both methods read the table and assert deep equality. Do not touch the `=== 'mage'` branches yet (that is D1). Commit: `refactor: single hero class table`.
+
+**Stop after Phase A and report to the user** (they restart their server and play-check).
 
 ---
 
-## Step 7 — Types (gradual)
+## Phase B — entity types and factories
 
-1. In `server/types.ts`, define `Player`, `Monster`, `GroundItem`, `DungeonInstance` interfaces
-   from the fields actually used (read `makeStarterCharacter`, `addPlayer`, `saveCharacter`).
-   Use optional fields (`?`) generously at first.
-2. Replace `any` with these types **one system module at a time**, starting with the small ones.
-   Fix real type errors that appear; if a fix would change behavior, leave a `// TODO(types):`
-   comment and use a cast instead.
-3. When `server/systems/*` is mostly typed, try `"noImplicitAny": true` in `tsconfig.json`.
-   If it produces too many errors, revert and continue file by file.
-One module per commit: `types: type <system>`.
+- **B1. `entities/types.ts`**: interfaces from the real fields (player: identity, position, progression, stats, gear, combat timers, buffs, plus many optional lazily added fields; mob core fields; item; ground item; projectile; dungeon instance; party). All lazily added fields optional. Nothing uses them yet. Commit: `types: add entity interfaces`.
+- **B2. Player**: `createStarterCharacter` (moved `makeStarterCharacter`), `createLivePlayer(socketId, saved, account)` (the literal in `addPlayer` ~1757–1858), `toSavedCharacter(player)` (the whitelist in `accountManager.saveCharacter`, which then calls it). **First** extend `scripts/smoke.ts` to compare the sorted key list of the `init_game` player with `scripts/fixtures/player-keys.json` (create it from the old code), then refactor.
+- **B3. Item**: `ItemFactory.stack(def, count)` for the `{...ITEMS.x, count}` spreads, `card(id, lvl)` (= `SP.makeCardItem` + `custom` + `count`), `gear()` wrapping `generateRandomizedGear`, `fromLootEntry` (moved `lootEntryToItem`). Replace call sites a few per commit.
+- **B4. Mob**: `MobFactory` with a shared `baseMob()` core and one variant per site. Replace in this order: admin `/spawn`, raid boss, rift, boss adds (`bossMechanics.ts` `summonAdds`), dungeon pending (`getOrCreateDungeonInstance`), field (`initFieldMonsters`). Leave the dungeon generator's def literals alone (they are input data). Each variant gets a fixture test. Note: `mob.zone` is a leash box on most mobs but the string `'dungeon'` on rift/admin mobs; keep both.
+- **B5. World**: `createProjectile` (dedupes `spawnProjectile` and `spawnRiftBolt`), `createGroundItem`, `createDungeonInstance`, `createRiftInstance`, `createParty`.
+
+## Phase C — system classes
+
+For each system, in this order: StatusEffect, Potion, Minion, Party, Raid, SpCard, Inventory, ItemUpgrade, Level, Loot, DungeonRun, Zone, Passive, Stats, Combat, then Skill, SpSkill, MobAI last. Method lists per system: statusEffects = `applyStatusEffect`, `smokeMissChance`, `applyTalentProcs`; potions = `getPotionSlots`, `getPotionCount`, `consumePotion`, `handleUsePotion`, `handleSetPotionSlot`; minions = `corpseKey`, `addCorpse`, `takeCorpses`, `raiseMinion`, `crumbleMinion`, `dismissMinions`, `tickMinions`; party = `getPartyData`, `broadcastPartyUpdate`, `handleParty*`, `removePlayerFromParty`, `partyExpSharers`; raid = `updateRaidEvents`, `spawnRaidBoss`, `despawnRaidBoss`, `recordRaidDamage`, `raidStandings`, `broadcastRaidLeaderboard`, `raidInfo`, `onRaidBossDeath`, `payRaidReward`; spCard = `equipSpCard`, `handleSpTransform`, `spLoadout`, `customizeSpSkill`, `setTransformed`, `fragmentCount`, `spendFragments`, `handleSpCard*`, `awardJobExp`, `rollBossSpLoot`, `endSpToggle`, `tickSpToggles`; inventory = equip/unequip/buy/sell/favorite/pickup/bag-expander/personal-chest handlers; itemUpgrade = reforge/enhance/socket/rune/attributes/craft handlers; level = `awardExp` and the skill-point/passive handlers; loot = `giveLootToPlayer`, `lootEntryName`, `lootEntryToItem`, `spawnGroundItem`, `sweepGroundItems`; dungeonRun = `newDungeonRun`, `updateDungeonRooms`, `spawnDungeonRoom`, `countDungeonProgress`, `emitDungeonRunUpdate`, `completeDungeonRun`, `endDungeonRun`; zone = `teleportPlayerTo*`, enter/leave dungeon, portal handlers, `init*Monsters`; passive = `passiveDamageMult`, `passiveOnHit`, `passiveOnKill`, `passiveOnHurt`, `cardPassiveLeech`, `heroBuffs`, `bloodRage`, `phoenixRebirth`; stats = `recalculatePlayerStats`, `hpRegenMult`, `handleSetEffects`, rune-count getters; combat = `handlePlayerAttack`, `meleeSweep`, `chainBasicAttack`, `applyDamageToMob`, `handleMobDeath`, `spawnProjectile`, `applyProjectileSplash`, `gainUltCharge`.
+
+Pattern (per system, one commit):
+```ts
+// server/systems/PotionSystem.ts
+import type { GameServer } from '../gameServer';
+export class PotionSystem {
+  constructor(private readonly gs: GameServer) {}
+  use(player: any) { /* original body, `this.` -> `this.gs.` */ }
+}
+// gameServer.ts constructor: this.potions = new PotionSystem(this);
+// gameServer.ts stub:        handleUsePotion(...a) { return this.potions.use(...a); }
+```
+Replace `this.` with `this.gs.` only inside moved bodies; callbacks written as `function () {}` that rely on their own `this` stay unchanged. Keep `createBossMechanics` as it is.
+
+## Phase D — registries for behavior that varies
+
+- **D1.** `HERO_CLASSES[cls].isRanged` replaces the 7 `characterClass === 'mage'` checks (handlePlayerAttack ~2642/2675/2687, recalculatePlayerStats ~5799, broadcastSnapshot ~9593/9624/9625). Behavior must stay identical: the mage-only Energy Shield gets its own `hasEnergyShield` flag rather than reusing `isRanged`.
+- **D2.** `BASE_SKILL_HANDLERS`: split the 43 cases of the `switch(skill.spShape ? 'sp_skill' : skill.id)` in `handlePlayerSkill` into handlers taking a `SkillContext { gs, player, skill, mobsMap, applySkillDamage, ... }`. About 5 cases per commit; the switch becomes a lookup.
+- **D3.** `SpCastContext` class gets the preamble closures of `castSpSkill` (`hit`, `emit`, `say`, combo/heat/doom helpers, `placeRune`/`burstRune`/`runeDot`, `plantRod`/`strikeRod`/...). Then `SP_SHAPE_HANDLERS` gets the 40 `spShape` cases, a few per commit. The 10 Dread Lord `skill.id === 'sp_...'` special cases stay inside their shape handlers.
+- **D4.** `MOB_EFFECTS` registry (chill, burn, poison, scorch, frost, stasis, conduct, fracture, doom): merge the duplicated apply logic (`hit()`, `passiveOnHit`, `applyTalentProcs`, `tickSpToggles`, `applyDamageToMob`, `phoenixRebirth`). `updateMobsList` ticks through the registry in the SAME order as today.
+
+## Phase E — types
+Replace `any` with the B1 interfaces one system at a time, then try `"noImplicitAny": true`. One module per commit: `types: type <system>`.
 
 ---
 
 ## Done criteria
+- `gameServer.ts` is wiring, the game loop, player add/remove and forwarding stubs.
+- Entities are created only through factories; behavior that varies lives in registries.
+- `npm run typecheck`, `npm test`, `npm run smoke` pass.
 
-- `server/gameServer.ts` is mostly wiring: constructor, the tick loop (`startGameLoop`/`update`),
-  player add/remove, and delegating stubs.
-- Every system lives in `server/systems/*.ts` and can be read on its own.
-- `npm run typecheck`, `npm test`, `npm run smoke` all pass.
-- Autosave writes `accounts.json` once per cycle, atomically, without blocking the loop.
+## Out of scope
+Client refactor (`public/js/renderer.js`, `game.js`), SQLite migration, any balance change.
 
-## Out of scope (separate plans later)
-- Client refactor (`public/js/renderer.js` ~22.8k lines, `game.js` ~7.8k).
-- SQLite migration.
-- Passive/balance changes of any kind.
-
-## Reporting back to the user
-At the end of each session, report: which steps were completed (with commit hashes),
-verification results, anything skipped or reverted and why, and the new line count of
-`server/gameServer.ts`.
+## Reporting back
+At the end of each session report: steps completed (commit hashes), verification results, anything skipped or reverted and why, bugs noticed but not fixed, and the new line count of `gameServer.ts`.
