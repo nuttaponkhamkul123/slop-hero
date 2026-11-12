@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { UserRole } from './types';
+import { toSavedCharacter } from './entities/savedCharacter';
 
 // Check local directory or root project server/data directory
 const DATA_DIR = process.env.DATA_DIR || (
@@ -402,28 +403,7 @@ export class AccountManager {
     if (!acc.characters[slot]) return false;
 
     // Filter serializable fields to keep file clean
-    acc.characters[slot] = {
-      name: characterData.name,
-      characterClass: characterData.characterClass,
-      level: characterData.level || 1,
-      exp: characterData.exp || 0,
-      expNext: characterData.expNext,
-      skillPoints: characterData.skillPoints || 0,
-      skills: characterData.skills || {},
-      // a transformed hero is saved with their own skills, not the card's
-      equippedSkills: (characterData.spTransformed && characterData.baseEquippedSkills) || characterData.equippedSkills || null,
-      jobLevel: characterData.jobLevel || 1,
-      spLoadouts: characterData.spLoadouts || {},
-      jobExp: characterData.jobExp || 0,
-      equipment: characterData.equipment || {},
-      gold: characterData.gold || 0,
-      inventory: characterData.inventory || { healthPotions: 3, manaPotions: 2, maxSlots: 150, items: [] },
-      storage: characterData.storage || { maxSlots: 50, items: [] },
-      zone: characterData.zone || 'town',
-      x: characterData.x,
-      y: characterData.y,
-      savedAt: Date.now()
-    };
+    acc.characters[slot] = toSavedCharacter(characterData);
 
     if (flush) this.saveAccounts();
     return true;

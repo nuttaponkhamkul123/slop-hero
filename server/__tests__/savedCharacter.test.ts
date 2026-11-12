@@ -72,3 +72,10 @@ test('saveCharacter: rejects unknown accounts, missing slots and empty input', a
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('toSavedCharacter (entities/savedCharacter): same fixture, pure function', async () => {
+  const { toSavedCharacter } = await import('../entities/savedCharacter');
+  const got: Record<string, any> = {};
+  for (const [k, input] of Object.entries(cases)) got[k] = JSON.parse(JSON.stringify(toSavedCharacter(input, NOW)));
+  assert.deepEqual(got, JSON.parse(fs.readFileSync(FIXTURE, 'utf8')));
+});
