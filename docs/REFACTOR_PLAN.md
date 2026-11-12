@@ -243,7 +243,7 @@ Gotchas found so far:
 
 - **Step 1 (DONE).** `"noImplicitAny": true` is on and the project compiles. Parameters named player/killerPlayer/targetPlayer/caster/hero are `Player`, mob/targetMob/primary/nearby are `Mob`, item is `Item`, inst is `DungeonInstance`; every other untyped parameter is an explicit `any`. `scripts/add-types.js` did this from the compiler's own error list.
 - **Step 2 (DONE).** The `[extra: string]: any` escape hatch is removed from Player, Item, Mob, DungeonInstance, EquipmentSlots, Inventory, EquippedSkills, StatusEffect, RiftState and RiftInstance: a typo in a field name of these is now a compile error. About 45 fields that were only added during play were declared as optional.
-- **Left:** `strict` / `strictNullChecks` stay off. `SkillCooldowns` keeps its index signature (the keys are slot names). Many parameters are still an explicit `any` (sockets, the `p` loop variable, ctx objects): typing them is the next step. `GameServer` fields (`players: Map<string, any>`) are still loose.
+- **Left:** `strict` / `strictNullChecks` stay off. `SkillCooldowns` keeps its index signature (the keys are slot names). Many parameters are still an explicit `any` (sockets, the `p` loop variable, ctx objects): typing them is the next step. `GameServer.players`, `townMobs` and `dungeonInstances` are typed now; `parties`, `projectiles`, `fields` and the rest are still `any`. `EquipmentSlots` and `EquippedSkills` also keep an index signature (the client addresses slots by name).
 
 ---
 
