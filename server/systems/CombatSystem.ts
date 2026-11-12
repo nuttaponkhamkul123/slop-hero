@@ -2,6 +2,7 @@
 // Moved verbatim out of GameServer (Phase C of docs/REFACTOR_PLAN.md): `this` is the server, reached as this.gs;
 // GameServer keeps one-line forwarding methods, so no call site changed.
 import type { GameServer } from '../gameServer';
+import { isRangedClass } from '../data/heroClasses';
 import { calculateElementalMultiplier } from '../elements';
 import { ITEMS, rollSkyblockReforge, applySkyblockReforge, pickGearForLevel, RUNE_DROP_CHANCE, SOCKET_EXPANDER_DROP_CHANCE } from '../items';
 import { levelGapMult, lootGapMult, MOB_DEF_K } from '../progression';
@@ -60,7 +61,7 @@ export class CombatSystem {
         ax = fv[0]; ay = fv[1];
       }
       const al = Math.hypot(ax, ay) || 1;
-      const propReach = player.characterClass === 'mage' ? 4 : (player.attackRange || 1.6) + 1.2;
+      const propReach = isRangedClass(player.characterClass) ? 4 : (player.attackRange || 1.6) + 1.2;
       this.gs.damageFieldProps(player, player.x, player.y, propReach, { dx: ax / al, dy: ay / al, cos: 0.4 });
     }
 
@@ -93,7 +94,7 @@ export class CombatSystem {
     let sweepRangeHit = 0; // how far this swing's cleave reached (tiles), for the client's arc
 
     const power = player.weaponPower;
-    if (player.characterClass === 'mage' && power && power.fireChannel) {
+    if (isRangedClass(player.characterClass) && power && power.fireChannel) {
       // Sunfire Conduit: one fireball into each of the nearest enemies (the clicked one first), no splash
       const reach = player.attackRange + 1.0;
       const near = (Array.from(mobsMap.values()) as any[])
@@ -105,7 +106,7 @@ export class CombatSystem {
       } else if (targetInfo && targetInfo.worldX !== undefined && targetInfo.worldY !== undefined) {
         this.gs.spawnProjectile(player, targetInfo.worldX, targetInfo.worldY, null, 'point', attackDmg, { crit: isCrit });
       }
-    } else if (player.characterClass === 'mage') {
+    } else if (isRangedClass(player.characterClass)) {
       // Mage Ranged Projectiles
       if (targetMob) {
         const dist = Math.hypot(targetMob.x - player.x, targetMob.y - player.y);

@@ -156,7 +156,7 @@ import {
 } from './config/constants';
 import { ALL_CLASS_SKILLS, CLASS_SKILLS_CATALOG, SKILL_RUNES, DEFAULT_EQUIPPED_SKILLS, CLIENT_SKILL_SLOTS, DEFAULT_SKILL_FOR_SLOT, CLASS_SKILLS } from './data/skills';
 import { POTIONS, POTION_COOLDOWN_MS } from './data/potions';
-import { HERO_CLASSES, isHeroClass, starterEquipment } from './data/heroClasses';
+import { HERO_CLASSES, isHeroClass, isRangedClass, starterEquipment } from './data/heroClasses';
 import { createStarterCharacter, createLivePlayer } from './entities/player';
 import { ItemFactory } from './entities/item';
 import { MobFactory } from './entities/mob';
@@ -2511,7 +2511,7 @@ class GameServer {
     if (!this._heavySigs) this._heavySigs = new WeakMap();
     const round2 = v => Math.round(v * 100) / 100;
     const playersArr = Array.from(this.players.values()).map(p => {
-      const sweep = p.characterClass === 'mage' ? { reach: 0, arc: 0 } : this.meleeSweep(p);
+      const sweep = isRangedClass(p.characterClass) ? { reach: 0, arc: 0 } : this.meleeSweep(p);
       const snap = {
       id: p.id,
       name: p.name,
@@ -2542,8 +2542,8 @@ class GameServer {
       attackSpeed: p.attackSpeed || 1.0,
       swipe: p.swipe || 0,
       // melee cleave reach / arc, so the client draws the local swing at its true size
-      sweepReach: p.characterClass === 'mage' ? 0 : round2(sweep.reach),
-      sweepArc: p.characterClass === 'mage' ? 0 : sweep.arc,
+      sweepReach: isRangedClass(p.characterClass) ? 0 : round2(sweep.reach),
+      sweepArc: isRangedClass(p.characterClass) ? 0 : sweep.arc,
       jobLevel: p.jobLevel || 1,
       spTransformed: !!p.spTransformed,
       spCardId: p.spTransformed && p.equipment && p.equipment.sp ? p.equipment.sp.cardId : null,

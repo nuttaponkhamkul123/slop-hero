@@ -13,7 +13,7 @@ export interface HeroClassDef {
   starterGear: { weapon: string; armor: string | null; helmet: string | null };
   /** name of the class' first skill (kept from the old addPlayer table; not read anywhere yet) */
   skillName: string;
-  /** attacks from range with projectiles instead of a melee sweep (not read yet: see refactor Phase D1) */
+  /** attacks from range with projectiles instead of a melee sweep (read through isRangedClass) */
   isRanged: boolean;
 }
 
@@ -48,4 +48,9 @@ export function starterEquipment(cls: string): { weapon: any; armor: any; helmet
   const g = HERO_CLASSES[cls].starterGear;
   const stack = (id: string | null) => (id ? ItemFactory.stack((ITEMS as any)[id]) : null);
   return { weapon: stack(g.weapon), armor: stack(g.armor), helmet: stack(g.helmet) };
+}
+
+/** True for classes that attack from range with projectiles (only the mage today); unknown classes are melee. */
+export function isRangedClass(cls: string | undefined | null): boolean {
+  return !!cls && Object.prototype.hasOwnProperty.call(HERO_CLASSES, cls) && HERO_CLASSES[cls].isRanged;
 }

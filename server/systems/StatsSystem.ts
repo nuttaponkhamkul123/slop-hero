@@ -2,6 +2,7 @@
 // Moved verbatim out of GameServer (Phase C of docs/REFACTOR_PLAN.md): `this` is the server, reached as this.gs;
 // GameServer keeps one-line forwarding methods, so no call site changed.
 import type { GameServer } from '../gameServer';
+import { isRangedClass } from '../data/heroClasses';
 import { ITEMS, weaponPower, ensureSockets, ARMOR_SOCKET_SLOTS, ARMOR_SETS, equippedSetCounts } from '../items';
 import { masteryMult } from '../progression';
 import * as SP from '../spCards';
@@ -228,7 +229,7 @@ export class StatsSystem {
 
     // Mage Energy Shield: a passive barrier that soaks hits before HP and
     // recharges after a moment without taking damage (see tickEnergyShield)
-    if (player.characterClass === 'mage') {
+    if (isRangedClass(player.characterClass)) {
       player.esMax = Math.round(player.maxHp * ENERGY_SHIELD.hpShare + player.maxMp * ENERGY_SHIELD.mpShare);
       if (player.es === undefined || player.es === null) player.es = player.esMax;
       player.es = Math.min(player.es, player.esMax);
