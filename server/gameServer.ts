@@ -171,6 +171,7 @@ import { InventorySystem } from './systems/InventorySystem';
 import { ItemUpgradeSystem } from './systems/ItemUpgradeSystem';
 import { LevelSystem } from './systems/LevelSystem';
 import { LootSystem } from './systems/LootSystem';
+import { DungeonRunSystem } from './systems/DungeonRunSystem';
 let spObjSeq = 0; // ids for placed card objects (glyphs, banners, lances) so the client can clear them
 
 const PASSIVES = require('./talents');
@@ -266,6 +267,7 @@ class GameServer {
 
   // Game systems: classes that own one area of the rules (see server/systems). Each reaches the server through `gs`.
   initSystems() {
+    this.dungeonRun = new DungeonRunSystem(this);
     this.loot = new LootSystem(this);
     this.level = new LevelSystem(this);
     this.itemUpgrade = new ItemUpgradeSystem(this);
@@ -402,8 +404,7 @@ class GameServer {
   }
 
   getPlayerDungeonInstance(player) {
-    if (!player || player.zone !== 'dungeon' || !player.dungeonInstanceId) return null;
-    return this.dungeonInstances.get(player.dungeonInstanceId) || null;
+    return this.dungeonRun.getPlayerDungeonInstance(player);
   }
 
   getOrCreateDungeonInstance(player, floor = 1, difficulty = 'normal', forceRegen = false, mode = 'classic', mods: string[] = []) {
@@ -500,117 +501,19 @@ class GameServer {
   }
 
   newDungeonRun(inst, cleared = false) {
-    return {
-      floor: inst.floor, difficulty: inst.difficulty, cleared, gold: 0, items: [],
-      startedAt: inst.startedAt || Date.now(), deaths: 0, kills: 0, exp: 0,
-      revivalsUsed: 0, maxRevivals: 10
-    };
+    return this.dungeonRun.newDungeonRun(inst, cleared);
   }
 
-  // Doors open as rooms are cleared: every door leading on from a cleared room
-  // unlocks, the boss door included (side rooms don't have to be cleared).
-  // A room's monsters spawn when a door into it opens, so a room is cleared
-  // only once it has spawned and all its monsters are dead.
   updateDungeonRooms(inst) {
-    const dung = inst.dungeon;
-    if (!dung || !dung.doors || !dung.rooms) return;
-    if (!inst.roomsCleared) inst.roomsCleared = new Set();
-    if (!inst.roomsSpawned) inst.roomsSpawned = new Set();
-    const newlyCleared = [];
-    const opened = [];
-    const spawned = [];
-    if (!inst.roomsSpawned.has(0)) spawned.push(...this.spawnDungeonRoom(inst, 0));
-
-    // An opened room with no monsters (treasure) is clear straight away and
-    // opens its own doors, so repeat until nothing changes
-    for (let pass = 0; pass <= dung.rooms.length; pass++) {
-      const alive = new Map<any, any>();
-      for (const m of inst.mobs.values()) {
-        if (m.roomIdx !== undefined && m.state !== 'dead' && m.hp > 0) alive.set(m.roomIdx, (alive.get(m.roomIdx) || 0) + 1);
-      }
-      let progress = false;
-      for (const i of inst.roomsSpawned) {
-        if (!inst.roomsCleared.has(i) && !alive.get(i)) {
-          inst.roomsCleared.add(i);
-          newlyCleared.push(i);
-          progress = true;
-        }
-      }
-      for (const d of dung.doors) {
-        if (d.open || !inst.roomsCleared.has(d.from)) continue;
-        d.open = true;
-        for (const [x, y] of d.tiles) dung.tiles[y][x] = DUNGEON_TILES.FLOOR;
-        dung.obstacles = dung.obstacles.filter(o => o.id !== d.id);
-        opened.push({ id: d.id, tiles: d.tiles, boss: d.boss, x: d.x, y: d.y });
-        if (!inst.roomsSpawned.has(d.to)) {
-          spawned.push(...this.spawnDungeonRoom(inst, d.to));
-          // Rush mode: the door opens onto ONE long hall, so every chamber of it fills at once
-          if (dung.rooms[d.to] && dung.rooms[d.to].rush) {
-            dung.rooms.forEach((r, ri) => { if (r.rush && !inst.roomsSpawned.has(ri)) spawned.push(...this.spawnDungeonRoom(inst, ri)); });
-          }
-        }
-        progress = true;
-      }
-      if (!progress) break;
-    }
-    if (!newlyCleared.length && !opened.length) return;
-
-    const bossIdx = dung.rooms.length - 1;
-    // If all monster rooms are cleared, ensure killPercent is 100% and boss portal is ready
-    if (inst.roomsCleared && dung.rooms && inst.roomsCleared.size >= dung.rooms.length - 1) {
-      inst.killPercent = 100;
-      if (!inst.bossPortalReady) {
-        inst.bossPortalReady = true;
-        this.emitZone('dungeon', 'floating_text', {
-          x: dung.rooms[0].cx + 0.5,
-          y: dung.rooms[0].cy - 1.2,
-          text: '🌀 BOSS PORTAL READY (100%)!',
-          color: '#c084fc',
-          size: 24
-        }, inst.id);
-      }
-    }
-    if (!inst.announce) return; // first pass at creation: nobody to tell yet
-    if (spawned.length) this.emitZone('dungeon', 'dungeon_mobs_spawned', { mobs: spawned }, inst.id);
-    for (const i of newlyCleared) {
-      if (i === 0 || i === bossIdx || dung.rooms[i].rush) continue;
-      const r = dung.rooms[i];
-      this.emitZone('dungeon', 'floating_text', { x: r.cx + 0.5, y: r.cy, text: 'ROOM CLEARED', color: '#4ade80', size: 22 }, inst.id);
-    }
-    if (opened.length) {
-      this.emitZone('dungeon', 'dungeon_doors_opened', { doors: opened }, inst.id);
-      if (opened.some(d => d.boss)) {
-        const bd = opened.find(d => d.boss);
-        this.emitZone('dungeon', 'floating_text', { x: bd.x, y: bd.y - 0.5, text: 'THE BOSS ROOM IS OPEN', color: '#ef4444', size: 24 }, inst.id);
-      }
-    }
-    for (const p of this.players.values()) {
-      if (p.zone === 'dungeon' && p.dungeonInstanceId === inst.id) this.emitDungeonRunUpdate(p);
-    }
+    return this.dungeonRun.updateDungeonRooms(inst);
   }
 
-  // Bring a room's waiting monsters into the instance. Once the run is live
-  // they rise for DUNGEON_SPAWN_MS (no AI) while clients play the summon effect.
-  // Returns what clients need for that effect.
   spawnDungeonRoom(inst, roomIdx) {
-    inst.roomsSpawned.add(roomIdx);
-    const list = (inst.pendingMobs && inst.pendingMobs.get(roomIdx)) || [];
-    if (inst.pendingMobs) inst.pendingMobs.delete(roomIdx);
-    const until = inst.announce ? Date.now() + DUNGEON_SPAWN_MS : 0;
-    return list.map(m => {
-      m.spawnUntil = until;
-      m.dungeonInstanceId = inst.id;   // so a death with no killer (burn, poison) still finds its run
-      inst.mobs.set(m.id, m);
-      return { id: m.id, x: m.x, y: m.y, isBoss: !!m.isBoss, element: m.element || 'neutral' };
-    });
+    return this.dungeonRun.spawnDungeonRoom(inst, roomIdx);
   }
 
   cleanupDungeonInstanceIfEmpty(instanceId) {
-    if (!instanceId || !this.dungeonInstances.has(instanceId)) return;
-    const hasPlayers = Array.from(this.players.values()).some(p => p.zone === 'dungeon' && p.dungeonInstanceId === instanceId);
-    if (!hasPlayers) {
-      this.dungeonInstances.delete(instanceId);
-    }
+    return this.dungeonRun.cleanupDungeonInstanceIfEmpty(instanceId);
   }
 
   // --- zone lookups (town / field zones / per-instance dungeon) ---
@@ -1463,54 +1366,8 @@ class GameServer {
     return this.level.handleResetSkillPoints(socketId);
   }
 
-  // Handle Opening Treasure Chests in Dungeon
   handleOpenChest(socketId, chestId) {
-    const player = this.players.get(socketId);
-    if (!player || player.zone !== 'dungeon' || player.isDead) return;
-
-    const inst = this.getPlayerDungeonInstance(player);
-    const chests = inst ? inst.chests : this.dungeon.chests;
-    const chestFloor = inst ? inst.floor : this.dungeonFloor;
-    const chestDifficulty = inst ? inst.difficulty : this.dungeonDifficulty;
-    const chest = chests.find(c => c.id === chestId);
-    // Every party member loots each chest once for themselves
-    if (!chest) return;
-    if (!chest.openedBy) chest.openedBy = [];
-    if (chest.openedBy.includes(player.id)) return;
-
-    const dist = Math.hypot(chest.x - player.x, chest.y - player.y);
-    if (dist <= 2.5) {
-      chest.openedBy.push(player.id);
-      const loot = rollDungeonLoot(chest.isGold, chestFloor, player.characterClass);
-      const socket = this.io.sockets.sockets.get(socketId);
-
-      // Chest loot is only secured once the dungeon is cleared: until the boss
-      // falls it is held in the run's loot bag (see endDungeonRun).
-      if (!player.dungeonRun) {
-        player.dungeonRun = inst ? this.newDungeonRun(inst) : { floor: chestFloor, difficulty: chestDifficulty, cleared: false, gold: 0, items: [], startedAt: Date.now(), deaths: 0, kills: 0, exp: 0 };
-      }
-      const run = player.dungeonRun;
-      loot.forEach((it) => {
-        if (run.cleared) {
-          this.giveLootToPlayer(player, it);
-        } else if (it.type === 'gold') {
-          run.gold += it.amount;
-        } else {
-          run.items.push(it);
-        }
-      });
-      if (run.cleared && socket) socket.emit('player_updated', player);
-      this.emitDungeonRunUpdate(player, socket);
-
-      if (!socket) return;
-      socket.emit('chest_opened', { chestId, openedBy: player.name });
-      socket.emit('floating_text', {
-        x: chest.x,
-        y: chest.y - 0.8,
-        text: run.cleared ? '💎 Chest Unlocked!' : '💎 Loot bagged - defeat the boss to secure it!',
-        color: '#facc15'
-      });
-    }
+    return this.dungeonRun.handleOpenChest(socketId, chestId);
   }
 
   handlePlayerAttack(socketId, targetInfo) {
@@ -4641,136 +4498,15 @@ class GameServer {
   }
 
   emitDungeonRunUpdate(player: any, socket?: any) {
-    socket = socket || this.io.sockets.sockets.get(player.id);
-    if (!socket) return;
-    const run = player.dungeonRun;
-    const inst = this.getPlayerDungeonInstance(player);
-    socket.emit('dungeon_run_update', run ? {
-      active: true,
-      cleared: run.cleared,
-      gold: run.gold,
-      items: run.items.map(it => this.lootEntryName(it)),
-      lootItems: run.items.map(it => this.lootEntryToItem(it)),
-      startedAt: run.startedAt,
-      serverNow: Date.now(),
-      clearedMs: run.clearedAt ? run.clearedAt - run.startedAt : null,
-      floor: run.floor,
-      difficulty: run.difficulty,
-      deaths: run.deaths || 0,
-      roomsCleared: inst && inst.roomsCleared ? inst.roomsCleared.size : 0,
-      mode: inst && inst.mode ? inst.mode : 'classic',
-      mods: inst && inst.mods ? inst.mods : [],
-      modReward: inst ? (inst.modReward || 0) : 0,
-      roomsTotal: inst && inst.dungeon.rooms ? inst.dungeon.rooms.length : 0,
-      clearedRooms: inst && inst.roomsCleared ? [...inst.roomsCleared] : [], // minimap ticks
-      killPercent: inst ? (inst.killPercent || 0) : 0,
-      killedMobs: inst ? (inst.killedTrashCount || 0) : 0,
-      requiredMobs: inst ? (inst.requiredKills || 0) : 0,
-      bossPortalReady: !!(inst && inst.bossPortalReady),
-      bossPortalSpawned: !!(inst && inst.bossPortalSpawned)
-    } : { active: false });
+    return this.dungeonRun.emitDungeonRunUpdate(player, socket);
   }
 
-  // Boss defeated: everything in the loot bag is secured immediately.
   completeDungeonRun(player) {
-    const run = player.dungeonRun;
-    if (!run || run.cleared) return;
-    run.cleared = true;
-    run.clearedAt = Date.now();
-    const secured = [];
-    const securedItems = [];
-    if (run.gold > 0) {
-      this.giveLootToPlayer(player, { type: 'gold', amount: run.gold }, false);
-      secured.push(`${run.gold.toLocaleString('en-US')} Gold`);
-      securedItems.push({ id: 'gold', name: `${run.gold.toLocaleString('en-US')} Gold`, count: run.gold, type: 'gold', rarity: 'common' });
-    }
-    run.items.forEach(it => {
-      this.giveLootToPlayer(player, it, false);
-      secured.push(this.lootEntryName(it));
-      securedItems.push(this.lootEntryToItem(it));
-    });
-    const chestGold = run.gold;
-    run.gold = 0;
-    run.items = [];
-
-    // Grade the clear: deaths and running over par time cost points
-    const inst = this.getPlayerDungeonInstance(player);
-    const roomsTotal = inst && inst.dungeon.rooms ? inst.dungeon.rooms.length : 0;
-    const timeMs = Date.now() - (run.startedAt || Date.now());
-    const parSec = RUN_PAR_BASE_SEC + roomsTotal * RUN_PAR_PER_ROOM_SEC;
-    const overPar = Math.max(0, timeMs / 1000 - parSec) / parSec;
-    const score = 100 - (run.deaths || 0) * 12 - Math.min(40, overPar * 40);
-    const rank = score >= 90 ? 'S' : score >= 75 ? 'A' : score >= 55 ? 'B' : 'C';
-    const mult = RUN_RANK_MULT[rank];
-    const bonusGold = Math.round(run.floor * 120 * mult);
-    const bonusExp = Math.round(baseExpCurve(player.level || 1) * 0.06 * mult);
-    const runExp = run.exp || 0;
-    player.gold += bonusGold;
-    this.awardExp(player, bonusExp);
-
-    const floorConfig: any = DUNGEON_FLOORS[run.floor - 1] || {};
-    const socket = this.io.sockets.sockets.get(player.id);
-    if (socket) {
-      socket.emit('player_updated', player);
-      socket.emit('dungeon_result', {
-        success: true, kept: secured, keptItems: securedItems, lost: [], lostItems: [],
-        rank, timeMs, deaths: run.deaths || 0, kills: run.kills || 0,
-        floor: run.floor, difficulty: run.difficulty, floorName: floorConfig.name, bossName: floorConfig.bossName,
-        roomsTotal, roomsCleared: inst && inst.roomsCleared ? inst.roomsCleared.size : roomsTotal,
-        rewards: { chestGold, bonusGold, runExp, bonusExp }
-      });
-    }
-    this.emitDungeonRunUpdate(player, socket);
+    return this.dungeonRun.completeDungeonRun(player);
   }
 
-  // Leaving the dungeon. Without a boss kill the run counts as failed and only
-  // FAILED_RUN_LOOT_KEEP of the escrowed chest loot is kept.
   endDungeonRun(player, socket) {
-    const run = player.dungeonRun;
-    player.dungeonRun = null;
-    socket = socket || this.io.sockets.sockets.get(player.id);
-    if (!run) return;
-    if (run.cleared) {
-      this.emitDungeonRunUpdate(player, socket);
-      return;
-    }
-
-    const kept = [];
-    const lost = [];
-    const keptItems = [];
-    const lostItems = [];
-    const keptGold = Math.floor(run.gold * FAILED_RUN_LOOT_KEEP);
-    if (keptGold > 0) {
-      this.giveLootToPlayer(player, { type: 'gold', amount: keptGold }, false);
-      kept.push(`${keptGold.toLocaleString('en-US')} Gold`);
-      keptItems.push({ id: 'gold', name: `${keptGold.toLocaleString('en-US')} Gold`, count: keptGold, type: 'gold', rarity: 'common' });
-    }
-    if (run.gold - keptGold > 0) {
-      const lostGold = run.gold - keptGold;
-      lost.push(`${lostGold.toLocaleString('en-US')} Gold`);
-      lostItems.push({ id: 'gold', name: `${lostGold.toLocaleString('en-US')} Gold`, count: lostGold, type: 'gold', rarity: 'common' });
-    }
-
-    const shuffled = [...run.items].sort(() => Math.random() - 0.5);
-    const keepCount = Math.floor(shuffled.length * FAILED_RUN_LOOT_KEEP);
-    shuffled.forEach((it, i) => {
-      const itemObj = this.lootEntryToItem(it);
-      if (i < keepCount) {
-        this.giveLootToPlayer(player, it, false);
-        kept.push(this.lootEntryName(it));
-        if (itemObj) keptItems.push(itemObj);
-      } else {
-        lost.push(this.lootEntryName(it));
-        if (itemObj) lostItems.push(itemObj);
-      }
-    });
-
-    if (socket) {
-      socket.emit('player_updated', player);
-      socket.emit('dungeon_result', { success: false, kept, lost, keptItems, lostItems });
-    }
-    this.broadcastSystemMessage(`💀 [${player.name}] failed the dungeon run on B${run.floor}.`);
-    this.emitDungeonRunUpdate(player, socket);
+    return this.dungeonRun.endDungeonRun(player, socket);
   }
 
   handlePickupItem(socketId, itemId) {
@@ -5087,28 +4823,8 @@ class GameServer {
     return this.minions.tickMinions(player, dt);
   }
 
-  // Dungeon progress toward the boss portal: a weighted kill count (dungeonProgressWeight)
   countDungeonProgress(mob, instId, killerPlayer) {
-    const inst = instId ? this.dungeonInstances.get(instId) : null;
-    if (!inst || inst.cleared || mob.progressCounted || mob.isBoss || mob.roomIdx === undefined || mob.roomIdx === inst.bossRoomIdx) return;
-    mob.progressCounted = true;
-    inst.killedTrashCount = (inst.killedTrashCount || 0) + dungeonProgressWeight(mob);
-    const req = Math.max(1, inst.requiredKills || 1);
-    inst.killPercent = Math.min(100, Math.floor((inst.killedTrashCount / req) * 100));
-
-    if (inst.killPercent >= 100 && !inst.bossPortalReady) {
-      inst.bossPortalReady = true;
-      this.emitZone('dungeon', 'floating_text', {
-        x: killerPlayer ? killerPlayer.x : mob.x,
-        y: (killerPlayer ? killerPlayer.y : mob.y) - 1.2,
-        text: '🌀 BOSS PORTAL READY (100%)!',
-        color: '#c084fc',
-        size: 24
-      }, instId);
-    }
-    for (const p of this.players.values()) {
-      if (p.zone === 'dungeon' && p.dungeonInstanceId === instId) this.emitDungeonRunUpdate(p);
-    }
+    return this.dungeonRun.countDungeonProgress(mob, instId, killerPlayer);
   }
 
   handleMobDeath(mob, killerPlayer) {
