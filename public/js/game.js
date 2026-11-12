@@ -2,16 +2,27 @@
 document.addEventListener('DOMContentLoaded', () => {
   const canvas = document.getElementById('gameCanvas');
   const renderer = new IsometricRenderer(canvas);
+  // First-person billboard view (firstPerson.js), toggled with its key binding
+  let fpView = null;
+  try {
+    if (window.FirstPersonView) fpView = new FirstPersonView(canvas, renderer);
+  } catch (err) {
+    console.warn('First-person view unavailable:', err);
+  }
   // Camera zoom range for the wheel / pinch; heroes enter at the closest zoom
   const MIN_ZOOM = 0.65;
+  // Potato can not zoom out as far: a wide view draws ~2x the monsters, props and ground
+  const POTATO_MIN_ZOOM = 0.9;
+  const minZoom = () => (renderer && renderer.potatoMode ? POTATO_MIN_ZOOM : MIN_ZOOM);
   const MAX_ZOOM = 3.0;
   renderer.camera.zoom = MAX_ZOOM;
   const socket = io();
+  if (window.Crafting) window.Crafting.init(socket, () => localPlayer);
 
   let localPlayerId = null;
   let localPlayer = null;
   let shopItemsCatalog = [];
-  let skillTreesCatalog = {};
+  let passiveTreeData = null; // the shared passive tree (server/talents.ts CLIENT_TREE)
 
   let gameState = {
     map: null,
@@ -124,6 +135,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const playerLevelBadge = document.getElementById('playerLevelBadge');
   const hudHpFill = document.getElementById('hudHpFill');
   const hudHpText = document.getElementById('hudHpText');
+  const hudHpTrail = document.getElementById('hudHpTrail');
+  const hudHpAbsorb = document.getElementById('hudHpAbsorb');
+  const hudEsFill = document.getElementById('hudEsFill');
+  const targetHpTrail = document.getElementById('targetHpTrail');
   const hudMpFill = document.getElementById('hudMpFill');
   const hudMpText = document.getElementById('hudMpText');
   const hudExpFill = document.getElementById('hudExpFill');
@@ -160,6 +175,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const slotWeapon = document.getElementById('slotWeapon');
   const slotWeaponIcon = document.getElementById('slotWeaponIcon');
   const cdOverlayWeapon = document.getElementById('cdOverlayWeapon');
+  const slotUlt = document.getElementById('slotUlt');
+  const slotUltIcon = document.getElementById('slotUltIcon');
+  const cdOverlayUlt = document.getElementById('cdOverlayUlt');
+  const slotUltCharge = document.getElementById('slotUltCharge');
 
   // Alias for backward compatibility
   const slotSkill = slotSkill1;
@@ -529,6 +548,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       dungeonPortalModal.style.display = 'flex';
+      renderDungeonMods();
       const sel = selectedFloorCard();
       showFloorDetail(sel);
       if (sel) sel.scrollIntoView({ block: 'nearest', inline: 'center' });
@@ -546,11 +566,41 @@ document.addEventListener('DOMContentLoaded', () => {
     btnCloseDungeonPortal.addEventListener('click', closeDungeonPortalModal);
   }
 
+  // Dungeon modifiers picked at the portal (server: dungeonMods.ts); remembered per browser
+  let dungeonModCatalog = { max: 4, mods: [] };
+  let selectedDungeonMods = [];
+  try { selectedDungeonMods = JSON.parse(localStorage.getItem('slop_dungeon_mods') || '[]'); } catch (_) {}
+  function renderDungeonMods() {
+    const grid = document.getElementById('dmodGrid');
+    const label = document.getElementById('dmodReward');
+    if (!grid) return;
+    selectedDungeonMods = selectedDungeonMods.filter(id => dungeonModCatalog.mods.some(m => m.id === id));
+    grid.innerHTML = dungeonModCatalog.mods.map(m => {
+      const on = selectedDungeonMods.includes(m.id);
+      // compact chip: name and reward; the full effect is in the tooltip
+      return `<button type="button" class="dmod-chip ${on ? 'selected' : ''}" data-mod="${m.id}" title="${escapeHtml(m.name)}: ${escapeHtml(m.desc)}">
+        <span class="dmod-name">${escapeHtml(m.name)}</span><span class="dmod-plus">+${Math.round(m.reward * 100)}%</span></button>`;
+    }).join('');
+    const total = selectedDungeonMods.reduce((t, id) => t + ((dungeonModCatalog.mods.find(m => m.id === id) || {}).reward || 0), 0);
+    if (label) {
+      label.textContent = total > 0 ? `+${Math.round(total * 100)}% EXP & Gold` : `optional · up to ${dungeonModCatalog.max}`;
+      label.classList.toggle('active', total > 0);
+    }
+    grid.querySelectorAll('.dmod-chip').forEach(b => b.addEventListener('click', () => {
+      const id = b.dataset.mod;
+      if (selectedDungeonMods.includes(id)) selectedDungeonMods = selectedDungeonMods.filter(x => x !== id);
+      else if (selectedDungeonMods.length < dungeonModCatalog.max) selectedDungeonMods.push(id);
+      try { localStorage.setItem('slop_dungeon_mods', JSON.stringify(selectedDungeonMods)); } catch (_) {}
+      renderDungeonMods();
+    }));
+  }
+
   function enterDungeon(inviteParty) {
     socket.emit('enter_dungeon', {
       floor: selectedDungeonFloor,
       difficulty: selectedDungeonDifficulty,
       mode: selectedDungeonMode,
+      mods: selectedDungeonMods,
       inviteParty
     });
     closeDungeonPortalModal();
@@ -955,6 +1005,28 @@ document.addEventListener('DOMContentLoaded', () => {
     if (ability) weaponCooldownMax = ability.cooldown;
   }
 
+  // SP Signature slot: shown while transformed, the overlay drains as it
+  // charges, and it glows in the card's colour once ready
+  let ultSlotCard = null;
+  if (slotUlt) slotUlt.addEventListener('click', () => useSkill('ult'));
+  function updateUltSlot() {
+    if (!slotUlt) return;
+    const card = localPlayer && localPlayer.spTransformed ? transformedCard() : null;
+    const sig = card && card.signature;
+    slotUlt.style.display = sig ? '' : 'none';
+    if (!sig) { ultSlotCard = null; return; }
+    if (ultSlotCard !== card.id) {
+      ultSlotCard = card.id;
+      if (slotUltIcon) SkillIcons.apply(slotUltIcon, sig.id);
+      slotUlt.title = `✦ ${sig.name} [${keyLabel(keyBinds.ult)}]\n${sig.desc}\n\nCharges while transformed: hit, kill and take damage.`;
+      slotUlt.style.setProperty('--ult-color', card.color || '#facc15');
+    }
+    const charge = Math.max(0, Math.min(100, localPlayer.ultCharge || 0));
+    setElementHeightPct(cdOverlayUlt, 100 - charge);
+    if (slotUltCharge) slotUltCharge.textContent = charge >= 100 ? '' : Math.floor(charge) + '%';
+    slotUlt.classList.toggle('ult-ready', charge >= 100);
+  }
+
   function setupClassSkillHUD(cls) {
     if (!cls) return;
     setupWeaponAbilityHUD();
@@ -1142,6 +1214,13 @@ document.addEventListener('DOMContentLoaded', () => {
   // T / N / Tab are reserved by the browser and only reach the page in Game Mode:
   // fullscreen with the Keyboard Lock API (Chrome / Edge; hold Esc to leave).
   const BLOCKED_CTRL_KEYS = new Set(['KeyS', 'KeyD', 'KeyF', 'KeyG', 'KeyP', 'KeyR', 'KeyH', 'KeyJ', 'KeyU', 'KeyE', 'KeyK', 'KeyL', 'KeyO', 'KeyB']);
+  // Ctrl+Shift+P: performance overlay (per-pass render timings)
+  window.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.shiftKey && (e.key === 'P' || e.key === 'p')) {
+      e.preventDefault();
+      if (renderer && renderer.perfToggle) renderer.perfToggle();
+    }
+  });
   const BLOCKED_BARE_KEYS = new Set(['F1', 'F3', 'F5', 'F6', 'F7', 'BrowserBack', 'BrowserForward', 'BrowserRefresh', 'BrowserSearch']);
   const RESERVED_CTRL_KEYS = new Set(['KeyW', 'KeyT', 'KeyN', 'Tab', 'PageUp', 'PageDown']);
   const isTypingTarget = (el) => !!el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
@@ -1231,7 +1310,7 @@ document.addEventListener('DOMContentLoaded', () => {
     gameState.mobs = data.mobs;
     gameState.groundItems = data.groundItems;
     shopItemsCatalog = data.shopItems || [];
-    skillTreesCatalog = data.skillTrees || {};
+    passiveTreeData = data.passiveTree || null;
     if (data.allSkillsCatalog) {
       allSkillsCatalog = data.allSkillsCatalog;
     } else if (data.allSkills) {
@@ -1251,6 +1330,13 @@ document.addEventListener('DOMContentLoaded', () => {
     skillRunesCatalog = data.skillRunes || {};
     weaponAbilities = data.weaponAbilities || {};
     window.WeaponAbilities = weaponAbilities; // read by tooltip.js
+    window.ArmorSets = data.armorSets || {};  // armor set bonuses, read by tooltip.js
+    window.RuneCatalog = data.runeCatalog || {};   // every rune: effect and weapon / armor fit
+    window.SocketMax = data.socketMax || { weapon: 4, armor: 2 };
+    if (window.Crafting) window.Crafting.setCatalog(data.crafting);
+    if (data.dungeonMods) dungeonModCatalog = data.dungeonMods;
+    window.ArmorSetPieceNames = data.itemNames || {};
+    window.getLocalPlayer = () => localPlayer;
     window.RiftUI.setCatalog(data.riftCatalog);
 
     localPlayer = data.player;
@@ -1539,6 +1625,10 @@ document.addEventListener('DOMContentLoaded', () => {
         existing.maxHp = p.maxHp;
         existing.mp = p.mp;
         existing.maxMp = p.maxMp;
+        existing.shieldHp = p.shieldHp || 0;     // absorb shield (drawn over the HP bar)
+        existing.es = p.es || 0;                 // mage Energy Shield
+        existing.esMax = p.esMax || 0;
+        existing.setCounts = p.setCounts || {};
         existing.level = p.level;
         existing.gold = p.gold;
         existing.speechBubble = p.speechBubble;
@@ -1558,8 +1648,10 @@ document.addEventListener('DOMContentLoaded', () => {
         existing.spTransformed = p.spTransformed;
         existing.spCardId = p.spCardId;
         existing.spLevel = p.spLevel;
+        existing.ultCharge = p.ultCharge || 0;
         existing.spToggles = p.spToggles || [];
         existing.buffs = p.buffs || [];
+        existing.minions = p.minions;             // Gravelord undead minions (drawn by the renderer)
         existing.skillPoints = p.skillPoints !== undefined ? p.skillPoints : (existing.skillPoints || 0);
         existing.skills = p.skills || existing.skills || {};
         existing.equippedSkills = p.equippedSkills || existing.equippedSkills;
@@ -1661,6 +1753,8 @@ document.addEventListener('DOMContentLoaded', () => {
         targetName.textContent = `${mob.name} (Lv. ${mob.level})`;
         const hpPct = Math.round((mob.hp / mob.maxHp) * 100);
         targetHpFill.style.width = `${hpPct}%`;
+        setHpTrail(targetHpTrail, hpPct, !targetHpTrail || targetHpTrail.__mobId !== mob.id);
+        if (targetHpTrail) targetHpTrail.__mobId = mob.id;
         targetIcon.dataset.pxi = mob.isBoss ? 'crown' : mob.isMiniboss ? 'sword' : 'skull';
 
         const elemBadge = document.getElementById('targetElementBadge');
@@ -1702,7 +1796,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (onlineCountText) {
       const count = gameState.players.length;
-      onlineCountText.textContent = `${count} Hero${count > 1 ? 'es' : ''} Online`;
+      setText(onlineCountText, `${count} Hero${count > 1 ? 'es' : ''} Online`);
     }
   });
 
@@ -1715,7 +1809,9 @@ document.addEventListener('DOMContentLoaded', () => {
     renderShopSellList();
     if (shopModal && shopModal.style.display === 'flex' && tabShopBuy && tabShopBuy.classList.contains('active')) renderShopBuyList();
     if (enchanterModal && enchanterModal.style.display === 'flex') renderEnchanter();
-    if (shopPlayerGold) shopPlayerGold.textContent = localPlayer.gold;
+    if (attrModal && attrModal.style.display === 'flex') renderAttrSmith();
+    if (window.Crafting) window.Crafting.render();
+    if (shopPlayerGold) shopPlayerGold.textContent = (localPlayer.gold || 0).toLocaleString();
     if (skillTreeModal && skillTreeModal.style.display === 'flex') {
       if (activeSkillsModalTab === 'loadout') {
         renderCustomSkillLoadout();
@@ -1820,6 +1916,14 @@ document.addEventListener('DOMContentLoaded', () => {
     return se.playSkillWhoosh();
   }
 
+  // Boss attack telegraphs (server/bossMechanics.ts): paint the danger zone, boom when it lands
+  socket.on('boss_telegraph', (t) => {
+    if (!renderer) return;
+    renderer.addBossTelegraph(t);
+    setTimeout(() => { if (window.soundEngine) window.soundEngine.playExplosion(); }, t.delay || 1000);
+  });
+  socket.on('boss_telegraph_cancel', (d) => { if (renderer && d) renderer.cancelBossTelegraphs(d.bossId); });
+
   socket.on('skill_fx', (fx) => {
     if (renderer) renderer.addSkillEffect(fx);
 
@@ -1863,6 +1967,9 @@ document.addEventListener('DOMContentLoaded', () => {
       } else if (slot === 'weapon') {
         weaponCooldownMax = fx.cooldown || weaponCooldownMax;
         weaponCooldownTimer = weaponCooldownMax;
+      } else if (slot === 'ult') {
+        // the Signature has no cooldown bar: its charge meter empties instead
+        if (localPlayer) localPlayer.ultCharge = 0;
       } else {
         skill1CooldownMax = fx.cooldown || skill1CooldownMax;
         skill1CooldownTimer = skill1CooldownMax;
@@ -2113,6 +2220,10 @@ document.addEventListener('DOMContentLoaded', () => {
         <span class="run-floor">B${st.floor || '?'} - ${(st.difficulty || 'normal').toUpperCase()}${st.mode === 'rush' ? ' · RUSH' : ''}</span>
         <span class="run-state ${st.cleared ? 'is-cleared' : ''}">${st.cleared ? 'CLEARED' : 'IN PROGRESS'}</span>
       </div>
+      ${st.mods && st.mods.length ? `<div class="run-mods" title="Dungeon modifiers">${st.mods.map(id => {
+        const m = dungeonModCatalog.mods.find(x => x.id === id);
+        return m ? `<span title="${escapeHtml(m.name + ': ' + m.desc)}">${m.icon}</span>` : '';
+      }).join('')}<b>+${Math.round((st.modReward || 0) * 100)}%</b></div>` : ''}
       <div class="run-clock ${st.cleared ? 'is-cleared' : ''}" id="runTimerValue">${fmtDuration(time)}</div>
       <div class="run-kill-progress-box">
         <div class="run-kill-header">
@@ -2306,14 +2417,16 @@ document.addEventListener('DOMContentLoaded', () => {
     e.preventDefault();
   });
 
-  function handlePointerAction(e, isDragging = false) {
+  // worldOverride: a world point picked some other way (the first-person crosshair)
+  function handlePointerAction(e, isDragging = false, worldOverride = null) {
     window.soundEngine.init();
     if (!localPlayer || localPlayer.isDead) return;
 
-    const rect = canvas.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
-    const worldPos = Isometric.screenToWorld(mouseX, mouseY, renderer.camera, renderer.viewW, renderer.viewH);
+    let worldPos = worldOverride;
+    if (!worldPos) {
+      const rect = canvas.getBoundingClientRect();
+      worldPos = Isometric.screenToWorld(e.clientX - rect.left, e.clientY - rect.top, renderer.camera, renderer.viewW, renderer.viewH);
+    }
 
     // Placing an Eternal Rift structure: this click builds (or right click cancels)
     if (!isDragging && window.RiftUI.handleClick(worldPos, e.button)) return;
@@ -2349,6 +2462,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (Math.hypot(valka.x - worldPos.x, valka.y - worldPos.y) < 1.3) {
           if (Math.hypot(valka.x - localPlayer.x, valka.y - localPlayer.y) <= 3.5) openEnchanter();
           else socket.emit('player_input', { type: 'click_move', x: valka.x - 1.8, y: valka.y });
+          return;
+        }
+        // Jerry the Attribute Smith: walk round to the boulevard side of his stall (he faces it)
+        const jerry = townObstacles.find(o => o.id === 'npc_jerry');
+        if (jerry && Math.hypot(jerry.x - worldPos.x, jerry.y - worldPos.y) < 1.3) {
+          if (Math.hypot(jerry.x - localPlayer.x, jerry.y - localPlayer.y) <= 3.5) openAttrSmith();
+          else socket.emit('player_input', { type: 'click_move', x: jerry.x, y: jerry.y - 1.6 });
           return;
         }
         // James the Gatekeeper (Rift Forge) and the Eternal Rift gate beside him
@@ -2544,7 +2664,7 @@ document.addEventListener('DOMContentLoaded', () => {
   canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
     const zoomDelta = e.deltaY > 0 ? -0.1 : 0.1;
-    renderer.camera.zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, renderer.camera.zoom + zoomDelta));
+    renderer.camera.zoom = Math.max(minZoom(), Math.min(MAX_ZOOM, renderer.camera.zoom + zoomDelta));
   }, { passive: false });
 
   // Mobile Touch Gestures (Pinch-to-zoom & Tap-to-move)
@@ -2574,7 +2694,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const t2 = e.touches[1];
       const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
       const ratio = dist / touchStartDist;
-      renderer.camera.zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, touchStartZoom * ratio));
+      renderer.camera.zoom = Math.max(minZoom(), Math.min(MAX_ZOOM, touchStartZoom * ratio));
     } else if (e.touches.length === 1 && !isPinching && isPointerDown && !selectedTargetId) {
       const t = e.touches[0];
       handlePointerAction({ clientX: t.clientX, clientY: t.clientY, button: 0 }, true);
@@ -2691,6 +2811,7 @@ document.addEventListener('DOMContentLoaded', () => {
       toggleModal(inventoryModal);
     }
     if (code === 'KeyH' || key === 'h') toggleModal(helpModal);
+    if ((code === 'KeyJ' || key === 'j') && window.Crafting) window.Crafting.toggle();
     if (code === 'KeyO' || key === 'o') togglePartyPanel();
     if (code === 'KeyM' || key === 'm') toggleAudio();
   });
@@ -2731,6 +2852,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (activeKeys.s) { dy += 1; }
     if (activeKeys.a) { dx -= 1; }
     if (activeKeys.d) { dx += 1; }
+
+    // First person: W walks where you look, A / D strafe
+    if ((dx !== 0 || dy !== 0) && fpView && fpView.active) {
+      const mv = fpView.moveVector(dx, dy);
+      if (localPlayer) localPlayer.isMoving = true;
+      syncFirstPersonFacing();
+      socket.emit('player_input', { type: 'wasd_move', dx: mv.dx, dy: mv.dy });
+      return;
+    }
 
     if (dx !== 0 || dy !== 0) {
       if (localPlayer && faceCursorOn) {
@@ -2799,6 +2929,8 @@ document.addEventListener('DOMContentLoaded', () => {
       targetName.textContent = `${nextTarget.name} (Lv. ${nextTarget.level})`;
       const hpPct = Math.round((nextTarget.hp / nextTarget.maxHp) * 100);
       targetHpFill.style.width = `${hpPct}%`;
+      setHpTrail(targetHpTrail, hpPct, true);
+      if (targetHpTrail) targetHpTrail.__mobId = nextTarget.id;
       targetIcon.dataset.pxi = nextTarget.isBoss ? 'crown' : nextTarget.isMiniboss ? 'sword' : 'skull';
     }
   }
@@ -2858,6 +2990,8 @@ document.addEventListener('DOMContentLoaded', () => {
             targetName.textContent = `${closestMob.name} (Lv. ${closestMob.level})`;
             const hpPct = Math.round((closestMob.hp / closestMob.maxHp) * 100);
             targetHpFill.style.width = `${hpPct}%`;
+            setHpTrail(targetHpTrail, hpPct, true);
+            if (targetHpTrail) targetHpTrail.__mobId = closestMob.id;
             targetIcon.dataset.pxi = closestMob.isBoss ? 'crown' : closestMob.isMiniboss ? 'sword' : 'skull';
           }
         }
@@ -2954,11 +3088,25 @@ document.addEventListener('DOMContentLoaded', () => {
     if (slot === 'skill1') slot = 'slot1';
     if (slot === 'skill2') slot = 'slot2';
     if (slot === 'skill3') slot = 'slot3';
+    // SP Signature: only transformed, only when fully charged (no mana)
+    if (slot === 'ult') {
+      if (!localPlayer.spTransformed) {
+        if (renderer) renderer.addFloatingText(localPlayer.x, localPlayer.y - 0.7, 'Transform [T] to use your Signature', '#94a3b8', 14);
+        return;
+      }
+      if ((localPlayer.ultCharge || 0) < 100) {
+        if (renderer) renderer.addFloatingText(localPlayer.x, localPlayer.y - 0.7, `✦ Signature ${Math.floor(localPlayer.ultCharge || 0)}%`, '#94a3b8', 14);
+        return;
+      }
+    }
 
     const rawEquipped = localPlayer.equippedSkills && localPlayer.equippedSkills[slot];
     const equippedDef = findSkillDef(typeof rawEquipped === 'object' && rawEquipped ? rawEquipped.skillId : rawEquipped);
     // Nightblade throws go where the mouse points, not at the nearest monster
-    if (!aim && equippedDef && CURSOR_AIMED_SHAPES.has(equippedDef.shape) && lastCursor && renderer) {
+    const firstPerson = !!(fpView && fpView.active);
+    if (!aim && equippedDef && CURSOR_AIMED_SHAPES.has(equippedDef.shape) && firstPerson) {
+      aim = fpView.aimPoint(localPlayer, 6);
+    } else if (!aim && equippedDef && CURSOR_AIMED_SHAPES.has(equippedDef.shape) && lastCursor && renderer) {
       aim = Isometric.screenToWorld(lastCursor.x, lastCursor.y, renderer.camera, renderer.viewW, renderer.viewH);
     }
     // Phantom Shuriken out: pressing again calls the stars back, cooldown or not
@@ -2982,14 +3130,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let mpCost = 15;
     const cls = localPlayer.characterClass || 'warrior';
-    if (slot === 'weapon') {
+    if (slot === 'ult') {
+      mpCost = 0;
+    } else if (slot === 'weapon') {
       mpCost = manaCost(currentWeaponAbility().mpCost);
     } else if (localPlayer.equippedSkills && localPlayer.equippedSkills[slot] && allSkillsCatalog[cls]) {
       const raw = localPlayer.equippedSkills[slot];
       const skillDef = findSkillDef(typeof raw === 'object' ? raw.skillId : raw);
       if (skillDef) mpCost = manaCost(skillDef.mpCost);
       const manaFlow = localPlayer.skills && localPlayer.skills.mana_flow;
-      if (manaFlow) mpCost = Math.max(2, Math.round(mpCost * (1 - manaFlow * 0.15)));
+      if (manaFlow) mpCost = Math.max(2, Math.round(mpCost * (1 - manaFlow * 0.30)));
     } else {
       const mpCosts = {
         warrior: { slot1: 14, slot2: 16, slot3: 28, dash: 10 },
@@ -3036,6 +3186,11 @@ document.addEventListener('DOMContentLoaded', () => {
         selectedTargetId = closestMob.id;
         selectedTargetType = 'mob';
       }
+    } else if (firstPerson) {
+      // first person: the crosshair (the 2D cursor is hidden under the 3D view)
+      const aimPos = fpView.aimPoint(localPlayer, 6);
+      targetX = aimPos.x;
+      targetY = aimPos.y;
     } else if (lastCursor && renderer) {
       const aimPos = Isometric.screenToWorld(lastCursor.x, lastCursor.y, renderer.camera, renderer.viewW, renderer.viewH);
       if (aimPos) {
@@ -3051,6 +3206,14 @@ document.addEventListener('DOMContentLoaded', () => {
       const d = Math.hypot(aim.x - localPlayer.x, aim.y - localPlayer.y) || 1;
       dirX = (aim.x - localPlayer.x) / d;
       dirY = (aim.y - localPlayer.y) / d;
+    } else if (slot === 'dash' && firstPerson) {
+      // first person: the held WASD direction relative to the view, else straight ahead
+      const kx = (activeKeys.d ? 1 : 0) - (activeKeys.a ? 1 : 0);
+      const ky = (activeKeys.s ? 1 : 0) - (activeKeys.w ? 1 : 0);
+      const wd = fpView.worldDir(kx, ky);
+      dirX = wd.x;
+      dirY = wd.y;
+      localPlayer.facing = calculateFacingFromTo(0, 0, dirX, dirY);
     } else if (slot === 'dash') {
       if (activeKeys.w || activeKeys.a || activeKeys.s || activeKeys.d) {
         let dx = 0;
@@ -3124,8 +3287,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const current = POTION_CHOICES[kind].find(c => c.id === selectedPotion(p, kind)) || POTION_CHOICES[kind][0];
       const label = document.getElementById(labelId);
       const slot = document.getElementById(slotId);
-      if (label) label.textContent = current.name;
-      if (slot) slot.title = `Click to drink ${current.name} (${key})`;
+      setText(label, current.name);
+      setTitle(slot, `Click to drink ${current.name} (${key})`);
     });
   }
 
@@ -3153,8 +3316,45 @@ document.addEventListener('DOMContentLoaded', () => {
     updatePlayerHUD(localPlayer);
   }
 
+  // Potion cooldowns (server is authoritative and sends 'potion_cooldown');
+  // both sizes of a kind share one cooldown: HP 10s, MP 5s
+  const potionCd = { health: { left: 0, max: 10 }, mana: { left: 0, max: 5 } };
+  const potionCdEls = {
+    health: {
+      overlay: document.getElementById('cdOverlayHpPotion'), text: document.getElementById('cdTextHpPotion'),
+      mOverlay: document.getElementById('mobileCdHpPotion'), mText: document.getElementById('mobileCdTextHpPotion')
+    },
+    mana: {
+      overlay: document.getElementById('cdOverlayMpPotion'), text: document.getElementById('cdTextMpPotion'),
+      mOverlay: document.getElementById('mobileCdMpPotion'), mText: document.getElementById('mobileCdTextMpPotion')
+    }
+  };
+  socket.on('potion_cooldown', (d) => {
+    if (!d || !potionCd[d.kind]) return;
+    potionCd[d.kind].left = (d.remainingMs || 0) / 1000;
+    potionCd[d.kind].max = (d.totalMs || d.remainingMs || 1000) / 1000;
+  });
+  function updatePotionCooldowns(dt) {
+    for (const kind of ['health', 'mana']) {
+      const cd = potionCd[kind], els = potionCdEls[kind];
+      if (cd.left > 0) cd.left = Math.max(0, cd.left - dt);
+      const pct = cd.left > 0 ? (cd.left / cd.max) * 100 : 0;
+      const label = cd.left > 0 ? String(Math.ceil(cd.left)) : '';
+      setElementHeightPct(els.overlay, pct);
+      setElementHeightPct(els.mOverlay, pct);
+      setText(els.text, label);
+      setText(els.mText, label);
+    }
+  }
+
   function drinkPotion(type) {
     if (!localPlayer || localPlayer.isDead) return;
+    const kind = (type === 'health' || type === 'mana') ? type
+      : (type && /mana/.test(type.itemId) ? 'mana' : 'health');
+    if (potionCd[kind].left > 0) {
+      if (renderer) renderer.addFloatingText(localPlayer.x, localPlayer.y - 0.7, `⏳ ${Math.ceil(potionCd[kind].left)}s`, '#94a3b8', 12);
+      return;
+    }
     socket.emit('use_potion', type);
     window.soundEngine.playPotion();
   }
@@ -3175,7 +3375,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!p || p.isDead) return;
     for (const kind of ['health', 'mana']) {
       const pct = autoPotion[kind];
-      if (!pct || now - autoPotion.last[kind] < AUTO_POTION_GAP_MS) continue;
+      if (!pct || now - autoPotion.last[kind] < AUTO_POTION_GAP_MS || potionCd[kind].left > 0) continue;
       const cur = kind === 'health' ? p.hp : p.mp, max = kind === 'health' ? p.maxHp : p.maxMp;
       if (!max || (cur / max) * 100 >= pct) continue;
       if (potionCount(p, selectedPotion(p, kind)) <= 0) continue;
@@ -3193,13 +3393,15 @@ document.addEventListener('DOMContentLoaded', () => {
     { id: 'attack', label: 'Basic Attack', def: 'Space', slot: 'slotAttack' },
     { id: 'slot1', label: 'Skill 1', def: 'KeyQ', slot: 'slotSkill1' },
     { id: 'slot2', label: 'Skill 2', def: 'KeyE', slot: 'slotSkill2' },
-    { id: 'slot3', label: 'Skill 3 / Ultimate', def: 'KeyR', slot: 'slotSkill3' },
+    { id: 'slot3', label: 'Skill 3', def: 'KeyR', slot: 'slotSkill3' },
+    { id: 'ult', label: 'SP Signature (when charged)', def: 'KeyG', slot: 'slotUlt' },
     { id: 'dash', label: 'Dash / Mobility', def: 'Shift', slot: 'slotDash' },
     { id: 'weapon', label: 'Weapon Ability (Right Click too)', def: '', slot: 'slotWeapon' },
     { id: 'transform', label: 'SP Card Transform', def: 'KeyT', slot: 'slotSpCard' },
     { id: 'potionHp', label: 'Health Potion', def: 'Digit1', slot: 'slotHealthPotion' },
     { id: 'potionMp', label: 'Mana Potion', def: 'Digit2', slot: 'slotManaPotion' },
-    { id: 'portal', label: 'Use Portal', def: 'KeyF' }
+    { id: 'portal', label: 'Use Portal', def: 'KeyF' },
+    { id: 'firstPerson', label: 'Toggle First-Person View', def: 'KeyV' }
   ];
   const RESERVED_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Escape', 'Enter', 'F2', 'F10']);
   const KEY_GLYPHS = { Space: 'SPC', Backquote: '`', Minus: '-', Equal: '=', BracketLeft: '[', BracketRight: ']', Semicolon: ';', Quote: "'", Comma: ',', Period: '.', Slash: '/', Backslash: '\\', Control: 'CTRL', CapsLock: 'CAPS' };
@@ -3222,7 +3424,54 @@ document.addEventListener('DOMContentLoaded', () => {
     else if (a.id === 'potionHp') drinkPotion('health');
     else if (a.id === 'potionMp') drinkPotion('mana');
     else if (a.id === 'portal') usePortal();
+    else if (a.id === 'firstPerson') toggleFirstPerson();
     else useSkill(a.id);
+  }
+
+  // ---- First-person view: swoops the camera down from the iso view to the
+  // hero's eyes; WASD then moves relative to the look direction, the mouse
+  // looks around (pointer lock) and skills fire where you look
+  let fpAimFacing = null;
+  function toggleFirstPerson() {
+    if (!fpView) return;
+    const on = fpView.toggle();
+    fpAimFacing = null;
+    if (!on && localPlayer && !faceCursorOn) socket.emit('player_input', { type: 'aim_facing', facing: null });
+    sentAimFacing = null;
+    updateWASDInput();
+    if (renderer && localPlayer) renderer.addFloatingText(localPlayer.x, localPlayer.y - 0.7, on ? 'First-Person View' : 'Isometric View', '#e2e8f0', 14);
+  }
+  // face where the camera looks, so attacks and skills go that way
+  function syncFirstPersonFacing() {
+    if (!fpView || !fpView.active || !localPlayer || localPlayer.isDead) return;
+    const facing = fpView.facing();
+    localPlayer.facing = facing;
+    if (facing !== fpAimFacing) {
+      fpAimFacing = facing;
+      socket.emit('player_input', { type: 'aim_facing', facing });
+    }
+  }
+  if (fpView) {
+    let lastTurnSend = 0;
+    fpView.onTurn = () => {
+      syncFirstPersonFacing();
+      // re-aim a held WASD walk at the new heading (throttled)
+      const now = performance.now();
+      if ((activeKeys.w || activeKeys.a || activeKeys.s || activeKeys.d) && now - lastTurnSend > 60) {
+        lastTurnSend = now;
+        updateWASDInput();
+      }
+    };
+    fpView.onClick = (button, worldPos) => {
+      if (!localPlayer || localPlayer.isDead) return;
+      if (button === 2) { useSkill('weapon', worldPos || undefined); return; }
+      if (button !== 0) return;
+      // looking at the sky or far away: a plain attack forward
+      if (!worldPos) { useBasicAttack(); return; }
+      // a monster / NPC / chest under the crosshair goes through the normal click handling;
+      // clicking the ground walks there
+      handlePointerAction({ button: 0 }, false, worldPos);
+    };
   }
 
   // Hotbar key badges and the key named in each slot's tooltip
@@ -3372,6 +3621,12 @@ document.addEventListener('DOMContentLoaded', () => {
   try {
     const saved = localStorage.getItem('slop_graphics_quality');
     if (saved === 'auto' || GRAPHICS_SCALES[saved]) graphicsQuality = saved;
+    // Auto resumes at the level it settled on last time, so a slow PC does not
+    // sit through several laggy seconds of High every launch; a first launch on
+    // a machine reporting 2 cores or 2 GB of memory starts at Low
+    const savedStep = parseInt(localStorage.getItem('slop_auto_step'), 10);
+    if (savedStep >= 0 && savedStep < AUTO_SCALE_STEPS.length) autoScaleStep = savedStep;
+    else if ((navigator.hardwareConcurrency || 8) <= 2 || (navigator.deviceMemory || 8) <= 2) autoScaleStep = 2;
   } catch (_) {}
 
   function applyGraphicsQuality(quality) {
@@ -3414,7 +3669,9 @@ document.addEventListener('DOMContentLoaded', () => {
     fpsWindow.start = 0;
     if (fps < AUTO_LOW_FPS) {
       autoScaleStep++;
+      try { localStorage.setItem('slop_auto_step', String(autoScaleStep)); } catch (_) {}
       applyGraphicsQuality('auto');
+      afterQualityChange();
     }
   }
 
@@ -3423,10 +3680,20 @@ document.addEventListener('DOMContentLoaded', () => {
   graphicsPresets.forEach(btn => {
     btn.addEventListener('click', () => {
       // picking Auto again gives it a fresh start at full sharpness
-      if (btn.dataset.quality === 'auto') autoScaleStep = 0;
+      if (btn.dataset.quality === 'auto') {
+        autoScaleStep = 0;
+        try { localStorage.removeItem('slop_auto_step'); } catch (_) {}
+      }
       applyGraphicsQuality(btn.dataset.quality);
+      afterQualityChange();
     });
   });
+
+  // Potato and back: re-apply its 30 FPS cap and pull the camera in to its zoom limit
+  function afterQualityChange() {
+    applyTargetFps(targetFps);
+    renderer.camera.zoom = Math.max(minZoom(), renderer.camera.zoom);
+  }
 
   // Target FPS limiter (30 FPS eco, 60 FPS, Uncapped)
   const targetFpsPresets = document.querySelectorAll('.gui-scale-preset[data-fps]');
@@ -3445,12 +3712,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   } catch (_) {}
 
+  // Potato runs at 30 FPS unless the player picked a limit themselves: half the
+  // frames is half the CPU work, and a cooler laptop throttles itself less
+  const POTATO_FPS = 30;
   function applyTargetFps(fps) {
     targetFps = parseInt(fps, 10) || 0;
-    frameInterval = targetFps > 0 ? (1000 / targetFps) : 0;
+    const effective = targetFps || (renderer.potatoMode ? POTATO_FPS : 0);
+    frameInterval = effective > 0 ? (1000 / effective) : 0;
     targetFpsPresets.forEach(b => b.classList.toggle('active', parseInt(b.dataset.fps, 10) === targetFps));
     if (lblFpsLimitVal) {
-      lblFpsLimitVal.textContent = targetFps === 0 ? 'Uncapped' : `${targetFps} FPS`;
+      lblFpsLimitVal.textContent = targetFps ? `${targetFps} FPS` : (effective ? `${effective} FPS (Potato)` : 'Uncapped');
     }
     try {
       localStorage.setItem('slop_target_fps', targetFps.toString());
@@ -3626,6 +3897,12 @@ document.addEventListener('DOMContentLoaded', () => {
   // Tell the server which way the mouse is from the hero: on change, and
   // every 1.5 s so a fresh login or map change picks it up again
   function updateAimFacing(now) {
+    if (fpView && fpView.active) {
+      // re-send now and then so a map change / respawn keeps the look direction
+      if (now - sentAimAt > 1500) { fpAimFacing = null; sentAimAt = now; }
+      syncFirstPersonFacing();
+      return;
+    }
     if (!faceCursorOn || !lastCursor || !localPlayer || localPlayer.isDead) return;
     const aim = Isometric.screenToWorld(lastCursor.x, lastCursor.y, renderer.camera, renderer.viewW, renderer.viewH);
     const facing = calculateFacingFromTo(localPlayer.x, localPlayer.y, aim.x, aim.y);
@@ -3666,6 +3943,29 @@ document.addEventListener('DOMContentLoaded', () => {
     btn.addEventListener('click', () => {
       applyVfxLevel(btn.dataset.vfx);
     });
+  });
+
+  // Lighting quality (Auto, Smooth, Simple, Off): dungeon darkness, torch glow
+  const lightingPresets = document.querySelectorAll('.gui-scale-preset[data-lighting]');
+  const lblLightingVal = document.getElementById('lblLightingVal');
+  const LIGHTING_MODES = ['auto', 'smooth', 'simple', 'off'];
+  let lightingMode = 'auto';
+  try {
+    const savedLighting = localStorage.getItem('slop_lighting');
+    if (LIGHTING_MODES.includes(savedLighting)) lightingMode = savedLighting;
+  } catch (_) {}
+
+  function applyLightingMode(mode) {
+    lightingMode = mode;
+    if (renderer && renderer.setLightingMode) renderer.setLightingMode(mode);
+    lightingPresets.forEach(b => b.classList.toggle('active', b.dataset.lighting === mode));
+    if (lblLightingVal) lblLightingVal.textContent = mode.charAt(0).toUpperCase() + mode.slice(1);
+    try { localStorage.setItem('slop_lighting', mode); } catch (_) {}
+  }
+  applyLightingMode(lightingMode);
+
+  lightingPresets.forEach(btn => {
+    btn.addEventListener('click', () => applyLightingMode(btn.dataset.lighting));
   });
 
   if (btnSettingsResetCamera) {
@@ -3722,6 +4022,27 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
+
+  // Settings category tabs (Interface / Graphics / Audio / Gameplay / Controls);
+  // the last one opened is remembered per browser
+  const settingsTabs = document.querySelectorAll('.settings-tab[data-settings-tab]');
+  const settingsPanes = document.querySelectorAll('[data-settings-pane]');
+  function showSettingsTab(tab) {
+    if (![...settingsTabs].some(b => b.dataset.settingsTab === tab)) tab = 'interface';
+    settingsTabs.forEach(b => {
+      const on = b.dataset.settingsTab === tab;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    settingsPanes.forEach(p => p.classList.toggle('is-hidden', p.dataset.settingsPane !== tab));
+    const body = settingsModal && settingsModal.querySelector('.settings-modal-body');
+    if (body) body.scrollTop = 0;
+    try { localStorage.setItem('slop_settings_tab', tab); } catch (_) {}
+  }
+  settingsTabs.forEach(b => b.addEventListener('click', () => showSettingsTab(b.dataset.settingsTab)));
+  let savedSettingsTab = 'interface';
+  try { savedSettingsTab = localStorage.getItem('slop_settings_tab') || 'interface'; } catch (_) {}
+  showSettingsTab(savedSettingsTab);
 
   function openSettingsModal() {
     if (!settingsModal) return;
@@ -4100,63 +4421,93 @@ document.addEventListener('DOMContentLoaded', () => {
     }));
   }
 
+  // The HUD refreshes on every server tick (25 a second); a DOM write costs a
+  // style pass and an emoji scan (pixelIcons) even when nothing changed, so
+  // these only touch the page when the value is different. They compare with
+  // what they last wrote, not with the page: pixelIcons rewrites text holding
+  // symbols (★ ⇄), so reading it back would never match and loop every tick.
+  const setText = (el, v) => { v = String(v); if (el && el.__hudText !== v) { el.__hudText = v; el.textContent = v; } };
+  const setWidth = (el, pct) => { const v = pct.toFixed(1) + '%'; if (el && el.__hudWidth !== v) { el.__hudWidth = v; el.style.width = v; } };
+  const setTitle = (el, v) => { if (el && el.__hudTitle !== v) { el.__hudTitle = v; el.title = v; } };
+
+  // Yellow "damage taken" trail behind an HP fill: it holds the old width for a
+  // moment and then drains down; heals (or a new target, `reset`) snap it.
+  function setHpTrail(el, pct, reset = false) {
+    if (!el) return;
+    const prev = el.__trailPct;
+    if (reset || prev === undefined || pct >= prev) {
+      el.classList.remove('draining');
+      el.style.width = pct.toFixed(1) + '%';
+    } else if (pct < prev) {
+      el.classList.add('draining');
+      el.style.width = pct.toFixed(1) + '%';
+    }
+    el.__trailPct = pct;
+  }
+  window.setHpTrail = setHpTrail;
+
   function updatePlayerHUD(p) {
     renderBuffTray(p);
-    hudPlayerName.textContent = p.name;
-    hudPlayerClass.textContent = p.characterClass;
-    playerLevelBadge.textContent = `Lv. ${p.level}`;
+    setText(hudPlayerName, p.name);
+    setText(hudPlayerClass, p.characterClass);
+    setText(playerLevelBadge, `Lv. ${p.level}`);
 
-    const hpPct = Math.max(0, Math.min(100, (p.hp / p.maxHp) * 100));
-    hudHpFill.style.width = `${hpPct}%`;
-    hudHpText.textContent = `${p.hp} / ${p.maxHp} HP`;
+    // HP + absorb shield share the bar; when they overflow Max HP the bar
+    // rescales so the shield stays visible (as in most RPGs)
+    const shield = Math.max(0, p.shieldHp || 0);
+    const span = Math.max(p.maxHp || 1, (p.hp || 0) + shield);
+    const hpPct = Math.max(0, Math.min(100, (p.hp / span) * 100));
+    setWidth(hudHpFill, hpPct);
+    setHpTrail(hudHpTrail, hpPct);
+    if (hudHpAbsorb) {
+      const absorbPct = Math.min(100 - hpPct, (shield / span) * 100);
+      if (hudHpAbsorb.__left !== hpPct) { hudHpAbsorb.__left = hpPct; hudHpAbsorb.style.left = hpPct.toFixed(1) + '%'; }
+      setWidth(hudHpAbsorb, absorbPct);
+    }
+    setWidth(hudEsFill, p.esMax > 0 ? Math.max(0, Math.min(100, (p.es / p.esMax) * 100)) : 0);
+    const extras = (shield > 0 ? ` +${shield}🛡` : '') + (p.esMax > 0 ? ` 💠${p.es}` : '');
+    setText(hudHpText, `${p.hp} / ${p.maxHp} HP${extras}`);
 
-    const mpPct = Math.max(0, Math.min(100, (p.mp / p.maxMp) * 100));
-    hudMpFill.style.width = `${mpPct}%`;
-    hudMpText.textContent = `${p.mp} / ${p.maxMp} MP`;
+    setWidth(hudMpFill, Math.max(0, Math.min(100, (p.mp / p.maxMp) * 100)));
+    setText(hudMpText, `${p.mp} / ${p.maxMp} MP`);
 
-    const expPct = Math.max(0, Math.min(100, (p.exp / p.expNext) * 100));
-    hudExpFill.style.width = `${expPct}%`;
+    setWidth(hudExpFill, Math.max(0, Math.min(100, (p.exp / p.expNext) * 100)));
 
-    goldCountText.textContent = `${p.gold} Gold`;
-    if (shopPlayerGold) shopPlayerGold.textContent = p.gold;
+    setText(goldCountText, `${(p.gold || 0).toLocaleString()} Gold`);
+    if (shopPlayerGold) setText(shopPlayerGold, (p.gold || 0).toLocaleString());
 
     if (p.inventory) {
       const hpId = selectedPotion(p, 'health');
       const mpId = selectedPotion(p, 'mana');
       const hpCount = potionCount(p, hpId);
       const mpCount = potionCount(p, mpId);
-      if (badgeHealthPotion) badgeHealthPotion.textContent = hpCount;
-      if (badgeManaPotion) badgeManaPotion.textContent = mpCount;
-      if (mobileBadgeHp) mobileBadgeHp.textContent = hpCount;
-      if (mobileBadgeMp) mobileBadgeMp.textContent = mpCount;
+      setText(badgeHealthPotion, hpCount);
+      setText(badgeManaPotion, mpCount);
+      setText(mobileBadgeHp, hpCount);
+      setText(mobileBadgeMp, mpCount);
 
       const isGreaterHp = hpId === 'greater_health_potion';
       const isGreaterMp = mpId === 'greater_mana_potion';
 
       if (slotHealthPotion) {
         slotHealthPotion.classList.toggle('greater-potion', isGreaterHp);
-        slotHealthPotion.title = `${isGreaterHp ? '★ Greater Health Potion (+75% HP)' : 'Health Potion (+45% HP)'} [x${hpCount}]\n• Click or ⇄ to Switch Size\n• Press [1] to Drink`;
+        setTitle(slotHealthPotion, `${isGreaterHp ? '★ Greater Health Potion (+75% HP)' : 'Health Potion (+45% HP)'} [x${hpCount}]\n• Click or ⇄ to Switch Size\n• Press [1] to Drink`);
       }
       if (slotManaPotion) {
         slotManaPotion.classList.toggle('greater-potion', isGreaterMp);
-        slotManaPotion.title = `${isGreaterMp ? '★ Greater Mana Potion (+80% MP)' : 'Mana Potion (+50% MP)'} [x${mpCount}]\n• Click or ⇄ to Switch Size\n• Press [2] to Drink`;
+        setTitle(slotManaPotion, `${isGreaterMp ? '★ Greater Mana Potion (+80% MP)' : 'Mana Potion (+50% MP)'} [x${mpCount}]\n• Click or ⇄ to Switch Size\n• Press [2] to Drink`);
       }
 
-      const invHp = document.getElementById('invHpCount');
-      const invMp = document.getElementById('invMpCount');
-      const invGold = document.getElementById('invGoldText');
-      if (invHp) invHp.textContent = hpCount;
-      if (invMp) invMp.textContent = mpCount;
-      if (invGold) invGold.textContent = p.gold;
+      setText(document.getElementById('invHpCount'), hpCount);
+      setText(document.getElementById('invMpCount'), mpCount);
+      setText(document.getElementById('invGoldText'), (p.gold || 0).toLocaleString());
       renderPotionSlotLabels(p);
     }
 
     // Job level bar and SP transform slot
     const jobPct = p.jobExpNext ? Math.max(0, Math.min(100, ((p.jobExp || 0) / p.jobExpNext) * 100)) : 0;
-    const hudJobBadge = document.getElementById('hudJobBadge');
-    const hudJobFill = document.getElementById('hudJobFill');
-    if (hudJobBadge) hudJobBadge.textContent = `JOB ${p.jobLevel || 1}`;
-    if (hudJobFill) hudJobFill.style.width = `${jobPct}%`;
+    setText(document.getElementById('hudJobBadge'), `JOB ${p.jobLevel || 1}`);
+    setWidth(document.getElementById('hudJobFill'), jobPct);
     updateSpSlot(p);
     if (statsModal && statsModal.style.display === 'flex') renderStatsPanel(p);
   }
@@ -4253,6 +4604,9 @@ document.addEventListener('DOMContentLoaded', () => {
       ['burst', 'Crit Damage', `${critDmg}%`, ''],
       ['feather', 'Dodge', `${Math.round((p.dodgeChance || 0) * 100)}%`, ''],
       ['fang', 'Life Steal', `${Math.round((p.lifeSteal || 0) * 1000) / 10}%`, ''],
+      ['heart', 'HP Regen', `${(p.hpRegen || 0).toLocaleString()}/s`, p.hpRegenFlat ? `<i>+${p.hpRegenFlat}</i>` : ''],
+      ['mp_potion', 'MP Regen', `${(p.mpRegen || 0).toLocaleString()}/s`, p.mpRegenFlat ? `<i>+${p.mpRegenFlat}</i>` : ''],
+      ['refresh', 'Cooldown Red.', `${+((p.cdr || 0) * 100).toFixed(1)}%`, '<i>max 40%</i>'],
       ['thorns', 'Thorns', p.thorns || 0, '']
     ];
     // Talent branch mechanics, shown once unlocked
@@ -4314,7 +4668,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderPersonalChest(storage, inventory) {
     if (!personalChestModal) return;
     const store = storage || (localPlayer && localPlayer.storage) || { maxSlots: 50, items: [] };
-    const inv = inventory || (localPlayer && localPlayer.inventory) || { maxSlots: 30, items: [] };
+    const inv = inventory || (localPlayer && localPlayer.inventory) || { maxSlots: BAG_CAPACITY, items: [] };
 
     const maxChestSlots = store.maxSlots || 50;
     const storeItems = Array.isArray(store.items) ? store.items : [];
@@ -4323,7 +4677,7 @@ document.addEventListener('DOMContentLoaded', () => {
       chestCapacityText.classList.toggle('is-full', storeItems.length >= maxChestSlots);
     }
 
-    const maxBagSlots = inv.maxSlots || 30;
+    const maxBagSlots = inv.maxSlots || BAG_CAPACITY;
     const bagItems = Array.isArray(inv.items) ? inv.items : [];
     if (chestBagCapacityText) {
       chestBagCapacityText.textContent = `${bagItems.length} / ${maxBagSlots}`;
@@ -4419,7 +4773,7 @@ document.addEventListener('DOMContentLoaded', () => {
     buySelectedQty = 1;
     renderShopBuyList();
     renderShopSellList();
-    if (shopPlayerGold && localPlayer) shopPlayerGold.textContent = localPlayer.gold;
+    if (shopPlayerGold && localPlayer) shopPlayerGold.textContent = (localPlayer.gold || 0).toLocaleString();
     shopModal.style.display = 'flex';
   }
 
@@ -4621,6 +4975,17 @@ document.addEventListener('DOMContentLoaded', () => {
     renderDetail();
   }
 
+  // Favorites (right-click a bag slot): protected from selling. Jerry's attribute materials
+  // are left out of the sell tab's Select all (they can still be picked by hand).
+  const ATTR_MATERIAL_IDS = new Set(['attr_roller', 'attr_socketer', 'attr_reseter']);
+  const favBadge = (item) => (item && item.favorite ? `<span class="fav-badge">${PixelIcons.html('star')}</span>` : '');
+  function toggleFavorite(itemIndex) {
+    const item = localPlayer && localPlayer.inventory.items[itemIndex];
+    if (!item) return;
+    socket.emit('toggle_favorite', { target: 'inventory', itemIndex });
+    window.soundEngine.playCoin();
+  }
+
   // Sell tab state: selected bag slots (index -> item id, so a changed bag drops
   // stale picks) and whether Shift is held (Shift = sell the whole stack).
   const sellSelected = new Map();
@@ -4659,13 +5024,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const qtyOf = (index) => sellShiftHeld ? countOf(index) : Math.max(1, Math.min(countOf(index), sellQty.get(index) || 1));
 
     const isSpecialCard = (it) => it && (it.type === 'sp_card' || (it.id && it.id.startsWith('sp_card_')));
+    // favorites can't be picked to sell at all; Jerry's attribute materials are only left out of Select all
+    const isFavorite = (it) => !!(it && it.favorite);
+    const skipInSelectAll = (it) => isSpecialCard(it) || isFavorite(it) || ATTR_MATERIAL_IDS.has(it && it.id);
 
-    // Bulk bar: select all + sell every ticked slot in one go (Special Cards protected)
+    // Bulk bar: select all + sell every ticked slot in one go (Special Cards, favorites and attribute materials protected)
     const bar = document.createElement('div');
     bar.className = 'sell-bulk-bar';
     bar.innerHTML = `
       <label class="sell-bulk-all"><input type="checkbox"> Select all</label>
-      <span class="sell-bulk-hint">Click slots to select - hold SHIFT to sell stacks (Special Cards protected)</span>
+      <span class="sell-bulk-hint">Click slots to select - hold SHIFT to sell stacks - right-click to favorite (favorites, SP cards and attribute materials are skipped by Select all)</span>
       <button class="btn-shop-action sell sell-bulk-btn"></button>`;
     shopSellList.appendChild(bar);
     const allBox = bar.querySelector('input');
@@ -4687,7 +5055,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       bulkBtn.textContent = `Sell selected (${sellSelected.size}) +${total}g`;
       bulkBtn.disabled = sellSelected.size === 0;
-      const sellableCount = items.filter(it => !isSpecialCard(it)).length;
+      const sellableCount = items.filter(it => !skipInSelectAll(it)).length;
       allBox.checked = sellableCount > 0 && sellSelected.size === sellableCount;
       cells.forEach((cell, index) => cell.classList.toggle('selected', sellSelected.has(index)));
     };
@@ -4702,11 +5070,20 @@ document.addEventListener('DOMContentLoaded', () => {
       const index = sellFocus;
       const count = countOf(index);
       const unitPrice = item.sellPrice || 10;
+      if (isFavorite(item)) {
+        detail.innerHTML = `
+          <div class="shop-item-icon">${PixelIcons.itemHtml(item)}</div>
+          <div class="shop-item-details">
+            <div class="shop-item-name">${escapeHtml(item.name)} ${count > 1 ? `x${count}` : ''}</div>
+            <div class="shop-item-desc">${PixelIcons.html('star')} Favorite - can't be sold. Right-click it to unfavorite.</div>
+          </div>`;
+        return;
+      }
       detail.innerHTML = `
         <div class="shop-item-icon">${PixelIcons.itemHtml(item)}</div>
         <div class="shop-item-details">
           <div class="shop-item-name">${item.name} ${count > 1 ? `x${count}` : ''}</div>
-          <div class="shop-item-desc">${unitPrice}g each</div>
+          <div class="shop-item-desc">${unitPrice.toLocaleString()}g each</div>
         </div>
         <div class="sell-qty-controls">
           ${count > 1 ? `
@@ -4718,7 +5095,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const btn = detail.querySelector('.btn-shop-action');
       const qtyInput = detail.querySelector('.sell-qty-input');
       const refreshPrice = () => {
-        btn.textContent = `${sellShiftHeld && count > 1 ? 'Sell all' : 'Sell'} +${unitPrice * qtyOf(index)}g`;
+        btn.textContent = `${sellShiftHeld && count > 1 ? 'Sell all' : 'Sell'} +${(unitPrice * qtyOf(index)).toLocaleString()}g`;
       };
       const setQty = (val) => {
         sellQty.set(index, Math.max(1, Math.min(count, parseInt(val, 10) || 1)));
@@ -4746,7 +5123,7 @@ document.addEventListener('DOMContentLoaded', () => {
       sellSelected.clear();
       if (allBox.checked) {
         items.forEach((it, i) => {
-          if (!isSpecialCard(it)) sellSelected.set(i, it.id);
+          if (!skipInSelectAll(it)) sellSelected.set(i, it.id);
         });
       }
       refreshBulk();
@@ -4754,7 +5131,7 @@ document.addEventListener('DOMContentLoaded', () => {
     bulkBtn.addEventListener('click', () => {
       if (sellSelected.size === 0) return;
       const entries = [...sellSelected.keys()]
-        .filter(index => items[index] && !isSpecialCard(items[index]))
+        .filter(index => items[index] && !isSpecialCard(items[index]) && !isFavorite(items[index]))
         .map(index => ({ itemIndex: index, quantity: qtyOf(index) }));
       sellSelected.clear();
       sellQty.clear();
@@ -4779,16 +5156,27 @@ document.addEventListener('DOMContentLoaded', () => {
       const isSp = isSpecialCard(item);
       cell.classList.add(`rarity-${item.rarity || 'common'}`);
       if (isSp) cell.classList.add('sp-card-protected');
+      if (isFavorite(item)) cell.classList.add('is-favorite');
       cell.innerHTML = `
         <div class="inv-icon">${PixelIcons.itemHtml(item)}</div>
+        ${favBadge(item)}
         ${item.upgradeLevel ? `<span class="upgrade-badge">+${item.upgradeLevel}</span>` : ''}
         ${item.count > 1 ? `<div class="inv-badge">x${item.count}</div>` : ''}`;
       GameTooltip.item(cell, item, {
-        hint: isSp
-          ? 'Specialist Card (Protected from Select All)'
-          : `Sell price ${item.sellPrice || 10}g${item.count > 1 ? ' each' : ''}`
+        hint: isFavorite(item) ? 'Favorite - can\'t be sold (right-click to unfavorite)'
+          : isSp ? 'Specialist Card (Protected from Select All)'
+            : `Sell price ${(item.sellPrice || 10).toLocaleString()}g${item.count > 1 ? ' each' : ''}${ATTR_MATERIAL_IDS.has(item.id) ? ' - skipped by Select all' : ''} - right-click to favorite`
       });
+      cell.addEventListener('contextmenu', (e) => { e.preventDefault(); toggleFavorite(i); });
       cell.addEventListener('click', () => {
+        if (isFavorite(item)) {
+          // favorites never go into the sell selection: just show why
+          sellSelected.delete(i);
+          sellFocus = i;
+          renderDetail();
+          refreshBulk();
+          return;
+        }
         if (sellSelected.has(i) && sellFocus === i) {
           sellSelected.delete(i);
           sellQty.delete(i);
@@ -4809,16 +5197,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let invFilter = 'all';
   let invSorted = false;
-  const BAG_CAPACITY = 30;
+  const BAG_CAPACITY = 150;
   function getBagCapacity(p) {
     const player = p || localPlayer;
     return (player && player.inventory && player.inventory.maxSlots) || BAG_CAPACITY;
   }
-  const RARITY_RANK = { mythic: 5, legendary: 4, epic: 3, rare: 2, common: 1 };
+  const RARITY_RANK = { mythic: 7, divine: 6, legendary: 5, epic: 4, rare: 3, uncommon: 2, common: 1 };
   const TYPE_RANK = { sp_card: 0, equipment: 1, consumable: 2, material: 3, treasure: 4 };
   const EQUIP_SLOTS = [
     ['eqSlotHelmet', 'helmet'], ['eqSlotArmor', 'armor'], ['eqSlotGloves', 'gloves'], ['eqSlotWeapon', 'weapon'],
-    ['eqSlotRing', 'ring'], ['eqSlotBoots', 'boots'], ['eqSlotSp', 'sp']
+    ['eqSlotRing', 'ring'], ['eqSlotBoots', 'boots'], ['eqSlotCape', 'cape'], ['eqSlotSp', 'sp']
   ];
 
   // Gear locked to another class (weapons, SP cards) goes in OTHER instead of GEAR
@@ -4862,7 +5250,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return card ? `Click to equip (Job Lv. ${card.jobReq})` : 'Click to equip';
     }
     if (/potion/.test(item.id || '')) return 'Click to drink';
-    return `Sell to Olaf for ${item.sellPrice || 10}g`;
+    return `Sell to Olaf for ${(item.sellPrice || 10).toLocaleString()}g`;
   }
 
   // Live idle preview of the hero (in costume when transformed)
@@ -4876,7 +5264,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (inventoryModal.style.display !== 'flex' || !localPlayer) { invPreviewRaf = 0; return; }
       g.clearRect(0, 0, cv.width, cv.height);
       g.imageSmoothingEnabled = false;
-      g.drawImage(renderer.heroFrameFor(localPlayer, 'S', 'idle', PixelHeroes.loopIndex(localPlayer.characterClass, 'idle', ts / 1000)), 0, 0);
+      // feet on the preview's floor line (y 66), whatever the sprite frame's height
+      g.drawImage(renderer.heroFrameFor(localPlayer, 'S', 'idle', PixelHeroes.loopIndex(localPlayer.characterClass, 'idle', ts / 1000)), 0, 66 - PixelHeroes.AY);
       invPreviewRaf = requestAnimationFrame(step);
     };
     invPreviewRaf = requestAnimationFrame(step);
@@ -4967,11 +5356,14 @@ document.addEventListener('DOMContentLoaded', () => {
       const { item, index } = entry;
       cell.classList.add(`rarity-${item.rarity || 'common'}`);
       if (equipBlocker(item)) cell.classList.add('unusable');
+      if (item.favorite) cell.classList.add('is-favorite');
       cell.innerHTML = `
         <div class="inv-icon">${PixelIcons.itemHtml(item)}</div>
+        ${favBadge(item)}
         ${item.upgradeLevel ? `<span class="upgrade-badge">+${item.upgradeLevel}</span>` : ''}
         ${item.count > 1 ? `<div class="inv-badge">x${item.count}</div>` : ''}`;
-      GameTooltip.item(cell, item, { compare: item.slot ? eq[item.slot] : null, hint: bagHint(item) });
+      GameTooltip.item(cell, item, { compare: item.slot ? eq[item.slot] : null, hint: `${bagHint(item)}${item.favorite ? ' - Favorite (right-click to unfavorite)' : ' - right-click to favorite'}` });
+      cell.addEventListener('contextmenu', (e) => { e.preventDefault(); toggleFavorite(index); });
       cell.addEventListener('click', () => {
         if (item.type === 'equipment' || item.type === 'sp_card') {
           socket.emit('equip_item', { itemIndex: index });
@@ -5035,15 +5427,21 @@ document.addEventListener('DOMContentLoaded', () => {
     return stack ? (stack.count || 1) : 0;
   }
 
+  // Rune Forge: items with sockets, and which kind of rune each rune item fits
+  const SOCKET_SLOTS = ['weapon', 'armor', 'helmet', 'gloves', 'boots', 'cape'];
+  const runeSocketFor = (rune) => ((window.RuneCatalog && window.RuneCatalog[rune.id]) || rune).socketFor || 'weapon';
+
   function enchEntries() {
     const eq = localPlayer.equipment || {};
     const out = [];
     if (enchTab === 'socket') {
-      if (eq.weapon && eq.weapon.type === 'equipment' && eq.weapon.slot === 'weapon') {
-        out.push({ key: 'eq:weapon', item: eq.weapon, target: 'equipped', slot: 'weapon', equipped: true });
+      // weapons take elemental runes, armor pieces the defensive ones
+      for (const slot of SOCKET_SLOTS) {
+        const it = eq[slot];
+        if (it && it.type === 'equipment') out.push({ key: `eq:${slot}`, item: it, target: 'equipped', slot, equipped: true });
       }
       (localPlayer.inventory.items || []).forEach((it, i) => {
-        if (it && it.type === 'equipment' && it.slot === 'weapon') {
+        if (it && it.type === 'equipment' && SOCKET_SLOTS.includes(it.slot)) {
           out.push({ key: `inv:${i}`, item: it, target: 'inventory', itemIndex: i });
         }
       });
@@ -5073,6 +5471,7 @@ document.addEventListener('DOMContentLoaded', () => {
     helmet: { bonusDef: 2, bonusHp: 15, bonusMp: 10 },
     boots: { bonusDef: 1, bonusSpeed: 0.08, bonusHp: 10 },
     gloves: { bonusDmg: 4, bonusAttackSpeed: 0.01 },
+    cape: { bonusDef: 2, bonusHp: 12 },
     ring: { bonusDmg: 3, bonusHp: 15, bonusMp: 15, bonusAttackSpeed: 0.01 }
   };
   const GEAR_STAT_ROWS = [
@@ -5100,20 +5499,100 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     return out;
   }
+  // ---- Rune Forge layout. Every tab uses the same pieces: a grouped list on the left (fgRow),
+  // and on the right a scrolling detail (header, level plaques, a stat table, odds) with the cost
+  // and the action button pinned at the bottom (fgAction).
+  const FG_RARITY = { common: '#e2e8f0', uncommon: '#4ade80', rare: '#41a6f6', epic: '#c084fc', legendary: '#ef7d57', divine: '#fff1a6', mythic: '#f43f5e' };
+  const fgColor = (item) => FG_RARITY[(item && item.rarity) || 'common'] || FG_RARITY.common;
+  const fgPct = (v) => `${Math.round(v * 100)}%`;
+  let fgDrillArmed = false;   // the socket drill asks for a second click before it risks a break
+
+  // Upgrade effects (forgeFx.js): a charge-up starts on the click, the server's answer resolves it
+  // into a success burst or a failure shatter. While one plays, the forge ignores another click.
+  let forgeFx = null;
+  let pendingCardLvl = null, pendingTradeName = '';
+  function forgeStart(iconHtml, color) {
+    if (!window.ForgeFx) return true;
+    if (ForgeFx.busy()) return false;
+    const host = enchanterModal && enchanterModal.querySelector('.enchanter-card');
+    forgeFx = ForgeFx.start(host, { iconHtml, color });
+    return true;
+  }
+  function forgeEnd(outcome) {
+    if (!forgeFx) return;
+    if (outcome) forgeFx.resolve(outcome); else forgeFx.cancel();
+    forgeFx = null;
+  }
+
+  function fgGroup(listEl, title) {
+    const h = document.createElement('div');
+    h.className = 'fg-group';
+    h.textContent = title;
+    listEl.appendChild(h);
+  }
+  function fgRow(listEl, { iconHtml, name, color, sub, badge, selected, onClick, item }) {
+    const row = document.createElement('div');
+    row.className = 'fg-row' + (selected ? ' is-selected' : '');
+    row.setAttribute('role', 'button');
+    row.tabIndex = 0;
+    row.innerHTML = `<span class="fg-row-icon" style="--rc:${color}">${iconHtml}</span>
+      <span class="fg-row-text"><span class="fg-row-name" style="color:${color}">${escapeHtml(name)}</span><span class="fg-row-sub">${sub || ''}</span></span>
+      <span class="fg-row-badge">${badge || ''}</span>`;
+    if (item && window.GameTooltip) GameTooltip.item(row, item);
+    row.addEventListener('click', onClick);
+    row.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } });
+    listEl.appendChild(row);
+    return row;
+  }
+  function fgHead(iconHtml, name, color, type) {
+    return `<div class="fg-head"><span class="fg-head-icon" style="--rc:${color}">${iconHtml}</span>
+      <div class="fg-head-text"><div class="fg-head-name" style="color:${color}">${escapeHtml(name)}</div><div class="fg-head-type">${type}</div></div></div>`;
+  }
+  // big "+3 → +4" plaques
+  function fgLevels(lvl, max) {
+    if (lvl >= max) return `<div class="fg-levels"><span class="fg-plaque is-max">+${lvl}</span><span class="fg-maxed">MAX LEVEL</span></div>`;
+    return `<div class="fg-levels"><span class="fg-plaque">+${lvl}</span><span class="fg-arrow"></span><span class="fg-plaque is-next">+${lvl + 1}</span></div>`;
+  }
+  // rows: [{ label, from, to, delta, cls }]; heads: [label, from, to]
+  function fgTable(rows, heads, title) {
+    if (!rows.length) return '';
+    return `<div class="fg-section">${title ? `<div class="fg-section-title">${title}</div>` : ''}
+      <table class="fg-table"><thead><tr><th>${heads[0]}</th><th>${heads[1]}</th>${heads[2] !== undefined ? `<th>${heads[2]}</th><th></th>` : ''}</tr></thead>
+      <tbody>${rows.map(r => `<tr><td>${r.label}</td><td>${r.from}</td>${heads[2] !== undefined ? `<td class="${r.cls || ''}">${r.to}</td><td class="fg-delta ${r.cls || ''}">${r.delta || ''}</td>` : ''}</tr>`).join('')}</tbody></table></div>`;
+  }
+  // success / harmless fail / break as one segmented bar with a legend
+  function fgOdds(parts, note, noteCls) {
+    const segs = parts.filter(p => p.v > 0).map(p => `<i class="${p.cls}" style="width:${p.v * 100}%"></i>`).join('');
+    const legend = parts.map(p => `<span class="${p.cls}"><b>${fgPct(p.v)}</b> ${p.label}</span>`).join('');
+    return `<div class="fg-section"><div class="fg-section-title">Odds</div><div class="fg-odds">${segs}</div>
+      <div class="fg-odds-legend">${legend}</div>${note ? `<div class="fg-note ${noteCls || ''}">${note}</div>` : ''}</div>`;
+  }
+  // costs: [{ icon, need, have, label }]
+  function fgCosts(costs) {
+    return `<div class="fg-costs">${costs.map(c => `<span class="fg-cost${c.have < c.need ? ' is-short' : ''}">${PixelIcons.html(c.icon)}<b>${c.need.toLocaleString()}</b> ${c.label}<small>have ${c.have.toLocaleString()}</small></span>`).join('')}</div>`;
+  }
+  function fgResult() {
+    if (!enchResult) return '';
+    return `<div class="fg-result ${enchResult.ok ? 'is-ok' : 'is-bad'}">${escapeHtml(enchResult.text)}</div>`;
+  }
+  // the detail panel: scrolling body + pinned action strip
+  function fgDetail(detailEl, body, action) {
+    detailEl.innerHTML = `<div class="fg-body">${body}</div><div class="fg-action">${action}</div>`;
+  }
+
   // A "+3 → +4" stat table: every stat the item has at either level, the change highlighted
   function gearCompareHtml(from, to, fromLvl, toLvl, title) {
     const rows = GEAR_STAT_ROWS.filter(([k]) => from[k] || to[k]).map(([k, label, fmt]) => {
       const d = Number((to[k] - from[k]).toFixed(2));
-      const cls = d > 0 ? 'up' : d < 0 ? 'down' : 'same';
+      const cls = d > 0 ? 'up' : d < 0 ? 'down' : '';
       const delta = d === 0 ? '' : (k === 'bonusAttackSpeed' ? `${d > 0 ? '+' : '-'}${Math.round(Math.abs(d) * 100)}%`
         : k === 'bonusSpeed' ? `${d > 0 ? '+' : '-'}${Math.abs(d).toFixed(2)}`
           : `${d > 0 ? '+' : '-'}${Math.abs(d)}${k === 'bonusSwipe' ? '%' : ''}`);
-      return `<div class="ench-cmp-row"><span class="ench-cmp-label">${label}</span><span class="ench-cmp-from">${fmt(from[k])}</span><span class="ench-cmp-arrow">&rarr;</span><span class="ench-cmp-to ${cls}">${fmt(to[k])}</span><span class="ench-cmp-delta ${cls}">${delta}</span></div>`;
+      return { label, from: fmt(from[k]), to: fmt(to[k]), delta, cls };
     });
-    if (!rows.length) return '';
-    return `<div class="ench-compare">${title ? `<div class="ench-cmp-title">${title}</div>` : ''}<div class="ench-cmp-head"><span></span><span>+${fromLvl}</span><span></span><span>+${toLvl}</span><span></span></div>${rows.join('')}</div>`;
+    return fgTable(rows, ['Stat', `+${fromLvl}`, `+${toLvl}`], title);
   }
-  let pendingGearEnhance = null; // snapshot taken when ENHANCE is pressed, to show before → after on the result
+  let pendingGearEnhance = null; // the level when ENHANCE was pressed, for the result effect's "+3 → +4"
 
   function cardEnhanceInfo(item) {
     const lvl = item.upgradeLevel || 0;
@@ -5128,34 +5607,44 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 
-  function chanceBar(chance) {
-    const cls = chance < 0.35 ? 'danger' : chance < 0.7 ? 'risky' : '';
-    return `<div class="ench-chance">Success chance <div class="stats-bar ${cls}"><div style="width:${Math.round(chance * 100)}%"></div><span>${Math.round(chance * 100)}%</span></div></div>`;
-  }
-
-  function cardStatLines(card, lvl) {
+  // A card's stats at +lvl: [{ label, raw, text }]
+  const CARD_STAT_LABEL = { bonusDmg: 'Attack', bonusDef: 'Defense', bonusHp: 'Max HP', bonusMp: 'Max MP', bonusSpeed: 'Move Speed', bonusAttackSpeed: 'Attack Speed', critChance: 'Crit Chance' };
+  function cardStatValues(card, lvl) {
     const k = 1 + spCatalog.statPerLevel * lvl;
-    const label = { bonusDmg: 'Attack', bonusDef: 'Defense', bonusHp: 'Max HP', bonusMp: 'Max MP', bonusSpeed: 'Speed', bonusAttackSpeed: 'Atk Speed', critChance: 'Crit' };
     return Object.entries(card.stats).map(([st, v]) => {
-      const val = st === 'bonusAttackSpeed' ? `+${Math.round(v * k * 100)}%` : st === 'critChance' ? `+${Math.round(v * k)}%` : st === 'bonusSpeed' ? `+${(v * k).toFixed(2)}` : `+${Math.round(v * k)}`;
-      return `<div class="tip-line"><span>${label[st] || st}</span><b>${val}</b></div>`;
-    }).join('');
+      const raw = v * k;
+      const text = st === 'bonusAttackSpeed' ? `+${Math.round(raw * 100)}%` : st === 'critChance' ? `+${Math.round(raw)}%` : st === 'bonusSpeed' ? `+${raw.toFixed(2)}` : `+${Math.round(raw)}`;
+      return { st, label: CARD_STAT_LABEL[st] || st, raw, text };
+    });
   }
 
-  function cardSkillList(card) {
-    const names = { slot1: 'Q', slot2: 'E', slot3: 'R', dash: 'Shift' };
-    return `<div class="sp-skill-list">${Object.entries(card.skills).map(([slot, skillId]) => {
-      const sk = findSkillDef(skillId);
-      return sk ? `<div><b>[${names[slot]}] ${escapeHtml(sk.name)}</b>${escapeHtml(sk.desc)}</div>` : '';
-    }).join('')}</div>`;
+  // Highest level of this card the hero owns (worn or in the bag), else undefined
+  function ownedCardLevel(cardId) {
+    if (!localPlayer) return undefined;
+    const items = [localPlayer.equipment && localPlayer.equipment.sp, ...((localPlayer.inventory && localPlayer.inventory.items) || [])];
+    let best;
+    for (const it of items) if (it && it.type === 'sp_card' && it.cardId === cardId) best = Math.max(best || 0, it.upgradeLevel || 0);
+    return best;
   }
 
-  function cardObtainText(card) {
-    const diffs = Object.entries(card.drop.chances).map(([d, c]) => `${d} ${(c * 100).toFixed(c < 0.01 ? 2 : 1)}%`).join(', ');
-    return `<div class="sp-obtain"><b>How to obtain:</b> dungeon boss drop from Floor ${card.drop.minFloor}+ (${diffs} per boss kill)${card.exchange
-      ? `, or trade <b>${card.exchange.fragments} Spirit Fragments + ${card.exchange.gold.toLocaleString()} Gold</b> here`
-      : '. <b>Cannot be traded</b> - boss drop only'}. Spirit Fragments drop from dungeon bosses and elite monsters.</div>`;
+  // The card's Signature (ultimate) and Passive, for the card panels and the spellbook
+  function spCardExtrasHtml(card) {
+    let html = '';
+    if (card.signature) html += `<div class="sp-sig" style="--sig-color:${card.color || '#facc15'}"><b>✦ [${keyLabel(keyBinds.ult)}] Signature: ${escapeHtml(card.signature.name)}</b>${escapeHtml(card.signature.desc)}</div>`;
+    if (card.passive) html += `<div class="sp-passive"><b>◆ Passive: ${escapeHtml(card.passive.name)}</b>${escapeHtml(card.passive.desc || '')}</div>`;
+    return html;
   }
+
+  const fgItemType = (item) => `${(item.rarity || 'common')} ${item.slot || item.type || ''}`.toUpperCase();
+  const fgSockets = (item) => {
+    const max = item.maxSockets !== undefined ? item.maxSockets : 0;
+    const broken = item.brokenSockets || 0;
+    return { max, broken, usable: Math.max(0, max - broken), list: Array.isArray(item.sockets) ? item.sockets : [] };
+  };
+  const fgRuneInfo = (id) => {
+    const r = (window.RuneCatalog || {})[id] || {};
+    return { name: r.name || id, effect: r.effect || r.desc || '', color: r.color || '#94a3b8', icon: r.iconKey || 'gem' };
+  };
 
   function renderEnchanter() {
     if (!enchanterModal || !localPlayer) return;
@@ -5165,290 +5654,224 @@ document.addEventListener('DOMContentLoaded', () => {
     const listEl = document.getElementById('enchList');
     const detailEl = document.getElementById('enchDetail');
     listEl.innerHTML = '';
+    detailEl.innerHTML = '';
+    const pick = (key) => { enchSelected = key; enchResult = null; fgDrillArmed = false; renderEnchanter(); };
 
-    if (enchTab === 'socket') {
-      const entries = enchEntries();
-      if (!entries.some(e => e.key === enchSelected)) enchSelected = entries[0] ? entries[0].key : null;
-      if (!entries.length) {
-        listEl.innerHTML = '<div class="ench-empty">No weapons found in your equipment or bag.</div>';
-        detailEl.innerHTML = '';
-        return;
-      }
-      entries.forEach(e => {
-        const row = document.createElement('div');
-        row.className = `ench-row rarity-${e.item.rarity || 'common'} ${e.key === enchSelected ? 'selected' : ''}`;
-        const maxSockets = e.item.maxSockets !== undefined ? e.item.maxSockets : 0;
-        const brokenSockets = e.item.brokenSockets || 0;
-        const usableSockets = Math.max(0, maxSockets - brokenSockets);
-        const socketsArr = Array.isArray(e.item.sockets) ? e.item.sockets : [];
-        const socketedCount = socketsArr.filter(Boolean).length;
-        row.innerHTML = `${PixelIcons.itemHtml(e.item)}<span class="ench-row-name">${escapeHtml(e.item.name)}<small>${e.equipped ? 'Equipped' : 'In bag'}</small></span><span class="ench-row-lvl" style="font-size:13px; color:#38bdf8;">⬡ ${socketedCount}/${usableSockets}</span>`;
-        GameTooltip.item(row, e.item);
-        row.addEventListener('click', () => { enchSelected = e.key; enchResult = null; renderEnchanter(); });
-        listEl.appendChild(row);
-      });
-
-      const sel = entries.find(e => e.key === enchSelected);
-      if (!sel) return;
-      const item = sel.item;
-      const maxSockets = item.maxSockets !== undefined ? item.maxSockets : 0;
-      const brokenSockets = item.brokenSockets || 0;
-      const usableSockets = Math.max(0, maxSockets - brokenSockets);
-      const sockets = Array.isArray(item.sockets) ? item.sockets : [];
-
-      const runesInBag = [];
-      (localPlayer.inventory.items || []).forEach((it, idx) => {
-        if (it && it.type === 'rune') runesInBag.push({ item: it, index: idx });
-      });
-
-      const expanderItem = (localPlayer.inventory.items || []).find(it => it && it.id === 'socket_expander');
-      const expanderCount = expanderItem ? (expanderItem.count || 1) : 0;
-
-      const RUNE_INFO = {
-        rune_flame: { name: 'Infernal Flame Rune', icon: '🔴', desc: '+25% Damage & Persistent Burn DoT', color: '#ef4444' },
-        flame: { name: 'Infernal Flame Rune', icon: '🔴', desc: '+25% Damage & Persistent Burn DoT', color: '#ef4444' },
-        rune_frost: { name: 'Glacial Frost Rune', icon: '🔵', desc: '40% Chill Slow for 3.5s & 25% Freeze Chance', color: '#38bdf8' },
-        frost: { name: 'Glacial Frost Rune', icon: '🔵', desc: '40% Chill Slow for 3.5s & 25% Freeze Chance', color: '#38bdf8' },
-        rune_tempest: { name: 'Tempest Surge Rune', icon: '⚡', desc: '-20% Cooldown & +10% Electric Shock DMG', color: '#eab308' },
-        tempest: { name: 'Tempest Surge Rune', icon: '⚡', desc: '-20% Cooldown & +10% Electric Shock DMG', color: '#eab308' },
-        rune_vampiric: { name: 'Vampiric Drain Rune', icon: '🟣', desc: '25% Damage Dealt as HP Life Leech', color: '#a855f7' },
-        vampiric: { name: 'Vampiric Drain Rune', icon: '🟣', desc: '25% Damage Dealt as HP Life Leech', color: '#a855f7' }
-      };
-
-      let socketsHtml = '';
-      if (maxSockets === 0) {
-        socketsHtml = '<div class="ench-warn" style="font-size:12px; padding: 10px; background: #1e293b; border-radius: 4px;">This weapon has 0 sockets. Use an Ancient Socket Expander below to drill sockets into it!</div>';
-      } else {
-        for (let i = 0; i < usableSockets; i++) {
-          const rId = sockets[i];
-          if (rId && RUNE_INFO[rId]) {
-            const r = RUNE_INFO[rId];
-            socketsHtml += `
-              <div class="socket-card filled">
-                <div class="socket-card-left">
-                  <div class="socket-icon">${r.icon}</div>
-                  <div>
-                    <div class="socket-name" style="color: ${r.color};">Socket ${i + 1}: ${escapeHtml(r.name)}</div>
-                    <div class="socket-desc">${escapeHtml(r.desc)}</div>
-                  </div>
-                </div>
-                <div class="socket-actions">
-                  <button class="socket-btn-unsocket" data-slot="${i}">Extract Rune</button>
-                </div>
-              </div>`;
-          } else {
-            const runeOptions = runesInBag.map(r => `<option value="${r.index}">${escapeHtml(r.item.name)} (x${r.item.count || 1})</option>`).join('');
-            socketsHtml += `
-              <div class="socket-card empty">
-                <div class="socket-card-left">
-                  <div class="socket-icon" style="color: #64748b;">⬡</div>
-                  <div>
-                    <div class="socket-name" style="color: #94a3b8;">Socket ${i + 1}: Empty Socket</div>
-                    <div class="socket-desc" style="color: #64748b;">Ready to be socketed with an Elemental Rune</div>
-                  </div>
-                </div>
-                <div class="socket-actions">
-                  ${runesInBag.length > 0 ? `
-                    <select class="socket-rune-select" id="socketSelect_${i}">
-                      ${runeOptions}
-                    </select>
-                    <button class="socket-btn-insert" data-slot="${i}">Socket</button>
-                  ` : '<span style="font-size:11px; color:#64748b;">No runes in bag</span>'}
-                </div>
-              </div>`;
-          }
-        }
-        for (let i = 0; i < brokenSockets; i++) {
-          socketsHtml += `
-            <div class="socket-card broken">
-              <div class="socket-card-left">
-                <div class="socket-icon" style="color: #ef4444;">✕</div>
-                <div>
-                  <div class="socket-name" style="color: #ef4444;">Broken Socket Slot</div>
-                  <div class="socket-desc" style="color: #fca5a5;">Damaged during titanium socket expansion. Cannot be socketed.</div>
-                </div>
-              </div>
-            </div>`;
-        }
-      }
-
-      const canExpand = maxSockets < 4 && expanderCount > 0;
-      const expandRates = [
-        { success: 70, fail: 30, breakRate: 0 },
-        { success: 50, fail: 30, breakRate: 20 },
-        { success: 35, fail: 35, breakRate: 30 },
-        { success: 20, fail: 35, breakRate: 45 }
-      ];
-      const curRate = expandRates[Math.min(3, maxSockets)] || expandRates[0];
-
-      detailEl.innerHTML = `
-        <div class="ench-detail-head">
-          ${PixelIcons.itemHtml(item)}
-          <div>
-            <div class="ench-detail-name" style="color:${({ rare: '#38bdf8', epic: '#c084fc', legendary: '#f59e0b' })[item.rarity] || '#e2e8f0'}">
-              ${escapeHtml(item.name)}
-            </div>
-            <div class="tip-type">${(item.rarity || 'common').toUpperCase()} WEAPON - Sockets: ${usableSockets} Active (${brokenSockets} Broken, Max 4)</div>
-          </div>
-        </div>
-
-        <div class="socket-view">
-          <div class="socket-slots-container">
-            ${socketsHtml}
-          </div>
-
-          <div class="socket-expander-box">
-            <div class="socket-expander-title">
-              🔮 Ancient Socket Expander <span style="font-size: 13px; color: ${expanderCount > 0 ? '#4ade80' : '#ef4444'};">(In Bag: x${expanderCount})</span>
-            </div>
-            <div class="socket-expander-stats">
-              <span>Drill Expansion: <b>${maxSockets} / 4 Sockets</b></span>
-              <span>Success: <b style="color: #4ade80;">${curRate.success}%</b> | Harmless Fail: <b style="color: #facc15;">${curRate.fail}%</b> | Break Risk: <b style="color: #ef4444;">${curRate.breakRate}%</b></span>
-            </div>
-            <div class="socket-expander-warn">
-              ⚠️ Warning: Expanding sockets past base slots carries a real risk to permanently break the slot!
-            </div>
-            <button class="socket-expander-btn" id="btnExpandSocket" ${canExpand ? '' : 'disabled'}>
-              ${maxSockets >= 4 ? 'MAXIMUM SOCKETS REACHED (4)' : expanderCount <= 0 ? 'ANCIENT EXPANDER NEEDED' : `DRILL +1 SOCKET (${curRate.success}% Success)`}
-            </button>
-          </div>
-        </div>
-        <div class="ench-result ${enchResult ? (enchResult.ok ? 'ok' : 'bad') : ''}">${enchResult ? escapeHtml(enchResult.text) : ''}</div>`;
-
-      detailEl.querySelectorAll('.socket-btn-insert').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const slotIdx = Number(btn.dataset.slot);
-          const selBox = document.getElementById(`socketSelect_${slotIdx}`);
-          if (!selBox) return;
-          const runeIndex = Number(selBox.value);
-          socket.emit('socket_rune', {
-            target: sel.target,
-            slot: sel.slot,
-            itemIndex: sel.itemIndex,
-            socketSlotIndex: slotIdx,
-            runeIndex
-          });
-        });
-      });
-
-      detailEl.querySelectorAll('.socket-btn-unsocket').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const slotIdx = Number(btn.dataset.slot);
-          socket.emit('unsocket_rune', {
-            target: sel.target,
-            slot: sel.slot,
-            itemIndex: sel.itemIndex,
-            socketSlotIndex: slotIdx
-          });
-        });
-      });
-
-      const expandBtn = document.getElementById('btnExpandSocket');
-      if (expandBtn) {
-        expandBtn.addEventListener('click', () => {
-          if (!confirm(`Are you sure you want to attempt drilling +1 socket into ${item.name}?\nSuccess rate: ${curRate.success}%\nBreak risk: ${curRate.breakRate}%`)) {
-            return;
-          }
-          socket.emit('expand_socket', {
-            target: sel.target,
-            slot: sel.slot,
-            itemIndex: sel.itemIndex,
-            expanderIndex: expanderItem ? (localPlayer.inventory.items || []).indexOf(expanderItem) : -1
-          });
-        });
-      }
-      return;
-    }
-
+    // ---------------- Card exchange: every card of the class, by tier
     if (enchTab === 'exchange') {
-      const cards = (spCatalog && spCatalog.cards[localPlayer.characterClass]) || [];
+      const cards = ((spCatalog && spCatalog.cards[localPlayer.characterClass]) || []).slice().sort((a, b) => a.tier - b.tier || a.jobReq - b.jobReq);
       if (!enchSelected || !cards.some(c => c.id === enchSelected)) enchSelected = cards[0] && cards[0].id;
+      let tier = null;
       cards.forEach(card => {
-        const row = document.createElement('div');
-        row.className = `ench-row rarity-${card.rarity} ${card.id === enchSelected ? 'selected' : ''}`;
-        row.innerHTML = `${PixelIcons.html('card')}<span class="ench-row-name" style="color:${card.color}">${escapeHtml(card.name)}<small>Tier ${card.tier} - Job ${card.jobReq}</small></span>`;
-        row.addEventListener('click', () => { enchSelected = card.id; enchResult = null; renderEnchanter(); });
-        listEl.appendChild(row);
+        if (card.tier !== tier) { tier = card.tier; fgGroup(listEl, `Tier ${tier}`); }
+        const owned = ownedCardLevel(card.id);
+        fgRow(listEl, {
+          iconHtml: PixelIcons.html('card'), name: card.name, color: card.color,
+          sub: `Job ${card.jobReq} · ${ELEMENT_NAMES[card.element] || card.element}`,
+          badge: owned !== undefined ? `<span class="fg-tag is-owned">+${owned}</span>` : card.exchange ? '' : '<span class="fg-tag">Drop</span>',
+          selected: card.id === enchSelected, onClick: () => pick(card.id)
+        });
       });
       const card = cards.find(c => c.id === enchSelected);
-      if (!card) { detailEl.innerHTML = '<div class="ench-empty">No cards for this class.</div>'; return; }
+      if (!card) { listEl.innerHTML = '<div class="fg-empty">No cards for this class.</div>'; return; }
+      const owned = ownedCardLevel(card.id);
+      const names = { slot1: 'Q', slot2: 'E', slot3: 'R', dash: 'Shift' };
+      const skills = Object.entries(card.skills).map(([slot, id]) => {
+        const sk = findSkillDef(id);
+        return sk ? `<div class="fg-skill" title="${escapeHtml(sk.name)}: ${escapeHtml(sk.desc)}"><span class="fg-key">${names[slot]}</span>${escapeHtml(sk.name)}</div>` : '';
+      }).join('');
+      const unlocks = Object.entries(card.unlocks || {}).map(([id, need]) => {
+        const sk = findSkillDef(id);
+        if (!sk) return '';
+        const open = owned !== undefined && owned >= need;
+        return `<div class="fg-skill ${open ? 'is-open' : 'is-locked'}" title="${escapeHtml(sk.name)}: ${escapeHtml(sk.desc)}"><span class="fg-key">+${need}</span>${escapeHtml(sk.name)}</div>`;
+      }).join('');
+      const special = [
+        card.signature ? `<div class="fg-special" style="--sc:${card.color}"><span class="fg-special-tag">Signature [${keyLabel(keyBinds.ult)}]</span><b>${escapeHtml(card.signature.name)}</b><p>${escapeHtml(card.signature.desc)}</p></div>` : '',
+        card.passive ? `<div class="fg-special"><span class="fg-special-tag">Passive</span><b>${escapeHtml(card.passive.name)}</b><p>${escapeHtml(card.passive.desc || '')}</p></div>` : ''
+      ].join('');
+      const drops = Object.entries(card.drop.chances).map(([d, c]) => `${d} ${(c * 100).toFixed(c < 0.01 ? 2 : 1)}%`).join(' · ');
+      const stats = cardStatValues(card, 0).map(s => `<span class="fg-stat"><small>${s.label}</small><b>${s.text}</b></span>`).join('');
       const ex = card.exchange;
       const canTrade = ex && fragmentCount() >= ex.fragments && localPlayer.gold >= ex.gold;
-      detailEl.innerHTML = `
-        <div class="ench-detail-head">${PixelIcons.html('card')}<div><div class="ench-detail-name" style="color:${card.color}">${escapeHtml(card.name)}</div>
-          <div class="tip-type">${card.rarity.toUpperCase()} - Tier ${card.tier} - ${ELEMENT_NAMES[card.element]} - requires Job Lv. ${card.jobReq}</div></div></div>
-        <div class="tip-flavour">${escapeHtml(card.desc)}</div>
-        <div>${cardStatLines(card, 0)}</div>
-        ${cardSkillList(card)}
-        ${cardObtainText(card)}
-        ${ex ? `<div class="ench-cost"><span class="${fragmentCount() < ex.fragments ? 'short' : ''}">${ex.fragments} Fragments</span><span class="${localPlayer.gold < ex.gold ? 'short' : ''}">${ex.gold.toLocaleString()} Gold</span></div>
-          <button class="ench-btn" id="enchAction" ${canTrade ? '' : 'disabled'}>TRADE FOR CARD</button>` : ''}
-        <div class="ench-result ${enchResult ? (enchResult.ok ? 'ok' : 'bad') : ''}">${enchResult ? escapeHtml(enchResult.text) : ''}</div>`;
+      fgDetail(detailEl, `
+        ${fgHead(PixelIcons.html('card'), card.name, card.color, `${card.rarity.toUpperCase()} · TIER ${card.tier} · ${(ELEMENT_NAMES[card.element] || '').toUpperCase()} · JOB ${card.jobReq}${owned !== undefined ? ` · <span class="fg-ok">OWNED +${owned}</span>` : ''}`)}
+        <p class="fg-desc">${escapeHtml(card.desc)}</p>
+        <div class="fg-section"><div class="fg-section-title">Base stats</div><div class="fg-stats">${stats}</div></div>
+        <div class="fg-section"><div class="fg-section-title">Skills</div><div class="fg-skills">${skills}</div></div>
+        ${special ? `<div class="fg-section">${special}</div>` : ''}
+        ${unlocks ? `<div class="fg-section"><div class="fg-section-title">Unlocks with card level</div><div class="fg-skills">${unlocks}</div></div>` : ''}
+        <div class="fg-section"><div class="fg-section-title">How to get</div><div class="fg-note">Dungeon boss drop from Floor ${card.drop.minFloor}+ (${drops} per boss kill)${ex ? ', or trade for it here.' : '. Cannot be traded.'}</div></div>`,
+      ex ? `${fgCosts([{ icon: 'fragment', need: ex.fragments, have: fragmentCount(), label: 'Fragments' }, { icon: 'coin', need: ex.gold, have: localPlayer.gold || 0, label: 'Gold' }])}
+          <button class="fg-btn" id="enchAction" ${canTrade ? '' : 'disabled'}>Trade for card</button>${fgResult()}`
+        : `<button class="fg-btn" disabled>Boss drop only</button>${fgResult()}`);
       const btn = document.getElementById('enchAction');
-      if (btn) btn.addEventListener('click', () => socket.emit('sp_card_exchange', { cardId: card.id }));
+      if (btn) btn.addEventListener('click', () => {
+        if (!forgeStart(PixelIcons.html('card'), card.color)) return;
+        pendingTradeName = card.name;
+        socket.emit('sp_card_exchange', { cardId: card.id });
+      });
       return;
     }
 
+    // ---------------- Gear +, SP card + and Sockets: the hero's items, worn first
     const entries = enchEntries();
     if (!entries.some(e => e.key === enchSelected)) enchSelected = entries[0] ? entries[0].key : null;
     if (!entries.length) {
-      listEl.innerHTML = `<div class="ench-empty">${enchTab === 'gear' ? 'No equipment to enhance.' : 'No SP cards yet. Find them on dungeon bosses or trade fragments in Card Exchange.'}</div>`;
-      detailEl.innerHTML = '';
+      listEl.innerHTML = `<div class="fg-empty">${enchTab === 'card' ? 'No SP cards yet. Bosses drop them, or trade fragments in Card Exchange.' : 'No weapons or armor to work on.'}</div>`;
       return;
     }
+    let lastGroup = null;
     entries.forEach(e => {
-      const row = document.createElement('div');
-      row.className = `ench-row rarity-${e.item.rarity || 'common'} ${e.key === enchSelected ? 'selected' : ''}`;
-      row.innerHTML = `${PixelIcons.itemHtml(e.item)}<span class="ench-row-name">${escapeHtml(e.item.name)}<small>${e.equipped ? 'Equipped' : 'In bag'}</small></span><span class="ench-row-lvl">+${e.item.upgradeLevel || 0}</span>`;
-      GameTooltip.item(row, e.item);
-      row.addEventListener('click', () => { enchSelected = e.key; enchResult = null; renderEnchanter(); });
-      listEl.appendChild(row);
+      const group = e.equipped ? 'Equipped' : 'In bag';
+      if (group !== lastGroup) { lastGroup = group; fgGroup(listEl, group); }
+      let badge, iconHtml = PixelIcons.itemHtml(e.item), color = fgColor(e.item), name = e.item.name;
+      if (enchTab === 'socket') {
+        const s = fgSockets(e.item);
+        let pips = '';
+        for (let i = 0; i < s.usable; i++) pips += s.list[i] ? `<i class="is-full" style="--pc:${fgRuneInfo(s.list[i]).color}"></i>` : '<i></i>';
+        for (let i = 0; i < s.broken; i++) pips += '<i class="is-broken"></i>';
+        badge = pips ? `<span class="fg-pips">${pips}</span>` : '<span class="fg-tag">0 sockets</span>';
+      } else if (enchTab === 'card') {
+        const def = spCardDef(e.item.cardId);
+        if (def) { iconHtml = PixelIcons.html('card'); color = def.color; name = def.name; }
+        badge = `<span class="fg-lvl">+${e.item.upgradeLevel || 0}</span>`;
+      } else {
+        badge = `<span class="fg-lvl">+${e.item.upgradeLevel || 0}</span>`;
+      }
+      fgRow(listEl, { iconHtml, name, color, sub: escapeHtml(fgItemType(e.item).toLowerCase()), badge, selected: e.key === enchSelected, onClick: () => pick(e.key), item: e.item });
     });
-
     const sel = entries.find(e => e.key === enchSelected);
     const item = sel.item;
-    const resultHtml = `<div class="ench-result ${enchResult ? (enchResult.ok ? 'ok' : 'bad') : ''}">${enchResult ? escapeHtml(enchResult.text) : ''}</div>`;
+
+    // ---------------- Gear +
     if (enchTab === 'gear') {
       const info = gearEnhanceInfo(item);
       const maxed = info.lvl >= info.max;
-      const short = localPlayer.gold < info.cost;
-      detailEl.innerHTML = `
-        <div class="ench-detail-head">${PixelIcons.itemHtml(item)}<div><div class="ench-detail-name" style="color:${({ rare: '#38bdf8', epic: '#c084fc', legendary: '#f59e0b' })[item.rarity] || '#e2e8f0'}">${escapeHtml(item.name)}</div><div class="tip-type">${(item.rarity || 'common').toUpperCase()} ${(item.slot || '').toUpperCase()}</div></div></div>
-        <div class="ench-levels">+${info.lvl} ${maxed ? '<span class="arrow">MAX</span>' : `<span class="arrow">&gt;</span> <span class="next">+${info.lvl + 1}</span>`}</div>
-        ${maxed ? '' : gearCompareHtml(gearStatsAt(item, info.lvl), gearStatsAt(item, info.lvl + 1), info.lvl, info.lvl + 1, 'On success')}
-        ${!maxed && info.lvl >= info.safe ? `<div class="ench-cmp-fail">On failure: drops to +${info.lvl - 1}</div>` : ''}
-        ${maxed ? '' : chanceBar(info.chance)}
-        ${maxed ? '' : `<div class="ench-cost"><span class="${short ? 'short' : ''}">${info.cost.toLocaleString()} Gold</span></div>`}
-        <div class="ench-warn">Each level adds ~5% of the item's base stats plus a slot bonus.${info.lvl >= info.safe ? ` Failing at +${info.safe} or higher drops the item one level.` : ` Safe until +${info.safe}: failures only cost gold.`}</div>
-        <button class="ench-btn" id="enchAction" ${maxed || short ? 'disabled' : ''}>ENHANCE</button>
-        ${resultHtml}
-        ${enchResult && enchResult.compare ? enchResult.compare : ''}`;
+      const risky = info.lvl >= info.safe;
+      fgDetail(detailEl, `
+        ${fgHead(PixelIcons.itemHtml(item), item.name, fgColor(item), fgItemType(item))}
+        ${fgLevels(info.lvl, info.max)}
+        ${maxed ? '' : gearCompareHtml(gearStatsAt(item, info.lvl), gearStatsAt(item, info.lvl + 1), info.lvl, info.lvl + 1, 'Current stats → after success')}
+        ${maxed ? '<div class="fg-note">This item is fully enhanced.</div>' : fgOdds([
+          { v: info.chance, label: 'success', cls: 'is-ok' },
+          { v: 1 - info.chance, label: risky ? `fail · drops to +${info.lvl - 1}` : 'fail · only the gold is lost', cls: risky ? 'is-bad' : 'is-warn' }
+        ], risky ? `Risky zone: from +${info.safe} a failure costs a level.` : `Safe until +${info.safe}.`, risky ? 'is-bad' : 'is-ok')}`,
+      maxed ? `<button class="fg-btn" disabled>Max level</button>${fgResult()}`
+        : `${fgCosts([{ icon: 'coin', need: info.cost, have: localPlayer.gold || 0, label: 'Gold' }])}
+          <button class="fg-btn" id="enchAction" ${localPlayer.gold < info.cost ? 'disabled' : ''}>Enhance to +${info.lvl + 1}</button>${fgResult()}`);
       const btn = document.getElementById('enchAction');
       if (btn) btn.addEventListener('click', () => {
-        pendingGearEnhance = { key: sel.key, lvl: info.lvl, stats: gearStatsAt(item, info.lvl) };
+        if (!forgeStart(PixelIcons.itemHtml(item), fgColor(item))) return;
+        pendingGearEnhance = { key: sel.key, lvl: info.lvl };
         socket.emit('enhance_item', { target: sel.target, slot: sel.slot, itemIndex: sel.itemIndex });
       });
-    } else {
+      return;
+    }
+
+    // ---------------- SP card +
+    if (enchTab === 'card') {
       const info = cardEnhanceInfo(item);
       const card = info.card;
       const maxed = info.lvl >= info.max;
-      const shortGold = localPlayer.gold < info.gold, shortFrag = fragmentCount() < info.fragments;
-      detailEl.innerHTML = `
-        <div class="ench-detail-head">${PixelIcons.html('card')}<div><div class="ench-detail-name" style="color:${card.color}">${escapeHtml(card.name)}</div><div class="tip-type">Tier ${card.tier} - ${ELEMENT_NAMES[card.element]} - Job ${card.jobReq}</div></div></div>
-        <div class="ench-levels">+${info.lvl} ${maxed ? '<span class="arrow">MAX</span>' : `<span class="arrow">&gt;</span> <span class="next">+${info.lvl + 1}</span>`}</div>
-        <div>${cardStatLines(card, maxed ? info.lvl : info.lvl + 1)}</div>
-        ${maxed ? '' : chanceBar(info.chance)}
-        ${maxed ? '' : `<div class="ench-cost"><span class="${shortGold ? 'short' : ''}">${info.gold.toLocaleString()} Gold</span><span class="${shortFrag ? 'short' : ''}">${info.fragments} Spirit Fragments</span></div>`}
-        <div class="ench-warn">+0.8% card stats and +0.4% card skill power per level; the aura grows at +40, +70 and +100.${info.lvl >= info.safe ? ` Failing at +${info.safe} or higher drops the card one level.` : ''}</div>
-        <button class="ench-btn" id="enchAction" ${maxed || shortGold || shortFrag ? 'disabled' : ''}>EMPOWER CARD</button>
-        ${resultHtml}`;
+      const risky = info.lvl >= info.safe;
+      const now = cardStatValues(card, info.lvl), next = cardStatValues(card, Math.min(info.max, info.lvl + 1));
+      const rows = now.map((s, i) => {
+        const d = next[i].raw - s.raw;
+        const delta = s.st === 'bonusAttackSpeed' ? `+${(d * 100).toFixed(1)}%` : s.st === 'bonusSpeed' ? `+${d.toFixed(2)}` : s.st === 'critChance' ? `+${d.toFixed(1)}%` : `+${Math.round(next[i].raw) - Math.round(s.raw)}`;
+        return { label: s.label, from: s.text, to: next[i].text, delta: d > 0 ? delta : '', cls: d > 0 ? 'up' : '' };
+      });
+      const enough = (localPlayer.gold || 0) >= info.gold && fragmentCount() >= info.fragments;
+      fgDetail(detailEl, `
+        ${fgHead(PixelIcons.html('card'), card.name, card.color, `TIER ${card.tier} · ${(ELEMENT_NAMES[card.element] || '').toUpperCase()} · JOB ${card.jobReq}`)}
+        ${fgLevels(info.lvl, info.max)}
+        ${maxed ? fgTable(now.map(s => ({ label: s.label, from: s.text })), ['Stat', `+${info.lvl}`]) : fgTable(rows, ['Stat', `+${info.lvl}`, `+${info.lvl + 1}`], 'On success')}
+        ${maxed ? '<div class="fg-note">This card is fully empowered.</div>' : fgOdds([
+          { v: info.chance, label: 'success', cls: 'is-ok' },
+          { v: 1 - info.chance, label: risky ? `fail · drops to +${info.lvl - 1}` : 'fail · only the cost is lost', cls: risky ? 'is-bad' : 'is-warn' }
+        ], risky ? `Risky zone: from +${info.safe} a failure costs a level.` : `Safe until +${info.safe}.`, risky ? 'is-bad' : 'is-ok')}
+        <div class="fg-note">Each level: +0.8% card stats and +0.4% skill power. The aura grows at +40, +70 and +100.</div>`,
+      maxed ? `<button class="fg-btn" disabled>Max level</button>${fgResult()}`
+        : `${fgCosts([{ icon: 'coin', need: info.gold, have: localPlayer.gold || 0, label: 'Gold' }, { icon: 'fragment', need: info.fragments, have: fragmentCount(), label: 'Fragments' }])}
+          <button class="fg-btn" id="enchAction" ${enough ? '' : 'disabled'}>Empower to +${info.lvl + 1}</button>${fgResult()}`);
       const btn = document.getElementById('enchAction');
-      if (btn) btn.addEventListener('click', () => socket.emit('sp_card_enhance', { target: sel.target, itemIndex: sel.itemIndex }));
+      if (btn) btn.addEventListener('click', () => {
+        if (!forgeStart(PixelIcons.html('card'), card.color)) return;
+        pendingCardLvl = info.lvl;
+        socket.emit('sp_card_enhance', { target: sel.target, itemIndex: sel.itemIndex });
+      });
+      return;
     }
+
+    // ---------------- Sockets: runes into gear, and drilling new sockets
+    const s = fgSockets(item);
+    const kind = item.slot === 'weapon' ? 'weapon' : 'armor';
+    const LIMIT = (window.SocketMax && window.SocketMax[kind]) || (kind === 'weapon' ? 4 : 2);
+    const bagItems = localPlayer.inventory.items || [];
+    const runesInBag = [];
+    bagItems.forEach((it, idx) => { if (it && it.type === 'rune' && runeSocketFor(it) === kind) runesInBag.push({ item: it, index: idx }); });
+    const expander = bagItems.find(it => it && it.id === 'socket_expander');
+    const expanderCount = expander ? (expander.count || 1) : 0;
+    const firstEmpty = (() => { for (let i = 0; i < s.usable; i++) if (!s.list[i]) return i; return -1; })();
+    const RATES = [{ success: 0.7, fail: 0.3, brk: 0 }, { success: 0.5, fail: 0.3, brk: 0.2 }, { success: 0.35, fail: 0.35, brk: 0.3 }, { success: 0.2, fail: 0.35, brk: 0.45 }];
+    const rate = RATES[Math.min(3, s.max)] || RATES[0];
+    const atLimit = s.max >= LIMIT;
+
+    let tiles = '';
+    for (let i = 0; i < s.usable; i++) {
+      const rId = s.list[i];
+      if (rId) {
+        const r = fgRuneInfo(rId);
+        tiles += `<div class="fg-socket is-full" style="--pc:${r.color}"><span class="fg-socket-gem">${PixelIcons.html(r.icon)}</span>
+          <div class="fg-socket-text"><b style="color:${r.color}">${escapeHtml(r.name)}</b><small>${escapeHtml(r.effect)}</small></div>
+          <button class="fg-mini" data-unsocket="${i}">Extract</button></div>`;
+      } else {
+        tiles += `<div class="fg-socket"><span class="fg-socket-gem"></span><div class="fg-socket-text"><b>Empty socket</b><small>${kind === 'weapon' ? 'Takes an elemental rune' : 'Takes a defensive rune'}</small></div></div>`;
+      }
+    }
+    for (let i = 0; i < s.broken; i++) {
+      tiles += '<div class="fg-socket is-broken"><span class="fg-socket-gem"></span><div class="fg-socket-text"><b>Broken socket</b><small>Lost to a failed drill</small></div></div>';
+    }
+    if (!tiles) tiles = '<div class="fg-note">No sockets yet. Drill one with an Ancient Socket Expander.</div>';
+
+    const runeCards = runesInBag.map(r => {
+      const info = fgRuneInfo(r.item.id);
+      return `<div class="fg-rune" style="--pc:${info.color}"><span class="fg-socket-gem">${PixelIcons.html(info.icon)}</span>
+        <div class="fg-socket-text"><b style="color:${info.color}">${escapeHtml(info.name)} <i>x${r.item.count || 1}</i></b><small>${escapeHtml(info.effect)}</small></div>
+        <button class="fg-mini" data-insert="${r.index}" ${firstEmpty < 0 ? 'disabled' : ''}>Insert</button></div>`;
+    }).join('');
+
+    const drillLabel = atLimit ? `Max sockets (${LIMIT})` : expanderCount <= 0 ? 'Needs an Ancient Socket Expander'
+      : fgDrillArmed ? `Confirm drill (${fgPct(rate.brk)} break risk)` : `Drill socket ${s.max + 1} / ${LIMIT}`;
+    fgDetail(detailEl, `
+      ${fgHead(PixelIcons.itemHtml(item), item.name, fgColor(item), `${fgItemType(item)} · ${kind === 'weapon' ? 'ELEMENTAL' : 'DEFENSIVE'} RUNES`)}
+      <div class="fg-section"><div class="fg-section-title">Sockets <span>${s.list.filter(Boolean).length} / ${s.usable}${s.broken ? ` · ${s.broken} broken` : ''}</span></div><div class="fg-sockets">${tiles}</div></div>
+      <div class="fg-section"><div class="fg-section-title">Runes in your bag</div>${runeCards ? `<div class="fg-sockets">${runeCards}</div>${firstEmpty < 0 && s.usable ? '<div class="fg-note">Every socket is full: extract a rune first.</div>' : ''}` : `<div class="fg-note">No ${kind === 'weapon' ? 'elemental' : 'defensive'} runes in your bag.</div>`}</div>
+      ${atLimit ? '' : fgOdds([
+        { v: rate.success, label: 'new socket', cls: 'is-ok' },
+        { v: rate.fail, label: 'nothing happens', cls: 'is-warn' },
+        { v: rate.brk, label: 'a socket breaks', cls: 'is-bad' }
+      ], `Each drill uses 1 Ancient Socket Expander (you have ${expanderCount}).`)}`,
+    `<button class="fg-btn ${fgDrillArmed ? 'is-danger' : ''}" id="btnExpandSocket" ${!atLimit && expanderCount > 0 ? '' : 'disabled'}>${drillLabel}</button>${fgResult()}`);
+
+    detailEl.querySelectorAll('[data-insert]').forEach(btn => btn.addEventListener('click', () => {
+      if (firstEmpty < 0) return;
+      socket.emit('socket_rune', { target: sel.target, slot: sel.slot, itemIndex: sel.itemIndex, socketSlotIndex: firstEmpty, runeIndex: Number(btn.dataset.insert) });
+    }));
+    detailEl.querySelectorAll('[data-unsocket]').forEach(btn => btn.addEventListener('click', () => {
+      socket.emit('unsocket_rune', { target: sel.target, slot: sel.slot, itemIndex: sel.itemIndex, socketSlotIndex: Number(btn.dataset.unsocket) });
+    }));
+    const drill = document.getElementById('btnExpandSocket');
+    if (drill) drill.addEventListener('click', () => {
+      if (!fgDrillArmed && rate.brk > 0) { fgDrillArmed = true; renderEnchanter(); return; }
+      if (!forgeStart(PixelIcons.itemHtml(item), fgColor(item))) return;
+      fgDrillArmed = false;
+      socket.emit('expand_socket', { target: sel.target, slot: sel.slot, itemIndex: sel.itemIndex, expanderIndex: expander ? bagItems.indexOf(expander) : -1 });
+    });
   }
 
   document.querySelectorAll('#enchTabs .ench-tab').forEach(tab => {
-    tab.addEventListener('click', () => { enchTab = tab.dataset.tab; enchSelected = null; enchResult = null; renderEnchanter(); });
+    tab.addEventListener('click', () => { enchTab = tab.dataset.tab; enchSelected = null; enchResult = null; fgDrillArmed = false; renderEnchanter(); });
   });
   const btnCloseEnchanter = document.getElementById('btnCloseEnchanter');
   if (btnCloseEnchanter) btnCloseEnchanter.addEventListener('click', () => { enchanterModal.style.display = 'none'; });
@@ -5458,25 +5881,34 @@ document.addEventListener('DOMContentLoaded', () => {
     enchResult = data.ok
       ? { ok: data.success, text: data.success ? okText(data) : data.downgraded ? `Failed... dropped to +${data.level}` : 'Failed! The runes fizzle out.' }
       : { ok: false, text: data.message };
-    if (data.ok) (data.success ? window.soundEngine.playLevelUp() : window.soundEngine.playUpgradeFail());
+    if (data.ok && !forgeFx) (data.success ? window.soundEngine.playLevelUp() : window.soundEngine.playUpgradeFail());
     renderEnchanter();
   };
+  // What the upgrade effect shows for an enhance / empower answer
+  const forgeOutcome = (data, from, epic) => {
+    if (!data.ok) return null;
+    if (data.success) return { kind: 'success', title: epic ? 'Great Success!' : 'Success!', sub: `+${from} &rarr; <b>+${data.level}</b>`, epic };
+    if (data.downgraded) return { kind: 'down', title: 'Failed', sub: `+${from} &rarr; <s>+${data.level}</s>` };
+    return { kind: 'fail', title: 'Failed', sub: 'The runes fizzle out. Only the cost is lost.' };
+  };
   socket.on('enhance_result', (data) => {
-    // before → after for the attempt that just resolved (only when the level actually changed)
     const before = pendingGearEnhance;
     pendingGearEnhance = null;
-    let compare = '';
-    if (data.ok && before && data.item && data.level !== before.lvl) {
-      compare = gearCompareHtml(before.stats, gearStatsAt(data.item, data.level), before.lvl, data.level, data.success ? 'Before &rarr; After' : 'Lost on failure');
-    }
+    const from = before ? before.lvl : Math.max(0, (data.level || 0) - 1);
     showEnchResult(data, d => `Success! Now +${d.level}`);
-    if (enchResult && compare) { enchResult.compare = compare; renderEnchanter(); }
+    forgeEnd(forgeOutcome(data, from, data.success && data.level >= 7));
   });
-  socket.on('sp_enhance_result', (data) => showEnchResult(data, d => `Card empowered to +${d.level}!`));
+  socket.on('sp_enhance_result', (data) => {
+    const from = pendingCardLvl !== null ? pendingCardLvl : Math.max(0, (data.level || 0) - 1);
+    pendingCardLvl = null;
+    showEnchResult(data, d => `Card empowered to +${d.level}!`);
+    forgeEnd(forgeOutcome(data, from, data.success && data.level % 10 === 0));
+  });
   socket.on('sp_exchange_result', (data) => {
     enchResult = data.ok ? { ok: true, text: 'Card obtained! Check your bag.' } : { ok: false, text: data.message };
-    if (data.ok) window.soundEngine.playLevelUp();
+    if (data.ok && !forgeFx) window.soundEngine.playLevelUp();
     renderEnchanter();
+    forgeEnd(data.ok ? { kind: 'success', title: 'Card Obtained!', sub: escapeHtml(pendingTradeName), epic: true } : null);
   });
   socket.on('socket_result', (data) => {
     enchResult = data.ok
@@ -5498,10 +5930,16 @@ document.addEventListener('DOMContentLoaded', () => {
               : 'Expansion Failed! The drill shattered harmlessly.'
         }
       : { ok: false, text: data.message || 'Expansion failed!' };
-    if (data.success) window.soundEngine.playLevelUp();
-    else window.soundEngine.playUpgradeFail();
+    if (!forgeFx) {
+      if (data.success) window.soundEngine.playLevelUp();
+      else window.soundEngine.playUpgradeFail();
+    }
     renderEnchanter();
     renderInventoryGrid();
+    forgeEnd(!data.ok ? null
+      : data.success ? { kind: 'success', title: 'New Socket!', sub: `<b>${data.maxSockets}</b> sockets`, epic: data.maxSockets >= 3 }
+        : data.broken ? { kind: 'break', title: 'Socket Broke', sub: `<s>${data.brokenSockets} broken</s>` }
+          : { kind: 'fail', title: 'Failed', sub: 'The drill shattered harmlessly.' });
   });
 
   // Hook Quick Potions inside inventory modal
@@ -5538,12 +5976,172 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnOpenShop) btnOpenShop.addEventListener('click', openShopModal);
   btnCloseShop.addEventListener('click', () => shopModal.style.display = 'none');
 
+  // ---------------------------------------------------------------- Jerry the Attribute Smith
+  // Left: the hero's gear (worn first). Right: the picked item's attribute slots, each filled
+  // slot with a lock, and the three actions (open a slot, roll, reset values) pinned below.
+  const attrModal = document.getElementById('attrModal');
+  const ATTR_MATS = [
+    { id: 'attr_socketer', name: 'Socketer' },
+    { id: 'attr_roller', name: 'Roller' },
+    { id: 'attr_reseter', name: 'Reseter' }
+  ];
+  let attrSel = null;          // 'eq:<slot>' | 'inv:<index>'
+  let attrLocks = new Set();   // locked slot indexes of the picked item
+  let attrResult = null;       // { ok, text }
+  let attrFlash = null;        // { key, changed: [i], at } rows to light up after an action
+
+  function attrMatCount(id) {
+    const st = localPlayer && (localPlayer.inventory.items || []).find(i => i && i.id === id);
+    return st ? (st.count || 1) : 0;
+  }
+
+  function openAttrSmith() {
+    if (!attrModal) return;
+    attrResult = null;
+    renderAttrSmith();
+    attrModal.style.display = 'flex';
+  }
+
+  function attrEntries() {
+    const IA = window.ItemAttrs;
+    const eq = localPlayer.equipment || {};
+    const out = [];
+    for (const [, slot] of EQUIP_SLOTS) {
+      const it = eq[slot];
+      if (IA.isGear(it)) out.push({ key: `eq:${slot}`, item: it, target: 'equipped', slot, equipped: true });
+    }
+    (localPlayer.inventory.items || []).forEach((it, i) => {
+      if (IA.isGear(it)) out.push({ key: `inv:${i}`, item: it, target: 'inventory', itemIndex: i });
+    });
+    return out;
+  }
+
+  function renderAttrSmith() {
+    if (!attrModal || !localPlayer || !window.ItemAttrs) return;
+    const IA = window.ItemAttrs;
+    const listEl = document.getElementById('attrList');
+    const detailEl = document.getElementById('attrDetail');
+    document.getElementById('attrFoot').innerHTML = ATTR_MATS.map(m =>
+      `<span>${PixelIcons.html(m.id)} <b>${attrMatCount(m.id).toLocaleString()}</b> ${m.name}${attrMatCount(m.id) === 1 ? '' : 's'}</span>`).join('');
+    listEl.innerHTML = '';
+    detailEl.innerHTML = '';
+
+    const entries = attrEntries();
+    if (!entries.some(e => e.key === attrSel)) { attrSel = entries[0] ? entries[0].key : null; attrLocks = new Set(); }
+    if (!entries.length) {
+      listEl.innerHTML = '<div class="fg-empty">No weapons or armor to work on.</div>';
+      return;
+    }
+    const pick = (key) => { attrSel = key; attrLocks = new Set(); attrResult = null; attrFlash = null; renderAttrSmith(); };
+    let lastGroup = null;
+    for (const e of entries) {
+      const group = e.equipped ? 'Equipped' : 'In bag';
+      if (group !== lastGroup) { lastGroup = group; fgGroup(listEl, group); }
+      const cap = IA.cap(e.item), list = IA.slots(e.item);
+      let pips = '';
+      for (let i = 0; i < cap; i++) pips += i < list.length ? (list[i] ? '<i class="is-full" style="--pc:var(--lime)"></i>' : '<i></i>') : '<i class="is-closed"></i>';
+      fgRow(listEl, {
+        iconHtml: PixelIcons.itemHtml(e.item), name: e.item.name, color: fgColor(e.item),
+        sub: escapeHtml(fgItemType(e.item).toLowerCase()),
+        badge: cap ? `<span class="fg-pips">${pips}</span>` : '<span class="fg-tag">no slots</span>',
+        selected: e.key === attrSel, onClick: () => pick(e.key), item: e.item
+      });
+    }
+
+    const sel = entries.find(e => e.key === attrSel);
+    const item = sel.item;
+    const cap = IA.cap(item);
+    const list = IA.slots(item);
+    for (const i of [...attrLocks]) if (!list[i]) attrLocks.delete(i);
+    const filled = list.filter(Boolean).length;
+    const rarity = item.rarity || 'common';
+    const head = fgHead(PixelIcons.itemHtml(item), item.name, fgColor(item), `${rarity.toUpperCase()} ${(item.slot || '').toUpperCase()}${item.itemLevel ? ` · ITEM LV. ${item.itemLevel}` : ''}`);
+    const flash = attrFlash && attrFlash.key === attrSel && Date.now() - attrFlash.at < 1500 ? new Set(attrFlash.changed) : new Set();
+
+    let slotsHtml = '';
+    for (let i = 0; i < cap; i++) {
+      const a = list[i];
+      const isNew = flash.has(i) ? ' is-new' : '';
+      if (i >= list.length) {
+        slotsHtml += `<div class="at-slot is-closed"><span class="at-lock-gap"></span><span class="at-name">Closed slot</span><span class="at-hint">open with a Socketer</span></div>`;
+      } else if (!a) {
+        slotsHtml += `<div class="at-slot is-empty${isNew}"><span class="at-lock-gap"></span><span class="at-name">Empty slot</span><span class="at-hint">roll to fill</span></div>`;
+      } else {
+        const locked = attrLocks.has(i);
+        const d = IA.ATTRS[a.k] || {};
+        slotsHtml += `<div class="at-slot${locked ? ' is-locked' : ''}${isNew}">
+          <button class="at-lock" data-i="${i}" title="${locked ? 'Unlock: this attribute will change on the next roll' : 'Lock: keep this attribute when rolling'}">${PixelIcons.html('lock')}</button>
+          <span class="at-icon">${PixelIcons.html(d.icon || 'star')}</span>
+          <span class="at-name">${escapeHtml(IA.label(a))}</span>
+          <b class="at-val attr-${IA.tier(a)}">${IA.value(a)}</b></div>`;
+      }
+    }
+    const capNote = `Slots by rarity: <span style="color:${IA.RARITY_COLOR.uncommon}">uncommon 1</span> · <span style="color:${IA.RARITY_COLOR.rare}">rare 2</span> · <span style="color:${IA.RARITY_COLOR.epic}">epic 3</span> · <span style="color:${IA.RARITY_COLOR.legendary}">legendary 4</span> · <span style="color:${IA.RARITY_COLOR.divine}">divine 5</span>`;
+    const body = cap
+      ? `${head}
+        <div class="fg-section"><div class="fg-section-title">Attribute slots <span>${filled} filled · ${list.length}/${cap} open</span></div>
+          <div class="at-slots">${slotsHtml}</div>
+          <div class="fg-note">Lock an attribute to keep it. Each roll costs one Roller per locked attribute (at least one).</div></div>
+        <div class="fg-section"><div class="fg-note">${capNote}</div></div>`
+      : `${head}<div class="fg-section"><div class="fg-note is-bad">Common gear has no attribute slots.</div><div class="fg-note">${capNote}</div></div>`;
+
+    const rollCost = Math.max(1, attrLocks.size);
+    const unlockedFilled = list.filter((a, i) => a && !attrLocks.has(i)).length;
+    const acts = [
+      { action: 'socket', label: 'Open slot', mat: 'attr_socketer', need: 1,
+        ok: cap > 0 && list.length < cap, why: list.length >= cap ? 'all open' : '' },
+      { action: 'roll', label: 'Roll', mat: 'attr_roller', need: rollCost,
+        ok: list.length > 0 && attrLocks.size < list.length, why: !list.length ? 'no open slot' : attrLocks.size >= list.length ? 'all locked' : '' },
+      { action: 'reset', label: 'Reset values', mat: 'attr_reseter', need: 1,
+        ok: unlockedFilled > 0, why: !unlockedFilled ? 'nothing to reset' : '' }
+    ];
+    const action = cap ? `<div class="at-actions">${acts.map(a => {
+      const have = attrMatCount(a.mat);
+      const can = a.ok && have >= a.need;
+      return `<div class="at-act"><button class="fg-btn" data-act="${a.action}" ${can ? '' : 'disabled'}>${a.label}</button>
+        <span class="at-cost${have < a.need ? ' is-short' : ''}">${PixelIcons.html(a.mat)} <b>×${a.need}</b> <small>have ${have}</small>${a.why ? ` <em>${a.why}</em>` : ''}</span></div>`;
+    }).join('')}</div>${attrResult ? `<div class="fg-result ${attrResult.ok ? 'is-ok' : 'is-bad'}">${escapeHtml(attrResult.text)}</div>` : ''}`
+      : `<button class="fg-btn" disabled>No attribute slots</button>`;
+    fgDetail(detailEl, body, action);
+
+    detailEl.querySelectorAll('.at-lock').forEach(btn => btn.addEventListener('click', () => {
+      const i = Number(btn.dataset.i);
+      if (attrLocks.has(i)) attrLocks.delete(i); else attrLocks.add(i);
+      attrResult = null;
+      renderAttrSmith();
+    }));
+    detailEl.querySelectorAll('[data-act]').forEach(btn => btn.addEventListener('click', () => {
+      btn.disabled = true;
+      socket.emit('item_attributes', {
+        action: btn.dataset.act, target: sel.target, slot: sel.slot, itemIndex: sel.itemIndex, locks: [...attrLocks]
+      });
+    }));
+  }
+
+  socket.on('attr_result', (data) => {
+    if (!data) return;
+    attrResult = { ok: !!data.ok, text: data.message || (data.ok ? 'Done' : 'Failed') };
+    if (data.ok) {
+      // the bag may have shifted when a material stack ran out: follow the item
+      if (data.target === 'inventory' && Number.isInteger(data.itemIndex) && data.itemIndex >= 0) attrSel = `inv:${data.itemIndex}`;
+      attrFlash = { key: attrSel, changed: data.changed || [], at: Date.now() };
+      try { window.soundEngine[data.action === 'socket' ? 'playAnvil' : 'playUpgradeSuccess'](); } catch (_) {}
+    }
+    // a success re-renders on the player_updated that follows
+    if (!data.ok && attrModal && attrModal.style.display === 'flex') renderAttrSmith();
+  });
+  const btnCloseAttr = document.getElementById('btnCloseAttr');
+  if (btnCloseAttr) btnCloseAttr.addEventListener('click', () => { attrModal.style.display = 'none'; });
+  if (attrModal) attrModal.addEventListener('click', (e) => { if (e.target === attrModal) attrModal.style.display = 'none'; });
+
   // ================= HYPIXEL SKYBLOCK REFORGE ANVIL UI =================
   const SKYBLOCK_REFORGE_COSTS = {
     common: 50,
+    uncommon: 100,
     rare: 150,
     epic: 350,
-    legendary: 750
+    legendary: 750,
+    divine: 1500
   };
 
   function openReforgeModal() {
@@ -5647,12 +6245,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (rfItemName) {
       rfItemName.textContent = displayName;
-      const rarityColors = { common: '#fff', rare: '#38bdf8', epic: '#c084fc', legendary: '#f59e0b' };
+      const rarityColors = { common: '#fff', uncommon: '#4ade80', rare: '#38bdf8', epic: '#c084fc', legendary: '#f59e0b', divine: '#fff1a6' };
       rfItemName.style.color = rarityColors[rarity] || '#facc15';
     }
 
     if (sbLoreCard) {
-      const rarityBorders = { common: '#4b5563', rare: '#0284c7', epic: '#7c3aed', legendary: '#d97706' };
+      const rarityBorders = { common: '#4b5563', uncommon: '#16a34a', rare: '#0284c7', epic: '#7c3aed', legendary: '#d97706', divine: '#fde68a' };
       sbLoreCard.style.borderColor = rarityBorders[rarity] || '#7c3aed';
     }
 
@@ -5673,7 +6271,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const cost = SKYBLOCK_REFORGE_COSTS[rarity] || 150;
-    if (rfCostVal) rfCostVal.textContent = cost;
+    if (rfCostVal) rfCostVal.textContent = cost.toLocaleString();
 
     // Hypixel Skyblock Lore Card Stats Lines Rendering
     const rf = item.reforgeStats || {};
@@ -5837,8 +6435,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const hasEnoughGold = (localPlayer && localPlayer.gold !== undefined) ? localPlayer.gold >= cost : true;
       btnHammerItem.disabled = !hasEnoughGold;
       btnHammerItem.innerHTML = hasEnoughGold
-        ? `🔨 REFORGE ITEM (${cost} Gold)`
-        : `⚠️ NOT ENOUGH GOLD (${cost} Gold Required)`;
+        ? `🔨 REFORGE ITEM (${cost.toLocaleString()} Gold)`
+        : `⚠️ NOT ENOUGH GOLD (${cost.toLocaleString()} Gold Required)`;
     }
   }
 
@@ -5952,6 +6550,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function closeSkillTreeModal() {
+    if (passiveView) passiveView.hideTip();
     if (skillTreeModal) {
       skillTreeModal.style.display = 'none';
     }
@@ -5969,6 +6568,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (tabNavLoadout) {
     tabNavLoadout.addEventListener('click', () => {
       activeSkillsModalTab = 'loadout';
+      if (passiveView) passiveView.hideTip();
       tabNavLoadout.classList.add('active');
       if (tabNavTalents) tabNavTalents.classList.remove('active');
       if (tabContentLoadout) tabContentLoadout.style.display = 'block';
@@ -6001,6 +6601,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const SLOT_KEYS = { slot1: 'Q', slot2: 'E', slot3: 'R', dash: 'Shift' };
 
+  // ---- Active skills: the 4 hotbar slots on top, then the class's skills as an unlock path
+  // (one node per skill, in level order, linked by a rail that lights up as you level), and a
+  // details panel for the picked skill with "equip to Q / E / R / Shift" buttons. Click a node to
+  // inspect it, double-click (or drag it onto a slot) to equip it in the selected slot.
+  let selectedSkillId = null;
+
+  // Skills unlocked since the player last looked get a NEW tag until they are clicked
+  function seenSkillsKey(cls) { return 'slop_seen_skills_' + cls; }
+  function loadSeenSkills(cls, unlockedNow) {
+    try {
+      const raw = localStorage.getItem(seenSkillsKey(cls));
+      if (raw) return new Set(JSON.parse(raw));
+      const seeded = new Set(unlockedNow);           // first visit: nothing is "new"
+      localStorage.setItem(seenSkillsKey(cls), JSON.stringify([...seeded]));
+      return seeded;
+    } catch (_) { return new Set(unlockedNow); }
+  }
+  function markSkillSeen(cls, id) {
+    try {
+      const seen = new Set(JSON.parse(localStorage.getItem(seenSkillsKey(cls)) || '[]'));
+      seen.add(id);
+      localStorage.setItem(seenSkillsKey(cls), JSON.stringify([...seen]));
+    } catch (_) {}
+  }
+
   function renderCustomSkillLoadout() {
     if (!localPlayer || !loadoutSlotsRow || !skillsCatalogGrid) return;
 
@@ -6011,546 +6636,244 @@ document.addEventListener('DOMContentLoaded', () => {
       ? (spCard.arsenal || []).map(findSkillDef).filter(Boolean)
       : ((allSkillsCatalog && allSkillsCatalog[cls]) || []);
     const equipped = localPlayer.equippedSkills || {};
-    if (!equipped.runes) {
-      equipped.runes = { slot1: 'none', slot2: 'none', slot3: 'none', dash: 'none' };
-    }
 
     if (stClassName) {
-      stClassName.textContent = spCard ? `${spCard.name.toUpperCase()} SP SPELLBOOK` : `${cls.toUpperCase()} SPELLBOOK & LOADOUT`;
+      stClassName.textContent = spCard ? `${spCard.name.toUpperCase()} SP SPELLBOOK` : `${cls.toUpperCase()} SKILLS`;
     }
+    let sigInfo = document.getElementById('spSigInfo');
+    if (!sigInfo && loadoutSlotsRow.parentNode) {
+      sigInfo = document.createElement('div');
+      sigInfo.id = 'spSigInfo';
+      sigInfo.className = 'sp-skill-list sp-sig-info';
+      loadoutSlotsRow.parentNode.insertBefore(sigInfo, loadoutSlotsRow.nextSibling);
+    }
+    if (sigInfo) {
+      sigInfo.style.display = spCard ? '' : 'none';
+      sigInfo.innerHTML = spCard ? spCardExtrasHtml(spCard) : '';
+    }
+    // card level: the card's extra skills unlock at card +5 / +10 / ...
+    const spCardLvl = (localPlayer.equipment && localPlayer.equipment.sp && localPlayer.equipment.sp.upgradeLevel) || 0;
 
     const getSlotSkillId = (slotKey) => {
       const val = equipped[slotKey];
       if (typeof val === 'object' && val !== null) return val.skillId;
       return val || (slotKey === 'dash' ? (classSkills.find(s => s.isDash)?.id || 'blade_charge') : (classSkills[0]?.id || 'whirlwind'));
     };
-
-    const getSlotRuneId = (slotKey) => {
-      if (equipped.runes && equipped.runes[slotKey]) return equipped.runes[slotKey];
-      const val = equipped[slotKey];
-      if (typeof val === 'object' && val !== null && val.rune) return val.rune;
-      return 'none';
-    };
-
-    // 1. Render the 4 Hotbar Slot Cards as Interactive Drop Targets
-    loadoutSlotsRow.innerHTML = '';
-    const slotsConfig = [
-      { key: 'slot1', label: 'Primary Skill', keybind: 'Q' },
-      { key: 'slot2', label: 'Secondary Skill', keybind: 'E' },
-      { key: 'slot3', label: 'Ultimate / Heavy', keybind: 'R' },
-      { key: 'dash',  label: 'Mobility Dash', keybind: 'Shift' }
+    const SLOTS = [
+      { key: 'slot1', label: 'Primary' },
+      { key: 'slot2', label: 'Secondary' },
+      { key: 'slot3', label: 'Ultimate' },
+      { key: 'dash', label: 'Mobility' }
     ];
+    const slotOf = (id) => (SLOTS.find(sl => getSlotSkillId(sl.key) === id) || {}).key || null;
+    const level = localPlayer.level || 1;
+    const reqOf = (s) => spCard ? ((spCard.unlocks && spCard.unlocks[s.id]) || 0) : (s.reqLevel || 1);
+    const lockedOf = (s) => spCard ? reqOf(s) > spCardLvl : level < reqOf(s);
+    const reqText = (s) => spCard ? (reqOf(s) ? `Card +${reqOf(s)}` : 'Base') : `Lv ${reqOf(s)}`;
+    const fitsSlot = (s, slotKey) => !spCard || !!s.isDash === (slotKey === 'dash');
+    const skills = [...classSkills].sort((a, b) => reqOf(a) - reqOf(b));
+    if (!selectedSkillId || !skills.some(s => s.id === selectedSkillId)) selectedSkillId = getSlotSkillId(selectedLoadoutSlot);
 
-    slotsConfig.forEach(sConf => {
-      const isSelected = selectedLoadoutSlot === sConf.key;
-      const skillId = getSlotSkillId(sConf.key);
-      const skill = findSkillDef(skillId);
+    const unlocked = skills.filter(s => !lockedOf(s));
+    const seen = loadSeenSkills(spCard ? spCard.id : cls, unlocked.map(s => s.id));
+    const nextUp = skills.find(lockedOf) || null;
 
-      const card = document.createElement('div');
-      card.className = `hotbar-slot-card ${isSelected ? 'selected active-slot' : ''}`;
-      card.setAttribute('data-slot-key', sConf.key);
-      card.innerHTML = `
-        <div class="slot-card-badge">${sConf.keybind}</div>
-        <div class="slot-card-icon">${SkillIcons.svg(skill ? skill.id : 'empty')}</div>
-      `;
-
-      if (window.GameTooltip && skill) {
-        GameTooltip.html(card, () => `
-          <div class="tip-head">
-            <div class="tip-icon-wrap">${SkillIcons.svg(skill.id)}</div>
-            <div>
-              <div class="tip-name" style="color: #facc15;">[${sConf.keybind}] ${escapeHtml(skill.name)}</div>
-              <div class="tip-type">${sConf.label}</div>
-            </div>
-          </div>
-          <div class="tip-line"><span>Cooldown</span><b>${skill.cooldown}s</b></div>
-          <div class="tip-line"><span>Mana Cost</span><b>${manaCost(skill.mpCost)} MP</b></div>
-          ${skill.damageMultiplier ? `<div class="tip-line"><span>Damage</span><b>${Math.round(skill.damageMultiplier * 100)}%</b></div>` : ''}
-          <div class="tip-flavour">${escapeHtml(skill.desc || '')}</div>
-          <div class="tip-line" style="color: #38bdf8; font-size: 11px;"><span>Hotbar Slot</span><i>Click to select slot for skill assignment</i></div>
-        `);
-      } else if (window.GameTooltip) {
-        GameTooltip.html(card, `<div class="tip-text"><b>[${sConf.keybind}] ${sConf.label}</b><br>Empty slot - click any skill below or drag here to assign.</div>`);
+    const equipTo = (slotKey, skillId) => {
+      const sk = findSkillDef(skillId);
+      if (!sk || lockedOf(sk)) return;
+      if (!fitsSlot(sk, slotKey)) {
+        if (renderer) renderer.addFloatingText(localPlayer.x, localPlayer.y - 0.7, sk.isDash ? 'Movement skills go in [Shift]' : 'Only movement skills fit [Shift]', '#ef4444', 15);
+        return;
       }
+      if (!localPlayer.equippedSkills) localPlayer.equippedSkills = {};
+      localPlayer.equippedSkills[slotKey] = skillId;
+      socket.emit('customize_skill_slot', { slot: slotKey, skillId });
+      window.soundEngine.playBladeCharge();
+      selectedLoadoutSlot = slotKey;
+      selectedSkillId = skillId;
+      renderCustomSkillLoadout();
+      setupClassSkillHUD(localPlayer.characterClass);
+    };
+    const lockIcon = () => (window.PixelIcons ? PixelIcons.html('lock', 'sk-lock') : '');
 
-      // Click to select slot
-      card.addEventListener('click', () => {
-        selectedLoadoutSlot = sConf.key;
+    // 1. Hotbar: four slots (also drop targets for dragged skills)
+    loadoutSlotsRow.className = 'sk-hotbar';
+    loadoutSlotsRow.innerHTML = '';
+    SLOTS.forEach(sl => {
+      const skill = findSkillDef(getSlotSkillId(sl.key));
+      const el = document.createElement('div');
+      el.className = 'sk-slot' + (selectedLoadoutSlot === sl.key ? ' is-selected' : '');
+      el.setAttribute('role', 'button');
+      el.tabIndex = 0;
+      el.innerHTML = `<span class="sk-key">${SLOT_KEYS[sl.key]}</span>
+        <span class="sk-slot-icon">${SkillIcons.svg(skill ? skill.id : 'empty')}</span>
+        <span class="sk-slot-text"><span class="sk-slot-name">${escapeHtml(skill ? skill.name : 'Empty')}</span><span class="sk-slot-label">${sl.label}</span></span>`;
+      const pick = () => {
+        selectedLoadoutSlot = sl.key;
+        if (skill) selectedSkillId = skill.id;
         renderCustomSkillLoadout();
         window.soundEngine.playTargetLock();
-      });
-
-      // HTML5 Drag and Drop Target Listeners
-      card.addEventListener('dragover', (e) => {
+      };
+      el.addEventListener('click', pick);
+      el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } });
+      el.addEventListener('dragover', (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; el.classList.add('drag-over'); });
+      el.addEventListener('dragleave', (e) => { if (!el.contains(e.relatedTarget)) el.classList.remove('drag-over'); });
+      el.addEventListener('drop', (e) => {
         e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
-        card.classList.add('drag-over');
+        el.classList.remove('drag-over');
+        const id = e.dataTransfer.getData('text/plain');
+        if (id) equipTo(sl.key, id);
       });
-
-      card.addEventListener('dragleave', (e) => {
-        if (!card.contains(e.relatedTarget)) {
-          card.classList.remove('drag-over');
-        }
-      });
-
-      card.addEventListener('drop', (e) => {
-        e.preventDefault();
-        card.classList.remove('drag-over');
-        document.querySelectorAll('.hotbar-slot-card').forEach(sc => {
-          sc.classList.remove('drop-target-active');
-          sc.classList.remove('drag-over');
-        });
-
-        const droppedSkillId = e.dataTransfer.getData('text/plain');
-        if (!droppedSkillId) return;
-        const dropped = findSkillDef(droppedSkillId);
-        if (spCard && dropped && !!dropped.isDash !== (sConf.key === 'dash')) {
-          if (renderer) renderer.addFloatingText(localPlayer.x, localPlayer.y - 0.7, dropped.isDash ? 'Movement skills go in [Shift]' : 'Only movement skills fit [Shift]', '#ef4444', 15);
-          return;
-        }
-
-        if (!localPlayer.equippedSkills) localPlayer.equippedSkills = {};
-        localPlayer.equippedSkills[sConf.key] = droppedSkillId;
-        socket.emit('customize_skill_slot', {
-          slot: sConf.key,
-          skillId: droppedSkillId
-        });
-        window.soundEngine.playBladeCharge();
-        selectedLoadoutSlot = sConf.key;
-        renderCustomSkillLoadout();
-        setupClassSkillHUD(localPlayer.characterClass);
-      });
-
-      loadoutSlotsRow.appendChild(card);
+      loadoutSlotsRow.appendChild(el);
     });
 
-    // 2. Render Rune Selector for the currently selected slot
-    if (runesSelectorRow) {
-      runesSelectorRow.innerHTML = '';
-      const curRune = getSlotRuneId(selectedLoadoutSlot);
-
-      const runesList = Object.entries(skillRunesCatalog).length > 0 
-        ? Object.entries(skillRunesCatalog) 
-        : [
-            ['none', { name: 'Standard Rune', icon: '⚪', desc: 'Default ability power without elemental modifiers.', color: '#94a3b8' }],
-            ['flame', { name: 'Infernal Flame', icon: '🔴', desc: '+25% Damage and ignites enemies with persistent Burn DoT.', color: '#ef4444' }],
-            ['frost', { name: 'Glacial Frost', icon: '🔵', desc: 'Adds 40% Chill Slow for 3.5s and 25% chance to Freeze solid.', color: '#38bdf8' }],
-            ['tempest', { name: 'Tempest Surge', icon: '⚡', desc: '-20% Cooldown reduction and +10% Electric Shock DMG.', color: '#eab308' }],
-            ['vampiric', { name: 'Vampiric Drain', icon: '🟣', desc: 'Restores 25% of all skill damage dealt as immediate HP life leech.', color: '#a855f7' }]
-          ];
-
-      runesList.forEach(([rKey, rDef]) => {
-        const isRuneActive = curRune === rKey;
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = `rune-pill-btn ${isRuneActive ? 'active' : ''}`;
-        if (isRuneActive) {
-          btn.style.borderColor = rDef.color || '#facc15';
-          btn.style.setProperty('--line', rDef.color || '#ffcd75');
-        }
-        btn.innerHTML = `<span class="rune-icon">${PixelIcons.html(({ none: 'dot', flame: 'fire', frost: 'snow', tempest: 'bolt', vampiric: 'heart' })[rKey] || 'dot')}</span> <span>${rDef.name}</span>`;
-        btn.title = `${rDef.name}: ${rDef.desc}`;
-
-        btn.addEventListener('click', () => {
-          if (!localPlayer.equippedSkills) localPlayer.equippedSkills = {};
-          if (!localPlayer.equippedSkills.runes) {
-            localPlayer.equippedSkills.runes = { slot1: 'none', slot2: 'none', slot3: 'none', dash: 'none' };
-          }
-          localPlayer.equippedSkills.runes[selectedLoadoutSlot] = rKey;
-          socket.emit('customize_skill_slot', {
-            slot: selectedLoadoutSlot,
-            rune: rKey
-          });
-          window.soundEngine.playUpgradeSuccess();
-          renderCustomSkillLoadout();
-          setupClassSkillHUD(localPlayer.characterClass);
-        });
-
-        runesSelectorRow.appendChild(btn);
-      });
-    }
-
-    // 3. Render Skills Catalog as Clean Slots (like inventory slot)
-    skillsCatalogGrid.innerHTML = '';
-
-    const guideRibbonEl = document.getElementById('loadoutGuideRibbon');
-    if (guideRibbonEl) {
-      guideRibbonEl.innerHTML = spCard
-        ? `<span><strong>${escapeHtml(spCard.name)}:</strong> click or drag skill into <strong>[Q], [E], [R]</strong>; dash into <strong>[Shift]</strong></span>`
-        : '<span>🖐️ <strong>Drag & Drop:</strong> Drag any unlocked skill slot into <strong>[Q], [E], [R], [Shift]</strong> or click to equip!</span>';
-    }
-
-    const sortedSkills = [...classSkills].sort((a, b) => (a.reqLevel || 1) - (b.reqLevel || 1));
-
-    sortedSkills.forEach(s => {
-      let equippedInSlot = null;
-      for (const sKey of ['slot1', 'slot2', 'slot3', 'dash']) {
-        if (getSlotSkillId(sKey) === s.id) {
-          equippedInSlot = sKey;
-          break;
-        }
-      }
-
-      const isEquippedHere = equippedInSlot === selectedLoadoutSlot;
-      const slotBindName = equippedInSlot === 'slot1' ? 'Q' : equippedInSlot === 'slot2' ? 'E' : equippedInSlot === 'slot3' ? 'R' : equippedInSlot === 'dash' ? 'Shift' : '';
-      const reqLvl = s.reqLevel || 1;
-      const isLocked = (localPlayer.level || 1) < reqLvl;
-
-      const card = document.createElement('div');
-      card.className = `catalog-skill-card ${isEquippedHere ? 'is-equipped-here' : ''} ${equippedInSlot ? 'is-equipped' : ''} ${isLocked ? 'is-locked' : 'draggable-skill'}`;
-
-      card.innerHTML = `
-        <div class="catalog-icon-only">${SkillIcons.svg(s.id)}</div>
-        ${equippedInSlot ? `<div class="skill-slot-badge">${slotBindName}</div>` : ''}
-        ${isLocked ? '<div class="skill-lock-badge">🔒</div>' : ''}
-      `;
-
-      if (window.GameTooltip) {
-        GameTooltip.html(card, () => `
-          <div class="tip-head">
-            <div class="tip-icon-wrap">${SkillIcons.svg(s.id)}</div>
-            <div>
-              <div class="tip-name" style="color: #facc15;">${escapeHtml(s.name)}</div>
-              <div class="tip-type">${s.category || 'Class Skill'} • ${isLocked ? `<span style="color:#ef4444;">Requires Lv. ${reqLvl}</span>` : `<span style="color:#4ade80;">Unlocked (Lv. ${reqLvl})</span>`}</div>
-            </div>
-          </div>
-          <div class="tip-line"><span>Cooldown</span><b>${s.cooldown}s</b></div>
-          <div class="tip-line"><span>Mana Cost</span><b>${manaCost(s.mpCost)} MP</b></div>
-          ${s.damageMultiplier ? `<div class="tip-line"><span>Damage</span><b>${Math.round(s.damageMultiplier * 100)}%</b></div>` : ''}
-          <div class="tip-flavour">${escapeHtml(s.desc || '')}</div>
-          <div class="tip-line" style="color: ${isLocked ? '#ef4444' : '#38bdf8'}; font-size: 11px;">
-            <span>${isLocked ? 'Locked' : 'Assign'}</span><i>${isLocked ? `Reach Level ${reqLvl} to unlock` : `Click to assign to [${SLOT_KEYS[selectedLoadoutSlot] || selectedLoadoutSlot.toUpperCase()}] or drag to hotbar`}</i>
-          </div>
-        `);
-      }
-
-      if (!isLocked) {
-        card.draggable = true;
-
-        card.addEventListener('click', () => {
-          if (!localPlayer.equippedSkills) localPlayer.equippedSkills = {};
-          localPlayer.equippedSkills[selectedLoadoutSlot] = s.id;
-          socket.emit('customize_skill_slot', {
-            slot: selectedLoadoutSlot,
-            skillId: s.id
-          });
-          window.soundEngine.playBladeCharge();
-          renderCustomSkillLoadout();
-          setupClassSkillHUD(localPlayer.characterClass);
-        });
-
-        card.addEventListener('dragstart', (e) => {
+    // 2. The unlock path
+    skillsCatalogGrid.className = 'sk-board';
+    const pct = skills.length ? Math.round((unlocked.length / skills.length) * 100) : 0;
+    const nextText = nextUp
+      ? (spCard ? `Next: <b>${escapeHtml(nextUp.name)}</b> at card +${reqOf(nextUp)}`
+        : `Next: <b>${escapeHtml(nextUp.name)}</b> at Lv ${reqOf(nextUp)} <i>(${reqOf(nextUp) - level} to go)</i>`)
+      : 'Every skill unlocked';
+    skillsCatalogGrid.innerHTML = `
+      <div class="sk-path-card">
+        <div class="sk-path-head"><b>Skill Path</b><span>${unlocked.length} / ${skills.length} unlocked</span><span class="sk-next">${nextText}</span></div>
+        <div class="sk-progress"><i style="width:${pct}%"></i></div>
+        <div class="sk-path"></div>
+        <div class="sk-hint">Click a skill to see it · double-click or drag it onto a slot to equip</div>
+      </div>
+      <div class="sk-detail"></div>`;
+    const pathEl = skillsCatalogGrid.querySelector('.sk-path');
+    skills.forEach((s) => {
+      const locked = lockedOf(s);
+      const inSlot = slotOf(s.id);
+      const isNew = !locked && !seen.has(s.id);
+      const node = document.createElement('div');
+      node.className = ['sk-node',
+        locked ? 'is-locked' : 'is-unlocked',
+        s === nextUp ? 'is-next' : '',
+        inSlot ? 'is-equipped' : '',
+        isNew ? 'is-new' : '',
+        s.id === selectedSkillId ? 'is-selected' : ''].filter(Boolean).join(' ');
+      node.setAttribute('role', 'button');
+      node.tabIndex = 0;
+      node.title = s.name + (locked ? ` (${reqText(s)})` : '');
+      node.innerHTML = `<span class="sk-rail${locked ? '' : ' is-lit'}"></span>
+        <span class="sk-gem"><span class="sk-ico">${SkillIcons.svg(s.id)}</span>${locked ? lockIcon() : ''}
+          ${inSlot ? `<span class="sk-node-key">${SLOT_KEYS[inSlot]}</span>` : ''}${isNew ? '<span class="sk-new">NEW</span>' : ''}</span>
+        <span class="sk-req">${locked ? reqText(s) : escapeHtml(s.name)}</span>`;
+      const inspect = () => {
+        selectedSkillId = s.id;
+        if (isNew) markSkillSeen(spCard ? spCard.id : cls, s.id);
+        renderCustomSkillLoadout();
+        window.soundEngine.playTargetLock();
+      };
+      node.addEventListener('click', inspect);
+      node.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); inspect(); } });
+      if (!locked) {
+        node.addEventListener('dblclick', () => equipTo(selectedLoadoutSlot, s.id));
+        node.draggable = true;
+        node.addEventListener('dragstart', (e) => {
           e.dataTransfer.setData('text/plain', s.id);
           e.dataTransfer.effectAllowed = 'move';
-          card.classList.add('is-dragging');
-          document.querySelectorAll('.hotbar-slot-card').forEach(sc => {
-            sc.classList.add('drop-target-active');
-          });
+          node.classList.add('is-dragging');
+          loadoutSlotsRow.classList.add('is-drop-target');
         });
-
-        card.addEventListener('dragend', () => {
-          card.classList.remove('is-dragging');
-          document.querySelectorAll('.hotbar-slot-card').forEach(sc => {
-            sc.classList.remove('drop-target-active');
-            sc.classList.remove('drag-over');
-          });
+        node.addEventListener('dragend', () => {
+          node.classList.remove('is-dragging');
+          loadoutSlotsRow.classList.remove('is-drop-target');
         });
       }
-
-      skillsCatalogGrid.appendChild(card);
+      pathEl.appendChild(node);
     });
+
+    // 3. Details of the picked skill
+    const det = skillsCatalogGrid.querySelector('.sk-detail');
+    const sel = findSkillDef(selectedSkillId);
+    if (det && sel) {
+      const locked = lockedOf(sel);
+      const inSlot = slotOf(sel.id);
+      let status;
+      if (!locked) status = `<span class="sk-ok">Unlocked</span>${inSlot ? ` · in [${SLOT_KEYS[inSlot]}]` : ''}`;
+      else if (spCard) status = `<span class="sk-bad">Enhance the card to +${reqOf(sel)}</span>`;
+      else status = `<span class="sk-bad">Unlocks at Lv ${reqOf(sel)}</span> · ${reqOf(sel) - level} level${reqOf(sel) - level === 1 ? '' : 's'} to go`;
+      det.innerHTML = `
+        <div class="sk-detail-head">
+          <span class="sk-detail-icon${locked ? ' is-locked' : ''}">${SkillIcons.svg(sel.id)}</span>
+          <div><div class="sk-detail-name">${escapeHtml(sel.name)}</div>
+          <div class="sk-detail-type">${escapeHtml(sel.category || (spCard ? 'SP Skill' : 'Class Skill'))}</div></div>
+        </div>
+        <div class="sk-detail-status">${status}</div>
+        <div class="sk-stats">
+          <span><small>Cooldown</small><b>${sel.cooldown}s</b></span>
+          <span><small>Mana</small><b>${manaCost(sel.mpCost)}</b></span>
+          ${sel.damageMultiplier ? `<span><small>Damage</small><b>${Math.round(sel.damageMultiplier * 100)}%</b></span>` : ''}
+        </div>
+        <p class="sk-desc">${escapeHtml(sel.desc || '')}</p>
+        <div class="sk-equip-label">Equip to</div>
+        <div class="sk-equip">${SLOTS.map(sl => {
+          const here = inSlot === sl.key;
+          const ok = !locked && fitsSlot(sel, sl.key);
+          return `<button type="button" class="sk-equip-btn${here ? ' is-here' : ''}" data-slot="${sl.key}" ${ok && !here ? '' : 'disabled'}>${SLOT_KEYS[sl.key]}</button>`;
+        }).join('')}</div>`;
+      det.querySelectorAll('.sk-equip-btn').forEach(b => b.addEventListener('click', () => equipTo(b.dataset.slot, sel.id)));
+    }
   }
 
-  let selectedTalentId = null;
-  let talentView = null; // pan / zoom of the big talent tree: { x, y, k }
+  // ---- Passive tree: one giant tree shared by every class (server/talents.ts), drawn by
+  // public/js/passiveTree.js on a canvas. Points go in through allocate_passive_path (a whole
+  // path at once), single nodes come back out through refund_passive.
+  let passiveView = null;
+  let passiveViewCls = null;
 
   function renderSkillTree() {
-    if (!localPlayer || !skillTreeGrid) return;
+    if (!localPlayer || !skillTreeGrid || !passiveTreeData || !window.PassiveTreeView) return;
 
     const cls = localPlayer.characterClass || 'warrior';
-    const tree = (skillTreesCatalog && skillTreesCatalog[cls]) || [];
     const skills = localPlayer.skills || {};
     const availablePoints = localPlayer.skillPoints || 0;
-
-    if (stClassName) {
-      const clsTitle = cls.toUpperCase();
-      stClassName.textContent = `${clsTitle} TALENT TREE (${tree.length} TALENTS)`;
-    }
-
-    if (stAvailablePoints) {
-      stAvailablePoints.textContent = availablePoints;
-    }
-
     let pointsSpent = 0;
-    for (const rank of Object.values(skills)) {
-      pointsSpent += (rank || 0);
-    }
+    for (const rank of Object.values(skills)) pointsSpent += (rank || 0);
 
+    if (stClassName) stClassName.textContent = `${cls.toUpperCase()} · PASSIVE TREE (${passiveTreeData.nodes.length} NODES)`;
+    if (stAvailablePoints) stAvailablePoints.textContent = availablePoints;
     if (btnResetTalents) {
       const cost = Math.min(500, pointsSpent * 50);
-      btnResetTalents.textContent = `🔄 Reset Talents (${cost} Gold)`;
+      btnResetTalents.textContent = `🔄 Reset All Passives (${cost.toLocaleString()} Gold)`;
       btnResetTalents.disabled = pointsSpent === 0;
       btnResetTalents.style.opacity = pointsSpent === 0 ? '0.5' : '1';
     }
 
-    // Save scroll state of containers to prevent annoying viewport jumps
-    const scrollContainers = [
-      document.querySelector('.skills-modal-content'),
-      document.querySelector('.skill-tree-content'),
-      skillTreeGrid,
-      document.getElementById('tabContentTalents')
-    ].filter(Boolean);
-    const scrollMap = scrollContainers.map(el => ({ el, top: el.scrollTop, left: el.scrollLeft }));
-    // The branch columns are the real scrollers and are rebuilt below, so remember each one's offset by branch
-    const branchScroll = new Map();
-    skillTreeGrid.querySelectorAll('.talent-branch-column').forEach(c => {
-      branchScroll.set(c.dataset.branch, c.scrollTop);
-    });
-
-    skillTreeGrid.innerHTML = '';
-
-    // Group talents by specialization branch
-    const branchesMap = new Map();
-    tree.forEach(talent => {
-      const bName = talent.branch || 'Specialization Branch';
-      if (!branchesMap.has(bName)) branchesMap.set(bName, []);
-      branchesMap.get(bName).push(talent);
-    });
-
-    const getTalentState = (talent) => {
-      const curRank = skills[talent.id] || 0;
-      const maxRank = talent.maxRank || 3;
-      const isMaxed = curRank >= maxRank;
-      // free pathing: a starting talent, or one that touches a talent you already own
-      const reqMet = !!talent.start || (talent.links || []).some(id => (skills[id] || 0) > 0);
-      const canLearn = availablePoints > 0 && !isMaxed && reqMet;
-      return { curRank, maxRank, isMaxed, branchLocked: false, prereq: null, reqMet, canLearn };
-    };
-
-    if (!selectedTalentId || !tree.some(t => t.id === selectedTalentId)) {
-      selectedTalentId = tree.length ? tree[0].id : null;
-    }
-
-    // ---- One big connected web, Path of Exile style. The three specialisations are wedges of a
-    // wheel around an origin hub; every first-tier talent is a starting point, and a talent can be
-    // learned once it touches one you already own (lanes are bridged to their neighbours, across
-    // specialisations too), so every player picks their own route. Drag to pan, scroll to zoom
-    // (the view survives every re-render).
-    skillTreeGrid.classList.add('talent-poe');
-    const TAU = Math.PI * 2;
-    const branches = [...branchesMap.entries()];
-    const BRANCH_COLORS = ['#fb7185', '#4ade80', '#38bdf8', '#facc15'];
-    const R0 = 190, STEP = 66;
-    const tiersOf = (list) => [...new Set(list.map(t => t.tier || 1))].sort((x, y) => x - y);
-    const maxTiers = Math.max(1, ...branches.map(([, l]) => tiersOf(l).length));
-    const lanes = Math.max(1, ...branches.map(([, l]) => Math.max(...tiersOf(l).map(tr => l.filter(t => (t.tier || 1) === tr).length))));
-    const RMAX = R0 + (maxTiers - 1) * STEP;
-    const WORLD = (RMAX + 230) * 2, CX = WORLD / 2, CY = WORLD / 2;
-    const sector = TAU / Math.max(1, branches.length);
-    const midAngle = (bi) => -Math.PI / 2 + bi * sector;
-    const laneAngle = (bi, lane) => midAngle(bi) + (lane - (lanes - 1) / 2) * (sector / lanes);   // all lanes evenly spaced round the ring
-    const at = (ang, r) => ({ x: CX + Math.cos(ang) * r, y: CY + Math.sin(ang) * r });
-
-    const positions = new Map(), polar = new Map();
-    branches.forEach(([, list], bi) => {
-      tiersOf(list).forEach((tier, ti) => {
-        list.filter(t => (t.tier || 1) === tier).forEach((t, lane) => {
-          const ang = laneAngle(bi, lane), r = R0 + ti * STEP;
-          positions.set(t.id, at(ang, r));
-          polar.set(t.id, { ang, r });
-        });
-      });
-    });
-    const learned = (id) => (skills[id] || 0) > 0;
-
-    // the wheel: a faint wedge per specialisation (brighter where you have points), orbit rings,
-    // then every link of the web
-    let svg = '';
-    branches.forEach(([name, list], bi) => {
-      let pts = 0; list.forEach(t => { pts += (skills[t.id] || 0); });
-      const col = BRANCH_COLORS[bi % BRANCH_COLORS.length];
-      const a0 = midAngle(bi) - sector / 2 + 0.03, a1 = midAngle(bi) + sector / 2 - 0.03;
-      const p0 = at(a0, RMAX + 70), p1 = at(a1, RMAX + 70);
-      svg += '<path d="M' + CX + ' ' + CY + ' L' + p0.x + ' ' + p0.y + ' A' + (RMAX + 70) + ' ' + (RMAX + 70) + ' 0 0 1 ' + p1.x + ' ' + p1.y + ' Z" fill="' + col + '" fill-opacity="' + (pts > 0 ? 0.12 : 0.06) + '" stroke="' + col + '" stroke-opacity="' + (pts > 0 ? 0.45 : 0.2) + '" stroke-width="2" vector-effect="non-scaling-stroke"/>';
-    });
-    for (let ti = 0; ti < maxTiers; ti++) svg += '<circle cx="' + CX + '" cy="' + CY + '" r="' + (R0 + ti * STEP) + '" fill="none" stroke="rgba(148,163,184,0.10)" stroke-width="1" vector-effect="non-scaling-stroke"/>';
-    const byId = new Map(tree.map(t => [t.id, t]));
-    const edgeState = (aLearned, bLearned) => (aLearned && bLearned) ? 'is-learned' : (aLearned || bLearned) ? 'is-open' : 'is-closed';
-    tree.forEach(t => {
-      const pt = positions.get(t.id);
-      if (!pt) return;
-      if (t.start) {                                            // starting points hang off the hub
-        svg += '<line class="talent-link ' + (learned(t.id) ? 'is-learned' : 'is-open') + '" x1="' + CX + '" y1="' + CY + '" x2="' + pt.x + '" y2="' + pt.y + '" vector-effect="non-scaling-stroke"/>';
-      }
-      for (const lid of (t.links || [])) {
-        if (lid < t.id) continue;                               // each edge once
-        const other = byId.get(lid), po = positions.get(lid);
-        if (!other || !po) continue;
-        const state = edgeState(learned(t.id), learned(lid));
-        const a = polar.get(t.id), b = polar.get(lid);
-        if (Math.abs(a.r - b.r) < 1) {                          // a bridge between lanes: an arc along the orbit
-          let da = b.ang - a.ang; while (da > Math.PI) da -= TAU; while (da < -Math.PI) da += TAU;
-          svg += '<path class="talent-link talent-bridge ' + state + '" fill="none" d="M' + pt.x + ' ' + pt.y + ' A' + a.r + ' ' + a.r + ' 0 0 ' + (da > 0 ? 1 : 0) + ' ' + po.x + ' ' + po.y + '" vector-effect="non-scaling-stroke"/>';
-        } else {
-          svg += '<line class="talent-link ' + state + '" x1="' + pt.x + '" y1="' + pt.y + '" x2="' + po.x + '" y2="' + po.y + '" vector-effect="non-scaling-stroke"/>';
+    if (!passiveView || !skillTreeGrid.contains(passiveView.el)) {
+      skillTreeGrid.innerHTML = '';
+      skillTreeGrid.classList.add('talent-poe');
+      passiveView = PassiveTreeView.create(skillTreeGrid, {
+        tree: passiveTreeData,
+        refundCost: 25,
+        getState: () => ({
+          cls: localPlayer ? localPlayer.characterClass : '',
+          skills: (localPlayer && localPlayer.skills) || {},
+          points: (localPlayer && localPlayer.skillPoints) || 0
+        }),
+        // optimistic: the server answers with skill_tree_updated either way
+        onAllocate: (ids) => {
+          localPlayer.skillPoints = Math.max(0, (localPlayer.skillPoints || 0) - ids.length);
+          localPlayer.skills = Object.assign({}, localPlayer.skills || {});
+          ids.forEach(id => { localPlayer.skills[id] = 1; });
+          socket.emit('allocate_passive_path', { ids });
+          window.soundEngine.playLevelUp();
+          renderSkillTree();
+        },
+        onRefund: (id) => {
+          socket.emit('refund_passive', { id });
+          window.soundEngine.playCoin();
         }
-      }
-    });
-
-    const viewport = document.createElement('div');
-    viewport.className = 'talent-viewport';
-    const world = document.createElement('div');
-    world.className = 'talent-world';
-    world.style.width = world.style.height = WORLD + 'px';
-    world.innerHTML = '<svg class="talent-links" width="' + WORLD + '" height="' + WORLD + '" viewBox="0 0 ' + WORLD + ' ' + WORLD + '">' + svg + '</svg>';
-
-    // origin hub and the branch banners on the rim
-    const hub = document.createElement('div');
-    hub.className = 'talent-hub';
-    hub.style.left = CX + 'px'; hub.style.top = CY + 'px';
-    hub.innerHTML = '<span>' + escapeHtml(cls.toUpperCase()) + '</span><small>ORIGIN</small>';
-    world.appendChild(hub);
-    branches.forEach(([name, list], bi) => {
-      let pts = 0; list.forEach(t => { pts += (skills[t.id] || 0); });
-      const p = at(midAngle(bi), RMAX + 130);
-      const lab = document.createElement('div');
-      lab.className = 'talent-branch-label' + (pts > 0 ? ' is-active' : '');
-      lab.style.left = p.x + 'px'; lab.style.top = p.y + 'px';
-      lab.style.setProperty('--branch', BRANCH_COLORS[bi % BRANCH_COLORS.length]);
-      lab.innerHTML = '<b>' + escapeHtml(name) + '</b><span>' + pts + ' pts</span>';
-      world.appendChild(lab);
-    });
-
-    branches.forEach(([branchName, list]) => {
-      list.forEach(talent => {
-        const st = getTalentState(talent);
-        const pos = positions.get(talent.id);
-        const node = document.createElement('button');
-        node.type = 'button';
-        node.dataset.talentId = talent.id;
-        node.className = [
-          'talent-node',
-          talent.maxRank === 1 ? 'is-keystone' : '',
-          talent.isNotable ? 'is-notable' : '',
-          st.isMaxed ? 'is-maxed' : st.curRank > 0 ? 'has-rank' : '',
-          st.canLearn ? 'can-upgrade' : '',
-          !st.reqMet && st.curRank === 0 ? 'is-locked' : '',
-          talent.id === selectedTalentId ? 'is-selected' : ''
-        ].join(' ');
-        node.style.left = pos.x + 'px';
-        node.style.top = pos.y + 'px';
-        const nearNames = (talent.links || []).map(id => byId.get(id)).filter(Boolean).map(t => t.name).slice(0, 3).join(', ');
-        let statusText;
-        if (st.isMaxed) statusText = 'Maxed out';
-        else if (!st.reqMet) statusText = 'Not connected yet: learn a talent next to it (' + nearNames + ')';
-        else if (availablePoints <= 0) statusText = 'No skill points available';
-        else statusText = talent.start ? 'Starting talent: learn it straight from the origin' : 'Connected: you can learn it';
-        const tipHtml = () => '<div class="tip-head"><div class="tip-icon-wrap">' + PixelIcons.talentHtml(talent) + '</div><div>' +
-          '<div class="tip-name" style="color: #facc15;">' + escapeHtml(talent.name) + '</div>' +
-          '<div class="tip-type">' + escapeHtml(talent.branch || '') + (talent.lane ? ' • ' + escapeHtml(talent.lane) : '') + ' • Tier ' + (talent.tier || 1) + ' • Rank ' + st.curRank + '/' + st.maxRank + '</div></div></div>' +
-          '<div class="tip-flavour">' + escapeHtml(talent.desc || '') + '</div>' +
-          '<div class="tip-line" style="color: ' + (st.canLearn || st.isMaxed ? '#4ade80' : '#f97316') + '; font-size: 11px;">' + escapeHtml(statusText) + '</div>';
-        if (window.GameTooltip) GameTooltip.html(node, tipHtml);
-        else node.title = talent.name + ' (' + st.curRank + '/' + st.maxRank + ')\n' + (talent.desc || '');
-        // a "+" on the corner of every node that can take a point learns it in one click
-        const plus = st.canLearn ? '<span class="talent-node-plus" title="Learn (1 SP)" aria-label="Learn ' + escapeHtml(talent.name) + '">+</span>' : '';
-        node.innerHTML = PixelIcons.talentHtml(talent) + '<span class="talent-node-rank">' + st.curRank + '/' + st.maxRank + '</span>' + plus;
-        node.addEventListener('click', (e) => {
-          e.preventDefault();
-          selectedTalentId = talent.id;
-          if (st.canLearn && e.target.closest('.talent-node-plus')) { learnTalent(talent); return; }
-          world.querySelectorAll('.talent-node').forEach(n => n.classList.toggle('is-selected', n.dataset.talentId === talent.id));
-        });
-        world.appendChild(node);
       });
-    });
-    viewport.appendChild(world);
-
-    // ---- pan and zoom (state lives in talentView so a re-render keeps the same view)
-    const vw0 = viewport.clientWidth || skillTreeGrid.clientWidth || 1000, vh0 = viewport.clientHeight || 560;
-    if (!talentView) {
-      // open on whatever you have learned (the middle of it), else on the origin
-      const own = tree.filter(t => learned(t.id) && positions.has(t.id));
-      let f = { x: CX, y: CY };
-      if (own.length) {
-        f = { x: own.reduce((s2, t) => s2 + positions.get(t.id).x, 0) / own.length, y: own.reduce((s2, t) => s2 + positions.get(t.id).y, 0) / own.length };
-      }
-      const k0 = 0.62;
-      talentView = { x: vw0 / 2 - f.x * k0, y: vh0 / 2 - f.y * k0, k: k0 };
     }
-    const applyView = () => {
-      const v = talentView, vw = viewport.clientWidth || vw0, vh = viewport.clientHeight || vh0;
-      v.x = Math.max(vw - WORLD * v.k - 160, Math.min(160, v.x));
-      v.y = Math.max(vh - WORLD * v.k - 160, Math.min(160, v.y));
-      world.style.transform = 'translate(' + v.x + 'px, ' + v.y + 'px) scale(' + v.k + ')';
-    };
-    const zoomAt = (mx, my, factor) => {
-      const v = talentView, k2 = Math.max(0.3, Math.min(1.7, v.k * factor));
-      v.x = mx - (mx - v.x) * (k2 / v.k); v.y = my - (my - v.y) * (k2 / v.k); v.k = k2;
-      applyView();
-    };
-    viewport.addEventListener('wheel', (e) => {
-      e.preventDefault();
-      const r = viewport.getBoundingClientRect();
-      zoomAt(e.clientX - r.left, e.clientY - r.top, Math.pow(1.0016, -e.deltaY));
-    }, { passive: false });
-    viewport.addEventListener('pointerdown', (e) => {
-      if (e.button !== 0 || e.target.closest('.talent-zoom-controls')) return;
-      const sx = e.clientX, sy = e.clientY, ox = talentView.x, oy = talentView.y;
-      let moved = false;
-      const move = (m) => {
-        if (!moved && Math.hypot(m.clientX - sx, m.clientY - sy) < 5) return;
-        moved = true;
-        viewport.classList.add('is-panning');
-        talentView.x = ox + (m.clientX - sx); talentView.y = oy + (m.clientY - sy);
-        applyView();
-      };
-      const up = () => {
-        window.removeEventListener('pointermove', move);
-        window.removeEventListener('pointerup', up);
-        viewport.classList.remove('is-panning');
-        // the click that ends a drag must not select / learn a node
-        if (moved) viewport.addEventListener('click', (c) => { c.stopPropagation(); c.preventDefault(); }, { capture: true, once: true });
-      };
-      window.addEventListener('pointermove', move);
-      window.addEventListener('pointerup', up);
-    });
-    const controls = document.createElement('div');
-    controls.className = 'talent-zoom-controls';
-    controls.innerHTML = '<button type="button" data-z="in" title="Zoom in">+</button><button type="button" data-z="out" title="Zoom out">−</button><button type="button" data-z="home" title="Back to the origin">⌖</button>';
-    controls.addEventListener('click', (e) => {
-      const b = e.target.closest('button');
-      if (!b) return;
-      const w = viewport.clientWidth || vw0, h = viewport.clientHeight || vh0;
-      if (b.dataset.z === 'home') { talentView = null; renderSkillTree(); return; }
-      zoomAt(w / 2, h / 2, b.dataset.z === 'in' ? 1.25 : 0.8);
-    });
-    viewport.appendChild(controls);
-    const hint = document.createElement('div');
-    hint.className = 'talent-viewport-hint';
-    hint.textContent = 'Drag to move · Scroll to zoom · Learn any talent next to one you own';
-    viewport.appendChild(hint);
-    skillTreeGrid.appendChild(viewport);
-    applyView();
-
-    // Spend one skill point on a talent (optimistic: the server confirms via player_updated)
-    function learnTalent(talent) {
-      localPlayer.skillPoints = Math.max(0, (localPlayer.skillPoints || 1) - 1);
-      localPlayer.skills = localPlayer.skills || {};
-      localPlayer.skills[talent.id] = (localPlayer.skills[talent.id] || 0) + 1;
-      renderSkillTree();
-      socket.emit('allocate_skill_point', { skillId: talent.id });
-      window.soundEngine.playLevelUp();
+    if (passiveViewCls !== cls) {
+      passiveViewCls = cls;
+      passiveView.resetView();
     }
-
-    // Restore scroll positions so the view never jumps
-    scrollMap.forEach(({ el, top, left }) => {
-      el.scrollTop = top;
-      el.scrollLeft = left;
-    });
-    skillTreeGrid.querySelectorAll('.talent-branch-column').forEach(c => {
-      c.scrollTop = branchScroll.get(c.dataset.branch) || 0;
-    });
+    passiveView.update();
   }
 
   if (btnOpenSkillTree) btnOpenSkillTree.addEventListener('click', toggleSkillTreeModal);
@@ -6741,6 +7064,8 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btnCloseInventory').addEventListener('click', () => inventoryModal.style.display = 'none');
 
   document.getElementById('btnOpenHelp').addEventListener('click', () => toggleModal(helpModal));
+  const btnOpenCrafting = document.getElementById('btnOpenCrafting');
+  if (btnOpenCrafting) btnOpenCrafting.addEventListener('click', () => window.Crafting && window.Crafting.toggle());
   document.getElementById('btnCloseHelp').addEventListener('click', () => helpModal.style.display = 'none');
 
   // ---------------------------------------------------------------- Effects dialog (trails)
@@ -6930,7 +7255,15 @@ document.addEventListener('DOMContentLoaded', () => {
       const distChest = Math.hypot(personalChest.x - localPlayer.x, personalChest.y - localPlayer.y);
       const james = townObstacles.find(o => o.id === 'npc_james');
       const distJames = james ? Math.hypot(james.x - localPlayer.x, james.y - localPlayer.y) : Infinity;
-      if (distJames <= 3.5) {
+      const jerry = townObstacles.find(o => o.id === 'npc_jerry');
+      const distJerry = jerry ? Math.hypot(jerry.x - localPlayer.x, jerry.y - localPlayer.y) : Infinity;
+      if (distJerry <= 3) {
+        targetInteract = {
+          icon: 'attr_roller',
+          label: 'ATTRIBUTES',
+          action: () => openAttrSmith()
+        };
+      } else if (distJames <= 3.5) {
         targetInteract = {
           icon: 'essence',
           label: 'FORGE',
@@ -7033,12 +7366,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (targetInteract) {
       mobileContextualAction = targetInteract.action;
-      if (mobileInteractIcon) mobileInteractIcon.dataset.pxi = targetInteract.icon;
-      if (mobileInteractText) mobileInteractText.textContent = targetInteract.label;
-      mobileBtnInteract.style.display = 'inline-flex';
+      // runs every frame: rewriting an unchanged icon still fires the DOM observers
+      if (mobileInteractIcon && mobileInteractIcon.dataset.pxi !== targetInteract.icon) mobileInteractIcon.dataset.pxi = targetInteract.icon;
+      setText(mobileInteractText, targetInteract.label);
+      if (mobileBtnInteract.style.display !== 'inline-flex') mobileBtnInteract.style.display = 'inline-flex';
     } else {
       mobileContextualAction = null;
-      mobileBtnInteract.style.display = 'none';
+      if (mobileBtnInteract.style.display !== 'none') mobileBtnInteract.style.display = 'none';
     }
   }
 
@@ -7269,6 +7603,13 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleModal(helpModal);
       });
     }
+    const mBtnOpenCrafting = document.getElementById('mBtnOpenCrafting');
+    if (mBtnOpenCrafting) {
+      mBtnOpenCrafting.addEventListener('click', () => {
+        if (mobileMenuDrawer) mobileMenuDrawer.style.display = 'none';
+        if (window.Crafting) window.Crafting.toggle();
+      });
+    }
 
     // Chat collapsible toggle
     if (btnChatToggle) {
@@ -7349,6 +7690,8 @@ document.addEventListener('DOMContentLoaded', () => {
       setElementHeightPct(mobileCdSkill3, 0);
     }
 
+    updatePotionCooldowns(dt);
+
     if (dashCooldownTimer > 0) {
       dashCooldownTimer = Math.max(0, dashCooldownTimer - dt);
       const cdPct = (dashCooldownTimer / dashCooldownMax) * 100;
@@ -7365,6 +7708,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
       setElementHeightPct(cdOverlayWeapon, 0);
     }
+    updateUltSlot();
 
     // Toggled blood auras light up their hotbar slots
     if (localPlayer) {
@@ -7420,6 +7764,13 @@ document.addEventListener('DOMContentLoaded', () => {
       renderer.render(gameState, localPlayerId, monsterLockTargetOn ? selectedTargetId : null, dt);
     } catch (err) {
       console.error('Render error:', err);
+    }
+    if (fpView) {
+      try {
+        fpView.update(dt, gameState, localPlayerId);
+      } catch (err) {
+        console.error('First-person render error:', err);
+      }
     }
 
     requestAnimationFrame(gameLoop);

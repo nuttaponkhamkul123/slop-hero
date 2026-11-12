@@ -72,225 +72,539 @@
     return inside;
   };
 
-  // ---------------------------------------------------------------- sprites
-  const BUILD = {
+  // ---------------------------------------------------------------- isometric volumes
+  // Nature and stone props are small 3D shapes (signed distance fields) seen in
+  // the game's 2:1 isometric projection, like the houses: screen x = x - y,
+  // screen y = (x + y) / 2 - z, the camera looking along (-1, -1, -1). Units are
+  // sprite pixels (a tile is ~24.6 units along x or y). Every pixel's ray is
+  // sphere-traced, and the hit is lit by its surface normal from the upper
+  // left (the +y face, left on screen, is lit; +x, right, is in shade), then
+  // dithered into the prop's colour ramp. Painted once per variant and cached.
+  const V = {
+    add: (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]],
+    sub: (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]],
+    mul: (a, k) => [a[0] * k, a[1] * k, a[2] * k],
+    dot: (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2],
+    len: (a) => Math.hypot(a[0], a[1], a[2]),
+    norm: (a) => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; }
+  };
+  const LIGHT = V.norm([-0.15, 0.85, 0.75]);
+  // smooth 3D value noise in 0..1
+  const h3 = (x, y, z) => { const s = Math.sin(x * 127.1 + y * 311.7 + z * 74.7) * 43758.5453; return s - Math.floor(s); };
+  const vn = (x, y, z) => {
+    const xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z);
+    const f = (t) => t * t * (3 - 2 * t);
+    const u = f(x - xi), v = f(y - yi), w = f(z - zi);
+    const L = (a, b, t) => a + (b - a) * t;
+    const c = (i, j, k) => h3(xi + i, yi + j, zi + k);
+    return L(L(L(c(0, 0, 0), c(1, 0, 0), u), L(c(0, 1, 0), c(1, 1, 0), u), v),
+      L(L(c(0, 0, 1), c(1, 0, 1), u), L(c(0, 1, 1), c(1, 1, 1), u), v), w);
+  };
+  // distance primitives
+  const SD = {
+    sphere: (p, c, r) => V.len(V.sub(p, c)) - r,
+    ellipsoid: (p, c, r) => {
+      const q = [(p[0] - c[0]) / r[0], (p[1] - c[1]) / r[1], (p[2] - c[2]) / r[2]];
+      return (V.len(q) - 1) * Math.min(r[0], r[1], r[2]);
+    },
+    box: (p, c, h) => {
+      const q = [Math.abs(p[0] - c[0]) - h[0], Math.abs(p[1] - c[1]) - h[1], Math.abs(p[2] - c[2]) - h[2]];
+      return V.len([Math.max(q[0], 0), Math.max(q[1], 0), Math.max(q[2], 0)]) + Math.min(Math.max(q[0], q[1], q[2]), 0);
+    },
+    // capsule with radius r1 at a and r2 at b (a tapered limb)
+    limb: (p, a, b, r1, r2 = r1) => {
+      const ba = V.sub(b, a), pa = V.sub(p, a);
+      const h = Math.max(0, Math.min(1, V.dot(pa, ba) / (V.dot(ba, ba) || 1)));
+      return V.len(V.sub(pa, V.mul(ba, h))) - (r1 + (r2 - r1) * h);
+    },
+    // upright cylinder from z0 to z1 around (cx, cy)
+    cyl: (p, cx, cy, r, z0, z1) => {
+      const dx = Math.hypot(p[0] - cx, p[1] - cy) - r, dz = Math.max(z0 - p[2], p[2] - z1);
+      return Math.min(Math.max(dx, dz), 0) + Math.hypot(Math.max(dx, 0), Math.max(dz, 0));
+    },
+    // upright cone, base radius r at z0 narrowing to a point at z0 + h
+    cone: (p, cx, cy, r, z0, h) => {
+      const rad = Math.hypot(p[0] - cx, p[1] - cy), k = r / h;
+      const side = (rad - r * (1 - (p[2] - z0) / h)) / Math.sqrt(1 + k * k);
+      return Math.max(side, z0 - p[2]);
+    }
+  };
+
+  // spec: { ext: [bx, by, bz] (the model fits |x| <= bx, |y| <= by, 0 <= z <= bz),
+  //         parts: [{ d: (p) => distance, color: (hit) => rgb }], outline, shadow,
+  //         layers: { name: (hit) => rgb | null } extra overlays (no outline) }
+  // hit: { p, n, lit (0..1), x, y (sprite pixel), part }
+  function isoVolume(spec) {
+    const [bx, by, bz] = spec.ext;
+    const span = bx + by;
+    const OX = Math.ceil(span + 3), OY = Math.ceil(span / 2 + bz + 3);
+    const W = OX * 2, H = OY + Math.ceil(span / 2 + 4);
+    const parts = spec.parts;
+    const field = (p) => { let m = Infinity; for (const pt of parts) { const d = pt.d(p); if (d < m) m = d; } return m; };
+    const hits = new Array(W * H).fill(null);
+    for (let py = 0; py < H; py++) {
+      for (let px = 0; px < W; px++) {
+        const sx = px + 0.5 - OX, sy = py + 0.5 - OY;
+        const hi = Math.min(bx - sx, by, bz + sy - sx / 2);
+        const lo = Math.max(-bx - sx, -by, sy - sx / 2 - 0.6);
+        let t = hi, hit = null;
+        for (let i = 0; i < 220 && t >= lo; i++) {
+          const p = [sx + t, t, sx / 2 + t - sy];
+          const d = field(p);
+          if (d < 0.06) { hit = p; break; }
+          t -= Math.max(0.1, d / 1.732);
+        }
+        if (!hit) continue;
+        const e = 0.3;
+        const n = V.norm([
+          field([hit[0] + e, hit[1], hit[2]]) - field([hit[0] - e, hit[1], hit[2]]),
+          field([hit[0], hit[1] + e, hit[2]]) - field([hit[0], hit[1] - e, hit[2]]),
+          field([hit[0], hit[1], hit[2] + e]) - field([hit[0], hit[1], hit[2] - e])
+        ]);
+        let part = parts[0], best = Infinity;
+        for (const pt of parts) { const d = pt.d(hit); if (d < best) { best = d; part = pt; } }
+        hits[py * W + px] = { p: hit, n, lit: Math.max(0, V.dot(n, LIGHT)), x: px, y: py, part };
+      }
+    }
+    const shadow = spec.shadow === false ? null
+      : { cx: OX, cy: OY, rx: (spec.shadowR || span * 0.62), ry: (spec.shadowR || span * 0.62) / 2 };
+    const img = paint(W, H, (x, y) => { const h = hits[y * W + x]; return h ? h.part.color(h) : null; }, spec.outline, shadow);
+    const out = { img, ax: OX, ay: OY };
+    // a layer is fn(hit) -> rgb | null, or { fn, outline }
+    for (const [name, L] of Object.entries(spec.layers || {})) {
+      const fn = typeof L === 'function' ? L : L.fn;
+      out[name] = paint(W, H, (x, y) => { const h = hits[y * W + x]; return h ? fn(h) : null; }, typeof L === 'function' ? null : L.outline, null);
+    }
+    return out;
+  }
+  // ramp colour for a hit: ambient + lit, plus a bias
+  const lightRamp = (R, h, bias = 0, amb = 0.22) => q(R, (amb + (1 - amb) * h.lit) * (R.length - 1) + bias, h.x, h.y);
+  const clipGround = (d, p) => Math.max(d, -p[2]);
+  // Stacked cone tiers of a conifer ([z0, height, radius] each). under(p): the point
+  // sits just below the skirt of the tier above, in its shade (the dark ledges).
+  const pineCrown = (tiers, seed, jagAmt) => ({
+    d: (p) => {
+      let m = Infinity;
+      for (const [z0, hh, r] of tiers) m = Math.min(m, SD.cone(p, 0, 0, r, z0, hh));
+      return m + (vn(p[0] * 0.75 + seed, p[1] * 0.75, p[2] * 0.75) - 0.5) * jagAmt;
+    },
+    under: (p) => {
+      const rad = Math.hypot(p[0], p[1]);
+      for (let k = 1; k < tiers.length; k++) {
+        const [z0, , r] = tiers[k];
+        if (p[2] < z0 + 0.6 && p[2] > z0 - 3.2 && rad < r + 0.6) return true;
+      }
+      return false;
+    }
+  });
+
+  const ISO = {
+    boulder(v) {
+      const sets = [
+        [[0, 0, 5, 10, 8, 7], [-7, 6, 3, 5, 4, 3.6], [7, 6, 2.5, 4, 3.6, 3]],
+        [[-2, -1, 5, 8, 7, 6.5], [6, 3, 4, 6, 5.5, 5], [-6, 7, 2, 3.6, 3.2, 2.6]],
+        [[0, 0, 3.5, 12, 9, 4.6], [-9, 5, 2, 4, 3, 2.5], [9, 6, 1.8, 3.4, 3, 2.2]]
+      ][v];
+      const lump = (p) => (vn(p[0] * 0.32 + v * 7, p[1] * 0.32, p[2] * 0.32) - 0.5) * 2.6;
+      return isoVolume({
+        ext: [15, 13, 13], outline: '#111317', shadowR: 15,
+        parts: [{
+          d: (p) => {
+            let m = Infinity;
+            for (const [x, y, z, rx, ry, rz] of sets) m = Math.min(m, SD.ellipsoid(p, [x, y, z], [rx, ry, rz]));
+            return clipGround(m + lump(p), p);
+          },
+          color: (h) => {
+            const [x, y, z] = h.p;
+            if (h.n[2] > 0.5 && vn(x * 0.45, y * 0.45, z * 0.45 + 3) > (v === 2 ? 0.38 : 0.5)) return lightRamp(MOSS, h, 0.2);
+            const crack = Math.abs(vn(x * 0.7 + 11, y * 0.7, z * 0.7) - 0.5) < 0.035;
+            return lightRamp(ROCK, h, crack ? -1.6 : (hash2(h.x, h.y) - 0.5) * 0.6);
+          }
+        }]
+      });
+    },
+
     stone_pillar(v) {
-      const W = 26, H = 46, cx = 12.5, broken = v === 1, mossy = v === 2;
-      const top = broken ? 13 : 3;
-      const img = paint(W, H, (x, y) => {
-        const dx = x - cx;
-        const crackTop = broken ? top + Math.floor(hash2(x, 7) * 5) : top;
-        let part = null;
-        if (y >= 38 && y <= 43 && Math.abs(dx) <= 10.5) part = 'base';
-        else if (y >= 10 && y <= 37 && Math.abs(dx) <= 6.5 && y >= crackTop) part = 'shaft';
-        else if (!broken && y >= 5 && y <= 9 && Math.abs(dx) <= 9.5 - (9 - y) * 0.3) part = 'cap';
-        else if (!broken && y >= 3 && y <= 4 && Math.abs(dx) <= 10.5) part = 'slab';
-        if (!part) return null;
-        let s = 3.4 - dx * 0.2;
-        if (part === 'shaft' && (Math.floor(dx + 7) % 3 === 0)) s -= 0.9; // flutes
-        if (part === 'base' && y === 38) s += 1;
-        if (part === 'slab' && y === 3) s += 1.2;
-        if (part === 'shaft' && hash2(Math.floor(x / 2), y) < 0.05) s -= 1.6; // chips and cracks
-        const mossLine = part === 'base' ? 38 : part === 'shaft' && y > 31 ? 31 : 99;
-        if (y >= mossLine && hash2(x * 3, y * 5) < (mossy ? 0.5 : 0.22)) return q(MOSS, 2.4 - dx * 0.15, x, y);
-        if (mossy && part === 'shaft' && hash2(x, y * 2) < 0.08) return MOSS[2];
-        return q(STONE, s, x, y);
-      }, '#141820', { cx: 13, cy: 43, rx: 13, ry: 3.5 });
-      return { img, ax: 13, ay: 43 };
+      const broken = v === 1, mossy = v === 2;
+      const topAt = (p) => 19 + vn(p[0] * 0.5, p[1] * 0.5, 2) * 7;
+      const shaft = (p) => {
+        const a = Math.atan2(p[1], p[0]);
+        let d = SD.cyl(p, 0, 0, 5.2, 4.5, broken ? 40 : 33.5) + Math.max(0, Math.cos(a * 10)) * 0.55;
+        if (broken) d = Math.max(d, p[2] - topAt(p));
+        return d;
+      };
+      const stone = (h) => {
+        const [x, y, z] = h.p;
+        const mossLine = mossy ? 14 : 7;
+        if (z < mossLine && h.n[2] > -0.2 && vn(x * 0.6, y * 0.6, z * 0.6) > (mossy ? 0.42 : 0.58)) return lightRamp(MOSS, h, 0.2);
+        if (mossy && h.n[2] > 0.6 && vn(x * 0.5, y * 0.5, z * 0.5 + 9) > 0.45) return lightRamp(MOSS, h, 0.3);
+        const chip = hash2(Math.floor(x + 20) * 3 + Math.floor(z), Math.floor(y + 20)) < 0.04;
+        return lightRamp(STONE, h, chip ? -1.4 : (hash2(h.x, h.y) - 0.5) * 0.5);
+      };
+      const parts = [
+        { d: (p) => Math.min(SD.box(p, [0, 0, 1.5], [9.5, 9.5, 1.5]), SD.box(p, [0, 0, 3.75], [7.8, 7.8, 0.85])), color: stone },
+        { d: shaft, color: stone }
+      ];
+      if (!broken) {
+        parts.push({ d: (p) => Math.min(SD.box(p, [0, 0, 34.6], [6.8, 6.8, 1.1]), SD.box(p, [0, 0, 36.7], [8.2, 8.2, 1])), color: stone });
+      } else {
+        // a fallen drum of the shaft beside the plinth
+        parts.push({ d: (p) => SD.limb(p, [11, -2, 2.6], [11, 7, 2.6], 2.6), color: stone });
+      }
+      return isoVolume({ ext: [14, 10, 39], outline: '#141820', shadowR: 13, parts });
     },
 
     ice_crystal(v) {
-      const W = 36, H = 44;
-      const hs = [[36, 22, 20], [30, 26, 17], [38, 18, 24]][v];
+      const hs = [[30, 18, 16], [25, 22, 14], [32, 15, 20]][v];
       const prisms = [
-        { cx: 10, base: 41, h: hs[1], hw: 4, lean: -0.22 },
-        { cx: 26, base: 40, h: hs[2], hw: 3.8, lean: 0.28 },
-        { cx: 18, base: 42, h: hs[0], hw: 5.5, lean: 0 }
-      ];
-      const img = paint(W, H, (x, y) => {
-        let hit = null;
-        for (const p of prisms) {
-          if (y > p.base || y < p.base - p.h) continue;
-          const t = (p.base - y) / p.h;
-          const half = p.hw * (t < 0.72 ? 1 : (1 - t) / 0.28);
-          const d = x + 0.5 - (p.cx + p.lean * (p.base - y));
-          if (Math.abs(d) > half) continue;
-          let s = d < -0.6 ? 4.1 : d > 0.6 ? 2.6 : 5.4;
-          if (t > 0.86) s = 6;
-          if (Math.abs(d + half * 0.45) < 0.5 && t < 0.7) s += 1; // inner streak
-          if (t < 0.12) s -= 1; // frosted foot
-          hit = q(ICE, s, x, y);
-        }
-        return hit;
-      }, '#071a2e', { cx: 18, cy: 42, rx: 14, ry: 3.5 });
-      return { img, ax: 18, ay: 42 };
+        { b: [0, 0, 0], a: V.norm([0, 0.05, 1]), h: hs[0], r: 4.4 },
+        { b: [-5, 5, 0], a: V.norm([-0.3, 0.25, 1]), h: hs[1], r: 3.3 },
+        { b: [5, -3, 0], a: V.norm([0.35, -0.2, 1]), h: hs[2], r: 3.1 },
+        { b: [3, 6, 0], a: V.norm([0.25, 0.45, 1]), h: hs[2] * 0.55, r: 2.2 }
+      ].map(pr => {
+        const u = V.norm([pr.a[2], 0, -pr.a[0]]);
+        const w = [pr.a[1] * u[2] - pr.a[2] * u[1], pr.a[2] * u[0] - pr.a[0] * u[2], pr.a[0] * u[1] - pr.a[1] * u[0]];
+        return { ...pr, u, w };
+      });
+      const prismD = (pr, p) => {
+        const qv = V.sub(p, pr.b), hh = V.dot(qv, pr.a);
+        const ru = Math.abs(V.dot(qv, pr.u)), rw = Math.abs(V.dot(qv, pr.w));
+        const hex = Math.max(ru * 0.866 + rw * 0.5, rw);
+        const k = hh / pr.h, rr = k < 0.7 ? pr.r : pr.r * Math.max(0, 1 - (k - 0.7) / 0.3);
+        return Math.max((hex - rr) * 0.75, -hh, hh - pr.h);
+      };
+      return isoVolume({
+        ext: [14, 13, 33], outline: '#071a2e', shadowR: 12,
+        parts: prisms.map(pr => ({
+          d: (p) => clipGround(prismD(pr, p), p),
+          color: (h) => {
+            const k = V.dot(V.sub(h.p, pr.b), pr.a) / pr.h;
+            let s = 1.2 + h.lit * 4.6;
+            if (k > 0.86) s += 1;               // bright tip
+            if (k < 0.1) s -= 0.8;              // frosted foot
+            const facet = Math.abs(h.n[2]) < 0.4 && Math.abs(h.n[0] - h.n[1]) < 0.12;
+            if (facet) s += 0.9;                // edge between two side faces catches light
+            return q(ICE, s, h.x, h.y);
+          }
+        }))
+      });
     },
 
     frost_monolith(v) {
-      const W = 26, H = 62, cx = 12.5;
-      const hwAt = (y) => (y < 12 ? Math.max(0, (y - 4) * 0.85) : 6.6 + (y - 12) * 0.08);
-      const rune = (x, y) => {
-        const dx = x - 12;
-        if (dx === 0 && y >= 17 && y <= 46) return true;
-        if (y >= 22 && y <= 26 && Math.abs(dx) === 26 - y + (v ? 1 : 0) && Math.abs(dx) <= 4) return true;
-        if (y >= 33 && y <= 37 && Math.abs(dx) === y - 33 && Math.abs(dx) <= 4) return true;
-        return y === 41 && Math.abs(dx) <= 3;
+      const half = (z) => (z < 46 ? 6.2 - (z - 5) * 0.035 : Math.max(0, (55 - z) * 0.66));
+      const body = (p) => Math.max((Math.max(Math.abs(p[0]), Math.abs(p[1])) - half(p[2])) * 0.8, 5 - p[2], p[2] - 55);
+      // carved runes on the two visible faces (face coord u across, z up)
+      const rune = (u, z) => {
+        if (Math.abs(u) < 0.7 && z >= 13 && z <= 40) return true;
+        if (z >= 31 && z <= 35 && Math.abs(Math.abs(u) - (35 - z) - (v ? 0.6 : 0)) < 0.7 && Math.abs(u) <= 4) return true;
+        if (z >= 20 && z <= 24 && Math.abs(Math.abs(u) - (z - 20)) < 0.7 && Math.abs(u) <= 4) return true;
+        return Math.abs(z - 16) < 0.7 && Math.abs(u) <= 3;
       };
-      const body = paint(W, H, (x, y) => {
-        const dx = x - cx;
-        if (y >= 53 && y <= 59 && Math.abs(dx) <= 11.5) {
-          if (y === 53 && hash2(x, 3) < 0.7) return SNOW[2 + (hash2(x, 9) < 0.5 ? 1 : 0)];
-          return q(STONE, 3 - dx * 0.18 - (y - 53) * 0.15, x, y);
+      const runeAt = (h) => {
+        if (h.part !== partBody || h.p[2] > 44) return false;
+        if (h.n[1] > 0.8) return rune(h.p[0], h.p[2]);
+        if (h.n[0] > 0.8) return rune(-h.p[1], h.p[2]);
+        return false;
+      };
+      const partBody = {
+        d: body,
+        color: (h) => {
+          if (runeAt(h)) return SLATE[0];
+          if (h.p[2] > 49 && hash2(h.x, h.y) < 0.6) return SNOW[2];          // frosted tip
+          return lightRamp(SLATE, h, hash2(h.x * 2, h.y) < 0.04 ? -1.2 : 0, 0.3);
         }
-        const hw = hwAt(y);
-        if (y < 4 || y > 52 || Math.abs(dx) > hw) return null;
-        if (rune(x, y)) return SLATE[0];
-        if (y < 9 && hash2(x, y) < 0.6) return SNOW[2]; // frosted tip
-        let s = 3.1 - (dx / Math.max(1, hw)) * 1.7;
-        if (dx < -hw + 1.2) s += 1;
-        if (hash2(x * 2, y) < 0.04) s -= 1.2;
-        return q(SLATE, s, x, y);
-      }, '#05080f', { cx: 13, cy: 59, rx: 13, ry: 3.5 });
-      const glow = paint(W, H, (x, y) => (rune(x, y) ? (hash2(x, y) < 0.5 ? rgb('#a5f3fc') : rgb('#22d3ee')) : null), null, null);
-      return { img: body, glow, ax: 13, ay: 59 };
-    },
-
-    boulder(v) {
-      const W = 38, H = 28;
-      const sets = [
-        [[19, 16, 14, 9], [12, 13, 7, 6], [26, 14, 8, 6]],
-        [[18, 17, 12, 8], [25, 13, 9, 8], [11, 18, 6, 5]],
-        [[19, 15, 15, 10], [10, 19, 6, 4], [29, 19, 6, 4]]
-      ][v];
-      const img = paint(W, H, (x, y) => {
-        let best = null;
-        for (const [bx, by, rx, ry] of sets) {
-          const nx = (x + 0.5 - bx) / rx, ny = (y + 0.5 - by) / ry;
-          const d = nx * nx + ny * ny;
-          if (d <= 1 && (!best || d < best.d)) best = { d, nx, ny };
-        }
-        if (!best) return null;
-        let s = 2.7 + (-best.nx * 0.6 - best.ny * 0.85) * 1.9 + (hash2(x, y) - 0.5) * 0.8;
-        if (best.ny < -0.35 && hash2(x * 5, y * 3) < 0.3) return q(MOSS, 2.2 - best.nx, x, y);
-        if (hash2(Math.floor(x / 2) + v, Math.floor(y / 2)) < 0.03) s -= 2; // cracks
-        return q(ROCK, s, x, y);
-      }, '#111317', { cx: 19, cy: 24, rx: 16, ry: 3.5 });
-      return { img, ax: 19, ay: 23 };
+      };
+      const partBase = {
+        d: (p) => SD.box(p, [0, 0, 2.5], [10, 10, 2.5]),
+        color: (h) => (h.n[2] > 0.7 && hash2(h.x, h.y * 3) < 0.75 ? SNOW[2 + (hash2(h.x, 9) < 0.5 ? 1 : 0)] : lightRamp(STONE, h, 0, 0.25))
+      };
+      return isoVolume({
+        ext: [12, 12, 56], outline: '#05080f', shadowR: 13, parts: [partBase, partBody],
+        layers: { glow: (h) => (runeAt(h) ? (hash2(h.x, h.y) < 0.5 ? rgb('#a5f3fc') : rgb('#22d3ee')) : null) }
+      });
     },
 
     cactus(v) {
-      const W = 28, H = 44;
-      const parts = [
-        { x0: 10, x1: 17, y0: 6, y1: 41 },                        // trunk
-        { x0: 3, x1: 7, y0: v ? 18 : 14, y1: 27 },                // left arm
-        { x0: 3, x1: 11, y0: 25, y1: 28 },
-        { x0: 20, x1: 24, y0: v ? 9 : 12, y1: 23 },               // right arm
-        { x0: 16, x1: 24, y0: 21, y1: 24 }
+      const arms = [
+        [[[0, 0, 9], [0, 7, 9], 2.4], [[0, 7, 9], [0, 7, v ? 19 : 17], 2.4]],
+        [[[0, 0, 14], [7, 0, 14], 2.3], [[7, 0, 14], [7, 0, v === 2 ? 20 : 23], 2.3]]
       ];
-      const img = paint(W, H, (x, y) => {
-        for (const p of parts) {
-          if (x < p.x0 || x > p.x1 || y < p.y0 || y > p.y1) continue;
-          const vertical = p.y1 - p.y0 > p.x1 - p.x0;
-          // round the tops of the columns
-          if (vertical && y === p.y0 && (x === p.x0 || x === p.x1)) return null;
-          if (y <= 7 && y < 6 + Math.abs(x - 13.5) * 0.6) return null;
-          const mid = (p.x0 + p.x1) / 2, half = (p.x1 - p.x0) / 2 + 0.5;
-          let s = vertical ? 3.4 - ((x - mid) / half) * 1.9 : 3.6 - ((y - (p.y0 + p.y1) / 2) / 2) * 1.5;
-          if (vertical && (x - p.x0) % 2 === 1) s -= 0.7; // ribs
-          if (hash2(x * 7, y * 3) < 0.05) return rgb('#f5f0c8'); // spines
-          return q(CACTUS, s, x, y);
-        }
-        if (y >= 3 && y <= 5 && Math.abs(x - 13.5) <= 1.5) return y === 3 ? rgb('#fbcfe8') : rgb('#ec4899'); // flower
-        return null;
-      }, '#0b1f10', { cx: 14, cy: 41, rx: 10, ry: 3 });
-      return { img, ax: 14, ay: 41 };
+      if (v === 1) arms.push([[[0, 0, 18], [-5, -2, 18], 1.9], [[-5, -2, 18], [-5, -2, 23], 1.9]]);
+      const rib = (p, cx, cy) => Math.cos(Math.atan2(p[1] - cy, p[0] - cx) * 8) * 0.3;
+      const green = (h) => {
+        if (hash2(h.x * 7, h.y * 3) < 0.025) return rgb('#f5f0c8');          // spines
+        return lightRamp(CACTUS, h, 0, 0.18);
+      };
+      const parts = [{ d: (p) => clipGround(SD.limb(p, [0, 0, 0], [0, 0, 26], 3.8) + rib(p, 0, 0), p), color: green }];
+      for (const arm of arms) {
+        parts.push({ d: (p) => Math.min(...arm.map(([a, b, r]) => SD.limb(p, a, b, r))) + rib(p, arm[1][0][0], arm[1][0][1]), color: green });
+      }
+      if (v !== 2) parts.push({ d: (p) => SD.sphere(p, [0, 0, 30], 1.7), color: (h) => (h.n[2] > 0.3 ? rgb('#fbcfe8') : rgb('#ec4899')) });
+      return isoVolume({ ext: [10, 10, 32], outline: '#0b1f10', shadowR: 9, parts });
     },
 
     dead_tree(v) {
-      const W = 48, H = 60, ax = 24, ay = 57, k = 1 / 1.3;
-      const mirror = v === 1 ? -1 : 1;
-      const br = [[0, 0, -2, -26, 6], [-2, -26, 2, -44, 4], [-1, -20, -14, -32, 3], [-14, -32, -18, -42, 2], [1, -30, 13, -40, 3],
-        [13, -40, 20, -38, 2], [2, -44, -4, -52, 2], [-14, -32, -22, -30, 1.6], [v === 2 ? 5 : 2, -44, 8, -54, 1.6]]
-        .map(([a, b, c, d, w]) => [ax + a * k * mirror, ay + b * k, ax + c * k * mirror, ay + d * k, w * k]);
-      const img = paint(W, H, (x, y) => {
-        let best = null;
-        for (const [x1, y1, x2, y2, w] of br) {
-          const r = segDist(x + 0.5, y + 0.5, x1, y1, x2, y2);
-          if (r.d <= w / 2 + 0.35 && (!best || r.d < best.d)) best = { d: r.d, side: r.side, w };
-        }
-        if (!best) return null;
-        let s = 2.6 + (best.side > 0 ? -0.9 : 0.6) + (hash2(x, y * 2) - 0.5) * 1.1;
-        if (best.w > 3 && hash2(Math.floor(x / 2), y) < 0.06) s -= 1.5; // knots
-        return q(BARK, s, x, y);
-      }, '#0c0805', { cx: 24, cy: 57, rx: 12, ry: 3 });
-      return { img, ax, ay };
+      const s = v === 1 ? -1 : 1, sw = v === 2;
+      const P = (x, y, z) => (sw ? [y * s, x * s, z] : [x * s, y * s, z]);
+      const limbs = [
+        [P(0, 0, 0), P(0.6, 0, 22), 3.2, 2.2], [P(0.6, 0, 22), P(-0.8, 1, 37), 2.2, 1.2],
+        [P(0, 0, 15), P(-9, 3, 25), 1.7, 1.0], [P(-9, 3, 25), P(-12, 4, 33), 1.0, 0.55], [P(-9, 3, 25), P(-15, 2, 24), 0.8, 0.45],
+        [P(0.5, 0, 23), P(8, -4, 31), 1.5, 0.9], [P(8, -4, 31), P(13, -5, 30), 0.9, 0.5],
+        [P(-0.8, 1, 37), P(-3, 2.5, 43), 1.1, 0.55], [P(0, 0.5, 31), P(4, 5, 38), 1.0, 0.5],
+        // roots
+        [P(0, 0, 1.5), P(5, 1.5, 0), 1.6, 0.6], [P(0, 0, 1.5), P(-3, 4, 0), 1.4, 0.5], [P(0, 0, 1.5), P(-1, -5, 0), 1.3, 0.5]
+      ];
+      return isoVolume({
+        ext: [17, 17, 45], outline: '#0c0805', shadowR: 11,
+        parts: [{
+          d: (p) => { let m = Infinity; for (const [a, b, r1, r2] of limbs) m = Math.min(m, SD.limb(p, a, b, r1, r2)); return clipGround(m, p); },
+          color: (h) => {
+            const streak = vn(h.p[0] * 1.4, h.p[1] * 1.4, h.p[2] * 0.25) - 0.5;
+            const knot = hash2(Math.floor(h.p[2] / 2), Math.floor(h.p[0] + h.p[1])) < 0.04;
+            return lightRamp(BARK, h, streak * 1.2 - (knot ? 1.4 : 0), 0.25);
+          }
+        }]
+      });
     },
 
     giant_mushroom(v) {
-      const W = 44, H = 40, cx = 21.5;
-      const spots = [[-8, -6, 2.4], [3, -9, 2.8], [11, -4, 1.9], [-2, -3, 1.6], [-13, -2, 1.4], [8, -10, 1.3]];
       const capR = [CAP, ramp(['#2a1238', '#43205c', '#63307f', '#8545a3', '#a866c3', '#c993dc']), ramp(['#3b2210', '#5e3818', '#835022', '#a8692d', '#c9873f', '#e2a95e'])][v];
-      const img = paint(W, H, (x, y) => {
-        const dx = x - cx;
-        const capY = 19;
-        if (y <= capY + 1) {
-          const nx = dx / 17.5, ny = (y + 0.5 - capY) / 12;
-          if (nx * nx + ny * ny <= 1 && (y <= capY || Math.abs(dx) <= 16)) {
-            if (y >= capY) return q(STEM, 1 - Math.abs(nx), x, y); // gill lip
-            for (const [sx, sy, r] of spots) if (Math.hypot(dx - sx, y - (capY + sy)) <= r) return q(STEM, 4 - (sy + 10) * 0.08, x, y);
-            return q(capR, 3 + (-nx * 0.6 - ny * 0.9) * 1.6, x, y);
-          }
+      const spots = [];
+      for (let i = 0; i < 11; i++) {
+        const a = hash2(i, 3 + v) * Math.PI * 2, el = 0.25 + hash2(i, 9 + v) * 0.95;
+        spots.push({ c: [Math.cos(a) * Math.cos(el) * 13, Math.sin(a) * Math.cos(el) * 13, 13 + Math.sin(el) * 8], r: 1.5 + hash2(i, 5) * 1.6 });
+      }
+      const stem = {
+        d: (p) => clipGround(Math.min(SD.limb(p, [0, 0, 0], [0, 0, 13], 3.8, 2.9), SD.ellipsoid(p, [0, 0, 1], [4.8, 4.8, 2.4])), p),
+        color: (h) => lightRamp(STEM, h, -0.3, 0.3)
+      };
+      const cap = {
+        d: (p) => Math.max(SD.ellipsoid(p, [0, 0, 13], [13.5, 13.5, 8.5]), 12 - p[2]),
+        color: (h) => {
+          if (h.n[2] < -0.6) return q(STEM, 0.8 + (Math.floor(Math.atan2(h.p[1], h.p[0]) * 6) % 2 ? 0.4 : 0), h.x, h.y);   // gills
+          for (const sp of spots) if (V.len(V.sub(h.p, sp.c)) < sp.r) return lightRamp(STEM, h, 0.6, 0.45);
+          return lightRamp(capR, h, 0, 0.25);
         }
-        const half = 3.6 + (y > 34 ? (y - 34) * 0.6 : 0);
-        if (y > capY + 1 && y <= 37 && Math.abs(dx) <= half) return q(STEM, 3.2 - (dx / half) * 1.4, x, y);
-        return null;
-      }, '#160806', { cx: 22, cy: 37, rx: 12, ry: 3 });
-      return { img, ax: 22, ay: 37 };
+      };
+      return isoVolume({ ext: [15, 15, 22], outline: '#160806', shadowR: 13, parts: [stem, cap] });
     },
 
     snow_pine(v) {
-      const W = 38, H = 60, ax = 18.5, ay = 57;
-      const tiers = [[6, 26, 8], [18, 40, 12], [30, 52, 16]];
-      const img = paint(W, H, (x, y) => {
-        const dx = x - ax + 0.5;
-        for (let t = tiers.length - 1; t >= 0; t--) {
-          const [y0, y1, hw] = tiers[t];
-          const jag = (hash2(x * 3 + t, v) < 0.5 ? 1 : 0) + ((x + t) % 3 === 0 ? 1 : 0);
-          if (y < y0 || y > y1 - jag) continue;
-          const f = (y - y0) / (y1 - y0), half = 1 + f * hw;
-          if (Math.abs(dx) > half) continue;
-          // snow sits on the upper surface of each tier and in a few clumps
-          const surface = y - y0 < 2 + f * 3 || (y > y1 - jag - 2 && hash2(x, y) < 0.45);
-          if (surface && hash2(x * 2 + t, y) < 0.8) return q(SNOW, 2.6 - (dx / half) * 1.2, x, y);
-          return q(NEEDLES, 2.8 - (dx / half) * 1.8 - f * 1.2, x, y);
+      const P = pineCrown([[6, 14, 13], [15, 13, 10.5], [24, 12, 8], [32, 11, 5.2]], v * 5, 1.6);
+      const trunk = { d: (p) => clipGround(SD.cyl(p, 0, 0, 1.9, 0, 9), p), color: (h) => lightRamp(BARK, h, 0, 0.25) };
+      const crown = {
+        d: P.d,
+        color: (h) => {
+          const [x, y, z] = h.p;
+          if (P.under(h.p)) return lightRamp(NEEDLES, h, -1.8, 0.1);
+          if (h.n[2] > 0.45 && vn(x * 0.8, y * 0.8, z * 0.8 + 4) > 0.5) return lightRamp(SNOW, h, 0, 0.35);
+          return lightRamp(NEEDLES, h, (hash2(h.x, h.y) - 0.5) * 0.6, 0.2);
         }
-        if (y >= 50 && y <= 57 && Math.abs(dx) <= 2.2) return q(BARK, 2.5 - dx * 0.6, x, y);
-        return null;
-      }, '#07120c', { cx: 19, cy: 57, rx: 13, ry: 3.5 });
-      return { img, ax, ay };
+      };
+      return isoVolume({ ext: [14, 14, 44], outline: '#07120c', shadowR: 12, parts: [trunk, crown] });
     },
 
     bone_pile(v) {
-      const W = 34, H = 22, ox = 17, oy = 17, k = 1 / 1.3;
-      const bones = [[-12, 0, 6, -5], [-6, -6, 10, 1], [-10, -3, 2, 3], [0, -9, 12, -4]].map(([a, b, c, d]) => [ox + a * k, oy + b * k, ox + c * k, oy + d * k]);
-      const skull = { x: ox - 1 * k - (v ? 4 : 0), y: oy - 10 * k };
-      const img = paint(W, H, (x, y) => {
-        const X = x + 0.5, Y = y + 0.5;
-        const sd = Math.hypot(X - skull.x, (Y - skull.y) * 1.1);
-        if (sd <= 3.6 || (Y > skull.y && Y < skull.y + 4.4 && Math.abs(X - skull.x) <= 2.4)) {
-          if ((Math.abs(X - (skull.x - 1.4)) < 0.9 || Math.abs(X - (skull.x + 1.4)) < 0.9) && Math.abs(Y - skull.y - 0.6) < 0.9) return rgb('#1c1917');
-          if (Y > skull.y + 3.2 && Math.floor(X) % 2 === 0) return BONE[1];
-          return q(BONE, 3.4 - (X - skull.x) * 0.25 - (Y - skull.y) * 0.2, x, y);
+      const bones = [[[-9, 2, 1], [5, -3, 1]], [[-4, -6, 1], [8, 2, 1.2]], [[-7, -2, 2.4], [2, 5, 1]], [[1, -8, 0.9], [10, -2, 1]]];
+      const sk = [v ? -5 : -1, 3, 3.4];
+      const bone = (h) => lightRamp(BONE, h, 0.3, 0.3);
+      const parts = bones.map(([a, b]) => ({
+        d: (p) => clipGround(Math.min(SD.limb(p, a, b, 0.9), SD.sphere(p, a, 1.5), SD.sphere(p, b, 1.5)), p),
+        color: bone
+      }));
+      parts.push({
+        d: (p) => clipGround(Math.min(SD.ellipsoid(p, sk, [3.1, 3.4, 3]), SD.box(p, [sk[0], sk[1] + 1.2, 1.2], [2, 1.8, 1.2])), p),
+        color: (h) => {
+          // eye sockets and teeth on the face turned toward the camera (+y)
+          const ex = h.p[0] - sk[0], ez = h.p[2] - sk[2];
+          if (h.n[1] > 0.4 && Math.abs(ez - 0.4) < 0.9 && Math.abs(Math.abs(ex) - 1.4) < 0.85) return rgb('#1c1917');
+          if (h.n[1] > 0.5 && h.p[2] < 2.2 && Math.floor(h.x) % 2 === 0) return BONE[1];
+          return bone(h);
         }
-        for (const [x1, y1, x2, y2] of bones) {
-          const r = segDist(X, Y, x1, y1, x2, y2);
-          const knob = Math.min(Math.hypot(X - x1, Y - y1), Math.hypot(X - x2, Y - y2));
-          if (r.d <= 1.2 || knob <= 1.7) return q(BONE, (r.side > 0 ? 2.2 : 3.4) + (knob <= 1.7 ? 0.5 : 0), x, y);
-        }
-        return null;
-      }, '#1b1612', { cx: 17, cy: 18, rx: 13, ry: 3 });
-      return { img, ax: 17, ay: 18 };
+      });
+      return isoVolume({ ext: [13, 11, 8], outline: '#1b1612', shadowR: 12, parts });
     },
+
+    gold_hoard(v) {
+      const goblet = [-5 + v * 3, -2, 0];
+      return isoVolume({
+        ext: [16, 14, 14], outline: '#2a1803', shadowR: 16,
+        parts: [
+          {
+            d: (p) => clipGround(SD.ellipsoid(p, [0, 0, 0], [14, 12, 8]) + (vn(p[0] * 0.8 + v, p[1] * 0.8, p[2] * 0.8) - 0.5) * 1.2, p),
+            color: (h) => {
+              const coin = hash2(Math.floor(h.p[0] * 0.8 + 30) + v, Math.floor(h.p[1] * 0.8 + 30) * 7 + Math.floor(h.p[2])) < 0.24;
+              return lightRamp(GOLD, h, coin ? 1.1 : -0.7, 0.2);
+            }
+          },
+          { d: (p) => Math.min(SD.cyl(p, goblet[0], goblet[1], 0.8, 6, 9.5), SD.cyl(p, goblet[0], goblet[1], 2.1, 9.5, 12.5), SD.cyl(p, goblet[0], goblet[1], 1.6, 6, 6.8)), color: (h) => lightRamp(GOLD, h, 0.6, 0.35) },
+          { d: (p) => SD.sphere(p, [5, 4, 6.8], 1.7), color: (h) => (h.lit > 0.6 ? rgb('#fca5a5') : rgb('#dc2626')) }
+        ]
+      });
+    }
+  };
+
+  // ---- Portal gate: a stone arch on a stepped dais, in the iso projection.
+  // The arch stands in the x-z plane (y = 0); its opening is |x| < PORTAL.inner,
+  // PORTAL.z0 < z < PORTAL.top, where the renderer draws the swirling vortex.
+  const PORTAL = { half: 17, tube: 3.1, pillarTop: 30, z0: 5.2, inner: 13.9, top: 43.9 };
+  const portalCache = new Map();
+  function portalGate(accent) {
+    if (portalCache.has(accent)) return portalCache.get(accent);
+    const A = rgb(accent), G = PORTAL;
+    const glowCol = (k) => A.map(v => Math.min(255, Math.round(v + (255 - v) * k)));
+    // rune grooves cut into the front (+y) faces of both pillars and the keystone
+    const rune = (h) => {
+      if (h.n[1] < 0.75) return false;
+      const [x, , z] = h.p, ax = Math.abs(x);
+      if (ax > G.half - 1.4 && ax < G.half + 1.4 && z > 9 && z < G.pillarTop - 3) {
+        const k = (z - 9) % 5;
+        return Math.abs(ax - G.half) < 0.45 || (k < 0.7 && Math.abs(ax - G.half) < 1.1);
+      }
+      return z > G.pillarTop + G.half - 1.5 && ax < 1.2;
+    };
+    const stone = (h) => (rune(h) ? SLATE[1] : lightRamp(STONE, h, (hash2(h.x, h.y) - 0.5) * 0.6 - (h.p[2] < 5 ? 0.6 : 0), 0.25));
+    const M = isoVolume({
+      ext: [G.half + 5, 15, G.top + 8], outline: '#141820', shadowR: 23,
+      parts: [
+        // stepped dais
+        { d: (p) => Math.min(SD.box(p, [0, 0, 1.5], [G.half + 4, 14, 1.5]), SD.box(p, [0, 0, 4], [G.half + 2, 11, 1.2])), color: stone },
+        // two square pillars
+        { d: (p) => Math.min(...[-1, 1].map(s => SD.box(p, [s * G.half, 0, (G.z0 + G.pillarTop) / 2], [G.tube, G.tube, (G.pillarTop - G.z0) / 2]))), color: stone },
+        // the arch: half a ring in the x-z plane above the pillars, with a keystone
+        {
+          d: (p) => {
+            const dz = p[2] - G.pillarTop;
+            const ring = Math.hypot(Math.hypot(p[0], Math.max(dz, 0)) - G.half, p[1]) - G.tube;
+            const key = SD.box(p, [0, 0, G.pillarTop + G.half], [2.2, G.tube + 0.3, 3]);
+            return Math.min(dz < 0 ? Infinity : ring, key);
+          },
+          color: stone
+        }
+      ],
+      layers: { glow: (h) => (rune(h) ? glowCol(hash2(h.x, h.y) < 0.5 ? 0.15 : 0.55) : null) }
+    });
+    const spr = { img: M.img, glow: M.glow, ax: M.ax, ay: M.ay, geo: G };
+    portalCache.set(accent, spr);
+    return spr;
+  }
+
+  // ---- Cave portal (the Eternal Rift's entrance): a rocky mound with a dark
+  // tunnel opening toward +y. The model's origin is the cave floor at the mouth;
+  // the renderer draws the vortex in the plane v = CAVE.v (inside the opening:
+  // |x| < CAVE.inner, CAVE.z0 < z < CAVE.top).
+  const K_CAVE = 1.9;   // overall size of the cave model
+  const CAVE = { v: 3, inner: 14, z0: 1, top: 28, labelZ: 76 };
+  const caveCache = new Map();
+  function caveMouth(accent) {
+    if (caveCache.has(accent)) return caveCache.get(accent);
+    const A = rgb(accent), K = K_CAVE;
+    const lump = (p) => (vn(p[0] * 0.1 + 3, p[1] * 0.1, p[2] * 0.1) - 0.5) * 12 + (vn(p[0] * 0.35, p[1] * 0.35 + 9, p[2] * 0.35) - 0.5) * 3.5;
+    // the tunnel: a rounded arch cut into the mound's front, running back into the hill
+    const tunnel = (p) => {
+      const ax = Math.abs(p[0]) / (8 * K), az = Math.max(0, p[2] - 7 * K) / (8.5 * K);
+      return Math.max((Math.hypot(ax, az) - 1) * 7.5 * K, -10 * K - p[1]);
+    };
+    const mound = (p) => clipGround(Math.min(
+      SD.ellipsoid(p, [0, -13 * K, 0], [27 * K, 20 * K, 25 * K]),
+      SD.ellipsoid(p, [-15 * K, -6 * K, 0], [13 * K, 11 * K, 12 * K]),
+      SD.ellipsoid(p, [16 * K, -8 * K, 0], [12 * K, 12 * K, 13 * K])
+    ) + lump(p), p);
+    // rune stones framing the mouth glow in the portal colour
+    const rune = (h) => h.n[1] > 0.55 && h.p[1] > -2 * K && Math.abs(Math.hypot(Math.abs(h.p[0]) / (9.6 * K), Math.max(0, h.p[2] - 7 * K) / (10 * K)) - 1) < 0.07
+      && Math.floor(Math.atan2(h.p[2] - 7 * K, h.p[0]) * 4) % 2 === 0;
+    const glowCol = (k) => A.map(v => Math.min(255, Math.round(v + (255 - v) * k)));
+    const M = isoVolume({
+      ext: [30 * K, 34 * K, 34 * K], outline: '#0f1116', shadowR: 30 * K,
+      parts: [
+        {
+          d: (p) => Math.max(mound(p), -tunnel(p)),
+          color: (h) => {
+            // deep in the tunnel the rock falls into darkness
+            const depth = Math.max(0, 6 * K - h.p[1]) / (14 * K);
+            if (h.p[1] < 4 * K && tunnel(h.p) < 1.2 * K) return q(R_ROCK_DARK, 1.6 - depth * 2, h.x, h.y);
+            if (rune(h)) return SLATE[2];
+            if (h.n[2] > 0.6 && vn(h.p[0] * 0.16, h.p[1] * 0.16, h.p[2] * 0.16) > 0.6) return lightRamp(MOSS, h, 0.1);
+            const crack = Math.abs(vn(h.p[0] * 0.28 + 4, h.p[1] * 0.28, h.p[2] * 0.28) - 0.5) < 0.03;
+            return lightRamp(ROCK, h, crack ? -1.5 : (hash2(h.x, h.y) - 0.5) * 0.7, 0.2);
+          }
+        },
+        // rubble scattered at the foot of the mouth
+        {
+          d: (p) => clipGround(Math.min(SD.ellipsoid(p, [-11 * K, 6 * K, 1.2 * K], [3.6 * K, 3 * K, 2.6 * K]), SD.ellipsoid(p, [12 * K, 4 * K, K], [3 * K, 2.6 * K, 2.2 * K]), SD.ellipsoid(p, [9 * K, 9 * K, 0.8 * K], [2 * K, 1.8 * K, 1.5 * K])) + lump(p) * 0.2, p),
+          color: (h) => lightRamp(ROCK, h, 0.2, 0.22)
+        }
+      ],
+      layers: { glow: (h) => (rune(h) ? glowCol(hash2(h.x, h.y) < 0.5 ? 0.2 : 0.6) : null) }
+    });
+    const spr = { img: M.img, glow: M.glow, ax: M.ax, ay: M.ay, geo: CAVE };
+    caveCache.set(accent, spr);
+    return spr;
+  }
+  const R_ROCK_DARK = ramp(['#050508', '#0b0b10', '#13131a', '#1c1d25', '#272833']);
+
+  // Town trees (oak and pine) in the same projection. Trunk and crown come as
+  // two images so the renderer can sway the crown in the breeze.
+  const LEAVES = ramp(['#132a17', '#1a3a1e', '#224a25', '#2c5c2c', '#376e33', '#46813b', '#589346', '#6ea653']);
+  const TRUNK = ramp(['#24170f', '#352318', '#4a3222', '#5f432e', '#76563c']);
+  const treeCache = new Map();
+  function isoTree(type, variant) {
+    const key = type + '|' + variant;
+    if (treeCache.has(key)) return treeCache.get(key);
+    const seed = variant * 101 + (type === 'pine_tree' ? 7 : 3);
+    const rnd = (i) => hash2(i * 13 + seed, seed * 7 + i);
+    let trunkParts, crownParts, ext, outlineCrown;
+    if (type === 'pine_tree') {
+      const P = pineCrown([[10, 16, 15.5], [20, 15, 13], [30, 14, 10.5], [40, 13, 8], [50, 13, 5.2]], seed, 1.9);
+      trunkParts = [{ d: (p) => clipGround(SD.cyl(p, 0, 0, 2.3, 0, 14), p), color: (h) => lightRamp(TRUNK, h, 0, 0.25) }];
+      crownParts = [{
+        d: P.d,
+        color: (h) => (P.under(h.p) ? lightRamp(NEEDLES, h, -1.8, 0.08)
+          : lightRamp(NEEDLES, h, (hash2(h.x + seed, h.y) - 0.5) * 0.9 + (h.p[2] > 55 ? 0.6 : 0), 0.18))
+      }];
+      ext = [17, 17, 66];
+      outlineCrown = '#081510';
+    } else {
+      const blobs = [{ c: [0, 0, 36], r: 12 }];
+      for (let i = 0; i < 12; i++) {
+        const a = rnd(i) * Math.PI * 2, d = 0.4 + rnd(i + 40) * 0.6, z = 30 + (rnd(i + 60) - 0.4) * 16;
+        blobs.push({ c: [Math.cos(a) * 11 * d, Math.sin(a) * 11 * d, z], r: 6 + rnd(i + 80) * 4.5 });
+      }
+      const lean = (rnd(99) - 0.5) * 2;
+      trunkParts = [{
+        d: (p) => clipGround(Math.min(
+          SD.limb(p, [0, 0, 0], [lean, 0, 30], 3.4, 2.2),
+          SD.limb(p, [lean * 0.6, 0, 20], [5, 3, 31], 1.6, 1.0),
+          SD.limb(p, [lean * 0.6, 0, 22], [-4, -3, 32], 1.5, 0.9),
+          SD.ellipsoid(p, [0, 0, 0.5], [5.2, 5.2, 2.6])
+        ), p),
+        color: (h) => lightRamp(TRUNK, h, hash2(h.x + seed, h.y * 3) < 0.15 ? -1 : 0, 0.25)
+      }];
+      const leafy = (p) => (vn(p[0] * 0.45 + seed, p[1] * 0.45, p[2] * 0.45) - 0.5) * 3 + (vn(p[0] * 1.3, p[1] * 1.3 + seed, p[2] * 1.3) - 0.5) * 1.1;
+      crownParts = [{
+        d: (p) => { let m = Infinity; for (const b of blobs) m = Math.min(m, SD.sphere(p, b.c, b.r)); return m + leafy(p); },
+        color: (h) => lightRamp(LEAVES, h, (h.p[2] - 36) / 12 + (hash2(h.x * 5 + seed, h.y * 3) - 0.5) * 1.1, 0.05)
+      }];
+      ext = [20, 20, 52];
+      outlineCrown = '#0b1a0e';
+    }
+    // One march for the whole tree, split into two images: every pixel goes to
+    // whichever part is nearest the camera, so the crown never paints over
+    // trunk that stands in front of it. (Shadows: the renderer draws them.)
+    const crownColor = new Map(crownParts.map(pt => [pt, pt.color]));
+    const parts = [...trunkParts, ...crownParts.map(pt => ({ d: pt.d, color: () => null, crown: pt }))];
+    const M = isoVolume({
+      ext, parts, outline: '#140d08', shadow: false,
+      layers: { crown: { fn: (h) => (h.part.crown ? crownColor.get(h.part.crown)(h) : null), outline: outlineCrown } }
+    });
+    const spr = { trunk: M.img, crown: M.crown, ax: M.ax, ay: M.ay };
+    treeCache.set(key, spr);
+    return spr;
+  }
+
+  // ---------------------------------------------------------------- sprites
+  const BUILD = {
+    ...ISO,
 
     sarcophagus(v) {
       const W = 50, H = 34, ox = 25, oy = 25, L = 14, Wd = 7, Ht = 7;
@@ -333,24 +647,7 @@
       return { img, ax: 13, ay: 21, flameY: 6 };
     },
 
-    gold_hoard(v) {
-      const W = 40, H = 24, cx = 19.5, base = 19;
-      const img = paint(W, H, (x, y) => {
-        const dx = x - cx;
-        // goblet and gem on top
-        if (x >= 25 && x <= 28 && y >= 4 && y <= 9) {
-          if (y <= 6 || (y === 9) || Math.abs(x - 26.5) < 1) return q(GOLD, 4.5 - (x - 25) * 0.6, x, y);
-        }
-        if (Math.hypot(x - 12, y - 10) <= 1.6) return y < 10 ? rgb('#fca5a5') : rgb('#dc2626');
-        const topY = base - 14 * Math.sqrt(Math.max(0, 1 - (dx / 18) * (dx / 18)));
-        if (y < topY || y > base || Math.abs(dx) > 18) return null;
-        // coins: little bright lozenges scattered on the heap
-        const coin = hash2(Math.floor(x / 2) + v, y) < 0.22 && (x + y) % 2 === 0;
-        const s = 3.2 - dx * 0.08 - (y - topY) * 0.15 + (coin ? 2 : 0);
-        return q(GOLD, s, x, y);
-      }, '#2a1803', { cx: 20, cy: 20, rx: 18, ry: 3.5 });
-      return { img, ax: 20, ay: 20 };
-    },
+
 
     torch() {
       const W = 20, H = 40, cx = 9.5;
@@ -849,7 +1146,10 @@
     const post = (x, y, z, px0, py0) => x >= px0 && x <= px0 + 2 && y >= py0 && y <= py0 + 2 && z >= G0;
     const bottleCols = ['#4aa3df', '#e25a5a', '#7bc96f', '#f0c24a'];
 
-    const backWall = [0, Wx, 0, 2.6, G0, G0 + 24];
+    // A stall turned to face away from the camera (south of the road) shows us its back wall, so
+    // there it is a low shelf painted over the keeper, who stays in view above it
+    const lowWall = kind === 'stall' && !nearCounter;
+    const backWall = [0, Wx, 0, 2.6, G0, G0 + (lowWall ? 9 : 24)];
     // posts and the sloped striped awning (with scalloped fringe). Merchant and smithy roofs only cover the back half.
     const shortRoof = true;   // every roof covers only the back half, so counters and wares stay in view
     const aLim = shortRoof ? 15 : Wy + ov + 2;
@@ -889,6 +1189,7 @@
         // a counter on the near side is painted over the keeper; on the far side it belongs behind them
         const cc = nearCounter ? counter(x, y, z) : null;
         if (cc) return cc;
+        if (lowWall) { const w = wallAt(x, y, z); if (w) return w; }
         return (kind === 'stall' || kind === 'enchanter') ? canopy(x, y, z) : null;
       }
       // ---- back layer
@@ -927,8 +1228,12 @@
           return q(ARCANE, 4.6 + (z - cz) * 0.18 + (x < ax0 + 7 ? 0.3 : -0.2), x, y);
         }
       }
-      // back wall: shelves of bottles and sacks
-      if (kind !== 'blacksmith' && inBox(x, y, z, backWall)) {
+      if (kind !== 'blacksmith' && !lowWall) { const w = wallAt(x, y, z); if (w) return w; }
+      return null;
+    };
+    // back wall: shelves of bottles and sacks
+    function wallAt(x, y, z) {
+      if (inBox(x, y, z, backWall)) {
         const f = faceOf(x, y, z, backWall), vv = z - G0;
         if (!hitFront && f !== 'z') return q(WOOD, 1.8, x, y);   // its back, or its side
         if (kind === 'enchanter' && f !== 'z') return q(ARCANE, 1.6 + (Math.floor(x / 4) % 2 ? 0.6 : 0) + (z - G0 > 20 ? 1 : 0), x, y);
@@ -942,7 +1247,7 @@
         return q(WOOD, 1.1 + (hash2(Math.floor(x), Math.floor(vv)) * 0.3), x, y);
       }
       return null;
-    };
+    }
     const cast = (layer, X, Y, z) => { const [lx, ly] = toLocal(X, Y); return castLocal(layer, lx, ly, z); };
     return {
       Wd, Ht, OX, OY, ov: PAD, cast, zMax: zTop, xMax: WXw + PAD, yMax: WYw + PAD,
@@ -1000,6 +1305,18 @@
 
   window.PixelProps = {
     TYPES: new Set(Object.keys(BUILD)),
-    sprite, flame, hash2, WATER
+    sprite, flame, hash2, WATER, isoTree, portalGate, caveMouth
   };
+
+  // The 3D props take a few ms each to ray-cast (oaks ~80 ms): build them one
+  // at a time while the browser is idle, so the first sight of one never hitches
+  const warm = [];
+  for (const t of Object.keys(ISO)) for (let v = 0; v < 3; v++) warm.push(() => sprite(t, v));
+  for (const t of ['oak_tree', 'pine_tree']) for (let v = 0; v < 3; v++) warm.push(() => isoTree(t, v));
+  const idle = window.requestIdleCallback || ((fn) => setTimeout(() => fn({ timeRemaining: () => 8 }), 200));
+  const step = (dl) => {
+    while (warm.length && dl.timeRemaining() > 4) warm.shift()();
+    if (warm.length) idle(step);
+  };
+  idle(step);
 })();

@@ -16,5 +16,35 @@
     "rarity": "legendary",
     "sellPrice": 0,
     "desc": "Crystallised light from the Eternal Rift. Earned by defending the Holy Fountain; James the Gatekeeper forges it into unique gear."
+  },
+  "attr_socketer": {
+    "id": "attr_socketer",
+    "name": "Attribute Socketer",
+    "type": "material",
+    "iconKey": "attr_socketer",
+    "rarity": "rare",
+    "color": "#41a6f6",
+    "sellPrice": 150,
+    "desc": "A tiny diamond drill. Jerry the Attribute Smith opens one more attribute slot on a piece of gear with it, up to what its rarity allows."
+  },
+  "attr_roller": {
+    "id": "attr_roller",
+    "name": "Attribute Roller",
+    "type": "material",
+    "iconKey": "attr_roller",
+    "rarity": "uncommon",
+    "color": "#a7f070",
+    "sellPrice": 80,
+    "desc": "A loaded rune die. Jerry rolls new attributes into a piece of gear with it. Locked attributes are kept, but each roll then costs one roller per locked attribute."
+  },
+  "attr_reseter": {
+    "id": "attr_reseter",
+    "name": "Attribute Reseter",
+    "type": "material",
+    "iconKey": "attr_reseter",
+    "rarity": "epic",
+    "color": "#c084fc",
+    "sellPrice": 200,
+    "desc": "An hourglass of starlit sand. Jerry keeps which attributes a piece of gear has and rolls their values again with it."
   }
 }

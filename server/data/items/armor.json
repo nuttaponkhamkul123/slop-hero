@@ -146,5 +146,72 @@
     },
     "rift": true,
     "desc": "+42 Defense, +420 Max Health, +0.2 Speed, 💀 Dark RES +20%, ✨ Holy RES +15%. Armour of the ones who held the gate."
+  },
+  "wayfarer_longcoat": {
+    "id": "wayfarer_longcoat",
+    "name": "Wayfarer's Longcoat",
+    "type": "equipment",
+    "slot": "armor",
+    "iconKey": "armor_leather",
+    "rarity": "epic",
+    "sellPrice": 170,
+    "classReq": "all",
+    "setId": "wayfarer",
+    "bonusDef": 9,
+    "bonusHp": 70,
+    "elementResist": {
+      "earth": 0.1
+    },
+    "desc": "+9 Defense, +70 Max Health, Earth RES +10%. Patched a hundred times, never torn through."
+  },
+  "emberheart_cuirass": {
+    "id": "emberheart_cuirass",
+    "name": "Emberheart Cuirass",
+    "type": "equipment",
+    "slot": "armor",
+    "iconKey": "armor_dragon",
+    "rarity": "legendary",
+    "sellPrice": 320,
+    "classReq": "all",
+    "setId": "emberheart",
+    "bonusDef": 12,
+    "bonusHp": 90,
+    "elementResist": {
+      "fire": 0.15
+    },
+    "desc": "+12 Defense, +90 Max Health, Fire RES +15%. Forged in a dying volcano."
+  },
+  "stormcaller_mantle": {
+    "id": "stormcaller_mantle",
+    "name": "Stormcaller's Mantle",
+    "type": "equipment",
+    "slot": "armor",
+    "iconKey": "robe_gold",
+    "rarity": "legendary",
+    "sellPrice": 320,
+    "classReq": "all",
+    "setId": "stormcaller",
+    "bonusDef": 10,
+    "bonusHp": 70,
+    "bonusMp": 30,
+    "desc": "+10 Defense, +70 Max Health, +30 Max Mana. Woven during a thunderstorm."
+  },
+  "twin_veil_raiment": {
+    "id": "twin_veil_raiment",
+    "name": "Twin Veil Raiment",
+    "type": "equipment",
+    "slot": "armor",
+    "iconKey": "robe_dark",
+    "rarity": "legendary",
+    "sellPrice": 320,
+    "classReq": "all",
+    "setId": "eclipse",
+    "bonusDef": 11,
+    "bonusHp": 80,
+    "elementResist": {
+      "holy": 0.1,
+      "dark": 0.1
+    },
+    "desc": "+11 Defense, +80 Max Health, Holy & Dark RES +10%. Where dawn meets dusk."
   }
 }

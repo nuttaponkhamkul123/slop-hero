@@ -5,9 +5,17 @@
 (function (root) {
   'use strict';
 
-  const W = 80, H = 72;          // frame size
-  const AX = 40, AY = 66;        // anchor (feet on the ground)
+  const W = 80, H = 80;          // frame size (tall enough for overhead swings on the longer body)
+  const AX = 40, AY = 74;        // anchor (feet on the ground)
   const LIGHT = [-0.54, -0.84];  // light from the upper left
+  // Anatomy: poses and bones are authored for a stocky, big-headed hero. The
+  // body is stretched by BODY_K (limbs keep their thickness, so it reads leaner)
+  // and the head is drawn at HEAD_K, for closer-to-life proportions
+  // (about five and a half heads tall instead of three and a half).
+  const BODY_K = 1.2;
+  const HEAD_K = 0.78;
+  // while a head is being drawn, head-space offsets and shape radii shrink by this
+  let HEAD_SCALE = 1;
 
   // ---------------------------------------------------------------- palette
   function hexRgb(h) {
@@ -41,7 +49,11 @@
     strap: mat('#1a0e0c', '#46271a', '#6b4322', '#9a6a3c', '#c49559'),
     scarf: mat('#04120f', '#0b3530', '#15583e', '#2a8250', '#5ab06a'),
     venom: mat('#05290f', '#15a046', '#49dd7e', '#d6ffe3', '#ffffff'),
-    smear: mat('#ffffff', '#cfe8ff', '#e8f4ff', '#ffffff')
+    smear: mat('#ffffff', '#cfe8ff', '#e8f4ff', '#ffffff'),
+    // base warrior: blackened gunmetal plate, ember glow, horn
+    gunmetal: mat('#0b0c16', '#2c3049', '#4f5878', '#8e99ba', '#e6ebff'),
+    ember: mat('#3a0a02', '#c2410c', '#fb923c', '#fed7aa', '#fffbeb'),
+    horn: mat('#1a150d', '#6e6047', '#b3a37c', '#e6dcbc', '#fffaf0')
   };
   const EYE = hexRgb('#16131f');
   const ROGUE_EYE = hexRgb('#f7d774');
@@ -74,6 +86,7 @@
   // returning a pseudo-normal used for shading.
   function capsule(a, b, r1, r2) {
     if (r2 === undefined) r2 = r1;
+    r1 *= HEAD_SCALE; r2 *= HEAD_SCALE;
     const ax = AX + a[0], ay = AY + a[1], bx = AX + b[0], by = AY + b[1];
     const dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy || 1e-6;
     const r = Math.max(r1, r2);
@@ -93,6 +106,7 @@
 
   function disc(c, r, ry) {
     if (ry === undefined) ry = r;
+    r *= HEAD_SCALE; ry *= HEAD_SCALE;
     const cx = AX + c[0], cy = AY + c[1];
     return {
       bbox: [Math.floor(cx - r - 1), Math.floor(cy - ry - 1), Math.ceil(cx + r + 1), Math.ceil(cy + ry + 1)],
@@ -153,7 +167,10 @@
         }
       }
     }
-    const ramp = [m.d, m.m, m.l, m.h];
+    // Seven-step ramp: the material's four tones with a blended tone between each
+    // pair, so round forms turn gradually instead of in three hard bands.
+    // index: 0 dark, 1 dark/mid, 2 mid, 3 mid/light, 4 light, 5 light/high, 6 high
+    const ramp = m._ramp7 || (m._ramp7 = [m.d, mixRgb(m.d, m.m, 0.5), m.m, mixRgb(m.m, m.l, 0.5), m.l, mixRgb(m.l, m.h, 0.5), m.h]);
     for (let y = y0; y <= y1; y++) {
       for (let x = x0; x <= x1; x++) {
         const n = inside(x, y);
@@ -162,16 +179,25 @@
         if (o.tone) c = m[o.tone];
         else {
           const s2 = n[0] * LIGHT[0] + n[1] * LIGHT[1];
+          // how close to the silhouette edge (1 = on the rim): edges turn away from the viewer
+          const edge = Math.min(1, n[0] * n[0] + n[1] * n[1]);
           let i;
-          if (o.metal) i = s2 > 0.84 ? 3 : s2 > 0.4 ? 2 : s2 > -0.2 ? 1 : s2 > -0.8 ? 0 : 1;
-          else {
-            i = (o.spec && s2 > 0.8) ? 3 : s2 > 0.38 ? 2 : s2 < -0.36 ? 0 : 1;
+          if (o.metal) {
+            // polished plate: dark core, bright band, hot glint, bounce light on the far rim
+            i = s2 > 0.86 ? 6 : s2 > 0.62 ? 5 : s2 > 0.38 ? 4 : s2 > 0.1 ? 3 : s2 > -0.2 ? 2 : s2 > -0.5 ? 1 : s2 > -0.82 ? 0 : 1;
+          } else {
+            i = (o.spec && s2 > 0.8) ? 6 : s2 > 0.55 ? 4 : s2 > 0.22 ? 3 : s2 > -0.14 ? 2 : s2 > -0.48 ? 1 : 0;
             if (o.dither) {
-              if (Math.abs(s2 - 0.38) < 0.15) i = (s2 - 0.23) / 0.3 > bayer(x, y) ? 2 : 1;
-              else if (Math.abs(s2 + 0.36) < 0.15) i = (s2 + 0.51) / 0.3 > bayer(x, y) ? 1 : 0;
+              // cloth: blend across each band edge through the Bayer pattern
+              const edges = [0.55, 0.22, -0.14, -0.48];
+              for (let k = 0; k < edges.length; k++) {
+                if (Math.abs(s2 - edges[k]) < 0.09) { i = (s2 - edges[k] + 0.09) / 0.18 > bayer(x, y) ? 4 - k : 3 - k; break; }
+              }
             }
+            // soft occlusion: the shadow side of the silhouette rolls off one more step
+            if (s2 < 0 && edge > 0.72) i = Math.max(0, i - 1);
           }
-          if (o.mail && !(y & 1) && ((x + (y >> 1)) & 1)) i = Math.max(0, i - 1);
+          if (o.mail && !(y & 1) && ((x + (y >> 1)) & 1)) i = Math.max(0, i - 2);
           c = ramp[i];
         }
         put(f, x, y, c, alpha);
@@ -224,12 +250,20 @@
   // about the vertical axis: 0 = side-on (the authored pose), +PI/2 = facing
   // the camera, -PI/2 = facing away (see projectSkeleton).
   function skeleton(p, rig, phi) {
+    // longer body (see BODY_K): the authored pose and bones stretch together, the head shrinks
+    const K = BODY_K, sc = v => (v ? [v[0] * K, v[1] * K] : v);
+    p = Object.assign({}, p, { hip: sc(p.hip), handF: sc(p.handF), handB: sc(p.handB), footF: sc(p.footF), footB: sc(p.footB) });
+    rig = Object.assign({}, rig, {
+      torso: rig.torso * K, thigh: rig.thigh * K, shin: rig.shin * K, upper: rig.upper * K, fore: rig.fore * K, headUp: rig.headUp * HEAD_K
+    });
     const lean = p.lean || 0;
     const up = [Math.sin(lean), -Math.cos(lean)];
     const side = [Math.cos(lean), Math.sin(lean)];
     const hip = p.hip;
-    const shC = add(hip, up, rig.torso);
-    const neck = add(hip, up, rig.torso + 1.4);
+    // breath: the chest and shoulders rise on the in-breath while hips and feet stay put
+    const breath = p.breath || 0;
+    const shC = add(hip, up, rig.torso + breath);
+    const neck = add(hip, up, rig.torso + 1.4 + breath);
     const ht = lean + (p.head || 0);
     const hup = [Math.sin(ht), -Math.cos(ht)];
     const hside = [Math.cos(ht), Math.sin(ht)];
@@ -271,19 +305,33 @@
   const FRONTAL_PHI = 1.2;
   const HEAD_TURN_SQUASH = 0.55;
   const isFrontal = sk => Math.abs(sk.phi || 0) > FRONTAL_PHI;
+  // Knees and feet take less of the depth squash than the body: a stride
+  // toward the camera otherwise pushes the near boot below the ground shadow
+  // (and off the bottom of the frame) while the far one floats
+  const LEG_DEPTH_K = 0.22;
+  // a weapon pointing into the screen is drawn shorter, never below this
+  const MIN_FORESHORTEN = 0.5;
   function projectSkeleton(sk, p, phi) {
     const c = Math.cos(phi), s = Math.sin(phi);
     const twoHand = !!p.twoHand;
+    // legs a little wider than the hips so they read as two legs, not one column
     const Z = {
       shF: 3.6, shB: -3.6, elbowF: 4.4, elbowB: twoHand ? 2.4 : -4.4,
       handF: twoHand ? 1.2 : 4.2, handB: twoHand ? 0.6 : -4.2,
-      hipF: 2.4, hipB: -2.4, kneeF: 2.7, kneeB: -2.7, ankleF: 2.7, ankleB: -2.7
+      hipF: 2.9, hipB: -2.9, kneeF: 3.3, kneeB: -3.3, ankleF: 3.5, ankleB: -3.5
     };
+    const LEG = { kneeF: 1, ankleF: 1, kneeB: 1, ankleB: 1 };
+    const hx = sk.hip[0];
     const P = (v, z) => [v[0] * c - z * s, v[1] + v[0] * s * DEPTH_K];
+    const PL = (v, z) => [v[0] * c - z * s, v[1] + (hx * DEPTH_K + (v[0] - hx) * LEG_DEPTH_K) * s];
     const D = (v, z) => norm(P(v, z));
     for (const k of ['hip', 'shC', 'neck', 'head', 'shF', 'shB', 'hipF', 'hipB', 'kneeF', 'ankleF', 'kneeB', 'ankleB', 'elbowF', 'handF', 'elbowB', 'handB']) {
-      sk[k] = P(sk[k], Z[k] || 0);
+      sk[k] = (LEG[k] ? PL : P)(sk[k], Z[k] || 0);
     }
+    // how long a unit weapon still looks after the turn (1 = side-on)
+    const fore = (v, z) => Math.max(MIN_FORESHORTEN, Math.min(1, Math.hypot(...P(v, z))));
+    sk.wlen = fore(sk.wdir, WEAPON_TILT);
+    sk.wlenB = fore(sk.wdirB, -WEAPON_TILT);
     sk.up = D(sk.up, 0);
     sk.side = [-sk.up[1], sk.up[0]];
     sk.hup = D(sk.hup, 0);
@@ -318,6 +366,34 @@
     return [projectAngle(a0, phi, tilt), acc];
   }
 
+  // Draw a weapon foreshortened: drawn full size on a scratch frame, then
+  // squashed along its own axis about the hand by len (its width is kept), so
+  // a blade or staff pointing toward / away from the camera reads short
+  // instead of jutting out sideways at full length. Returns the moved tip.
+  function foreshortened(f, hand, d, len, draw) {
+    if (!(len < 0.98)) return draw(f);
+    const tmp = newFrame();
+    const tip = draw(tmp);
+    const n = perpOf(d);
+    const src = tmp.data;
+    // rig space is relative to the anchor; the frame is in pixels
+    const hx = AX + hand[0], hy = AY + hand[1];
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const vx = x + 0.5 - hx, vy = y + 0.5 - hy;
+        const a = (vx * d[0] + vy * d[1]) / len, b = vx * n[0] + vy * n[1];
+        const sx = Math.floor(hx + d[0] * a + n[0] * b), sy = Math.floor(hy + d[1] * a + n[1] * b);
+        if (sx < 0 || sy < 0 || sx >= W || sy >= H) continue;
+        const i = (sy * W + sx) * 4;
+        if (src[i + 3]) put(f, x, y, [src[i], src[i + 1], src[i + 2]], src[i + 3]);
+      }
+    }
+    if (!tip) return tip;
+    const tv = [tip[0] - hand[0], tip[1] - hand[1]];
+    const ta = (tv[0] * d[0] + tv[1] * d[1]) * len, tb = tv[0] * n[0] + tv[1] * n[1];
+    return [hand[0] + d[0] * ta + n[0] * tb, hand[1] + d[1] * ta + n[1] * tb];
+  }
+
   // Whole-body rotation (falling over on death)
   function transformSkeleton(sk, rot, shift) {
     const c = Math.cos(rot), s = Math.sin(rot);
@@ -334,13 +410,21 @@
   }
 
   // Local-frame helpers: o + side*a + up*b ; head space uses (dx right, dy down)
-  const L = (sk, o, a, b) => [o[0] + sk.side[0] * a + sk.up[0] * b, o[1] + sk.side[1] * a + sk.up[1] * b];
-  const Hd = (sk, dx, dy) => [sk.head[0] + sk.hside[0] * dx - sk.hup[0] * dy, sk.head[1] + sk.hside[1] * dx - sk.hup[1] * dy];
+  // (b, along the body, stretches with BODY_K like the torso it sits on)
+  const L = (sk, o, a, b) => (b *= BODY_K, [o[0] + sk.side[0] * a + sk.up[0] * b, o[1] + sk.side[1] * a + sk.up[1] * b]);
+  const Hd = (sk, dx, dy) => (dx *= HEAD_SCALE, dy *= HEAD_SCALE, [sk.head[0] + sk.hside[0] * dx - sk.hup[0] * dy, sk.head[1] + sk.hside[1] * dx - sk.hup[1] * dy]);
   // Frontal head space: dx is left-right across the face (never squashed)
   const Hf = (sk, dx, dy) => {
+    dx *= HEAD_SCALE; dy *= HEAD_SCALE;
     const lat = sk.hlat || sk.hside;
     return [sk.head[0] + lat[0] * dx - sk.hup[0] * dy, sk.head[1] + lat[1] * dx - sk.hup[1] * dy];
   };
+
+  // draw a head at HEAD_K (head-space offsets and radii shrink about the head centre)
+  function inHead(fn) {
+    HEAD_SCALE = HEAD_K;
+    try { fn(); } finally { HEAD_SCALE = 1; }
+  }
 
   // ---------------------------------------------------------------- body parts
   function leg(f, sk, which, mats, r) {
@@ -356,7 +440,8 @@
     let fwd = [sd[1] / sl, -sd[0] / sl];
     if (grounded) fwd = sk.fwd || [1, 0];
     const down = [-fwd[1], fwd[0]];
-    paint(f, capsule(add(add(ankle, fwd, -0.6), down, 0.8), add(add(ankle, fwd, 3.2), down, 1.1), 1.55, 1.25), mats.boot, fx);
+    const bs = Math.max(1, r[2] / 1.8);   // heavier boots on thicker legs
+    paint(f, capsule(add(add(ankle, fwd, -0.6), down, 0.8 * bs), add(add(ankle, fwd, 3.2 * bs), down, 1.1 * bs), 1.55 * bs, 1.25 * bs), mats.boot, fx);
     // cloth wraps binding the shin
     if (mats.wraps) wraps(f, knee, ankle, r[1] + 0.2, mats.wraps);
     // plate harness: a knee cop over the joint
@@ -386,7 +471,7 @@
       const ed = [hand[0] - el[0], hand[1] - el[1]];
       paint(f, capsule(add(el, ed, 0.58), add(el, ed, 0.8), r[2] + 0.35, r[2] + 0.75), mats.cuff, fx);
     }
-    paint(f, disc(hand, 1.7), mats.hand, fx);
+    paint(f, disc(hand, 1.7 * Math.max(1, r[2] / 1.6)), mats.hand, fx);   // bigger gauntlets only on thickened arms
   }
 
   // ---------------------------------------------------------------- weapons
@@ -402,6 +487,22 @@
     // fuller: a dark groove down the blade with a bright bevel beside it
     paint(f, capsule(add(hand, d, 3.0), add(hand, d, len * 0.62), 0.4), M.steel, { tone: 'd', rim: false });
     paint(f, capsule(add(add(hand, d, 3.2), n, 0.75), add(add(hand, d, len - 3), n, 0.6), 0.36), M.steel, { tone: 'h', rim: false });
+    return add(hand, d, len);
+  }
+
+  // Base warrior's greatsword: long broad blade with an ember-lit rune fuller and swept guard
+  function greatsword(f, hand, d) {
+    const n = perpOf(d), len = 21;
+    paint(f, capsule(add(hand, d, -3.8), add(hand, d, 1.4), 0.95), M.leather);
+    spike(f, add(hand, d, -4.2), [-d[0], -d[1]], 2.2, 1.2, M.gold, { spec: true });
+    paint(f, poly([add(add(hand, d, 1.4), n, 1.2), add(add(hand, d, 2.6), n, 4.2), add(add(hand, d, 2.2), n, 0), add(add(hand, d, 2.6), n, -4.2), add(add(hand, d, 1.4), n, -1.2)]), M.gold, { spec: true });
+    paint(f, poly([
+      add(add(hand, d, 2.4), n, 1.8), add(add(hand, d, 2.4), n, -1.8),
+      add(add(hand, d, len - 3.4), n, -1.45), add(hand, d, len), add(add(hand, d, len - 3.4), n, 1.45)
+    ]), M.steel, { metal: true, selout: true });
+    paint(f, capsule(add(hand, d, 3.6), add(hand, d, len * 0.68), 0.5), M.ember, { tone: 'd', rim: false });
+    for (let t = 4.4; t < len * 0.68; t += 2.6) paint(f, disc(add(hand, d, t), 0.55), M.ember, { tone: 'h', rim: false });
+    paint(f, capsule(add(add(hand, d, 3.4), n, 1.05), add(add(hand, d, len - 3.6), n, 0.85), 0.35), M.steel, { tone: 'h', rim: false });
     return add(hand, d, len);
   }
 
@@ -447,12 +548,20 @@
   };
   function drawWarrior(f, p, sk, view, ph) {
     const C = COSTUME || {};
+    // a costume can make the whole harness heavier: thicker limbs, bigger gauntlets and boots
+    const BULK = C.bulk || 1;
+    const armX = (f2, sk2, w, m, r) => arm(f2, sk2, w, m, BULK === 1 ? r : r.map(v => v * BULK));
+    const legX = (f2, sk2, w, m, r) => leg(f2, sk2, w, m, BULK === 1 ? r : r.map(v => v * BULK));
     // Full plate harness: polished metal shading, cops over knees and elbows,
     // sabatons and gauntlets; cloth is dithered, everything sel-outlined
     const MET = { metal: true, selout: true };
     const CLOTH = { dither: true, selout: true };
-    const legMats = { thigh: M.plate || M.steel, shin: M.steel, boot: M.darkSteel, cop: M.steel, fx: MET };
-    const armMatsF = C.armMatsF ? C.armMatsF() : { upper: M.plate || M.steel, fore: M.steel, hand: M.darkSteel, cop: M.steel, cuff: M.steel, fx: MET };
+    // the base warrior (no SP costume) wears the blackened horned plate; costumes keep the classic look
+    const cool = !COSTUME || !!COSTUME.gear;
+    const legMats = cool ? { thigh: M.gunmetal, shin: M.gunmetal, boot: C.gearBoot || M.darkSteel, cop: M.steel, fx: MET }
+      : { thigh: M.plate || M.steel, shin: M.steel, boot: M.darkSteel, cop: M.steel, fx: MET };
+    const armMatsF = C.armMatsF ? C.armMatsF() : cool ? { upper: M.gunmetal, fore: M.gunmetal, hand: M.darkSteel, cop: M.steel, cuff: M.gold, fx: MET }
+      : { upper: M.plate || M.steel, fore: M.steel, hand: M.darkSteel, cop: M.steel, cuff: M.steel, fx: MET };
     const armMatsB = C.armMatsB ? C.armMatsB() : { upper: M.darkPlate || M.darkSteel, fore: M.darkSteel, hand: M.darkSteel, cop: M.darkSteel, cuff: M.darkSteel, fx: MET };
     const tr = p.cape || 0;
     const fl = Math.sin(ph * Math.PI * 2) * (0.7 + tr * 1.5);
@@ -468,12 +577,18 @@
     ] : [
       L(sk, sk.shC, -4.6, 1.3), L(sk, sk.shC, 3.8 - 1.2 * turn, 1.3),
       add(L(sk, sk.hip, 4.0 - 1.4 * turn, -13.5), [-tr * 8 * turn, -tr * 6], 1),
-      [sk.hip[0] - (1.8 + 2.2 * turn) - tr * 11 * turn, sk.hip[1] + 14.5 - tr * 7 + fl],
-      [sk.hip[0] - (5.6 + 2.5 * turn) - tr * 14 * turn, sk.hip[1] + 12.0 - tr * 8 + fl2]
+      [sk.hip[0] - (1.8 + 2.2 * turn) - tr * 11 * turn, sk.hip[1] + (14.5 - tr * 7 + fl) * BODY_K],
+      [sk.hip[0] - (5.6 + 2.5 * turn) - tr * 14 * turn, sk.hip[1] + (12.0 - tr * 8 + fl2) * BODY_K]
     ];
     const X = { f, p, sk, view, ph, tr, fl, fl2, capePts };
-    const capePoly = C.cape === null ? null : poly(C.cape ? C.cape(X) : capePts);
+    // only SP costumes bring their own cape; otherwise the hero wears the equipped cape item (if any)
+    const spLook = !!COSTUME && !COSTUME.gear;
+    const capePoly = !spLook || C.cape === null ? null : poly(C.cape ? C.cape(X) : capePts);
     const drawCape = () => {
+      if (!spLook) {
+        if (C.gearCape) drawGearCape(f, sk, p, view, ph, C.gearCape, 4.6);
+        return;
+      }
       if (capePoly) {
         const cm = C.capeMat ? C.capeMat() : M.cape;
         paint(f, capePoly, cm, CLOTH);
@@ -489,23 +604,23 @@
       }
       if (C.onBack) C.onBack(X);
     };
-    const weapon = C.weapon || ((ff, hand, d) => sword(ff, hand, d, 18));
+    const weapon = C.weapon || (cool ? greatsword : ((ff, hand, d) => sword(ff, hand, d, 18)));
     const wTipUp = sk.handF[1] + sk.wdir[1] * 12 < sk.neck[1];
     // the sword hand itself up at the shoulders (overhead swings), not just the blade pointing up
     const wRaised = sk.handF[1] < sk.neck[1] + 3;
     const swordBehind = !!p.wBack;
-    const drawSword = () => { if (!p.drop) { f.meta.tip = weapon(f, sk.handF, sk.wdir); f.meta.hand = sk.handF; } };
+    const drawSword = () => { if (!p.drop) { f.meta.tip = foreshortened(f, sk.handF, sk.wdir, sk.wlen, g => weapon(g, sk.handF, sk.wdir)); f.meta.hand = sk.handF; } };
     // off-hand blade (dual-wield costumes), drawn just under the back arm
     const armB = (r) => {
-      if (C.weaponB && !p.drop) f.meta.tipB = C.weaponB(f, sk.handB, sk.wdirB);
-      arm(f, sk, 'B', armMatsB, r);
+      if (C.weaponB && !p.drop) f.meta.tipB = foreshortened(f, sk.handB, sk.wdirB, sk.wlenB, g => C.weaponB(g, sk.handB, sk.wdirB));
+      armX(f, sk, 'B', armMatsB, r);
     };
     const torso = () => {
       // hauberk skirt of riveted mail under the plate
       paint(f, poly([L(sk, sk.hip, -4.6, 1.8), L(sk, sk.hip, 4.8, 1.8), L(sk, sk.hip, 5.2, -3.6), L(sk, sk.hip, -4.8, -3.6)]), M.plate || M.darkSteel, { mail: true, selout: true });
-      paint(f, poly([L(sk, sk.shC, -4.5, 1.1), L(sk, sk.shC, 4.9, 1.1), L(sk, sk.hip, 4.3, 1.4), L(sk, sk.hip, -4.1, 1.4)]), M.steel, MET);
+      paint(f, poly([L(sk, sk.shC, -4.5, 1.1), L(sk, sk.shC, 4.9, 1.1), L(sk, sk.hip, 4.3, 1.4), L(sk, sk.hip, -4.1, 1.4)]), cool ? M.gunmetal : M.steel, MET);
       // fauld lames: the belly plates overlap in bands above the belt
-      for (const b of [3.2, 5.0]) paint(f, capsule(L(sk, sk.hip, -3.8, b), L(sk, sk.hip, 4.2, b), 0.32), M.steel, { tone: 'd', rim: false });
+      for (const b of [3.2, 5.0]) paint(f, capsule(L(sk, sk.hip, -3.8, b), L(sk, sk.hip, 4.2, b), 0.32), cool ? M.gunmetal : M.steel, { tone: 'd', rim: false });
       paint(f, capsule(L(sk, sk.shC, -4.2, 1.0), L(sk, sk.shC, 4.6, 1.0), 0.5), M.gold || M.robeTrim, { rim: false, spec: true });
       if (view === 'front') {
         const t0 = frontal ? -1.2 : (-1.2 + 1.6 * turn);
@@ -521,6 +636,12 @@
       }
       if (view === 'front') paint(f, disc(L(sk, sk.hip, frontal ? 0.2 : 1.6 * turn, 1.5), 1.1), M.gold || M.robeTrim, { rim: false, spec: true });
       if (C.torso) C.torso(X);
+      // ember core set in the breastplate
+      if (cool && view === 'front') {
+        const c = L(sk, sk.shC, frontal ? 0.2 : 1.4 * turn, -3.2);
+        paint(f, disc(c, 2.6), M.ember, { tone: 'm', rim: false, alpha: 60 });
+        paint(f, disc(c, 1.25), M.ember, { spec: true });
+      }
     };
     // Facing the camera / away: helmet seen straight on
     const frontalHead = () => {
@@ -545,7 +666,40 @@
         paint(f, capsule(Hf(sk, -4.2, 1.1), Hf(sk, 4.2, 1.1), 0.5), M.gold || M.robeTrim, { rim: false, spec: true });
       }
     };
-    const head = C.head ? () => C.head(X) : frontal ? frontalHead : () => {
+    // Horned great helm with a glowing visor slit (base warrior)
+    const ember = (pts, halo) => {
+      paint(f, disc(halo, 3.4), M.ember, { tone: 'm', rim: false, alpha: 55 });
+      for (const [a, b] of pts) paint(f, capsule(a, b, 0.75), M.ember, { tone: 'h', rim: false });
+    };
+    const coolHeadSide = () => {
+      paint(f, disc(Hd(sk, -0.4, -0.3), 5.6), M.gunmetal, MET);
+      paint(f, capsule(Hd(sk, 2.2, -5.4), Hd(sk, -4.4, -3.4), 0.6), M.gold, { rim: false, spec: true });
+      if (view === 'front') {
+        paint(f, poly([Hd(sk, 0.6, -1.4), Hd(sk, 5.8, -1.4), Hd(sk, 5.6, 3.4), Hd(sk, 2.8, 4.9), Hd(sk, 0.4, 4.4)]), M.gunmetal, MET);
+        paint(f, capsule(Hd(sk, 0.2, -1.7), Hd(sk, 6.0, -1.7), 0.55), M.gold, { rim: false, spec: true });
+        ember([[Hd(sk, 2.0, 0.3), Hd(sk, 5.6, 0.3)]], Hd(sk, 4.4, 0.3));
+        for (const y of [2.3, 3.4]) dot(f, Hd(sk, 4.6, y), M.gunmetal.o);
+      } else {
+        paint(f, poly([Hd(sk, -4.8, 1.2), Hd(sk, 3.2, 1.2), Hd(sk, 2.8, 4.8), Hd(sk, -4.4, 4.4)]), M.darkSteel);
+        paint(f, capsule(Hd(sk, -4.8, 1.1), Hd(sk, 3.2, 1.1), 0.5), M.gold, { rim: false, spec: true });
+      }
+      horn(f, [Hd(sk, 0.4, -3.6), Hd(sk, -3.4, -6.2), Hd(sk, -6.8, -6.8), Hd(sk, -9.0, -9.6)], 1.8, 0.4, M.horn);
+    };
+    const coolHeadFrontal = () => {
+      for (const k of [-1, 1]) horn(f, [Hf(sk, 3.4 * k, -2.6), Hf(sk, 6.6 * k, -4.6), Hf(sk, 8.2 * k, -8), Hf(sk, 7.2 * k, -11.4)], 1.5, 0.35, M.horn);
+      paint(f, disc(Hf(sk, 0, -0.3), 5.6), M.gunmetal, MET);
+      paint(f, capsule(Hf(sk, 0, -5.6), Hf(sk, 0, -1.8), 0.6), M.gold, { rim: false, spec: true });
+      if (view === 'front') {
+        paint(f, poly([Hf(sk, -3.8, -1.4), Hf(sk, 3.8, -1.4), Hf(sk, 3.4, 3.4), Hf(sk, 0, 5.2), Hf(sk, -3.4, 3.4)]), M.gunmetal, MET);
+        paint(f, capsule(Hf(sk, -4.0, -1.7), Hf(sk, 4.0, -1.7), 0.55), M.gold, { rim: false, spec: true });
+        ember([[Hf(sk, -3.0, 0.3), Hf(sk, -0.9, 0.3)], [Hf(sk, 0.9, 0.3), Hf(sk, 3.0, 0.3)]], Hf(sk, 0, 0.3));
+        paint(f, capsule(Hf(sk, 0, -1.2), Hf(sk, 0, 4.4), 0.5), M.gunmetal, { tone: 'l', rim: false });
+      } else {
+        paint(f, poly([Hf(sk, -4.2, 1.2), Hf(sk, 4.2, 1.2), Hf(sk, 3.8, 4.8), Hf(sk, -3.8, 4.8)]), M.darkSteel);
+        paint(f, capsule(Hf(sk, -4.2, 1.1), Hf(sk, 4.2, 1.1), 0.5), M.gold, { rim: false, spec: true });
+      }
+    };
+    const head = C.head ? () => C.head(X) : cool ? (frontal ? coolHeadFrontal : coolHeadSide) : frontal ? frontalHead : () => {
       paint(f, disc(Hd(sk, -0.4, -0.3), 5.6), M.plate || M.steel, MET);
       const pl = (tr * 3) + fl * 0.6;
       paint(f, poly([Hd(sk, 0, -5.5), Hd(sk, -2, -6.6), Hd(sk, -6.5 - pl, -4.6 + fl * 0.5), Hd(sk, -6 - pl * 0.7, -2.8), Hd(sk, -1.5, -4.4)]), M.cape, CLOTH);
@@ -565,34 +719,42 @@
         paint(f, capsule(Hd(sk, -4.8, 1.1), Hd(sk, 3.2, 1.1), 0.5), M.gold || M.robeTrim, { rim: false, spec: true });
       }
     };
+    // layered spiked pauldron (base warrior)
+    const coolPauldron = (pt, m) => {
+      const pm = m === M.darkSteel ? M.darkSteel : M.gunmetal;
+      spike(f, add(pt, sk.up, 1.8), norm([sk.up[0] - sk.side[0] * 0.45, sk.up[1] - sk.side[1] * 0.45]), 4.2, 1.2, M.steel, MET);
+      paint(f, disc(add(pt, sk.up, -1.8), 3.4, 2.4), pm, MET);
+      paint(f, disc(add(pt, sk.up, 0.6), 4.0, 3.2), pm, MET);
+      paint(f, capsule(add(add(pt, sk.up, 0.4), sk.side, -2.4), add(add(pt, sk.up, 0.4), sk.side, 2.4), 0.45), M.gold, { rim: false, spec: true });
+    };
     const pauldron = C.pauldron ? (pt, m) => C.pauldron(X, pt, m)
-      : (pt, m) => { paint(f, disc(add(pt, sk.up, -1.6), 3.0, 2.2), m, MET); paint(f, disc(add(pt, sk.up, 0.5), 3.4, 2.8), m, MET); paint(f, capsule(add(add(pt, sk.up, 0.5), sk.side, -1.8), add(add(pt, sk.up, 0.5), sk.side, 1.8), 0.4), M.gold || M.robeTrim, { rim: false, spec: true }); };
+      : cool ? coolPauldron : (pt, m) => { paint(f, disc(add(pt, sk.up, -1.6), 3.0, 2.2), m, MET); paint(f, disc(add(pt, sk.up, 0.5), 3.4, 2.8), m, MET); paint(f, capsule(add(add(pt, sk.up, 0.5), sk.side, -1.8), add(add(pt, sk.up, 0.5), sk.side, 1.8), 0.4), M.gold || M.robeTrim, { rim: false, spec: true }); };
 
     if (C.behind) C.behind(X);
     if (frontal && view === 'front') {
       // Facing the camera: cape behind, both arms at the sides in front
       drawCape();
       if (swordBehind) drawSword();
-      leg(f, sk, 'B', legMats, [2.3, 2.0, 1.7]);
-      leg(f, sk, 'F', legMats, [2.5, 2.1, 1.8]);
+      legX(f, sk, 'B', legMats, [2.3, 2.0, 1.7]);
+      legX(f, sk, 'F', legMats, [2.5, 2.1, 1.8]);
       torso();
       armB([1.9, 1.7, 1.5]);
       pauldron(sk.shB, M.darkSteel);
-      head();
+      inHead(head);
       if (!swordBehind) drawSword();
-      arm(f, sk, 'F', armMatsF, [2, 1.8, 1.6]);
+      armX(f, sk, 'F', armMatsF, [2, 1.8, 1.6]);
       pauldron(sk.shF, M.steel);
     } else if (frontal) {
       // Facing away: the blade held in front is hidden by the body unless raised.
       // Arms go under the cape (it hangs over the back between them), so a swinging
       // arm passes behind it and only shows where it reaches past the cape's edge.
       if (!wRaised) drawSword();
-      leg(f, sk, 'F', legMats, [2.5, 2.1, 1.8]);
-      leg(f, sk, 'B', legMats, [2.3, 2.0, 1.7]);
+      legX(f, sk, 'F', legMats, [2.5, 2.1, 1.8]);
+      legX(f, sk, 'B', legMats, [2.3, 2.0, 1.7]);
       torso();
-      arm(f, sk, 'F', armMatsF, [2, 1.8, 1.6]);
+      armX(f, sk, 'F', armMatsF, [2, 1.8, 1.6]);
       armB([1.9, 1.7, 1.5]);
-      head();
+      inHead(head);
       drawCape();
       pauldron(sk.shF, M.steel);
       pauldron(sk.shB, M.steel);
@@ -601,22 +763,22 @@
       drawCape();
       if (swordBehind) drawSword();
       armB([1.9, 1.7, 1.5]);
-      leg(f, sk, 'B', legMats, [2.3, 2.0, 1.7]);
-      leg(f, sk, 'F', legMats, [2.5, 2.1, 1.8]);
+      legX(f, sk, 'B', legMats, [2.3, 2.0, 1.7]);
+      legX(f, sk, 'F', legMats, [2.5, 2.1, 1.8]);
       torso();
       pauldron(sk.shB, M.darkSteel);
-      head();
+      inHead(head);
       if (!swordBehind) drawSword();
-      arm(f, sk, 'F', armMatsF, [2, 1.8, 1.6]);
+      armX(f, sk, 'F', armMatsF, [2, 1.8, 1.6]);
       pauldron(sk.shF, M.steel);
     } else {
       // Seen from behind the blade sits over the body at the side, and over
       // the cape only once it is raised above the shoulders
-      arm(f, sk, 'F', armMatsF, [2, 1.8, 1.6]);
-      leg(f, sk, 'F', legMats, [2.5, 2.1, 1.8]);
-      leg(f, sk, 'B', legMats, [2.3, 2.0, 1.7]);
+      armX(f, sk, 'F', armMatsF, [2, 1.8, 1.6]);
+      legX(f, sk, 'F', legMats, [2.5, 2.1, 1.8]);
+      legX(f, sk, 'B', legMats, [2.3, 2.0, 1.7]);
       torso();
-      head();
+      inHead(head);
       if (!wTipUp) drawSword();
       // the near arm also passes under the cape (see the facing-away case)
       armB([1.9, 1.7, 1.5]);
@@ -625,6 +787,7 @@
       pauldron(sk.shB, M.steel);
       if (wTipUp) drawSword();
     }
+    if (!spLook && C.gearCape) drawGearCapeFront(f, sk, p, view, ph, C.gearCape, 4.6);
     if (C.front) C.front(X);
     if (p.drop) weapon(f, [6, -1.4], [1, 0.02]);
     if (p.drop && C.weaponB) C.weaponB(f, [-10, -1.2], [-1, 0.05]);
@@ -641,7 +804,7 @@
     const staffFn = C.staff || staff;
     const MET = { metal: true, selout: true };
     const CLOTH = { dither: true, selout: true };
-    const legMats = { thigh: M.robe, shin: M.mageArmor, boot: M.mageArmor, cop: M.mageArmor, fx: { selout: true } };
+    const legMats = { thigh: M.robe, shin: M.mageArmor, boot: C.gearBoot || M.mageArmor, cop: M.mageArmor, fx: { selout: true } };
     const sleeve = { upper: M.robe, fore: M.mageArmor, hand: C.hand || M.leather, cuff: M.robeTrim, fx: { selout: true } };
     const glow = p.glow || 0;
     const frontal = isFrontal(sk);
@@ -728,41 +891,49 @@
     };
     const drawStaff = () => {
       if (p.drop) return;
-      f.meta.orb = staffFn(f, sk.handF, sk.wdir, glow, ph);
+      f.meta.orb = foreshortened(f, sk.handF, sk.wdir, sk.wlen, g => staffFn(g, sk.handF, sk.wdir, glow, ph));
     };
     const armF = () => { arm(f, sk, 'F', sleeve, [2.1, 2.3, 1.6]); pauldron(sk.shF, true); };
     const armB = () => { arm(f, sk, 'B', sleeve, [2, 2.1, 1.5]); pauldron(sk.shB, false); };
     const staffBehind = view === 'back' ? sk.handF[1] > sk.neck[1] : !!p.wBack;
+    // equipped cape (SP costumes never wear one): behind the body seen from the front, over the coat from behind
+    const gearCape = COSTUME && COSTUME.gear && COSTUME.gearCape;
+    const capeBack = () => { if (gearCape) drawGearCape(f, sk, p, view, ph, gearCape, 4.4); };
     if (C.behind) C.behind(X);
     if (frontal && view === 'front') {
+      capeBack();
       if (staffBehind) drawStaff();
       robeBody();
       armB();
-      head();
+      inHead(head);
       if (!staffBehind) drawStaff();
       armF();
     } else if (frontal) {
       if (staffBehind) drawStaff();
       robeBody();
-      head();
+      capeBack();
+      inHead(head);
       armF();
       armB();
       if (!staffBehind) drawStaff();
     } else if (view === 'front') {
+      capeBack();
       if (staffBehind) drawStaff();
       armB();
       robeBody();
-      head();
+      inHead(head);
       if (!staffBehind) drawStaff();
       armF();
     } else {
       if (staffBehind) drawStaff();
       armF();
       robeBody();
-      head();
+      capeBack();
+      inHead(head);
       armB();
       if (!staffBehind) drawStaff();
     }
+    if (gearCape) drawGearCapeFront(f, sk, p, view, ph, gearCape, 4.4);
     if (C.front) C.front(X);
     else if (!p.drop && !frontal) {
       // two arcane motes circling the waist (seen side-on; head-on they read as buttons)
@@ -778,12 +949,13 @@
 
   function drawRogue(f, p, sk, view, ph) {
     // the plain rogue wears its own look (ROGUE_BASE); SP cards recolour the shared M
-    const K = COSTUME ? M : RL;
+    const K = COSTUME && !COSTUME.gear ? M : (COSTUME && COSTUME.gearRL) || RL;
     const tr = p.cape || 0;
     const fl = Math.sin(ph * Math.PI * 2) * (0.7 + tr * 1.6);
     const CLOTH = { dither: true, selout: true };
-    const legMats = { thigh: K.rogue, shin: K.rogue, boot: K.hood, wraps: K.hood, fx: CLOTH };
-    const armMats = { upper: K.rogue, fore: K.strap, hand: K.hood, wraps: K.strap, fx: CLOTH };
+    const GC = COSTUME || {};
+    const legMats = { thigh: K.rogue, shin: K.rogue, boot: GC.gearBoot || K.hood, wraps: K.hood, fx: CLOTH };
+    const armMats = { upper: K.rogue, fore: K.strap, hand: GC.gearHand || K.hood, wraps: K.strap, fx: CLOTH };
     const frontal = isFrontal(sk);
     // Facing the camera / away the scarf tails hang straight down the back
     const scarf = frontal ? poly([
@@ -798,9 +970,14 @@
     const C = COSTUME || ROGUE_BASE;
     const X = { f, p, sk, view, ph, tr, fl, scarfShape: scarf };
     const blade = C.dagger || dagger;
-    const drawDaggerF = () => { if (!p.drop) { f.meta.tipF = blade(f, sk.handF, sk.wdir, 'F'); f.meta.handF = sk.handF; } };
-    const drawDaggerB = () => { if (!p.drop) { f.meta.tipB = blade(f, sk.handB, sk.wdirB, 'B'); f.meta.handB = sk.handB; } };
-    const drawScarf = () => { if (C.scarf) C.scarf(X); else paint(f, scarf, K.scarf, CLOTH); };
+    const drawDaggerF = () => { if (!p.drop) { f.meta.tipF = foreshortened(f, sk.handF, sk.wdir, sk.wlen, g => blade(g, sk.handF, sk.wdir, 'F')); f.meta.handF = sk.handF; } };
+    const drawDaggerB = () => { if (!p.drop) { f.meta.tipB = foreshortened(f, sk.handB, sk.wdirB, sk.wlenB, g => blade(g, sk.handB, sk.wdirB, 'B')); f.meta.handB = sk.handB; } };
+    // the plain / geared rogue has no cloak of its own: it wears the equipped cape item; SP costumes keep theirs
+    const spLook = !!COSTUME && !COSTUME.gear;
+    const drawScarf = () => {
+      if (!spLook) { if (GC.gearCape) drawGearCape(f, sk, p, view, ph, GC.gearCape, 4.2); return; }
+      if (C.scarf) C.scarf(X); else paint(f, scarf, K.scarf, CLOTH);
+    };
     const legRadii = { F: [2.3, 2, 1.7], B: [2.2, 1.9, 1.6] };
     const drawLegs = (a, b) => {
       if (C.legs) return C.legs(X);
@@ -848,7 +1025,7 @@
       drawScarf();
       drawLegs('B', 'F');
       torso();
-      head();
+      inHead(head);
       drawDaggerB();
       arm(f, sk, 'B', armMats, [1.8, 1.6, 1.4]);
       drawDaggerF();
@@ -858,7 +1035,7 @@
       drawDaggerB();
       drawLegs('F', 'B');
       torso();
-      head();
+      inHead(head);
       drawScarf();
       arm(f, sk, 'F', armMats, [1.9, 1.7, 1.5]);
       arm(f, sk, 'B', armMats, [1.8, 1.6, 1.4]);
@@ -868,7 +1045,7 @@
       arm(f, sk, 'B', armMats, [1.8, 1.6, 1.4]);
       drawLegs('B', 'F');
       torso();
-      head();
+      inHead(head);
       drawDaggerF();
       arm(f, sk, 'F', armMats, [1.9, 1.7, 1.5]);
     } else {
@@ -876,11 +1053,12 @@
       arm(f, sk, 'F', armMats, [1.9, 1.7, 1.5]);
       drawLegs('F', 'B');
       torso();
-      head();
+      inHead(head);
       drawScarf();
       drawDaggerB();
       arm(f, sk, 'B', armMats, [1.8, 1.6, 1.4]);
     }
+    if (!spLook && GC.gearCape) drawGearCapeFront(f, sk, p, view, ph, GC.gearCape, 4.2);
     if (C.front) C.front(X);
     if (p.drop) {
       blade(f, [4, -1.2], [1, 0.05], 'F');
@@ -920,6 +1098,16 @@
     glass: mat('#2b3a4a', '#a5d8ff', '#d6f0ff', '#ffffff'),
     sand: mat('#3a2a08', '#d4a017', '#facc15', '#fef08a'),
     silver: mat('#2e2b3a', '#8f8aa6', '#cfcbe0', '#f4f2fa', '#ffffff')
+  };
+  // Venom Lord: emerald cobra scales with a pale belly, bone mask and fangs,
+  // acid-lime venom (body leathers come from its palette: deep plum)
+  const VL = {
+    scale: mat('#021a0b', '#0f5a2c', '#18904a', '#3fd27a', '#b8f7c9'),
+    belly: mat('#2c2a06', '#9a9b22', '#cfd65a', '#f1f6b0'),
+    bone: mat('#2a2418', '#a89c7c', '#e2d8b8', '#fbf6e4', '#ffffff'),
+    acid: mat('#0d3b06', '#4fbf1a', '#9ef01a', '#e5ffb0', '#ffffff'),
+    glass: mat('#1a2a1c', '#5d7a62', '#a8c4ac', '#e6f2e8'),
+    tongue: mat('#3a0610', '#9f1239', '#e11d48', '#fda4af')
   };
   const STAR = hexRgb('#ece8ff');
   const GLOW_EYE = {
@@ -1002,17 +1190,30 @@
     return s(5.5, -0.5);
   }
 
-  function iceBlade(f, hand, d) {
+  // Frost Templar's glacier warhammer: a long steel haft with a leather grip, a block of
+  // glacier ice for a head bound in steel bands, icicle spikes and a glowing frost core
+  function frostHammer(f, hand, d) {
     const n = perpOf(d);
-    const s = (a, b) => add(add(hand, d, a), n, b);
-    paint(f, capsule(s(-3.6, 0), s(1.4, 0), 0.9), M.leather);
-    paint(f, disc(s(-4.3, 0), 1.3), CM.ice, { spec: true });
-    paint(f, poly([s(1.6, 4.2), s(2.8, 2), s(2.8, -2), s(1.6, -4.2), s(0.8, 0)]), CM.ice, { spec: true });
-    paint(f, poly([s(2.6, 2), s(7, 2.6), s(9, 1.6), s(12, 2.8), s(15, 1.4), s(17.5, 2), s(21, 0),
-      s(17, -1.6), s(14, -2.6), s(11, -1.6), s(8, -2.8), s(5, -2), s(2.6, -2)]), CM.ice, { spec: true });
-    paint(f, capsule(s(3.5, 0), s(18, 0), 0.45), CM.ice, { tone: 'h', rim: false });
-    return s(21, 0);
+    // dark haft (reads against the pale armour), leather grip, ice pommel
+    paint(f, capsule(add(hand, d, -6), add(hand, d, 14), 0.95), M.darkSteel);
+    paint(f, capsule(add(hand, d, -2.5), add(hand, d, 3), 1.1), M.leather);
+    paint(f, disc(add(hand, d, -6.6), 1.4), CM.ice, { spec: true });
+    const h = add(hand, d, 17);
+    const s = (a, b) => add(add(h, d, a), n, b);
+    // a solid brick of glacier ice, bevelled corners, long across the haft
+    paint(f, poly([s(-3.2, -6.8), s(-2.2, -7.6), s(2.2, -7.6), s(3.2, -6.8), s(3.2, 6.8), s(2.2, 7.6), s(-2.2, 7.6), s(-3.2, 6.8)]), CM.ice, { spec: true });
+    // dark steel bands round the head and the socket
+    paint(f, capsule(s(-3.4, -3.4), s(3.4, -3.4), 0.75), M.darkSteel, { spec: true });
+    paint(f, capsule(s(-3.4, 3.4), s(3.4, 3.4), 0.75), M.darkSteel, { spec: true });
+    // glowing frost core
+    paint(f, capsule(s(0, -6.4), s(0, 6.4), 0.55), CM.ice, { tone: 'h', rim: false });
+    // a short point off each striking face and a spike on top
+    spike(f, s(0, -7.6), [-n[0], -n[1]], 2.2, 1.5, CM.ice, { spec: true });
+    spike(f, s(0, 7.6), n, 2.2, 1.5, CM.ice, { spec: true });
+    spike(f, s(3.2, 0), d, 3, 1.3, CM.ice, { spec: true });
+    return s(6.2, 0);
   }
+
 
   // Colossal executioner axe: long haft, crescent blade with a void-lit edge
   function dreadAxe(f, hand, d) {
@@ -1048,16 +1249,63 @@
     return s(7, 0);
   }
 
+  // Dragoon storm lance: silver shaft banded in gold, a winged gold guard and a long blade
+  // with a lightning crystal set down its middle
+  function stormLance(f, hand, d) {
+    const n = perpOf(d);
+    const s = (a, b) => add(add(hand, d, a), n, b);
+    paint(f, capsule(s(-7, 0), s(15, 0), 0.85), M.steel, { metal: true });
+    paint(f, disc(s(-7.8, 0), 1.35), M.gold, { spec: true });
+    spike(f, s(-8.6, 0), [-d[0], -d[1]], 2, 0.8, M.gold, { spec: true });
+    paint(f, capsule(s(-1.6, 0), s(2, 0), 1.05), M.leather);
+    for (const a of [-4.2, 4.2, 10]) paint(f, capsule(s(a, -1.05), s(a, 1.05), 0.5), M.gold, { rim: false, spec: true });
+    // winged guard
+    paint(f, poly([s(15.6, 0), s(13.6, -4.6), s(16.4, -2.2), s(17.2, 0), s(16.4, 2.2), s(13.6, 4.6)]), M.gold, { spec: true });
+    // the blade, its storm crystal core
+    paint(f, poly([s(16.8, -2), s(16.8, 2), s(23.6, 1), s(27, 0), s(23.6, -1)]), M.steel, { metal: true, selout: true });
+    paint(f, capsule(s(17.6, 0), s(23, 0), 0.42), CM.bolt, { spec: true, rim: false });
+    return s(27, 0);
+  }
+
   // Single-hand war axe: bearded crescent head on a leather grip (Warchief pairs)
+  // its own bright steel, untouched by SP palettes: a card that recolours
+  // 'steel' to its armour would otherwise melt the axe heads into the body
+  const AXE_STEEL = mat('#121324', '#5b6584', '#9aa6c2', '#d4dbe8', '#ffffff');
   function battleAxe(f, hand, d) {
     const n = perpOf(d);
     const s = (a, b) => add(add(hand, d, a), n, b);
-    paint(f, capsule(s(-2.6, 0), s(1.4, 0), 0.9), M.leather);
-    paint(f, disc(s(-3.4, 0), 1.2), M.gold, { spec: true });
-    spike(f, s(1.6, 0), d, 2.7, 1.1, M.gold, { spec: true });
-    paint(f, poly([s(1.6, -1.5), s(4.2, -5.4), s(6.4, -5), s(4.6, 0), s(6.4, 5), s(4.2, 5.4), s(1.6, 1.5)]), M.steel, { spec: true });
-    paint(f, capsule(s(3.1, 0), s(5.2, 0), 0.5), M.gold, { tone: 'h', rim: false, spec: true });
-    return s(6.4, -4);
+    // haft runs past the head so the axe reads as an axe, not a fist
+    paint(f, capsule(s(-2.8, 0), s(8.6, 0), 0.85), M.leather);
+    paint(f, disc(s(-3.6, 0), 1.2), M.gold, { spec: true });
+    spike(f, s(8.8, 0), d, 2.2, 1, M.gold, { spec: true });
+    paint(f, poly([s(4.6, -1.3), s(6.4, -1.5), s(9.2, -5.2), s(9.8, -2.2), s(9.6, 0), s(9.8, 2.2), s(9.2, 5.2), s(6.4, 1.5), s(4.6, 1.3)]), AXE_STEEL, { metal: true, selout: true });
+    paint(f, capsule(s(9.4, -4.2), s(9.4, 4.2), 0.4), AXE_STEEL, { tone: 'h', rim: false });
+    paint(f, capsule(s(5.4, 0), s(7.4, 0), 0.55), M.gold, { tone: 'h', rim: false, spec: true });
+    return s(9.4, -4);
+  }
+
+  // Dual wield: the off hand lets go of the two-handed grip and carries its
+  // own weapon a little behind and below, angled apart from the main one;
+  // when the arm is already free (run, dash) it trails low behind
+  function dualWieldPose(p) {
+    if (p.drop) return p;
+    if (!p.twoHand && p.handB) return p.wpnB !== undefined ? p : Object.assign({}, p, { wpnB: -0.7 });
+    return Object.assign({}, p, { twoHand: false, handB: [p.handF[0] - 5, p.handF[1] + 3], wpnB: p.wpn - 0.9 });
+  }
+
+  // Heavy two-handed weapon (Frost Templar's warhammer): both hands never leave the haft.
+  // The warrior rig lets go with the back hand to run and dash; here the hammer is shouldered
+  // instead while running (head resting behind the back, both hands at the chest), and driven
+  // forward in both hands on a dash.
+  function heavyTwoHandPose(p) {
+    if (p.drop || p.twoHand !== false) return p;
+    // the run cycle swings the weapon round 0.75 rad; the dash keys sit well outside that
+    const run = Math.abs((p.wpn || 0) - 0.75) <= 0.3;
+    if (run) {
+      return Object.assign({}, p, { twoHand: true, handB: undefined, wBack: true, wpn: 3.95,
+        handF: [p.hip[0] + 4, p.hip[1] - 6.8] });
+    }
+    return Object.assign({}, p, { twoHand: true, handB: undefined });
   }
 
   // Berserker twin blade: short heavy cleaver-sword with a blood-red fuller,
@@ -1169,6 +1417,28 @@
     paint(f, poly(top.concat(bot)), M.venom, { spec: true });
     const tip = centre(len);
     paint(f, disc([tip[0], tip[1] + 1.8], 0.7, 1), M.venom, { tone: 'l', rim: false });  // venom drip
+    return tip;
+  }
+
+  // Venom Lord fang: a curved ivory fang blade with a glowing venom channel,
+  // set in a snake-jaw guard on a scale-wrapped grip; a drop hangs off the tip
+  function fangBlade(f, hand, d) {
+    const n = perpOf(d);
+    paint(f, capsule(add(hand, d, -2.2), add(hand, d, 1.2), 0.85), VL.scale, { selout: true });
+    paint(f, disc(add(hand, d, -2.8), 1), VL.acid, { tone: 'l', rim: false });
+    // jaw guard: two short prongs curling forward
+    for (const k of [-1, 1]) spike(f, add(add(hand, d, 1.3), n, 0.6 * k), norm(add(d, n, 1.1 * k)), 2.3, 0.6, VL.bone, { spec: true });
+    const len = 9.5, top = [], bot = [];
+    const centre = t => add(add(hand, d, 1.8 + t), n, 0.055 * t * t);
+    for (let t = 0; t <= len; t += 0.5) {
+      const c = centre(t), w = 1.8 * Math.pow(1 - t / (len + 0.4), 0.8);
+      top.push(add(c, n, w));
+      bot.unshift(add(c, n, -w * 0.75));
+    }
+    paint(f, poly(top.concat(bot)), VL.bone, { spec: true, selout: true });
+    for (let t = 1; t < len * 0.72; t += 0.5) paint(f, disc(add(centre(t), n, 0.15), 0.42), VL.acid, { tone: 'l', rim: false });
+    const tip = centre(len);
+    paint(f, disc([tip[0], tip[1] + 1.6], 0.6, 0.85), VL.acid, { tone: 'h', rim: false, alpha: 220 });
     return tip;
   }
 
@@ -1431,6 +1701,872 @@
   const ROGUE_LOOK = { hood: RL.hood, cloak: RL.scarf, lining: RL.lining, strap: RL.strap, venom: RL.venom, steel: RL.steel, skin: RL.skin, hair: RL.hair };
   const ROGUE_BASE = hoodedRogue(() => ROGUE_LOOK);
 
+  // ---------------------------------------------------------------- gear looks
+  // A hero who isn't SP-transformed shows what they wear: the armor recolours
+  // the body (plate / robe / leathers), the helmet swaps the head, the weapon's
+  // shape and element glow follow the item, gloves and boots recolour hands
+  // and feet. A gear look is a costume (gear: true) registered under a key
+  // 'g|class|ids' and built through withLook like an SP card's, so it is drawn
+  // lazily per view and cached. SP costumes never use any of this.
+  const GM = {
+    forest: mat('#06140b', '#173d24', '#24603a', '#3b8a52', '#6cbf7a'),
+    olive: mat('#12140a', '#3b4120', '#5c6532', '#838f4c', '#b2bd74'),
+    bronze: mat('#2a1606', '#7c4a1c', '#b0702c', '#d9a050', '#f5d08a'),
+    iceSteel: mat('#0f2233', '#3d6a8c', '#6fa3c7', '#b5dcf2', '#f0fbff'),
+    frostCloth: mat('#2b3a4a', '#a9c6dd', '#d6e9f7', '#ffffff'),
+    night: mat('#05040a', '#1a1426', '#2a2140', '#40335e', '#6a5a94'),
+    nightCloth: mat('#020205', '#0d0b14', '#18142a', '#272040', '#3b3160'),
+    violet: mat('#1e0838', '#5b21b6', '#7c3aed', '#a78bfa', '#ddd6fe'),
+    pearl: mat('#2e2b3a', '#9d97b5', '#d8d4ea', '#f6f4ff', '#ffffff'),
+    lavender: mat('#1f1235', '#5b4a8f', '#8b78c4', '#bcaee8', '#ece6ff'),
+    darkRed: mat('#1a0406', '#5a0d14', '#8a1820', '#b8302c', '#e0604a'),
+    archon: mat('#3a2a08', '#c9b27a', '#efe2b8', '#fffaf0', '#ffffff'),
+    holy: mat('#3a2a02', '#eab308', '#fde68a', '#fffbeb', '#ffffff'),
+    earth: mat('#1a2a06', '#4d7c0f', '#84cc16', '#d9f99d', '#f7fee7'),
+    riftCloth: mat('#0d0418', '#2e1065', '#4c1d95', '#6d28d9', '#a78bfa'),
+    wraps: mat('#2a2218', '#8a7a5c', '#c2b08a', '#e6dcc0'),
+    plume: mat('#2a0610', '#7f1d1d', '#b91c1c', '#ef4444', '#fca5a5'),
+    bandana: mat('#2a0610', '#7f1d1d', '#c2410c', '#ea580c', '#fdba74'),
+    hatBlue: mat('#060a1c', '#172554', '#1e3a8a', '#2f55b8', '#5b82e0'),
+    hair: mat('#120a06', '#3b2416', '#5c3a22', '#7f5634', '#a87a50')
+  };
+  // armor -> { main: body plate / jacket, accent: trim, cloth: cape / coat / cloak, glow }
+  const ARMOR_TONES = {
+    leather_tunic: { main: M.leather, accent: GM.bronze, cloth: GM.forest, glow: CM.sand },
+    ranger_jerkin: { main: GM.olive, accent: M.leather, cloth: M.leather, glow: GM.earth },
+    chain_hauberk: { main: CM.iron, accent: CM.silver, cloth: M.navy, glow: GM.iceSteel },
+    plate_cuirass: { main: M.platemail, accent: M.gold, cloth: M.cape, glow: M.gold },
+    glacier_plate: { main: GM.iceSteel, accent: CM.silver, cloth: GM.frostCloth, glow: CM.ice },
+    nightstalker_garb: { main: GM.night, accent: GM.violet, cloth: GM.nightCloth, glow: GM.violet },
+    mystic_robe: { main: GM.pearl, accent: M.gold, cloth: GM.lavender, glow: M.orb },
+    dragonscale_plate: { main: CM.scale, accent: M.gold, cloth: GM.darkRed, glow: CM.fire },
+    archon_vestments: { main: GM.archon, accent: M.gold, cloth: CM.feather, glow: GM.holy },
+    rift_warden_plate: { main: CM.void, accent: CM.voidGlow, cloth: GM.riftCloth, glow: CM.voidGlow }
+  };
+  const GLOVE_MAT = {
+    leather_gloves: M.leather, iron_gauntlets: CM.iron, brawler_wraps: GM.wraps, hunters_grips: GM.forest,
+    berserker_fists: CM.crimson, assassin_grips: GM.night, titans_grasp: M.gold
+  };
+  const BOOT_MAT = {
+    iron_greaves: CM.iron, winged_boots: GM.pearl, traveler_boots: M.leather, steel_sabatons: M.platemail,
+    ember_treads: CM.fire, shadowstep_boots: GM.night
+  };
+  const ELEM_GLOW = { fire: CM.fire, ice: CM.ice, lightning: CM.bolt, holy: GM.holy, dark: CM.voidGlow, earth: GM.earth };
+
+  // Sword of any size with an element-lit rune fuller (glow null: a plain steel groove)
+  function runeSword(len, w, glow, bladeMat) {
+    return (f, hand, d) => {
+      const n = perpOf(d), bm = bladeMat || M.steel;
+      paint(f, capsule(add(hand, d, -3.6), add(hand, d, 1.4), 0.9), M.leather);
+      paint(f, disc(add(hand, d, -4.2), 1.15), M.gold, { spec: true });
+      paint(f, poly([add(add(hand, d, 1.4), n, 1), add(add(hand, d, 2.5), n, 2 + w * 1.2), add(add(hand, d, 2.2), n, 0), add(add(hand, d, 2.5), n, -2 - w * 1.2), add(add(hand, d, 1.4), n, -1)]), M.gold, { spec: true });
+      paint(f, poly([
+        add(add(hand, d, 2.4), n, w), add(add(hand, d, 2.4), n, -w),
+        add(add(hand, d, len - 3), n, -w * 0.8), add(hand, d, len), add(add(hand, d, len - 3), n, w * 0.8)
+      ]), bm, { metal: true, selout: true });
+      if (glow) {
+        paint(f, disc(add(hand, d, len * 0.45), w + 2.2, w + 2.2), glow, { tone: 'm', rim: false, alpha: 45 });
+        paint(f, capsule(add(hand, d, 3.4), add(hand, d, len * 0.7), 0.5), glow, { tone: 'd', rim: false });
+        for (let t = 4.2; t < len * 0.7; t += 2.6) paint(f, disc(add(hand, d, t), 0.55), glow, { tone: 'h', rim: false });
+      } else {
+        paint(f, capsule(add(hand, d, 3.2), add(hand, d, len * 0.62), 0.4), bm, { tone: 'd', rim: false });
+      }
+      paint(f, capsule(add(add(hand, d, 3.2), n, w * 0.55), add(add(hand, d, len - 3.2), n, w * 0.45), 0.35), bm, { tone: 'h', rim: false });
+      return add(hand, d, len);
+    };
+  }
+
+  // ---- forged swords: every sword item (and SP card blade) is its own model
+  // built from a spec, so they differ in silhouette, not just in colour.
+  //   len / w      blade length and half-width at the guard (rig units)
+  //   profile(t)   width along the blade, t 0 (guard) .. 1 (tip)
+  //   curve(t)     sideways bend of the centre line (sabres, katanas)
+  //   wave / zig   flamberge waves or a lightning zigzag ({ amp, n })
+  //   serrate      teeth on the leading edge ({ amp, n })
+  //   back         width of the back edge (1 double-edged, < 1 single-edged)
+  //   guard        bar | swept | wings | horns | bolt | tsuba | cup | crescent | gate
+  //   pommel       disc | gem | spike | ring
+  //   fuller       dark groove material, or glow: lit rune channel material
+  //   extras(f, at, k)  one-off details; at(s, o) is a point s along the blade, o across it
+  const smoothTip = tipFrac => t => (t < 1 - tipFrac ? 1 : Math.max(0, (1 - t) / tipFrac));
+  function forgeBlade(spec) {
+    return (f, hand, d) => {
+      const n = perpOf(d);
+      const L = spec.len, b0 = 2.3, N = 22;
+      const curve = spec.curve || (() => 0);
+      const wiggle = t => (spec.wave ? spec.wave.amp * Math.sin(t * spec.wave.n * Math.PI * 2) : 0)
+        + (spec.zig ? spec.zig.amp * (Math.abs(((t * spec.zig.n) % 1) - 0.5) * 4 - 1) * (t < 0.92 ? 1 : 0) : 0);
+      const tOf = s => Math.max(0, Math.min(1, (s - b0) / (L - b0)));
+      const at = (s, o) => add(add(hand, d, s), n, (o || 0) + curve(tOf(s)) + (s > b0 ? wiggle(tOf(s)) : 0));
+      const bm = spec.mat || M.steel, gm = spec.guardMat || M.gold;
+      // grip, wrap and pommel
+      const grip = spec.grip || 3.4;
+      paint(f, capsule(at(-grip, 0), at(1.4, 0), 0.9), spec.gripMat || M.leather);
+      if (spec.wrap) for (let s = -grip + 0.8; s < 1.2; s += 1.1) paint(f, capsule(at(s, 0.8), at(s + 0.5, -0.8), 0.3), spec.wrap, { tone: 'l', rim: false });
+      const pm = spec.pommelMat || gm, pp = at(-grip - 0.7, 0);
+      if (spec.pommel === 'spike') spike(f, at(-grip, 0), [-d[0], -d[1]], 2.6, 1.1, pm, { spec: true });
+      else if (spec.pommel === 'ring') paint(f, ellRing(pp, 1.5, 1.5, 0.45), pm, { spec: true });
+      else if (spec.pommel === 'gem') { paint(f, disc(pp, 1.3), gm, { spec: true }); paint(f, disc(pp, 0.7), pm, { tone: 'h', rim: false }); }
+      else paint(f, disc(pp, 1.2), pm, { spec: true });
+      // blade outline: both edges sampled along the (bent) centre line
+      const prof = spec.profile || smoothTip(0.2);
+      const back = spec.back === undefined ? 1 : spec.back;
+      const top = [], bot = [], inner = [], mid = [];
+      for (let i = 0; i <= N; i++) {
+        const t = i / N, s = b0 + t * (L - b0);
+        let w = spec.w * prof(t);
+        let wt = w;
+        if (spec.serrate && t > 0.08 && t < 0.86) wt += ((i % 2) ? spec.serrate.amp : 0);
+        top.push(at(s, wt));
+        bot.unshift(at(s, -w * back));
+        inner.push(at(s, w * 0.5));
+        mid.push(at(s, (w - w * back) * 0.5));
+      }
+      paint(f, poly(top.concat([at(L, 0)], bot)), bm, { metal: true, selout: true });
+      // fuller: a dark groove, or a lit rune channel with bright beads
+      const fEnd = Math.round(N * (spec.fullerTo || 0.66));
+      if (spec.glow) {
+        paint(f, disc(at(b0 + (L - b0) * 0.45, 0), spec.w + 2.4, spec.w + 2.4), spec.glow, { tone: 'm', rim: false, alpha: 40 });
+        for (let i = 1; i < fEnd; i++) paint(f, capsule(mid[i], mid[i + 1], spec.glowW || 0.45), spec.glow, { tone: 'm', rim: false });
+        for (let i = 2; i < fEnd; i += 3) paint(f, disc(mid[i], 0.55), spec.glow, { tone: 'h', rim: false });
+      } else if (spec.fuller !== null) {
+        for (let i = 1; i < fEnd; i++) paint(f, capsule(mid[i], mid[i + 1], 0.38), spec.fuller || bm, { tone: 'd', rim: false });
+      }
+      // the bright bevel along the leading edge
+      const em = spec.edgeMat || bm;
+      for (let i = 1; i < N - 1; i++) paint(f, capsule(inner[i], inner[i + 1], 0.32), em, { tone: 'h', rim: false });
+      // guard
+      const G = 1.8, span = spec.span || 3.2, gp = at(G, 0);
+      const MET = { metal: true, selout: true };
+      switch (spec.guard) {
+        case 'swept':      // quillons bent toward the blade, quatrefoil ends
+          for (const k of [-1, 1]) {
+            paint(f, capsule(gp, at(G + 1.6, span * k), 0.75), gm, MET);
+            paint(f, disc(at(G + 1.9, (span + 0.5) * k), 1), gm, { spec: true });
+          }
+          break;
+        case 'wings':      // angel wings swept up the blade
+          for (const k of [-1, 1]) {
+            paint(f, poly([at(G - 0.4, 0.7 * k), at(G - 0.2, span * k), at(G + 4.6, (span + 1.4) * k), at(G + 3.2, span * 0.62 * k), at(G + 2.4, (span * 0.7) * k), at(G + 1.4, 1.1 * k)]), gm, MET);
+            paint(f, capsule(at(G + 0.6, span * 0.55 * k), at(G + 3.6, (span + 0.6) * k), 0.3), gm, { tone: 'h', rim: false });
+          }
+          break;
+        case 'horns':      // curled horns hooking forward
+          for (const k of [-1, 1]) horn(f, [at(G, 0.6 * k), at(G + 0.2, span * 0.7 * k), at(G + 1.6, span * k), at(G + 3.2, (span - 0.4) * k)], 0.9, 0.35, gm);
+          break;
+        case 'bolt':       // a crossguard broken like lightning
+          for (const k of [-1, 1]) paint(f, poly([at(G - 0.7, 0.4 * k), at(G + 0.3, span * 0.55 * k), at(G - 0.5, span * 0.6 * k), at(G + 0.9, (span + 0.9) * k), at(G + 0.6, span * 0.45 * k), at(G + 1.2, 0.5 * k)]), gm, MET);
+          break;
+        case 'tsuba':      // round katana guard
+          paint(f, disc(gp, span * 0.6, span * 0.6), gm, MET);
+          paint(f, disc(gp, span * 0.28, span * 0.28), gm, { tone: 'd', rim: false });
+          break;
+        case 'cup':        // rapier cup and knuckle bow
+          paint(f, crescentShape(at(G - 0.2, 0), span * 0.7, [d[0] * -1.4, d[1] * -1.4]), gm, MET);
+          horn(f, [at(G, -span * 0.6), at(-0.6, -span * 0.85), at(-grip + 0.4, -1)], 0.45, 0.4, gm);
+          break;
+        case 'crescent':   // a moon hooked round the blade
+          paint(f, crescentShape(gp, span * 0.75, [d[0] * 1.4, d[1] * 1.4]), gm, MET);
+          break;
+        case 'gate':       // a wide lintel with two posts running up the blade
+          paint(f, capsule(at(G, span), at(G, -span), 0.95), gm, MET);
+          for (const k of [-1, 1]) spike(f, at(G, (span - 0.5) * k), d, 3.4, 0.7, gm, MET);
+          paint(f, disc(gp, 1.1), spec.gemMat || CM.ice, { spec: true });
+          break;
+        default:           // straight bar with squared ends
+          paint(f, capsule(at(G, span), at(G, -span), 0.8), gm, MET);
+          for (const k of [-1, 1]) paint(f, disc(at(G, span * k), 1.05), gm, { spec: true });
+      }
+      if (spec.gemMat && spec.guard !== 'gate') paint(f, disc(gp, 0.95), spec.gemMat, { spec: true });
+      if (spec.extras) spec.extras(f, at, { hand, d, n, L, b0, top, bot });
+      return at(L, 0);
+    };
+  }
+  // a small four-point sparkle
+  const twinkle = (f, p, m) => { dot(f, p, m.h); for (const v of [[1, 0], [-1, 0], [0, 1], [0, -1]]) dot(f, [p[0] + v[0], p[1] + v[1]], m.l); };
+
+  const SWORDS = {
+    // Knight Broadsword: broad, parallel edges, plain bar guard and iron pommel
+    iron_blade: forgeBlade({ len: 19, w: 1.6, profile: smoothTip(0.16), guard: 'bar', span: 3.4, guardMat: CM.iron, pommelMat: CM.iron, fullerTo: 0.72 }),
+    // Sweeping Claymore: long two-hander, swept quillons, leather ricasso, earthen runes
+    sweeping_claymore: forgeBlade({ len: 24, w: 1.45, profile: t => (t < 0.8 ? 1 - 0.3 * t : (1 - t) / 0.2 * 0.76), grip: 4.8, guard: 'swept', span: 3.6, guardMat: GM.bronze,
+      pommel: 'gem', pommelMat: GM.earth, glow: GM.earth, fullerTo: 0.7,
+      extras: (f, at) => paint(f, capsule(at(2.6, 0), at(4.6, 0), 1.9), GM.wraps, { selout: true }) }),
+    // Inferno Edge: flamberge waves, horned guard, a burning channel and a flame at the tip
+    inferno_blade: forgeBlade({ len: 21, w: 1.55, wave: { amp: 0.75, n: 3 }, profile: smoothTip(0.18), guard: 'horns', span: 2.8, guardMat: GM.darkRed,
+      pommel: 'spike', pommelMat: GM.darkRed, glow: CM.fire, glowW: 0.6, edgeMat: CM.fire,
+      extras: (f, at, k) => { flame(f, at(k.L - 1.5, 0), 3.4, 1.3, 0); for (const s of [8, 13]) dot(f, at(s, 2.6), CM.fire.h); } }),
+    // Storm Breaker: a lightning-bolt blade, a broken crossguard and sparks jumping off it
+    storm_breaker: forgeBlade({ len: 21, w: 1.35, zig: { amp: 0.75, n: 4 }, profile: smoothTip(0.14), mat: CM.iron, guard: 'bolt', span: 3, guardMat: CM.bolt,
+      pommel: 'gem', pommelMat: CM.bolt, glow: CM.bolt, glowW: 0.35, fullerTo: 0.9,
+      extras: (f, at) => { twinkle(f, at(11, 3.4), CM.bolt); twinkle(f, at(17, -3.2), CM.bolt); } }),
+    // Radiant Holy Blade: silver leaf blade between angel wings, a sapphire and a halo of light
+    excalibur: forgeBlade({ len: 23, w: 1.4, profile: t => (t < 0.82 ? 1 + 0.3 * Math.sin(t / 0.82 * Math.PI) : (1 - t) / 0.18), mat: CM.silver, guard: 'wings', span: 4,
+      guardMat: GM.holy, gemMat: CM.ice, pommel: 'gem', pommelMat: CM.ice, glow: GM.holy, glowW: 0.35,
+      extras: (f, at, k) => twinkle(f, at(k.L + 1.2, 0), GM.holy) }),
+    // Gatekeeper's Greatsword: a slab of silver with gate-window slots, a squared chisel point and a gate guard
+    gatekeeper_greatsword: forgeBlade({ len: 26, w: 2.5, profile: t => (t < 0.9 ? 1 : 1 - (t - 0.9) / 0.1 * 0.7), back: 0.85, mat: CM.silver, guard: 'gate', span: 4.4,
+      guardMat: GM.holy, grip: 5, pommel: 'ring', fuller: null,
+      extras: (f, at) => { for (const s of [7, 11.5, 16]) paint(f, capsule(at(s, 0), at(s + 2.2, 0), 0.65), CM.void, { rim: false }); for (const s of [5, 20]) dot(f, at(s, 0), GM.holy.h); } }),
+    // Riftwalker's Edge: a dark single-edged blade split by a glowing rift, shards drifting at the tip
+    riftwalker_edge: forgeBlade({ len: 22, w: 1.9, back: 0.55, curve: t => 0.9 * t * t, mat: GM.night, guard: 'crescent', span: 3, guardMat: GM.violet,
+      pommel: 'gem', pommelMat: CM.voidGlow, fuller: null, edgeMat: GM.lavender,
+      extras: (f, at, k) => {
+        const crack = [at(3, 0), at(6, 0.6), at(8, -0.3), at(11, 0.5), at(13.5, -0.4), at(16, 0.3), at(18, 0)];
+        paint(f, disc(at(11, 0), 4.6, 4.6), CM.voidGlow, { tone: 'm', rim: false, alpha: 45 });
+        for (let i = 0; i < crack.length - 1; i++) paint(f, capsule(crack[i], crack[i + 1], 0.75), CM.voidGlow, { tone: 'l', rim: false });
+        for (let i = 0; i < crack.length - 1; i++) paint(f, capsule(crack[i], crack[i + 1], 0.35), CM.voidGlow, { tone: 'h', rim: false });
+        paint(f, capsule(at(8, -0.3), at(9.5, -1.6), 0.3), CM.voidGlow, { tone: 'l', rim: false });
+        for (const [s, o] of [[k.L - 2, 3.2], [k.L + 1, -2.6]]) { const c = at(s, o); paint(f, poly([[c[0], c[1] - 1.4], [c[0] + 0.8, c[1]], [c[0], c[1] + 1.4], [c[0] - 0.8, c[1]]]), CM.voidGlow, { spec: true }); }
+      } }),
+    // Nightfall (one blade in a warrior's hands): a crescent sabre with a moon guard and stars
+    nightfall_twinblades: forgeBlade({ len: 20, w: 1.4, back: 0.5, profile: t => (t < 0.8 ? 0.8 + 0.6 * Math.sin(t / 0.8 * Math.PI) : (1 - t) / 0.2 * 0.8), curve: t => 4.2 * t * t, mat: GM.night, guard: 'crescent', span: 2.8, guardMat: CM.silver,
+      pommel: 'disc', pommelMat: CM.silver, fuller: null, edgeMat: CM.silver,
+      extras: (f, at) => { for (const [s, o] of [[9, 3.4], [14, -2.8], [18, 3.6]]) twinkle(f, at(s, o), CM.silver); } })
+  };
+
+  // SP card blades (Reaver, Runeknight, Duskblade, Phoenix Oath). Specs are
+  // read when drawn, so a card's palette (it swaps shared materials) applies.
+  const SP_SPECS = {
+    // a serrated blood greatsword
+    reaver: () => forgeBlade({ len: 27, w: 1.9, serrate: { amp: 0.75 }, back: 0.8, profile: smoothTip(0.14), mat: CM.iron, guard: 'horns', span: 3.4, guardMat: CM.bone,
+      grip: 4.6, pommel: 'spike', pommelMat: CM.bone, glow: CM.crimson, glowW: 0.5 }),
+    // a rune-etched knightly blade: glyph crosses along a pale channel
+    runeknight: () => forgeBlade({ len: 25, w: 1.5, mat: CM.silver, guard: 'swept', span: 3.4, guardMat: M.robeTrim, pommel: 'gem', pommelMat: M.orb, glow: CM.ghost, glowW: 0.3,
+      extras: (f, at) => { for (const s of [6, 10, 14]) { paint(f, capsule(at(s, -0.9), at(s, 0.9), 0.25), M.orb, { tone: 'h', rim: false }); paint(f, capsule(at(s - 0.9, 0), at(s + 0.9, 0), 0.25), M.orb, { tone: 'h', rim: false }); } } }),
+    // a falchion that widens toward a clipped point
+    duskblade: () => forgeBlade({ len: 25, w: 1.4, back: 0.4, profile: t => (t < 0.82 ? 0.9 + 0.9 * t : (1 - t) / 0.18 * 1.64), curve: t => -1.2 * t * t, mat: GM.riftCloth,
+      guard: 'crescent', span: 3, guardMat: GM.violet, pommel: 'gem', pommelMat: CM.voidGlow, fuller: null, edgeMat: CM.voidGlow }),
+    // a silver blade cradled by flame wings
+    phoenix: () => forgeBlade({ len: 25, w: 1.45, mat: CM.silver, guard: 'wings', span: 3.2, guardMat: CM.fire, pommel: 'gem', pommelMat: CM.fire, glow: CM.fire, glowW: 0.4 })
+  };
+  const SP_SWORDS = {};
+  for (const k of Object.keys(SP_SPECS)) SP_SWORDS[k] = (f, hand, d) => SP_SPECS[k]()(f, hand, d);
+
+  // Rogue blades: a pair per weapon (the off hand gets its partner, or nothing)
+  const ROGUE_SWORDS = {
+    // Zephyr Swiftblade: a swept-hilt rapier, with a parrying dagger in the off hand
+    wind_rapier: {
+      F: forgeBlade({ len: 18, w: 0.65, profile: t => 1 - 0.4 * t, mat: CM.silver, guard: 'cup', span: 3, guardMat: GM.iceSteel, grip: 2.6, pommel: 'disc', pommelMat: GM.iceSteel,
+        fuller: null, extras: (f, at) => { for (const [s, o] of [[8, 2.2], [11, -2]]) paint(f, capsule(at(s, o), at(s - 3, o), 0.3), CM.ghost, { tone: 'l', rim: false, alpha: 160 }); } }),
+      B: forgeBlade({ len: 9, w: 0.85, mat: CM.silver, guard: 'bar', span: 2.2, guardMat: GM.iceSteel, grip: 2.2, fuller: null })
+    },
+    // Frostbite Katana: curved single edge, round tsuba, white-wrapped grip, ice at the tip; a wakizashi beside it
+    frostbite_katana: {
+      F: forgeBlade({ len: 18, w: 0.95, back: 0.35, curve: t => 1.3 * t * t, profile: smoothTip(0.1), mat: GM.iceSteel, edgeMat: CM.ice, guard: 'tsuba', span: 2.4, guardMat: CM.iron,
+        grip: 3.4, gripMat: GM.frostCloth, wrap: CM.iron, pommel: 'disc', pommelMat: CM.iron, fuller: null,
+        extras: (f, at, k) => spike(f, at(k.L - 1, 0.6), k.d, 2.2, 0.7, CM.ice, { spec: true }) }),
+      B: forgeBlade({ len: 10, w: 0.75, back: 0.35, curve: t => 0.6 * t * t, profile: smoothTip(0.12), mat: GM.iceSteel, edgeMat: CM.ice, guard: 'tsuba', span: 2, guardMat: CM.iron,
+        grip: 2.4, gripMat: GM.frostCloth, wrap: CM.iron, fuller: null })
+    },
+    // Nightfall Twinblades: a matched pair of crescent moon blades
+    nightfall_twinblades: {
+      F: forgeBlade({ len: 13, w: 1.25, back: 0.5, curve: t => 2.8 * t * t, mat: GM.night, edgeMat: CM.silver, guard: 'crescent', span: 2.2, guardMat: CM.silver, grip: 2.4, fuller: null,
+        extras: (f, at) => dot(f, at(8, 2.4), STAR) }),
+      B: forgeBlade({ len: 13, w: 1.25, back: 0.5, curve: t => -2.8 * t * t, mat: GM.night, edgeMat: CM.silver, guard: 'crescent', span: 2.2, guardMat: CM.silver, grip: 2.4, fuller: null,
+        extras: (f, at) => dot(f, at(8, -2.4), STAR) })
+    },
+    // Riftwalker's Edge: one rift-split blade, the off hand free
+    riftwalker_edge: {
+      F: forgeBlade({ len: 16, w: 1.4, back: 0.5, curve: t => 0.7 * t * t, mat: GM.night, edgeMat: GM.lavender, guard: 'crescent', span: 2.6, guardMat: GM.violet, grip: 2.6,
+        pommel: 'gem', pommelMat: CM.voidGlow, fuller: null,
+        extras: (f, at) => { const c = [at(3, 0), at(5.5, 0.4), at(8, -0.3), at(11, 0.2)]; for (let i = 0; i < c.length - 1; i++) paint(f, capsule(c[i], c[i + 1], 0.55), CM.voidGlow, { tone: 'h', rim: false }); } }),
+      B: null
+    }
+  };
+
+  const WARRIOR_WEAPONS = {
+    iron_blade: () => SWORDS.iron_blade,
+    sweeping_claymore: () => SWORDS.sweeping_claymore,
+    inferno_blade: () => SWORDS.inferno_blade,
+    storm_breaker: () => SWORDS.storm_breaker,
+    excalibur: () => SWORDS.excalibur,
+    woodsman_axe: () => battleAxe,
+    iron_morningstar: () => mace,
+    thunder_maul: () => warhammer,
+    dragonbone_glaive: () => lance,
+    gatekeeper_greatsword: () => SWORDS.gatekeeper_greatsword,
+    riftwalker_edge: () => SWORDS.riftwalker_edge,
+    nightfall_twinblades: () => SWORDS.nightfall_twinblades
+  };
+  const MAGE_STAVES = {
+    glacial_spire: crystalStaff, archmage_staff: brazierStaff, sunfire_conduit: brazierStaff,
+    voidcaller_wand: crescentStaff, riftwalker_edge: crescentStaff, nightfall_twinblades: crescentStaff
+  };
+
+  // ---- helmets: one head drawer per style, shared by every class (the face and
+  // hair under an open helm follow the class)
+  const HELM_STYLE = {
+    iron_helm: 'greathelm', horned_helm: 'horned', shadow_hood: 'hood', rogue_bandana: 'bandana',
+    archmage_cowl: 'astral', starweaver_hat: 'wizard', winter_crown: 'winter', bone_warden_mask: 'skull'
+  };
+  const CLASS_HAIR = { warrior: GM.hair, mage: M.mageHair, rogue: RL.hair };
+  const CLASS_SKIN = { warrior: M.skin, mage: M.skin, rogue: RL.skin };
+
+  function gearHead(style, cls) {
+    const hair = CLASS_HAIR[cls], skin = CLASS_SKIN[cls];
+    const CLOTH = { dither: true, selout: true }, MET = { metal: true, selout: true };
+    // bare face and hair (open helms, crowns, hats)
+    const face = ({ f, sk, view }) => {
+      if (isFrontal(sk)) {
+        paint(f, disc(Hf(sk, 0, -0.5), 5.1), hair, CLOTH);
+        if (view !== 'front') { paint(f, poly([Hf(sk, -3.4, 1.5), Hf(sk, 3.4, 1.5), Hf(sk, 2.6, 5.6), Hf(sk, -2.6, 5.6)]), hair); return; }
+        paint(f, poly([Hf(sk, -3.2, -1.6), Hf(sk, 3.2, -1.6), Hf(sk, 3, 2), Hf(sk, 1.4, 4), Hf(sk, -1.4, 4), Hf(sk, -3, 2)]), skin, { rim: false });
+        paint(f, poly([Hf(sk, -3.6, -2.2), Hf(sk, 3.6, -2.2), Hf(sk, 2.2, -0.8), Hf(sk, 0.4, -1.4), Hf(sk, -1.6, -0.6), Hf(sk, -3.2, -1)]), hair, { rim: false });
+        dot(f, Hf(sk, -1.3, 0.4), EYE); dot(f, Hf(sk, 1.3, 0.4), EYE);
+        return;
+      }
+      paint(f, disc(Hd(sk, -0.6, -0.4), 5.1), hair, CLOTH);
+      if (view !== 'front') return;
+      paint(f, poly([Hd(sk, 1, -1.6), Hd(sk, 5.4, -1.4), Hd(sk, 5.6, 1.4), Hd(sk, 4.6, 3.8), Hd(sk, 1.4, 4.2)]), skin, { rim: false });
+      paint(f, poly([Hd(sk, -0.4, -3.4), Hd(sk, 5.4, -2.6), Hd(sk, 4, -1), Hd(sk, 1.2, -1.2)]), hair, { rim: false });
+      dot(f, Hd(sk, 3.2, 0.2), EYE); dot(f, Hd(sk, 4.8, 0.2), EYE);
+    };
+    const glowEyes = (f, pts, m, eye) => pts.forEach(pt => { paint(f, disc(pt, 1.2), m, { tone: 'm', rim: false, alpha: 140 }); dot(f, pt, eye); });
+
+    const STYLES = {
+      // closed bucket helm, cross-shaped visor slit, a red plume
+      greathelm(X) {
+        const { f, sk, view, tr, fl } = X, fr = isFrontal(sk), s = fl || 0, t = tr || 0;
+        if (fr) {
+          paint(f, poly([Hf(sk, -1.2, -5.2), Hf(sk, 1.2, -5.2), Hf(sk, 1 + s * 0.3, -9.4), Hf(sk, -1 + s * 0.3, -9.6)]), GM.plume, CLOTH);
+          paint(f, poly([Hf(sk, -5, -4.8), Hf(sk, 5, -4.8), Hf(sk, 5.4, 4.6), Hf(sk, -5.4, 4.6)]), M.steel, MET);
+          paint(f, capsule(Hf(sk, -5, -3.4), Hf(sk, 5, -3.4), 0.6), M.gold, { rim: false, spec: true });
+          if (view === 'front') {
+            paint(f, capsule(Hf(sk, -4, 0.2), Hf(sk, 4, 0.2), 0.6), CM.slit, { rim: false });
+            paint(f, capsule(Hf(sk, 0, -1), Hf(sk, 0, 3.8), 0.55), CM.slit, { rim: false });
+          }
+          return;
+        }
+        paint(f, poly([Hd(sk, -1, -5), Hd(sk, -4, -7.6), Hd(sk, -8.6 - t * 3, -6.4 + s * 0.5), Hd(sk, -7.4 - t * 2, -4.4), Hd(sk, -3.6, -4.6)]), GM.plume, CLOTH);
+        paint(f, poly([Hd(sk, -5, -5), Hd(sk, 4.8, -5), Hd(sk, 5.6, -3.2), Hd(sk, 5.6, 4.6), Hd(sk, -5, 4.6)]), M.steel, MET);
+        paint(f, capsule(Hd(sk, -5, -3.4), Hd(sk, 5.6, -3.4), 0.6), M.gold, { rim: false, spec: true });
+        if (view === 'front') {
+          paint(f, capsule(Hd(sk, 1.4, 0.2), Hd(sk, 5.8, 0.2), 0.6), CM.slit, { rim: false });
+          paint(f, capsule(Hd(sk, 3.8, -1), Hd(sk, 3.8, 3.6), 0.5), CM.slit, { rim: false });
+        }
+      },
+      // open-faced helm, nose guard, two great bone horns
+      horned(X) {
+        const { f, sk, view } = X, fr = isFrontal(sk);
+        face(X);
+        if (fr) {
+          for (const k of [-1, 1]) horn(f, [Hf(sk, 4 * k, -2.4), Hf(sk, 7.4 * k, -3.6), Hf(sk, 9 * k, -7), Hf(sk, 8 * k, -10.4)], 1.7, 0.4, CM.bone);
+          paint(f, poly([Hf(sk, -5.4, -1), Hf(sk, 5.4, -1), Hf(sk, 4.6, -4.4), Hf(sk, 0, -6.2), Hf(sk, -4.6, -4.4)]), M.steel, MET);
+          paint(f, capsule(Hf(sk, -5.4, -1.2), Hf(sk, 5.4, -1.2), 0.7), M.gold, { rim: false, spec: true });
+          if (view === 'front') paint(f, capsule(Hf(sk, 0, -1), Hf(sk, 0, 2.4), 0.6), M.steel, { tone: 'l', rim: false });
+          return;
+        }
+        horn(f, [Hd(sk, -2, -3.6), Hd(sk, -5.6, -5), Hd(sk, -7.6, -8.4), Hd(sk, -6.6, -11.6)], 1.7, 0.4, CM.bone);
+        paint(f, poly([Hd(sk, -5.4, -1), Hd(sk, 5.6, -1), Hd(sk, 4.4, -4.6), Hd(sk, -0.4, -6.2), Hd(sk, -4.6, -4.4)]), M.steel, MET);
+        paint(f, capsule(Hd(sk, -5.4, -1.2), Hd(sk, 5.6, -1.2), 0.7), M.gold, { rim: false, spec: true });
+        if (view === 'front') paint(f, capsule(Hd(sk, 4.6, -1), Hd(sk, 4.8, 2.6), 0.6), M.steel, { tone: 'l', rim: false });
+        horn(f, [Hd(sk, 2.4, -3.6), Hd(sk, 1.4, -6.4), Hd(sk, -1.2, -9), Hd(sk, -0.6, -12)], 1.7, 0.4, CM.bone);
+      },
+      // deep cowl, the face lost in shadow but for two glowing eyes
+      hood(X) {
+        const { f, sk, view } = X, fr = isFrontal(sk), m = GM.nightCloth;
+        if (fr) {
+          paint(f, disc(Hf(sk, 0, -0.3), 6), m, CLOTH);
+          paint(f, poly([Hf(sk, -2, -5.4), Hf(sk, 2, -5.4), Hf(sk, 0.4, -8.4)]), m, CLOTH);
+          if (view !== 'front') return;
+          paint(f, poly([Hf(sk, -3.4, -2.6), Hf(sk, 3.4, -2.6), Hf(sk, 3, 3.4), Hf(sk, 0, 4.6), Hf(sk, -3, 3.4)]), CM.shadow, { rim: false });
+          glowEyes(f, [Hf(sk, -1.3, 0), Hf(sk, 1.3, 0)], GM.violet, GLOW_EYE.void);
+          return;
+        }
+        paint(f, poly([Hd(sk, -5, -1), Hd(sk, -6.6, 5), Hd(sk, -1, 5.6)]), m, CLOTH);
+        paint(f, disc(Hd(sk, -0.6, -0.3), 6), m, CLOTH);
+        paint(f, poly([Hd(sk, -1, -6), Hd(sk, 5, -5), Hd(sk, 7, -1.6), Hd(sk, 3, -3.8)]), m, CLOTH);
+        if (view !== 'front') return;
+        paint(f, poly([Hd(sk, 1.4, -2.6), Hd(sk, 5.8, -2), Hd(sk, 5.6, 3), Hd(sk, 2, 4)]), CM.shadow, { rim: false });
+        glowEyes(f, [Hd(sk, 3.2, -0.2), Hd(sk, 4.8, -0.2)], GM.violet, GLOW_EYE.void);
+      },
+      // a red bandana knotted at the back, its tails flying
+      bandana(X) {
+        const { f, sk, view, tr, fl } = X, fr = isFrontal(sk), s = fl || 0, t = tr || 0;
+        face(X);
+        if (fr) {
+          paint(f, poly([Hf(sk, -5.2, -1.4), Hf(sk, 5.2, -1.4), Hf(sk, 4.6, -4.4), Hf(sk, 0, -5.8), Hf(sk, -4.6, -4.4)]), GM.bandana, CLOTH);
+          if (view !== 'front') paint(f, poly([Hf(sk, -0.6, -2), Hf(sk, 0.6, -2), Hf(sk, 1.6 + s * 0.4, 6), Hf(sk, -0.8 + s * 0.4, 6.4)]), GM.bandana, CLOTH);
+          return;
+        }
+        paint(f, poly([Hd(sk, -4, -2.2), Hd(sk, -8.6 - t * 3, -0.6 + s * 0.6), Hd(sk, -7.6 - t * 2, 1.6 + s * 0.6), Hd(sk, -4.4, -0.4)]), GM.bandana, CLOTH);
+        paint(f, poly([Hd(sk, -5.2, -1.4), Hd(sk, 5.4, -1.6), Hd(sk, 4.6, -4.4), Hd(sk, 0, -5.8), Hd(sk, -4.6, -4.4)]), GM.bandana, CLOTH);
+        paint(f, capsule(Hd(sk, -4.8, -2), Hd(sk, 5, -2.2), 0.4), GM.bandana, { tone: 'd', rim: false });
+      },
+      // crown of the astral sea: gold circlet with gems and a halo of tiny stars
+      astral(X) {
+        const { f, sk, view, ph } = X, fr = isFrontal(sk), P = (a, b) => fr ? Hf(sk, a, b) : Hd(sk, a, b);
+        face(X);
+        paint(f, capsule(P(-4.8, -2.6), P(4.8, -2.6), 0.75), M.gold, { rim: false, spec: true });
+        for (const [dx, h] of [[-3.4, 2.4], [0, 3.6], [3.4, 2.4]]) spike(f, P(dx, -3), fr ? sk.hup : Hv(sk, 0, -1), h, 1, M.gold, { spec: true });
+        if (view === 'front') paint(f, disc(P(fr ? 0 : 2.4, -2.6), 1.1), M.orb, { spec: true });
+        for (let i = 0; i < 3; i++) {
+          const a = (ph || 0) * Math.PI * 2 + i * 2.1;
+          dot(f, P(Math.cos(a) * 6.4, -6.4 + Math.sin(a) * 1.2), STAR);
+        }
+      },
+      // tall pointed wizard hat with a wide brim and a sprinkle of stars
+      wizard(X) {
+        const { f, sk, view, fl } = X, fr = isFrontal(sk), s = fl || 0;
+        face(X);
+        if (fr) {
+          paint(f, poly([Hf(sk, -3.8, -3), Hf(sk, 3.8, -3), Hf(sk, 1.6 + s * 0.3, -9), Hf(sk, 4.4 + s * 0.6, -12.4), Hf(sk, -0.6 + s * 0.3, -9.6)]), GM.hatBlue, CLOTH);
+          paint(f, capsule(Hf(sk, -7, -2.4), Hf(sk, 7, -2.4), 1), GM.hatBlue, CLOTH);
+          paint(f, capsule(Hf(sk, -3.8, -3.6), Hf(sk, 3.8, -3.6), 0.55), M.gold, { rim: false, spec: true });
+          dot(f, Hf(sk, -1, -6.4), STAR); dot(f, Hf(sk, 1.4, -8), STAR);
+          return;
+        }
+        paint(f, poly([Hd(sk, -3.6, -3), Hd(sk, 4, -3), Hd(sk, 0.4, -8.6), Hd(sk, -5 + s * 0.4, -11.6), Hd(sk, -2.4, -8.4)]), GM.hatBlue, CLOTH);
+        paint(f, capsule(Hd(sk, -7, -2.4), Hd(sk, 7.6, -2.6), 1), GM.hatBlue, CLOTH);
+        paint(f, capsule(Hd(sk, -3.6, -3.6), Hd(sk, 4, -3.6), 0.55), M.gold, { rim: false, spec: true });
+        dot(f, Hd(sk, 0, -6), STAR); dot(f, Hd(sk, -2.6, -8.6), STAR);
+      },
+      // crown of winter: a ring of ice spikes over frosted hair
+      winter(X) {
+        const { f, sk, view } = X, fr = isFrontal(sk);
+        face(X);
+        const P = (a, b) => fr ? Hf(sk, a, b) : Hd(sk, a, b);
+        for (const [dx, lean, len] of [[-3.8, -0.5, 3.4], [-1.4, -0.15, 5.6], [1.2, 0.15, 5.6], [3.6, 0.5, 3.4]]) {
+          spike(f, P(dx, -3.4), fr ? norm([sk.hlat[0] * lean + sk.hup[0], sk.hlat[1] * lean + sk.hup[1]]) : Hv(sk, lean, -1), len, 1.2, CM.ice, { spec: true });
+        }
+        paint(f, capsule(P(-4.8, -2.8), P(4.8, -2.8), 0.7), CM.silver, { rim: false, spec: true });
+        if (view === 'front') paint(f, disc(P(fr ? 0 : 2.6, -2.8), 0.9), CM.ice, { tone: 'h', rim: false });
+      },
+      // bone warden: a horned skull mask with ember-lit sockets, a dark cowl behind
+      skull(X) {
+        const { f, sk, view } = X, fr = isFrontal(sk);
+        if (fr) {
+          paint(f, disc(Hf(sk, 0, -0.2), 6), GM.nightCloth, CLOTH);
+          for (const k of [-1, 1]) horn(f, [Hf(sk, 3 * k, -3.6), Hf(sk, 5.4 * k, -6.4), Hf(sk, 4.6 * k, -9.6)], 1.3, 0.35, CM.bone);
+          if (view !== 'front') return;
+          paint(f, poly([Hf(sk, -4, -3.6), Hf(sk, 4, -3.6), Hf(sk, 4.2, 1.4), Hf(sk, 2.4, 4.8), Hf(sk, -2.4, 4.8), Hf(sk, -4.2, 1.4)]), CM.bone, { spec: true });
+          for (const k of [-1, 1]) paint(f, disc(Hf(sk, 1.6 * k, 0), 1.2), CM.slit, { rim: false });
+          glowEyes(f, [Hf(sk, -1.6, 0), Hf(sk, 1.6, 0)], CM.fire, GLOW_EYE.ember);
+          for (const x of [-1.6, -0.5, 0.6, 1.7]) dot(f, Hf(sk, x, 3.6), CM.bone.o);
+          return;
+        }
+        paint(f, disc(Hd(sk, -0.8, -0.2), 6), GM.nightCloth, CLOTH);
+        horn(f, [Hd(sk, -1, -3.8), Hd(sk, -4.2, -6.6), Hd(sk, -4, -10)], 1.3, 0.35, CM.bone);
+        if (view !== 'front') return;
+        paint(f, poly([Hd(sk, 0.4, -3.6), Hd(sk, 5.6, -3), Hd(sk, 6, 1.4), Hd(sk, 4.8, 4.8), Hd(sk, 1.2, 4.6)]), CM.bone, { spec: true });
+        paint(f, disc(Hd(sk, 3.8, 0), 1.2), CM.slit, { rim: false });
+        glowEyes(f, [Hd(sk, 3.8, 0)], CM.fire, GLOW_EYE.ember);
+        for (const x of [2.4, 3.5, 4.6]) dot(f, Hd(sk, x, 3.6), CM.bone.o);
+      }
+    };
+    return STYLES[style];
+  }
+
+  // ---- capes: their own equipment slot. Heroes have no cape of their own;
+  // an equipped cape item is drawn from its model below, so every cape has its
+  // own silhouette (hem cut, length, flare) and its own details, not a recolour.
+  // A model: mat (outside), lining (inside, peeks under the hem), len (1 = to
+  // the knees, measured from the shoulders), flare (hem spread), hem(u, ph)
+  // (extra length along the hem, u 0 = back edge .. 1 = front edge, rig units),
+  // decor(D) (details on the cloth), front(D) (clasps etc. over the chest).
+  // SP costumes keep their own capes and never draw these.
+  const tri = x => { x -= Math.floor(x); return 1 - Math.abs(2 * x - 1); };
+  const CPM = {
+    wool: mat('#140b06', '#3e2716', '#5e3d22', '#835a35', '#a87b4e'),
+    tan: mat('#2a1c0c', '#8a6a3e', '#b08c56', '#d2b07a'),
+    wolf: mat('#121418', '#454a52', '#737a85', '#a6adb8', '#dce1e8'),
+    warRed: mat('#1a0410', '#5c0b22', '#9b1430', '#d4283c', '#ff6a6a'),
+    ash: mat('#0c0506', '#2a0d0b', '#46160f', '#6a2414', '#a4401c'),
+    raven: mat('#020205', '#0b0a12', '#17152a', '#2a2645', '#4b4277'),
+    royal: mat('#12041f', '#3b0a5c', '#5b1490', '#8231c4', '#b77ae6'),
+    membrane: mat('#1a0406', '#4a0c10', '#7a1a18', '#a8321e', '#d85a2a'),
+    ruby: mat('#2a0408', '#8a1020', '#d0283c', '#ff7a8a', '#ffffff')
+  };
+  // run a chain of small capsules along the hem (u0..u1), `extra` rig units below its base line
+  function hemBand(D, extra, r, m, o, u0, u1) {
+    u0 = u0 === undefined ? 0 : u0; u1 = u1 === undefined ? 1 : u1;
+    const n = 16;
+    let prev = D.hemAt(u0, extra);
+    for (let i = 1; i <= n; i++) {
+      const u = lerp(u0, u1, i / n), cur = D.hemAt(u, extra);
+      paint(D.f, capsule(prev, cur, r), m, o);
+      prev = cur;
+    }
+  }
+  function goldClasps(D, gem) {
+    const { f, sk } = D;
+    const pts = D.frontal ? [L(sk, sk.shC, -2.6, 0.3), L(sk, sk.shC, 2.6, 0.3)] : [L(sk, sk.shC, 2.2, 0.3)];
+    for (const c of pts) {
+      paint(f, disc(c, 1.25), M.gold, { spec: true });
+      if (gem) dot(f, c, gem.m);
+    }
+    return pts;
+  }
+  const CAPES = {
+    // plain road wool, frayed hem, a patched back and a rope tie
+    travelers_cloak: {
+      mat: CPM.wool, lining: CPM.tan, len: 1,
+      hem: u => 0.7 * tri(u * 11) - 0.3,
+      decor(D) {
+        if (!D.outside) return;
+        const { f, at } = D;
+        paint(f, poly([at(0.52, 0.42), at(0.76, 0.42), at(0.76, 0.6), at(0.52, 0.6)]), CPM.tan, { tone: 'd', rim: false });
+        for (const [u, v] of [[0.52, 0.42], [0.76, 0.42], [0.76, 0.6], [0.52, 0.6], [0.64, 0.42], [0.64, 0.6]]) dot(f, at(u, v), CPM.wool.o);
+      },
+      front(D) {
+        const c = D.frontal ? L(D.sk, D.sk.shC, 0, 0.2) : L(D.sk, D.sk.shC, 2, 0.3);
+        paint(D.f, disc(c, 1.1), CPM.tan, { spec: true });
+        paint(D.f, capsule(c, add(c, D.sk.up, -2.6), 0.35), CPM.tan, { tone: 'd', rim: false });
+      }
+    },
+    // short shoulder mantle of wolf fur, shaggy tufted hem, tusk pin
+    wolfpelt_mantle: {
+      mat: CPM.wolf, lining: M.leather, len: 0.46, flare: 1.15, noFolds: true,
+      hem: u => 2.6 * Math.pow(tri(u * 8), 0.7) + 0.8 * tri(u * 13) - 0.6,
+      decor(D) {
+        const { f, at } = D;
+        for (let i = 0; i < 9; i++) {
+          const u = (i + 0.5) / 9;
+          paint(f, capsule(at(u, 0.3), at(u + 0.03, 0.92), 0.25), CPM.wolf, { tone: i % 2 ? 'd' : 'l', rim: false });
+        }
+        // thick ruff of pale fur over the shoulders
+        paint(f, capsule(at(-0.02, 0.02), at(1.02, 0.02), 1.9), CM.furWhite, { dither: true, selout: true });
+        for (let i = 0; i < 6; i++) dot(f, at((i + 0.5) / 6, 0.06), CM.furWhite.d);
+      },
+      front(D) {
+        if (D.view !== 'front') return;
+        const c = D.frontal ? L(D.sk, D.sk.shC, 0, 0.6) : L(D.sk, D.sk.shC, 2.2, 0.6);
+        spike(D.f, c, norm(add(D.sk.up, D.sk.side, 0.5)), 3.2, 0.9, CM.bone, { spec: true });
+      }
+    },
+    // long crimson battle cape, swallowtail cut, gold-edged, sword sigil
+    crimson_warcape: {
+      mat: CPM.warRed, lining: M.navy, len: 1.18,
+      hem: u => -1 + 5.5 * Math.pow(tri(u * 2), 1.5) - 5 * Math.max(0, 1 - Math.abs(u - 0.5) / 0.16),
+      decor(D) {
+        const { f, at } = D;
+        hemBand(D, -0.7, 0.42, M.gold, { rim: false, spec: true });
+        if (!D.outside || !D.back) return;
+        paint(f, capsule(at(0.5, 0.16), at(0.5, 0.56), 0.55), M.gold, { spec: true });
+        paint(f, capsule(at(0.4, 0.26), at(0.6, 0.26), 0.5), M.gold, { spec: true });
+        paint(f, disc(at(0.5, 0.13), 0.8), M.gold, { spec: true });
+      },
+      front: D => goldClasps(D, CPM.ruby)
+    },
+    // forest-green shroud whose hem is cut into leaves; a rolled hood at the collar
+    ranger_leafshroud: {
+      mat: GM.forest, lining: GM.olive, len: 1.02,
+      hem: u => 3.6 * Math.pow(tri(u * 6), 0.55) - 0.8,
+      decor(D) {
+        const { f, at } = D;
+        for (let k = 0; k < 6; k++) {
+          const u = (k + 0.5) / 6;
+          paint(f, capsule(D.hemAt(u, -2.4), D.hemAt(u, 1.8), 0.28), GM.forest, { tone: 'd', rim: false });
+        }
+        if (D.outside) {
+          for (const [u, v] of [[0.25, 0.32], [0.62, 0.26], [0.42, 0.52], [0.76, 0.56], [0.2, 0.7], [0.55, 0.74]]) {
+            const a = at(u, v), b = at(u + 0.04, v + 0.12);
+            spike(f, a, norm([b[0] - a[0], b[1] - a[1]]), 2.4, 0.9, GM.forest, { tone: 'l', rim: false });
+          }
+        }
+        if (D.back) paint(f, disc(at(0.5, 0.05), 3, 2.2), GM.forest, { dither: true, selout: true });
+      },
+      front(D) {
+        if (D.view !== 'front') return;
+        const c = D.frontal ? L(D.sk, D.sk.shC, 0, 0.3) : L(D.sk, D.sk.shC, 2.2, 0.3);
+        spike(D.f, add(c, D.sk.side, -0.8), D.sk.side, 2.2, 0.9, GM.earth, { spec: true });
+      }
+    },
+    // frost cloth with an icicle hem, rime and a white fur collar
+    frostweave_mantle: {
+      mat: GM.frostCloth, lining: GM.iceSteel, len: 1.05,
+      hem: u => {
+        const L7 = [2.5, 6.2, 3, 7.6, 2.8, 5.6, 3.4], i = Math.min(6, Math.floor(u * 7));
+        return L7[i] * Math.pow(tri(u * 7), 2.2) - 0.4;
+      },
+      decor(D) {
+        const { f, at, ph } = D;
+        hemBand(D, -1.3, 0.55, CM.ice, { tone: 'l', rim: false, alpha: 190 });
+        for (let i = 0; i < 7; i++) dot(f, D.hemAt((i + 0.5) / 7, -0.4), CM.ice.h);
+        if (D.outside) {
+          [[0.3, 0.3], [0.68, 0.22], [0.5, 0.55], [0.22, 0.62], [0.78, 0.66]].forEach(([u, v], i) => {
+            const p = at(u, v), tw = Math.sin((ph + i * 0.29) * Math.PI * 2);
+            if (tw < -0.2) return;
+            dot(f, p, CM.ice.h);
+            if (tw > 0.6) for (const d of [[1, 0], [-1, 0], [0, 1], [0, -1]]) dot(f, [p[0] + d[0], p[1] + d[1]], CM.ice.l);
+          });
+        }
+        paint(f, capsule(at(-0.02, 0.02), at(1.02, 0.02), 1.6), CM.furWhite, { dither: true, selout: true });
+      },
+      front: D => goldClasps(D, CM.ice)
+    },
+    // ash-dark cape whose hem is burning away: glowing edge, flame tongues, rising embers
+    emberwing_cape: {
+      mat: CPM.ash, lining: CM.fire, len: 1.05,
+      hem: u => 1.3 * tri(u * 7) - 0.7 * tri(u * 13),
+      decor(D) {
+        const { f, at, ph } = D;
+        if (D.outside) {
+          // smouldering cracks
+          for (const pts of [[[0.3, 0.45], [0.36, 0.6], [0.3, 0.74], [0.37, 0.88]], [[0.68, 0.55], [0.62, 0.7], [0.7, 0.9]]]) {
+            for (let i = 0; i < pts.length - 1; i++) paint(f, capsule(at(...pts[i]), at(...pts[i + 1]), 0.3), CM.fire, { tone: 'm', rim: false });
+          }
+        }
+        hemBand(D, -0.9, 0.9, CM.fire, { tone: 'm', rim: false, alpha: 170 });
+        for (let i = 0; i < 5; i++) {
+          const u = (i + 0.5) / 5, b = D.hemAt(u, 0.6);
+          flame(f, b, 3.4 + 1.8 * Math.sin((ph * 2 + i * 0.27) * Math.PI * 2), 1.2, Math.sin((ph + i * 0.4) * Math.PI * 2) * 0.8);
+        }
+        for (let i = 0; i < 4; i++) {
+          const q = (ph * 1.5 + i * 0.25) % 1, b = D.hemAt((i + 0.3) / 4, 0);
+          dot(f, [b[0] + Math.sin((q + i) * 6) * 1.5, b[1] - 3 - q * 9], q < 0.6 ? CM.fire.h : CM.fire.l);
+        }
+      }
+    },
+    // layer upon layer of black feathers, a feathered hem and a ruff at the neck
+    ravenfeather_cloak: {
+      mat: CPM.raven, lining: GM.violet, len: 1.1, flare: 1.1, noFolds: true,
+      hem: u => { const i = Math.floor(u * 9); return (i % 2 ? 4.6 : 3) * Math.pow(tri(u * 9), 1.6) - 0.6; },
+      decor(D) {
+        const { f, at, sk } = D;
+        if (D.outside) {
+          [0.22, 0.4, 0.58, 0.76].forEach((v, row) => {
+            for (let k = 0; k < 6; k++) {
+              const u = (k + (row % 2) * 0.5 + 0.25) / 6;
+              if (u > 0.98) continue;
+              const a = at(u, v - 0.05), b = at(u, v + 0.1);
+              spike(f, a, norm([b[0] - a[0], b[1] - a[1]]), Math.hypot(b[0] - a[0], b[1] - a[1]), 1.1, CPM.raven, { tone: 'd', rim: false });
+              dot(f, at(u - 0.03, v), GM.violet.d);
+            }
+          });
+        }
+        for (let k = 0; k < 7; k++) {
+          const u = k / 6;
+          spike(f, at(u, 0.03), norm(add(sk.up, sk.side, (u - 0.5) * 1.4)), 2.8, 0.9, CPM.raven, { selout: true });
+        }
+      },
+      front: D => goldClasps(D, GM.violet)
+    },
+    // imperial purple, rounded train trimmed in spotted ermine, gold chain and crown
+    royal_ermine_mantle: {
+      mat: CPM.royal, lining: M.gold, len: 1.22, flare: 1.2,
+      hem: u => 1.4 * Math.sin(Math.PI * u),
+      decor(D) {
+        const { f, at } = D;
+        hemBand(D, -1.1, 1.35, CM.furWhite, { dither: true, selout: true });
+        for (let i = 0; i < 8; i++) dot(f, D.hemAt((i + 0.5) / 8, -1.1 + (i % 2) * 0.6), CM.shadow.m);
+        if (D.inside) {
+          // the ermine runs up both front edges
+          for (const u of [0.02, 0.98]) paint(f, capsule(at(u, 0.05), at(u, 0.95), 1.2), CM.furWhite, { dither: true, selout: true });
+        }
+        paint(f, capsule(at(-0.02, 0.02), at(1.02, 0.02), 1.5), CM.furWhite, { dither: true, selout: true });
+        for (let i = 0; i < 5; i++) dot(f, at((i + 0.5) / 5, 0.03), CM.shadow.m);
+        if (D.outside && D.back) {
+          const b = at(0.5, 0.36);
+          paint(f, poly([add(b, D.sk.side, -2.6), add(b, D.sk.side, 2.6), add(add(b, D.sk.side, 2.8), D.sk.up, 3.2), add(add(b, D.sk.side, 1.2), D.sk.up, 1.6),
+            add(b, D.sk.up, 3.6), add(add(b, D.sk.side, -1.2), D.sk.up, 1.6), add(add(b, D.sk.side, -2.8), D.sk.up, 3.2)]), M.gold, { spec: true });
+          dot(f, add(b, D.sk.up, 1), CPM.ruby.m);
+        }
+      },
+      front(D) {
+        const pts = goldClasps(D, CPM.ruby);
+        if (pts.length === 2 && D.view === 'front') {
+          const mid = add(L(D.sk, D.sk.shC, 0, 0.3), D.sk.up, -1.6);
+          paint(D.f, capsule(pts[0], mid, 0.35), M.gold, { rim: false, spec: true });
+          paint(D.f, capsule(mid, pts[1], 0.35), M.gold, { rim: false, spec: true });
+        }
+      }
+    },
+    // a piece of the night sky: starlit void, a glowing hem that dissolves into drifting shards
+    starfall_cloak: {
+      mat: CM.void, lining: CM.voidGlow, len: 1.12,
+      hem: u => 2.4 * Math.pow(tri(u * 6), 1.2) - 0.8,
+      decor(D) {
+        const { f, at, ph } = D;
+        if (D.outside) starryCloth(f, [at(0, 0.04), at(1, 0.04), at(1, 0.96), at(0, 0.96)], ph);
+        hemBand(D, -0.6, 0.5, CM.voidGlow, { tone: 'm', rim: false, alpha: 150 });
+        for (let i = 0; i < 5; i++) {
+          const q = (ph + i * 0.37) % 1, c = D.hemAt((i + 0.5) / 5, 2 + q * 5);
+          paint(f, poly([add(c, D.sk.up, 1.1), add(c, D.sk.side, 0.8), add(c, D.sk.up, -1.1), add(c, D.sk.side, -0.8)]), CM.voidGlow, { tone: q < 0.5 ? 'l' : 'm', rim: false, alpha: Math.round(230 * (1 - q)) });
+        }
+      },
+      front: D => goldClasps(D, CM.voidGlow)
+    },
+    // a war banner: stiff gold crossbar, zigzag hem, lightning sigil, crackling sparks
+    stormbanner_cape: {
+      mat: GM.hatBlue, lining: M.navy, len: 1.1, noFolds: true,
+      hem: u => 3.2 * tri(u * 5) - 0.6,
+      decor(D) {
+        const { f, at, ph } = D;
+        hemBand(D, -1.7, 0.32, M.gold, { rim: false, spec: true });
+        if (D.outside && D.back) {
+          const z = [[0.55, 0.14], [0.4, 0.4], [0.56, 0.42], [0.42, 0.7]];
+          for (let i = 0; i < z.length - 1; i++) paint(f, capsule(at(...z[i]), at(...z[i + 1]), 0.75), CM.bolt, { spec: true });
+        }
+        if (!D.inside) {
+          paint(f, capsule(at(-0.08, 0), at(1.08, 0), 0.8), M.gold, { spec: true });
+          for (const u of [-0.08, 1.08]) paint(f, disc(at(u, 0), 1.1), M.gold, { spec: true });
+        }
+        if (Math.sin(ph * Math.PI * 6) > 0.55) {
+          const k = Math.floor(ph * 5) % 5, a = D.hemAt(k / 5, 0), b = D.hemAt((k + 0.5) / 5, 2.6), c = D.hemAt((k + 1) / 5, 0);
+          paint(f, capsule(a, b, 0.3), CM.bolt, { tone: 'h', rim: false });
+          paint(f, capsule(b, c, 0.3), CM.bolt, { tone: 'h', rim: false });
+        }
+      },
+      front: D => goldClasps(D, CM.bolt)
+    },
+    // a folded drake wing: bone fingers fanning to claw tips, scalloped membrane between
+    dragonwing_cape: {
+      mat: CPM.membrane, lining: GM.darkRed, len: 1.16, flare: 1.25, noFolds: true,
+      hem: u => 2.6 - 4.6 * Math.sin(Math.PI * ((u * 3) % 1)),
+      decor(D) {
+        const { f, at, sk } = D;
+        const root = at(0.62, 0.02);
+        for (let k = 0; k <= 3; k++) {
+          const u = k / 3, tip = D.hemAt(u, 2.6), mid = at(lerp(0.62, u, 0.6), 0.45);
+          // a vein of light through each membrane panel
+          if (D.outside && k < 3) paint(f, capsule(at((k + 0.5) / 3, 0.3), D.hemAt((k + 0.5) / 3, -2.6), 0.3), CPM.membrane, { tone: 'l', rim: false, alpha: 140 });
+          if (!D.outside && k > 0 && k < 3) continue;
+          // thin bone finger (dark under-edge, pale ridge) ending in a claw
+          paint(f, capsule(root, mid, 0.6, 0.5), CM.bone, { tone: 'd', rim: false });
+          paint(f, capsule(mid, tip, 0.5, 0.35), CM.bone, { tone: 'd', rim: false });
+          paint(f, capsule(root, mid, 0.3), CM.bone, { tone: 'h', rim: false });
+          paint(f, capsule(mid, tip, 0.25), CM.bone, { tone: 'l', rim: false });
+          spike(f, tip, norm([tip[0] - mid[0], tip[1] - mid[1]]), 1.6, 0.5, CM.bone, { spec: true });
+        }
+        paint(f, disc(root, 1), CM.bone, { spec: true });
+        for (const u of [0, 1]) spike(f, at(u, 0), norm(add(sk.up, sk.side, u ? 0.6 : -0.6)), 3, 1, CM.bone, { spec: true });
+      },
+      front: D => goldClasps(D, CM.fire)
+    }
+  };
+
+  // Build the cape's frame for this pose: top edge (shoulders) and hem curve
+  // (sw: the class's shoulder half-width)
+  function capeFrame(sk, p, ph, model, sw) {
+    const tr = p.cape || 0;
+    const fl = Math.sin(ph * Math.PI * 2) * (0.7 + tr * 1.5);
+    const fl2 = Math.sin(ph * Math.PI * 2 + 1.9) * (0.7 + tr * 1.7);
+    const frontal = isFrontal(sk) && !sk.rotated;
+    // full-length hem points [shoulder back, shoulder front, hem front, hem middle, hem back]
+    const P = frontal ? [
+      L(sk, sk.shC, -sw, 1), L(sk, sk.shC, sw, 1),
+      L(sk, sk.hip, 6.0 + fl * 0.35, -13.5 + tr * 5.5),
+      L(sk, sk.hip, 0.4 + fl * 0.7, -15 + tr * 5.5 + fl * 0.6),
+      L(sk, sk.hip, -6.0 + fl2 * 0.35, -13.5 + tr * 5.5)
+    ] : [
+      L(sk, sk.shC, -sw, 1.3), L(sk, sk.shC, 2.6, 1.3),
+      add(L(sk, sk.hip, 2.6, -13.5), [-tr * 8, -tr * 6], 1),
+      [sk.hip[0] - 4 - tr * 11, sk.hip[1] + (14.5 - tr * 7 + fl) * BODY_K],
+      [sk.hip[0] - 8.1 - tr * 14, sk.hip[1] + (12.0 - tr * 8 + fl2) * BODY_K]
+    ];
+    const len = model.len || 1, flare = model.flare || 1;
+    const pl = (a, b, t) => [lerp(a[0], b[0], t), lerp(a[1], b[1], t)];
+    const topMid = pl(P[0], P[1], 0.5);
+    let hb = pl(P[0], P[4], len), hm = pl(topMid, P[3], len), hf = pl(P[1], P[2], len);
+    hb = pl(hm, hb, flare); hf = pl(hm, hf, flare);
+    const ctl = [2 * hm[0] - (hb[0] + hf[0]) / 2, 2 * hm[1] - (hb[1] + hf[1]) / 2];
+    const top = u => pl(P[0], P[1], u);
+    const hemBase = u => {
+      const a = (1 - u) * (1 - u), b = 2 * u * (1 - u), c = u * u;
+      return [a * hb[0] + b * ctl[0] + c * hf[0], a * hb[1] + b * ctl[1] + c * hf[1]];
+    };
+    const at = (u, v) => pl(top(u), hemBase(u), v);
+    const hemAt = (u, extra) => {
+      const t = top(u), h = hemBase(u), d = norm([h[0] - t[0], h[1] - t[1]]);
+      return add(h, d, (model.hem ? model.hem(u, ph) : 0) + (extra || 0));
+    };
+    return { frontal, top, at, hemAt, tr, fl };
+  }
+
+  // Draw an equipped cape (model) behind / over the hero
+  function drawGearCape(f, sk, p, view, ph, model, sw) {
+    const cf = capeFrame(sk, p, ph, model, sw || 4.6);
+    const inside = cf.frontal && view === 'front';   // facing the camera: the lining shows
+    const D = Object.assign({ f, sk, view, ph, inside, outside: !inside, back: view === 'back' }, cf);
+    const N = 30;
+    const shape = drop => {
+      const pts = [cf.top(0), cf.top(1)];
+      for (let i = N; i >= 0; i--) pts.push(cf.hemAt(i / N, drop));
+      return poly(pts);
+    };
+    const CLOTH = { dither: true, selout: true };
+    if (inside) {
+      paint(f, shape(0), model.lining, CLOTH);
+      for (const u of [0, 1]) paint(f, capsule(cf.at(u, 0.04), cf.at(u, 0.97), 0.7), model.mat, { rim: false });
+    } else {
+      paint(f, shape(1.4), model.lining, { dither: true });
+      paint(f, shape(0), model.mat, CLOTH);
+      if (!model.noFolds) {
+        for (const u of [0.3, 0.7]) paint(f, capsule(cf.at(u, 0.2), cf.at(u, 0.92), 0.3, 0.6), model.mat, { tone: 'd', rim: false });
+      }
+    }
+    if (model.decor) model.decor(D);
+  }
+  // Clasps / chains over the chest, drawn after the body
+  function drawGearCapeFront(f, sk, p, view, ph, model, sw) {
+    if (!model.front || view !== 'front' && !model.frontAlways) return;
+    const cf = capeFrame(sk, p, ph, model, sw || 4.6);
+    model.front(Object.assign({ f, sk, view, ph, inside: cf.frontal, outside: !cf.frontal, back: false }, cf));
+  }
+
+  // ---- per-class gear costumes
+  function gearCostume(cls, eq) {
+    const id = s => (eq[s] && eq[s].id) || '';
+    const tones = ARMOR_TONES[id('armor')];
+    const elem = eq.weapon && eq.weapon.element;
+    const glowOf = () => ELEM_GLOW[elem] || null;
+    const style = HELM_STYLE[id('helmet')];
+    const C = { gear: true, palette: {} };
+    if (style) C.head = gearHead(style, cls);
+    const glove = GLOVE_MAT[id('gloves')], boot = BOOT_MAT[id('boots')];
+    if (boot) C.gearBoot = boot;
+    if (CAPES[id('cape')]) C.gearCape = CAPES[id('cape')];
+    const MET = { metal: true, selout: true };
+
+    if (cls === 'warrior') {
+      if (tones) Object.assign(C.palette, { gunmetal: tones.main, cape: tones.cloth, ember: tones.glow, gold: tones.accent });
+      const w = id('weapon');
+      if (w) C.weapon = WARRIOR_WEAPONS[w] ? WARRIOR_WEAPONS[w]() : runeSword(20, 1.6, glowOf());
+      if (glove) {
+        C.armMatsF = () => ({ upper: M.gunmetal, fore: M.gunmetal, hand: glove, cop: M.steel, cuff: M.gold, fx: MET });
+        C.armMatsB = () => ({ upper: M.darkSteel, fore: M.darkSteel, hand: glove, cop: M.darkSteel, cuff: M.darkSteel, fx: MET });
+      }
+    } else if (cls === 'mage') {
+      if (tones) Object.assign(C.palette, { robe: tones.cloth, mageArmor: tones.main, robeTrim: tones.accent, orb: tones.glow });
+      const w = id('weapon');
+      if (w) {
+        if (MAGE_STAVES[w]) C.staff = MAGE_STAVES[w];
+        else if (elem === 'lightning') C.staff = stormFork;
+        if (glowOf()) C.palette.orb = glowOf();
+      }
+      if (glove) C.hand = glove;
+    } else if (cls === 'rogue') {
+      // the plain rogue's hooded look, recoloured by the armor and lit by the weapon's element
+      const lk = Object.assign({}, ROGUE_LOOK, tones ? { cloak: tones.cloth, lining: tones.accent, venom: tones.glow } : {}, glowOf() ? { venom: glowOf() } : {});
+      const base = hoodedRogue(() => lk);
+      Object.assign(C, base, style ? { head: C.head } : {});
+      C.gearRL = Object.assign({}, RL, tones ? { rogue: tones.main } : {});
+      const w = id('weapon');
+      if (ROGUE_SWORDS[w]) {
+        const pair = ROGUE_SWORDS[w];
+        C.dagger = (f, hand, d, which) => (pair[which] ? pair[which](f, hand, d) : undefined);
+      } else if (w === 'venom_kris') C.dagger = kris;
+      else if (w === 'ember_scythe') C.dagger = (f, hand, d, which) => which === 'F' ? scythe(f, hand, d) : undefined;
+      if (w === 'venom_kris' || w === 'ember_scythe') C.palette.venom = glowOf() || RL.venom;
+      if (glove) C.gearHand = glove;
+    }
+    return C;
+  }
+
+  const GEAR = new Map();   // gear key -> costume
+  const GEAR_SLOTS = ['weapon', 'armor', 'helmet', 'gloves', 'boots', 'cape'];
+  // Key of the look a hero's equipment gives them (null: nothing that changes the look)
+  function gearKey(cls, eq) {
+    if (!eq || !CLASS_ANIMS[cls]) return null;
+    const ids = GEAR_SLOTS.map(s => (eq[s] && eq[s].id) || '');
+    if (!ids.some(Boolean)) return null;
+    const key = 'g|' + cls + '|' + ids.join(',') + '|' + ((eq.weapon && eq.weapon.element) || '');
+    if (!GEAR.has(key)) GEAR.set(key, gearCostume(cls, eq));
+    return key;
+  }
+
   const COSTUMES = {
     // ---------------- warrior
     sp_crusader: {
@@ -1467,11 +2603,7 @@
       weaponB: bloodBlade,
       // dual wield: the off hand lets go of the grip and carries its own blade,
       // trailing low behind when the arm is free (run, dash)
-      pose(p) {
-        if (p.drop) return p;
-        if (!p.twoHand && p.handB) return p.wpnB !== undefined ? p : Object.assign({}, p, { wpnB: -0.7 });
-        return Object.assign({}, p, { twoHand: false, handB: [p.handF[0] - 5, p.handF[1] + 3], wpnB: p.wpn - 0.9 });
-      },
+      pose: dualWieldPose,
       cape: null,
       armMatsF: () => ({ upper: M.skin, fore: M.leather, hand: M.leather }),
       armMatsB: () => ({ upper: M.skin, fore: M.leather, hand: M.leather }),
@@ -1502,16 +2634,47 @@
     },
     sp_frost_templar: {
       smear: () => CM.ice,
-      weapon: iceBlade,
+      weapon: frostHammer,
+      pose: heavyTwoHandPose,
       // long cape with an icicle hem
       cape({ capePts: c }) {
         const lo = [c[3][0], c[3][1] + 2.5], lo2 = [c[4][0] - 1, c[4][1] + 2.5];
         return [c[0], c[1], c[2], ...ragged(c[2], lo, 3, 2.6), lo, ...ragged(lo, lo2, 4, 3), lo2];
       },
+      // heavy plate: thicker limbs, broad breastplate, tassets and huge stacked pauldrons
+      bulk: 1.32,
       pauldron({ f, sk }, pt, m) {
-        spike(f, add(add(pt, sk.up, 2), sk.side, -1), norm(add(sk.up, sk.side, -0.3)), 4, 1, CM.ice, { spec: true });
-        spike(f, add(add(pt, sk.up, 2), sk.side, 1.2), sk.up, 3, 0.9, CM.ice, { spec: true });
-        paint(f, disc(add(pt, sk.up, 0.4), 3.2, 2.7), m, { spec: true });
+        const MT = { metal: true, selout: true };
+        // three stacked lames, the dome on top, an ice-trimmed rim and a frozen crest
+        paint(f, disc(add(pt, sk.up, -2.8), 5.0, 2.8), M.darkSteel, MT);
+        paint(f, disc(add(pt, sk.up, -0.8), 5.6, 3.4), m, MT);
+        paint(f, disc(add(pt, sk.up, 1.4), 5.0, 3.9), m, MT);
+        paint(f, capsule(add(add(pt, sk.up, -0.6), sk.side, -4.8), add(add(pt, sk.up, -0.6), sk.side, 4.8), 0.5), CM.ice, { rim: false, spec: true });
+        spike(f, add(add(pt, sk.up, 4.4), sk.side, -1.6), norm(add(sk.up, sk.side, -0.35)), 4.4, 1.3, CM.ice, { spec: true });
+        spike(f, add(add(pt, sk.up, 4.8), sk.side, 0.8), sk.up, 3.4, 1.1, CM.ice, { spec: true });
+      },
+      torso({ f, sk, view }) {
+        const MT = { metal: true, selout: true };
+        const frontal = isFrontal(sk), turn = sk.turn !== undefined ? sk.turn : 1, c = frontal ? 0.2 : 1.2 * turn;
+        // a breastplate broader than the shoulders, curving in to the waist
+        paint(f, poly([L(sk, sk.shC, -6.6, 1.8), L(sk, sk.shC, 7, 1.8), L(sk, sk.shC, 7.2, -2.5), L(sk, sk.hip, 5.6, 4.6), L(sk, sk.hip, -5.2, 4.6), L(sk, sk.shC, -6.8, -2.5)]), M.steel, MT);
+        // high collar
+        paint(f, capsule(L(sk, sk.shC, -3.6, 2.6), L(sk, sk.shC, 4, 2.6), 1.5), M.darkSteel, MT);
+        if (view === 'front') {
+          // keel ridge down the middle and a frost sigil set in the chest
+          paint(f, capsule(L(sk, sk.shC, c, 0.8), L(sk, sk.hip, c, 5), 0.6), M.steel, { tone: 'l', rim: false });
+          paint(f, disc(L(sk, sk.shC, c, -3), 1.6), CM.ice, { spec: true });
+        }
+        // overlapping belly lames
+        for (const b of [5.0, 3.6]) paint(f, capsule(L(sk, sk.hip, -5, b), L(sk, sk.hip, 5.4, b), 0.55), M.darkSteel, { tone: 'd', rim: false });
+        // heavy belt
+        paint(f, capsule(L(sk, sk.hip, -5.4, 1.3), L(sk, sk.hip, 5.8, 1.3), 1.2), M.darkSteel, MT);
+        // tassets: broad plates hanging over the thighs
+        for (const k of [-1, 1]) {
+          paint(f, poly([L(sk, sk.hip, 1.0 * k, 0.6), L(sk, sk.hip, 6.2 * k, 0.6), L(sk, sk.hip, 6.8 * k, -4.8), L(sk, sk.hip, 1.6 * k, -5.6)]), M.steel, MT);
+          paint(f, capsule(L(sk, sk.hip, 1.4 * k, -2.4), L(sk, sk.hip, 6.4 * k, -2.2), 0.35), M.darkSteel, { tone: 'd', rim: false });
+        }
+        if (view === 'front') paint(f, disc(L(sk, sk.hip, c, 1.3), 1.5), CM.ice, { spec: true });
       },
       head({ f, sk, view }) {
         for (const [dx, lean, len] of [[-3.6, -0.6, 4], [-1, -0.2, 6.4], [1.8, 0.2, 5], [3.8, 0.5, 3]]) {
@@ -1754,21 +2917,165 @@
       venom: M.venom, blade: M.venom, steel: RL.steel, skin: RL.shadeSkin, hair: RL.hair,
       mask: CM.shadow, stars: true, wisps: RL.lining
     })),
+    // Venom Lord: a serpent assassin. A flared cobra hood (pale belly lining in
+    // front, eye-spot markings behind) over a bone snake-skull mask with fangs
+    // and acid eyes; deep plum leathers under an emerald scale plastron, a
+    // bandolier of glowing venom vials, and a live serpent draped over the
+    // shoulders, its tail trailing behind and its head flicking a tongue on the
+    // near shoulder. Toxic bubbles rise around the feet; the blades are fangs.
     sp_venom_lord: {
-      dagger: kris,
-      // cobra hood with a fanged snake head on the brow
-      head({ f, sk, view }) {
-        paint(f, poly([Hd(sk, 0, -6.4), Hd(sk, -6, -6), Hd(sk, -10.4, -1), Hd(sk, -10, 5), Hd(sk, -6.4, 9.4), Hd(sk, -1.4, 7.4)]), CM.scale, { spec: true });
-        paint(f, poly([Hd(sk, -2, -4.4), Hd(sk, -7.6, -1), Hd(sk, -7.4, 4.6), Hd(sk, -3, 6)]), CM.scale, { tone: 'd', rim: false });
-        paint(f, disc(Hd(sk, -0.6, -0.3), 5.4), M.hood);
-        paint(f, poly([Hd(sk, -3.6, -3.6), Hd(sk, 1.6, -6.6), Hd(sk, 6.4, -5.8), Hd(sk, 7.6, -4.2), Hd(sk, 2, -3)]), CM.scale, { spec: true });
-        dot(f, Hd(sk, 4.6, -5.2), ROGUE_EYE);
-        spike(f, Hd(sk, 6.6, -3.8), Hv(sk, 0.15, 1), 2, 0.5, CM.bone);
+      palette: {
+        rogue: ['#0e0612', '#2b1433', '#45224f', '#653a72', '#8c5d99'],
+        hood: ['#07030a', '#1a0c20', '#2a1531', '#40224a', '#5c3766'],
+        strap: ['#100a06', '#33231a', '#4d3526', '#6e4e38', '#94704f'],
+        scarf: ['#021a0b', '#0f5a2c', '#18904a', '#3fd27a'],
+        venom: ['#0d3b06', '#4fbf1a', '#9ef01a', '#e5ffb0', '#ffffff']
+      },
+      smear: () => VL.acid,
+      dagger: fangBlade,
+      behind({ f, sk, ph, p }) {
+        if (p.drop) return;
+        // toxic bubbles rising from the ground around the feet
+        for (let i = 0; i < 4; i++) {
+          const t = (ph + i / 4) % 1;
+          const x = sk.hip[0] + [-8, -3, 4, 9][i] + Math.sin((t + i) * Math.PI * 2) * 0.8;
+          const y = -1 - t * 15;
+          const alpha = Math.round(210 * Math.sin(t * Math.PI));
+          if (alpha > 25) paint(f, disc([x, y], 0.5 + 0.5 * (1 - t)), VL.acid, { tone: t < 0.5 ? 'm' : 'l', rim: false, alpha });
+        }
+      },
+      // the serpent's body: from the back of the neck it trails behind like a
+      // scarf, tapering to the tail, with pale belly bands
+      scarf({ f, sk, tr, fl }) {
+        const fr = isFrontal(sk);
+        const pts = fr ? [
+          L(sk, sk.neck, 0, 0.2), L(sk, sk.neck, 1.4 + fl * 0.3, -4), L(sk, sk.neck, -0.6 + fl * 0.6, -8 + tr * 2), L(sk, sk.neck, 1 + fl * 0.9, -11.5 + tr * 3)
+        ] : [
+          L(sk, sk.neck, -1.4, 0.2),
+          add(L(sk, sk.neck, -5, -2.4), [-tr * 6, -tr * 1.5 + fl * 0.6], 1),
+          add(L(sk, sk.neck, -8.6, -5.4), [-tr * 11, -tr * 2.5 + fl * 1.3], 1),
+          add(L(sk, sk.neck, -11, -3.4), [-tr * 15, -tr * 3.5 + fl * 1.8], 1)
+        ];
+        horn(f, pts, 2.3, 0.6, VL.scale);
+        for (let i = 1; i < 6; i++) {
+          const t = i / 6, seg = Math.min(pts.length - 2, Math.floor(t * (pts.length - 1)));
+          const u = t * (pts.length - 1) - seg, a = pts[seg], b = pts[seg + 1];
+          paint(f, disc([lerp(a[0], b[0], u), lerp(a[1], b[1], u)], 1 * (1 - t * 0.6)), VL.belly, { tone: 'l', rim: false });
+        }
+      },
+      torso({ f, sk, view, ph }) {
+        const fr = isFrontal(sk);
         if (view === 'front') {
-          paint(f, poly([Hd(sk, 1.6, -1.8), Hd(sk, 5.3, -1.8), Hd(sk, 5.3, 0.3), Hd(sk, 1.6, 0.3)]), M.skin, { rim: false });
-          paint(f, poly([Hd(sk, 1.5, 0.3), Hd(sk, 5.5, 0.3), Hd(sk, 5, 3.2), Hd(sk, 1.7, 3.4)]), CM.scale, { rim: false });
-          dot(f, Hd(sk, 3, -0.8), GLOW_EYE.venom);
-          dot(f, Hd(sk, 4.6, -0.8), GLOW_EYE.venom);
+          // emerald scale plastron down the chest, with a diamond pattern
+          const cx = fr ? 0.2 : 1.6, w = fr ? 2.6 : 2.2;
+          paint(f, poly([L(sk, sk.shC, cx - w, -0.6), L(sk, sk.shC, cx + w, -0.6), L(sk, sk.hip, cx + w * 0.7, -2), L(sk, sk.hip, cx, 0), L(sk, sk.hip, cx - w * 0.7, -2)]), VL.scale, { selout: true, spec: true });
+          for (const [a, b] of [[0, -2.2], [0, -5], [0, -7.6], [-1.2, -3.6], [1.2, -3.6], [-1.2, -6.3], [1.2, -6.3]]) {
+            dot(f, L(sk, sk.shC, cx + a, b), VL.scale.l);
+          }
+          // bandolier of venom vials, near shoulder to off hip
+          const s0 = L(sk, sk.shC, fr ? 3.4 : 4, -0.4), s1 = L(sk, sk.hip, fr ? -3.2 : -2.6, 1.8);
+          paint(f, capsule(s0, s1, 0.6), M.strap, { rim: false });
+          const k = 0.5 + 0.5 * Math.sin(ph * Math.PI * 4);
+          for (const t of [0.28, 0.5, 0.72]) {
+            const c = [lerp(s0[0], s1[0], t), lerp(s0[1], s1[1], t)];
+            paint(f, capsule([c[0], c[1] - 1.3], [c[0], c[1] + 1.1], 1.05), VL.glass, { rim: false });
+            paint(f, capsule([c[0], c[1] - 0.2], [c[0], c[1] + 1], 0.7), VL.acid, { tone: k > 0.5 ? 'h' : 'l', rim: false });
+            dot(f, [c[0], c[1] - 1.4], VL.bone.m);
+          }
+        } else {
+          // seen from behind: the scale pattern runs down the spine
+          for (let b = -1.6; b > -8.5; b -= 2.3) paint(f, disc(L(sk, sk.shC, fr ? 0 : -1, b), 0.9), VL.scale, { tone: 'm', rim: false });
+        }
+      },
+      // the serpent's head rests on the near shoulder over the arm, tongue flicking
+      front({ f, sk, view, ph, p }) {
+        if (p.drop) return;
+        const fr = isFrontal(sk);
+        if (view !== 'front') {
+          // from behind only the coil over the shoulder shows
+          if (!fr) paint(f, disc(add(sk.shF, sk.up, 1.4), 2, 1.6), VL.scale, { spec: true, selout: true });
+          return;
+        }
+        if (fr) {
+          // facing the camera: the serpent rears on the outside of the near shoulder, clear of the face
+          const sh = sk.shF, out = sh[0] < sk.shC[0] ? -1 : 1;
+          const hc = add(add(sh, sk.up, 2.4), sk.side, 2.2 * out);
+          paint(f, capsule(add(sh, sk.up, 0.6), hc, 1.6, 1.3), VL.scale, { spec: true, selout: true });
+          paint(f, capsule(add(sh, sk.up, 0.8), add(hc, sk.up, -0.6), 0.8, 0.6), VL.belly, { tone: 'm', rim: false });
+          paint(f, disc(add(hc, sk.up, 0.6), 2.1, 1.7), VL.scale, { spec: true, selout: true });
+          const eyeY = add(hc, sk.up, 0.9);
+          dot(f, add(eyeY, sk.side, -0.9), VL.acid.h);
+          dot(f, add(eyeY, sk.side, 0.9), VL.acid.h);
+          if (Math.sin(ph * Math.PI * 4) > 0.2) {
+            paint(f, capsule(add(hc, sk.up, -0.5), add(hc, sk.up, -2), 0.3), VL.tongue, { rim: false, tone: 'm' });
+          }
+          return;
+        }
+        const fwd = norm(sk.side);
+        const hc = add(add(sk.shF, sk.up, 0.2), fwd, 2.4);
+        // the neck curls off the front of the shoulder and the head points forward
+        paint(f, capsule(add(sk.shF, sk.up, 0.4), hc, 1.7, 1.4), VL.scale, { spec: true, selout: true });
+        paint(f, poly([add(hc, sk.up, 1.5), add(add(hc, fwd, 4), sk.up, 0.5), add(add(hc, fwd, 4.2), sk.up, -0.6), add(add(hc, fwd, 1.2), sk.up, -1.4), add(hc, sk.up, -1.2)]), VL.scale, { spec: true, selout: true });
+        paint(f, capsule(add(add(hc, fwd, 0.6), sk.up, -1), add(add(hc, fwd, 3.6), sk.up, -0.5), 0.45), VL.belly, { tone: 'm', rim: false });
+        dot(f, add(add(hc, fwd, 2), sk.up, 0.7), VL.acid.h);
+        // the tongue darts out on part of the loop
+        if (Math.sin(ph * Math.PI * 4) > 0.2) {
+          const t0 = add(add(hc, fwd, 4.4), sk.up, -0.1);
+          paint(f, capsule(t0, add(t0, fwd, 1.4), 0.3), VL.tongue, { rim: false, tone: 'm' });
+          dot(f, add(add(t0, fwd, 2), sk.up, 0.6), VL.tongue.m);
+          dot(f, add(add(t0, fwd, 2), sk.up, -0.6), VL.tongue.m);
+        }
+      },
+      head({ f, sk, view }) {
+        const fr = isFrontal(sk), face = view === 'front';
+        if (fr) {
+          // cobra hood flared wide on both sides of the head, well past the face
+          const hood = poly([Hf(sk, 0, -9.4), Hf(sk, -6, -7.8), Hf(sk, -11, -2.6), Hf(sk, -11.2, 3), Hf(sk, -7.8, 6.8), Hf(sk, -3.4, 7.8), Hf(sk, 3.4, 7.8), Hf(sk, 7.8, 6.8), Hf(sk, 11.2, 3), Hf(sk, 11, -2.6), Hf(sk, 6, -7.8)]);
+          paint(f, hood, VL.scale, { selout: true, spec: true });
+          if (face) {
+            // pale belly lining inside both flares, ribbed with scale lines
+            for (const k of [-1, 1]) {
+              paint(f, poly([Hf(sk, 8.6 * k, -2.2), Hf(sk, 9.2 * k, 2.8), Hf(sk, 6.8 * k, 6), Hf(sk, 4.6 * k, 6), Hf(sk, 5 * k, -1)]), VL.belly, { rim: false, dither: true });
+              for (const y of [0.2, 2.6, 4.8]) paint(f, capsule(Hf(sk, 5.2 * k, y), Hf(sk, 8.6 * k, y + 0.2), 0.3), VL.belly, { tone: 'd', rim: false });
+            }
+          } else {
+            // the back of the hood: cobra eye-spot markings and a scaled ridge
+            for (const k of [-1, 1]) {
+              paint(f, disc(Hf(sk, 5.4 * k, 1), 2.3), VL.belly, { tone: 'l', rim: false });
+              paint(f, disc(Hf(sk, 5.4 * k, 1), 1.1), M.hood, { tone: 'o', rim: false });
+            }
+            paint(f, capsule(Hf(sk, 0, -8), Hf(sk, 0, 7), 0.7), VL.scale, { tone: 'd', rim: false });
+            return;
+          }
+          paint(f, disc(Hf(sk, 0, 0), 4.9), M.hood, { dither: true, selout: true });
+          // bone snake-skull mask: dark sockets with burning acid eyes, fangs over the mouth
+          paint(f, poly([Hf(sk, -3.8, -3.4), Hf(sk, -1.4, -5), Hf(sk, 1.4, -5), Hf(sk, 3.8, -3.4), Hf(sk, 3.6, -0.2), Hf(sk, 1.8, 1.6), Hf(sk, -1.8, 1.6), Hf(sk, -3.6, -0.2)]), VL.bone, { spec: true, selout: true });
+          for (const k of [-1, 1]) {
+            paint(f, poly([Hf(sk, 0.6 * k, -2.4), Hf(sk, 3.2 * k, -2.8), Hf(sk, 2.8 * k, -0.6), Hf(sk, 0.9 * k, -0.8)]), M.hood, { tone: 'o', rim: false });
+            paint(f, capsule(Hf(sk, 1.3 * k, -1.6), Hf(sk, 2.5 * k, -1.9), 0.45), VL.acid, { tone: 'h', rim: false });
+            spike(f, Hf(sk, 1.1 * k, 1.4), Hv(sk, -0.12 * k, 1), 2.8, 0.6, VL.bone, { tone: 'l', rim: false });
+          }
+          paint(f, capsule(Hf(sk, 0, -4.6), Hf(sk, 0, -3.2), 0.5), VL.scale, { tone: 'l', rim: false });
+        } else {
+          // side: the hood flares up and back behind the head
+          paint(f, poly([Hd(sk, 1, -8.4), Hd(sk, -5, -8.6), Hd(sk, -11.4, -3.6), Hd(sk, -12.4, 3.4), Hd(sk, -9, 9.6), Hd(sk, -2.4, 8.6)]), VL.scale, { selout: true, spec: true });
+          if (face) {
+            // scale ridges running back along the flare
+            for (const y of [-4.6, -1.4, 1.8, 5]) paint(f, capsule(Hd(sk, -4.6, y), Hd(sk, -10.4, y + 0.6), 0.35), VL.scale, { tone: 'd', rim: false });
+          } else {
+            paint(f, disc(Hd(sk, -7, 0.8), 2.1), VL.belly, { tone: 'l', rim: false });
+            paint(f, disc(Hd(sk, -7, 0.8), 1), M.hood, { tone: 'o', rim: false });
+          }
+          paint(f, disc(Hd(sk, -0.4, 0), 5.2), M.hood, { dither: true, selout: true });
+          if (face) {
+            // snake-skull mask: brow ridge and snout jutting forward, a fang down past the jaw
+            paint(f, poly([Hd(sk, 0.2, -5), Hd(sk, 4.6, -4.8), Hd(sk, 7.8, -2.6), Hd(sk, 7.6, 0), Hd(sk, 4.8, 1.4), Hd(sk, 0.8, 1)]), VL.bone, { spec: true, selout: true });
+            paint(f, poly([Hd(sk, 2.4, -3.2), Hd(sk, 5.4, -3.4), Hd(sk, 5.2, -1), Hd(sk, 2.6, -1)]), M.hood, { tone: 'o', rim: false });
+            paint(f, capsule(Hd(sk, 3.2, -2.1), Hd(sk, 4.8, -2.3), 0.5), VL.acid, { tone: 'h', rim: false });
+            dot(f, Hd(sk, 7.2, -1.2), M.hood.o);
+            spike(f, Hd(sk, 6, 0.8), Hv(sk, -0.1, 1), 3, 0.6, VL.bone, { tone: 'l', rim: false });
+            paint(f, poly([Hd(sk, 1.2, 1.2), Hd(sk, 4.6, 1.6), Hd(sk, 3.8, 3.8), Hd(sk, 1.4, 3.8)]), M.hood, { tone: 'd', rim: false });
+          }
         }
       }
     },
@@ -2002,34 +3309,80 @@
         paint(f, capsule(S(-2.6, -4.6), S(-9, 1.2), 0.7), M.gold, { rim: false, spec: true });
       }
     },
+    // Dragoon: a storm-knight of the dragon court. Polished silver plate traced in gold, a royal
+    // tabard with a lightning sigil, gold dragon-wing crests on helm and pauldrons, a long
+    // swallow-tailed cape; heavier than a duelist (bulk), lighter than the Frost Templar
     sp_dragoon: {
       smear: () => CM.bolt,
-      weapon: lance,
-      cape: null,
-      armMatsF: () => ({ upper: M.steel, fore: M.steel, hand: M.leather }),
-      armMatsB: () => ({ upper: M.darkSteel, fore: M.darkSteel, hand: M.leather }),
-      // wing crest pauldrons
-      pauldron: ({ f, sk }, pt) => {
-        const c = add(pt, sk.up, 0.7);
-        paint(f, disc(c, 3.2, 2.6), M.steel, { spec: true });
-        spike(f, add(c, sk.side, -2.2), [-sk.side[0], -sk.side[1]], 3.2, 1.1, CM.bolt, { spec: true });
-        spike(f, add(c, sk.side, 2.2), sk.side, 3.2, 1.1, CM.bolt, { spec: true });
+      weapon: stormLance,
+      bulk: 1.18,
+      capeMat: () => M.cape,
+      cape({ capePts: c }) {
+        const lo = [c[3][0], c[3][1] + 4], lo2 = [c[4][0] - 1, c[4][1] + 4];
+        const mid = [(lo[0] + lo2[0]) / 2, (lo[1] + lo2[1]) / 2 - 3.5];
+        return [c[0], c[1], c[2], lo, mid, lo2];
+      },
+      armMatsF: () => ({ upper: M.steel, fore: M.steel, hand: M.steel }),
+      armMatsB: () => ({ upper: M.darkSteel, fore: M.darkSteel, hand: M.darkSteel }),
+      pauldron({ f, sk }, pt, m) {
+        const MT = { metal: true, selout: true };
+        paint(f, disc(add(pt, sk.up, -2.4), 4.4, 2.6), M.darkSteel, MT);
+        paint(f, disc(add(pt, sk.up, -0.4), 5.0, 3.2), m, MT);
+        paint(f, capsule(add(add(pt, sk.up, -1.7), sk.side, -4.4), add(add(pt, sk.up, -1.7), sk.side, 4.4), 0.45), M.gold, { rim: false, spec: true });
+        paint(f, disc(add(pt, sk.up, 1.6), 4.0, 3.0), m, MT);
+        // a gilded dragon-wing crest sweeping up and back, a storm gem at its root
+        for (const [a, len] of [[-0.55, 5.2], [-0.2, 6.6], [0.15, 4.6]]) spike(f, add(pt, sk.up, 3.2), norm(add(sk.up, sk.side, a)), len, 1.1, M.gold, { spec: true });
+        paint(f, disc(add(pt, sk.up, 2.5), 1.2), CM.bolt, { spec: true });
+      },
+      torso({ f, sk, view }) {
+        const MT = { metal: true, selout: true };
+        const frontal = isFrontal(sk), turn = sk.turn !== undefined ? sk.turn : 1, c = frontal ? 0.2 : 1.2 * turn;
+        // polished breastplate, broad at the chest and nipped at the waist
+        paint(f, poly([L(sk, sk.shC, -6.2, 1.8), L(sk, sk.shC, 6.6, 1.8), L(sk, sk.shC, 6.8, -2.4), L(sk, sk.hip, 5.0, 4.6), L(sk, sk.hip, -4.6, 4.6), L(sk, sk.shC, -6.4, -2.4)]), M.steel, MT);
+        // gilded collar
+        paint(f, capsule(L(sk, sk.shC, -3.4, 2.4), L(sk, sk.shC, 3.8, 2.4), 1.2), M.gold, { spec: true });
+        if (view === 'front') {
+          // the royal tabard hangs from the chest to below the belt, gold-bordered
+          const T = [L(sk, sk.shC, c - 2.4, -0.6), L(sk, sk.shC, c + 2.6, -0.6), L(sk, sk.hip, c + 2.3, -6.6), L(sk, sk.hip, c + 0.1, -8.4), L(sk, sk.hip, c - 2.1, -6.6)];
+          paint(f, poly(T), M.tabard, { rim: false });
+          paint(f, capsule(T[0], T[4], 0.35), M.gold, { rim: false, tone: 'l' });
+          paint(f, capsule(T[1], T[2], 0.35), M.gold, { rim: false, tone: 'l' });
+          // a lightning sigil on the chest
+          const B = (x, y) => L(sk, sk.shC, c + x, y);
+          paint(f, poly([B(1.0, -1.2), B(-0.9, -3.6), B(0.4, -3.6), B(-1.0, -6.4), B(1.5, -3.0), B(0.2, -3.0)]), CM.bolt, { spec: true });
+        }
+        // gold belt with a storm gem buckle
+        paint(f, capsule(L(sk, sk.hip, -5, 1.3), L(sk, sk.hip, 5.4, 1.3), 1.0), M.gold, MT);
+        if (view === 'front') paint(f, disc(L(sk, sk.hip, c, 1.3), 1.25), CM.bolt, { spec: true });
+        // tassets with gilded hems
+        for (const k of [-1, 1]) {
+          paint(f, poly([L(sk, sk.hip, 1.4 * k, 0.4), L(sk, sk.hip, 5.8 * k, 0.4), L(sk, sk.hip, 6.2 * k, -4.2), L(sk, sk.hip, 2.0 * k, -4.8)]), M.steel, MT);
+          paint(f, capsule(L(sk, sk.hip, 2.0 * k, -4.6), L(sk, sk.hip, 6.2 * k, -4.1), 0.35), M.gold, { rim: false });
+        }
       },
       head({ f, sk, view }) {
-        paint(f, disc(Hd(sk, -0.6, -0.3), 5.4), M.steel, { spec: true });
-        paint(f, capsule(Hd(sk, -4.6, -2.4), Hd(sk, 4.8, -2.4), 0.6), M.gold, { rim: false, spec: true });
-        spike(f, Hd(sk, -3.4, -4.2), Hv(sk, -1, -0.7), 3.2, 1, M.gold, { spec: true });
-        spike(f, Hd(sk, 4.4, -4.2), Hv(sk, 1, -0.7), 3.2, 1, M.gold, { spec: true });
+        // swept dragon wings in gold behind the helm
+        for (const sg of [-1, 1]) {
+          spike(f, Hd(sk, 4.4 * sg, -2.4), Hv(sk, 1.15 * sg, -0.55), 6.6, 1.25, M.gold, { spec: true });
+          spike(f, Hd(sk, 3.6 * sg, -3.4), Hv(sk, 0.75 * sg, -0.9), 5, 1.05, M.gold, { spec: true });
+        }
+        paint(f, disc(Hd(sk, -0.4, -0.4), 5.4), M.steel, { spec: true, metal: true });
+        // gold crown band, a crest ridge, a storm gem on the brow
+        paint(f, capsule(Hd(sk, -4.9, -2.6), Hd(sk, 5, -2.6), 0.7), M.gold, { rim: false, spec: true });
+        paint(f, poly([Hd(sk, -0.9, -5.0), Hd(sk, 1.1, -5.0), Hd(sk, 0.3, -9.6)]), M.gold, { spec: true });
+        paint(f, disc(Hd(sk, 0.2, -3.4), 0.95), CM.bolt, { spec: true });
         if (view === 'front') {
-          paint(f, poly([Hd(sk, -1.2, -4), Hd(sk, 4.8, -3.2), Hd(sk, 4.6, 2.4), Hd(sk, -0.6, 2)]), M.skin);
-          dot(f, Hd(sk, 1.2, -0.6), EYE);
-          dot(f, Hd(sk, 4, -0.6), EYE);
+          paint(f, poly([Hd(sk, 1, -1.4), Hd(sk, 5.4, -1.4), Hd(sk, 5.4, 0), Hd(sk, 4, 0), Hd(sk, 4, 3.8), Hd(sk, 2.8, 3.8), Hd(sk, 2.8, 0), Hd(sk, 1, 0)]), CM.slit, { rim: false });
+          dot(f, Hd(sk, 2, -0.7), GLOW_EYE.bolt);
+          dot(f, Hd(sk, 4.6, -0.7), GLOW_EYE.bolt);
+        } else {
+          helmBack(f, sk);
         }
       }
     },
     sp_reaver: {
       smear: () => CM.fire,
-      weapon: (f, hand, d) => { const tip = sword(f, hand, d, 27); flame(f, add(hand, d, 24), 4.5, 2, 0); return tip; },
+      weapon: (f, hand, d) => { const tip = SP_SWORDS.reaver(f, hand, d); flame(f, add(hand, d, 24), 4.5, 2, 0); return tip; },
       capeMat: () => CM.crimson,
       cape: (X) => [
         L(X.sk, X.sk.shC, -4.2, 1), L(X.sk, X.sk.shC, 4.4, 1),
@@ -2049,12 +3402,7 @@
     },
     sp_runeknight: {
       smear: () => CM.ghost,
-      weapon: (f, hand, d) => {
-        const tip = sword(f, hand, d, 25);
-        paint(f, disc(add(hand, d, 15), 1.2), M.orb, { spec: true });
-        paint(f, disc(add(hand, d, 19), 0.8), M.venom, { spec: true });
-        return tip;
-      },
+      weapon: (f, hand, d) => SP_SWORDS.runeknight(f, hand, d),
       capeMat: () => M.robeTrim,
       behind({ f, sk, p }) {
         if (p.drop) return;
@@ -2102,11 +3450,7 @@
     },
     sp_duskblade: {
       smear: () => CM.voidGlow,
-      weapon: (f, hand, d) => {
-        const tip = sword(f, hand, d, 26);
-        paint(f, disc(add(hand, d, 15), 1.2), CM.voidGlow, { spec: true });
-        return tip;
-      },
+      weapon: (f, hand, d) => SP_SWORDS.duskblade(f, hand, d),
       capeMat: () => CM.shadow,
       cape: (X) => [
         L(X.sk, X.sk.shC, -4.2, 1), L(X.sk, X.sk.shC, 4.4, 1),
@@ -2186,6 +3530,7 @@
       smearR: [6, 18],
       weapon: battleAxe,
       weaponB: battleAxe,
+      pose: dualWieldPose,
       capeMat: () => CM.fur,
       armMatsF: () => ({ upper: M.skin, fore: M.leather, hand: M.leather }),
       armMatsB: () => ({ upper: M.skin, fore: M.leather, hand: M.leather }),
@@ -2209,7 +3554,7 @@
     sp_phoenix_oath: {
       smear: () => CM.fire,
       smearR: [8, 20],
-      weapon: (f, hand, d) => { const tip = sword(f, hand, d, 25); flame(f, add(hand, d, 22), 5, 1.8, 0); return tip; },
+      weapon: (f, hand, d) => { const tip = SP_SWORDS.phoenix(f, hand, d); flame(f, add(hand, d, 22), 5, 1.8, 0); return tip; },
       capeMat: () => CM.fire,
       // warm rebirth halo behind the head
       behind({ f, sk, p }) {
@@ -2293,13 +3638,34 @@
     return keys[keys.length - 1].pose;
   }
 
+  // Idle breathing, shared by every class: the chest rises a full pixel and
+  // falls (0 at ph 0, so the idle starts exactly on the base pose the attacks
+  // start from), the weight drifts a hair side to side, the head lags the
+  // breath, and held hands ride up with the shoulders. Hips barely move, so
+  // the knees don't pump.
+  function idleBreath(P, base, ph, extra) {
+    const w = ph * Math.PI * 2;
+    const br = 0.5 - 0.5 * Math.cos(w), sw = Math.sin(w);
+    const rise = br * 0.75 / BODY_K;
+    const o = {
+      breath: br,
+      hip: [base.hip[0] + 0.25 * sw, base.hip[1] + 0.12 * br],
+      lean: base.lean + 0.012 * sw,
+      head: (base.head || 0) + 0.035 * Math.sin(w - 1.1),
+      handF: [base.handF[0] + 0.2 * sw, base.handF[1] - rise]
+    };
+    if (base.handB) o.handB = [base.handB[0] + 0.2 * sw, base.handB[1] - rise];
+    return P(Object.assign(o, extra ? extra(w, br) : {}));
+  }
+
   // Per-class base stances and action definitions
   const CLASS_ANIMS = {
     warrior: (() => {
-      const base = { hip: [0, -19], lean: 0.08, head: 0, footF: [5, 0], footB: [-4, 0], handF: [6, -22.5], twoHand: true, wpn: 2.55, cape: 0.15 };
+      // at rest the greatsword is lowered: both hands at the waist, tip angled toward the ground ahead
+      const base = { hip: [0, -19], lean: 0.06, head: 0, footF: [5, 0], footB: [-4, 0], handF: [6, -17.5], twoHand: true, wpn: 0.85, cape: 0.15 };
       const P = o => Object.assign({}, base, o);
       return {
-        idle: { frames: 12, loop: true, pose: ph => { const b = Math.sin(ph * Math.PI * 2); return P({ hip: [0, -19 + 0.55 * b], lean: 0.08 + 0.02 * b, head: 0.04 * Math.sin(ph * Math.PI * 2 - 1.2), handF: [6, -22.5 + 0.5 * b], wpn: 2.55 + 0.03 * b, cape: 0.12 + 0.05 * Math.sin(ph * Math.PI * 2 + 1) }); } },
+        idle: { frames: 12, loop: true, pose: ph => idleBreath(P, base, ph, (w, br) => ({ wpn: base.wpn + 0.025 * br, cape: 0.15 + 0.05 * Math.sin(w + 1) })) },
         // hip drops on each footfall and rises in flight; the free arm pumps hard
         run: { frames: 12, loop: true, pose: ph => { const s = Math.sin(ph * Math.PI * 2); return P(Object.assign(runFeet(ph, 8.5, 8), { hip: [1, -17.6 + 1.3 * Math.cos(ph * Math.PI * 4)], lean: 0.42 + 0.04 * Math.cos(ph * Math.PI * 4), head: -0.12 - 0.05 * Math.cos(ph * Math.PI * 4 - 0.8), twoHand: false, handF: [2 + s * 3.5, -19.5 - s], wpn: 0.75 + s * 0.2, handB: [4 - s * 7.5, -23.5 + Math.abs(s) * 2 - Math.max(0, -s) * 2], cape: 1 })); } },
         attack: { frames: 12, smear: [0.3, 0.7], keys: [
@@ -2343,7 +3709,7 @@
       const base = { hip: [0, -19], lean: 0.05, head: 0, footF: [3, 0], footB: [-3, 0], handF: [6, -23], wpn: 3.02, handB: [-1, -21.5], cape: 0.1, glow: 0.3 };
       const P = o => Object.assign({}, base, o);
       return {
-        idle: { frames: 12, loop: true, pose: ph => { const b = Math.sin(ph * Math.PI * 2); return P({ hip: [0, -19 + 0.5 * b], lean: 0.05 + 0.015 * b, head: 0.04 * Math.sin(ph * Math.PI * 2 - 1.2), handF: [6, -23 + 0.4 * b], handB: [-1, -21.5 + 0.4 * b], glow: 0.35 + 0.3 * (0.5 + 0.5 * Math.sin(ph * Math.PI * 4)), cape: 0.1 }); } },
+        idle: { frames: 12, loop: true, pose: ph => idleBreath(P, base, ph, (w) => ({ glow: 0.3 + 0.3 * (0.5 - 0.5 * Math.cos(w * 2)), cape: 0.1 + 0.04 * Math.sin(w + 1) })) },
         run: { frames: 12, loop: true, pose: ph => { const s = Math.sin(ph * Math.PI * 2); return P(Object.assign(runFeet(ph, 7.5, 6.5), { hip: [1, -18 + 1.2 * Math.cos(ph * Math.PI * 4)], lean: 0.34 + 0.04 * Math.cos(ph * Math.PI * 4), head: -0.1 - 0.05 * Math.cos(ph * Math.PI * 4 - 0.8), handF: [6 + s * 2.2, -24 - Math.abs(s) * 0.8], wpn: 2.2 + s * 0.1, handB: [-2 - s * 6.5, -23 + Math.abs(s) * 1.2], cape: 1, glow: 0.5 })); } },
         attack: { frames: 12, keys: [
           { t: 0, pose: P({}) },
@@ -2377,7 +3743,7 @@
       const base = { hip: [0, -17], lean: 0.22, head: -0.05, footF: [6, 0], footB: [-6, 0], handF: [7, -21], wpn: -0.5, handB: [0, -22], wpnB: -0.75, cape: 0.2 };
       const P = o => Object.assign({}, base, o);
       return {
-        idle: { frames: 12, loop: true, pose: ph => { const b = Math.sin(ph * Math.PI * 2); return P({ hip: [0, -17 + 0.6 * b], lean: 0.22 + 0.02 * b, head: -0.05 + 0.04 * Math.sin(ph * Math.PI * 2 - 1.2), handF: [7, -21 + 0.5 * b], handB: [0, -22 + 0.5 * b], cape: 0.2 + 0.1 * Math.sin(ph * Math.PI * 2 + 1.3) }); } },
+        idle: { frames: 12, loop: true, pose: ph => idleBreath(P, base, ph, (w) => ({ cape: 0.2 + 0.1 * Math.sin(w + 1.3) })) },
         // low ninja sprint: deep crouch, long stride, blades trailing behind
         run: { frames: 12, loop: true, pose: ph => { const s = Math.sin(ph * Math.PI * 2); return P(Object.assign(runFeet(ph, 9, 8), { hip: [1.5, -16 + 1.2 * Math.cos(ph * Math.PI * 4)], lean: 0.7 + 0.04 * Math.cos(ph * Math.PI * 4), head: -0.32 - 0.05 * Math.cos(ph * Math.PI * 4 - 0.8), handF: [-7 + s * 2.5, -18.5 + s * 0.8], wpn: -1.45, handB: [-5 - s * 2.5, -20 - s * 0.8], wpnB: -1.35, cape: 1 })); } },
         attack: { frames: 12, smear: [0.26, 0.7], keys: [
@@ -2515,13 +3881,14 @@
   function withLook(palette, costumeKey, fn) {
     const saved = {};
     // a costume can carry its own colours, which win over the card's palette
-    palette = Object.assign({}, palette, (costumeKey && COSTUMES[costumeKey] && COSTUMES[costumeKey].palette) || {});
+    const costume = (costumeKey && (COSTUMES[costumeKey] || GEAR.get(costumeKey))) || null;
+    palette = Object.assign({}, palette, (costume && costume.palette) || {});
     for (const [k, cols] of Object.entries(palette)) {
       if (!M[k]) continue;
       saved[k] = M[k];
-      M[k] = mat(cols[0], cols[1], cols[2], cols[3], cols[4]);
+      M[k] = Array.isArray(cols) ? mat(cols[0], cols[1], cols[2], cols[3], cols[4]) : cols;
     }
-    COSTUME = (costumeKey && COSTUMES[costumeKey]) || null;
+    COSTUME = costume;
     try {
       return fn();
     } finally {
@@ -2561,7 +3928,9 @@
       const n = (CLASS_ANIMS[cls] || CLASS_ANIMS.warrior)[action].frames;
       return ((Math.floor(seconds * LOOP_HZ[action] * n) % n) + n) % n;
     },
-    buildAll, buildFrame, buildVariant, buildRunAttack, topRow
+    buildAll, buildFrame, buildVariant, buildRunAttack, topRow,
+    // key of the look a hero's equipment gives them, for variantFrame / runAttackFrame / headTop
+    gearKey
   };
 
   // ---------------------------------------------------------------- browser

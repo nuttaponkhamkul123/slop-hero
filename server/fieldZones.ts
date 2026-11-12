@@ -2,7 +2,7 @@
 // Each zone is a 42x42 map entered from the south (portal back to the previous
 // zone) with a portal to the next zone on its far north side.
 import { generateFrostfellMap } from './mapData';
-import { mobExp, mobHpMult } from './progression';
+import { mobExp, mobHpMult, mobDefMult } from './progression';
 
 // Themed ground tiles (13+). The renderer has a matching palette.
 const FIELD_TILES = {
@@ -60,7 +60,7 @@ const FIELD_ZONES: any[] = [
       { type: 'frost_wolf', name: 'Frostbite Wolf', level: 6, count: 6, speed: 3.8, buffs: ['frostbite'], element: 'ice', elementResist: { fire: -0.5, ice: 0.5 }, stats: { maxHp: 550, def: 15, dmg: 38, gold: 90 } },
       { type: 'ice_elemental', name: 'Glacial Elemental', level: 8, count: 6, speed: 2.5, buffs: ['frostbite'], element: 'ice', elementResist: { fire: -0.6, ice: 0.6 }, stats: { maxHp: 750, def: 20, dmg: 48, gold: 140 } }
     ],
-    boss: { type: 'frost_titan', name: 'Frost Titan Ymir', level: 12, buffs: ['frostbite', 'fortified'], element: 'ice', elementResist: { fire: -0.5, ice: 0.7, holy: -0.2 }, stats: { maxHp: 2800, def: 35, dmg: 75, gold: 750 } }
+    boss: { type: 'frost_titan', name: 'Frost Titan Ymir', level: 12, buffs: ['frostbite', 'fortified'], element: 'ice', elementResist: { fire: -0.5, ice: 0.4, holy: -0.2 }, stats: { maxHp: 2800, def: 35, dmg: 75, gold: 750 } }
   },
   {
     id: 'wildwood', name: 'Verdant Wildwood', minLevel: 16, maxLevel: 27,
@@ -171,9 +171,9 @@ const DECOR_RADIUS = {
 };
 
 // Field zones are big open maps (160x160, about 15x the city's area) holding
-// 15x each species' base count, so they are about as busy per tile as the city
+// 45x each species' base count, so they are busy with monsters
 const FIELD_SIZE = 160;
-const FIELD_MOB_MULT = 15;
+const FIELD_MOB_MULT = 45;
 // The road winds across the map; lakes are scattered on a jittered grid
 const ROAD_SWAY = Math.round(FIELD_SIZE / 9);
 const ROAD_FREQ = 0.15 * 72 / FIELD_SIZE;
@@ -364,6 +364,7 @@ function buildFieldMobs(zone, map) {
     ...(b.stats && b.stats.maxHp ? { maxHp: Math.round(b.stats.maxHp * mobHpMult(b.level)) } : {}),
     zone: { minX: FIELD_MID - 3, maxX: FIELD_MID + 3, minY: 9, maxY: 13 }, spawn: { x: FIELD_MID, y: 11 }
   });
+  for (const d of defs) d.def = Math.round((d.def || 0) * mobDefMult(d.level));
   return defs;
 }
 

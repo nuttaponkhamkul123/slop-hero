@@ -18,7 +18,10 @@ const SHOPKEEPERS = {
   // north-facing ones (turned round, see townProps3D) south of it
   market_stall: {
     npc: 'stallkeeper', x: 0, z: -11, scale: 0.82, flip: true,
-    forObs: obs => (obs.y > 20.5 ? { npc: 'stallkeeper', x: 0, z: 11, scale: 0.82, view: 'back' } : null)
+    // Jerry the Attribute Smith keeps the blue stall south-east of the plaza, his back to us,
+    // facing the boulevard like the other keepers on that side
+    forObs: obs => (obs.id === 'npc_jerry' ? { npc: 'jerry', x: 0, z: 11, scale: 0.86, view: 'back' }
+      : obs.y > 20.5 ? { npc: 'stallkeeper', x: 0, z: 11, scale: 0.82, view: 'back' } : null)
   }
 };
 const SMITH_BLOW_S = 1.3;   // Brom's hammer cycle; the blow lands at 68% of it
@@ -92,6 +95,10 @@ const SP_SHAPE_LIFE = {
   chain: 0.6, pulse: 0.55, rain: 0.6, dash: 0.5, blink: 0.6, backstep: 0.6, detonate: 0.95, rewind: 0.8, aura: 0.6,
   shuriken: 0.4, // the recall flight; thrown stars, smoke, shadow and orbit last their server 'duration'
   // variant warrior one-shot beats (placed glyphs, banners, lances... carry a 'duration')
+  // Dragoon Lightning Rods (dragoonFx.js; the server sends their duration)
+  rodStrike: 0.5, fence: 0.55, overload: 0.9,
+  echo: 0.6,   // Rune Knight passive echo (runeKnightFx.js)
+  raise: 1.2, crumble: 0.7, rage: 1.0, gravebomb: 0.85,   // Gravelord minion skills (gravelordFx.js)
   spear: 0.7, jump: 0.8, rune: 0.75, invoke: 0.9, rally: 0.8, sacrifice: 1.0, doom: 0.8, riposte: 0.5, rebirth: 1.4, phantom: 0.35
 };
 // Variant warrior shapes drawn by drawVariantWarriorShape; placed objects skip the card flair layer
@@ -111,6 +118,14 @@ const SP_SKILL_LIFE = {
   // Pyromancer
   sp_flame_wave: 0.7, sp_ember_volley: 0.8, sp_sunburst: 0.7, sp_flame_step: 0.6,
   sp_meteor_call: 1.0, sp_fire_chain: 0.8, sp_cinder_rain: 0.65, sp_phoenix_blink: 0.8,
+  // Frost Templar (frostTemplarFx.js); fault / jump / boomerang carry their own duration
+  // Dragoon (dragoonFx.js); rods, strikes, fences and overloads carry their own duration
+  sp_dragoon_thunderwing: 0.6, sp_dragoon_volt_step: 0.6, sp_dragoon_arc_lance: 0.7, sp_dragoon_stormcall: 0.9,
+  sp_dragoon_lance_storm: 0.65, sp_dragoon_tempest_wings: 0.9,
+  // Rune Knight (runeKnightFx.js): glyph bursts (the carved glyphs carry their own duration)
+  sp_runeknight_glyph: 0.85, sp_runeknight_bind: 0.85, sp_runeknight_frost: 0.85, sp_runeknight_guard: 1.2,
+  sp_runeknight_wave: 0.8, sp_runeknight_step: 0.7, sp_runeknight_chain: 0.8, ult_sp_runeknight: 1.1,
+  sp_ft_glacier_smash: 0.9, sp_ft_glacial_charge: 0.8, sp_ft_frozen_bulwark: 1.2, sp_ft_hailstorm: 0.75, sp_ft_ice_prison: 1.1,
   // Cryo Sage
   sp_ice_lance: 0.8, sp_frozen_orb: 0.8, sp_permafrost: 1.1, sp_ice_blink: 0.8,
   sp_ice_shards: 0.75, sp_frost_cone: 0.8, sp_glacial_pull: 1.05, sp_frost_slide: 0.6,
@@ -153,6 +168,11 @@ const SP_FX_PALETTES = {
   sp_dread_lord: { deep: '8, 2, 16', deep2: '36, 8, 64', main: '107, 33, 168', accent: '168, 85, 247', light: '233, 213, 255', core: '255, 245, 255' }
 };
 const PIXEL_HERO_SCALE = 0.92;
+// Base warrior skill effects: drawn on their own pixel layer, 1.5x coarser than the hero
+// pixel grid and with a brighter glow (SP card versions stay on the shared layer)
+const WARRIOR_SKILL_FX = new Set(['whirlwind', 'blade_charge', 'shield_slam', 'earthshaker', 'blood_rage', 'iron_fortress', 'war_stomp',
+  'colossus_strike', 'dragon_roar', 'meteor_dive', 'bladestorm_frenzy', 'titan_bastion', 'sundering_cleave', 'ragnarok_slash']);
+const CHUNKY_FX_LAYER = { key: '_fxLayerChunky', scale: 1.5, glow: 0.95 };
 // SP wings: the hero's turn per drawn view (pixelHeroes VIEW_DEF), how far the
 // wings sweep back from the shoulders, and the narrowest a foreshortened wing gets
 const SP_WING_PHI = { E: 0, SE: 0.75, S: Math.PI / 2, NE: -0.75, N: -Math.PI / 2 };
@@ -755,7 +775,8 @@ class IsometricRenderer {
       this.lowEffects = true;
       this.setRenderScale(0.55);
       this._applyQualityVfx('reduced', 70, 0.6);
-      this._applyQualityProps(false);
+      // the 3D town props cost a slow PC far more than they give at this size
+      this._applyQualityProps(true);
     } else if (quality === 'medium') {
       this.potatoMode = false;
       this.lowEffects = false;
@@ -795,9 +816,22 @@ class IsometricRenderer {
       if (window.townProps3D) window.townProps3D.enabled = true;
     } else {
       // auto
-      this.disable3DProps = this.potatoMode;
-      if (window.townProps3D) window.townProps3D.enabled = !this.potatoMode;
+      this.disable3DProps = this.lowEffects;
+      if (window.townProps3D) window.townProps3D.enabled = !this.lowEffects;
     }
+  }
+
+  // Settings > Lighting: 'auto' | 'smooth' | 'simple' | 'off'
+  setLightingMode(mode) {
+    this.lightingSetting = mode;
+  }
+
+  // The lighting actually used this frame; auto follows the graphics quality
+  // (Low / Potato, or Auto once it has stepped down for a slow PC -> simple)
+  lightingMode() {
+    const s = this.lightingSetting || 'auto';
+    if (s !== 'auto') return s;
+    return this.lowEffects ? 'simple' : 'smooth';
   }
 
   setVfxLevel(level) {
@@ -1013,7 +1047,7 @@ class IsometricRenderer {
       // Mages cast, they don't swing: no sweep arc (the server sends sweepArc 0 for them too)
     } else if (isRogue) {
       // Rogue Agile Twin-Blade Cuts
-      const life = finisher ? 0.34 : 0.26;
+      const life = finisher ? 0.38 : 0.3;
       const sweep = {
         type: 'sweeping_edge',
         x: posX,
@@ -1032,13 +1066,13 @@ class IsometricRenderer {
         blade
       };
       if (this.usePixelHeroes()) this.attacks.get(data.attackerId).pendingSweep = sweep;
-      else this.animations.skillEffects.push(sweep);
+      else this.pushSweep(sweep);
       const pMain = cardId === 'sp_venom_lord' ? 'poison' : cardId === 'sp_frost_shade' ? 'ice' : cardId === 'sp_blade_dancer' ? 'spark' : 'shadow';
       this.addParticles(posX, posY, pMain, finisher ? 4 : 2);
       this.addParticles(posX, posY, 'slash', finisher ? 5 : 3);
     } else {
       // Warrior Crushing Heavy Cleave
-      const life = finisher ? 0.42 : 0.32;
+      const life = finisher ? 0.44 : 0.34;
       const sweep = {
         type: 'sweeping_edge',
         x: posX,
@@ -1058,7 +1092,7 @@ class IsometricRenderer {
       };
       if (this.usePixelHeroes()) this.attacks.get(data.attackerId).pendingSweep = sweep;
       else {
-        this.animations.skillEffects.push(sweep);
+        this.pushSweep(sweep);
         const pMain = cardId === 'sp_berserker' ? 'fire' : cardId === 'sp_frost_templar' ? 'ice' : cardId === 'sp_dread_lord' ? 'shadow' : 'spark';
         this.addParticles(posX, posY, 'slash', finisher ? 12 : 6);
         this.addParticles(posX, posY, pMain, finisher ? 9 : 5);
@@ -1165,6 +1199,116 @@ class IsometricRenderer {
       ctx.fill();
       ctx.restore();
     }
+  }
+
+  // ---- Boss telegraphs (server/bossMechanics.ts): a red zone on the floor fills up while the
+  // boss winds up; when it lands, a flash and a burst. Shapes are in world tiles:
+  // circle {x,y,r}, ring {x,y,r0,r1}, cone {x,y,angle,arc,range}, line {x,y,x2,y2,width}.
+  addBossTelegraph(t) {
+    if (!t || !t.shapes) return;
+    if (!this.bossTelegraphs) this.bossTelegraphs = [];
+    this.bossTelegraphs.push({ ...t, start: performance.now(), delay: Math.max(150, t.delay || 1000), landed: false });
+  }
+
+  cancelBossTelegraphs(bossId) {
+    if (this.bossTelegraphs) this.bossTelegraphs = this.bossTelegraphs.filter(t => t.bossId !== bossId);
+  }
+
+  // Trace one shape at `p` (0..1) of its full size as a path in screen space
+  traceTelegraph(ctx, s, p) {
+    const W = (x, y) => Isometric.worldToScreen(x, y, 0, this.camera, this.viewW, this.viewH);
+    const circle = (cx, cy, r, steps = 40) => {
+      for (let i = 0; i <= steps; i++) {
+        const a = (i / steps) * Math.PI * 2, q = W(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+        if (i === 0) ctx.moveTo(q.x, q.y); else ctx.lineTo(q.x, q.y);
+      }
+      ctx.closePath();
+    };
+    ctx.beginPath();
+    if (s.shape === 'circle') circle(s.x, s.y, Math.max(0.05, s.r * p));
+    else if (s.shape === 'ring') {
+      circle(s.x, s.y, s.r0 + (s.r1 - s.r0) * Math.max(0.02, p), 56);
+      circle(s.x, s.y, s.r0, 40);
+    } else if (s.shape === 'cone') {
+      const o = W(s.x, s.y), r = Math.max(0.05, s.range * p);
+      ctx.moveTo(o.x, o.y);
+      for (let i = 0; i <= 18; i++) {
+        const a = s.angle - s.arc / 2 + (s.arc * i) / 18, q = W(s.x + Math.cos(a) * r, s.y + Math.sin(a) * r);
+        ctx.lineTo(q.x, q.y);
+      }
+      ctx.closePath();
+    } else if (s.shape === 'line') {
+      const dx = s.x2 - s.x, dy = s.y2 - s.y, len = Math.hypot(dx, dy) || 1;
+      const nx = -dy / len * s.width / 2, ny = dx / len * s.width / 2;
+      const ex = s.x + dx * Math.max(0.02, p), ey = s.y + dy * Math.max(0.02, p);
+      const pts = [W(s.x + nx, s.y + ny), W(ex + nx, ey + ny), W(ex - nx, ey - ny), W(s.x - nx, s.y - ny)];
+      ctx.moveTo(pts[0].x, pts[0].y);
+      for (let i = 1; i < 4; i++) ctx.lineTo(pts[i].x, pts[i].y);
+      ctx.closePath();
+    }
+  }
+
+  drawBossTelegraphs(ctx) {
+    const list = this.bossTelegraphs;
+    if (!list || !list.length) return;
+    const now = performance.now();
+    const FLASH = 320;
+    ctx.save();
+    for (let i = list.length - 1; i >= 0; i--) {
+      const t = list[i];
+      const el = now - t.start;
+      if (el > t.delay + FLASH) { list.splice(i, 1); continue; }
+      if (el >= t.delay && !t.landed) { t.landed = true; this.bossTelegraphImpact(t); }
+      const p = Math.min(1, el / t.delay);
+      for (const s of t.shapes) {
+        if (!t.landed) {
+          // the whole danger zone, pulsing faster as it fills
+          const pulse = 0.5 + 0.5 * Math.sin(el / (p > 0.7 ? 45 : 90));
+          this.traceTelegraph(ctx, s, 1);
+          ctx.fillStyle = `rgba(239, 68, 68, ${0.13 + 0.08 * p})`;
+          ctx.fill('evenodd');
+          ctx.lineWidth = 2 * this.camera.zoom;
+          ctx.strokeStyle = `rgba(254, 202, 202, ${0.55 + 0.35 * pulse})`;
+          ctx.stroke();
+          // the fill that grows toward the edge: when it reaches it, the attack lands
+          this.traceTelegraph(ctx, s, p);
+          ctx.fillStyle = `rgba(220, 38, 38, ${0.22 + 0.18 * p})`;
+          ctx.fill('evenodd');
+        } else {
+          const k = (el - t.delay) / FLASH;
+          this.traceTelegraph(ctx, s, 1);
+          ctx.fillStyle = hexAlpha(t.color || '#ef4444', 0.55 * (1 - k));
+          ctx.fill('evenodd');
+        }
+      }
+    }
+    ctx.restore();
+  }
+
+  bossTelegraphImpact(t) {
+    const part = { fire: 'fire', ice: 'ice', dark: 'shadow', lightning: 'lightning', holy: 'spark', earth: 'earth' }[t.element] || 'spark';
+    for (const s of t.shapes) {
+      if (s.shape === 'circle') {
+        this.addParticles(s.x, s.y, part, Math.round(10 + s.r * 6), { speed: 2.4 });
+        this.addParticles(s.x, s.y, 'dust', 8, { speed: 1.4 });
+      } else if (s.shape === 'ring') {
+        for (let k = 0; k < 28; k++) {
+          const a = (k / 28) * Math.PI * 2, r = s.r0 + Math.random() * (s.r1 - s.r0);
+          this.addParticles(s.x + Math.cos(a) * r, s.y + Math.sin(a) * r, part, 1, { speed: 1.8 });
+        }
+      } else if (s.shape === 'cone') {
+        for (let k = 0; k < 18; k++) {
+          const a = s.angle - s.arc / 2 + Math.random() * s.arc, r = Math.random() * s.range;
+          this.addParticles(s.x + Math.cos(a) * r, s.y + Math.sin(a) * r, k % 3 ? part : 'slash', 1, { speed: 2.2 });
+        }
+      } else if (s.shape === 'line') {
+        for (let k = 0; k < 16; k++) {
+          const q = k / 15;
+          this.addParticles(s.x + (s.x2 - s.x) * q, s.y + (s.y2 - s.y) * q, part, 1, { speed: 2.0 });
+        }
+      }
+    }
+    this.triggerScreenShake(t.shapes.length > 3 ? 7 : 5, 0.18);
   }
 
   // Dungeon room opened: a summoning circle + burst under each new monster
@@ -1346,7 +1490,21 @@ class IsometricRenderer {
     const cls = PH.classes.includes(player.characterClass) ? player.characterClass : 'warrior';
     const card = this.spCardFor(player);
     if (card) return PH.variantFrame(cls, card.id, card.palette, view, action, idx);
+    // not transformed: the hero shows the gear they wear
+    const gear = this.gearKeyFor(player, cls);
+    if (gear) return PH.variantFrame(cls, gear, null, view, action, idx);
     return PH.frame(cls, view, action, idx);
+  }
+
+  // Look key for a hero's equipped items (pixelHeroes gear looks), or null
+  gearKeyFor(player, cls) {
+    const PH = window.PixelHeroes;
+    return PH.gearKey ? PH.gearKey(cls, player.equipment) : null;
+  }
+
+  // Sprite look key used for head height: the SP card when transformed, else the gear look
+  lookKeyFor(player, cls, spCard) {
+    return spCard ? spCard.id : this.gearKeyFor(player, cls);
   }
 
   // Swinging on the move: the attack's upper body over the legs of run frame runIdx
@@ -1354,7 +1512,7 @@ class IsometricRenderer {
     const PH = window.PixelHeroes;
     const cls = PH.classes.includes(player.characterClass) ? player.characterClass : 'warrior';
     const card = this.spCardFor(player);
-    return PH.runAttackFrame(cls, card ? card.id : null, card ? card.palette : null, view, action, idx, runIdx);
+    return PH.runAttackFrame(cls, card ? card.id : this.gearKeyFor(player, cls), card ? card.palette : null, view, action, idx, runIdx);
   }
 
   // SP wings: every +10 on the card grows a different pair (spWings.js), in the
@@ -1519,6 +1677,51 @@ class IsometricRenderer {
     ctx.restore();
   }
 
+  // Particle bursts for the armor set effects (server: applySetOnHit & co.)
+  addSetProcEffect(fx) {
+    const ring = (type, r, n, opts) => {
+      for (let k = 0; k < n; k++) {
+        const a = (k / n) * Math.PI * 2;
+        this.addParticles(fx.x + Math.cos(a) * r, fx.y + Math.sin(a) * r, type, 1, opts);
+      }
+    };
+    if (fx.set === 'emberheart') {
+      // Cinder Cascade: a fiery eruption with a ring at the blast's edge
+      const r = fx.radius || 2.6;
+      this.addParticles(fx.x, fx.y, 'fire', 22, { speed: 3.2, z: 0.3 });
+      this.addParticles(fx.x, fx.y, 'spark', 10, { speed: 3.6 });
+      ring('fire', r * 0.9, 20, { speed: 0.9, sizeScale: 0.9 });
+      this.triggerScreenShake(4, 0.16);
+    } else if (fx.set === 'stormcaller') {
+      // Static Overload: crackling sparks along each jump of the chain
+      const pts = fx.points || [{ x: fx.x, y: fx.y }];
+      this.addParticles(pts[0].x, pts[0].y, 'lightning', 10, { speed: 2.6 });
+      for (let i = 1; i < pts.length; i++) {
+        const a = pts[i - 1], b = pts[i];
+        const steps = Math.max(3, Math.round(Math.hypot(b.x - a.x, b.y - a.y) * 3));
+        for (let s = 0; s <= steps; s++) {
+          const t = s / steps;
+          const jitter = (Math.random() - 0.5) * 0.35;
+          this.addParticles(a.x + (b.x - a.x) * t + jitter, a.y + (b.y - a.y) * t - jitter, 'lightning', 1, { speed: 0.4, sizeScale: 0.9 });
+        }
+        this.addParticles(b.x, b.y, 'spark', 6, { speed: 2.4 });
+      }
+    } else if (fx.set === 'eclipse') {
+      // Dawn & Dusk: a golden halo spreading over the party, or a violet shroud
+      if (fx.phase === 'dawn') {
+        ring('gold', Math.min(3, fx.radius || 3), 18, { speed: 0.7, z: 0.3 });
+        this.addParticles(fx.x, fx.y, 'spark', 10, { speed: 1.6, z: 0.5 });
+      } else {
+        ring('shadow', 1.2, 14, { speed: 0.9 });
+        this.addParticles(fx.x, fx.y, 'arcane', 10, { speed: 1.4, z: 0.4 });
+      }
+    } else if (fx.set === 'wayfarer') {
+      // Second Wind: a gust of green leaves swirling up around the hero
+      ring('earth', 1.3, 16, { speed: 1.2, z: 0.4 });
+      this.addParticles(fx.x, fx.y, 'wind', 10, { speed: 2.2 });
+    }
+  }
+
   addSkillEffect(fx) {
     if (!fx || !fx.type) return;
     // Eternal Rift Frost Spire pulse: a quiet ring of ice, no shake
@@ -1529,6 +1732,11 @@ class IsometricRenderer {
         this.addParticles(fx.x + Math.cos(a) * r * 0.85, fx.y + Math.sin(a) * r * 0.85, 'ice', 1, { speed: 0.8, sizeScale: 0.8 });
       }
       this.addParticles(fx.x, fx.y, 'ice', 8, { speed: 2.2, sizeScale: 0.7 });
+      return;
+    }
+    // Armor set 4-piece procs (no cast pose: they fire off hits and timers)
+    if (fx.type === 'set_proc') {
+      this.addSetProcEffect(fx);
       return;
     }
     // Casting a non-movement skill plays the hero's cast pose
@@ -5415,298 +5623,6 @@ class IsometricRenderer {
     return false;
   }
 
-  // ---------------------------------------------------------------- per-card basic attacks
-  // Card flourish layered on a basic swing, drawn in drawSweepSlash's local
-  // frame (squashed to the ground, rotated to the facing, additive)
-  drawSweepAccent(ctx, fx, s) {
-    const { outerR, thick, head, fromA, fade, eased, z } = s;
-    const time = this.animations.time;
-    const at = (a, r) => ({ x: Math.cos(a) * r, y: Math.sin(a) * r });
-    const along = (k) => fromA + (head - fromA) * k;
-    const rgba = (rgb, a) => `rgba(${rgb}, ${Math.max(0, Math.min(1, a))})`;
-    const seed = fx.x * 7.3 + fx.y * 3.1;
-    const rnd = (n) => { const v = Math.sin((n + seed) * 127.1) * 43758.5453; return v - Math.floor(v); };
-    const step = Math.floor(time * 24); // re-rolls jagged lines (lightning, cracks) 24x a second
-    const dotGlow = (p, r, rgb, a) => {
-      const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
-      g.addColorStop(0, rgba('255, 255, 255', a));
-      g.addColorStop(0.4, rgba(rgb, a * 0.7));
-      g.addColorStop(1, rgba(rgb, 0));
-      ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-      ctx.fill();
-    };
-    const stroke = (rgb, a, w) => { ctx.strokeStyle = rgba(rgb, a); ctx.lineWidth = w * z; ctx.stroke(); };
-    const tip = at(head, outerR - thick * 0.25);
-    ctx.save();
-    ctx.lineCap = 'round';
-    switch (fx.cardId) {
-      case 'sp_crusader': { // rays of light fan out along the swing, a cross gleams at the tip
-        for (let i = 0; i < 4; i++) {
-          const p = at(along(0.2 + i * 0.25), outerR * 1.2);
-          ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(p.x, p.y);
-          stroke('253, 224, 71', fade * 0.3, 3);
-        }
-        const L = 11 * z * (0.6 + 0.4 * eased);
-        ctx.beginPath();
-        ctx.moveTo(tip.x - L, tip.y); ctx.lineTo(tip.x + L, tip.y);
-        ctx.moveTo(tip.x, tip.y - L * 1.5); ctx.lineTo(tip.x, tip.y + L * 1.5);
-        stroke('255, 251, 235', fade, 2.2);
-        dotGlow(tip, 16 * z, '253, 224, 71', fade);
-        break;
-      }
-      case 'sp_berserker': { // twin blade cuts, one per sword, and flung blood
-        for (const [k, w] of [[1.05, 3.2], [0.78, 2.8]]) {
-          ctx.beginPath();
-          ctx.arc(0, 0, outerR * k, along(0.25), head, head < fromA);
-          stroke('239, 68, 68', fade * 0.9, w);
-          stroke('254, 202, 202', fade * 0.6, w * 0.35);
-        }
-        for (let i = 0; i < 6; i++) {
-          const p = at(along(0.3 + 0.7 * rnd(i)), outerR * (1.1 + 0.3 * (1 - fade)) + rnd(i + 9) * 8 * z);
-          dotGlow(p, 3.5 * z, '220, 38, 38', fade);
-        }
-        break;
-      }
-      case 'sp_frost_templar': { // ice shards jut out of the blade's path
-        for (let i = 0; i < 6; i++) {
-          const k = (i + 0.5) / 6;
-          if (k > eased + 0.1) break;
-          const a = along(k), b = at(a, outerR), t = at(a, outerR + (10 + 6 * rnd(i)) * z);
-          const n = { x: -Math.sin(a) * 3 * z, y: Math.cos(a) * 3 * z };
-          ctx.beginPath();
-          ctx.moveTo(b.x + n.x, b.y + n.y); ctx.lineTo(t.x, t.y); ctx.lineTo(b.x - n.x, b.y - n.y); ctx.closePath();
-          ctx.fillStyle = rgba('165, 243, 252', fade * 0.85);
-          ctx.fill();
-          stroke('240, 249, 255', fade, 1);
-        }
-        break;
-      }
-      case 'sp_storm_herald': { // lightning crawls along the edge and forks outward
-        ctx.beginPath();
-        for (let i = 0; i <= 10; i++) {
-          const a = along(0.15 + 0.85 * i / 10);
-          const p = at(a, outerR + (rnd(i * 7 + step) - 0.5) * 10 * z);
-          if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
-        }
-        stroke('250, 204, 21', fade * 0.8, 3);
-        stroke('255, 255, 255', fade, 1.2);
-        for (let j = 0; j < 2; j++) {
-          const a = along(0.5 + j * 0.4), p0 = at(a, outerR);
-          ctx.beginPath(); ctx.moveTo(p0.x, p0.y);
-          const p1 = at(a + (rnd(j + step) - 0.5) * 0.3, outerR + 12 * z), p2 = at(a + (rnd(j + 5 + step) - 0.5) * 0.4, outerR + 22 * z);
-          ctx.lineTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y);
-          stroke('254, 240, 138', fade * 0.9, 1.5);
-        }
-        break;
-      }
-      case 'sp_dread_lord': { // colossal black-violet executioner axe drag, heavy crescent edge & void cracks
-        const dir = head >= fromA ? 1 : -1;
-        ctx.globalCompositeOperation = 'source-over';
-        ctx.beginPath();
-        ctx.arc(0, 0, outerR * 0.92, along(0.05), along(0.95), head < fromA);
-        stroke('10, 2, 22', fade * 0.8, thick / z * 0.72);
-        // Bearded executioner axe silhouette at the leading edge
-        const hPt = at(head, outerR * 0.88);
-        ctx.save();
-        ctx.translate(hPt.x, hPt.y);
-        ctx.rotate(head + dir * Math.PI * 0.45);
-        ctx.beginPath();
-        ctx.moveTo(-10 * z, -6 * z);
-        ctx.lineTo(14 * z, -16 * z);
-        ctx.quadraticCurveTo(22 * z, 0, 10 * z, 20 * z);
-        ctx.lineTo(-6 * z, 8 * z);
-        ctx.closePath();
-        ctx.fillStyle = `rgba(18, 4, 34, ${fade * 0.9})`;
-        ctx.fill();
-        ctx.strokeStyle = `rgba(216, 180, 254, ${fade * 0.95})`;
-        ctx.lineWidth = 2.2 * z;
-        ctx.stroke();
-        ctx.restore();
-        ctx.globalCompositeOperation = 'lighter';
-        // Jagged black-violet ground cracks radiating from the heavy axe drag
-        for (let i = 0; i < 4; i++) {
-          const a = along(0.25 + i * 0.22);
-          const p0 = at(a, outerR * 0.75);
-          const p1 = at(a + (rnd(i + step) - 0.5) * 0.18, outerR * 1.02);
-          const p2 = at(a + (rnd(i + 7 + step) - 0.5) * 0.25, outerR * 1.18);
-          ctx.beginPath();
-          ctx.moveTo(p0.x, p0.y);
-          ctx.lineTo(p1.x, p1.y);
-          ctx.lineTo(p2.x, p2.y);
-          stroke('168, 85, 247', fade * 0.85, 2.2);
-          stroke('243, 232, 255', fade * 0.75, 1.0);
-        }
-        for (let i = 0; i < 6; i++) {
-          const p = at(along(0.15 + 0.75 * rnd(i)), outerR * (0.68 + 0.35 * rnd(i + 3)));
-          dotGlow({ x: p.x, y: p.y - (1 - fade) * 34 * z }, 6 * z, '192, 132, 252', fade);
-        }
-        break;
-      }
-      case 'sp_nightblade': { // a second, straight cut crosses the arc: an X
-        const a0 = at(head - 0.9 * Math.sign(head - fromA || 1), outerR * 0.35), a1 = at(head, outerR * 1.12);
-        ctx.beginPath(); ctx.moveTo(a0.x, a0.y); ctx.lineTo(a1.x, a1.y);
-        stroke('168, 85, 247', fade * 0.85, 4);
-        stroke('250, 245, 255', fade, 1.4);
-        dotGlow(tip, 12 * z, '147, 51, 234', fade * 0.9);
-        break;
-      }
-      case 'sp_venom_lord': { // acid flung off the blade
-        for (let i = 0; i < 7; i++) {
-          const a = along(0.2 + 0.8 * rnd(i));
-          const p = at(a, outerR + (4 + 14 * (1 - fade)) * z * (0.5 + rnd(i + 2)));
-          dotGlow({ x: p.x, y: p.y + (1 - fade) * 10 * z }, (2.5 + 2 * rnd(i + 4)) * z, '74, 222, 128', fade);
-        }
-        ctx.beginPath();
-        ctx.arc(0, 0, outerR * 0.9, along(0.4), head, head < fromA);
-        stroke('190, 242, 100', fade * 0.5, 1.5);
-        break;
-      }
-      case 'sp_blade_dancer': { // afterimage blades a beat behind, a star flash at the tip
-        for (const [lag, al] of [[0.3, 0.55], [0.6, 0.3]]) {
-          const h = head - lag * Math.sign(head - fromA || 1);
-          ctx.beginPath();
-          ctx.arc(0, 0, outerR * (1 - lag * 0.15), Math.min(h, fromA), Math.max(h, fromA));
-          stroke('250, 204, 21', fade * al, 2);
-        }
-        const L = 12 * z * fade;
-        ctx.beginPath();
-        ctx.moveTo(tip.x - L, tip.y); ctx.lineTo(tip.x + L, tip.y);
-        ctx.moveTo(tip.x, tip.y - L); ctx.lineTo(tip.x, tip.y + L);
-        stroke('255, 255, 245', fade, 1.6);
-        dotGlow(tip, 10 * z, '250, 204, 21', fade);
-        break;
-      }
-      case 'sp_frost_shade': { // little frost stars glint along the cut
-        for (let i = 0; i < 4; i++) {
-          const p = at(along(0.2 + i * 0.25), outerR - thick * 0.4);
-          const L = 4.5 * z * fade;
-          ctx.beginPath();
-          for (let j = 0; j < 3; j++) {
-            const a = (j * Math.PI) / 3 + time * 2;
-            ctx.moveTo(p.x - Math.cos(a) * L, p.y - Math.sin(a) * L);
-            ctx.lineTo(p.x + Math.cos(a) * L, p.y + Math.sin(a) * L);
-          }
-          stroke('240, 253, 255', fade, 1.2);
-        }
-        dotGlow(tip, 14 * z, '103, 232, 249', fade * 0.8);
-        break;
-      }
-      case 'sp_eclipse_reaper': { // a black sun rides the scythe tip; void sparks fly off
-        dotGlow(tip, 18 * z, '167, 139, 250', fade);
-        ctx.globalCompositeOperation = 'source-over';
-        ctx.beginPath();
-        ctx.arc(tip.x, tip.y, 5.5 * z, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(6, 3, 18, ${fade})`;
-        ctx.fill();
-        ctx.globalCompositeOperation = 'lighter';
-        ctx.beginPath();
-        ctx.arc(tip.x, tip.y, 5.5 * z, 0, Math.PI * 2);
-        stroke('247, 245, 255', fade * 0.9, 1);
-        for (let i = 0; i < 5; i++) {
-          const p = at(along(0.3 + 0.7 * rnd(i)), outerR * 1.05 + rnd(i + 3) * 12 * z * (1 - fade + 0.3));
-          dotGlow(p, 3 * z, '139, 92, 246', fade);
-        }
-        break;
-      }
-      // Mage SP Cards
-      case 'sp_pyromancer': { // roaring solar flame tongues along the crescent curve, erupting fire embers
-        for (let i = 0; i < 6; i++) {
-          const a = along(0.2 + i * 0.15);
-          const fl = Math.sin(time * 24 + i * 1.8) * 6 * z;
-          const p0 = at(a, outerR * 0.9);
-          const p1 = at(a + (rnd(i + step) - 0.5) * 0.18, outerR + (10 + fl) * z);
-          ctx.beginPath();
-          ctx.moveTo(p0.x, p0.y);
-          ctx.quadraticCurveTo(p1.x + fl, p1.y, p1.x, p1.y);
-          stroke('249, 115, 22', fade * 0.85, 3.5);
-          stroke('254, 240, 138', fade * 0.95, 1.4);
-        }
-        dotGlow(tip, 16 * z, '249, 115, 22', fade);
-        break;
-      }
-      case 'sp_cryo_sage': { // spinning crystalline snowflake stars along the arc, freezing ice smoke
-        for (let i = 0; i < 5; i++) {
-          const p = at(along(0.18 + i * 0.2), outerR - thick * 0.3);
-          const L = (4 + 2 * rnd(i)) * z * fade;
-          ctx.beginPath();
-          for (let j = 0; j < 3; j++) {
-            const a = (j * Math.PI) / 3 + time * 3 + i * 0.7;
-            ctx.moveTo(p.x - Math.cos(a) * L, p.y - Math.sin(a) * L);
-            ctx.lineTo(p.x + Math.cos(a) * L, p.y + Math.sin(a) * L);
-          }
-          stroke('236, 254, 255', fade * 0.9, 1.8);
-          stroke('103, 232, 249', fade * 0.6, 3.2);
-        }
-        dotGlow(tip, 15 * z, '103, 232, 249', fade * 0.9);
-        break;
-      }
-      case 'sp_tempest': { // crackling high-voltage ball lightning at the head with erratic electric arc forks
-        const stepT = Math.floor(time * 32);
-        ctx.beginPath();
-        for (let i = 0; i <= 8; i++) {
-          const a = along(0.2 + 0.8 * i / 8);
-          const jitter = (rnd(i * 9 + stepT) - 0.5) * 12 * z;
-          const p = at(a, outerR + jitter);
-          if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
-        }
-        stroke('250, 204, 21', fade * 0.9, 2.8);
-        stroke('255, 255, 255', fade, 1.2);
-        dotGlow(tip, 16 * z, '250, 204, 21', fade);
-        break;
-      }
-      case 'sp_chronomancer': { // golden temporal clockwork gear teeth and solar time rays
-        for (let i = 0; i < 7; i++) {
-          const a = along(0.15 + i * 0.14);
-          const p0 = at(a, outerR);
-          const p1 = at(a, outerR + (5 + (i % 2 === 0 ? 6 : 2)) * z);
-          ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y);
-          stroke('253, 224, 71', fade * 0.85, 2);
-        }
-        dotGlow(tip, 14 * z, '253, 224, 71', fade);
-        break;
-      }
-      case 'sp_void_archon': { // cosmic black-hole event horizon singularity at the tip pulling starlight inward
-        dotGlow(tip, 20 * z, '192, 132, 252', fade);
-        ctx.globalCompositeOperation = 'source-over';
-        ctx.beginPath();
-        ctx.arc(tip.x, tip.y, 6 * z, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(15, 5, 29, ${fade * 0.95})`;
-        ctx.fill();
-        ctx.globalCompositeOperation = 'lighter';
-        ctx.beginPath();
-        ctx.arc(tip.x, tip.y, 6 * z, 0, Math.PI * 2);
-        stroke('233, 213, 255', fade * 0.9, 1.5);
-        for (let i = 0; i < 5; i++) {
-          const a = along(0.2 + 0.8 * rnd(i));
-          const p = at(a, outerR * (0.85 + 0.3 * rnd(i + 2)));
-          dotGlow(p, 3 * z, '168, 85, 247', fade);
-        }
-        break;
-      }
-      // Default Base Classes (no SP card active)
-      default: {
-        if (fx.class === 'rogue') {
-          // Sharp razor glint at dagger tip and secondary speed line
-          dotGlow(tip, 8 * z, '45, 212, 191', fade * 0.8);
-        } else if (fx.class === 'mage') {
-          // Mystic arcane flare and orbiting stardust motes
-          dotGlow(tip, 12 * z, '253, 224, 71', fade * 0.85);
-          for (let i = 0; i < 3; i++) {
-            const p = at(along(0.3 + i * 0.3), outerR * 1.08 + rnd(i + step) * 5 * z);
-            dotGlow(p, 3 * z, '254, 240, 138', fade * 0.7);
-          }
-        } else {
-          // Steel blade shine gleam
-          dotGlow(tip, 9 * z, '186, 230, 253', fade * 0.7);
-        }
-        break;
-      }
-    }
-    ctx.restore();
-  }
-
   // Mage card bolts: each card throws its own kind of missile. Returns false
   // for plain mages so the element bolt is drawn instead.
   drawCardProjectile(ctx, p, sx, sy, z) {
@@ -7176,67 +7092,135 @@ class IsometricRenderer {
       ctx.ellipse(screen.x, screen.y, 24 * z, 12 * z, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      // 14 Radiating Ornate Obsidian-Steel Daggers with Luminous Curving Trails
-      for (let k = 0; k < 14; k++) {
-        const angle = (k * (Math.PI * 2 / 14)) + rot;
-        const kx = screen.x + Math.cos(angle) * hitRadius;
-        const ky = screen.y + Math.sin(angle) * (hitRadius * 0.5);
+      // 14 throwing knives fanning out from the rogue. Each one points along its flight
+      // (outward on the squashed iso ellipse), so the blades sit in the ground's perspective.
+      const KN = 14;
+      for (let k = 0; k < KN; k++) {
+        const angle = (k * (Math.PI * 2 / KN)) + rot;
+        const ca = Math.cos(angle), sa = Math.sin(angle);
+        const kx = screen.x + ca * hitRadius;
+        const ky = screen.y + sa * (hitRadius * 0.5);
         const prevAngle = angle - 0.28;
         const prevKx = screen.x + Math.cos(prevAngle) * (hitRadius * 0.72);
         const prevKy = screen.y + Math.sin(prevAngle) * (hitRadius * 0.36);
 
-        // Curving Poison Motion-Trail
+        // Curving poison motion trail (additive glow behind the steel)
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
         ctx.beginPath();
         ctx.moveTo(prevKx, prevKy);
         ctx.quadraticCurveTo((prevKx + kx) / 2 + Math.cos(angle + 0.5) * 6 * z, (prevKy + ky) / 2, kx, ky);
-        ctx.strokeStyle = `rgba(34, 197, 94, ${alpha * 0.85})`;
-        ctx.lineWidth = 4 * z;
+        ctx.strokeStyle = `rgba(34, 197, 94, ${alpha * 0.6})`;
+        ctx.lineWidth = 3.2 * z;
         ctx.stroke();
-        ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.95})`;
-        ctx.lineWidth = 1.4 * z;
+        ctx.strokeStyle = `rgba(220, 252, 231, ${alpha * 0.8})`;
+        ctx.lineWidth = 1.1 * z;
         ctx.stroke();
+        ctx.restore();
 
-        // 3D Shaded Dagger Model
+        // The knife itself, drawn solid (not additive) so the steel keeps its shading.
+        // Local space: tip toward -y, pommel toward +y; ~28 long, scaled by zoom.
+        const dirX = ca, dirY = sa * 0.5;                       // outward on screen
+        const tilt = Math.sin(time * 18 + k * 1.7) * 0.12;      // a little tumble in flight
         ctx.save();
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.globalAlpha = Math.min(1, alpha * 1.6);
         ctx.translate(kx, ky);
-        ctx.rotate(angle + Math.PI * 0.5);
+        ctx.rotate(Math.atan2(dirY, dirX) + Math.PI * 0.5 + tilt);
+        const u = z;
 
-        // Blade Facets (Split light & shadow)
+        // soft dark halo so the blade reads against bright ground / other effects
         ctx.beginPath();
-        ctx.moveTo(0, -10 * z); // Blade Tip
-        ctx.lineTo(3.2 * z, 2 * z);
-        ctx.lineTo(0, 3 * z);
-        ctx.closePath();
-        ctx.fillStyle = '#ffffff'; // Light edge
+        ctx.ellipse(0, -4 * u, 5.5 * u, 15 * u, 0, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(2, 12, 8, 0.35)';
         ctx.fill();
 
+        // grip: wrapped leather with a ring pommel
+        ctx.fillStyle = '#1c1917';
+        ctx.fillRect(-1.5 * u, 4.2 * u, 3 * u, 6.8 * u);
+        ctx.fillStyle = '#44403c';
+        for (let w = 0; w < 3; w++) ctx.fillRect(-1.5 * u, (5 + w * 2.1) * u, 3 * u, 0.9 * u);
         ctx.beginPath();
-        ctx.moveTo(0, -10 * z);
-        ctx.lineTo(-3.2 * z, 2 * z);
-        ctx.lineTo(0, 3 * z);
-        ctx.closePath();
-        ctx.fillStyle = '#64748b'; // Dark edge
+        ctx.arc(0, 11.8 * u, 1.7 * u, 0, Math.PI * 2);
+        ctx.fillStyle = '#94a3b8';
         ctx.fill();
-
-        // Neon Poison Fuller Channel
         ctx.beginPath();
-        ctx.moveTo(0, -8 * z);
-        ctx.lineTo(0, 2 * z);
-        ctx.strokeStyle = '#4ade80';
-        ctx.lineWidth = 1.5 * z;
-        ctx.stroke();
-
-        // Crossguard & Hilt
+        ctx.arc(0, 11.8 * u, 0.7 * u, 0, Math.PI * 2);
         ctx.fillStyle = '#0f172a';
-        ctx.fillRect(-4 * z, 3 * z, 8 * z, 1.8 * z);
-        ctx.fillRect(-1.5 * z, 4.8 * z, 3 * z, 4.5 * z);
-
-        // Tip Specular Glint
-        ctx.beginPath();
-        ctx.arc(0, -10 * z, 2 * z, 0, Math.PI * 2);
-        ctx.fillStyle = '#ffffff';
         ctx.fill();
 
+        // crossguard: slim steel bar with downturned ends
+        ctx.beginPath();
+        ctx.moveTo(-5 * u, 4.6 * u);
+        ctx.quadraticCurveTo(0, 2.6 * u, 5 * u, 4.6 * u);
+        ctx.lineTo(4.4 * u, 5.8 * u);
+        ctx.quadraticCurveTo(0, 4 * u, -4.4 * u, 5.8 * u);
+        ctx.closePath();
+        ctx.fillStyle = '#cbd5e1';
+        ctx.fill();
+
+        // blade outline (dark), then the two lit facets
+        const blade = (grow) => {
+          ctx.beginPath();
+          ctx.moveTo(0, -17 * u - grow);
+          ctx.lineTo(3.1 * u + grow, -3 * u);
+          ctx.lineTo(2.7 * u + grow, 3.4 * u);
+          ctx.lineTo(-2.7 * u - grow, 3.4 * u);
+          ctx.lineTo(-3.1 * u - grow, -3 * u);
+          ctx.closePath();
+        };
+        blade(0.7 * u);
+        ctx.fillStyle = '#0b1220';
+        ctx.fill();
+        // shadow facet (left) and light facet (right)
+        ctx.beginPath();
+        ctx.moveTo(0, -17 * u);
+        ctx.lineTo(-3.1 * u, -3 * u);
+        ctx.lineTo(-2.7 * u, 3.4 * u);
+        ctx.lineTo(0, 3.4 * u);
+        ctx.closePath();
+        ctx.fillStyle = '#64748b';
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(0, -17 * u);
+        ctx.lineTo(3.1 * u, -3 * u);
+        ctx.lineTo(2.7 * u, 3.4 * u);
+        ctx.lineTo(0, 3.4 * u);
+        ctx.closePath();
+        ctx.fillStyle = '#e2e8f0';
+        ctx.fill();
+        // bright cutting edge down the lit side, and a spine down the middle
+        ctx.beginPath();
+        ctx.moveTo(0.5 * u, -15 * u);
+        ctx.lineTo(2.7 * u, -3 * u);
+        ctx.lineTo(2.4 * u, 3 * u);
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 0.9 * u;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(0, -15.5 * u);
+        ctx.lineTo(0, 3.4 * u);
+        ctx.strokeStyle = '#475569';
+        ctx.lineWidth = 0.7 * u;
+        ctx.stroke();
+        // poison fuller: a glowing green groove running up the blade
+        ctx.beginPath();
+        ctx.moveTo(0, -11 * u);
+        ctx.lineTo(0, 2.4 * u);
+        ctx.strokeStyle = '#4ade80';
+        ctx.lineWidth = 1.1 * u;
+        ctx.stroke();
+        ctx.restore();
+
+        // venom glint on the tip (additive, small)
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.translate(kx, ky);
+        ctx.rotate(Math.atan2(dirY, dirX) + Math.PI * 0.5 + tilt);
+        ctx.beginPath();
+        ctx.arc(0, -16 * z, 1.5 * z, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(187, 247, 208, ${alpha * 0.9})`;
+        ctx.fill();
         ctx.restore();
       }
 
@@ -8340,9 +8324,11 @@ class IsometricRenderer {
   // around solid shapes) and scaled back up without smoothing, so the effects
   // sit on the same pixel grid as the heroes. rect (screen px) limits the layer
   // to one area; omitted, it covers the whole view.
-  beginFxPixels(ctx, rect) {
+  // opts.key names a separate layer (default '_fxLayer'), opts.scale makes its texels coarser
+  beginFxPixels(ctx, rect, opts) {
+    const key = (opts && opts.key) || '_fxLayer';
     const bs = this.canvas.width / this.viewW;
-    const px = Math.max(2, Math.round(PIXEL_HERO_SCALE * this.camera.zoom * bs));
+    const px = Math.max(2, Math.round(PIXEL_HERO_SCALE * this.camera.zoom * bs * ((opts && opts.scale) || 1)));
     let ox = 0, oy = 0, dw = this.canvas.width, dh = this.canvas.height;
     if (rect) {
       // snapped to the full-screen grid so every layer shares one pixel lattice
@@ -8353,11 +8339,11 @@ class IsometricRenderer {
       if (dw <= 0 || dh <= 0) return null;
     }
     const cw = Math.ceil(dw / px), ch = Math.ceil(dh / px);
-    if (!this._fxLayer) {
+    if (!this[key]) {
       const c = document.createElement('canvas');
-      this._fxLayer = { c, g: c.getContext('2d', { willReadFrequently: true }) };
+      this[key] = { c, g: c.getContext('2d', { willReadFrequently: true }) };
     }
-    const L = this._fxLayer;
+    const L = this[key];
     if (L.c.width < cw || L.c.height < ch) {
       L.c.width = Math.max(L.c.width, cw);
       L.c.height = Math.max(L.c.height, ch);
@@ -8376,8 +8362,8 @@ class IsometricRenderer {
     return g;
   }
 
-  endFxPixels(ctx) {
-    const L = this._fxLayer;
+  endFxPixels(ctx, opts) {
+    const L = this[(opts && opts.key) || '_fxLayer'];
     if (!L || !L.open) return;
     L.open = false;
     const { c, g, px, ox, oy, cw, ch } = L;
@@ -8413,7 +8399,7 @@ class IsometricRenderer {
       b.g.drawImage(b.c, 0, 0, hw, hh, 0, 0, qw, qh);
       ctx.globalCompositeOperation = 'lighter';
       ctx.imageSmoothingEnabled = true;
-      ctx.globalAlpha = 0.7;
+      ctx.globalAlpha = (opts && opts.glow) || 0.7;
       ctx.drawImage(b.c, 0, 0, qw, qh, ox - px * 2, oy - px * 2, cw * px + px * 4, ch * px + px * 4);
       ctx.globalAlpha = 1;
     }
@@ -9196,6 +9182,10 @@ class IsometricRenderer {
       this.drawRogueSkill(ctx, fx, progress, alpha, toScreen, z, rgba) ||
       (fx.cardId === 'sp_pyromancer' && this.drawPyromancerSkill(ctx, fx, progress, toScreen, z)) ||
       (fx.cardId === 'sp_cryo_sage' && this.drawCryoSageSkill(ctx, fx, progress, toScreen, z)) ||
+      (fx.cardId === 'sp_frost_templar' && this.drawFrostTemplarSkill && this.drawFrostTemplarSkill(ctx, fx, progress, toScreen, z)) ||
+      (fx.cardId === 'sp_dragoon' && this.drawDragoonSkill && this.drawDragoonSkill(ctx, fx, progress, toScreen, z)) ||
+      (fx.cardId === 'sp_runeknight' && this.drawRuneKnightSkill && this.drawRuneKnightSkill(ctx, fx, progress, toScreen, z)) ||
+      (fx.cardId === 'sp_gravelord' && this.drawGravelordSkill && this.drawGravelordSkill(ctx, fx, progress, toScreen, z)) ||
       (fx.cardId === 'sp_tempest' && this.drawTempestSkill(ctx, fx, progress, toScreen, z)) ||
       (fx.cardId === 'sp_dread_lord' && this.drawDreadLordSkill(ctx, fx, progress, toScreen, z))) {
       ctx.restore();
@@ -10689,478 +10679,90 @@ class IsometricRenderer {
     return { half, angle: (fx.side || 1) * (-half + 2 * half * eased), eased };
   }
 
-  // The slash of a plain swing: an upright crescent of light cut out of the character toward the
-  // facing direction. It leaves the chest, tilted like a diagonal cut (the tilt flips with each
-  // combo hit), sharpens as it travels, drags a streak behind it and sheds sparks off its edge.
-  drawSlashWave(ctx, fx, progress, o) {
-    const { screen, base, side, fade, outerR, col, rgba, z } = o;
-    const clamp01 = (v) => Math.max(0, Math.min(1, v));
-    const easeOut = (t) => 1 - Math.pow(1 - clamp01(t), 3);
-    const px = Math.max(2, Math.round(z * 1.1));
-    // screen direction of the cut (the ground plane is squashed, so the facing is too)
-    let dx = Math.cos(base), dy = Math.sin(base) * 0.55;
-    const dl = Math.hypot(dx, dy) || 1; dx /= dl; dy /= dl;
-    const chest = { x: screen.x, y: screen.y - 16 * z };
-    const reach = outerR * (fx.finisher ? 1.05 : 0.9);
-    const tilt = side * (fx.finisher ? 0.35 : 0.6);                        // diagonal cut; the other combo hit tilts the other way
-    const ang = Math.atan2(dy, dx) + Math.PI / 2 + tilt;                  // the crescent's chord, across the cut
-    const ux = Math.cos(ang), uy = Math.sin(ang);
-    const grow = easeOut(progress / 0.22);
-    const chordHalf = reach * (fx.finisher ? 0.5 : 0.42) * (0.35 + 0.65 * grow);
-    const thickMax = chordHalf * (fx.finisher ? 0.5 : 0.36);
-
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.lineCap = 'round';
-    const at = (age) => {                                                  // where the crescent was `age` ago
-      const t = easeOut((progress - age) / 0.62);
-      const travel = reach * (0.12 + 0.88 * t);
-      return { cx: chest.x + dx * travel, cy: chest.y + dy * travel, t };
-    };
-    // the crescent: outer edge bulges forward, inner edge follows it back, both pinched at the tips
-    const crescent = (cx, cy, half, thick, bulge) => {
-      const p1 = { x: cx - ux * half, y: cy - uy * half }, p2 = { x: cx + ux * half, y: cy + uy * half };
-      ctx.beginPath();
-      ctx.moveTo(p1.x, p1.y);
-      ctx.quadraticCurveTo(cx + dx * bulge * 2, cy + dy * bulge * 2, p2.x, p2.y);               // outer edge
-      ctx.quadraticCurveTo(cx + dx * (bulge - thick) * 2, cy + dy * (bulge - thick) * 2, p1.x, p1.y); // inner edge
-      ctx.closePath();
-      return { p1, p2 };
-    };
-
-    // motion streak: fainter, thinner copies trailing back toward the character
-    for (let g = 4; g >= 1; g--) {
-      const a = at(g * 0.045);
-      if (a.t <= 0) continue;
-      const half = chordHalf * (1 - g * 0.08);
-      crescent(a.cx, a.cy, half, thickMax * (1 - g * 0.18), half * 0.6);
-      ctx.fillStyle = rgba(col.glow, fade * (0.2 - g * 0.04));
-      ctx.fill();
+  // Start a swing's smear. One hero shows one swing at a time: a new swing clears what is left of
+  // the previous one, so alternating combo swings never overlap into an X.
+  pushSweep(sw) {
+    const list = this.animations.skillEffects;
+    for (let i = list.length - 1; i >= 0; i--) {
+      if (list[i].type === 'sweeping_edge' && list[i].attackerId === sw.attackerId) list.splice(i, 1);
     }
-    // the cut itself
-    const head = at(0);
-    const bulge = chordHalf * 0.6;
-    const { p1, p2 } = crescent(head.cx, head.cy, chordHalf, thickMax, bulge);
-    const tail = side > 0 ? p1 : p2, tip = side > 0 ? p2 : p1;             // the swing travels tail -> tip
-    const grad = ctx.createLinearGradient(tail.x, tail.y, tip.x, tip.y);
-    grad.addColorStop(0, rgba(col.body, fade * 0.15));
-    grad.addColorStop(0.55, rgba(col.body, fade * 0.8));
-    grad.addColorStop(1, rgba(col.edge, fade));
-    ctx.fillStyle = grad;
-    ctx.fill();
-    // hot white edge along the outer curve, with a glow under it
-    const edge = () => {
-      ctx.beginPath();
-      ctx.moveTo(p1.x, p1.y);
-      ctx.quadraticCurveTo(head.cx + dx * bulge * 2, head.cy + dy * bulge * 2, p2.x, p2.y);
-    };
-    edge(); ctx.strokeStyle = rgba(col.glow, fade * 0.7); ctx.lineWidth = 4.5 * px; ctx.stroke();
-    edge(); ctx.strokeStyle = rgba(col.inner || col.edge, fade * 0.95); ctx.lineWidth = 2.2 * px; ctx.stroke();
-    edge(); ctx.strokeStyle = `rgba(255, 255, 255, ${fade})`; ctx.lineWidth = Math.max(1, px); ctx.stroke();
-
-    // a bright flash where the cut leaves the body
-    if (progress < 0.25) {
-      const k = 1 - progress / 0.25;
-      const g = ctx.createRadialGradient(chest.x, chest.y, 1, chest.x, chest.y, 18 * z);
-      g.addColorStop(0, rgba(col.edge, k * 0.9));
-      g.addColorStop(1, rgba(col.glow, 0));
-      ctx.fillStyle = g;
-      ctx.beginPath(); ctx.arc(chest.x, chest.y, 18 * z, 0, Math.PI * 2); ctx.fill();
-    }
-    // sparks flung off the leading edge
-    if (head.t > 0.1 && progress < 0.7) {
-      const n = fx.finisher ? 9 : 6;
-      for (let i = 0; i < n; i++) {
-        const u = (i + 0.5) / n, along = (u - 0.5) * 2 * chordHalf * 0.9;
-        const hz = Math.sin(i * 127.1 + (fx.bornAt || 0) * 0.001) * 43758.5453; const r = hz - Math.floor(hz);
-        const out = (bulge * (1 - Math.pow((along / chordHalf), 2)) * 1.0) + (progress * 18 + r * 10) * z * 0.6;
-        const sx = head.cx + ux * along + dx * out, sy = head.cy + uy * along + dy * out - progress * 6 * z;
-        ctx.fillStyle = rgba(i % 2 ? col.edge : col.glow, fade * (0.9 - progress));
-        ctx.fillRect(Math.round(sx), Math.round(sy), px, px);
-      }
-    }
-    ctx.restore();
+    list.push(sw);
   }
 
-  // A slim ribbon hugging the weapon: it replays the blade's real angles from the last ~150ms,
-  // tapering from a faint tail to a bright, sharp leading edge at the tip, with a few sparks.
-  drawBladeTrail(ctx, fx, bl, o) {
-    const { now, z, fade, col, rgba } = o;
-    const h = bl.hist;
-    if (!h || h.length < 2 || h[h.length - 1].hx === undefined) return;
-    // newest samples that kept turning one way (a wind-up turning back is skipped)
-    const pts = [h[h.length - 1]];
-    let dir = 0;
-    for (let i = h.length - 2; i >= 0; i--) {
-      const d = pts[0].a - h[i].a;
-      if (Math.abs(d) < 1e-4) continue;
-      if (dir && Math.sign(d) !== dir) break;
-      dir = Math.sign(d);
-      if (now - h[i].t > 190 || h[i].hx === undefined) break;
-      pts.unshift(h[i]);
-    }
-    if (pts.length < 2) return;
-    // the blade's true swept surface. Sprite frames are sparse, so turn the blade through the gap
-    // (hand slides, angle and length ease) instead of cutting a straight chord between tips.
-    const ox = bl.x, oy = bl.y;                                // the hero's current spot (the trail rides along)
-    const lenOf = (p) => Math.hypot(p.tx - p.hx, p.ty - p.hy);
-    const ease = (u) => u * u * (3 - 2 * u);
-    let path = [];
-    for (let i = 0; i < pts.length - 1; i++) {
-      const A = pts[i], B = pts[i + 1];
-      const steps = Math.max(2, Math.ceil(Math.abs(B.a - A.a) / 0.1));
-      for (let s = 0; s < steps; s++) {
-        const u = s / steps, e = ease(u);
-        const hx = A.hx + (B.hx - A.hx) * u, hy = A.hy + (B.hy - A.hy) * u;
-        const ang = A.a + (B.a - A.a) * e, L = lenOf(A) + (lenOf(B) - lenOf(A)) * u;
-        path.push({ t: A.t + (B.t - A.t) * u, a: ang, hx, hy, tx: hx + Math.cos(ang) * L, ty: hy + Math.sin(ang) * L });
-      }
-    }
-    const last = pts[pts.length - 1];
-    path.push({ t: last.t, a: last.a, hx: last.hx, hy: last.hy, tx: last.tx, ty: last.ty });
-    // never wrap into a ring: keep only the newest ~100 degrees of the swing
-    const MAX_SPAN = 1.75;
-    const headA = path[path.length - 1].a;
-    let cut = 0;
-    while (cut < path.length - 2 && Math.abs(headA - path[cut].a) > MAX_SPAN) cut++;
-    path = path.slice(cut);
-    if (path.length < 2) return;
-    const spanA = Math.max(0.01, Math.abs(headA - path[0].a));
-    const px = Math.max(2, Math.round(z));
-    const n = path.length - 1;
-    const ageFade = (t) => Math.max(0, 1 - (now - t) / 190);
-    // point along hand -> tip (f = 0 hand, 1 tip, >1 past the tip)
-    const on = (p, f) => ({ x: ox + p.hx + (p.tx - p.hx) * f, y: oy + p.hy + (p.ty - p.hy) * f });
-    const BASE = 0.4, TIP = 1.08;
-
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    for (let i = 0; i < n; i++) {
-      const A = path[i], B = path[i + 1];
-      const k = 1 - Math.min(1, Math.abs(headA - B.a) / spanA); // 0 tail .. 1 head, by angle
-      const f = fade * ageFade(B.t) * Math.pow(k, 1.1);
-      if (f <= 0.01) continue;
-      const inner = BASE + (TIP - BASE) * (1 - k) * 0.6;       // the ribbon narrows toward its tail
-      const q = [on(A, TIP), on(B, TIP), on(B, inner), on(A, inner)];
-      ctx.beginPath();
-      ctx.moveTo(q[0].x, q[0].y); ctx.lineTo(q[1].x, q[1].y); ctx.lineTo(q[2].x, q[2].y); ctx.lineTo(q[3].x, q[3].y);
-      ctx.closePath();
-      ctx.fillStyle = rgba(col.body, f * 0.5);
-      ctx.fill();
-      // cutting edge along the tip's path
-      ctx.strokeStyle = rgba(col.edge, f);
-      ctx.lineWidth = Math.max(1, px * (0.5 + 1.3 * k));
-      ctx.beginPath(); ctx.moveTo(q[0].x, q[0].y); ctx.lineTo(q[1].x, q[1].y); ctx.stroke();
-    }
-    // a few sparks at the tip
-    const head = path[path.length - 1], hf = fade * ageFade(head.t);
-    const seed = Math.floor(now / 45);
-    for (let i = 0; i < 3; i++) {
-      const hz = Math.sin((seed + i * 17) * 12.9898) * 43758.5453, r = hz - Math.floor(hz);
-      const tp = on(head, TIP);
-      ctx.fillStyle = rgba(i % 2 ? col.edge : col.glow, hf * (0.9 - r * 0.5));
-      ctx.fillRect(Math.round(tp.x + (r - 0.5) * 14 * z), Math.round(tp.y + (((r * 7) % 1) - 0.5) * 14 * z), px, px);
-    }
-    ctx.restore();
-  }
-
-  // A blade arc drawn flat on the ground plane (iso), sweeping from one side to
-  // the other (fx.side picks which), with a tapering trail behind its edge
+  // A melee swing (warrior / rogue basic attack): SlashFx.crescent, the blade's motion blur at
+  // blade length round the hero's chest, sweeping across the front (left to right or right to
+  // left: combo hits alternate). A finisher reaches a little further with a faint second smear;
+  // a rogue's off-hand cuts a second, parallel stroke the same way. Mages cast, they don't swing.
   drawSweepSlash(ctx, fx, progress) {
-    const screen = Isometric.worldToScreen(fx.x, fx.y, 0.35, this.camera, this.viewW, this.viewH);
+    if (fx.class === 'mage' || !window.SlashFx) return;
+    // follow the hero if it moves mid-swing
+    const pl = fx.attackerId && this.lastGameState && this.lastGameState.players ? this.lastGameState.players.find(p => p.id === fx.attackerId) : null;
+    const wx = pl && !isNaN(pl.x) ? pl.x : fx.x, wy = pl && !isNaN(pl.y) ? pl.y : fx.y;
+    const screen = Isometric.worldToScreen(wx, wy, 0.85, this.camera, this.viewW, this.viewH);   // waist height
     if (isNaN(screen.x) || isNaN(screen.y)) return;
     const z = this.camera.zoom;
     const FACING = { E: 0, SE: 0.25, S: 0.5, SW: 0.75, W: 1, NW: -0.75, N: -0.5, NE: -0.25 };
-    const base = (FACING[fx.facing] !== undefined ? FACING[fx.facing] : 0.25) * Math.PI;
-    const now = performance.now();
-    if (fx.bornAt === undefined) fx.bornAt = now;
-    // a pixel hero's swing comes out of the weapon: the cleave's true cone (facing,
-    // arc, reach) laid on the ground round the gripping hand, filled from the blade out
-    if (fx.blade && fx.blade.hist.length && (fx.onBlade || now - fx.blade.at < 250)) fx.onBlade = true;
-    const bl = fx.onBlade ? fx.blade : null;
-    const side = fx.side || 1;
-    const { half, angle: head, eased } = this.sweepHead(fx, progress);
-    // a slim, quick arc (the hits themselves carry the impact); other heroes' swings
-    // are drawn fainter so a busy fight stays readable
+    const dir = (FACING[fx.facing] !== undefined ? FACING[fx.facing] : 0.25) * Math.PI;
+    // other heroes' swings are fainter so a busy fight stays readable
     const mine = !fx.attackerId || fx.attackerId === this.localPlayerId;
-    const fade = (progress < 0.4 ? 1 : Math.max(0, 1 - (progress - 0.4) / 0.35)) * (mine ? 1 : 0.45);
-    // a world circle of r tiles is r * 32√2 px wide on screen (the frame below squashes y)
-    const outerR = (fx.reachTiles ? fx.reachTiles * 32 * Math.SQRT2 : (fx.radius || 2.2) * 22) * z * (0.88 + 0.12 * eased);
-    const thick = outerR * (fx.reachTiles ? (fx.finisher ? 0.24 : 0.18) : (fx.finisher ? 0.36 : 0.28));
-    // The arc is anchored where the swing started (the gripping hand's spot at the first frame) and
-    // stays put while the blade travels through it, like a slash hanging in the air, instead of
-    // following the moving hand on an invisible string.
-    if (bl && !fx.pivot) fx.pivot = { x: bl.px, y: bl.py };
-    const pivot = fx.pivot || (bl ? { x: bl.px, y: bl.py } : screen);
-    if (bl) {
-      const a = head + base;
-      fx.headPt = { x: pivot.x + Math.cos(a) * outerR, y: pivot.y + Math.sin(a) * outerR * 0.55 };
-    }
-
-    const SWEEP_THEMES = {
-      // Warrior SP Cards
-      sp_crusader: { body: [245, 158, 11], edge: [255, 255, 255], glow: [253, 224, 71], inner: [254, 240, 138] }, // Golden Holy Sun
-      sp_berserker: { body: [220, 38, 38], edge: [254, 202, 202], glow: [239, 68, 68], inner: [249, 115, 22] }, // Crimson Magma Bleed
-      sp_frost_templar: { body: [14, 165, 233], edge: [240, 249, 255], glow: [103, 232, 249], inner: [186, 230, 253] }, // Glacial Steel
-      sp_storm_herald: { body: [234, 179, 8], edge: [254, 252, 232], glow: [250, 204, 21], inner: [253, 224, 71] }, // Electric Thunder
-      sp_dread_lord: { body: [107, 33, 168], edge: [245, 208, 254], glow: [168, 85, 247], inner: [192, 132, 252] }, // Abyssal Void Violet
-
-      // Rogue SP Cards
-      sp_nightblade: { body: [76, 29, 149], edge: [233, 213, 255], glow: [147, 51, 234], inner: [168, 85, 247] }, // Dark Umbral Shroud
-      sp_venom_lord: { body: [22, 163, 74], edge: [240, 253, 244], glow: [74, 222, 128], inner: [134, 239, 172] }, // Virulent Acid Green
-      sp_blade_dancer: { body: [234, 179, 8], edge: [255, 255, 255], glow: [253, 224, 71], inner: [250, 204, 21] }, // Blinding Plasma Flash
-      sp_frost_shade: { body: [6, 182, 212], edge: [240, 253, 250], glow: [103, 232, 249], inner: [165, 243, 252] }, // Frost Phantom Shard
-      sp_eclipse_reaper: { body: [91, 33, 182], edge: [237, 233, 254], glow: [139, 92, 246], inner: [167, 139, 250] }, // Void Eclipse Scythe
-
-      // Mage SP Cards
-      sp_pyromancer: { body: [234, 88, 12], edge: [255, 237, 213], glow: [249, 115, 22], inner: [251, 146, 60] },
-      sp_cryo_sage: { body: [8, 145, 178], edge: [236, 254, 255], glow: [103, 232, 249], inner: [165, 243, 252] },
-      sp_tempest: { body: [202, 138, 4], edge: [254, 252, 232], glow: [250, 204, 21], inner: [253, 224, 71] },
-      sp_chronomancer: { body: [217, 119, 6], edge: [254, 249, 195], glow: [253, 224, 71], inner: [254, 240, 138] },
-      sp_void_archon: { body: [109, 40, 217], edge: [245, 208, 254], glow: [192, 132, 252], inner: [216, 180, 254] }
+    // a world circle of r tiles is r * 32 * sqrt2 px wide on screen (the crescent squashes y)
+    // the blade's reach from the body (about a tile and a quarter), not the whole cleave area
+    const tile = 32 * Math.SQRT2 * z;
+    const R = tile * (fx.finisher ? 1.45 : 1.25) * (fx.class === 'rogue' ? 0.92 : 1);
+    const half = fx.halfArc || (fx.finisher ? SWEEP_HALF_ARC_FINISHER : SWEEP_HALF_ARC);
+    const o = {
+      x: screen.x, y: screen.y, dir, squash: 0.5, R, W: R * 0.24, half,
+      side: fx.side || 1, p: progress, col: this.swingColors(fx.cardId, fx.class, fx.finisher),
+      alpha: mine ? 1 : 0.45, z, finisher: !!fx.finisher
     };
+    SlashFx.crescent(ctx, o);
+    if (fx.class === 'rogue') SlashFx.crescent(ctx, { ...o, y: o.y + 5 * z, R: R * 0.84, W: o.W * 0.75, delay: 0.14, alpha: o.alpha * 0.75 });
+    if (fx.finisher) SlashFx.crescent(ctx, { ...o, R: R * 1.12, W: o.W * 0.6, delay: 0.08, alpha: o.alpha * 0.5 });
+  }
 
-    let col;
-    if (fx.cardId && SWEEP_THEMES[fx.cardId]) {
-      col = SWEEP_THEMES[fx.cardId];
-    } else if (fx.class === 'rogue') {
-      col = fx.finisher
-        ? { body: [109, 40, 217], edge: [237, 233, 254], glow: [139, 92, 246], inner: [45, 212, 191] }
-        : { body: [13, 148, 136], edge: [204, 251, 241], glow: [45, 212, 191], inner: [139, 92, 246] };
-    } else if (fx.class === 'mage') {
-      col = { body: [249, 115, 22], edge: [254, 240, 138], glow: [253, 224, 71], inner: [255, 255, 255] };
-    } else {
-      col = fx.finisher
-        ? { body: [251, 191, 36], edge: [255, 251, 235], glow: [253, 224, 71], inner: [254, 240, 138] }
-        : { body: [56, 189, 248], edge: [255, 255, 255], glow: [186, 230, 253], inner: [125, 211, 252] };
-    }
-    const rgba = (c, a) => `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${Math.max(0, Math.min(1, a))})`;
+  // Swing and hit colours { core, body, glow } (rgb) for a class, or an SP card's theme
+  swingColors(cardId, cls, finisher) {
+    const CARD = {
+      sp_crusader: [[254, 240, 138], [245, 158, 11]], sp_berserker: [[248, 113, 113], [220, 38, 38]],
+      sp_frost_templar: [[103, 232, 249], [14, 165, 233]], sp_storm_herald: [[250, 204, 21], [202, 138, 4]],
+      sp_dread_lord: [[192, 132, 252], [107, 33, 168]], sp_nightblade: [[168, 85, 247], [76, 29, 149]],
+      sp_venom_lord: [[74, 222, 128], [22, 163, 74]], sp_blade_dancer: [[253, 224, 71], [234, 179, 8]],
+      sp_frost_shade: [[103, 232, 249], [6, 182, 212]], sp_eclipse_reaper: [[167, 139, 250], [91, 33, 182]],
+      sp_pyromancer: [[251, 146, 60], [234, 88, 12]], sp_cryo_sage: [[165, 243, 252], [8, 145, 178]],
+      sp_tempest: [[253, 224, 71], [202, 138, 4]], sp_chronomancer: [[254, 240, 138], [217, 119, 6]],
+      sp_void_archon: [[216, 180, 254], [109, 40, 217]]
+    };
+    const white = [255, 255, 255];
+    if (cardId && CARD[cardId]) return { core: white, body: CARD[cardId][0], glow: CARD[cardId][1] };
+    // plain swings read as light on steel: cool silver, warm gold on a finisher
+    if (cls === 'rogue') return finisher
+      ? { core: white, body: [214, 200, 255], glow: [140, 110, 255] }
+      : { core: white, body: [196, 255, 240], glow: [70, 200, 180] };
+    if (cls === 'mage') return { core: [255, 247, 237], body: [255, 196, 140], glow: [234, 120, 40] };
+    return finisher
+      ? { core: [255, 250, 235], body: [255, 214, 140], glow: [255, 160, 50] }
+      : { core: white, body: [205, 228, 255], glow: [110, 160, 255] };
+  }
 
-    // A plain class swing draws no arc at all (hits still burst); only SP card swings keep their
-    // themed arc (drawSweepAccent decorates that arc)
-    // Warrior / rogue basic swings: a tight ribbon that follows the real blade, no big ground arc
-    if (!fx.cardId) {
-      if (fx.class !== 'mage' && bl) this.drawBladeTrail(ctx, fx, bl, { now, z, fade, col, rgba });
-      return;
-    }
-    // SP card swings draw no arc either (hit bursts and card particles still play)
-    return;
-
-    // trail runs from the start of the swing (or a fixed length behind) to the head
-    const startA = -side * half;
-    const trailLen = 2 * half * (fx.finisher ? 0.95 : 0.8);
-    const fromA = side > 0 ? Math.max(startA, head - trailLen) : Math.min(startA, head + trailLen);
-    const span = Math.abs(head - fromA);
-    if (span < 0.01) return;
-
-    ctx.save();
-    ctx.translate(pivot.x, pivot.y);
-    ctx.scale(1, 0.55);          // lay the arc on the ground plane
-    ctx.rotate(base);
-    ctx.globalCompositeOperation = 'lighter';
-
-    const px = Math.max(2, Math.round(z));
-
-    // --- Option 3: Classic Ragnarok Online Chunky Pixel Slash ---
-    // 1. Layered Stepped Pixelated Crescent (16-bit angular ribbon plates)
-    const N = fx.finisher ? 22 : 16;
-    for (let i = 0; i < N; i++) {
-      const k0 = i / N, k1 = (i + 1) / N;
-      const kMid = (k0 + k1) * 0.5;
-      const a0 = fromA + (head - fromA) * k0, a1 = fromA + (head - fromA) * k1;
-
-      // Authentic RO crescent thickness profile: thickest in 70%-85% power band, tapering at tail and head
-      // a real blade trail: hair-thin where the swing began, fullest behind the edge, then a sharp point
-      const profile = k1 < 0.78 ? Math.pow(k1 / 0.78, 0.9) : Math.max(0, 1 - Math.pow((k1 - 0.78) / 0.22, 1.4));
-      const w = thick * (0.06 + 1.0 * profile);
-      // the tip path bends out as the swing commits (wind-up close to the body, full reach at the cut)
-      const rOut = outerR * (0.8 + 0.2 * Math.pow(k1, 0.7));
-      const rIn = Math.max(0, rOut - w);
-
-      // Deep outer silhouette & glow plate
-      ctx.fillStyle = rgba(col.glow, fade * (0.16 + 0.44 * kMid * kMid));
-      ctx.beginPath();
-      ctx.arc(0, 0, rOut + 2 * px, a0, a1, side < 0);
-      ctx.arc(0, 0, Math.max(0, rIn - 2 * px), a1, a0, side > 0);
-      ctx.closePath();
-      ctx.fill();
-
-      // Main saturated pixel body plate
-      ctx.fillStyle = rgba(col.body, fade * (0.3 + 0.7 * kMid));
-      ctx.beginPath();
-      ctx.arc(0, 0, rOut, a0, a1, side < 0);
-      ctx.arc(0, 0, rIn, a1, a0, side > 0);
-      ctx.closePath();
-      ctx.fill();
-
-      // Incandescent blade core (white-hot razor edge spine)
-      const rCore = rOut - w * 0.28;
-      ctx.strokeStyle = rgba(col.inner || col.edge, fade * (0.55 + 0.45 * kMid));
-      ctx.lineWidth = (fx.finisher ? 3.5 : 2.2) * px;
-      ctx.beginPath();
-      ctx.arc(0, 0, rCore, a0, a1, side < 0);
-      ctx.stroke();
-
-      ctx.strokeStyle = `rgba(255, 255, 255, ${fade * (0.45 + 0.55 * kMid)})`;
-      ctx.lineWidth = Math.max(1, px);
-      ctx.beginPath();
-      ctx.arc(0, 0, rCore, a0, a1, side < 0);
-      ctx.stroke();
-
-      // Retro Dithered Dissolve at the Tail (kMid < 0.38)
-      if (kMid < 0.38 && i % 2 === 0) {
-        const dAng = a0;
-        const dR = rOut - w * 0.4;
-        const dx = Math.cos(dAng) * dR, dy = Math.sin(dAng) * dR;
-        ctx.fillStyle = rgba(col.glow, fade * 0.6);
-        ctx.fillRect(dx - px, dy - px, px * 2, px * 2);
-        ctx.fillStyle = rgba(col.edge, fade * 0.85);
-        ctx.fillRect(dx, dy, px, px);
+  // Hit sparks (SlashFx.impact) on every enemy a swing hit, drawn over the battlefield
+  drawHitBursts(ctx) {
+    const list = this.hitBursts;
+    if (!list || !list.length || !window.SlashFx) return;
+    const now = performance.now(), z = this.camera.zoom;
+    for (let i = list.length - 1; i >= 0; i--) {
+      const b = list[i];
+      const p = (now - b.at) / b.life;
+      if (p >= 1) { list.splice(i, 1); continue; }
+      const sc = Isometric.worldToScreen(b.x, b.y, 0.55, this.camera, this.viewW, this.viewH);
+      if (isNaN(sc.x) || isNaN(sc.y)) continue;
+      // sparks fly on in the direction the blow travelled (attacker -> target, on screen)
+      let dir;
+      if (b.fx !== undefined) {
+        const from = Isometric.worldToScreen(b.fx, b.fy, 0.55, this.camera, this.viewW, this.viewH);
+        dir = Math.atan2(sc.y - from.y, sc.x - from.x);
       }
-
-      // Stepped Pixel Teeth on Outer Rim (Authentic retro pixel staircase effect)
-      if (kMid > 0.32 && i % 2 === 1) {
-        const tAng = a1;
-        const tx = Math.cos(tAng) * (rOut + px * 0.5), ty = Math.sin(tAng) * (rOut + px * 0.5);
-        ctx.fillStyle = rgba(col.edge, fade * 0.85);
-        ctx.fillRect(tx - px * 0.5, ty - px * 0.5, px * 1.5, px * 1.5);
-      }
+      SlashFx.impact(ctx, { x: sc.x, y: sc.y, size: (b.crit ? 15 : 11) * b.big * z, p, col: b.col, seed: b.seed, crit: b.crit, dir });
     }
-
-    // Rogue Dual-Wield Off-Hand Dagger Secondary Razor Slice
-    if (fx.class === 'rogue' && !fx.finisher) {
-      const offR = outerR * 0.82;
-      const offThick = thick * 0.65;
-      const offFromA = fromA + (head - fromA) * 0.15;
-      const offHead = head - (head - fromA) * 0.06;
-      const offN = 10;
-      for (let j = 0; j < offN; j++) {
-        const ok0 = j / offN, ok1 = (j + 1) / offN;
-        const oa0 = offFromA + (offHead - offFromA) * ok0, oa1 = offFromA + (offHead - offFromA) * ok1;
-        const ow = offThick * (0.25 + 0.75 * ok1);
-        ctx.fillStyle = rgba(col.body, fade * 0.35 * ok1);
-        ctx.beginPath();
-        ctx.arc(0, 0, offR, oa0, oa1, side < 0);
-        ctx.arc(0, 0, Math.max(0, offR - ow), oa1, oa0, side > 0);
-        ctx.closePath();
-        ctx.fill();
-      }
-      ctx.strokeStyle = rgba(col.edge, fade * 0.75);
-      ctx.lineWidth = Math.max(1, px);
-      ctx.beginPath();
-      ctx.arc(0, 0, offR - offThick * 0.3, offFromA, offHead, side < 0);
-      ctx.stroke();
-    }
-
-    // Rogue Finisher: Dual Scissor X-Cross Execution Slice
-    if (fx.class === 'rogue' && fx.finisher) {
-      const crossFromA = -fromA;
-      const crossHead = -head;
-      const crossN = 12;
-      for (let j = 0; j < crossN; j++) {
-        const ck0 = j / crossN, ck1 = (j + 1) / crossN;
-        const ca0 = crossFromA + (crossHead - crossFromA) * ck0, ca1 = crossFromA + (crossHead - crossFromA) * ck1;
-        const cw = thick * (0.2 + 0.8 * ck1);
-        ctx.fillStyle = rgba(col.body, fade * 0.45 * ck1);
-        ctx.beginPath();
-        ctx.arc(0, 0, outerR * 0.95, ca0, ca1, side > 0);
-        ctx.arc(0, 0, Math.max(0, outerR * 0.95 - cw), ca1, ca0, side < 0);
-        ctx.closePath();
-        ctx.fill();
-      }
-      ctx.strokeStyle = `rgba(255, 255, 255, ${fade * 0.85})`;
-      ctx.lineWidth = 1.8 * px;
-      ctx.beginPath();
-      ctx.arc(0, 0, outerR * 0.95 - thick * 0.25, crossFromA, crossHead, side > 0);
-      ctx.stroke();
-    }
-
-    // Mage Concentric Pulsating Celestial Wave Rings
-    if (fx.class === 'mage') {
-      const pulseCount = 3;
-      for (let p = 0; p < pulseCount; p++) {
-        const ringProg = ((progress * 3.0 + p * 0.33) % 1.0);
-        const ringR = outerR * (0.35 + 0.65 * ringProg);
-        const ringAlpha = fade * (1.0 - ringProg) * 0.6;
-        ctx.strokeStyle = rgba(col.glow, ringAlpha);
-        ctx.lineWidth = Math.max(1, px * (1.5 - ringProg));
-        ctx.beginPath();
-        ctx.arc(0, 0, ringR, fromA, head, side < 0);
-        ctx.stroke();
-      }
-    }
-
-    // 2. Chunky Square Pixel Sparks Ejected Along the Arc Tangent
-    const sparkCount = fx.finisher ? 12 : 8;
-    for (let s = 0; s < sparkCount; s++) {
-      const sSeed = ((s * 7919 + (fx.bornAt || 0) * 0.05) % 1000) / 1000;
-      const sProg = (progress * 2.2 + sSeed) % 1.0;
-      if (sProg > 0.85) continue;
-      const sAng = fromA + (head - fromA) * (0.25 + 0.75 * sSeed);
-      const tang = sAng + (side > 0 ? 0.35 : -0.35);
-      const dist = outerR + sProg * (18 + sSeed * 32) * z;
-      const spx = Math.cos(tang) * dist;
-      const spy = Math.sin(tang) * dist;
-      const spA = fade * (1.0 - sProg);
-      const spSize = (sSeed > 0.55 ? 2 : 1) * px;
-
-      ctx.fillStyle = rgba(col.glow, spA * 0.85);
-      ctx.fillRect(spx - spSize, spy - spSize, spSize * 2, spSize * 2);
-      ctx.fillStyle = rgba(col.edge || [255, 255, 255], spA);
-      ctx.fillRect(spx - Math.floor(px * 0.5), spy - Math.floor(px * 0.5), px, px);
-    }
-
-    // 3. Leading Blade Head / Flared Pixel Starburst Tip
-    if (eased < 1) {
-      const hx = Math.cos(head) * (outerR - thick * 0.25);
-      const hy = Math.sin(head) * (outerR - thick * 0.25);
-
-      // White-hot core diamond plate
-      ctx.fillStyle = `rgba(255, 255, 255, ${fade})`;
-      ctx.fillRect(hx - px * 1.5, hy - px * 1.5, px * 3, px * 3);
-
-      // Extended cross beams
-      ctx.fillStyle = rgba(col.edge, fade * 0.95);
-      ctx.fillRect(hx - px * 4, hy - px * 0.75, px * 8, px * 1.5);
-      ctx.fillRect(hx - px * 0.75, hy - px * 4, px * 1.5, px * 8);
-
-      // Diagonal pixel glints
-      ctx.fillStyle = rgba(col.inner || col.glow, fade * 0.8);
-      ctx.fillRect(hx - px * 2.5, hy - px * 2.5, px * 1.2, px * 1.2);
-      ctx.fillRect(hx + px * 1.3, hy - px * 2.5, px * 1.2, px * 1.2);
-      ctx.fillRect(hx - px * 2.5, hy + px * 1.3, px * 1.2, px * 1.2);
-      ctx.fillRect(hx + px * 1.3, hy + px * 1.3, px * 1.2, px * 1.2);
-
-      // Flared blade fang wing (angled back against swing)
-      const wingA = head - side * 0.4;
-      const wx = hx + Math.cos(wingA) * px * 3;
-      const wy = hy + Math.sin(wingA) * px * 3;
-      ctx.fillStyle = rgba(col.edge, fade * 0.9);
-      ctx.fillRect(wx - px, wy - px, px * 2, px * 2);
-    }
-
-    // 4. Finisher: Stepped Octagonal / Diamond Pixel Shock Ring
-    if (fx.finisher && progress > 0.38) {
-      const ringProg = (progress - 0.38) / 0.62;
-      const r = outerR * (1 + ringProg * 0.95);
-      const ringFade = (1 - ringProg) * 0.85;
-      const ringSteps = 16;
-      ctx.fillStyle = rgba(col.glow, ringFade);
-      for (let s = 0; s < ringSteps; s++) {
-        const ra0 = (s / ringSteps) * Math.PI * 2;
-        const rx = Math.cos(ra0) * r, ry = Math.sin(ra0) * r;
-        ctx.fillRect(rx - px, ry - px, px * 2, px * 2);
-      }
-      ctx.strokeStyle = rgba(col.edge, ringFade);
-      ctx.lineWidth = 2 * px;
-      ctx.beginPath();
-      ctx.arc(0, 0, r, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-    this.drawSweepAccent(ctx, fx, { outerR, thick, head, fromA, fade, eased, z });
-    ctx.restore();
   }
 
   // World offset of a point on the sweep arc (for sparks thrown off the edge)
@@ -11183,7 +10785,7 @@ class IsometricRenderer {
       const bl = fx.onBlade ? fx.blade : null;
       const p = bl && fx.headPt
         ? Isometric.screenToWorld(fx.headPt.x, fx.headPt.y, this.camera, this.viewW, this.viewH)
-        : this.sweepPointWorld(fx, angle, fx.reachTiles ? fx.reachTiles * 32 * Math.SQRT2 : (fx.radius || 2.2) * 22);
+        : this.sweepPointWorld(fx, angle, 32 * Math.SQRT2 * (fx.finisher ? 1.45 : 1.25));
       const cardId = fx.cardId;
       let pType = fx.class === 'rogue' ? 'slash' : fx.class === 'mage' ? 'arcane' : 'spark';
       if (cardId === 'sp_berserker' || cardId === 'sp_pyromancer') pType = 'fire';
@@ -11613,7 +11215,53 @@ class IsometricRenderer {
     ctx.setLineDash([]);
   }
 
+  // ---- profiler: Ctrl+Shift+P toggles an overlay with the cost of each render pass
+  // (rolling average over ~1s) plus entity / effect / particle counts. Off, it costs nothing.
+  perfMark(name) {
+    const P = this.perf;
+    if (!P || !P.on) return;
+    const now = performance.now();
+    if (P.last !== undefined && P.pass) P.cur[P.pass] = (P.cur[P.pass] || 0) + (now - P.last);
+    P.pass = name; P.last = now;
+  }
+
+  perfToggle(on) {
+    if (!this.perf) this.perf = { on: false, cur: {}, avg: {}, frames: 0, acc: 0, frameMs: 0, lastTs: 0 };
+    this.perf.on = on === undefined ? !this.perf.on : !!on;
+    this.perf.cur = {}; this.perf.avg = {}; this.perf.frames = 0; this.perf.pass = null;
+    return this.perf.on;
+  }
+
+  perfEnd(ctx, counts) {
+    const P = this.perf;
+    if (!P || !P.on) return;
+    this.perfMark(null);
+    const ts = performance.now();
+    if (P.lastTs) P.frameMs += ts - P.lastTs;
+    P.lastTs = ts;
+    P.frames++;
+    if (P.frames >= 60) {
+      for (const k of Object.keys(P.cur)) P.avg[k] = P.cur[k] / P.frames;
+      P.avgFrame = P.frameMs / P.frames;
+      P.cur = {}; P.frames = 0; P.frameMs = 0;
+    }
+    if (!P.avg) return;
+    const rows = Object.entries(P.avg).sort((a, b) => b[1] - a[1]);
+    const lines = ['PERF  (Ctrl+Shift+P to hide)', `frame ${(P.avgFrame || 0).toFixed(1)} ms  ~${Math.round(1000 / Math.max(1, P.avgFrame || 16))} fps`];
+    for (const [k, v] of rows) lines.push(`${k.padEnd(10)} ${v.toFixed(2)} ms`);
+    if (counts) lines.push(counts);
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.font = '12px monospace';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.72)';
+    ctx.fillRect(8, 8, 232, lines.length * 15 + 8);
+    ctx.fillStyle = '#9ef0b0';
+    lines.forEach((l, i) => ctx.fillText(l, 14, 24 + i * 15));
+    ctx.restore();
+  }
+
   render(gameState, localPlayerId, selectedTargetId, dt) {
+    this.perfMark('setup');
     this.lastGameState = gameState;
     this.localPlayerId = localPlayerId;
     this.animations.time += dt;
@@ -11667,6 +11315,7 @@ class IsometricRenderer {
       return;
     }
 
+    this.perfMark('ground');
     // PASS 1: VISIBLE GROUND TILES PASS (Base Terrain Layer)
     // Rendered first so flat ground diamond tiles NEVER clip or cover players or mobs walking over them
     const wallTiles = [];
@@ -11674,6 +11323,7 @@ class IsometricRenderer {
 
     const sealed = this.sealedDoorTiles(map);
     const vis = this.visibleTileBounds(map, w, h, 160);
+    const fieldPainted = this.fieldGroundOn(map, isDungeon) ? (x, y) => window.FieldGround.paintedAt(map, x, y) : null;
     for (let y = vis.y0; y <= vis.y1; y++) {
       for (let x = vis.x0; x <= vis.x1; x++) {
         const tileType = map.tiles[y][x];
@@ -11692,6 +11342,15 @@ class IsometricRenderer {
         // a sealed doorway is floor with a portcullis standing in it instead
         if (isDungeon && tileType === 7) { if (!sealed.has(x + ',' + y)) wallTiles.push({ x, y }); continue; }
         const pal = FIELD_TILE_PALETTE[tileType];
+        // painted field ground: liquids only get a shimmer, the frost pads only their rune glow
+        if (fieldPainted && fieldPainted(x, y)) {
+          if (tileType === 11) animatedTiles.push({ x, y, tileType, depth: x + y, rune: true });
+          else if (window.FieldGround.liquidKind(tileType)) animatedTiles.push({ x, y, tileType, depth: x + y, shimmer: true });
+          else if (pal && OVERLAY_TILE_DETAILS.has(pal.detail)) {
+            if (pal.detail !== 'sparkle' || ((x * 73 + y * 151) % 97) % 3 === 0) animatedTiles.push({ x, y, tileType, depth: x + y, overlay: true });
+          }
+          continue;
+        }
         const overlay = !!(pal && OVERLAY_TILE_DETAILS.has(pal.detail));
         // (matches drawFieldTileDetail: only every third sparkle tile has a sparkle)
         if (overlay && pal.detail === 'sparkle' && ((x * 73 + y * 151) % 97) % 3 !== 0) continue;
@@ -11705,10 +11364,18 @@ class IsometricRenderer {
     animatedTiles.sort((a, b) => a.depth - b.depth);
     ctx.save();
     for (const tile of animatedTiles) {
-      if (tile.overlay) {
+      if (tile.overlay || tile.shimmer || tile.rune) {
         const screen = Isometric.worldToScreen(tile.x, tile.y, 0, this.camera, w, h);
-        const z = this.camera.zoom;
-        this.drawFieldTileDetail(ctx, FIELD_TILE_PALETTE[tile.tileType].detail, screen, (TILE_WIDTH / 2) * z, (TILE_HEIGHT / 2) * z, tile.x, tile.y);
+        const z = this.camera.zoom, hw = (TILE_WIDTH / 2) * z, hh = (TILE_HEIGHT / 2) * z;
+        if (tile.shimmer) this.drawLiquidShimmer(ctx, tile.tileType, screen, hw, hh, tile.x, tile.y);
+        else if (tile.rune) {
+          // Frostfell stone pad: just the pulsing rune ring over the painted flagstones
+          ctx.strokeStyle = `rgba(103, 232, 249, ${0.45 * (Math.sin(this.animations.time * 3 + tile.x + tile.y) * 0.2 + 0.8)})`;
+          ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          ctx.arc(screen.x, screen.y, hw * 0.28, 0, Math.PI * 2);
+          ctx.stroke();
+        } else this.drawFieldTileDetail(ctx, FIELD_TILE_PALETTE[tile.tileType].detail, screen, hw, hh, tile.x, tile.y);
       } else {
         this.drawIsometricTile(ctx, tile.x, tile.y, tile.tileType, true);
       }
@@ -11722,6 +11389,9 @@ class IsometricRenderer {
       this.drawMobSpawnCircles(g || ctx);
       if (g) this.endFxPixels(ctx);
     }
+
+    // Boss attack telegraphs lie on the floor too, under whoever is about to get hit
+    if (this.bossTelegraphs && this.bossTelegraphs.length) this.drawBossTelegraphs(ctx);
 
     // Lightning novas (Thunder Nova, Thunderclap) burst across the floor: drawn here,
     // under the heroes and monsters standing on it, not over them
@@ -11772,11 +11442,12 @@ class IsometricRenderer {
       if (!this.dungeonLife || this.dungeonLife.map !== map) this.dungeonLife = new window.DungeonLife.Atmosphere(map, this.currentTheme);
       dungeonLife = this.dungeonLife;
       dungeonLife.update(dt || 0.016, this);
-      dungeonLife.drawLighting(ctx, this, gameState, localPlayerId);
+      dungeonLife.drawLighting(ctx, this, gameState, localPlayerId, this.lightingMode());
     } else {
       this.dungeonLife = null;
     }
 
+    this.perfMark('entities');
     // PASS 2: ENTITIES, PROPS & 3D DUNGEON WALLS (Depth Sorted with Painter's Algorithm)
     const renderList = [];
 
@@ -11860,6 +11531,14 @@ class IsometricRenderer {
       }
     }
 
+    // 4b. Gravelord undead minions (each hero carries their own)
+    if (gameState.players) {
+      for (const p of gameState.players) {
+        if (!p.minions) continue;
+        for (const m of p.minions) renderList.push({ type: 'minion', data: m, depth: Isometric.getDepth(m.x, m.y, 0, 50) });
+      }
+    }
+
     // 5. Players
     if (gameState.players) {
       for (const player of gameState.players) {
@@ -11891,6 +11570,7 @@ class IsometricRenderer {
     }
 
     // Sort render list from back to front
+    this.perfMark('draw items');
     renderList.sort((a, b) => a.depth - b.depth);
 
     // DRAW ALL DEPTH SORTED OBJECTS
@@ -11938,6 +11618,9 @@ class IsometricRenderer {
           case 'player':
             this.drawPlayer(ctx, item.data, item.isLocal);
             break;
+          case 'minion':
+            this.drawMinion(ctx, item.data);
+            break;
           case 'townsfolk':
             this.drawTownsfolk(ctx, item.data);
             break;
@@ -11952,13 +11635,16 @@ class IsometricRenderer {
     }
     ctx.restore();
 
+    this.perfMark('ambience');
     // Chimney smoke, falling leaves and birds pass over the rooftops
     if (townLife && !this.lowEffects) townLife.drawSky(ctx, this);
     // Low fog and floating dust / embers / spores in the dungeon air
     if (dungeonLife && !this.lowEffects) dungeonLife.drawAmbient(ctx, this);
 
     // DRAW OVERLAYS & EFFECTS (Click Beacon, Particles, Floating Text)
+    this.perfMark('effects');
     this.drawEffects(ctx, dt);
+    this.perfMark('overlays');
     // Eternal Rift build placement ghost (rift.js)
     if (window.RiftUI) window.RiftUI.drawOverlay(ctx, this);
 
@@ -11971,7 +11657,11 @@ class IsometricRenderer {
     }
 
     // RENDER MINIMAP
+    this.perfMark('minimap');
     this.renderMinimap(gameState, localPlayerId);
+    if (this.perf && this.perf.on) {
+      this.perfEnd(ctx, `items ${renderList.length}  fx ${(this.animations.skillEffects || []).length}  parts ${this.animations.particles.length + (this.pxParts ? this.pxParts.length : 0)}`);
+    }
   }
 
   // Draw Screen Vignettes for Player Status Effects
@@ -12023,6 +11713,52 @@ class IsometricRenderer {
     };
   }
 
+  // Field zones get the painted pixel ground (fieldGround.js), except in Potato
+  // mode, which keeps the plain tiles
+  fieldGroundOn(map, isDungeon) {
+    return !isDungeon && !this.potatoMode && this.currentTheme !== 'town' && !!window.FieldGround && window.FieldGround.handles(map);
+  }
+
+  // Over painted field liquids the tile is not repainted each frame; only a
+  // little movement is drawn on top: glints on water, a breathing glow on lava
+  drawLiquidShimmer(ctx, tileType, screen, hw, hh, x, y) {
+    const t = this.animations.time, seed = x * 1.7 + y * 2.3;
+    const pal = FIELD_TILE_PALETTE[tileType];
+    const detail = pal ? pal.detail : (tileType === 10 ? 'ice' : null);
+    ctx.save();
+    if (detail === 'lava') {
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 0.1 + 0.08 * Math.sin(t * 2.2 + seed);
+      ctx.fillStyle = '#fb923c';
+      ctx.beginPath();
+      ctx.ellipse(screen.x, screen.y, hw * 0.8, hh * 0.8, 0, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (detail === 'pool' || detail === 'murk') {
+      // a slow bubble now and then
+      const ph = (t * 0.6 + seed) % 3;
+      if (ph < 1) {
+        ctx.globalAlpha = 0.5 * (1 - ph);
+        ctx.strokeStyle = detail === 'pool' ? '#c4b5fd' : '#86a873';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.ellipse(screen.x + Math.sin(seed) * hw * 0.3, screen.y, 2 + ph * hw * 0.2, 1 + ph * hh * 0.2, 0, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    } else {
+      // water / ice: two short glints that fade in and out
+      const z = this.camera.zoom, p = Math.max(1, Math.round(1.5 * z));
+      ctx.fillStyle = detail === 'ice' ? '#f0fbff' : '#cfeaff';
+      for (let k = 0; k < 2; k++) {
+        const a = Math.sin(t * 1.6 + seed * (k + 1) * 3.1);
+        if (a < 0.4) continue;
+        ctx.globalAlpha = (a - 0.4) * 1.2;
+        const gx = screen.x + Math.sin(seed * 5.3 + k * 2) * hw * 0.5, gy = screen.y + Math.cos(seed * 3.1 + k) * hh * 0.5;
+        ctx.fillRect(Math.round(gx), Math.round(gy), p * 3, p);
+      }
+    }
+    ctx.restore();
+  }
+
   // Paint the static ground into an offscreen canvas a margin larger than the
   // screen and blit it; repaint only when the camera leaves the margin, the
   // zoom or viewport changes, or the map's tiles change (map._tilesVersion).
@@ -12032,15 +11768,32 @@ class IsometricRenderer {
     const zoom = cam.zoom;
     let g = this.groundCache;
     const version = map._tilesVersion || 0;
+    // painted at the canvas buffer's own resolution (renderScale), so the blit
+    // below is 1:1 instead of shrinking a full-size image every frame
+    const bs = this.canvas.width / this.viewW;
     // The town's pixel ground is painted a slice per frame; repaint once it is ready
     const tex = this.currentTheme === 'town' && window.TownLife ? window.TownLife.groundTexture(map) : null;
+    // Field zones: pixel ground painted in chunks around the camera (fieldGround.js);
+    // fieldSig changes whenever a chunk in view has just been finished
+    const field = this.fieldGroundOn(map, isDungeon);
+    let fieldSig = g ? g.fieldSig : 0, fieldNew = false;
+    if (field) {
+      const FG = window.FieldGround, hx = (w / 2 + M) / zoom, hy = (h / 2 + M) / zoom;
+      // a bigger slice while much of the view is still plain tiles (entering a zone)
+      const backlog = FG.pending(map) > 12;
+      fieldSig = FG.pump(map, cam.x - hx, cam.y - hy, cam.x + hx, cam.y + hy, (this.lowEffects ? 3 : 5) * (backlog ? 2 : 1));
+      // new chunks are shown at most ~8 times a second while many are arriving,
+      // so the ground cache is not rebuilt for every single one
+      const now = performance.now();
+      fieldNew = !!g && fieldSig !== g.fieldSig && (!backlog || now - (g.paintedAt || 0) > 120);
+    }
     const stale = !g || g.map !== map || g.theme !== this.currentTheme || g.version !== version || g.zoom !== zoom || g.w !== w || g.h !== h ||
-      g.tex !== tex || Math.abs((g.camX - cam.x) * zoom) > M - 16 || Math.abs((g.camY - cam.y) * zoom) > M - 16;
+      g.tex !== tex || g.bs !== bs || fieldNew || Math.abs((g.camX - cam.x) * zoom) > M - 16 || Math.abs((g.camY - cam.y) * zoom) > M - 16;
     // Mid-zoom on the same map: stretch the last painting rather than repaint
     // every tile each frame (it repaints sharp once the zoom settles)
-    if (stale && !this.zoomSettled && g && g.map === map && g.theme === this.currentTheme && g.w === w && g.h === h) {
+    if (stale && !this.zoomSettled && g && g.map === map && g.theme === this.currentTheme && g.w === w && g.h === h && g.bs === bs) {
       const r = zoom / g.zoom;
-      const cw = g.canvas.width, ch = g.canvas.height;
+      const cw = g.cssW, ch = g.cssH;
       const dx = (g.camX - cam.x) * zoom - (cw / 2) * r + w / 2 + (cam.shakeOffsetX || 0);
       const dy = (g.camY - cam.y) * zoom - (ch / 2) * r + h / 2 + (cam.shakeOffsetY || 0);
       ctx.drawImage(g.canvas, Math.round(dx), Math.round(dy), Math.round(cw * r), Math.round(ch * r));
@@ -12049,14 +11802,19 @@ class IsometricRenderer {
     if (stale) {
       if (!g) g = this.groundCache = { canvas: document.createElement('canvas') };
       g.tex = tex;
+      g.fieldSig = fieldSig;
+      g.paintedAt = performance.now();
       const cw = w + 2 * M, ch = h + 2 * M;
-      if (g.canvas.width !== cw || g.canvas.height !== ch) {
-        g.canvas.width = cw;
-        g.canvas.height = ch;
+      const bw = Math.ceil(cw * bs), bh = Math.ceil(ch * bs);
+      if (g.canvas.width !== bw || g.canvas.height !== bh) {
+        g.canvas.width = bw;
+        g.canvas.height = bh;
       }
       const gctx = g.canvas.getContext('2d');
-      gctx.clearRect(0, 0, cw, ch);
-      Object.assign(g, { map, theme: this.currentTheme, version, zoom, w, h, camX: cam.x, camY: cam.y });
+      gctx.setTransform(1, 0, 0, 1, 0, 0);
+      gctx.clearRect(0, 0, bw, bh);
+      gctx.setTransform(bs, 0, 0, bs, 0, 0);
+      Object.assign(g, { map, theme: this.currentTheme, version, zoom, w, h, bs, cssW: cw, cssH: ch, camX: cam.x, camY: cam.y });
 
       const tiles = [];
       const sealed = this.sealedDoorTiles(map);
@@ -12083,145 +11841,159 @@ class IsometricRenderer {
       // The town's tile tops are replaced by one continuous pixel-art ground
       // (1 texel per screen px at zoom 1); tile side faces stay underneath
       if (tex) {
-        gctx.imageSmoothingEnabled = zoom < 1;
+        gctx.imageSmoothingEnabled = zoom * bs < 1;
         gctx.drawImage(tex.canvas, (tex.minX - cam.x) * zoom + cw / 2, (tex.minY - cam.y) * zoom + ch / 2, tex.canvas.width * zoom, tex.canvas.height * zoom);
+        gctx.imageSmoothingEnabled = true;
+      }
+      // Field zones: the finished ground chunks cover the tile tops the same way
+      if (field) {
+        const hx = cw / 2 / zoom, hy = ch / 2 / zoom;
+        gctx.imageSmoothingEnabled = zoom * bs < 1;
+        for (const c of window.FieldGround.readyChunks(map, cam.x - hx, cam.y - hy, cam.x + hx, cam.y + hy)) {
+          // whole pixels, slightly overlapped, so no hairline seams open between chunks
+          const x0 = Math.floor((c.x - cam.x) * zoom + cw / 2), y0 = Math.floor((c.y - cam.y) * zoom + ch / 2);
+          const sz = Math.ceil(c.canvas.width * zoom) + 1;
+          gctx.drawImage(c.canvas, x0, y0, sz, sz);
+        }
         gctx.imageSmoothingEnabled = true;
       }
     }
     const dx = Math.round((g.camX - cam.x) * zoom - M + (cam.shakeOffsetX || 0));
     const dy = Math.round((g.camY - cam.y) * zoom - M + (cam.shakeOffsetY || 0));
-    ctx.drawImage(g.canvas, dx, dy);
+    ctx.drawImage(g.canvas, dx, dy, g.cssW, g.cssH);
   }
 
-  // Portal gate: a ring of runestones on the ground, an upright swirling
-  // vortex with a bright core, sparkles running round its rim, motes rising
-  // from the base and spiralling in, and a faint column of light above
-  drawPortalGate(ctx, screen, z, accent, second, label, seed) {
+  // Portal gate: a stone arch on a stepped dais (pixelProps.portalGate, the iso
+  // projection the other props use) with a swirling vortex in the plane of the
+  // arch, rune grooves pulsing in the portal's colour, a column of light and
+  // motes rising from the dais into the vortex
+  drawPortalGate(ctx, screen, z, accent, second, label, seed, style = 'arch') {
     const t = this.animations.time + seed;
     const x = Math.round(screen.x), y = Math.round(screen.y);
-    const cy = y - 26 * z;                 // centre of the upright vortex
-    const RX = 15 * z, RY = 24 * z;        // vortex half-width / half-height
+    const P = 1.3 * z;                     // one sprite pixel / model unit on screen
     const px = Math.max(1, Math.round(1.5 * z));
+    // potato: a lighter gate (no light beam, thinner spiral, fewer motes, flat core)
+    const lite = this.potatoMode;
+    // 'arch': the stone gate; 'cave': a tunnel mouth in a rocky mound (the Eternal Rift)
+    const PP = window.PixelProps;
+    const spr = PP ? (style === 'cave' && PP.caveMouth ? PP.caveMouth(accent) : PP.portalGate ? PP.portalGate(accent) : null) : null;
+    const G = spr ? spr.geo : { half: 13, z0: 5, inner: 10.4, top: 34.4 };
+    const V = G.v || 0;            // the vortex plane sits this far toward +y (inside a cave mouth)
+    // model point (u along the arch, w up, v across) -> screen
+    const proj = (u, w, v = 0) => ({ x: x + (u - v) * P, y: y + ((u + v) / 2 - w) * P });
+    const zc = (G.z0 + G.top) / 2, RX = G.inner * 0.94, RZ = (G.top - G.z0) / 2 * 0.95;
+    const pv = (u, w) => proj(u, w, V);   // a point in the vortex plane
     ctx.save();
 
-    // ground: dark basin, glowing pool and the runestone ring
-    ctx.fillStyle = 'rgba(8, 10, 20, 0.75)';
-    ctx.beginPath();
-    ctx.ellipse(x, y, 26 * z, 13 * z, 0, 0, Math.PI * 2);
-    ctx.fill();
+    // soft glow pooled on the ground around the dais
     ctx.globalCompositeOperation = 'lighter';
-    const pool = ctx.createRadialGradient(x, y, 0, x, y, 26 * z);
-    pool.addColorStop(0, hexAlpha(accent, 0.55 + 0.15 * Math.sin(t * 3)));
+    const pool = ctx.createRadialGradient(x, y, 0, x, y, 30 * z);
+    pool.addColorStop(0, hexAlpha(accent, 0.4 + 0.12 * Math.sin(t * 3)));
     pool.addColorStop(1, hexAlpha(accent, 0));
     ctx.fillStyle = pool;
     ctx.save();
     ctx.translate(x, y);
     ctx.scale(1, 0.5);
     ctx.beginPath();
-    ctx.arc(0, 0, 26 * z, 0, Math.PI * 2);
+    ctx.arc(0, 0, 30 * z, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
     ctx.globalCompositeOperation = 'source-over';
-    const STONES = 10;
-    for (let i = 0; i < STONES; i++) {
-      const a = (i / STONES) * Math.PI * 2;
-      const sx = Math.round(x + Math.cos(a) * 24 * z), sy = Math.round(y + Math.sin(a) * 12 * z);
-      const w = 5 * px, h = (Math.sin(a) > 0 ? 5 : 4) * px;
-      ctx.fillStyle = '#1a1c2c';
-      ctx.fillRect(sx - w / 2 - px, sy - h - px, w + 2 * px, h + 2 * px);
-      ctx.fillStyle = '#566c86';
-      ctx.fillRect(sx - w / 2, sy - h, w, h);
-      ctx.fillStyle = '#94b0c2';
-      ctx.fillRect(sx - w / 2, sy - h, w, px);
-      // rune lights chase round the ring
-      const lit = 0.5 + 0.5 * Math.sin(t * 4 - i * 0.9);
-      ctx.fillStyle = hexAlpha(i % 2 ? second : accent, 0.35 + 0.65 * lit);
-      ctx.fillRect(sx - px, sy - h + px, 2 * px, 2 * px);
+
+    // the stone gate, and its runes glowing in a slow pulse
+    if (spr) {
+      const x0 = Math.round(x - spr.ax * P), y0 = Math.round(y - spr.ay * P);
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(spr.img, x0, y0, spr.img.width * P, spr.img.height * P);
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 0.55 + 0.45 * (0.5 + 0.5 * Math.sin(t * 3));
+      ctx.drawImage(spr.glow, x0, y0, spr.glow.width * P, spr.glow.height * P);
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = 'source-over';
     }
 
     // column of light rising out of the gate
     ctx.globalCompositeOperation = 'lighter';
-    const beam = ctx.createLinearGradient(0, cy, 0, cy - 70 * z);
-    beam.addColorStop(0, hexAlpha(accent, 0.28));
-    beam.addColorStop(1, hexAlpha(accent, 0));
-    ctx.fillStyle = beam;
-    ctx.fillRect(x - 9 * z, cy - 70 * z, 18 * z, 70 * z);
+    const c = pv(0, zc);
+    if (!lite) {
+      const top = proj(0, G.top + 30);
+      const beam = ctx.createLinearGradient(0, c.y, 0, top.y);
+      beam.addColorStop(0, hexAlpha(accent, 0.22));
+      beam.addColorStop(1, hexAlpha(accent, 0));
+      ctx.fillStyle = beam;
+      ctx.fillRect(c.x - 8 * z, top.y, 16 * z, c.y - top.y);
+    }
 
-    // the vortex: soft fill, three spiral arms, bright core
+    // the vortex, drawn in the arch's own plane: (u, w) -> screen is a shear
     ctx.save();
-    ctx.translate(x, cy);
-    const fill = ctx.createRadialGradient(0, 0, 0, 0, 0, RY);
+    ctx.translate(x - V * P, y + V / 2 * P);
+    ctx.transform(P, P / 2, 0, -P, 0, 0);
+    const fill = ctx.createRadialGradient(0, zc, 0, 0, zc, RZ);
     fill.addColorStop(0, hexAlpha('#ffffff', 0.55));
-    fill.addColorStop(0.3, hexAlpha(second, 0.4));
-    fill.addColorStop(0.75, hexAlpha(accent, 0.45));
-    fill.addColorStop(1, hexAlpha(accent, 0));
+    fill.addColorStop(0.3, hexAlpha(second, 0.45));
+    fill.addColorStop(0.75, hexAlpha(accent, 0.55));
+    fill.addColorStop(1, hexAlpha(accent, 0.12));
     ctx.fillStyle = fill;
     ctx.beginPath();
-    ctx.ellipse(0, 0, RX, RY, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, zc, RX, RZ, 0, 0, Math.PI * 2);
     ctx.fill();
+    ctx.restore();
+    // spiral arms (crisp pixels placed through the same projection)
     for (let arm = 0; arm < 3; arm++) {
-      for (let j = 0; j < 18; j++) {
+      for (let j = 0; j < 18; j += lite ? 3 : 1) {
         const k = j / 18;
         const a = t * 2.6 + arm * (Math.PI * 2 / 3) + k * 4.2;
         const r = 1 - k;              // arms curl in to the centre
-        const ax = Math.cos(a) * RX * 0.92 * r, ay = Math.sin(a) * RY * 0.92 * r;
+        const q = pv(Math.cos(a) * RX * 0.92 * r, zc + Math.sin(a) * RZ * 0.92 * r);
         ctx.fillStyle = hexAlpha(j % 3 ? accent : '#ffffff', 0.25 + 0.6 * k);
         const sz = Math.max(px, Math.round((1 + 1.5 * (1 - k)) * px));
-        ctx.fillRect(Math.round(ax) - sz / 2, Math.round(ay) - sz / 2, sz, sz);
+        ctx.fillRect(Math.round(q.x) - sz / 2, Math.round(q.y) - sz / 2, sz, sz);
       }
     }
-    const core = ctx.createRadialGradient(0, 0, 0, 0, 0, 8 * z);
-    core.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
-    core.addColorStop(1, hexAlpha(second, 0));
-    ctx.fillStyle = core;
-    ctx.beginPath();
-    ctx.arc(0, 0, (6 + Math.sin(t * 5)) * z, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-
-    // crisp rim with sparkles running round it
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.strokeStyle = '#1a1c2c';
-    ctx.lineWidth = 3 * px;
-    ctx.beginPath();
-    ctx.ellipse(x, cy, RX + px, RY + px, 0, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.strokeStyle = accent;
-    ctx.lineWidth = 1.5 * px;
-    ctx.beginPath();
-    ctx.ellipse(x, cy, RX + px, RY + px, 0, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.globalCompositeOperation = 'lighter';
+    if (lite) {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+      ctx.fillRect(Math.round(c.x) - 2 * px, Math.round(c.y) - 2 * px, 4 * px, 4 * px);
+    } else {
+      const core = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, 8 * z);
+      core.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+      core.addColorStop(1, hexAlpha(second, 0));
+      ctx.fillStyle = core;
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, (6 + Math.sin(t * 5)) * z, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // sparkles running round the edge of the opening
     for (let i = 0; i < 4; i++) {
       const a = t * 1.8 + i * (Math.PI / 2);
-      const sx = Math.round(x + Math.cos(a) * (RX + px)), sy = Math.round(cy + Math.sin(a) * (RY + px));
+      const q = pv(Math.cos(a) * RX, zc + Math.sin(a) * RZ);
+      const sx = Math.round(q.x), sy = Math.round(q.y);
       ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
       ctx.fillRect(sx - px / 2, sy - 2 * px, px, 4 * px);
       ctx.fillRect(sx - 2 * px, sy - px / 2, 4 * px, px);
     }
 
-    // motes drifting up from the ring and spiralling into the vortex
-    const MOTES = 14;
+    // motes drifting up off the dais and spiralling into the vortex
+    const MOTES = lite ? 5 : 14;
     for (let i = 0; i < MOTES; i++) {
       const ph = (t * 0.45 + i / MOTES) % 1;
       const a = i * 2.39 + ph * 3;
       const r = 1 - ph;
-      const mx = x + Math.cos(a) * 24 * z * r;
-      const my = (y + Math.sin(a) * 12 * z * r) * (1 - ph) + cy * ph;
+      const q = proj(Math.cos(a) * 14 * r, G.z0 + (zc - G.z0) * ph, V + (style === 'cave' ? 6 + Math.abs(Math.sin(a)) * 6 : Math.sin(a) * 10) * r);
       const alpha = Math.min(1, ph * 4, (1 - ph) * 3);
       ctx.fillStyle = hexAlpha(i % 3 ? accent : second, 0.9 * alpha);
-      ctx.fillRect(Math.round(mx) - px, Math.round(my) - px, 2 * px, 2 * px);
+      ctx.fillRect(Math.round(q.x) - px, Math.round(q.y) - px, 2 * px, 2 * px);
     }
     ctx.restore();
 
-    // name tag above the gate
+    // name tag above the arch
+    const tagAt = proj(0, G.labelZ || G.top + 9);
     ctx.save();
     ctx.font = '15px "DotGothic16", monospace';
     ctx.textAlign = 'center';
     ctx.fillStyle = '#000';
-    ctx.fillText(label, x + 1, cy - RY - 12 * z + 1);
+    ctx.fillText(label, x + 1, tagAt.y + 1);
     ctx.fillStyle = accent;
-    ctx.fillText(label, x, cy - RY - 12 * z);
+    ctx.fillText(label, x, tagAt.y);
     ctx.restore();
   }
 
@@ -12972,14 +12744,11 @@ class IsometricRenderer {
       ctx.imageSmoothingEnabled = false;
       const gp = Math.max(2, Math.round(P));
       const gr = 14 * z * scale, gcx = baseX, gcy = baseY - 6 * z * scale;
-      ctx.fillStyle = theme ? theme.haloMid : 'rgba(249, 115, 22, 0.16)';
-      for (let gy = -gr; gy <= gr; gy += gp) {
-        for (let gx = -gr; gx <= gr; gx += gp) {
-          const d = Math.hypot(gx, gy * 1.3) / gr;
-          if (d > 1 || ((Math.round(gx / gp) + Math.round(gy / gp)) & 1) || d > 0.55 + 0.45 * ((Math.round(gx / gp) * 7 + Math.round(gy / gp) * 3) % 5) / 5) continue;
-          ctx.fillRect(Math.round((gcx + gx) / gp) * gp, Math.round((gcy + gy) / gp) * gp, gp, gp);
-        }
-      }
+      // the dithered glow never changes for a size and colour: stamp it from a cache
+      // (it used to be ~170 fillRects per torch per frame)
+      const glowCol = theme ? theme.haloMid : 'rgba(249, 115, 22, 0.16)';
+      const glow = this.torchGlowSprite(gr, gp, glowCol);
+      ctx.drawImage(glow.canvas, Math.round(gcx / gp) * gp - glow.R, Math.round(gcy / gp) * gp - glow.R);
       ctx.drawImage(img, Math.round(baseX - 6.5 * P), Math.round(baseY - 19 * P), img.width * P, img.height * P);
       // embers drifting up out of the flame
       const emberColor = theme ? theme.ember : 'rgba(253, 186, 116, ';
@@ -13037,22 +12806,58 @@ class IsometricRenderer {
 
   // Warm pool of firelight on the floor around a light source
   drawFloorFireLight(ctx, x, y, z, seed) {
+    if (this.lightingMode() !== 'smooth') return;   // additive glow: smooth lighting only
     const flick = 0.85 + Math.sin(this.animations.time * 9 + seed) * 0.08 + Math.sin(this.animations.time * 17 + seed) * 0.05;
     const r = 46 * z * flick;
     const torchTheme = DUNGEON_THEME_TORCH[this.currentTheme];
+    const c0 = torchTheme ? torchTheme.floorWash0 : 'rgba(251, 146, 60, 0.22)';
+    const c1 = torchTheme ? torchTheme.floorWash1 : 'rgba(234, 88, 12, 0.08)';
+    // one gradient disc per colour pair, rendered once and scaled to the flicker
+    const key = c0 + '|' + c1;
+    this._fireLightCache = this._fireLightCache || new Map();
+    let spr = this._fireLightCache.get(key);
+    if (!spr) {
+      const R = 64;
+      spr = document.createElement('canvas');
+      spr.width = spr.height = R * 2;
+      const g2 = spr.getContext('2d');
+      const g = g2.createRadialGradient(R, R, 0, R, R, R);
+      g.addColorStop(0, c0);
+      g.addColorStop(0.6, c1);
+      g.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      g2.fillStyle = g;
+      g2.fillRect(0, 0, R * 2, R * 2);
+      this._fireLightCache.set(key, spr);
+    }
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    ctx.translate(x, y);
-    ctx.scale(1, 0.5);
-    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, r);
-    g.addColorStop(0, torchTheme ? torchTheme.floorWash0 : 'rgba(251, 146, 60, 0.22)');
-    g.addColorStop(0.6, torchTheme ? torchTheme.floorWash1 : 'rgba(234, 88, 12, 0.08)');
-    g.addColorStop(1, 'rgba(0, 0, 0, 0)');
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.arc(0, 0, r, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.drawImage(spr, x - r, y - r * 0.5, r * 2, r);
     ctx.restore();
+  }
+
+  // The dithered warm glow behind a pixel torch flame, pre-rendered per size
+  // (radius gr, dither pixel gp) and colour. R: the sprite's centre offset.
+  torchGlowSprite(gr, gp, color) {
+    const key = gp + '|' + Math.round(gr * 4) + '|' + color;
+    this._torchGlowCache = this._torchGlowCache || new Map();
+    let s = this._torchGlowCache.get(key);
+    if (s) return s;
+    const R = (Math.ceil(gr / gp) + 1) * gp;
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = R * 2;
+    const g = canvas.getContext('2d');
+    g.fillStyle = color;
+    for (let gy = -gr; gy <= gr; gy += gp) {
+      for (let gx = -gr; gx <= gr; gx += gp) {
+        const d = Math.hypot(gx, gy * 1.3) / gr;
+        if (d > 1 || ((Math.round(gx / gp) + Math.round(gy / gp)) & 1) || d > 0.55 + 0.45 * ((Math.round(gx / gp) * 7 + Math.round(gy / gp) * 3) % 5) / 5) continue;
+        g.fillRect(R + Math.round(gx / gp) * gp, R + Math.round(gy / gp) * gp, gp, gp);
+      }
+    }
+    if (this._torchGlowCache.size > 64) this._torchGlowCache.clear();
+    s = { canvas, R };
+    this._torchGlowCache.set(key, s);
+    return s;
   }
 
   // Town curtain wall segment: dressed sandstone blocks with crenellations.
@@ -13137,6 +12942,8 @@ class IsometricRenderer {
     let variant = obs.variant !== undefined ? obs.variant : Math.floor(PP.hash2(Math.round(obs.x * 10), Math.round(obs.y * 10)) * 3);
     // houses: roof colour from the map, one of four builds picked by where it stands
     if (obs.type === 'house') variant = (variant % 3) + 3 * Math.floor(PP.hash2(Math.round(obs.x * 7), Math.round(obs.y * 13)) * 4);
+    // market stalls south of the boulevard are turned round to open onto it (variants 4+), as in townProps3D
+    if (obs.type === 'market_stall' && obs.y > 20.5) variant = (variant % 4) + 4;
     const spr = PP.sprite(obs.type, variant);
     if (!spr) return;
     const P = 1.3 * z, t = this.animations.time;
@@ -13153,9 +12960,10 @@ class IsometricRenderer {
       ctx.save();
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(spr.front, x0, y0, spr.front.width * P, spr.front.height * P);
-      const tag = obs.type === 'merchant' ? ['Olaf the Trader [Shop]', '#fde68a']
-        : obs.type === 'blacksmith' ? ['Brom the Master Smith [Reforge]', '#fdba74']
-          : obs.type === 'enchanter' ? ['Valka the Enchanter [Rune Forge]', '#d8b4fe'] : null;
+      const tag = obs.id === 'npc_jerry' ? ['Jerry the Attribute Smith [Attributes]', '#a7f070']
+        : obs.type === 'merchant' ? ['Olaf the Trader [Shop]', '#fde68a']
+          : obs.type === 'blacksmith' ? ['Brom the Master Smith [Reforge]', '#fdba74']
+            : obs.type === 'enchanter' ? ['Valka the Enchanter [Rune Forge]', '#d8b4fe'] : null;
       if (tag) {
         ctx.font = '15px "DotGothic16", monospace';
         ctx.textAlign = 'center';
@@ -13204,6 +13012,9 @@ class IsometricRenderer {
     const screen = Isometric.worldToScreen(obs.x, obs.y, 0, this.camera, this.viewW, this.viewH);
     const z = this.camera.zoom;
 
+    // invisible blockers (e.g. the rock mound of the Eternal Rift cave, drawn by the portal itself)
+    if (obs.type === 'collider') return;
+
     if (obs.type === 'dungeon_door') {
       this.drawDungeonDoor(ctx, obs, z);
       return;
@@ -13237,7 +13048,8 @@ class IsometricRenderer {
           const so = drawn.sparkOffset;
           this.addParticles(obs.x + so.x, obs.y + so.y, 'spark', 6, { speed: 2.2, z: so.z, sizeScale: 0.7 });
         }
-        const tag = obs.type === 'merchant' ? ['Olaf the Trader [Shop]', '#fde68a']
+        const tag = obs.id === 'npc_jerry' ? ['Jerry the Attribute Smith [Attributes]', '#a7f070']
+          : obs.type === 'merchant' ? ['Olaf the Trader [Shop]', '#fde68a']
           : obs.type === 'blacksmith' ? ['Brom the Master Smith [Reforge]', '#fdba74']
             : obs.type === 'enchanter' ? ['Valka the Enchanter [Rune Forge]', '#d8b4fe']
               : obs.type === 'personal_chest' ? ['📦 Personal Chest [Storage]', '#fde047'] : null;
@@ -13267,7 +13079,7 @@ class IsometricRenderer {
       const spr = TL.treeSprite(obs.type, Math.floor(TL.hash2(Math.round(obs.x * 10), Math.round(obs.y * 10)) * 3));
       const p = 1.3 * z;
       ctx.beginPath();
-      ctx.ellipse(screen.x, screen.y, (obs.type === 'oak_tree' ? 26 : 16) * z, (obs.type === 'oak_tree' ? 12 : 8) * z, 0, 0, Math.PI * 2);
+      ctx.ellipse(screen.x, screen.y, (obs.type === 'oak_tree' ? 28 : 24) * z, (obs.type === 'oak_tree' ? 14 : 12) * z, 0, 0, Math.PI * 2);
       ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
       ctx.fill();
       const x0 = Math.round(screen.x - spr.ax * p), y0 = Math.round(screen.y - spr.ay * p);
@@ -13615,7 +13427,7 @@ class IsometricRenderer {
       ctx.restore();
     } else if (obs.type === 'portal') {
       // Abyssal dungeon portal on the plaza
-      this.drawPortalGate(ctx, screen, z, obs.color || '#a855f7', '#22d3ee', obs.label || '🌀 Dungeon Portal', obs.x * 7 + obs.y);
+      this.drawPortalGate(ctx, screen, z, obs.color || '#a855f7', '#22d3ee', obs.label || '🌀 Dungeon Portal', obs.x * 7 + obs.y, obs.style);
     } else if (obs.type === 'blacksmith') {
       // NPC Brom the Master Smith (Reforge / Item Enhancement)
       // Ground Shadow
@@ -15210,7 +15022,7 @@ class IsometricRenderer {
     ctx.restore(); // End Player coordinate space (Line 1084)
 
     // Nametag, Guild Badge & Mini HP Bar
-    this.drawEntityOverhead(ctx, screen.x, screen.y - 50 * z, this.playerTitledName(player), player.hp, player.maxHp, this.playerNameColor(player), `Lv.${player.level}`);
+    this.drawEntityOverhead(ctx, screen.x, screen.y - 50 * z, this.playerTitledName(player), player.hp, player.maxHp, this.playerNameColor(player), `Lv.${player.level}`, [], false, false, this.heroBarExtra(player));
 
     // Speech Bubble
     if (player.speechBubble) {
@@ -15349,7 +15161,7 @@ class IsometricRenderer {
       const PH = window.PixelHeroes;
       const cls = PH.classes.includes(player.characterClass) ? player.characterClass : 'warrior';
       const spCard = this.spCardFor(player);
-      const headY = y - (PH.AY - PH.headTop(cls, spCard && spCard.id)) * PIXEL_HERO_SCALE * z;
+      const headY = y - (PH.AY - PH.headTop(cls, this.lookKeyFor(player, cls, spCard))) * PIXEL_HERO_SCALE * z;
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
       ctx.beginPath();
@@ -15558,7 +15370,7 @@ class IsometricRenderer {
         // The slash / spell wave appears as the weapon strikes/releases
         const sw = attack.pendingSweep;
         sw.x = player.x; sw.y = player.y;
-        this.animations.skillEffects.push(sw);
+        this.pushSweep(sw);
         attack.pendingSweep = null;
       }
 
@@ -15574,7 +15386,7 @@ class IsometricRenderer {
       this.addParticles(cx, cy, main, Math.round(3 * big), { speed: 2.2, z: 0.5 });
 
       if (attack.pendingHits) {
-        this.burstSwingHits(attack.pendingHits, attack.hitCard, attack.finisher);
+        this.burstSwingHits(attack.pendingHits, attack.hitCard, attack.finisher, cls, player);
         attack.pendingHits = null;
       }
 
@@ -15624,24 +15436,6 @@ class IsometricRenderer {
     Object.assign(blade, { x, y, px: x + hx, py: y + hy, a, len: Math.hypot(tx - hx, ty - hy), at: now });
   }
 
-  // The stretch of the blade's swing to draw: from its angle spanMs ago (but no
-  // earlier than since) to where it is now
-  bladeArc(blade, since, spanMs, now) {
-    const h = blade.hist;
-    const t0 = Math.max(since, now - spanMs);
-    // walk back while the blade kept turning the same way (a wind-up turns the other way)
-    let i = h.length - 1, dir = 0;
-    while (i > 0 && h[i - 1].t >= t0) {
-      const d = h[i].a - h[i - 1].a;
-      if (d !== 0) {
-        if (dir && Math.sign(d) !== dir) break;
-        dir = Math.sign(d);
-      }
-      i--;
-    }
-    return { head: blade.a, from: h[i].a };
-  }
-
   // Particles burst on every enemy a melee swing hit (positions from the server),
   // in the card's colours; crits and combo finishers burst bigger. A warrior still
   // winding up holds them for its contact frame (warriorSwing).
@@ -15653,161 +15447,20 @@ class IsometricRenderer {
       atk.hitCard = data.cardId;
       return;
     }
-    this.burstSwingHits(data.hits, data.cardId, atk && atk.finisher);
+    this.burstSwingHits(data.hits, data.cardId, atk && atk.finisher, atk && atk.class, atk);
   }
 
-  burstSwingHits(hits, cardId, finisher) {
+  burstSwingHits(hits, cardId, finisher, cls, from) {
     const [main, accent] = (cardId && SP_CARD_PARTICLES[cardId]) || ['spark', 'slash'];
+    if (!this.hitBursts) this.hitBursts = [];
+    const col = this.swingColors(cardId, cls, finisher);
     for (const h of hits) {
       const big = (h.crit ? 1.7 : 1) * (finisher ? 1.4 : 1);
+      this.hitBursts.push({ x: h.x, y: h.y, fx: from && from.x, fy: from && from.y, at: performance.now(), life: h.crit ? 520 : 420, big: finisher ? 1.25 : 1, crit: !!h.crit, col, seed: (Math.random() * 100000) | 0 });
       this.addParticles(h.x, h.y, 'slash', Math.round(5 * big), { speed: 2.4, z: 0.5 });
       this.addParticles(h.x, h.y, main, Math.round(4 * big), { speed: 2, z: 0.5 });
       if (accent && (h.crit || finisher)) this.addParticles(h.x, h.y, accent, Math.round(3 * big), { speed: 1.6, z: 0.45 });
     }
-  }
-
-  // The blow landing in front of a warrior: a bright crescent in the card's colour
-  // following the swing, a star of streaks and a ring at the point of contact
-  drawSwingImpact(ctx, imp, k, x, y, z) {
-    const fv = FACING_SCREEN[imp.facing] || FACING_SCREEN.SE;
-    const big = imp.finisher ? 1.45 : 1;
-    const fade = 1 - k, grow = 1 - Math.pow(1 - k, 3);
-    let ox = x, oy = y - 20 * z, R = (18 + 10 * grow) * z * big, sq = 0.7;
-    let ang = Math.atan2(fv[1], fv[0]);
-    let a0 = ang - 1.25 * imp.side, a1 = ang + 0.95 * imp.side;
-    const reach = (imp.connects ? 26 : 22) * z * big;
-    let cx = x + fv[0] * reach, cy = y - 20 * z + fv[1] * reach;
-    const bl = imp.blade && imp.blade.hist.length ? imp.blade : null;
-    if (bl) {
-      // the crescent is the cut the blade really made: round its gripping hand,
-      // out at the blade's length, over the angles it swept into contact
-      ox = x + bl.px - bl.x; oy = y + bl.py - bl.y;
-      R = bl.len * (1.05 + 0.2 * grow) * (imp.finisher ? 1.15 : 1);
-      sq = 1;
-      const arc = this.bladeArc(bl, imp.at - 160, Infinity, performance.now());
-      a0 = arc.from; a1 = arc.head;
-      if (Math.abs(a1 - a0) < 0.3) { a0 = a1 - 0.6 * imp.side; }
-      ang = a1;
-      cx = ox + Math.cos(a1) * bl.len; cy = oy + Math.sin(a1) * bl.len;
-    }
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.lineCap = 'round';
-    // crescent: the arc the edge just cut, sweeping the way this swing went (only if not connecting, or for enhanced weapon trail)
-    if (imp.tierColor) {
-      // enhanced weapon: a wider halo of the tier colour around the cut
-      ctx.beginPath();
-      const hDir = Math.sign(a1 - a0) || 1, hFrom = a1 - hDir * Math.min(Math.abs(a1 - a0), 1.6);
-      ctx.ellipse(ox, oy, R * 1.18, R * (sq + 0.12), 0, Math.min(hFrom, a1), Math.max(hFrom, a1));
-      ctx.strokeStyle = hexAlpha(imp.tierColor, 0.55 * fade);
-      ctx.lineWidth = (4 + (imp.tier - 4) * 0.8) * z * (1 - 0.4 * k);
-      ctx.stroke();
-    }
-    if (!imp.connects) {
-      // A smooth, tapered crescent (pointed at both ends, fullest just behind the head) over at
-      // most ~90 degrees of the swing, fading from a clear tail to a bright head. As it fades,
-      // the tail retracts toward the head instead of the whole ring just dimming in place.
-      const dir = Math.sign(a1 - a0) || imp.side || 1;
-      const span = Math.min(Math.abs(a1 - a0), 1.6);
-      const from = a1 - dir * span;
-      const tail = 0.6 * k;
-      const N = 32;
-      const wMax = (imp.finisher ? 8 : 5.5) * z * (1 - 0.35 * k);
-      const pt = (a, r) => ({ x: ox + Math.cos(a) * r, y: oy + Math.sin(a) * r * sq });
-      const band = (wScale) => {
-        const outer = [], inner = [];
-        for (let i = 0; i <= N; i++) {
-          const u = tail + (1 - tail) * (i / N);              // 0 tail .. 1 head
-          const a = from + dir * span * u;
-          const w = wMax * wScale * Math.sin(Math.PI * Math.pow(u, 1.7));
-          outer.push(pt(a, R + w * 0.5));
-          inner.push(pt(a, R - w * 0.5));
-        }
-        ctx.beginPath();
-        ctx.moveTo(outer[0].x, outer[0].y);
-        for (let i = 1; i <= N; i++) ctx.lineTo(outer[i].x, outer[i].y);
-        for (let i = N; i >= 0; i--) ctx.lineTo(inner[i].x, inner[i].y);
-        ctx.closePath();
-      };
-      const t0 = pt(from + dir * span * tail, R), t1 = pt(a1, R);
-      const grad = (c, aMax) => {
-        const g = ctx.createLinearGradient(t0.x, t0.y, t1.x, t1.y);
-        g.addColorStop(0, c(0));
-        g.addColorStop(0.6, c(aMax * 0.7));
-        g.addColorStop(1, c(aMax));
-        return g;
-      };
-      band(1);
-      ctx.fillStyle = grad((a) => hexAlpha(imp.color, a), 0.85 * fade);
-      ctx.fill();
-      band(0.35);
-      ctx.fillStyle = grad((a) => `rgba(255, 255, 255, ${a})`, 0.95 * fade);
-      ctx.fill();
-    }
-    if (imp.connects) {
-      // --- Option 3: Authentic Ragnarok Online Pixel Starburst & Hit Flash ---
-      const px = Math.max(2, Math.round(z));
-      const rayLen = (14 + 28 * grow) * z * big;
-      const diagLen = rayLen * 0.68;
-
-      // 1. 4 Cardinal Rays (N, S, E, W) - stepped pixel diamond beams
-      const cardinals = [[1, 0], [0, 1], [-1, 0], [0, -1]];
-      for (const [cdx, cdy] of cardinals) {
-        const steps = 4;
-        for (let s = 1; s <= steps; s++) {
-          const dist = (rayLen / steps) * s;
-          const sx = cx + cdx * dist;
-          const sy = cy + cdy * dist * 0.7; // squashed for isometric perspective
-          const sW = Math.max(1, (steps - s + 1)) * px;
-          ctx.fillStyle = hexAlpha(imp.color, fade * (1 - (s / (steps + 1))));
-          ctx.fillRect(sx - sW * 0.5, sy - sW * 0.5, sW, sW);
-        }
-      }
-
-      // 2. 4 Diagonal Rays (45 deg) - stepped pixel staircases
-      const diagonals = [[0.707, 0.707], [-0.707, 0.707], [-0.707, -0.707], [0.707, -0.707]];
-      for (const [ddx, ddy] of diagonals) {
-        const steps = 3;
-        for (let s = 1; s <= steps; s++) {
-          const dist = (diagLen / steps) * s;
-          const sx = cx + ddx * dist;
-          const sy = cy + ddy * dist * 0.7;
-          const sW = Math.max(1, (steps - s + 1)) * px;
-          ctx.fillStyle = hexAlpha(imp.color, fade * 0.85 * (1 - (s / (steps + 1))));
-          ctx.fillRect(sx - sW * 0.5, sy - sW * 0.5, sW, sW);
-        }
-      }
-
-      // 3. Center Incandescent White-Hot Pixel Diamond Plate
-      ctx.fillStyle = `rgba(255, 255, 255, ${0.95 * fade})`;
-      ctx.fillRect(cx - px * 2, cy - px * 2, px * 4, px * 4);
-      ctx.fillRect(cx - px * 3.5, cy - px * 0.8, px * 7, px * 1.6);
-      ctx.fillRect(cx - px * 0.8, cy - px * 3.5, px * 1.6, px * 7);
-
-      // 4. Expanding Stepped Pixel Diamond Shock Ring
-      const ringR = (8 + 20 * grow) * z * big;
-      const ringSteps = 12;
-      ctx.fillStyle = hexAlpha(imp.color, 0.75 * fade);
-      for (let s = 0; s < ringSteps; s++) {
-        const a = (s / ringSteps) * Math.PI * 2;
-        const rx = cx + Math.cos(a) * ringR;
-        const ry = cy + Math.sin(a) * ringR * 0.7;
-        ctx.fillRect(rx - px, ry - px, px * 2, px * 2);
-      }
-
-      // 5. Chunky Square Pixel Ejection Sparks
-      const nSparks = imp.finisher ? 12 : 8;
-      for (let i = 0; i < nSparks; i++) {
-        const spA = ang + (i / nSparks) * Math.PI * 2 + i * 0.45;
-        const spDist = (6 + 24 * grow) * z * big * (0.7 + 0.6 * ((i % 3) / 3));
-        const spx = cx + Math.cos(spA) * spDist;
-        const spy = cy + Math.sin(spA) * spDist * 0.7;
-        ctx.fillStyle = i % 2 ? hexAlpha(imp.color, fade) : `rgba(255, 255, 255, ${fade})`;
-        const spSize = (i % 2 ? 2 : 1) * px;
-        ctx.fillRect(spx - spSize * 0.5, spy - spSize * 0.5, spSize, spSize);
-      }
-    }
-    ctx.restore();
   }
 
   drawPixelHero(ctx, player, isLocal, screen, z, t) {
@@ -15955,7 +15608,6 @@ class IsometricRenderer {
     } else {
       this.drawPixelHeroFrame(ctx, frame, x, y, s, flip, 1, hurtFlash > 0 ? '#ff3b3b' : null, hurtFlash);
     }
-    if (impactAge < impactLife) this.drawSwingImpact(ctx, player._swingImpact, impactAge / impactLife, x, y, z);
     if (enhance) {
       this.drawArmorEnhance(ctx, player, enhance, x, y, z, t, 'front', isLocal);
       const tips = [['tip', frame.meta.tip], ['tipB', frame.meta.tipB], ['tipF', frame.meta.tipF], ['orb', frame.meta.orb]];
@@ -16007,8 +15659,8 @@ class IsometricRenderer {
 
     // Name tag & speech bubble sit just above this sprite's head
     if (!player.isDead) {
-      const headY = y - (PH.AY - PH.headTop(cls, spCard && spCard.id)) * s;
-      this.drawEntityOverhead(ctx, x, headY - 12 * z, this.playerTitledName(player), player.hp, player.maxHp, this.playerNameColor(player), `Lv.${player.level}`);
+      const headY = y - (PH.AY - PH.headTop(cls, this.lookKeyFor(player, cls, spCard))) * s;
+      this.drawEntityOverhead(ctx, x, headY - 12 * z, this.playerTitledName(player), player.hp, player.maxHp, this.playerNameColor(player), `Lv.${player.level}`, [], false, false, this.heroBarExtra(player));
       if (player.speechBubble) this.drawSpeechBubble(ctx, x, headY - 36 * z, player.speechBubble);
     }
   }
@@ -16402,9 +16054,12 @@ class IsometricRenderer {
             ctx.beginPath();
             ctx.arc(glintX, glintY, 2.6 * z * Math.sin(gp * Math.PI), 0, Math.PI * 2);
             ctx.fillStyle = '#ffffff';
-            ctx.shadowColor = '#67e8f9';
-            ctx.shadowBlur = 8 * z;
             ctx.fill();
+            // soft halo: a wide translucent stroke instead of shadowBlur (which is very slow on canvas)
+            ctx.globalAlpha *= 0.4;
+            ctx.strokeStyle = '#67e8f9';
+            ctx.lineWidth = 8 * z * 0.9;
+            ctx.stroke();
             ctx.restore();
           }
         }
@@ -16454,7 +16109,7 @@ class IsometricRenderer {
     // =========================================================================
     // OVERHEAD NAMETAG, GUILD BADGE & MINI HP BAR
     // =========================================================================
-    this.drawEntityOverhead(ctx, screen.x, screen.y - 54 * z, this.playerTitledName(player), player.hp, player.maxHp, this.playerNameColor(player), `Lv.${player.level}`);
+    this.drawEntityOverhead(ctx, screen.x, screen.y - 54 * z, this.playerTitledName(player), player.hp, player.maxHp, this.playerNameColor(player), `Lv.${player.level}`, [], false, false, this.heroBarExtra(player));
 
     // =========================================================================
     // SPEECH BUBBLE
@@ -16757,7 +16412,7 @@ class IsometricRenderer {
     }
 
     // Overhead Nametag, Guild Badge & Mini HP Bar
-    this.drawEntityOverhead(ctx, screen.x, screen.y - 54 * z, this.playerTitledName(player), player.hp, player.maxHp, this.playerNameColor(player), `Lv.${player.level}`);
+    this.drawEntityOverhead(ctx, screen.x, screen.y - 54 * z, this.playerTitledName(player), player.hp, player.maxHp, this.playerNameColor(player), `Lv.${player.level}`, [], false, false, this.heroBarExtra(player));
 
     // Speech Bubble
     if (player.speechBubble) {
@@ -17004,9 +16659,12 @@ class IsometricRenderer {
         ctx.beginPath();
         ctx.arc(glintX, glintY, 2.5 * z * Math.sin(gp * Math.PI), 0, Math.PI * 2);
         ctx.fillStyle = '#ffffff';
-        ctx.shadowColor = '#22c55e';
-        ctx.shadowBlur = 8 * z;
         ctx.fill();
+        // soft halo: a wide translucent stroke instead of shadowBlur (which is very slow on canvas)
+        ctx.globalAlpha *= 0.4;
+        ctx.strokeStyle = '#22c55e';
+        ctx.lineWidth = 8 * z * 0.9;
+        ctx.stroke();
         ctx.restore();
       }
     }
@@ -17043,15 +16701,18 @@ class IsometricRenderer {
       ctx.beginPath();
       ctx.arc(0, 0, 4.5 * z, 0, Math.PI * 2);
       ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
-      ctx.shadowColor = '#22c55e';
-      ctx.shadowBlur = 10 * z;
       ctx.fill();
+      // soft halo: a wide translucent stroke instead of shadowBlur (which is very slow on canvas)
+      ctx.globalAlpha *= 0.4;
+      ctx.strokeStyle = '#22c55e';
+      ctx.lineWidth = 10 * z * 0.9;
+      ctx.stroke();
 
       ctx.restore();
     }
 
     // Overhead Nametag, Guild Badge & Mini HP Bar
-    this.drawEntityOverhead(ctx, screen.x, screen.y - 54 * z, this.playerTitledName(player), player.hp, player.maxHp, this.playerNameColor(player), `Lv.${player.level}`);
+    this.drawEntityOverhead(ctx, screen.x, screen.y - 54 * z, this.playerTitledName(player), player.hp, player.maxHp, this.playerNameColor(player), `Lv.${player.level}`, [], false, false, this.heroBarExtra(player));
 
     // Speech Bubble
     if (player.speechBubble) {
@@ -19879,7 +19540,8 @@ class IsometricRenderer {
       `Lv.${mob.level}${isMiniboss ? ' [MINIBOSS]' : ''}`,
       mob.buffs,
       mob.isCommander,
-      mob.hasCommanderBuff
+      mob.hasCommanderBuff,
+      { key: 'm' + mob.id }
     );
 
     if (mob.frozen || mob.scorch || mob.frost) this.drawMobStatus(ctx, mob, screen, z, overheadY);
@@ -19917,6 +19579,98 @@ class IsometricRenderer {
     if (keeper.flip) ctx.scale(-1, 1);
     ctx.drawImage(img, -img.anchorX * s, -img.anchorY * s, img.width * s, img.height * s);
     ctx.restore();
+  }
+
+  // A Gravelord minion: the risen monster in grave colours, climbing out of the earth when it is
+  // raised, a grave-light aura at its feet, soul wisps rising off it and a thin bar of time left
+  drawMinion(ctx, m) {
+    const PM = window.PixelMobs;
+    if (!PM || !PM.has(m.type)) return;
+    if (!this.minionView) this.minionView = new Map();
+    const now = performance.now();
+    let v = this.minionView.get(m.id);
+    if (!v) {
+      v = { x: m.x, y: m.y, t: now, atk: m.atk, born: now };
+      this.minionView.set(m.id, v);
+      if (this.minionView.size > 80) for (const [id, o] of this.minionView) if (now - o.seen > 5000) this.minionView.delete(id);
+    }
+    // the server moves them a few times a second: glide between updates
+    const dt = Math.min(0.1, (now - v.t) / 1000);
+    v.t = now; v.seen = now;
+    const k = 1 - Math.pow(0.0005, dt);
+    v.x += (m.x - v.x) * k; v.y += (m.y - v.y) * k;
+    if (m.atk && m.atk !== v.atk) {
+      v.atk = m.atk;
+      if (!this.mobAttacks) this.mobAttacks = new Map();
+      this.mobAttacks.set(m.id, now);
+    }
+    const z = this.camera.zoom;
+    const screen = Isometric.worldToScreen(v.x, v.y, 0, this.camera, this.viewW, this.viewH);
+    const rise = Math.min(1, (now - v.born) / 650);
+    const fadeOut = m.life < 0.12 ? Math.max(0.25, m.life / 0.12) : 1;
+    const t = this.animations.time;
+    const scale = m.scale || 1;
+
+    ctx.save();
+    // grave-light pooled at its feet (in a frenzy it boils: brighter, faster, with grave fire)
+    const pulse = 0.5 + 0.5 * Math.sin(t * (m.rage ? 9 : 3) + v.born);
+    ctx.globalAlpha = 0.5 * fadeOut;
+    ctx.fillStyle = '#0b2a17';
+    ctx.beginPath(); ctx.ellipse(screen.x, screen.y, 17 * z * scale, 8 * z * scale, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = (m.rage ? 0.6 + 0.4 * pulse : 0.35 + 0.3 * pulse) * fadeOut;
+    ctx.strokeStyle = m.rage ? '#d9f99d' : '#4ade80';
+    ctx.lineWidth = Math.max(1, z);
+    ctx.beginPath(); ctx.ellipse(screen.x, screen.y, 15 * z * scale, 7 * z * scale, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+
+    // the body, climbing up out of the ground while it rises
+    ctx.save();
+    if (rise < 1) {
+      ctx.beginPath();
+      ctx.rect(screen.x - 300 * z, screen.y - 600 * z, 600 * z, 600 * z + 2 * z);
+      ctx.clip();
+    }
+    ctx.globalAlpha = 0.95 * fadeOut;
+    this.drawPixelMob(ctx, { id: m.id, type: m.type, x: v.x, y: v.y, facing: m.facing, hp: 1, hue: 'undead', scale: scale * 0.95 },
+      { x: screen.x, y: screen.y + (1 - rise) * 46 * z * scale }, z);
+    ctx.restore();
+
+    // soul wisps drifting up off it (whipped up fast in a frenzy, with tongues of grave fire)
+    ctx.save();
+    ctx.globalAlpha = fadeOut;
+    const P = Math.max(2, Math.round(1.5 * z));
+    if (m.rage) {
+      for (let i = 0; i < 7; i++) {
+        const a = (i / 7) * Math.PI * 2 + t * 2;
+        const fx0 = screen.x + Math.cos(a) * 12 * z * scale, fy0 = screen.y + Math.sin(a) * 5 * z * scale;
+        const h = (6 + 8 * (0.5 + 0.5 * Math.sin(t * 13 + i * 2.3))) * z * scale;
+        ctx.fillStyle = '#4ade80';
+        ctx.fillRect(Math.round(fx0), Math.round(fy0 - h), P, Math.round(h));
+        ctx.fillStyle = '#ecfccb';
+        ctx.fillRect(Math.round(fx0), Math.round(fy0 - h), P, P);
+      }
+    }
+    for (let i = 0; i < (m.rage ? 6 : 4); i++) {
+      const ph = (t * (m.rage ? 1.6 : 0.6) + i * 0.27 + (v.born % 1000) / 1000) % 1;
+      const wx = screen.x + Math.sin(t * 2 + i * 1.7) * 9 * z;
+      const wy = screen.y - (12 + ph * 46) * z * scale;
+      ctx.fillStyle = ph < 0.5 ? '#bbf7d0' : '#4ade80';
+      ctx.globalAlpha = fadeOut * (1 - ph);
+      ctx.fillRect(Math.round(wx), Math.round(wy), P, P);
+    }
+    ctx.restore();
+
+    // time left: a thin bar under its feet
+    if (m.life !== undefined && rise >= 1) {
+      const w = 22 * z, h = Math.max(2, Math.round(2 * z)), x0 = Math.round(screen.x - w / 2), y0 = Math.round(screen.y + 9 * z * scale);
+      ctx.save();
+      ctx.globalAlpha = 0.85 * fadeOut;
+      ctx.fillStyle = '#0b1a10';
+      ctx.fillRect(x0 - 1, y0 - 1, w + 2, h + 2);
+      ctx.fillStyle = m.life < 0.25 ? '#a3a33a' : '#4ade80';
+      ctx.fillRect(x0, y0, w * Math.max(0, Math.min(1, m.life)), h);
+      ctx.restore();
+    }
   }
 
   // Brom's hammer meets the anvil once per cycle (matches his sprite loop)
@@ -20399,7 +20153,39 @@ class IsometricRenderer {
     return c;
   }
 
-  drawEntityOverhead(ctx, screenX, screenY, name, hp, maxHp, nameColor = '#fff', levelTag = '', buffs = [], isCommander = false, hasCommanderBuff = false) {
+  heroBarExtra(player) {
+    return { key: 'p' + player.id, shield: player.shieldHp || 0, es: player.es || 0, esMax: player.esMax || 0 };
+  }
+
+  // Width (0..1) of the yellow "damage taken" trail behind an HP bar: it waits
+  // a moment at the old value after a hit, then drains down to the real HP.
+  hpTrailRatio(key, ratio) {
+    if (!key) return ratio;
+    const now = performance.now();
+    if (!this._hpTrails) this._hpTrails = new Map();
+    let t = this._hpTrails.get(key);
+    if (!t || ratio >= t.pct) {
+      t = { pct: ratio, last: ratio, holdUntil: 0, at: now, seen: now };
+      this._hpTrails.set(key, t);
+      return ratio;
+    }
+    if (ratio < t.last - 1e-4) t.holdUntil = now + 380;   // a fresh hit: hold before draining
+    t.last = ratio;
+    const dt = Math.min(0.1, (now - t.at) / 1000);
+    t.at = now;
+    t.seen = now;
+    if (now >= t.holdUntil) t.pct = Math.max(ratio, t.pct - Math.max(0.35, (t.pct - ratio) * 4) * dt);
+    // forget bars that have not been drawn for a while
+    if (this._hpTrails.size > 400 && (!this._hpTrailSweep || now - this._hpTrailSweep > 5000)) {
+      this._hpTrailSweep = now;
+      for (const [k, v] of this._hpTrails) if (now - v.seen > 5000) this._hpTrails.delete(k);
+    }
+    return t.pct;
+  }
+
+  // extra: { key, shield, es, esMax } - key turns on the damage trail; shield
+  // (absorb HP) and es / esMax (mage Energy Shield) are drawn over the bar
+  drawEntityOverhead(ctx, screenX, screenY, name, hp, maxHp, nameColor = '#fff', levelTag = '', buffs = [], isCommander = false, hasCommanderBuff = false, extra = null) {
     ctx.save();
     ctx.font = '15px "DotGothic16", monospace';
     ctx.textAlign = 'center';
@@ -20427,7 +20213,11 @@ class IsometricRenderer {
     const barH = 5;
     const barX = screenX - barW / 2;
     const barY = screenY + 4;
-    const hpRatio = Math.max(0, Math.min(1, hp / maxHp));
+    // an absorb shield shares the bar with HP; past Max HP the bar rescales
+    const shield = extra && extra.shield > 0 ? extra.shield : 0;
+    const span = Math.max(maxHp || 1, (hp || 0) + shield);
+    const hpRatio = Math.max(0, Math.min(1, hp / span));
+    const healthRatio = Math.max(0, Math.min(1, hp / (maxHp || 1)));   // colour by real HP
 
     const bx = Math.round(barX), by = Math.round(barY);
     ctx.fillStyle = '#1a1c2c';
@@ -20435,10 +20225,37 @@ class IsometricRenderer {
     ctx.fillStyle = '#5d275d';
     ctx.fillRect(bx, by, barW, barH);
     const fillW = Math.round(barW * hpRatio);
-    ctx.fillStyle = isCommander ? '#ef7d57' : (hpRatio > 0.35 ? '#38b764' : '#b13e53');
+    // yellow trail: the chunk the last hits took off
+    const trailRatio = extra && extra.key ? this.hpTrailRatio(extra.key, hpRatio) : hpRatio;
+    const trailW = Math.round(barW * trailRatio);
+    if (trailW > fillW) {
+      ctx.fillStyle = '#ffcd75';
+      ctx.fillRect(bx + fillW, by, trailW - fillW, barH);
+      ctx.fillStyle = '#fff3c4';
+      ctx.fillRect(bx + fillW, by, trailW - fillW, 1);
+    }
+    ctx.fillStyle = isCommander ? '#ef7d57' : (healthRatio > 0.35 ? '#38b764' : '#b13e53');
     ctx.fillRect(bx, by, fillW, barH);
-    ctx.fillStyle = isCommander ? '#ffcd75' : (hpRatio > 0.35 ? '#a7f070' : '#ef7d57');
+    ctx.fillStyle = isCommander ? '#ffcd75' : (healthRatio > 0.35 ? '#a7f070' : '#ef7d57');
     ctx.fillRect(bx, by, fillW, 1);
+    if (shield > 0) {
+      // absorb: pale striped segment right after the HP
+      const sw = Math.max(1, Math.min(barW - fillW, Math.round(barW * shield / span)));
+      ctx.fillStyle = '#f4f4f4';
+      ctx.fillRect(bx + fillW, by, sw, barH);
+      ctx.fillStyle = '#94b0c2';
+      for (let i = 1; i < sw; i += 3) ctx.fillRect(bx + fillW + i, by + 2, 1, barH - 2);
+    }
+    if (extra && extra.esMax > 0) {
+      // mage Energy Shield: a cyan strip riding on top of the bar
+      const ew = Math.round(barW * Math.max(0, Math.min(1, (extra.es || 0) / extra.esMax)));
+      ctx.fillStyle = '#1a1c2c';
+      ctx.fillRect(bx - 2, by - 5, barW + 4, 4);
+      ctx.fillStyle = '#29366f';
+      ctx.fillRect(bx, by - 4, barW, 2);
+      ctx.fillStyle = '#73eff7';
+      ctx.fillRect(bx, by - 4, ew, 2);
+    }
 
     // Draw Affix / Buff Badges above name
     if ((buffs && buffs.length > 0) || hasCommanderBuff) {
@@ -20622,10 +20439,19 @@ class IsometricRenderer {
       }
     }
 
+    // 1.4. Melee hit sparks
+    this.drawHitBursts(ctx);
+
     // 1.5. Visual Skill Effects (Whirlwind, Firestorm, Shadow Strike)
     if (this.animations.skillEffects) {
+      // the base warrior's skills get their own, chunkier pixel layer with a stronger glow
+      const layerCtx = ctx;
+      const isWarriorFx = fx => WARRIOR_SKILL_FX.has(fx.type) && !fx.cardId;
+      const warriorG = !this.potatoMode && this.animations.skillEffects.some(isWarriorFx)
+        ? this.beginFxPixels(mainCtx, undefined, CHUNKY_FX_LAYER) : null;
       for (let i = this.animations.skillEffects.length - 1; i >= 0; i--) {
         const fx = this.animations.skillEffects[i];
+        ctx = warriorG && isWarriorFx(fx) ? warriorG : layerCtx;
         fx.life -= dt;
         if (fx.life <= 0) {
           this.animations.skillEffects.splice(i, 1);
@@ -20670,9 +20496,7 @@ class IsometricRenderer {
           if (fx.x === undefined || fx.y === undefined || isNaN(fx.x) || isNaN(fx.y)) {
             continue;
           }
-          // an SP card's basic swing joins the pixel-art layer too
-          const sg = !fx.cardId ? ctx : (this._fxLayer && this._fxLayer.open) ? this._fxLayer.g : this.beginFxPixels(ctx);
-          this.drawSweepSlash(sg, fx, progress);
+          this.drawSweepSlash(ctx, fx, progress);
         } else if (fx.type === 'mage_basic_blast') {
           // Mage Incandescent Solar Arcane Burst
           if (fx.x === undefined || fx.y === undefined || isNaN(fx.x) || isNaN(fx.y)) {
@@ -22297,6 +22121,8 @@ class IsometricRenderer {
           ctx.restore();
         }
       }
+      ctx = layerCtx;
+      if (warriorG) this.endFxPixels(mainCtx, CHUNKY_FX_LAYER);
       // simulated SP particles join the same layer, which may still be closed
       // when only particles are left on screen
       if (this.pxParts && this.pxParts.length) {

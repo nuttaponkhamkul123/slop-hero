@@ -333,7 +333,7 @@ export class AccountManager {
       jobExp: characterData.jobExp || 0,
       equipment: characterData.equipment || {},
       gold: characterData.gold || 0,
-      inventory: characterData.inventory || { healthPotions: 3, manaPotions: 2, maxSlots: 30, items: [] },
+      inventory: characterData.inventory || { healthPotions: 3, manaPotions: 2, maxSlots: 150, items: [] },
       storage: characterData.storage || { maxSlots: 50, items: [] },
       zone: characterData.zone || 'town',
       x: characterData.x,

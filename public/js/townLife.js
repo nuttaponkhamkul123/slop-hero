@@ -372,22 +372,97 @@
     return { canvas, minX, minY };
   }
 
-  // Returns the finished texture, or null while it is still being painted:
-  // each call spends at most budgetMs on it, so entering town never stalls
+  // The town map is the same every session, and baking its ground is seconds of
+  // work on a slow PC, so finished textures are kept: in memory by content (the
+  // server sends a fresh map object on every zone change) and in IndexedDB
+  // across sessions. The key covers the tiles, the props and the painter's own
+  // source, so editing either one bakes a fresh texture.
+  const GROUND_DB = 'slop_ground_cache', GROUND_STORE = 'tex';
+  const groundByKey = new Map();
+  let painterHash = null;
+  function strHash(s, h) {
+    h = h >>> 0 || 2166136261;
+    for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+    return h >>> 0;
+  }
+  function groundKey(map) {
+    if (painterHash === null) painterHash = strHash(generateGround.toString() + buildOcclusion.toString() + buildFootpaths.toString());
+    let h = strHash(map.width + 'x' + map.height, painterHash);
+    for (const row of map.tiles) h = strHash(row.join(','), h);
+    for (const o of map.obstacles || []) h = strHash(o.type + '@' + o.x + ',' + o.y, h);
+    return 'g' + h.toString(36);
+  }
+  function groundDb() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(GROUND_DB, 1);
+      req.onupgradeneeded = () => req.result.createObjectStore(GROUND_STORE);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+  function loadGround(key) {
+    if (typeof indexedDB === 'undefined') return Promise.resolve(null);
+    return groundDb().then(db => new Promise(resolve => {
+      const req = db.transaction(GROUND_STORE, 'readonly').objectStore(GROUND_STORE).get(key);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => resolve(null);
+    })).then(rec => {
+      if (!rec || !rec.blob) return null;
+      return createImageBitmap(rec.blob).then(bmp => {
+        const canvas = document.createElement('canvas');
+        canvas.width = bmp.width;
+        canvas.height = bmp.height;
+        canvas.getContext('2d').drawImage(bmp, 0, 0);
+        if (bmp.close) bmp.close();
+        return { canvas, minX: rec.minX, minY: rec.minY };
+      });
+    }).catch(() => null);
+  }
+  function saveGround(key, tex) {
+    if (typeof indexedDB === 'undefined' || !tex.canvas.toBlob) return;
+    // PNG encoding runs off the main thread; only this town's latest bake is kept
+    tex.canvas.toBlob(blob => {
+      if (!blob) return;
+      groundDb().then(db => {
+        const store = db.transaction(GROUND_STORE, 'readwrite').objectStore(GROUND_STORE);
+        store.clear();
+        store.put({ blob, minX: tex.minX, minY: tex.minY }, key);
+      }).catch(() => {});
+    }, 'image/png');
+  }
+
+  // Returns the finished texture, or null while it is still being painted (or
+  // read back from the cache): each call spends at most budgetMs baking, so
+  // entering town never stalls. budgetMs 0 only asks whether it is ready.
   const groundJobs = new WeakMap();
   function groundTexture(map, budgetMs = 6) {
     if (!map || !map.tiles) return null;
     const version = map._tilesVersion || 0;
     let job = groundJobs.get(map);
     if (!job || job.version !== version) {
-      job = { version, it: generateGround(map), tex: null };
+      const key = groundKey(map);
+      job = { version, key, it: null, tex: groundByKey.get(key) || null, loading: false };
       groundJobs.set(map, job);
+      if (!job.tex) {
+        // try the saved bake first; start painting only if there is none
+        job.loading = true;
+        loadGround(key).then(tex => {
+          job.loading = false;
+          if (tex && !job.tex) { job.tex = tex; groundByKey.set(key, tex); }
+        });
+      }
     }
-    if (job.tex) return job.tex;
+    if (job.tex || job.loading) return job.tex;
+    if (!job.it) job.it = generateGround(map);
     const t0 = performance.now();
     while (performance.now() - t0 < budgetMs) {
       const step = job.it.next();
-      if (step.done) { job.tex = step.value; break; }
+      if (step.done) {
+        job.tex = step.value;
+        groundByKey.set(job.key, job.tex);
+        saveGround(job.key, job.tex);
+        break;
+      }
     }
     return job.tex;
   }
@@ -470,6 +545,8 @@
   }
 
   function treeSprite(type, variant) {
+    // isometric 3D trees from pixelProps.js (loaded after this file, so looked up when first drawn)
+    if (window.PixelProps && window.PixelProps.isoTree) return window.PixelProps.isoTree(type, variant);
     const key = `${type}|${variant}`;
     if (treeCache.has(key)) return treeCache.get(key);
     const seed = variant * 101 + (type === 'pine_tree' ? 7 : 3);

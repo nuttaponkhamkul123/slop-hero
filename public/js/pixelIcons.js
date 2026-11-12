@@ -77,13 +77,18 @@
     horned: ['............', 'k..........k', 'kwk.kkkk.kwk', '.kwkllllkwk.', '..klwllssk..', '.klwlllsssk.', '.kllllsssdk.', '.kkkkkkkkkk.', '.klk.kk.ksk.', '.klk.kk.ksk.', '.kk..kk..kk.', '............'],
     bandana: ['............', '............', '...kkkkkk...', '..krrwrrrk..', '.krwrrrrrrk.', '.krrrrrrrrk.', '.kpppppppppk', '..kkkkkkkkrk', '..........kr', '...........k', '............', '............'],
     gloves: ['...k.k.k....', '..kTkTkTk...', '..kTkTkTk...', '..kTkTkTkk..', '..kTTTTTkTk.', '..kwTTTTTTk.', '..kTTTTTTk..', '..kTTTTTk...', '..kkkkkkk...', '..kyyyyyk...', '..kmmmmmk...', '..kkkkkkk...'],
+    cape: ['...kkkkkk...', '..kyrrrryk..', '.krwrrrrrpk.', '.krwrrrrrpk.', 'krwrrrrrrrpk', 'krwrrrrrrrpk', 'krrrrrrrrppk', 'krrrrrrrrppk', 'krrrrrrrpppk', 'kprrrrrrpppk', 'kpkprrpkpkpk', 'kk.kkkk.k.kk'],
     // --- talent / card glyphs ---
     thorns: ['.....k......', '....kgk..k..', '.k..kgk.kgk.', 'kgk.kgkkgk..', '.kgkkggk....', '..kggggk....', '...kgtk.k...', '.k.kgtkkgk..', 'kgkkgtkgk...', '.kggttk.....', '..kkgtk.....', '....kk......'],
     fang: ['............', '.kkkkkkkkkk.', '.kwwwwwwwwk.', '.kwkkkkkkwk.', '.kwk....kwk.', '.kwk....kwk.', '.kwk....kwk.', '..kwk..kwk..', '..krk..krk..', '...k....k...', '...r....r...', '............'],
     feather: ['.........kk.', '........kwck', '.......kwcck', '......kwcck.', '.....kwcck..', '....kwcck...', '...kwcck....', '..kwcck.....', '..kcck......', '.kmkk.......', 'kmk.........', 'kk..........'],
     burst: ['.....k......', '.k...ok...k.', '..k.kok..k..', '...koyok.k..', '.kkoyyyokk..', 'kooyywyyook.', '.kkoyyyokk..', '...koyok....', '..k.kok.k...', '.k...ok..k..', '.....k......', '............'],
     card: ['.kkkkkkkkk..', 'kyyyyyyyyyk.', 'kyeeeeeeeyk.', 'kyekkkkkeyk.', 'kyekwwwkeyk.', 'kyekwkwkeyk.', 'kyekwwwkeyk.', 'kyekkkkkeyk.', 'kyeeeeeeeyk.', 'kyyyyyyyyyk.', '.kkkkkkkkk..', '............'],
-    anvil: ['............', '............', 'kkkkkkkkkk..', 'klllllllllkk', 'klwllllllssk', '.kkllllsskk.', '...klllsk...', '...klllsk...', '..kllllssk..', '.kssssssddk.', '.kkkkkkkkkk.', '............']
+    anvil: ['............', '............', 'kkkkkkkkkk..', 'klllllllllkk', 'klwllllllssk', '.kkllllsskk.', '...klllsk...', '...klllsk...', '..kllllssk..', '.kssssssddk.', '.kkkkkkkkkk.', '............'],
+    // --- Jerry's attribute materials ---
+    attr_socketer: ['.........kk.', '........kwBk', '.......kwBk.', '......kBBk..', '.....kllk...', '....klwlk...', '...kllsk....', '..kTTsk.....', '.kTyTk......', 'kTmmk.......', 'kmmk........', '.kk.........'],
+    attr_roller: ['............', '.kkkkkkkkkk.', 'kwwwwwwwwwLk', 'kwkkwwwwwwLk', 'kwkkwwwwwwLk', 'kwwwwkkwwwLk', 'kwwwwkkwwwLk', 'kwwwwwwkkwLk', 'kwwwwwwkkwLk', 'kwwwwwwwwwLk', 'kLLLLLLLLLgk', '.kkkkkkkkkk.'],
+    attr_reseter: ['kkkkkkkkkkkk', '.kTTTTTTTTk.', '..kwwwwwwk..', '..keyyyyek..', '...keyyek...', '....keek....', '....kwek....', '...kwweek...', '..kwwyyeek..', '..keyyyyek..', '.kTTTTTTTTk.', 'kkkkkkkkkkkk']
   };
 
   // Recoloured variants of the base icons
@@ -106,6 +111,17 @@
     gloves_ember: ['gloves', { T: 'o', m: 'r' }],
     gloves_shadow: ['gloves', { T: 'p', m: 'd', y: 'e' }],
     gloves_gold: ['gloves', { T: 'y', m: 'T', y: 'o' }],
+    cape_brown: ['cape', { r: 'T', p: 'm', w: 'o', y: 'm' }],
+    cape_fur: ['cape', { r: 'l', p: 's', w: 'w', y: 'w' }],
+    cape_red: ['cape', { y: 'y' }],
+    cape_green: ['cape', { r: 'g', p: 't', w: 'L', y: 'T' }],
+    cape_ice: ['cape', { r: 'c', p: 'B', w: 'w', y: 'l' }],
+    cape_fire: ['cape', { r: 'o', p: 'r', w: 'y', y: 'y' }],
+    cape_raven: ['cape', { r: 'd', p: 'n', w: 'e', y: 's' }],
+    cape_royal: ['cape', { r: 'e', p: 'p', w: 'w', y: 'y' }],
+    cape_void: ['cape', { r: 'n', p: 'd', w: 'c', y: 'e' }],
+    cape_storm: ['cape', { r: 'b', p: 'n', w: 'c', y: 'y' }],
+    cape_dragon: ['cape', { r: 'r', p: 'p', w: 'o', y: 'l' }],
     ring_copper: ['ring', { e: 'T', y: 'T', T: 'm' }],
     ring_sapphire: ['ring', { e: 'B' }],
     ring_ruby: ['ring', { e: 'r' }],
@@ -191,6 +207,7 @@
     if (item.slot === 'boots') return 'boots';
     if (item.slot === 'ring') return 'ring';
     if (item.slot === 'gloves') return 'gloves';
+    if (item.slot === 'cape') return 'cape';
     if (item.type === 'consumable') return /mana/.test(name) ? 'mp_potion' : 'hp_potion';
     if (item.type === 'treasure') return 'gem';
     if (item.type === 'material') return 'fragment';
@@ -292,8 +309,21 @@
   // ---------- emoji stripping (DOM + canvas) ----------
   const SYMBOL_SWAP = [[/➜|➔|→|➡️?/g, '>'], [/✕|✖️?|✗/g, 'x'], [/★|⭐/g, '*'], [/✓|✔️?/g, '+']];
   const EMOJI_RE = /(?:[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{2190}-\u{21FF}\u{2300}-\u{23FF}\u{1F1E6}-\u{1F1FF}][\u{FE0F}\u{200D}\u{1F3FB}-\u{1F3FF}]*)+|\u{FE0F}|\u{200D}/gu;
+  // Runs on every canvas fillText and DOM text change, so plain text (nothing
+  // from the symbol / emoji ranges) returns at once and the rest is memoised
+  const MAYBE_EMOJI = /[←-⯿\uD83C-\uD83E️‍]/;
+  const stripCache = new Map();
   function stripEmoji(text) {
-    if (typeof text !== 'string' || !text) return text;
+    if (typeof text !== 'string' || !text || !MAYBE_EMOJI.test(text)) return text;
+    let hit = stripCache.get(text);
+    if (hit === undefined) {
+      hit = stripEmojiSlow(text);
+      if (stripCache.size > 2000) stripCache.clear();
+      stripCache.set(text, hit);
+    }
+    return hit;
+  }
+  function stripEmojiSlow(text) {
     let out = text;
     for (const [re, rep] of SYMBOL_SWAP) out = out.replace(re, rep);
     out = out.replace(EMOJI_RE, '');

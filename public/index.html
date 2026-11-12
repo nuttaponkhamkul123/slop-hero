@@ -87,8 +87,11 @@
           </div>
 
           <!-- Health Bar -->
-          <div class="stat-bar-container">
+          <div class="stat-bar-container hp-bar-wrap">
+            <div class="hp-trail" id="hudHpTrail" style="width: 100%;"></div>
             <div class="stat-bar-fill hp-fill" id="hudHpFill" style="width: 100%;"></div>
+            <div class="hp-absorb" id="hudHpAbsorb" style="width: 0%;"></div>
+            <div class="es-overlay" id="hudEsFill" style="width: 0%;"></div>
             <span class="stat-bar-text" id="hudHpText">180 / 180 HP</span>
           </div>
 
@@ -157,7 +160,8 @@
             <div class="target-name" id="targetName">Meadow Slime (Lv. 1)</div>
             <span class="target-element-badge" id="targetElementBadge" style="display: none;">🌿 Earth</span>
           </div>
-          <div class="stat-bar-container" style="height: 10px;">
+          <div class="stat-bar-container hp-bar-wrap" style="height: 10px;">
+            <div class="hp-trail" id="targetHpTrail" style="width: 100%;"></div>
             <div class="stat-bar-fill hp-fill" id="targetHpFill" style="width: 100%;"></div>
           </div>
           <div class="target-weakness-row" id="targetWeaknessRow" style="display: none;"></div>
@@ -192,6 +196,7 @@
             <button class="menu-btn mobile-menu-item" id="mBtnOpenStats"><span data-pxi="stats"></span> Stats</button>
             <button class="menu-btn mobile-menu-item" id="mBtnOpenInventory"><span data-pxi="bag"></span> Bag</button>
             <button class="menu-btn mobile-menu-item" id="mBtnOpenParty"><span data-pxi="shield"></span> Party</button>
+            <button class="menu-btn mobile-menu-item" id="mBtnOpenCrafting"><span data-pxi="hammer"></span> Craft</button>
             <button class="menu-btn mobile-menu-item" id="mBtnOpenSettings"><span data-pxi="gear"></span> Settings</button>
             <button class="menu-btn mobile-menu-item" id="mBtnOpenHelp"><span data-pxi="help"></span> Help</button>
           </div>
@@ -249,6 +254,14 @@
             <div class="slot-cooldown-overlay" id="cdOverlaySkill3"></div>
           </div>
 
+          <!-- SP Signature (ultimate): only while transformed; fills as it charges -->
+          <div class="action-slot ult-slot" id="slotUlt" title="SP Signature [G]" style="display:none">
+            <span class="slot-key">G</span>
+            <span class="slot-icon" id="slotUltIcon"></span>
+            <div class="slot-cooldown-overlay" id="cdOverlayUlt"></div>
+            <span class="ult-charge" id="slotUltCharge"></span>
+          </div>
+
           <!-- Class Dash / Mobility -->
           <div class="action-slot" id="slotDash" title="Class Dash / Mobility [Shift]">
             <span class="slot-key">SHIFT</span>
@@ -276,6 +289,8 @@
             <span class="slot-icon" id="slotHpIcon" data-pxi="hp_potion"></span>
             <span class="slot-badge" id="badgeHealthPotion">3</span>
             <span class="slot-swap-btn" id="btnSwapHp" title="Click to Switch Potion Size"><span data-pxi="swap"></span></span>
+            <div class="slot-cooldown-overlay" id="cdOverlayHpPotion"></div>
+            <span class="slot-cd-text" id="cdTextHpPotion"></span>
           </div>
 
           <!-- Mana Potion -->
@@ -284,6 +299,8 @@
             <span class="slot-icon" id="slotMpIcon" data-pxi="mp_potion"></span>
             <span class="slot-badge" id="badgeManaPotion">2</span>
             <span class="slot-swap-btn" id="btnSwapMp" title="Click to Switch Potion Size"><span data-pxi="swap"></span></span>
+            <div class="slot-cooldown-overlay" id="cdOverlayMpPotion"></div>
+            <span class="slot-cd-text" id="cdTextMpPotion"></span>
           </div>
         </div>
       </div>
@@ -298,6 +315,7 @@
           <button class="menu-btn" id="btnOpenStats"><span data-pxi="stats"></span> Stats [C]</button>
           <button class="menu-btn" id="btnOpenInventory"><span data-pxi="bag"></span> Bag [I]</button>
           <button class="menu-btn" id="btnOpenParty"><span data-pxi="shield"></span> Party [O]</button>
+          <button class="menu-btn" id="btnOpenCrafting"><span data-pxi="hammer"></span> Craft [J]</button>
           <button class="menu-btn" id="btnOpenEffects"><span data-pxi="star"></span> Effects</button>
           <button class="menu-btn" id="btnOpenHelp"><span data-pxi="help"></span> Help [H]</button>
           <button class="menu-btn" id="btnGameMode" title="Fullscreen with browser shortcuts (Ctrl+W, Ctrl+T...) locked. Hold Esc to leave."><span data-pxi="lock"></span> <span class="game-mode-label">Game Mode [F10]</span></button>
@@ -340,10 +358,14 @@
           </button>
           <button id="mobileBtnHp" class="mobile-potion-btn hp-btn" title="Health Potion">
             <span class="m-icon" data-pxi="hp_potion"></span>
+            <span class="m-potion-cd"><span class="m-cd-overlay" id="mobileCdHpPotion"></span></span>
+            <span class="slot-cd-text" id="mobileCdTextHpPotion"></span>
             <span class="m-potion-badge" id="mobileBadgeHp">3</span>
           </button>
           <button id="mobileBtnMp" class="mobile-potion-btn mp-btn" title="Mana Potion">
             <span class="m-icon" data-pxi="mp_potion"></span>
+            <span class="m-potion-cd"><span class="m-cd-overlay" id="mobileCdMpPotion"></span></span>
+            <span class="slot-cd-text" id="mobileCdTextMpPotion"></span>
             <span class="m-potion-badge" id="mobileBadgeMp">2</span>
           </button>
           <button id="mobileBtnSp" class="mobile-potion-btn sp-btn" title="SP Transform">
@@ -546,9 +568,17 @@
         <p class="modal-subtitle">Interface scaling, audio levels & preferences</p>
       </div>
 
+      <div class="inv-tabs settings-tabs" id="settingsTabs" role="tablist">
+        <button type="button" class="inv-tab settings-tab active" data-settings-tab="interface" role="tab">INTERFACE</button>
+        <button type="button" class="inv-tab settings-tab" data-settings-tab="graphics" role="tab">GRAPHICS</button>
+        <button type="button" class="inv-tab settings-tab" data-settings-tab="audio" role="tab">AUDIO</button>
+        <button type="button" class="inv-tab settings-tab" data-settings-tab="gameplay" role="tab">GAMEPLAY</button>
+        <button type="button" class="inv-tab settings-tab" data-settings-tab="controls" role="tab">CONTROLS</button>
+      </div>
+
       <div class="settings-modal-body">
         <!-- Section 1: GUI Scale -->
-        <div class="settings-section">
+        <div class="settings-section" data-settings-pane="interface">
           <div class="settings-section-title">
             <span data-pxi="cube"></span> INTERFACE SCALE (GUI SCALE)
           </div>
@@ -574,7 +604,7 @@
         </div>
 
         <!-- Section 2: Graphics -->
-        <div class="settings-section">
+        <div class="settings-section" data-settings-pane="graphics">
           <div class="settings-section-title">
             <span data-pxi="cube"></span> GRAPHICS & PERFORMANCE
           </div>
@@ -640,10 +670,26 @@
             <button type="button" class="gui-scale-preset" data-vfx="reduced">Reduced</button>
             <button type="button" class="gui-scale-preset" data-vfx="minimal">Minimal</button>
           </div>
+
+          <div class="settings-control-row" style="margin-top: 14px;">
+            <div class="settings-label-col">
+              <span class="settings-label-main">Lighting</span>
+              <span class="settings-label-sub">Smooth: soft glow &amp; flicker. Simple: lighter on laptops. Off: no darkness</span>
+            </div>
+            <div class="settings-value-col">
+              <span class="settings-badge" id="lblLightingVal">Auto</span>
+            </div>
+          </div>
+          <div class="gui-scale-presets">
+            <button type="button" class="gui-scale-preset active" data-lighting="auto">Auto</button>
+            <button type="button" class="gui-scale-preset" data-lighting="smooth">Smooth</button>
+            <button type="button" class="gui-scale-preset" data-lighting="simple">Simple</button>
+            <button type="button" class="gui-scale-preset" data-lighting="off">Off</button>
+          </div>
         </div>
 
         <!-- Section 3: Audio Settings -->
-        <div class="settings-section">
+        <div class="settings-section" data-settings-pane="audio">
           <div class="settings-section-title">
             <span data-pxi="sound"></span> AUDIO & SOUND EFFECTS
           </div>
@@ -681,10 +727,10 @@
           </div>
         </div>
 
-        <!-- Section 3: Display & Presets -->
-        <div class="settings-section">
+        <!-- Section 4: Gameplay -->
+        <div class="settings-section" data-settings-pane="gameplay">
           <div class="settings-section-title">
-            <span data-pxi="compass"></span> CONTROLS & CAMERA
+            <span data-pxi="compass"></span> GAMEPLAY
           </div>
           <div class="settings-control-row">
             <div class="settings-label-col">
@@ -735,10 +781,16 @@
               <span class="settings-badge" id="lblAutoMpVal">Off</span>
             </div>
           </div>
-          <div class="settings-slider-wrapper" style="margin-bottom: 14px;">
+          <div class="settings-slider-wrapper">
             <input type="range" id="sliderAutoMp" min="0" max="90" step="5" value="0" class="settings-slider">
           </div>
+        </div>
 
+        <!-- Section 5: Controls & Camera -->
+        <div class="settings-section" data-settings-pane="controls">
+          <div class="settings-section-title">
+            <span data-pxi="compass"></span> CONTROLS & CAMERA
+          </div>
           <div class="settings-control-row">
             <div class="settings-label-col">
               <span class="settings-label-main">Key Bindings</span>
@@ -912,6 +964,11 @@
                 <div class="equip-item-content"></div>
                 <span class="equip-slot-tag">BOOTS</span>
               </div>
+              <div class="equip-slot" id="eqSlotCape" data-slot="cape">
+                <span class="slot-placeholder-icon" data-pxi="cape"></span>
+                <div class="equip-item-content"></div>
+                <span class="equip-slot-tag">CAPE</span>
+              </div>
               <div class="equip-slot" id="eqSlotSp" data-slot="sp">
                 <span class="slot-placeholder-icon" data-pxi="card"></span>
                 <div class="equip-item-content"></div>
@@ -952,25 +1009,45 @@
             <span id="invCapacityText" class="inv-capacity">0 / 30</span>
           </div>
           <div class="inventory-grid-compact" id="invItemsGrid"></div>
-          <div class="inv-hint">Click gear to equip, potions to drink. Hover any item for details.</div>
+          <div class="inv-hint">Click gear to equip, potions to drink. Right-click to favorite (favorites can't be sold). Hover any item for details.</div>
         </section>
       </div>
     </div>
   </div>
 
   <!-- Valka's Rune Forge: gear enhancement, SP card enhancement, card exchange -->
+  <!-- Crafting (crafting.js): recipes grouped by category -->
+  <div class="modal-overlay" id="craftingModal" style="display: none;">
+    <div class="hud-panel modal-card enchanter-card crafting-card">
+      <button class="modal-close" id="btnCloseCrafting">✕</button>
+      <div class="modal-header">
+        <h2 class="modal-title">🔨 CRAFTING</h2>
+        <p class="modal-subtitle">Turn materials into gear, runes, food and furniture. Craft in town or on your plot.</p>
+      </div>
+      <div class="ench-tabs" id="craftTabs"></div>
+      <div class="ench-body">
+        <div class="ench-list" id="craftList"></div>
+        <div class="ench-detail" id="craftDetail"></div>
+      </div>
+      <div class="ench-foot">
+        <span><span data-pxi="coin"></span> <b id="craftGold">0</b> Gold</span>
+        <span id="craftWhere"></span>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="enchanterModal" style="display: none;">
     <div class="hud-panel modal-card enchanter-card">
       <button class="modal-close" id="btnCloseEnchanter">✕</button>
       <div class="modal-header">
         <h2 class="modal-title">VALKA'S RUNE FORGE</h2>
-        <p class="modal-subtitle">Enhance gear up to +15, empower SP cards and trade Spirit Fragments</p>
+        <p class="modal-subtitle">Enhance gear, empower SP cards, trade for cards and socket runes</p>
       </div>
       <div class="ench-tabs" id="enchTabs">
-        <button class="ench-tab active" data-tab="gear">GEAR +</button>
-        <button class="ench-tab" data-tab="card">SP CARD +</button>
-        <button class="ench-tab" data-tab="exchange">CARD EXCHANGE</button>
-        <button class="ench-tab" data-tab="socket">WEAPON SOCKETS</button>
+        <button class="ench-tab active" data-tab="gear">Enhance Gear</button>
+        <button class="ench-tab" data-tab="card">Empower Card</button>
+        <button class="ench-tab" data-tab="exchange">Card Exchange</button>
+        <button class="ench-tab" data-tab="socket">Sockets</button>
       </div>
       <div class="ench-body">
         <div class="ench-list" id="enchList"></div>
@@ -980,6 +1057,22 @@
         <span><span data-pxi="coin"></span> <b id="enchGold">0</b> Gold</span>
         <span><span data-pxi="fragment"></span> <b id="enchFragments">0</b> Spirit Fragments</span>
       </div>
+    </div>
+  </div>
+
+  <!-- Jerry the Attribute Smith (game.js renderAttrSmith) -->
+  <div class="modal-overlay" id="attrModal" style="display: none;">
+    <div class="hud-panel modal-card enchanter-card attr-card">
+      <button class="modal-close" id="btnCloseAttr">✕</button>
+      <div class="modal-header">
+        <h2 class="modal-title">JERRY'S ATTRIBUTE WORKSHOP</h2>
+        <p class="modal-subtitle">Open attribute slots, roll attributes and reset their values</p>
+      </div>
+      <div class="ench-body">
+        <div class="ench-list" id="attrList"></div>
+        <div class="ench-detail" id="attrDetail"></div>
+      </div>
+      <div class="ench-foot" id="attrFoot"></div>
     </div>
   </div>
 
@@ -1062,12 +1155,10 @@
       <button class="modal-close" id="btnCloseDungeonPortal">✕</button>
       <div class="modal-header">
         <h2 class="modal-title">ABYSSAL EXPEDITION</h2>
-        <p class="modal-subtitle">Configure dungeon depth and hazard difficulty before descending</p>
-        <p class="modal-subtitle" style="color:#4ade80;">⚔️ Party members share one private dungeon — other players are hidden. Invite with <code>/invite name</code>.</p>
       </div>
 
       <!-- Floor Selection -->
-      <div class="portal-section-label">SELECT DUNGEON FLOOR</div>
+      <div class="portal-section-label">FLOOR</div>
       <div class="floor-path">
         <div class="floor-path-track">
         <button type="button" class="floor-node selected" data-floor="1" data-name="Crypt of Whispers" data-min="1" data-max="15" data-desc="Skeleton & Slime Hordes">
@@ -1122,78 +1213,50 @@
           <div class="floor-detail-status" id="floorDetailStatus"></div>
         </div>
         <div class="floor-loot-preview">
-          <span class="floor-loot-title">🎁 EXPECTED CHEST &amp; BOSS REWARDS</span>
+          <span class="floor-loot-title">Rewards</span>
           <div class="floor-loot-slots" id="floorLootSlots"></div>
         </div>
       </div>
 
-      <!-- Difficulty Selection -->
-      <div class="portal-section-label" style="margin-top: 14px;">SELECT HAZARD DIFFICULTY</div>
-      <div class="difficulty-select-grid">
-        <div class="diff-card selected" data-diff="normal">
-          <div class="diff-badge badge-normal">🟢 NORMAL</div>
-          <div class="diff-title">Standard Abyss</div>
-          <div class="diff-stats">
-            <div>• Mob Density: <span>1.0x (Standard)</span></div>
-            <div>• Mob HP & DMG: <span>100%</span></div>
-            <div>• Bonus Rewards: <span>+30% EXP vs. fields</span></div>
-            <div>• Monster Affixes: <span>None</span></div>
+      <!-- Difficulty + mode: compact picks, the numbers are in each tooltip -->
+      <div class="portal-pick-row">
+        <div class="portal-pick">
+          <div class="portal-section-label">DIFFICULTY</div>
+          <div class="difficulty-select-grid compact">
+            <div class="diff-card selected" data-diff="normal" title="Normal: standard monsters and rewards (+30% EXP vs. fields).">
+              <div class="diff-name">Normal</div><div class="diff-line">Standard</div>
+            </div>
+            <div class="diff-card" data-diff="hard" title="Hard: x1.6 monsters, x1.7 HP and x1.4 damage, 1-2 affixes each. Rewards: x1.6 gold, +60% EXP.">
+              <div class="diff-name">Hard</div><div class="diff-line">x1.6 gold</div>
+            </div>
+            <div class="diff-card" data-diff="nightmare" title="Nightmare: x2.3 monsters, x2.6 HP and x1.9 damage, 2-3 affixes each, faster boss attacks. Rewards: x2.5 gold, double EXP.">
+              <div class="diff-name">Nightmare</div><div class="diff-line">x2.5 gold</div>
+            </div>
           </div>
         </div>
-
-        <div class="diff-card" data-diff="hard">
-          <div class="diff-badge badge-hard">🟡 HARD</div>
-          <div class="diff-title">Nightfall Swarm</div>
-          <div class="diff-stats">
-            <div>• Mob Density: <span style="color: #facc15;">1.35x (+35% Density)</span></div>
-            <div>• Mob HP & DMG: <span style="color: #facc15;">+35% Fierce</span></div>
-            <div>• Bonus Rewards: <span style="color: var(--lime);">+60% Gold, +25% EXP</span></div>
-            <div>• Affixes: <span style="color: #facc15;">1-2 Random Buffs</span></div>
-            <div>• Commander: <span style="color: #facc15;">30% Aura Leaders</span></div>
-          </div>
-        </div>
-
-        <div class="diff-card" data-diff="nightmare">
-          <div class="diff-badge badge-nightmare">🔴 NIGHTMARE</div>
-          <div class="diff-title">Infernal Cataclysm</div>
-          <div class="diff-stats">
-            <div>• Mob Density: <span style="color: #ef4444;">1.75x (+75% Swarm!)</span></div>
-            <div>• Mob HP & DMG: <span style="color: #ef4444;">+85% Brutal</span></div>
-            <div>• Bonus Rewards: <span style="color: var(--orange);">+150% Gold, +55% EXP</span></div>
-            <div>• Affixes: <span style="color: #ef4444;">2-3 Deadly Buffs</span></div>
-            <div>• Commander: <span style="color: #ef4444;">60% War Aura Mobs</span></div>
+        <div class="portal-pick">
+          <div class="portal-section-label">MODE</div>
+          <div class="mode-select-grid compact">
+            <div class="mode-card selected" data-mode="classic" title="Labyrinth: rooms behind sealed doors. Clear each one to open the way on.">
+              <div class="mode-title">Labyrinth</div><div class="mode-desc">Room by room</div>
+            </div>
+            <div class="mode-card" data-mode="rush" title="Rush: one long hall with every monster in it at once. Cut your way to the end, then face the boss.">
+              <div class="mode-title">Rush</div><div class="mode-desc">One long hall</div>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- Dungeon mode: the classic labyrinth, or Rush -->
-      <div class="portal-section-label" style="margin-top: 14px;">SELECT DUNGEON MODE</div>
-      <div class="mode-select-grid">
-        <div class="mode-card selected" data-mode="classic">
-          <div class="mode-title">🏛️ LABYRINTH</div>
-          <div class="mode-desc">Rooms behind sealed doors. Clear each one to open the way on.</div>
-        </div>
-        <div class="mode-card" data-mode="rush">
-          <div class="mode-title">⚡ RUSH</div>
-          <div class="mode-desc">One super long hall with every monster in it at once. Cut your way to the end, then face the boss.</div>
-        </div>
-      </div>
-
-      <!-- Affix description teaser -->
-      <div class="affix-info-strip">
-        <span class="affix-pill pill-fortified"><span data-pxi="shield"></span> Fortified (-30% Dmg)</span>
-        <span class="affix-pill pill-frostbite"><span data-pxi="snow"></span> Frostbite (Freezing Chill)</span>
-        <span class="affix-pill pill-venomous"><span data-pxi="poison"></span> Venomous (Poison DoT)</span>
-        <span class="affix-pill pill-ignited"><span data-pxi="fire"></span> Ignited (Burn DoT)</span>
-        <span class="affix-pill pill-commander"><span data-pxi="crown"></span> Commander (Aura Buffs)</span>
-      </div>
+      <!-- Dungeon modifiers (dungeonMods.ts): optional handicaps for bigger rewards -->
+      <div class="portal-section-label" style="margin-top: 12px;">MODIFIERS <span class="dmod-reward" id="dmodReward">No bonus</span></div>
+      <div class="dmod-grid" id="dmodGrid"></div>
 
       <!-- Enter Button -->
       <div class="portal-actions">
         <button class="btn-primary btn-enter-portal" id="btnConfirmEnterDungeon">
           ⚔️ DESCEND INTO DUNGEON
         </button>
-        <button class="btn-primary btn-enter-portal btn-enter-with-party" id="btnEnterDungeonWithParty" style="display: none;">
+        <button class="btn-primary btn-enter-portal btn-enter-with-party" id="btnEnterDungeonWithParty" style="display: none;" title="Your party shares one private dungeon.">
           📣 DESCEND &amp; INVITE PARTY
         </button>
       </div>
@@ -1208,7 +1271,7 @@
         <div class="skill-tree-header-row">
           <div>
             <h2 class="modal-title" id="stClassName">WARRIOR SPELLBOOK & TALENTS</h2>
-            <p class="modal-subtitle">Customize active skill loadout, socket elemental runes, and master passive talents</p>
+            <p class="modal-subtitle">Equip your active skills and grow your passive tree</p>
           </div>
           <div class="skill-points-banner" id="spBannerWrapper">
             <span class="sp-label">Skill Points:</span>
@@ -1219,27 +1282,14 @@
 
       <!-- Skill Modal Tabs -->
       <div class="skills-tab-bar">
-        <button class="skills-nav-tab active" id="tabNavLoadout">⚡ Active Loadout & Spellbook</button>
-        <button class="skills-nav-tab" id="tabNavTalents">🌳 Passive Talent Tree</button>
+        <button class="skills-nav-tab active" id="tabNavLoadout">⚡ Active Skills</button>
+        <button class="skills-nav-tab" id="tabNavTalents">🌳 Passive Tree</button>
       </div>
 
-      <!-- TAB 1: Custom Loadout & Spellbook -->
+      <!-- TAB 1: Active skills: hotbar + unlock path (game.js renderCustomSkillLoadout) -->
       <div class="skills-tab-content" id="tabContentLoadout">
-        <!-- 4 Active Hotbar Slots Bar -->
-        <div class="loadout-section-title">ACTIVE HOTBAR SLOTS (Click a slot to customize)</div>
-        <div class="loadout-slots-row" id="loadoutSlotsRow">
-          <!-- 4 slot cards injected by JS -->
-        </div>
-
-
-        <!-- Class Available Skills Catalog -->
-        <div class="loadout-section-title" style="margin-top: 14px;">CLASS SKILL ARSENAL (Click any skill to assign to selected slot)</div>
-        <div class="loadout-drag-guide-ribbon" id="loadoutGuideRibbon">
-          <span>🖐️ <strong>Drag & Drop:</strong> Drag any unlocked skill slot into <strong>[Q], [E], [R], [Shift]</strong> or click to equip!</span>
-        </div>
-        <div class="skills-catalog-grid" id="skillsCatalogGrid">
-          <!-- 8 class skill cards injected by JS -->
-        </div>
+        <div class="sk-hotbar" id="loadoutSlotsRow"></div>
+        <div class="sk-board" id="skillsCatalogGrid"></div>
       </div>
 
       <!-- TAB 2: Passive Talent Tree -->
@@ -1252,10 +1302,10 @@
 
         <div class="skill-tree-footer">
           <div class="st-footer-info">
-            <span>Earn 1 Skill Point on every Level Up. Start from any of the nine origin talents, then learn anything that touches a talent you own: build your own path across all three specializations.</span>
+            <span>Earn 1 Passive Point every Level Up. Every class shares one giant tree: start from your class's spot and grow outward. Each node takes one point; click a far node to allocate the whole path to it, right-click an allocated node to refund it (25 Gold).</span>
           </div>
           <button class="btn-secondary btn-reset-talents" id="btnResetTalents">
-            🔄 Reset Talents (50g / pt)
+            🔄 Reset All Passives (50g / pt)
           </button>
         </div>
       </div>
@@ -1383,6 +1433,7 @@
   <!-- Three.js 3D Town Props Engine -->
   <script src="js/three.min.js"></script>
   <script src="js/townProps3D.js"></script>
+  <script src="js/fpHands.js"></script>
   <script src="js/classPreview.js"></script>
 
   <!-- Game Scripts -->
@@ -1391,16 +1442,28 @@
   <script src="js/isometric.js"></script>
   <script src="js/skillIcons.js"></script>
   <script src="js/pixelIcons.js"></script>
+  <script src="js/itemAttrs.js"></script>
   <script src="js/tooltip.js"></script>
   <script src="js/pixelHeroes.js"></script>
   <script src="js/spWings.js"></script>
   <script src="js/pixelMobs.js"></script>
   <script src="js/townLife.js"></script>
+  <script src="js/fieldGround.js"></script>
   <script src="js/dungeonLife.js"></script>
   <script src="js/pixelProps.js"></script>
   <script src="js/trails.js"></script>
+  <script src="js/slashFx.js"></script>
   <script src="js/renderer.js"></script>
+  <script src="js/frostTemplarFx.js"></script>
+  <script src="js/dragoonFx.js"></script>
+  <script src="js/runeKnightFx.js"></script>
+  <script src="js/gravelordFx.js"></script>
+  <script src="js/fpIsoFx.js"></script>
+  <script src="js/firstPerson.js"></script>
   <script src="js/rift.js"></script>
+  <script src="js/crafting.js"></script>
+  <script src="js/passiveTree.js"></script>
+  <script src="js/forgeFx.js"></script>
   <script src="js/game.js"></script>
 </body>
 </html>

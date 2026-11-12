@@ -1,0 +1,58 @@
+{
+  "wayfarer": {
+    "id": "wayfarer",
+    "name": "Wayfarer's Resolve",
+    "icon": "🌿",
+    "color": "#4ade80",
+    "pieces": ["wayfarer_hood", "wayfarer_longcoat", "wayfarer_grips", "wayfarer_treads"],
+    "bonuses": {
+      "2": { "hpPct": 0.05, "regenMult": 1.25, "desc": "+5% Max HP, +25% HP regeneration." },
+      "4": {
+        "effect": "second_wind", "hpThreshold": 0.3, "shieldPct": 0.25, "hasteSec": 4, "cooldown": 60,
+        "desc": "Second Wind: dropping below 30% HP grants a shield worth 25% of Max HP, +35% Move Speed for 4s and cleanses slows. (60s cooldown)"
+      }
+    }
+  },
+  "emberheart": {
+    "id": "emberheart",
+    "name": "Emberheart Regalia",
+    "icon": "🔥",
+    "color": "#f97316",
+    "pieces": ["emberheart_crown", "emberheart_cuirass", "emberheart_gauntlets", "emberheart_sabatons"],
+    "bonuses": {
+      "2": { "dmgVsBurning": 0.08, "desc": "+8% damage to burning enemies." },
+      "4": {
+        "effect": "cinder_cascade", "stacks": 5, "radius": 2.6, "dmgMult": 1.2, "burnMult": 0.15, "burnSec": 3,
+        "desc": "Cinder Cascade: every hit brands an Ember. At 5 Embers the target erupts for 120% Attack as fire damage to all nearby enemies and sets them burning (15% Attack/s for 3s)."
+      }
+    }
+  },
+  "stormcaller": {
+    "id": "stormcaller",
+    "name": "Stormcaller's Vestments",
+    "icon": "⚡",
+    "color": "#facc15",
+    "pieces": ["stormcaller_circlet", "stormcaller_mantle", "stormcaller_bracers", "stormcaller_striders"],
+    "bonuses": {
+      "2": { "cdr": 0.08, "desc": "-8% skill cooldowns." },
+      "4": {
+        "effect": "static_overload", "stacks": 5, "chains": 4, "range": 5, "dmgMult": 0.9, "falloff": 0.15, "cdCut": 0.2,
+        "desc": "Static Overload: each skill cast grants Static (max 5). At 5, your next hit chains lightning to 4 enemies (90% Attack, -15% per jump) and cuts your other cooldowns by 20%."
+      }
+    }
+  },
+  "eclipse": {
+    "id": "eclipse",
+    "name": "Eclipse of the Twin Veil",
+    "icon": "🌗",
+    "color": "#c084fc",
+    "pieces": ["eclipse_veil", "twin_veil_raiment", "eclipse_handwraps", "duskwalker_boots"],
+    "bonuses": {
+      "2": { "resist": { "holy": 0.1, "dark": 0.1 }, "desc": "+10% Holy & Dark RES." },
+      "4": {
+        "effect": "dawn_dusk", "period": 10, "duskDmg": 0.15, "duskLeech": 0.08, "dawnDef": 0.2, "dawnHealPct": 0.015, "dawnRadius": 6, "flipCooldown": 10,
+        "desc": "Dawn & Dusk: alternates every 10s. Dusk: +15% damage, heal 8% of damage dealt. Dawn: +20% Defense, party members nearby heal 1.5% Max HP/s. Casting a skill with a 10s+ cooldown flips the phase at once."
+      }
+    }
+  }
+}

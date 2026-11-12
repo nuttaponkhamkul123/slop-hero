@@ -458,14 +458,15 @@
     }
 
     // The lights near the screen this frame, with flicker
-    gatherLights(R, gameState, localPlayerId) {
+    // (simple lighting: no flicker, so a light's pool only changes when the camera moves)
+    gatherLights(R, gameState, localPlayerId, simple = false) {
       const out = [];
       const z = R.camera.zoom, W = R.viewW, H = R.viewH, t = this.time;
       const add = (l) => {
         const s = Isometric.worldToScreen(l.x, l.y, 0, R.camera, W, H);
         const rp = l.r * TILE_PX * z;
         if (s.x < -rp || s.x > W + rp || s.y < -rp / 2 || s.y > H + rp / 2) return;
-        const flick = l.steady ? 1 : 1 + 0.05 * Math.sin(t * 9 + l.seed) + 0.03 * Math.sin(t * 23 + l.seed * 1.7);
+        const flick = l.steady || simple ? 1 : 1 + 0.05 * Math.sin(t * 9 + l.seed) + 0.03 * Math.sin(t * 23 + l.seed * 1.7);
         out.push({ x: l.x, y: l.y, r: l.r * flick, s: l.s, col: l.col, sx: s.x, sy: s.y });
       };
       for (const l of this.staticLights) add(l);
@@ -480,6 +481,7 @@
 
     // 0 = fully lit, up to theme darkness where no light reaches
     darknessAt(x, y) {
+      if (this.lightingOff) return 0;
       let lit = 0;
       for (const l of this.frameLights) {
         const d = Math.hypot(x - l.x, y - l.y);
@@ -494,9 +496,17 @@
     // Darkness with light holes over the floor, then a soft coloured glow.
     // Both are painted at quarter resolution and stretched: light is soft
     // anyway, and full-size stamps of every light are a lot of overdraw.
-    drawLighting(ctx, R, gameState, localPlayerId) {
-      const lights = this.gatherLights(R, gameState, localPlayerId);
-      const W = R.viewW, H = R.viewH, z = R.camera.zoom, q = 0.25;
+    // mode (Settings > Lighting):
+    //   'smooth' - as above, with flicker
+    //   'simple' - darkness only at 1/8 resolution: no glow layer (its
+    //              additive full-screen blend is the costly part), no flicker
+    //   'off'    - nothing drawn, walls unshaded
+    drawLighting(ctx, R, gameState, localPlayerId, mode = 'smooth') {
+      this.lightingOff = mode === 'off';
+      if (this.lightingOff) { this.frameLights = []; return; }
+      const simple = mode === 'simple';
+      const lights = this.gatherLights(R, gameState, localPlayerId, simple);
+      const W = R.viewW, H = R.viewH, z = R.camera.zoom, q = simple ? 0.125 : 0.25;
       const lw = Math.ceil(W * q), lh = Math.ceil(H * q);
       const layer = (c) => {
         if (c.width !== lw || c.height !== lh) { c.width = lw; c.height = lh; }
@@ -514,6 +524,14 @@
       g.globalCompositeOperation = 'destination-out';
       const hole = holeBlob();
       for (const l of lights) stamp(g, hole, l.sx * q, l.sy * q, l.r * TILE_PX * z * q, l.s);
+
+      if (simple) {
+        ctx.save();
+        ctx.imageSmoothingEnabled = true;
+        ctx.drawImage(this.canvas, 0, 0, W, H);
+        ctx.restore();
+        return;
+      }
 
       if (!this.glowCanvas) this.glowCanvas = document.createElement('canvas');
       const gl = layer(this.glowCanvas);

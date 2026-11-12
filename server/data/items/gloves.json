@@ -84,5 +84,61 @@
     "bonusAttackSpeed": 0.08,
     "critDmg": 25,
     "desc": "+18 Attack Power, +8% Attack Speed, +25% Crit Damage. Forged for hands that move mountains."
+  },
+  "wayfarer_grips": {
+    "id": "wayfarer_grips",
+    "name": "Wayfarer's Grips",
+    "type": "equipment",
+    "slot": "gloves",
+    "iconKey": "gloves",
+    "rarity": "epic",
+    "sellPrice": 130,
+    "classReq": "all",
+    "setId": "wayfarer",
+    "bonusDmg": 6,
+    "bonusAttackSpeed": 0.06,
+    "desc": "+6 Attack Power, +6% Attack Speed. Calloused leather, sure grip."
+  },
+  "emberheart_gauntlets": {
+    "id": "emberheart_gauntlets",
+    "name": "Emberheart Gauntlets",
+    "type": "equipment",
+    "slot": "gloves",
+    "iconKey": "gloves_ember",
+    "rarity": "legendary",
+    "sellPrice": 240,
+    "classReq": "all",
+    "setId": "emberheart",
+    "bonusDmg": 14,
+    "bonusAttackSpeed": 0.08,
+    "desc": "+14 Attack Power, +8% Attack Speed. Every blow leaves an ember."
+  },
+  "stormcaller_bracers": {
+    "id": "stormcaller_bracers",
+    "name": "Stormcaller's Bracers",
+    "type": "equipment",
+    "slot": "gloves",
+    "iconKey": "gloves_gold",
+    "rarity": "legendary",
+    "sellPrice": 240,
+    "classReq": "all",
+    "setId": "stormcaller",
+    "bonusDmg": 10,
+    "bonusAttackSpeed": 0.12,
+    "desc": "+10 Attack Power, +12% Attack Speed. Sparks jump between the fingers."
+  },
+  "eclipse_handwraps": {
+    "id": "eclipse_handwraps",
+    "name": "Eclipse Handwraps",
+    "type": "equipment",
+    "slot": "gloves",
+    "iconKey": "gloves_shadow",
+    "rarity": "legendary",
+    "sellPrice": 240,
+    "classReq": "all",
+    "setId": "eclipse",
+    "bonusDmg": 10,
+    "bonusAttackSpeed": 0.1,
+    "desc": "+10 Attack Power, +10% Attack Speed. One hand burns gold, the other cold violet."
   }
 }
