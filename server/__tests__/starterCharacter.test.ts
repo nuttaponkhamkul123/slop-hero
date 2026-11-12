@@ -24,3 +24,12 @@ test('makeStarterCharacter: matches the pre-refactor fixture for every class and
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('createStarterCharacter (entities/player): same fixture, without loading the server', async () => {
+  const { createStarterCharacter } = await import('../entities/player');
+  const got: any = {};
+  for (const cls of ['warrior', 'mage', 'rogue', 'banana', undefined]) got[String(cls)] = createStarterCharacter('Hero', cls);
+  got.longName = createStarterCharacter('   ABCDEFGHIJKLMNOPQRSTUVWXYZ   ', 'mage');
+  got.noName = createStarterCharacter('', 'rogue');
+  assert.deepEqual(JSON.parse(JSON.stringify(got)), fixture);
+});
