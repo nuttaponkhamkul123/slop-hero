@@ -157,7 +157,7 @@ import {
 import { ALL_CLASS_SKILLS, CLASS_SKILLS_CATALOG, SKILL_RUNES, DEFAULT_EQUIPPED_SKILLS, CLIENT_SKILL_SLOTS, DEFAULT_SKILL_FOR_SLOT, CLASS_SKILLS } from './data/skills';
 import { POTIONS, POTION_COOLDOWN_MS } from './data/potions';
 import { HERO_CLASSES, isHeroClass, starterEquipment } from './data/heroClasses';
-import { createStarterCharacter } from './entities/player';
+import { createStarterCharacter, createLivePlayer } from './entities/player';
 let minionSeq = 0;
 let spObjSeq = 0; // ids for placed card objects (glyphs, banners, lances) so the client can clear them
 
@@ -1329,114 +1329,19 @@ class GameServer {
     if (savedChar && savedChar.inventory && (savedChar.inventory.maxSlots || 30) < DEFAULT_BAG_SLOTS) {
       savedChar.inventory.maxSlots = Math.min(MAX_BAG_SLOTS, (savedChar.inventory.maxSlots || 30) + DEFAULT_BAG_SLOTS - 30);
     }
-    const player = {
+    const player = createLivePlayer({
       id: socket.id,
-      accountUsername: accountUsername || null,
+      accountUsername,
       accountSlot,
       role: accountManager.roleFor(accountUsername),
-      name: savedChar ? savedChar.name : ((data.name || 'Hero').substring(0, 15).trim() || 'Hero'),
-      characterClass: chosenClass,
-      zone: 'town', // 'town', 'frostfell', or 'dungeon'
-      x: spawnX,
-      y: spawnY,
-      targetX: null,
-      targetY: null,
-      moveDir: { dx: 0, dy: 0 },
-      facing: 'SE',
-      isMoving: false,
-      level: savedChar ? (savedChar.level || 1) : 1,
-      exp: savedChar ? (savedChar.exp || 0) : 0,
-      expNext: expToNext(savedChar ? (savedChar.level || 1) : 1),
-      skillPoints: savedChar ? (savedChar.skillPoints !== undefined ? savedChar.skillPoints : 1) : 1,
-      jobLevel: savedChar ? (savedChar.jobLevel || 1) : 1,
-      spLoadouts: (savedChar && savedChar.spLoadouts) || {},
-      jobExp: savedChar ? (savedChar.jobExp || 0) : 0,
-      jobExpNext: SP.jobExpToNext(savedChar ? (savedChar.jobLevel || 1) : 1),
-      spTransformed: false,
-      spCooldown: 0,
-      skills: savedChar ? (savedChar.skills || {}) : {}, // { [skillId]: rank }
-      baseStats: {
-        maxHp: classStats.maxHp,
-        maxMp: classStats.maxMp,
-        dmg: classStats.dmg,
-        def: classStats.def,
-        speed: classStats.speed,
-        attackRange: classStats.attackRange,
-        attackSpeed: classStats.attackSpeed,
-        swipe: classStats.swipe
-      },
-      attackSpeed: classStats.attackSpeed,
-      swipe: classStats.swipe,
-      equipment: savedChar && savedChar.equipment ? savedChar.equipment : {
-        weapon: null,
-        armor: null,
-        helmet: null,
-        boots: null,
-        gloves: null,
-        cape: null,
-        ring: null
-      },
-      hp: classStats.maxHp,
-      maxHp: classStats.maxHp,
-      mp: classStats.maxMp,
-      maxMp: classStats.maxMp,
-      dmg: classStats.dmg,
-      def: classStats.def,
-      speed: classStats.speed,
-      attackRange: classStats.attackRange,
-      gold: savedChar && savedChar.gold !== undefined ? savedChar.gold : 50,
-      inventory: savedChar && savedChar.inventory ? {
-        ...savedChar.inventory,
-        maxSlots: savedChar.inventory.maxSlots || DEFAULT_BAG_SLOTS,
-        items: Array.isArray(savedChar.inventory.items) ? savedChar.inventory.items : []
-      } : {
-        healthPotions: 3,
-        manaPotions: 2,
-        kills: 0,
-        maxSlots: DEFAULT_BAG_SLOTS,
-        items: [
-          { ...ITEMS.ancient_ruby, count: 1 },
-          { ...ITEMS.revival_stone, count: 1 }
-        ]
-      },
-      storage: (savedChar && savedChar.storage) ? {
-        maxSlots: savedChar.storage.maxSlots || 50,
-        items: Array.isArray(savedChar.storage.items) ? savedChar.storage.items : []
-      } : {
-        maxSlots: 50,
-        items: []
-      },
-      attackCooldown: 0,
-      skillCooldown: 0,
-      equippedSkills: savedChar && savedChar.equippedSkills ? savedChar.equippedSkills : JSON.parse(JSON.stringify(DEFAULT_EQUIPPED_SKILLS[chosenClass] || DEFAULT_EQUIPPED_SKILLS.warrior)),
-      skillCooldowns: {
-        slot1: 0,
-        slot2: 0,
-        slot3: 0,
-        dash: 0,
-        skill1: 0,
-        skill2: 0
-      },
-      sprintTimer: 0,
-      portalCooldown: 0,
-      isAttacking: false,
-      speechBubble: null,
-      speechTimer: 0,
-      isDead: false,
-      respawnTimer: 0,
-      statusEffects: [],
-      speedFactor: 1.0,
-      shieldHp: 0,
-      berserkTimer: 0,
-      ironFortressTimer: 0,
-      smokeScreenTimer: 0
-    };
+      saved: savedChar,
+      chosenClass,
+      guestName: data && data.name,
+      spawnX,
+      spawnY
+    });
 
     if (!savedChar) {
-      // Equip starter gear tailored to chosen class (only the slots the class has gear for)
-      for (const [slot, item] of Object.entries(starterEquipment(chosenClass))) {
-        if (item) player.equipment[slot] = item;
-      }
       if (player.accountUsername) {
         accountManager.saveCharacter(player.accountUsername, player, player.accountSlot || 0);
       }
