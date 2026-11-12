@@ -32,11 +32,12 @@ const cases: Record<string, any> = {
 
 test('saveCharacter: whitelist, defaults and SP-transform handling match the pre-refactor fixture', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'slop-test-'));
+  let made: any; // the manager instance of this test (flushed before the folder is deleted)
   const realNow = Date.now;
   try {
     process.env.DATA_DIR = dir; // before the first import: the singleton must never see the real accounts
     const { default: shared } = await import('../accountManager');
-    const am: any = new (shared.constructor as any)(dir);
+    const am: any = (made = new (shared.constructor as any)(dir));
     am.register('savetester', 'secret1', { name: 'seed', characterClass: 'warrior' });
     Date.now = () => NOW;
     const got: Record<string, any> = {};
@@ -54,16 +55,18 @@ test('saveCharacter: whitelist, defaults and SP-transform handling match the pre
   } finally {
     Date.now = realNow;
     await (await import('../accountManager')).default.flush();
+    if (made) await made.flush();
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
 
 test('saveCharacter: rejects unknown accounts, missing slots and empty input', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'slop-test-'));
+  let made: any; // the manager instance of this test (flushed before the folder is deleted)
   try {
     process.env.DATA_DIR = dir; // before the first import: the singleton must never see the real accounts
     const { default: shared } = await import('../accountManager');
-    const am: any = new (shared.constructor as any)(dir);
+    const am: any = (made = new (shared.constructor as any)(dir));
     am.register('rejecter', 'secret1', { name: 'seed', characterClass: 'warrior' });
     assert.equal(am.saveCharacter('nobody', { name: 'x' }, 0, false), false);
     assert.equal(am.saveCharacter('rejecter', { name: 'x' }, 5, false), false);
@@ -71,6 +74,7 @@ test('saveCharacter: rejects unknown accounts, missing slots and empty input', a
     assert.equal(am.saveCharacter('', { name: 'x' }, 0, false), false);
   } finally {
     await (await import('../accountManager')).default.flush();
+    if (made) await made.flush();
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
