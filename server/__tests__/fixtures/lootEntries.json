@@ -1,0 +1,110 @@
+{
+  "items": {
+    "nullEntry": null,
+    "gold": {
+      "id": "gold",
+      "name": "1,500 Gold",
+      "count": 1500,
+      "type": "gold",
+      "rarity": "common"
+    },
+    "goldBig": {
+      "id": "gold",
+      "name": "1,234,567 Gold",
+      "count": 1234567,
+      "type": "gold",
+      "rarity": "common"
+    },
+    "healthPotion": {
+      "id": "health_potion",
+      "name": "Health Potion",
+      "count": 3,
+      "type": "consumable",
+      "rarity": "common",
+      "desc": "Restores 60 Health instantly."
+    },
+    "healthPotionNoAmount": {
+      "id": "health_potion",
+      "name": "Health Potion",
+      "count": 1,
+      "type": "consumable",
+      "rarity": "common",
+      "desc": "Restores 60 Health instantly."
+    },
+    "manaPotion": {
+      "id": "mana_potion",
+      "name": "Mana Potion",
+      "count": 2,
+      "type": "consumable",
+      "rarity": "common",
+      "desc": "Restores 50 Mana instantly."
+    },
+    "customData": {
+      "id": "sp_card",
+      "name": "Custom Card",
+      "rarity": "epic",
+      "custom": true,
+      "count": 1
+    },
+    "customDataBig": {
+      "id": "x",
+      "name": "Stack Thing",
+      "count": 4
+    },
+    "knownItem": {
+      "id": "ancient_ruby",
+      "name": "Ancient Ruby",
+      "type": "treasure",
+      "icon": "💎",
+      "rarity": "rare",
+      "sellPrice": 65,
+      "desc": "A sparkling blood-red gem mined from the abyss. High sell value.",
+      "count": 2
+    },
+    "knownItemNoAmount": {
+      "id": "revival_stone",
+      "name": "หินชุบชีวิต (Revival Stone)",
+      "type": "consumable",
+      "icon": "💎",
+      "iconKey": "gem",
+      "rarity": "legendary",
+      "buyPrice": 5000,
+      "sellPrice": 1500,
+      "reviveShare": 0.3,
+      "desc": "หินเวทมนตร์ศักดิ์สิทธิ์ ชุบชีวิตฟื้นคืนชีพ ณ จุดที่ตาย พร้อม 30% HP & MP โดยไม่ถูกส่งกลับเมืองและไม่สูญเสียความคืบหน้าดันเจี้ยน",
+      "count": 1
+    },
+    "unknownItem": {
+      "id": "does_not_exist",
+      "name": "does_not_exist x5",
+      "count": 5,
+      "rarity": "common"
+    },
+    "unknownNoAmount": {
+      "id": "does_not_exist",
+      "name": "does_not_exist",
+      "count": 1,
+      "rarity": "common"
+    },
+    "noItemId": {
+      "id": "unknown",
+      "name": "undefined x7",
+      "count": 7,
+      "rarity": "common"
+    }
+  },
+  "names": {
+    "gold": "1,500 Gold",
+    "goldBig": "1,234,567 Gold",
+    "healthPotion": "Health Potion x3",
+    "healthPotionNoAmount": "Health Potion",
+    "manaPotion": "Mana Potion x2",
+    "customData": "Custom Card",
+    "customDataBig": "Stack Thing x4",
+    "knownItem": "Ancient Ruby x2",
+    "knownItemNoAmount": "หินชุบชีวิต (Revival Stone)",
+    "unknownItem": "does_not_exist x5",
+    "unknownNoAmount": "does_not_exist",
+    "noItemId": null
+  }
+}
