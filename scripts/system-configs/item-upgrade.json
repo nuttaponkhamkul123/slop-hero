@@ -1,0 +1,6 @@
+{
+  "className": "ItemUpgradeSystem",
+  "field": "itemUpgrade",
+  "description": "Gear improvement: reforge anvil, crafting window, attribute smith, rune sockets, socket expanding and the enchanter, plus the stat recalculation of upgraded items.",
+  "methods": ["handleReforgeItem", "handleCraft", "handleAttributes", "handleSocketRune", "handleUnsocketRune", "handleExpandSocket", "applyItemUpgradeStats", "handleEnhanceItem"]
+}
