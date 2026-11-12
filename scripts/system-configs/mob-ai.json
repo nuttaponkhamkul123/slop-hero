@@ -1,0 +1,6 @@
+{
+  "className": "MobAISystem",
+  "field": "mobAI",
+  "description": "Monster behaviour each tick (respawn, status damage, aggro, wandering, chasing, returning) and how a monster blow lands on a hero.",
+  "methods": ["updateMobsList", "mobStrikePlayer", "landMobDamage"]
+}
