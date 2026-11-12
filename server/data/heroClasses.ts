@@ -1,6 +1,7 @@
 // Single table of per-class starting data. It replaces the stat tables and starter-gear
 // blocks that used to be copied inside GameServer.makeStarterCharacter and GameServer.addPlayer.
 import { ITEMS } from '../items';
+import { ItemFactory } from '../entities/item';
 
 export interface HeroClassDef {
   /** level-1 stats */
@@ -45,6 +46,6 @@ export function isHeroClass(cls: unknown): boolean {
 /** Starter equipment of a class as fresh item stacks, slots in the order weapon, armor, helmet. */
 export function starterEquipment(cls: string): { weapon: any; armor: any; helmet: any } {
   const g = HERO_CLASSES[cls].starterGear;
-  const stack = (id: string | null) => (id ? { ...(ITEMS as any)[id], count: 1 } : null);
+  const stack = (id: string | null) => (id ? ItemFactory.stack((ITEMS as any)[id]) : null);
   return { weapon: stack(g.weapon), armor: stack(g.armor), helmet: stack(g.helmet) };
 }

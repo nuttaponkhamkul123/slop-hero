@@ -5,6 +5,7 @@ import { DEFAULT_BAG_SLOTS } from '../config/constants';
 import { DEFAULT_EQUIPPED_SKILLS } from '../data/skills';
 import { HERO_CLASSES, isHeroClass, starterEquipment } from '../data/heroClasses';
 import * as SP from '../spCards';
+import { ItemFactory } from './item';
 import type { Player, SavedCharacter } from './types';
 
 /** A brand-new character as it is saved on the account (level 1, starter gear, starter bag). */
@@ -35,8 +36,8 @@ export function createStarterCharacter(heroName: any, characterClass: any): Save
       kills: 0,
       maxSlots: DEFAULT_BAG_SLOTS,
       items: [
-        { ...ITEMS.ancient_ruby, count: 1 },
-        { ...ITEMS.revival_stone, count: 1 }
+        ItemFactory.stack(ITEMS.ancient_ruby),
+        ItemFactory.stack(ITEMS.revival_stone)
       ]
     },
     storage: {
@@ -148,8 +149,8 @@ export function createLivePlayer(a: LivePlayerArgs): Player {
       kills: 0,
       maxSlots: DEFAULT_BAG_SLOTS,
       items: [
-        { ...ITEMS.ancient_ruby, count: 1 },
-        { ...ITEMS.revival_stone, count: 1 }
+        ItemFactory.stack(ITEMS.ancient_ruby),
+        ItemFactory.stack(ITEMS.revival_stone)
       ]
     },
     storage: (savedChar && savedChar.storage) ? {

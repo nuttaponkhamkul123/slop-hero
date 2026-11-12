@@ -158,6 +158,7 @@ import { ALL_CLASS_SKILLS, CLASS_SKILLS_CATALOG, SKILL_RUNES, DEFAULT_EQUIPPED_S
 import { POTIONS, POTION_COOLDOWN_MS } from './data/potions';
 import { HERO_CLASSES, isHeroClass, starterEquipment } from './data/heroClasses';
 import { createStarterCharacter, createLivePlayer } from './entities/player';
+import { ItemFactory } from './entities/item';
 let minionSeq = 0;
 let spObjSeq = 0; // ids for placed card objects (glyphs, banners, lances) so the client can clear them
 
@@ -6587,28 +6588,11 @@ class GameServer {
   }
 
   lootEntryName(entry) {
-    if (entry.type === 'gold') return `${entry.amount.toLocaleString('en-US')} Gold`;
-    const def = entry.customItemData || ITEMS[entry.itemId];
-    const name = def ? def.name : entry.itemId;
-    return (entry.amount || 1) > 1 ? `${name} x${entry.amount}` : name;
+    return ItemFactory.lootEntryName(entry);
   }
 
   lootEntryToItem(entry) {
-    if (!entry) return null;
-    if (entry.type === 'gold') {
-      return { id: 'gold', name: `${entry.amount.toLocaleString('en-US')} Gold`, count: entry.amount, type: 'gold', rarity: 'common' };
-    }
-    if (entry.itemId === 'health_potion') {
-      return { id: 'health_potion', name: 'Health Potion', count: entry.amount || 1, type: 'consumable', rarity: 'common', desc: 'Restores 60 Health instantly.' };
-    }
-    if (entry.itemId === 'mana_potion') {
-      return { id: 'mana_potion', name: 'Mana Potion', count: entry.amount || 1, type: 'consumable', rarity: 'common', desc: 'Restores 50 Mana instantly.' };
-    }
-    const def = entry.customItemData || ITEMS[entry.itemId];
-    if (def) {
-      return { ...def, count: entry.amount || 1 };
-    }
-    return { id: entry.itemId || 'unknown', name: this.lootEntryName(entry), count: entry.amount || 1, rarity: 'common' };
+    return ItemFactory.fromLootEntry(entry);
   }
 
   emitDungeonRunUpdate(player: any, socket?: any) {
