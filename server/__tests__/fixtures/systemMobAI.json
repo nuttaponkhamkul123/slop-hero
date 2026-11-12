@@ -1,0 +1,7747 @@
+{
+  "dead field mob waiting": {
+    "log": [],
+    "players": {},
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 5,
+        "y": 5,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 0,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "dead",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null,
+        "respawnTimer": 4.9
+      }
+    },
+    "threw": null
+  },
+  "dead field mob respawns": {
+    "log": [],
+    "players": {},
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 8,
+        "y": 8,
+        "spawnX": 8,
+        "spawnY": 8,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null,
+        "respawnTimer": -0.05
+      }
+    },
+    "threw": null
+  },
+  "dead dungeon mob never respawns": {
+    "log": [],
+    "players": {},
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 5,
+        "y": 5,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 0,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "dead",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null,
+        "respawnTimer": 0
+      }
+    },
+    "threw": null
+  },
+  "dead dungeon-id mob never respawns": {
+    "log": [],
+    "players": {},
+    "mobs": {
+      "dungeon_a": {
+        "id": "dungeon_a",
+        "name": "Ghoul dungeon_a",
+        "x": 5,
+        "y": 5,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 0,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "dead",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null,
+        "respawnTimer": 0
+      }
+    },
+    "threw": null
+  },
+  "rising mob": {
+    "log": [],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 300,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": []
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 5,
+        "y": 5,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "chase",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null,
+        "spawnUntil": 1700000000500
+      }
+    },
+    "threw": null
+  },
+  "risen mob": {
+    "log": [],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 5.5,
+        "y": 5,
+        "level": 40,
+        "isDead": false,
+        "hp": 300,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": []
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 5,
+        "y": 5,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "chase",
+        "attackCooldown": 0.7021609796443954,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": "h1",
+        "spawnUntil": 0
+      }
+    },
+    "threw": null
+  },
+  "chill decays": {
+    "log": [],
+    "players": {},
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 5,
+        "y": 5,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 1700000004117.8818,
+        "targetPlayerId": null,
+        "chillTimer": 0.9,
+        "wanderTarget": null
+      }
+    },
+    "threw": null
+  },
+  "burn ticks": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 5,
+          "y": 4.3,
+          "text": "🔥 -20",
+          "color": "#f97316",
+          "size": 14
+        },
+        null
+      ],
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 5.497766426124854,
+          "y": 3.6233696836359677,
+          "text": "🔥 -20",
+          "color": "#f97316",
+          "size": 14
+        },
+        null
+      ],
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 5.497766426124854,
+          "y": 3.6233696836359677,
+          "text": "🔥 -20",
+          "color": "#f97316",
+          "size": 14
+        },
+        null
+      ]
+    ],
+    "players": {},
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 5.497766426124854,
+        "y": 4.323369683635968,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 340,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 1700000002330.5166,
+        "targetPlayerId": null,
+        "burnTimer": 0.49999999999999933,
+        "burnDmg": 20,
+        "burnTickTimer": 0.6,
+        "wanderTarget": null,
+        "facing": "E"
+      }
+    },
+    "threw": null
+  },
+  "burn default damage": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 5,
+          "y": 4.3,
+          "text": "🔥 -8",
+          "color": "#f97316",
+          "size": 14
+        },
+        null
+      ],
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 5,
+          "y": 4.3,
+          "text": "🔥 -8",
+          "color": "#f97316",
+          "size": 14
+        },
+        null
+      ]
+    ],
+    "players": {},
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 5,
+        "y": 5,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 384,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 1700000003644.5847,
+        "targetPlayerId": null,
+        "burnTimer": 1.1999999999999993,
+        "burnTickTimer": 0.6,
+        "wanderTarget": null
+      }
+    },
+    "threw": null
+  },
+  "burn ends": {
+    "log": [],
+    "players": {},
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 4.882905876982286,
+        "y": 4.973751831402697,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 1700000004004.703,
+        "targetPlayerId": null,
+        "burnTimer": 0,
+        "burnDmg": 0,
+        "burnTickTimer": 4.9,
+        "wanderTarget": {
+          "x": 4.643498707748772,
+          "y": 4.920085604785212
+        },
+        "facing": "NW"
+      }
+    },
+    "threw": null
+  },
+  "burn kills, owner credited": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 5,
+          "y": 4.3,
+          "text": "🔥 -20",
+          "color": "#f97316",
+          "size": 14
+        },
+        null
+      ],
+      [
+        "call",
+        "handleMobDeath",
+        "a",
+        "h1"
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 300,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": []
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 5,
+        "y": 5,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 0,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "dead",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null,
+        "burnTimer": 1.9,
+        "burnDmg": 20,
+        "lastHitBy": "h1",
+        "burnTickTimer": 0.6
+      }
+    },
+    "threw": null
+  },
+  "burn kills, owner dead": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 5,
+          "y": 4.3,
+          "text": "🔥 -20",
+          "color": "#f97316",
+          "size": 14
+        },
+        null
+      ],
+      [
+        "call",
+        "handleMobDeath",
+        "a",
+        null
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": true,
+        "hp": 300,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": []
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 5,
+        "y": 5,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 0,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "dead",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null,
+        "burnTimer": 1.9,
+        "burnDmg": 20,
+        "lastHitBy": "h1",
+        "burnTickTimer": 0.6
+      }
+    },
+    "threw": null
+  },
+  "burn kills, owner elsewhere": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 5,
+          "y": 4.3,
+          "text": "🔥 -20",
+          "color": "#f97316",
+          "size": 14
+        },
+        null
+      ],
+      [
+        "call",
+        "handleMobDeath",
+        "a",
+        null
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "town",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 300,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": []
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 5,
+        "y": 5,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 0,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "dead",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null,
+        "burnTimer": 1.9,
+        "burnDmg": 20,
+        "lastHitBy": "h1",
+        "burnTickTimer": 0.6
+      }
+    },
+    "threw": null
+  },
+  "burn kills, nobody": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 5,
+          "y": 4.3,
+          "text": "🔥 -20",
+          "color": "#f97316",
+          "size": 14
+        },
+        null
+      ],
+      [
+        "call",
+        "handleMobDeath",
+        "a",
+        null
+      ]
+    ],
+    "players": {},
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 5,
+        "y": 5,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 0,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "dead",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null,
+        "burnTimer": 1.9,
+        "burnDmg": 20,
+        "burnTickTimer": 0.6
+      }
+    },
+    "threw": null
+  },
+  "burn kills in an instance, owner in it": {
+    "log": [
+      [
+        "zone",
+        "dungeon",
+        "floating_text",
+        {
+          "x": 5,
+          "y": 4.3,
+          "text": "🔥 -20",
+          "color": "#f97316",
+          "size": 14
+        },
+        "i1"
+      ],
+      [
+        "call",
+        "handleMobDeath",
+        "a",
+        "h1"
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 300,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "dungeonInstanceId": "i1"
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 5,
+        "y": 5,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 0,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "dead",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null,
+        "burnTimer": 1.9,
+        "burnDmg": 20,
+        "lastHitBy": "h1",
+        "burnTickTimer": 0.6
+      }
+    },
+    "threw": null
+  },
+  "burn kills in an instance, owner in another": {
+    "log": [
+      [
+        "zone",
+        "dungeon",
+        "floating_text",
+        {
+          "x": 5,
+          "y": 4.3,
+          "text": "🔥 -20",
+          "color": "#f97316",
+          "size": 14
+        },
+        "i1"
+      ],
+      [
+        "call",
+        "handleMobDeath",
+        "a",
+        null
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 300,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "dungeonInstanceId": "i2"
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 5,
+        "y": 5,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 0,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "dead",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null,
+        "burnTimer": 1.9,
+        "burnDmg": 20,
+        "lastHitBy": "h1",
+        "burnTickTimer": 0.6
+      }
+    },
+    "threw": null
+  },
+  "poison ticks with stacks": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 5,
+          "y": 4.3,
+          "text": "☠️ -12 x4",
+          "color": "#22c55e",
+          "size": 14
+        },
+        null
+      ],
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 4.721850589180264,
+          "y": 4.071454806962312,
+          "text": "☠️ -12 x4",
+          "color": "#22c55e",
+          "size": 14
+        },
+        null
+      ],
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 4.721850589180264,
+          "y": 4.071454806962312,
+          "text": "☠️ -12 x4",
+          "color": "#22c55e",
+          "size": 14
+        },
+        null
+      ]
+    ],
+    "players": {},
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 4.721850589180264,
+        "y": 4.771454806962312,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 364,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 1700000002688.4504,
+        "targetPlayerId": null,
+        "poisonTimer": 0.9999999999999983,
+        "poisonDmg": 12,
+        "poisonStacks": 4,
+        "poisonTickTimer": 0.7000000000000001,
+        "wanderTarget": null,
+        "facing": "N"
+      }
+    },
+    "threw": null
+  },
+  "poison single stack": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 5,
+          "y": 4.3,
+          "text": "☠️ -6",
+          "color": "#22c55e",
+          "size": 14
+        },
+        null
+      ],
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 4.68450867834244,
+          "y": 3.5214980886608114,
+          "text": "☠️ -6",
+          "color": "#22c55e",
+          "size": 14
+        },
+        null
+      ]
+    ],
+    "players": {},
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 4.68450867834244,
+        "y": 4.2214980886608116,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 388,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 1700000002947.191,
+        "targetPlayerId": null,
+        "poisonTimer": 1.9999999999999991,
+        "poisonStacks": 1,
+        "poisonTickTimer": 0.8,
+        "wanderTarget": null,
+        "facing": "NE"
+      }
+    },
+    "threw": null
+  },
+  "poison ends and clears": {
+    "log": [],
+    "players": {},
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 4.963391661517745,
+        "y": 5.114279611276766,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 1700000005677.2283,
+        "targetPlayerId": null,
+        "poisonTimer": 0,
+        "poisonDmg": 0,
+        "poisonStacks": 0,
+        "poisonTickTimer": 8.9,
+        "wanderTarget": {
+          "x": 4.633280092626026,
+          "y": 6.144783134106565
+        },
+        "facing": "W"
+      }
+    },
+    "threw": null
+  },
+  "poison kills": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 5,
+          "y": 4.3,
+          "text": "☠️ -12",
+          "color": "#22c55e",
+          "size": 14
+        },
+        null
+      ],
+      [
+        "call",
+        "handleMobDeath",
+        "a",
+        "h1"
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 300,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": []
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 5,
+        "y": 5,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 0,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "dead",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null,
+        "poisonTimer": 2.9,
+        "poisonDmg": 12,
+        "lastHitBy": "h1",
+        "poisonTickTimer": 0.8
+      }
+    },
+    "threw": null
+  },
+  "misc timers decay": {
+    "log": [],
+    "players": {},
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 5,
+        "y": 5,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 1700000004958.0103,
+        "targetPlayerId": null,
+        "shadowMarkTimer": 0.9,
+        "staticCharge": 0.9,
+        "conductTimer": -0.05,
+        "conduct": 0,
+        "scorchTimer": -0.05,
+        "scorchStacks": 0,
+        "frostTimer": -0.05,
+        "frostStacks": 0,
+        "wanderTarget": null
+      }
+    },
+    "threw": null
+  },
+  "misc timers still running": {
+    "log": [],
+    "players": {},
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 5.117358236197091,
+        "y": 5.025040854552269,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 1700000005003.1235,
+        "targetPlayerId": null,
+        "conductTimer": 1.9,
+        "conduct": 3,
+        "scorchTimer": 1.9,
+        "scorchStacks": 2,
+        "frostTimer": 1.9,
+        "frostStacks": 2,
+        "wanderTarget": {
+          "x": 5.657425596592578,
+          "y": 5.140275614875176
+        },
+        "facing": "SE"
+      }
+    },
+    "threw": null
+  },
+  "attack cooldown decays": {
+    "log": [],
+    "players": {},
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 5.0197236692189415,
+        "y": 5.118367972325887,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0.4,
+        "element": "neutral",
+        "nextWanderTime": 1700000005547.3442,
+        "targetPlayerId": null,
+        "wanderTarget": {
+          "x": 5.297631931292997,
+          "y": 6.786183281392518
+        },
+        "facing": "SW"
+      }
+    },
+    "threw": null
+  },
+  "boss mechanic is busy": {
+    "log": [
+      [
+        "call",
+        "bossMech.update",
+        "a",
+        "frostfell",
+        0.1,
+        null
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 5.5,
+        "y": 5,
+        "level": 40,
+        "isDead": false,
+        "hp": 300,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": []
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 5,
+        "y": 5,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "chase",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": "h1",
+        "mechanics": "boss"
+      }
+    },
+    "threw": null
+  },
+  "boss mechanic idle falls through": {
+    "log": [
+      [
+        "call",
+        "bossMech.update",
+        "a",
+        "frostfell",
+        0.1,
+        null
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 15,
+        "y": 5,
+        "level": 40,
+        "isDead": false,
+        "hp": 300,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": []
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 5,
+        "y": 5,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "chase",
+        "attackCooldown": 1.0893535496667028,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": "h1",
+        "mechanics": "boss"
+      }
+    },
+    "threw": null
+  },
+  "frozen mob": {
+    "log": [],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 5.5,
+        "y": 5,
+        "level": 40,
+        "isDead": false,
+        "hp": 300,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": []
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 5,
+        "y": 5,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "chase",
+        "attackCooldown": 0.3,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": "h1",
+        "frozenTimer": 0.9
+      }
+    },
+    "threw": null
+  },
+  "freeze ends": {
+    "log": [],
+    "players": {},
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 5,
+        "y": 5,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0.3,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null,
+        "frozenTimer": 0
+      }
+    },
+    "threw": null
+  },
+  "rift mob in a rift": {
+    "log": [
+      [
+        "call",
+        "updateRiftMob",
+        "a",
+        "r1",
+        0.1
+      ]
+    ],
+    "players": {},
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 5,
+        "y": 5,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null,
+        "riftMob": true
+      }
+    },
+    "threw": null
+  },
+  "rift mob without a rift": {
+    "log": [],
+    "players": {},
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 5,
+        "y": 5,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null,
+        "riftMob": true
+      }
+    },
+    "threw": null
+  },
+  "rift mob without an instance": {
+    "log": [],
+    "players": {},
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 5,
+        "y": 5,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null,
+        "riftMob": true
+      }
+    },
+    "threw": null
+  },
+  "idle notices a hero": {
+    "log": [],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 8,
+        "y": 5,
+        "level": 40,
+        "isDead": false,
+        "hp": 300,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": []
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 5,
+        "y": 5,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "chase",
+        "attackCooldown": 0.8206124638905749,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": "h1"
+      }
+    },
+    "threw": null
+  },
+  "idle does not notice far hero": {
+    "log": [],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 11,
+        "y": 5,
+        "level": 40,
+        "isDead": false,
+        "hp": 300,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": []
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 5.116096517548427,
+        "y": 4.969642157304448,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 1700000005826.69,
+        "targetPlayerId": null,
+        "wanderTarget": {
+          "x": 6.880399186567124,
+          "y": 4.508298233951448
+        },
+        "facing": "E"
+      }
+    },
+    "threw": null
+  },
+  "idle picks the closest hero": {
+    "log": [],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 8,
+        "y": 5,
+        "level": 40,
+        "isDead": false,
+        "hp": 300,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": []
+      },
+      "h2": {
+        "id": "h2",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 6.5,
+        "y": 5,
+        "level": 40,
+        "isDead": false,
+        "hp": 300,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": []
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 5,
+        "y": 5,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "chase",
+        "attackCooldown": 0.8699121497571468,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": "h2"
+      }
+    },
+    "threw": null
+  },
+  "idle ignores dead and other-zone heroes": {
+    "log": [],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 6,
+        "y": 5,
+        "level": 40,
+        "isDead": true,
+        "hp": 300,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": []
+      },
+      "h2": {
+        "id": "h2",
+        "name": "Hero",
+        "zone": "town",
+        "x": 6,
+        "y": 5,
+        "level": 40,
+        "isDead": false,
+        "hp": 300,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": []
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 4.900802538897419,
+        "y": 5.067526762922577,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 1700000005008.4229,
+        "targetPlayerId": null,
+        "wanderTarget": {
+          "x": 4.654276394572264,
+          "y": 5.235344692101696
+        },
+        "facing": "W"
+      }
+    },
+    "threw": null
+  },
+  "idle boss sees farther": {
+    "log": [
+      [
+        "call",
+        "bossMech.update",
+        "a",
+        "frostfell",
+        0.1,
+        null
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 18,
+        "y": 5,
+        "level": 40,
+        "isDead": false,
+        "hp": 300,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": []
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 5,
+        "y": 5,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "chase",
+        "attackCooldown": 0.892160282144323,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": "h1",
+        "mechanics": "boss"
+      }
+    },
+    "threw": null
+  },
+  "idle in an instance ignores other instances": {
+    "log": [],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 6,
+        "y": 5,
+        "level": 40,
+        "isDead": false,
+        "hp": 300,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "dungeonInstanceId": "i2"
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 5,
+        "y": 5,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 1700000002405.9653,
+        "targetPlayerId": null,
+        "wanderTarget": null
+      }
+    },
+    "threw": null
+  },
+  "idle in an instance notices its own": {
+    "log": [],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "dungeon",
+        "x": 6,
+        "y": 5,
+        "level": 40,
+        "isDead": false,
+        "hp": 300,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "dungeonInstanceId": "i1"
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 5,
+        "y": 5,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "chase",
+        "attackCooldown": 0.7765810686629265,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": "h1"
+      }
+    },
+    "threw": null
+  },
+  "idle wanders 0": {
+    "log": [],
+    "players": {},
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 5.006296378111189,
+        "y": 4.880165298754155,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 1700000003970.1755,
+        "targetPlayerId": null,
+        "wanderTarget": null,
+        "facing": "NE"
+      }
+    },
+    "threw": null
+  },
+  "idle wanders 1": {
+    "log": [],
+    "players": {},
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 3.6595594124813458,
+        "y": 4.201990581927345,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 1700000005686.9014,
+        "targetPlayerId": null,
+        "wanderTarget": null,
+        "facing": "NW"
+      }
+    },
+    "threw": null
+  },
+  "idle wanders 2": {
+    "log": [],
+    "players": {},
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 5.006471717350462,
+        "y": 5.119825359897376,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 1700000003819.458,
+        "targetPlayerId": null,
+        "wanderTarget": null,
+        "facing": "SW"
+      }
+    },
+    "threw": null
+  },
+  "idle wanders 3": {
+    "log": [],
+    "players": {},
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 4.040513756815734,
+        "y": 5.0314030116412205,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 1700000005810.0356,
+        "targetPlayerId": null,
+        "wanderTarget": null,
+        "facing": "NW"
+      }
+    },
+    "threw": null
+  },
+  "idle wander blocked by a wall": {
+    "log": [],
+    "players": {},
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 5,
+        "y": 5,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 1700000002939.852,
+        "targetPlayerId": null,
+        "wanderTarget": null
+      }
+    },
+    "threw": null
+  },
+  "idle wander arrives": {
+    "log": [],
+    "players": {},
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 5,
+        "y": 5,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 1700000099999,
+        "targetPlayerId": null,
+        "wanderTarget": null
+      }
+    },
+    "threw": null
+  },
+  "idle keeps wandering to its target": {
+    "log": [],
+    "players": {},
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 6.200000000000001,
+        "y": 5,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 1700000099999,
+        "targetPlayerId": null,
+        "wanderTarget": {
+          "x": 8,
+          "y": 5
+        },
+        "facing": "SE"
+      }
+    },
+    "threw": null
+  },
+  "chase target gone": {
+    "log": [],
+    "players": {},
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 5,
+        "y": 5,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "return",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "chase target dead": {
+    "log": [],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": true,
+        "hp": 300,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": []
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 5,
+        "y": 5,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "return",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "chase target left the zone": {
+    "log": [],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "town",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 300,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": []
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 5,
+        "y": 5,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "return",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "chase gives up: too far from target": {
+    "log": [],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 20,
+        "y": 5,
+        "level": 40,
+        "isDead": false,
+        "hp": 300,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": []
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 5,
+        "y": 5,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "return",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "chase gives up: too far from home": {
+    "log": [],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 26,
+        "y": 5,
+        "level": 40,
+        "isDead": false,
+        "hp": 300,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": []
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 25,
+        "y": 5,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "return",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "boss chases much farther": {
+    "log": [
+      [
+        "call",
+        "bossMech.update",
+        "a",
+        "frostfell",
+        0.1,
+        null
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 40,
+        "y": 5,
+        "level": 40,
+        "isDead": false,
+        "hp": 300,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": []
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 25.3,
+        "y": 5,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "chase",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": "h1",
+        "mechanics": "boss",
+        "facing": "SE"
+      }
+    },
+    "threw": null
+  },
+  "chase closes in": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 9,
+          "y": 4.3,
+          "text": "-40",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 7.999999999999998,
+          "y": 5
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 9,
+        "y": 5,
+        "level": 40,
+        "isDead": false,
+        "hp": 260,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "nextMobHitAt": 1700000001350,
+        "lastHitAt": 1700000001000
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 7.999999999999998,
+        "y": 5,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "chase",
+        "attackCooldown": 0.6527324504684653,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": "h1",
+        "facing": "SE"
+      }
+    },
+    "threw": null
+  },
+  "chase commander is faster": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 9,
+          "y": 4.3,
+          "text": "-61",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 8,
+          "y": 5
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 9,
+        "y": 5,
+        "level": 40,
+        "isDead": false,
+        "hp": 239,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "nextMobHitAt": 1700000001150,
+        "lastHitAt": 1700000000800
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 8,
+        "y": 5,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "chase",
+        "attackCooldown": 1.2374872580636291,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": "h1",
+        "hasCommanderBuff": true,
+        "facing": "SE"
+      }
+    },
+    "threw": null
+  },
+  "chase chilled is slower": {
+    "log": [],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 9,
+        "y": 5,
+        "level": 40,
+        "isDead": false,
+        "hp": 300,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": []
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 6.5000000000000036,
+        "y": 5,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "chase",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": "h1",
+        "chillTimer": 4.0000000000000036,
+        "facing": "SE"
+      }
+    },
+    "threw": null
+  },
+  "chase slides along a wall in x": {
+    "log": [],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 9,
+        "y": 8,
+        "level": 40,
+        "isDead": false,
+        "hp": 300,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": []
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 6.4399999999999995,
+        "y": 5.18,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "chase",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": "h1",
+        "facing": "S"
+      }
+    },
+    "threw": null
+  },
+  "chase slides along a wall in y": {
+    "log": [],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 9,
+        "y": 8,
+        "level": 40,
+        "isDead": false,
+        "hp": 300,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": []
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 5.994618408890776,
+        "y": 5.971367426001275,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "chase",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": "h1",
+        "facing": "S"
+      }
+    },
+    "threw": null
+  },
+  "chase fully blocked": {
+    "log": [],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 9,
+        "y": 8,
+        "level": 40,
+        "isDead": false,
+        "hp": 300,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": []
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 5,
+        "y": 5,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "chase",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": "h1",
+        "facing": "S"
+      }
+    },
+    "threw": null
+  },
+  "chase strikes 0": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-40",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 9.5,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-40",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 9.5,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-40",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 9.5,
+          "y": 10
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 180,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "nextMobHitAt": 1700000003150,
+        "lastHitAt": 1700000002800
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 9.5,
+        "y": 10,
+        "spawnX": 9.5,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "chase",
+        "attackCooldown": 1.1817490430781616,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": "h1",
+        "facing": "SE"
+      }
+    },
+    "threw": null
+  },
+  "chase strikes 1": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-40",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 9.5,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-40",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 9.5,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-40",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 9.5,
+          "y": 10
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 180,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "nextMobHitAt": 1700000003050,
+        "lastHitAt": 1700000002700
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 9.5,
+        "y": 10,
+        "spawnX": 9.5,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "chase",
+        "attackCooldown": 1.3070880625164134,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": "h1",
+        "facing": "SE"
+      }
+    },
+    "threw": null
+  },
+  "chase strikes 2": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-40",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 9.5,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-40",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 9.5,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-40",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 9.5,
+          "y": 10
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 180,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "nextMobHitAt": 1700000003250,
+        "lastHitAt": 1700000002900
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 9.5,
+        "y": 10,
+        "spawnX": 9.5,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "chase",
+        "attackCooldown": 1.6328914202051237,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": "h1",
+        "facing": "SE"
+      }
+    },
+    "threw": null
+  },
+  "chase strikes 3": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-40",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 9.5,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-40",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 9.5,
+          "y": 10
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 220,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "nextMobHitAt": 1700000001950,
+        "lastHitAt": 1700000001600
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 9.5,
+        "y": 10,
+        "spawnX": 9.5,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "chase",
+        "attackCooldown": 0.08049909325782195,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": "h1",
+        "facing": "SE"
+      }
+    },
+    "threw": null
+  },
+  "chase waiting on cooldown": {
+    "log": [],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 300,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": []
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 9.5,
+        "y": 10,
+        "spawnX": 9.5,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "chase",
+        "attackCooldown": 4.9,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": "h1",
+        "facing": "SE"
+      }
+    },
+    "threw": null
+  },
+  "chase hit lockout delays the strike": {
+    "log": [],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 300,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "nextMobHitAt": 1700000005000
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 9.5,
+        "y": 10,
+        "spawnX": 9.5,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "chase",
+        "attackCooldown": 0.32077623405493794,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": "h1",
+        "facing": "SE"
+      }
+    },
+    "threw": null
+  },
+  "chase boss shorter lockout": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-40",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 9.5,
+          "y": 10
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 260,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "nextMobHitAt": 1700000000150,
+        "lastHitAt": 1700000000000
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 9.5,
+        "y": 10,
+        "spawnX": 9.5,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "chase",
+        "attackCooldown": 1.35016535599716,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": "h1",
+        "isBoss": true,
+        "facing": "SE"
+      }
+    },
+    "threw": null
+  },
+  "pack of three on one hero": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-40",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 9.5,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-40",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "b",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 10.5,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-40",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "c",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 10,
+          "y": 9.5
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-40",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 9.5,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-40",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "b",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 10.5,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-40",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "c",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 10,
+          "y": 9.5
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 60,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "nextMobHitAt": 1700000002850,
+        "lastHitAt": 1700000002500
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 9.5,
+        "y": 10,
+        "spawnX": 9.5,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "chase",
+        "attackCooldown": 0.31091329045593696,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": "h1",
+        "facing": "SE"
+      },
+      "b": {
+        "id": "b",
+        "name": "Ghoul b",
+        "x": 10.5,
+        "y": 10,
+        "spawnX": 10.5,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "chase",
+        "attackCooldown": 0.8450971399201075,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": "h1",
+        "facing": "NW"
+      },
+      "c": {
+        "id": "c",
+        "name": "Ghoul c",
+        "x": 10,
+        "y": 9.5,
+        "spawnX": 10,
+        "spawnY": 9.5,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "chase",
+        "attackCooldown": 1.2442598238820206,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": "h1",
+        "facing": "SW"
+      }
+    },
+    "threw": null
+  },
+  "return walks home and heals": {
+    "log": [],
+    "players": {},
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 5,
+        "y": 5,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null,
+        "facing": "NW"
+      }
+    },
+    "threw": null
+  },
+  "return arrives": {
+    "log": [],
+    "players": {},
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 5.1,
+        "y": 5,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "return arrives, boss resets": {
+    "log": [
+      [
+        "call",
+        "bossMech.update",
+        "a",
+        "frostfell",
+        0.1,
+        null
+      ],
+      [
+        "call",
+        "bossMech.reset",
+        "a"
+      ]
+    ],
+    "players": {},
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 5.1,
+        "y": 5,
+        "spawnX": 5,
+        "spawnY": 5,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null,
+        "mechanics": "boss"
+      }
+    },
+    "threw": null
+  },
+  "strike god mode": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "🛡️ IMMUNE (God Mode)",
+          "color": "#facc15"
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 300,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "godMode": true
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "strike mechanic on an airborne hero": {
+    "log": [],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 300,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "airborneUntil": 1700000001000
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "strike mechanic lands": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-110",
+          "color": "#ef4444"
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 190,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "lastHitAt": 1700000000000
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "strike mechanic default mult": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-50",
+          "color": "#ef4444"
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 250,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "lastHitAt": 1700000000000
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "strike mechanic mob without dmg": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-1",
+          "color": "#ef4444"
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 299,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "lastHitAt": 1700000000000
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "strike stealth": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "💨 MISS! (Stealth)",
+          "color": "#94a3b8"
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 300,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "smokeScreenTimer": 2
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "strike airborne": {
+    "log": [],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 300,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "airborneUntil": 1700000001000
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "strike riposte": {
+    "log": [
+      [
+        "call",
+        "applyDamageToMob",
+        "h1",
+        "a",
+        108,
+        false
+      ],
+      [
+        "zone",
+        "frostfell",
+        "skill_fx",
+        {
+          "type": "sp_skill",
+          "shape": "riposte",
+          "startX": 10,
+          "startY": 10,
+          "x": 10,
+          "y": 10,
+          "element": "holy",
+          "color": "#fde68a",
+          "cardId": "sp_sentinel",
+          "skillId": "sp_sentinel_riposte"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "🛡️ RIPOSTE!",
+          "color": "#fde68a",
+          "size": 16
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 300,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "parry": {
+          "until": 1700000001000,
+          "riposte": 1.5
+        }
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 1.6,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "strike riposte expired": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-40",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 10,
+          "y": 10
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 260,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "parry": {
+          "until": 1699999999999,
+          "riposte": 1.5
+        },
+        "lastHitAt": 1700000000000
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "strike dodge roll 0": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "💨 DODGE!",
+          "color": "#38bdf8"
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 300,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "dodgeChance": 0.5
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "strike dodge roll 1": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "💨 DODGE!",
+          "color": "#38bdf8"
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 300,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "dodgeChance": 0.5
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "strike dodge roll 2": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-40",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 10,
+          "y": 10
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 260,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "dodgeChance": 0.5,
+        "lastHitAt": 1700000000000
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "strike dodge roll 3": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-40",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 10,
+          "y": 10
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 260,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "dodgeChance": 0.5,
+        "lastHitAt": 1700000000000
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "strike dodge roll 4": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "💨 DODGE!",
+          "color": "#38bdf8"
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 300,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "dodgeChance": 0.5
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "strike dodge roll 5": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-40",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 10,
+          "y": 10
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 260,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "dodgeChance": 0.5,
+        "lastHitAt": 1700000000000
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "strike dodge roll 6": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "💨 DODGE!",
+          "color": "#38bdf8"
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 300,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "dodgeChance": 0.5
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "strike dodge roll 7": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-40",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 10,
+          "y": 10
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 260,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "dodgeChance": 0.5,
+        "lastHitAt": 1700000000000
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "strike dodge roll 8": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "💨 DODGE!",
+          "color": "#38bdf8"
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 300,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "dodgeChance": 0.5
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "strike dodge roll 9": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-40",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 10,
+          "y": 10
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 260,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "dodgeChance": 0.5,
+        "lastHitAt": 1700000000000
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "strike in smoke 0": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "💨 MISS! (Smoke)",
+          "color": "#94a3b8"
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 300,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": []
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "strike in smoke 1": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "💨 MISS! (Smoke)",
+          "color": "#94a3b8"
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 300,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": []
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "strike in smoke 2": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "💨 MISS! (Smoke)",
+          "color": "#94a3b8"
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 300,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": []
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "strike in smoke 3": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-40",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 10,
+          "y": 10
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 260,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "lastHitAt": 1700000000000
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "strike in smoke 4": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-40",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 10,
+          "y": 10
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 260,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "lastHitAt": 1700000000000
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "strike in smoke 5": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-40",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 10,
+          "y": 10
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 260,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "lastHitAt": 1700000000000
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "strike commander": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-61",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 10,
+          "y": 10
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 239,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "lastHitAt": 1700000000000
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null,
+        "hasCommanderBuff": true
+      }
+    },
+    "threw": null
+  },
+  "strike plain": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-40",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 10,
+          "y": 10
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 260,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "lastHitAt": 1700000000000
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "land plain": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-80",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 10,
+          "y": 10
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 220,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "lastHitAt": 1700000000000
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "land armor share": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-75",
+          "color": "#ef4444"
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 225,
+        "maxHp": 300,
+        "def": 100,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "lastHitAt": 1700000000000
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "land armor beats damage": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-1",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 10,
+          "y": 10
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 299,
+        "maxHp": 300,
+        "def": 9999,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "lastHitAt": 1700000000000
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "land element resisted": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-40",
+          "color": "#fca5a5"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 10,
+          "y": 10
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 260,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "elementResist": {
+          "fire": 0.5
+        },
+        "lastHitAt": 1700000000000
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "fire",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "land element weak": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-120",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 10,
+          "y": 10
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 180,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "elementResist": {
+          "fire": -0.5
+        },
+        "lastHitAt": 1700000000000
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "fire",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "land crushing gap 4": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-80",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 10,
+          "y": 10
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 220,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "lastHitAt": 1700000000000
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 44,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "land crushing gap 5": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-93",
+          "color": "#dc2626",
+          "size": 18
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 10,
+          "y": 10
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 207,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "lastHitAt": 1700000000000
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 45,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "land crushing gap 10": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-125",
+          "color": "#dc2626",
+          "size": 18
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 10,
+          "y": 10
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 175,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "lastHitAt": 1700000000000
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 50,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "land crushing gap 40": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-317",
+          "color": "#dc2626",
+          "size": 18
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "player_died",
+        {
+          "playerId": "h1",
+          "killerName": "Ghoul a"
+        }
+      ],
+      [
+        "call",
+        "broadcastSystemMessage",
+        "☠️ [Hero] was slain by [Ghoul a]!"
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": true,
+        "hp": 0,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "lastHitAt": 1700000000000,
+        "respawnTimer": 5
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 80,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "return",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "land crushing ignored (noLevelGap)": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-80",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 10,
+          "y": 10
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 220,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "lastHitAt": 1700000000000
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 99,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null,
+        "noLevelGap": true
+      }
+    },
+    "threw": null
+  },
+  "land iron fortress": {
+    "log": [
+      [
+        "call",
+        "applyDamageToMob",
+        "h1",
+        "a",
+        25,
+        false
+      ],
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "🌵 25 Thorns!",
+          "color": "#e2e8f0"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-32",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 10,
+          "y": 10
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 268,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "ironFortressTimer": 3,
+        "lastHitAt": 1700000000000
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "land thorns": {
+    "log": [
+      [
+        "call",
+        "applyDamageToMob",
+        "h1",
+        "a",
+        17,
+        false
+      ],
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "🌵 17 Thorns!",
+          "color": "#e2e8f0"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-80",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 10,
+          "y": 10
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 220,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "thorns": 17,
+        "lastHitAt": 1700000000000
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "land rune thorns": {
+    "log": [
+      [
+        "call",
+        "applyDamageToMob",
+        "h1",
+        "a",
+        18,
+        false
+      ],
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "🌵 18 Thorns!",
+          "color": "#e2e8f0"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-80",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 10,
+          "y": 10
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 220,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "armorRunes": {
+          "thorns": 2
+        },
+        "lastHitAt": 1700000000000
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "land thorns skipped by mechanics": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-32",
+          "color": "#ef4444"
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 268,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "thorns": 17,
+        "ironFortressTimer": 3,
+        "lastHitAt": 1700000000000
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "land shield absorbs": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.5,
+          "text": "🛡️ Absorbed -60",
+          "color": "#e2e8f0"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-20",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 10,
+          "y": 10
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 280,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "shieldHp": 0,
+        "lastHitAt": 1700000000000
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "land energy shield absorbs": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.5,
+          "text": "💠 -30",
+          "color": "#67e8f9"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9,
+          "text": "💠 ENERGY SHIELD BROKEN",
+          "color": "#38bdf8",
+          "size": 15
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-50",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 10,
+          "y": 10
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 250,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "es": 0,
+        "esMax": 100,
+        "lastHitAt": 1700000000000
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "land passive card transformed": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-74",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 10,
+          "y": 10
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 226,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {
+          "sp": {
+            "cardId": "sp_sentinel"
+          }
+        },
+        "statusEffects": [],
+        "spTransformed": true,
+        "ultWindow": {
+          "t": 1700000000000,
+          "g": 10
+        },
+        "ultCharge": 10,
+        "lastHitAt": 1700000000000
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "land passive card transformed (reflect)": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-80",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 10,
+          "y": 10
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 220,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {
+          "sp": {
+            "cardId": "sp_frost_templar"
+          }
+        },
+        "statusEffects": [],
+        "spTransformed": true,
+        "ultWindow": {
+          "t": 1700000000000,
+          "g": 10
+        },
+        "ultCharge": 10,
+        "lastHitAt": 1700000000000
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "land second wind": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9,
+          "text": "🌿 SECOND WIND! +60 Shield",
+          "color": "#4ade80",
+          "size": 18
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "skill_fx",
+        {
+          "type": "set_proc",
+          "set": "wayfarer",
+          "x": 10,
+          "y": 10,
+          "radius": 1.6,
+          "color": "#4ade80",
+          "playerId": "h1"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-80",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 10,
+          "y": 10
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 50,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "set4": {
+          "wayfarer": {
+            "hpThreshold": 0.5,
+            "cooldown": 30,
+            "shieldPct": 0.2,
+            "hasteSec": 3
+          }
+        },
+        "lastHitAt": 1700000000000,
+        "secondWindReadyAt": 1700000030000,
+        "shieldHp": 60,
+        "sprintTimer": 3,
+        "speedFactor": 1
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "land undying rage": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9,
+          "text": "💀 UNDYING RAGE!",
+          "color": "#c084fc",
+          "size": 18
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-4980",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 10,
+          "y": 10
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 1,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "undyingTimer": 3,
+        "lastHitAt": 1700000000000
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "land phoenix rebirth": {
+    "log": [
+      [
+        "call",
+        "applyDamageToMob",
+        "h1",
+        "a",
+        288,
+        false
+      ],
+      [
+        "zone",
+        "frostfell",
+        "skill_fx",
+        {
+          "type": "sp_skill",
+          "shape": "rebirth",
+          "x": 10,
+          "y": 10,
+          "radius": 4,
+          "element": "fire",
+          "color": "#fbbf24",
+          "cardId": "sp_phoenix_oath",
+          "skillId": "sp_phoenix_rebirth",
+          "name": "Rebirth"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9,
+          "text": "🔥 REBIRTH!",
+          "color": "#fbbf24",
+          "size": 22
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-4980",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 10,
+          "y": 10
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 120,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {
+          "sp": {
+            "cardId": "sp_phoenix_oath"
+          }
+        },
+        "statusEffects": [],
+        "spTransformed": true,
+        "ultWindow": {
+          "t": 1700000000000,
+          "g": 10
+        },
+        "ultCharge": 10,
+        "lastHitAt": 1700000000000,
+        "rebirthReadyAt": 1700000036000
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null,
+        "burnTimer": 4,
+        "burnDmg": 24
+      }
+    },
+    "threw": null
+  },
+  "land venomous": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "☠️ POISON!",
+          "color": "#22c55e",
+          "size": 15
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-80",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 10,
+          "y": 10
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 220,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [
+          {
+            "type": "poison",
+            "duration": 4.5,
+            "value": 9,
+            "tickTimer": 0.8
+          }
+        ],
+        "lastHitAt": 1700000000000
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null,
+        "buffs": [
+          "venomous"
+        ]
+      }
+    },
+    "threw": null
+  },
+  "land frostbite and ignited": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "❄️ CHILL!",
+          "color": "#38bdf8",
+          "size": 15
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "🔥 BURN!",
+          "color": "#f97316",
+          "size": 15
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-80",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 10,
+          "y": 10
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 220,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [
+          {
+            "type": "chill",
+            "duration": 2.5,
+            "value": 0.45,
+            "tickTimer": 0.8
+          },
+          {
+            "type": "burn",
+            "duration": 3,
+            "value": 14,
+            "tickTimer": 0.8
+          }
+        ],
+        "lastHitAt": 1700000000000
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null,
+        "buffs": [
+          "frostbite",
+          "ignited"
+        ]
+      }
+    },
+    "threw": null
+  },
+  "land unknown buff": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-80",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 10,
+          "y": 10
+        }
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 220,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "lastHitAt": 1700000000000
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "idle",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null,
+        "buffs": [
+          "fortified"
+        ]
+      }
+    },
+    "threw": null
+  },
+  "land kills hero, mob returns": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-480",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "player_died",
+        {
+          "playerId": "h1",
+          "killerName": "Ghoul a"
+        }
+      ],
+      [
+        "call",
+        "broadcastSystemMessage",
+        "☠️ [Hero] was slain by [Ghoul a]!"
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": true,
+        "hp": 0,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "dungeonRun": {
+          "deaths": 2
+        },
+        "lastHitAt": 1700000000000,
+        "respawnTimer": 5
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "return",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "land kills hero, no run": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-480",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "player_died",
+        {
+          "playerId": "h1",
+          "killerName": "Ghoul a"
+        }
+      ],
+      [
+        "call",
+        "broadcastSystemMessage",
+        "☠️ [Hero] was slain by [Ghoul a]!"
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": true,
+        "hp": 0,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "lastHitAt": 1700000000000,
+        "respawnTimer": 5
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "return",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  },
+  "land boss turns on the next hero": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-480",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "player_died",
+        {
+          "playerId": "h1",
+          "killerName": "Ghoul a"
+        }
+      ],
+      [
+        "call",
+        "broadcastSystemMessage",
+        "☠️ [Hero] was slain by [Ghoul a]!"
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": true,
+        "hp": 0,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "dungeonInstanceId": "i1",
+        "lastHitAt": 1700000000000,
+        "respawnTimer": 5
+      },
+      "h2": {
+        "id": "h2",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 12,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 300,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "dungeonInstanceId": "i1"
+      },
+      "h3": {
+        "id": "h3",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 12,
+        "y": 10,
+        "level": 40,
+        "isDead": false,
+        "hp": 300,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "dungeonInstanceId": "i2"
+      },
+      "h4": {
+        "id": "h4",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 90,
+        "y": 90,
+        "level": 40,
+        "isDead": false,
+        "hp": 300,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "dungeonInstanceId": "i1"
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "chase",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": "h2",
+        "isBoss": true
+      }
+    },
+    "threw": null
+  },
+  "land boss with nobody left": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-480",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "entity_attack_fx",
+        {
+          "attackerId": "a",
+          "attackerType": "mob",
+          "targetId": "h1",
+          "x": 10,
+          "y": 10
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "player_died",
+        {
+          "playerId": "h1",
+          "killerName": "Ghoul a"
+        }
+      ],
+      [
+        "call",
+        "broadcastSystemMessage",
+        "☠️ [Hero] was slain by [Ghoul a]!"
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": true,
+        "hp": 0,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "lastHitAt": 1700000000000,
+        "respawnTimer": 5
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "return",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null,
+        "isBoss": true
+      }
+    },
+    "threw": null
+  },
+  "land mechanic kill has no attack fx": {
+    "log": [
+      [
+        "zone",
+        "frostfell",
+        "floating_text",
+        {
+          "x": 10,
+          "y": 9.3,
+          "text": "-480",
+          "color": "#ef4444"
+        }
+      ],
+      [
+        "zone",
+        "frostfell",
+        "player_died",
+        {
+          "playerId": "h1",
+          "killerName": "Ghoul a"
+        }
+      ],
+      [
+        "call",
+        "broadcastSystemMessage",
+        "☠️ [Hero] was slain by [Ghoul a]!"
+      ]
+    ],
+    "players": {
+      "h1": {
+        "id": "h1",
+        "name": "Hero",
+        "zone": "frostfell",
+        "x": 10,
+        "y": 10,
+        "level": 40,
+        "isDead": true,
+        "hp": 0,
+        "maxHp": 300,
+        "def": 40,
+        "dmg": 80,
+        "characterClass": "warrior",
+        "inventory": {
+          "items": []
+        },
+        "equipment": {},
+        "statusEffects": [],
+        "lastHitAt": 1700000000000,
+        "respawnTimer": 5
+      }
+    },
+    "mobs": {
+      "a": {
+        "id": "a",
+        "name": "Ghoul a",
+        "x": 10,
+        "y": 10,
+        "spawnX": 10,
+        "spawnY": 10,
+        "hp": 400,
+        "maxHp": 400,
+        "level": 40,
+        "def": 10,
+        "dmg": 60,
+        "speed": 3,
+        "state": "return",
+        "attackCooldown": 0,
+        "element": "neutral",
+        "nextWanderTime": 0,
+        "targetPlayerId": null
+      }
+    },
+    "threw": null
+  }
+}
