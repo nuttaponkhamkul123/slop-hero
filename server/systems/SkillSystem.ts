@@ -133,6 +133,14 @@ export class SkillSystem {
       if (socket0) socket0.emit('floating_text', { x: player.x, y: player.y - 0.7, text: slot === 'ult' ? 'Transform with an SP card to use its Signature' : 'This weapon has no ability', color: '#94a3b8' });
       return;
     }
+    // A class skill below its level requirement can't be cast, whatever sits in the slot (the
+    // default loadout, an old save, or a hero brought back down a level). Equipping already
+    // checked this; casting did not, so a level 1 hero could use their level 30 default ultimate.
+    const classDef = !player.spTransformed && slot !== 'weapon' && slot !== 'ult' ? (ALL_CLASS_SKILLS as any)[skillId] : null;
+    if (classDef && classDef.reqLevel && (player.level || 1) < classDef.reqLevel) {
+      if (socket0) socket0.emit('floating_text', { x: player.x, y: player.y - 0.7, text: `🔒 ${classDef.name}: requires Level ${classDef.reqLevel}`, color: '#ef4444' });
+      return;
+    }
     // Signature: needs a full charge instead of mana
     if (slot === 'ult' && (player.ultCharge || 0) < ULT_CHARGE_MAX) {
       if (socket0) socket0.emit('floating_text', { x: player.x, y: player.y - 0.7, text: `✦ Signature charging ... ${Math.floor(player.ultCharge || 0)}%`, color: '#94a3b8' });

@@ -2097,3 +2097,12 @@
 .fav-badge { position: absolute; top: 1px; left: 1px; width: 14px; height: 14px; pointer-events: none; z-index: 2; }
 .fav-badge img.pxi { width: 14px; height: 14px; display: block; }
 .tip-fav { color: var(--gold); }
+
+/* hotbar: a skill above the hero's level (game.js setupClassSkillHUD) - dimmed, padlocked, "Lv N" */
+.is-level-locked { position: relative; }
+.is-level-locked .slot-icon, .is-level-locked img, .is-level-locked svg { filter: grayscale(1) brightness(0.45); }
+.is-level-locked::after {
+  content: attr(data-req-level); position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  padding: 1px 4px; font-family: var(--font-px); font-size: 11px; line-height: 1.2; color: #ffcd75;
+  background: rgba(26, 28, 44, 0.9); box-shadow: 0 0 0 1px #b13e53; pointer-events: none; white-space: nowrap;
+}

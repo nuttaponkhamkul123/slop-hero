@@ -2,6 +2,7 @@ import { calculateElementalMultiplier, ELEMENTS, ELEMENT_INFO } from './elements
 import { MAP_WIDTH, MAP_HEIGHT, TILES, generateMap, generateFrostfellMap } from './mapData';
 import * as DF from './dungeonFeatures';
 import * as WINGS from './wingSkins';
+import { hitsWall } from './townHouses';
 import { generateProceduralDungeon, rollDungeonLoot, DIFFICULTIES, AFFIX_POOL, DUNGEON_FLOORS, DUNGEON_TILES, BLOCKING_FEATURES, DUNGEON_HAZARDS } from './dungeonGenerator';
 import {
   ITEMS,
@@ -690,6 +691,8 @@ class GameServer {
         const obsRadius = obs.radius || 0.6;
         if (Math.hypot(obs.x - x, obs.y - y) < (radius + obsRadius)) return true;
       }
+      // the walk-in houses' walls (a doorway left open on each; townHouses.ts)
+      if (this.townMap.walls && hitsWall(this.townMap.walls, x, y, radius)) return true;
     } else if (this.fields.has(zone)) {
       const map = this.fields.get(zone).map;
       if (x < 1 || x > map.width - 2 || y < 1 || y > map.height - 2) return true;

@@ -8676,24 +8676,26 @@ class IsometricRenderer {
         const i = y * w + x, o = i * 4, a = d[o + 3];
         if (!a) continue;
         const b = (FX_BAYER[(y & 3) * 4 + (x & 3)] + 0.5) / 16;
-        // faint washes become ordered-dither coverage, the faintest haze is
-        // dropped; strokes stay whole (translucent, or solid when strong)
+        // The faintest haze is dropped. Washes (big translucent areas: a firestorm's ring, a
+        // black hole's swirl, a blizzard's aura) keep a few flat alpha levels: dithering their
+        // coverage and brightness pixel by pixel turned whole areas into a screen-door grid of
+        // dots. Solid strokes, cores and sparks keep the dithered ramp shading.
         const v = a / 255;
-        if (v < 0.08 || (v < 0.32 && v * 1.6 < b)) { d[o + 3] = 0; continue; }
-        // dark washes: a faint one would dither into black noise, a stronger
-        // one (a shadow) becomes the classic 50% checker
+        if (v < 0.07) { d[o + 3] = 0; continue; }
+        // dark washes: a faint one would read as black noise, a stronger one (a shadow) stays
+        // the classic 50% checker
         if (d[o] + d[o + 1] + d[o + 2] < 150) {
           if (v < 0.32 || (v < 0.75 && ((x + y) & 1))) { d[o + 3] = 0; continue; }
         }
         const solid = v >= 0.6;
-        d[o + 3] = solid ? 255 : 200;
+        d[o + 3] = solid ? 255 : v < 0.2 ? 70 : v < 0.38 ? 120 : 175;
         q[i] = solid ? 2 : 1;
-        // ramp shading: brightness to one of six dithered steps (a faint
-        // wash sits a step darker so strokes and sparks read above it)
+        // ramp shading: brightness to one of six steps (dithered on solids only; a wash sits a
+        // step darker so strokes and sparks read above it)
         const r0 = d[o], g0 = d[o + 1], b0 = d[o + 2];
         const mx = Math.max(r0, g0, b0, 1);
         const lum = mx / 255;
-        const step = Math.max(0, Math.min(5, Math.round(lum * 5 + (b - 0.5) * 0.9 - (solid ? 0 : 0.8))));
+        const step = Math.max(0, Math.min(5, Math.round(lum * 5 + (solid ? (b - 0.5) * 0.45 : -0.6))));
         const lq = step / 5;
         let r = r0 / mx * lq * 255, gg = g0 / mx * lq * 255, bb = b0 / mx * lq * 255;
         if (lq < 0.45) {
@@ -11751,7 +11753,8 @@ class IsometricRenderer {
         renderList.push({
           type: 'obstacle',
           data: obs,
-          depth: Isometric.getDepth(obs.x, obs.y, 0, 10)
+          // a walk-in house you stand in is drawn as its room, under everyone in it
+          depth: obs.type === 'house' && this.insideHouse(obs) ? -1e9 : Isometric.getDepth(obs.x, obs.y, 0, 10)
         });
       }
     }
@@ -13231,6 +13234,23 @@ class IsometricRenderer {
   // One pixel-art prop from pixelProps.js, at the trees' pixel size (1 sprite
   // pixel = 1.3 screen px at zoom 1). Animated bits (rune glow, flames,
   // fountain water) go on top each frame.
+  // Is the local hero standing in one of this walk-in house's rooms (server townHouses.ts)?
+  insideHouse(obs) {
+    const me = this._me;
+    if (!me || !obs.rooms) return false;
+    return obs.rooms.some(r => me.x > r.x0 && me.x < r.x1 && me.y > r.y0 && me.y < r.y1);
+  }
+  // Is the local hero hidden behind this house (north of its front, inside its sprite on screen)?
+  behindHouse(obs, x0, y0, w, h) {
+    const me = this._me;
+    if (!me || !obs.box) return false;
+    // in front of either street-facing wall (+x or +y side): not hidden
+    if (me.x > obs.box.x1 || me.y > obs.box.y1) return false;
+    const s = Isometric.worldToScreen(me.x, me.y, 0, this.camera, this.viewW, this.viewH);
+    const zoom = this.camera.zoom;
+    return s.x > x0 && s.x < x0 + w && s.y - 30 * zoom > y0 && s.y - 30 * zoom < y0 + h * 0.85;
+  }
+
   drawPixelProp(ctx, obs, screen, z) {
     const PP = window.PixelProps;
     // town props carry their own variant (roof colour, awning); decorations pick one by position
@@ -13250,6 +13270,25 @@ class IsometricRenderer {
     ctx.save();
     ctx.imageSmoothingEnabled = false;
     if (obs.type === 'torch') this.drawFloorFireLight(ctx, screen.x, screen.y, z, obs.x * 3.7 + obs.y * 5.3);
+    if (obs.type === 'house' && obs.rooms) {
+      // Walk-in houses: standing inside, the room shows (floor, back walls, furniture) under
+      // a ghost of the shell; standing behind one, the house turns see-through so you stay in view
+      const inside = this.insideHouse(obs);
+      const room = inside ? PP.sprite('house_interior', variant) : null;
+      if (room) ctx.drawImage(room.img, Math.round(screen.x - room.ax * P), Math.round(screen.y - room.ay * P), room.img.width * P, room.img.height * P);
+      const fade = inside ? (room ? 0.14 : 0.35) : this.behindHouse(obs, x0, y0, spr.img.width * P, spr.img.height * P) ? 0.45 : 1;
+      if (fade < 1) {
+        // ease in and out instead of popping
+        obs._fade = obs._fade === undefined ? fade : obs._fade + (fade - obs._fade) * 0.2;
+      } else if (obs._fade !== undefined) {
+        obs._fade += (1 - obs._fade) * 0.2;
+        if (obs._fade > 0.98) obs._fade = undefined;
+      }
+      ctx.globalAlpha = obs._fade !== undefined ? obs._fade : 1;
+      ctx.drawImage(spr.img, x0, y0, spr.img.width * P, spr.img.height * P);
+      ctx.restore();
+      return;
+    }
     ctx.drawImage(spr.img, x0, y0, spr.img.width * P, spr.img.height * P);
     if (spr.front) {
       // booths: the keeper stands between the back of the booth and its counter

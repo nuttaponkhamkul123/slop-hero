@@ -438,7 +438,8 @@
   }
   // door on the +Z face at (x, z), its bottom at y; arched or square, with a lantern beside it
   function houseDoor(root, x, y, z, o = {}) {
-    const w = o.w || 15, h = o.h || 24;
+    // (a little wider than a cottage door would be: the walk-in doorway is a tile across)
+    const w = Math.max(o.w || 15, 22), h = o.h || 24;
     box(root, w, h, 2, hmat(o.color || DOOR), x, y, z + 1);
     for (const px of [-w / 2 + 3.5, 0, w / 2 - 3.5]) box(root, 0.8, h - 3, 2.4, hmat(shade(o.color || DOOR, 0.7)), x + px, y + 1, z + 1);
     box(root, w + 3, 2.6, 2.8, hmat(o.frame || TIMBER), x, y + h, z + 1.2);
@@ -669,11 +670,17 @@
     }
   ];
 
-  // variant = roof (0-2) + 3 * build; colour scheme from the roof and the build together
-  function buildHouse(variant) {
-    const root = new THREE.Group();
+  // Houses stand at the chibi heroes' scale (a door about a hero tall) and can be walked into:
+  // the server (server/townHouses.ts) picks the build and walls each one in with a doorway, and
+  // the renderer shows the room inside (buildInterior) while you stand in it. Keep HOUSE_ROOMS
+  // in step with townHouses.ts BUILDS: [cx, cz, w, d] of each build's walk-in room.
+  const HOUSE_SCALE = 2;
+  const HOUSE_ROOMS = [[0, 0, 92, 72], [0, 0, 72, 82], [0, 0, 88, 70], [0, 0, 84, 64], [0, 0, 90, 68], [0, -12, 96, 56]];
+  const HOUSE_FLOOR = [7, 6, 5, 4, 6, 7];          // each build's floor height (its F)
+  function houseColours(variant) {
     const roofI = variant % 3, build = Math.floor(variant / 3) % HOUSE_BUILDS;
-    const c = {
+    return {
+      roofI, build,
       roof: HOUSE_ROOFS[roofI],
       plaster: HOUSE_PLASTER[(roofI * 2 + build) % HOUSE_PLASTER.length],
       paint: ['#d98c5f', '#7fa7b8', '#c9b25a', '#b97a9a', '#8fae7a'][(roofI + build) % 5],
@@ -681,10 +688,86 @@
       stone: ['#a39d92', '#9aa0a6', '#b0a08a'][(roofI + build) % 3],
       flag: ['#c53030', '#2b6cb0', '#d69e2e'][roofI]
     };
-    const info = HOUSE_STYLES[build](root, c);
-    return { root, info };
+  }
+  // variant = roof (0-2) + 3 * build; colour scheme from the roof and the build together
+  function buildHouse(variant) {
+    const root = new THREE.Group();
+    const c = houseColours(variant);
+    const info = HOUSE_STYLES[c.build](root, c);
+    const outer = new THREE.Group();
+    outer.add(root);
+    outer.scale.setScalar(HOUSE_SCALE);
+    const S = HOUSE_SCALE;
+    return { root: outer, info: { door: [info.door[0] * S, info.door[1] * S], chimney: info.chimney.map(v => v * S) } };
   }
   BUILDERS.house = (variant = 0) => buildHouse(variant);
+
+  // The room inside a house, as seen with its roof and street-side walls lifted off: a plank
+  // floor, the two back walls, and furniture (bed, table and chairs, fireplace, cupboard, rug,
+  // barrel), sized to the build's walk-in room. Same anchor and scale as the house.
+  function buildInterior(variant) {
+    const root = new THREE.Group();
+    const c = houseColours(variant);
+    const [cx, cz, w, d] = HOUSE_ROOMS[c.build];
+    const F = HOUSE_FLOOR[c.build];
+    const x0 = cx - w / 2, x1 = cx + w / 2, z0 = cz - d / 2, z1 = cz + d / 2;
+    const WALL = 30, T = 2.5;
+    const wood = ['#8a5a32', '#7a4e2a', '#946338'];
+    // floor: planks along x on a stone footing
+    box(root, w + 4, F, d + 4, hmat(STONE_DK), cx, 0, cz);
+    const planks = 8;
+    for (let i = 0; i < planks; i++) box(root, w, 1.4, d / planks - 0.4, hmat(wood[i % 3]), cx, F, z0 + (i + 0.5) * d / planks);
+    // back walls (north and west), with a skirting board and a window each
+    box(root, w, WALL, T, hmat(c.plaster), cx, F, z0 + T / 2);
+    box(root, T, WALL, d, hmat(c.plaster), x0 + T / 2, F, cz);
+    box(root, w, 3, T + 0.6, hmat(TIMBER), cx, F, z0 + T / 2);
+    box(root, T + 0.6, 3, d, hmat(TIMBER), x0 + T / 2, F, cz);
+    box(root, 16, 12, 1, hmat('#9fd3f0'), cx + w * 0.18, F + 12, z0 + T + 0.2);
+    box(root, 18, 2, 2, hmat(TIMBER), cx + w * 0.18, F + 11, z0 + T + 0.6);
+    // low wall stubs on the street sides, so the room keeps its shape
+    box(root, w, 4, T, hmat(c.plaster), cx, F, z1 - T / 2);
+    box(root, T, 4, d, hmat(c.plaster), x1 - T / 2, F, cz);
+    // rug in the middle
+    box(root, w * 0.42, 0.6, d * 0.36, hmat(c.awning), cx + 4, F + 1.4, cz + 4);
+    box(root, w * 0.42 - 4, 0.7, d * 0.36 - 4, hmat(shade(c.awning, 1.25)), cx + 4, F + 1.4, cz + 4);
+    // bed against the back wall, right side
+    const bx = x1 - 18, bz = z0 + 18;
+    box(root, 22, 7, 30, hmat('#6b4226'), bx, F + 1.4, bz);
+    box(root, 20, 3, 21, hmat(c.paint), bx, F + 8.4, bz + 4);
+    box(root, 18, 3, 7, hmat('#f2efe6'), bx, F + 8.4, bz - 10);
+    box(root, 22, 12, 2.4, hmat('#5a361d'), bx, F + 1.4, z0 + T + 1.5);
+    // fireplace on the west wall with a glowing hearth
+    const fz = cz - d * 0.08;
+    box(root, 8, 22, 22, hmat(STONE), x0 + T + 4, F, fz);
+    box(root, 2, 9, 12, hmat('#1c120c'), x0 + T + 8.2, F + 1.4, fz);
+    const ember = new THREE.MeshLambertMaterial({ color: '#ff8a2a', emissive: '#ff8a2a', emissiveIntensity: 1 });
+    box(root, 1.6, 4, 9, ember, x0 + T + 8.8, F + 1.6, fz);
+    box(root, 12, 3, 26, hmat(STONE_DK), x0 + T + 5, F + 22, fz);
+    // cupboard on the back wall, left side, with jars
+    const kx = x0 + 22;
+    box(root, 20, 24, 7, hmat('#7a4e2a'), kx, F, z0 + T + 3.5);
+    for (const sy of [8, 16]) box(root, 18, 1, 6, hmat('#5a361d'), kx, F + sy, z0 + T + 4);
+    for (const [jx, jy, col] of [[-5, 9, '#c9b25a'], [1, 9, '#7fa7b8'], [6, 17, '#b97a9a'], [-3, 17, '#8fae7a']]) box(root, 3.4, 4.5, 3.4, hmat(col), kx + jx, F + jy, z0 + T + 4.5);
+    // table and two chairs
+    const tx = cx - w * 0.08, tz = cz + d * 0.1;
+    box(root, 20, 1.6, 14, hmat('#8a5a32'), tx, F + 11, tz);
+    for (const [lx, lz] of [[-8, -5], [8, -5], [-8, 5], [8, 5]]) box(root, 1.6, 11, 1.6, hmat('#5a361d'), tx + lx, F, tz + lz);
+    box(root, 4, 3, 4, hmat('#e2d8c4'), tx - 3, F + 12.6, tz);
+    for (const cxo of [-15, 15]) {
+      box(root, 7, 1.4, 7, hmat('#7a4e2a'), tx + cxo, F + 7, tz);
+      box(root, 7, 9, 1.4, hmat('#6b4226'), tx + cxo, F + 7, tz - 3.4);
+      for (const [lx, lz] of [[-3, -3], [3, -3], [-3, 3], [3, 3]]) box(root, 1, 7, 1, hmat('#5a361d'), tx + cxo + lx, F, tz + lz);
+    }
+    // a barrel by the door side
+    const barrel = cyl(root, 5, 5, 12, hmat('#7a4e2a'), x1 - 10, F, z1 - 12, 10);
+    void barrel;
+    box(root, 10.4, 1, 10.4, hmat('#3a2a1a'), x1 - 10, F + 4, z1 - 12);
+    const outer = new THREE.Group();
+    outer.add(root);
+    outer.scale.setScalar(HOUSE_SCALE);
+    return { root: outer };
+  }
+  BUILDERS.house_interior = (variant = 0) => buildInterior(variant);
 
   function stoneTower(root, w, h) {
     box(root, w, h, w, '#8b9099', 0, 0, 0);
@@ -910,7 +993,7 @@
   // the salts are tuned so the town's 30 houses get every build 4-7 times, neighbours mostly differing
   const houseBuild = obs => Math.floor(hash(Math.round(obs.x * 7) + 30.14, Math.round(obs.y * 13) + 64.02) * HOUSE_BUILDS);
   const propVariant = obs => (obs.type === 'market_stall' && obs.y > BOULEVARD_MID_Y ? (obs.variant || 0) + 4
-    : obs.type === 'house' ? ((obs.variant || 0) % 3) + 3 * houseBuild(obs) : obs.variant);
+    : obs.type === 'house' ? ((obs.variant || 0) % 3) + 3 * (obs.build !== undefined ? obs.build % HOUSE_BUILDS : houseBuild(obs)) : obs.variant);
   // where a house's door and chimney top are, in model units from its anchor:
   // door [x, z] on the +Z face, chimney [x, y, z]
   const houseInfoCache = new Map();

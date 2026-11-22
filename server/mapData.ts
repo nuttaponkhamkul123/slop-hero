@@ -1,4 +1,5 @@
 // Map Generator and Collision Data for Isometric World
+import * as HOUSES from './townHouses';
 export const MAP_WIDTH = 42;
 export const MAP_HEIGHT = 42;
 
@@ -27,6 +28,10 @@ export interface MapObstacle {
   collidable: boolean;
   radius?: number;
   variant?: number;
+  /** walk-in houses (townHouses.ts): build, rooms and footprint box in world tiles */
+  build?: number;
+  rooms?: { x0: number; y0: number; x1: number; y1: number }[];
+  box?: { x0: number; y0: number; x1: number; y1: number };
   axis?: string;
   back?: boolean;
   target?: string;
@@ -92,9 +97,14 @@ export function generateMap(): MapData {
   }
 
   const add = (o: MapObstacle) => obstacles.push(o);
-  const near = (x: number, y: number, r: number) => obstacles.some(o => Math.hypot(o.x - x, o.y - y) < r);
+  // (a walk-in house counts by its footprint box, not just its middle)
+  const distTo = (o: MapObstacle, x: number, y: number) => o.box
+    ? Math.hypot(Math.max(o.box.x0 - x, 0, x - o.box.x1), Math.max(o.box.y0 - y, 0, y - o.box.y1))
+    : Math.hypot(o.x - x, o.y - y);
+  const near = (x: number, y: number, r: number) => obstacles.some(o => distTo(o, x, y) < r);
+  const walls: number[][] = [];   // walk-in house walls (townHouses.ts), for collision
   const WALL_TYPES = new Set(['town_wall', 'gate_tower', 'corner_keep']);
-  const nearProp = (x: number, y: number, r: number) => obstacles.some(o => !WALL_TYPES.has(o.type) && Math.hypot(o.x - x, o.y - y) < r);
+  const nearProp = (x: number, y: number, r: number) => obstacles.some(o => !WALL_TYPES.has(o.type) && distTo(o, x, y) < r);
 
   // ---- plaza: fountain, braziers, flower beds ----
   add({ id: 'fountain_center', x: 20, y: 20, type: 'fountain', collidable: false });
@@ -161,27 +171,28 @@ export function generateMap(): MapData {
   }
   [[12.9, 16.4], [27.9, 24.6], [25.4, 16.5], [12.9, 24.6]].forEach(([x, y], i) => add({ id: `crates_${i}`, x, y, type: 'crates', variant: i % 2, collidable: true, radius: 0.45 }));
 
-  // ---- residential blocks: houses between the streets ----
+  // ---- residential blocks: one walk-in house per block, at the heroes' scale ----
+  // (townHouses.ts: the build, its rooms and its walls; the walls go in `walls` for collision)
   const spans = [[3, 8], [11, 17], [23, 30], [33, 38]]; // tiles between roads, each axis
   let houseN = 0;
   for (const [bx0, bx1] of spans) {
     for (const [by0, by1] of spans) {
-      const cols = Math.max(1, Math.floor((bx1 - bx0 + 1) / 3));
-      const rows = Math.max(1, Math.floor((by1 - by0 + 1) / 3));
-      for (let c = 0; c < cols; c++) {
-        for (let r = 0; r < rows; r++) {
-          const x = bx0 + (bx1 - bx0 + 1) * (c + 0.5) / cols;
-          const y = by0 + (by1 - by0 + 1) * (r + 0.5) / rows;
-          const tx = Math.floor(x), ty = Math.floor(y);
-          if (tiles[ty][tx] !== TILES.GRASS || inGarden(tx, ty)) continue;
-          if (inRange(tx, [14, 26] as [number, number]) && inRange(ty, [14, 26] as [number, number])) continue; // plaza, booths & portal
-          if (Math.hypot(x - 30.5, (y - 5.8) * 1.6) < 8.5) continue;    // lakeside park
-          if (x > 32.5 && y > 10.5 && y < 18) continue;                  // the Eternal Rift cave
-          if (nearProp(x, y, 2.3) || near(x, y, 1.2)) continue;
-          add({ id: `house_${houseN}`, x, y, type: 'house', variant: houseN % 3, collidable: true, radius: 1.3 });
-          houseN++;
-        }
-      }
+      const x = (bx0 + bx1 + 1) / 2, y = (by0 + by1 + 1) / 2;
+      const tx = Math.floor(x), ty = Math.floor(y);
+      if (tiles[ty][tx] !== TILES.GRASS || inGarden(tx, ty)) continue;
+      if (inRange(tx, [14, 26] as [number, number]) && inRange(ty, [14, 26] as [number, number])) continue; // plaza, booths & portal
+      if (Math.hypot(x - 30.5, (y - 5.8) * 1.6) < 8.5) continue;    // lakeside park
+      if (x > 32.5 && y > 10.5 && y < 18) continue;                  // the Eternal Rift cave
+      // a build that fits the block, and nothing already standing on its footprint
+      const build = houseN % HOUSES.HOUSE_BUILDS;
+      const ext = HOUSES.houseExtent(build);
+      if (x + ext.x0 < bx0 + 0.2 || x + ext.x1 > bx1 + 0.8 || y + ext.y0 < by0 + 0.2 || y + ext.y1 > by1 + 0.8) continue;
+      if (obstacles.some(o => !WALL_TYPES.has(o.type) && o.x > x + ext.x0 - 0.6 && o.x < x + ext.x1 + 0.6 && o.y > y + ext.y0 - 0.6 && o.y < y + ext.y1 + 0.6)) continue;
+      add({ id: `house_${houseN}`, x, y, type: 'house', variant: houseN % 3, build, collidable: false, radius: 1.3,
+        // walk-in: the rooms (for the client's cut-away) and the footprint (to keep props off it)
+        rooms: HOUSES.houseRooms(x, y, build), box: { x0: x + ext.x0, y0: y + ext.y0, x1: x + ext.x1, y1: y + ext.y1 } });
+      for (const s of HOUSES.houseWalls(x, y, build)) walls.push(s);
+      houseN++;
     }
   }
 
@@ -236,6 +247,7 @@ export function generateMap(): MapData {
     theme: 'town',
     tiles,
     obstacles,
+    walls,
     // where you appear when walking back in through the north gate
     arrivals: { north: { x: CITY.NORTH_GATE.x, y: CITY.NORTH_GATE.y + 2.6 } }
   };

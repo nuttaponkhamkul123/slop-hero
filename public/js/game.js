@@ -1156,6 +1156,18 @@ document.addEventListener('DOMContentLoaded', () => {
       if (mobileDashIcon && sd) SkillIcons.apply(mobileDashIcon, sd.id);
       if (slotDash && sd) slotDash.title = `${sd.name} [Shift] (${manaCost(sd.mpCost)} MP) [${rd.icon} ${rd.name}] - ${sd.desc}`;
 
+      // slots holding a skill above the hero's level show a lock and the level it opens at
+      const lvl = localPlayer.level || 1;
+      [[slotSkill1, mobileSkill1Icon, s1], [slotSkill2, mobileSkill2Icon, s2], [slotSkill3, mobileSkill3Icon, s3], [slotDash, mobileDashIcon, sd]].forEach(([el, mob, s]) => {
+        const req = s && s.reqLevel && lvl < s.reqLevel ? s.reqLevel : 0;
+        for (const node of [el, mob && mob.closest ? mob.closest('button, .mobile-skill-btn, .action-slot') : null]) {
+          if (!node) continue;
+          node.classList.toggle('is-level-locked', !!req);
+          if (req) node.dataset.reqLevel = 'Lv' + req; else delete node.dataset.reqLevel;
+        }
+        if (el && req) el.title = `🔒 ${s.name}: unlocks at Level ${req}. ` + el.title;
+      });
+
       skill1CooldownMax = s1 ? s1.cooldown : 1.4;
       skill2CooldownMax = s2 ? s2.cooldown : 1.8;
       skill3CooldownMax = s3 ? s3.cooldown : 3.6;
@@ -3212,6 +3224,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const rawEquipped = localPlayer.equippedSkills && localPlayer.equippedSkills[slot];
     const equippedDef = findSkillDef(typeof rawEquipped === 'object' && rawEquipped ? rawEquipped.skillId : rawEquipped);
+    // a class skill still above the hero's level: no cast (the server refuses it too)
+    if (!localPlayer.spTransformed && equippedDef && equippedDef.reqLevel && (localPlayer.level || 1) < equippedDef.reqLevel) {
+      if (renderer) renderer.addFloatingText(localPlayer.x, localPlayer.y - 0.7, `Requires Level ${equippedDef.reqLevel}`, '#ef4444', 14);
+      if (window.soundEngine && window.soundEngine.playUpgradeFail) window.soundEngine.playUpgradeFail();
+      return;
+    }
     // Nightblade throws go where the mouse points, not at the nearest monster
     const firstPerson = !!(fpView && fpView.active);
     if (!aim && equippedDef && CURSOR_AIMED_SHAPES.has(equippedDef.shape) && firstPerson) {

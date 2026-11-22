@@ -1099,6 +1099,8 @@
 
   const TOWN = {
     house(v) { return baked('house', v, buildHouse); },
+    // the room inside a walk-in house (shown while you stand in it); no 2D fallback
+    house_interior(v) { return baked('house_interior', v, () => null); },
 
     gate_tower() {
       const W = 38, H = 88, cx = 18.5;
@@ -1459,7 +1461,7 @@
   }
   Object.assign(BUILD, TOWN);
   // these read obs.variant as is (awning colours, house roofs) instead of a 0-2 hash
-  const RAW_VARIANT = new Set(['house', 'crates', 'flower_bed', 'market_stall']);
+  const RAW_VARIANT = new Set(['house', 'house_interior', 'crates', 'flower_bed', 'market_stall']);
 
   const cache = new Map();
   function sprite(type, variant = 0) {
