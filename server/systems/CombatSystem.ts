@@ -1,6 +1,8 @@
 // Hero combat: basic attacks and cleave, projectiles, damage to monsters, monster death and drops, and the armor-set combat procs.
 // Moved verbatim out of GameServer (Phase C of docs/REFACTOR_PLAN.md): `this` is the server, reached as this.gs;
 // GameServer keeps one-line forwarding methods, so no call site changed.
+import * as DF from '../dungeonFeatures';
+import * as WINGS from '../wingSkins';
 import type { GameServer } from '../gameServer';
 import { isRangedClass } from '../data/heroClasses';
 import { calculateElementalMultiplier } from '../elements';
@@ -402,6 +404,8 @@ export class CombatSystem {
       }
     }
     mob.hp -= damage;
+    // Reflector monsters and the Static Arc boon (dungeonFeatures.ts)
+    if (player && player.zone === 'dungeon' && damage > 0 && !isDeflected) DF.onMobHit(this.gs, player, mob, damage, isCritical, isEcho);
     // Duskblade Doom brand soaks up what its owner deals (replayed when it ends)
     if (player && mob.doom && mob.doom.owner === player.id && mob.doom.until > Date.now()) mob.doom.stored += damage;
     mob.state = 'chase';
@@ -735,6 +739,14 @@ export class CombatSystem {
       }
       if (modInst.mods.includes('volatile')) this.gs.scheduleVolatileBurst(modInst, mob);
     }
+    // SP wing skins: a rare drop from dungeon bosses and minibosses
+    if (zone === 'dungeon' && (isBoss || isMiniboss)) {
+      const wing = WINGS.rollWingSkinDrop(isBoss ? 'boss' : 'miniboss', (modInst && modInst.floor) || 1);
+      if (wing) this.gs.spawnGroundItem(zone, 'item', wing, mob.x + 0.4, mob.y + 0.4, 1, null, instId);
+    }
+    // Splitters, illusions, mimics, Corpse Blast (dungeonFeatures.ts)
+    const dfInst = zone === 'dungeon' && instId ? this.gs.dungeonInstances.get(instId) : null;
+    if (dfInst && dfInst.df) DF.onMobDeath(this.gs, dfInst, mob, killerPlayer);
 
     // Defensive armor runes: rarer than gear, far more common than the elemental ones
     if (Math.random() < (isBoss ? ARMOR_RUNE_DROP.boss : ARMOR_RUNE_DROP.normal)) {

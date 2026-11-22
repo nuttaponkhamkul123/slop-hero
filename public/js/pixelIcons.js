@@ -388,9 +388,70 @@
     link.href = iconUrl('sword');
   }
 
+  // SP card icons: the face of the card's costume on its colour, with a pixel "SP" in the
+  // bottom-right corner. Built once per card (needs PixelHeroes and the SP catalog; until
+  // both are in, the plain card icon stands in).
+  const cardFaces = new Map();
+  const SP_GLYPHS = { S: ['111', '100', '111', '001', '111'], P: ['111', '101', '111', '100', '100'] };
+  function spCardDefOf(cardId) {
+    const cat = window.SP_CATALOG;
+    if (!cat || !cat.cards || !cardId) return null;
+    for (const [cls, list] of Object.entries(cat.cards)) {
+      const card = list.find(x => x.id === cardId);
+      if (card) return { card, cls };
+    }
+    return null;
+  }
+  function cardFaceUrl(cardId) {
+    if (cardFaces.has(cardId)) return cardFaces.get(cardId);
+    const PH = window.PixelHeroes, found = spCardDefOf(cardId);
+    if (!PH || !PH.ready || !PH.face || !found) return null;
+    const { card, cls } = found;
+    const S = 64, c = document.createElement('canvas');
+    c.width = c.height = S;
+    const g = c.getContext('2d');
+    g.imageSmoothingEnabled = false;
+    const col = card.color || '#a855f7';
+    // card: dark plate, a glow of the card colour behind the head, a 2px frame
+    g.fillStyle = '#1a1c2c'; g.fillRect(0, 0, S, S);
+    const glow = g.createRadialGradient(S / 2, S * 0.45, 2, S / 2, S * 0.45, S * 0.62);
+    glow.addColorStop(0, col); glow.addColorStop(1, 'rgba(26, 28, 44, 0)');
+    g.globalAlpha = 0.75; g.fillStyle = glow; g.fillRect(2, 2, S - 4, S - 4); g.globalAlpha = 1;
+    try { g.drawImage(PH.face(cls, card.id, card.palette, 60), 2, 2); } catch (_) { return null; }
+    g.fillStyle = col; g.fillRect(0, 0, S, 2); g.fillRect(0, S - 2, S, 2); g.fillRect(0, 0, 2, S); g.fillRect(S - 2, 0, 2, S);
+    g.fillStyle = '#1a1c2c'; g.fillRect(1, 1, 1, 1); g.fillRect(S - 2, 1, 1, 1); g.fillRect(1, S - 2, 1, 1); g.fillRect(S - 2, S - 2, 1, 1);
+    // "SP" in the bottom-right corner, 2px per glyph pixel, on a dark tag
+    const px = 2, tx = S - 17, ty = S - 13;
+    g.fillStyle = '#1a1c2c'; g.fillRect(tx - 2, ty - 2, 17, 13);
+    g.fillStyle = col; g.fillRect(tx - 2, ty - 2, 17, 1); g.fillRect(tx - 2, ty - 2, 1, 13);
+    ['S', 'P'].forEach((ch, k) => {
+      SP_GLYPHS[ch].forEach((row, y) => [...row].forEach((bit, x) => {
+        if (bit !== '1') return;
+        g.fillStyle = '#ffcd75';
+        g.fillRect(tx + k * 8 + x * px, ty + y * px, px, px);
+      }));
+    });
+    const url = c.toDataURL();
+    cardFaces.set(cardId, url);
+    return url;
+  }
+  const cardHtml = (cardId, cls = '') => {
+    const url = cardFaceUrl(cardId);
+    return url ? `<img class="pxi sp-card-face ${cls}" src="${url}" alt="" draggable="false">` : html('card', cls);
+  };
+
   window.PixelIcons = {
     PAL, ICONS, url: iconUrl, image: iconImage, html, item: itemIconName,
-    itemHtml: (item, cls) => html(itemIconName(item), cls),
+    itemHtml: (item, cls) => {
+      if (item && item.type === 'sp_card' && item.cardId) return cardHtml(item.cardId, cls);
+      // wing skins show their wings (wingWardrobe.js draws them)
+      if (item && item.type === 'wing_skin' && window.WingWardrobe) {
+        const url = window.WingWardrobe.itemIconUrl(item.skinId);
+        if (url) return `<img class="pxi ${cls || ''}" src="${url}" alt="" draggable="false">`;
+      }
+      return html(itemIconName(item), cls);
+    },
+    cardHtml, cardFaceUrl,
     talentHtml: (talent, cls = 'skill-svg') => html(talentIconName(talent), cls),
     stripEmoji, isSkillReady: () => skillsReady
   };

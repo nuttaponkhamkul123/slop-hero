@@ -3,6 +3,7 @@
 // GameServer keeps one-line forwarding methods, so no call site changed.
 import type { GameServer } from '../gameServer';
 import { generateProceduralDungeon, DIFFICULTIES, DUNGEON_FLOORS } from '../dungeonGenerator';
+import * as DF from '../dungeonFeatures';
 import { buildFieldMobs } from '../fieldZones';
 import * as DMODS from '../dungeonMods';
 import { mobInView, PORTAL_USE_RANGE } from '../config/constants';
@@ -220,13 +221,20 @@ export class ZoneSystem {
     const mode = partyInst ? (partyInst.mode || 'classic') : (options.mode === 'rush' ? 'rush' : 'classic');
 
     // modifiers picked at the portal; a party member gets the leader's
-    const mods = partyInst ? (partyInst.mods || []) : DMODS.parseMods(options.mods);
-    const inst = this.gs.getOrCreateDungeonInstance(player, floor, difficulty, false, mode, mods);
+    // the weekly dungeon: this week's layout and modifiers, Labyrinth only
+    const weekly = partyInst ? (partyInst.df && partyInst.df.weekly) || null : (options.weekly ? DF.weekId() : null);
+    let mods = partyInst ? (partyInst.mods || []) : DMODS.parseMods(options.mods);
+    if (weekly && !partyInst) mods = DF.weeklyMods(weekly, Object.keys(DMODS.DUNGEON_MODS));
+    // depth +N on top of the difficulty, up to one past the deepest cleared on this floor
+    const depth = partyInst ? (partyInst.df && partyInst.df.depth) || 0
+      : Math.max(0, Math.min(DF.maxDepthFor(player, floor), parseInt(options.depth, 10) || 0));
+    const inst = this.gs.getOrCreateDungeonInstance(player, floor, difficulty, false, weekly ? 'classic' : mode, mods, { depth, weekly });
     if (partyInst) {
       socket.emit('floating_text', { x: player.x, y: player.y - 0.7, text: `⚔️ Joining your party in B${inst.floor}!`, color: '#4ade80' });
     }
     player.dungeonInstanceId = inst.id;
     player.dungeonRun = this.gs.newDungeonRun(inst);
+    this.gs.recalculatePlayerStats(player);
     this.gs.teleportPlayerToDungeon(player, socket, inst);
     this.gs.emitDungeonRunUpdate(player, socket);
     if (options.inviteParty) this.gs.handlePartySummon(socketId);
@@ -358,6 +366,7 @@ export class ZoneSystem {
     }
     player.portalCooldown = 4.0; // 4 second cooldown prevents bounce-back
     player.zone = 'town';
+    this.gs.recalculatePlayerStats(player);   // run boons and curses end at the dungeon gate
     player.x = at ? at.x : 21.0;
     player.y = at ? at.y : 19.0;
     player.targetX = null;

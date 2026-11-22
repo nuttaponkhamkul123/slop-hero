@@ -54,49 +54,20 @@ body:not(.pre-login) #loginBackdrop { display: none; }
 }
 @keyframes lbTwinkle { 50% { opacity: 0.35; } }
 
-.lb-moon {
-  position: absolute;
-  top: 9%;
-  right: 13%;
-  width: clamp(60px, 9vw, 120px);
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background: radial-gradient(circle at 38% 38%, #fff3c4 0 30%, #ffcd75 62%, #ef7d57 100%);
-  box-shadow: 0 0 40px 10px rgba(255, 205, 117, 0.35), 0 0 120px 40px rgba(255, 205, 117, 0.12);
-}
-.lb-moon::after {
-  /* craters */
-  content: '';
+/* the landscape: moon, mountains, castle, pines and ground in one pixel-art SVG */
+.lb-scene {
   position: absolute;
   inset: 0;
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at 62% 30%, rgba(239, 125, 87, 0.45) 0 9%, transparent 10%),
-    radial-gradient(circle at 35% 64%, rgba(239, 125, 87, 0.35) 0 12%, transparent 13%),
-    radial-gradient(circle at 70% 70%, rgba(239, 125, 87, 0.3) 0 6%, transparent 7%);
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
 }
-
-.lb-castle {
-  position: absolute;
-  left: 50%;
-  bottom: 17%;
-  width: min(78vw, 820px);
-  height: auto;
-  transform: translateX(-50%);
-  overflow: visible;
-  filter: drop-shadow(0 0 24px rgba(93, 39, 93, 0.6));
-}
+.lb-moon-g { animation: lbMoon 6s ease-in-out infinite; }
+@keyframes lbMoon { 50% { opacity: 0.92; } }
 .lb-windows { animation: lbFlicker 2.8s steps(3) infinite; }
 @keyframes lbFlicker { 0%, 100% { opacity: 1; } 40% { opacity: 0.75; } 70% { opacity: 0.95; } }
-
-.lb-hills {
-  position: absolute;
-  left: -10%;
-  right: -10%;
-  border-radius: 50% 50% 0 0 / 100% 100% 0 0;
-}
-.lb-hills-back { bottom: 0; height: 24%; background: #1d1830; }
-.lb-hills-front { bottom: -4%; height: 16%; left: -30%; right: 25%; background: #0e0f1d; }
+.lb-flag { animation: lbFlag 1.2s steps(2) infinite; transform-origin: 54.5px 55.5px; }
+@keyframes lbFlag { 50% { transform: scaleX(0.7); } }
 
 /* embers drifting up from below the hills */
 .lb-embers span {
@@ -197,11 +168,80 @@ body:not(.pre-login) #loginBackdrop { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .lb-stars, .lb-windows, .lb-embers span, .login-logo-title { animation: none; }
+  .lb-stars, .lb-windows, .lb-embers span, .login-logo-title, .lb-flag, .lb-moon-g { animation: none; }
   .lb-embers { display: none; }
 }
 @media (max-width: 720px) {
-  .lb-moon { top: 4%; right: 6%; }
-  .lb-castle { width: 120vw; bottom: 14%; }
   .login-logo-tag { letter-spacing: 1px; }
+}
+
+/* short screens: a smaller logo so the card (class pick especially) fits */
+@media (max-height: 820px) {
+  .login-logo-title { font-size: clamp(48px, 8vh, 84px); }
+  .login-logo-tag { margin-top: 8px; }
+  #joinModal { padding-top: 20px; gap: 10px; }
+}
+
+/* ---------------------------------------------------------------- character select */
+/* signed in: no login / register tabs, a welcome line instead */
+.auth-character-modal.is-select .auth-tabs-row { display: none; }
+#viewCharSelect .cs-header { align-items: baseline; border-bottom: 2px solid #262b44; padding-bottom: 6px; margin-bottom: 10px; }
+#viewCharSelect .cs-header .join-step-label { margin: 0; border: 0; padding: 0; }
+#viewCharSelect .cs-list { max-height: min(340px, 42vh); }
+#viewCharSelect .cs-row { gap: 12px; padding: 8px 12px 8px 8px; position: relative; }
+#viewCharSelect .cs-row:hover:not(.selected) { --bg: #2e3456; }
+#viewCharSelect .cs-portrait {
+  width: 56px; height: 56px; flex: 0 0 56px; image-rendering: pixelated;
+  background: radial-gradient(circle at 50% 70%, var(--cls, #3b5dc9) 0 35%, var(--ink) 75%);
+  box-shadow: 0 0 0 2px var(--ink), inset 0 0 0 2px rgba(255, 255, 255, 0.06);
+}
+#viewCharSelect .cs-row-name { font-size: 22px; display: flex; align-items: baseline; gap: 8px; }
+#viewCharSelect .cs-class-tag { font-size: 11px; letter-spacing: 1px; padding: 1px 6px; color: var(--ink); background: var(--cls, #94b0c2); line-height: 1.4; }
+#viewCharSelect .cs-row-meta { margin-top: 4px; font-size: 12px; }
+#viewCharSelect .cs-row-lv { margin-left: auto; text-align: right; font-family: var(--font-title-px); font-size: 28px; line-height: 0.9; color: var(--gold); }
+#viewCharSelect .cs-row-lv small { display: block; font-family: var(--font-px); font-size: 10px; letter-spacing: 1px; color: var(--steel); }
+#viewCharSelect .cs-row.selected::before { display: none;
+  content: ''; position: absolute; left: -12px; top: 50%; margin-top: -6px;
+  border: 6px solid transparent; border-left-color: var(--gold); animation: lbPoint 0.8s steps(2) infinite;
+}
+@keyframes lbPoint { 50% { transform: translateX(3px); } }
+#viewCharSelect .cs-row.cs-new { min-height: 44px; background: transparent; --hi: transparent; --lo: transparent; outline: 2px dashed #3d4565; outline-offset: -4px; }
+#viewCharSelect .cs-row.cs-new:hover { color: var(--white); outline-color: var(--gold); }
+.cs-welcome { color: var(--gold); }
+
+/* class pick: a wider card so the roster and stats sit inside it, and a shorter preview */
+#joinModal .auth-character-modal:has(#regStepClass[style*="block"]) { width: 760px; }
+#regStepClass .class-select-layout { grid-template-columns: 300px minmax(0, 1fr); }
+#regStepClass .class-select-layout > * { min-width: 0; }
+#regStepClass .class-preview-pane { height: 360px; }
+@media (max-width: 720px) {
+  #regStepClass .class-select-layout { grid-template-columns: 1fr; }
+  #regStepClass .class-preview-pane { height: 300px !important; }
+}
+
+/* character select as a grid of hero cards */
+#viewCharSelect .cs-list {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px;
+  max-height: min(420px, 50vh); padding: 6px;
+}
+#viewCharSelect .cs-row {
+  flex-direction: column; align-items: center; justify-content: flex-start; text-align: center;
+  gap: 6px; padding: 12px 8px 10px; margin: 3px; min-height: 172px;
+}
+#viewCharSelect .cs-portrait { width: 80px; height: 80px; flex: 0 0 80px; }
+#viewCharSelect .cs-row-info { flex: 0 0 auto; width: 100%; }
+#viewCharSelect .cs-row-name { flex-direction: column; align-items: center; gap: 4px; font-size: 18px; }
+#viewCharSelect .cs-name-text { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#viewCharSelect .cs-row-meta { margin-top: 2px; font-size: 11px; }
+#viewCharSelect .cs-row-lv {
+  position: absolute; top: 8px; right: 8px; margin: 0; font-size: 20px; text-align: center;
+  padding: 2px 6px; background: rgba(26, 28, 44, 0.85); box-shadow: 0 0 0 2px var(--ink);
+}
+#viewCharSelect .cs-row-lv small { font-size: 8px; }
+#viewCharSelect .cs-row.selected { transform: translateY(-2px); }
+#viewCharSelect .cs-row.cs-new { flex-direction: column; justify-content: center; gap: 6px; font-size: 14px; }
+#viewCharSelect .cs-new-plus { font-family: var(--font-title-px); font-size: 48px; line-height: 0.8; }
+.cs-full-name { margin: 8px 0 10px; }
+@media (max-width: 480px) {
+  #viewCharSelect .cs-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

@@ -1,5 +1,7 @@
 import { calculateElementalMultiplier, ELEMENTS, ELEMENT_INFO } from './elements';
 import { MAP_WIDTH, MAP_HEIGHT, TILES, generateMap, generateFrostfellMap } from './mapData';
+import * as DF from './dungeonFeatures';
+import * as WINGS from './wingSkins';
 import { generateProceduralDungeon, rollDungeonLoot, DIFFICULTIES, AFFIX_POOL, DUNGEON_FLOORS, DUNGEON_TILES, BLOCKING_FEATURES, DUNGEON_HAZARDS } from './dungeonGenerator';
 import {
   ITEMS,
@@ -421,21 +423,27 @@ class GameServer {
     return this.dungeonRun.getPlayerDungeonInstance(player);
   }
 
-  getOrCreateDungeonInstance(player: Player, floor = 1, difficulty = 'normal', forceRegen = false, mode = 'classic', mods: string[] = []) {
+  getOrCreateDungeonInstance(player: Player, floor = 1, difficulty = 'normal', forceRegen = false, mode = 'classic', mods: string[] = [], extra: { depth?: number; weekly?: string | null } = {}) {
     const instanceId = player.partyId ? `party_${player.partyId}` : `solo_${player.id}`;
     const existing = this.dungeonInstances.get(instanceId);
-    // an unfinished run is resumed, unless the player now asks for the other mode or other modifiers (a fresh dungeon then)
+    const depth = extra.depth || 0, weekly = extra.weekly || null;
+    // an unfinished run is resumed, unless the player now asks for another mode, modifiers, depth or the weekly (a fresh dungeon then)
     const sameMods = (existing && existing.mods || []).join() === mods.join();
-    if (!forceRegen && existing && (existing.mode || 'classic') === mode && sameMods) return existing;
+    const sameRun = existing && existing.df ? (existing.df.depth || 0) === depth && (existing.df.weekly || null) === weekly : !depth && !weekly;
+    if (!forceRegen && existing && (existing.mode || 'classic') === mode && sameMods && sameRun) return existing;
 
-    const dungeonMap = generateProceduralDungeon(floor, difficulty, mode);
+    // the weekly dungeon is the same layout for everyone this week (per floor and difficulty)
+    const seed = weekly ? DF.weeklySeed(weekly, floor, difficulty) : null;
+    const dungeonMap: any = DF.withSeed(seed, () => generateProceduralDungeon(floor, difficulty, mode));
+    const hidden = dungeonMap.hidden;
+    delete dungeonMap.hidden;   // server-only: ambushes, mimics, secret rooms
     // Monsters wait per room and only appear once a door into their room
     // opens (see updateDungeonRooms / spawnDungeonRoom)
     const pendingMobs = new Map<any, any>(); // roomIdx -> mobs
     if (dungeonMap && dungeonMap.mobs) {
       dungeonMap.mobs.forEach((mob: Mob) => {
         if (!pendingMobs.has(mob.roomIdx)) pendingMobs.set(mob.roomIdx, []);
-        pendingMobs.get(mob.roomIdx).push(DMODS.applyModsToMob(MobFactory.dungeonMob(mob, 10), mods));
+        pendingMobs.get(mob.roomIdx).push(DF.applyDepthToMob(DMODS.applyModsToMob(MobFactory.dungeonMob(mob, 10), mods), depth));
       });
     }
 
@@ -462,6 +470,8 @@ class GameServer {
       requiredKills
     });
 
+    inst.totalWeight = totalWeight;
+    DF.setupInstance(inst, hidden, { depth, weekly });
     this.dungeonInstances.set(instanceId, inst);
     // The entrance (no monsters) clears at once, opening its doors and
     // spawning the rooms behind them
@@ -836,6 +846,8 @@ class GameServer {
       socketMax: SOCKET_MAX,
       crafting: CRAFT.craftingCatalog(),
       dungeonMods: DMODS.clientCatalog(),
+      dungeonFeatures: DF.clientCatalog(Object.keys(DMODS.DUNGEON_MODS)),
+      wingSkins: WINGS.clientCatalog(),
       itemNames: Object.fromEntries((Object.values(ARMOR_SETS) as any[]).flatMap(s => s.pieces.map((id: any) => [id, ITEMS[id] && ITEMS[id].name]))),
       enhanceRules: { max: ENHANCE_MAX, safeLevel: ENHANCE_SAFE_LEVEL, base: ENHANCE_BASE_COST, growth: ENHANCE_COST_GROWTH, chance: ENHANCE_CHANCE },
       riftCatalog: {
@@ -1254,6 +1266,11 @@ class GameServer {
         }
       }
     }, V.delayMs);
+  }
+
+  // Cursed shrine payout: a gold chest's worth with a guaranteed piece of gear
+  rollDungeonLootForShrine(floor: number, cls: any) {
+    return rollDungeonLoot(true, floor, cls, true);
   }
 
   handleCraft(socketId: string, data: any) {
@@ -1824,7 +1841,7 @@ class GameServer {
       this.ctxInstanceId = inst.id;
       this.updateMobsList(inst.mobs, 'dungeon', dt, inst.id);
       if (inst.rift) this.updateRift(inst, dt);
-      else this.updateDungeonRooms(inst);
+      else { DF.tick(this, inst, dt); this.updateDungeonRooms(inst); }
       this.ctxInstanceId = null;
     }
 
@@ -2549,6 +2566,7 @@ class GameServer {
       spTransformed: !!p.spTransformed,
       spCardId: p.spTransformed && p.equipment && p.equipment.sp ? p.equipment.sp.cardId : null,
       spLevel: p.spTransformed && p.equipment && p.equipment.sp ? (p.equipment.sp.upgradeLevel || 0) : 0,
+      wingStyle: p.wingStyle || 'auto',
       ultCharge: p.spTransformed ? Math.floor(p.ultCharge || 0) : 0,
       shieldHp: Math.round(p.shieldHp || 0),
       es: Math.round(p.es || 0),
@@ -2585,6 +2603,7 @@ class GameServer {
       id: m.id, type: m.type, name: m.name, level: m.level, x: round2(m.x), y: round2(m.y),
       facing: m.facing, hp: Math.round(m.hp), maxHp: m.maxHp, state: m.state, isBoss: m.isBoss, isMiniboss: !!m.isMiniboss,
       buffs: m.buffs || [], isCommander: !!m.isCommander, auraRadius: m.auraRadius || 0, hasCommanderBuff: !!m.hasCommanderBuff,
+      shield: m.shield > 0 ? Math.round(m.shield) : 0, role: m.role || undefined, elite: m.isElite || undefined,
       element: m.element || 'neutral', elementResist: m.elementResist || {},
       hue: m.hue || 0, scale: m.scale || 1,
       frozen: m.frozenTimer > 0 ? (m.frozenKind === 'time' ? 2 : 1) : 0, scorch: m.scorchStacks || 0, frost: m.frostStacks || 0
@@ -2597,6 +2616,7 @@ class GameServer {
       if (m.isCommander) { d.isCommander = true; d.auraRadius = m.auraRadius || 0; }
       if (m.isMiniboss) d.isMiniboss = true;
       if (m.hasCommanderBuff) d.hasCommanderBuff = true;
+      d.shield = m.shield > 0 ? Math.round(m.shield) : 0;
       return d;
     };
     const townMobsArr = Array.from(this.townMobs.values()).map(snapMob);

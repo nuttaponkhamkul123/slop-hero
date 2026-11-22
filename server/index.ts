@@ -7,6 +7,8 @@ import { Server, Socket } from 'socket.io';
 import GameServer from './gameServer';
 import accountManager from './accountManager';
 import * as adminCommands from './adminCommands';
+import * as DF from './dungeonFeatures';
+import * as WINGS from './wingSkins';
 
 const app = express();
 const server = http.createServer(app);
@@ -290,6 +292,20 @@ io.on('connection', (socket: Socket) => {
   socket.on('open_chest', (data: any) => {
     gameServer.handleOpenChest(socket.id, data.chestId);
   });
+
+  // Dungeon boons, the cursed shrine and the weekly leaderboard (dungeonFeatures.ts)
+  socket.on('dungeon_pick_boon', (data: any) => DF.handlePickBoon(gameServer, socket.id, data));
+  socket.on('dungeon_shrine_accept', (data: any) => DF.handleShrine(gameServer, socket.id, data));
+  socket.on('dungeon_weekly_get', (data: any) => {
+    const floor = Math.max(1, Math.min(10, parseInt(data && data.floor, 10) || 1));
+    const difficulty = ['normal', 'hard', 'nightmare'].includes(data && data.difficulty) ? data.difficulty : 'normal';
+    const week = DF.weekId();
+    socket.emit('dungeon_weekly', { week, floor, difficulty, entries: DF.weeklyEntries(week, floor, difficulty) });
+  });
+
+  // SP wing wardrobe (wingSkins.ts)
+  socket.on('set_wing_style', (data: any) => WINGS.handleSetWingStyle(gameServer, socket.id, data));
+  socket.on('use_wing_skin', (data: any) => WINGS.handleUseWingSkin(gameServer, socket.id, data));
 
   socket.on('enter_dungeon', (options: any) => {
     gameServer.handleEnterDungeon(socket.id, options);

@@ -11,6 +11,8 @@
   <link rel="stylesheet" href="css/pixel-ui.css">
   <link rel="stylesheet" href="css/ui-v2.css">
   <link rel="stylesheet" href="css/rift.css">
+  <link rel="stylesheet" href="css/dungeon-features.css">
+  <link rel="stylesheet" href="css/wing-wardrobe.css">
   <link rel="stylesheet" href="css/login.css">
   <link rel="icon" href="data:,">
 </head>
@@ -30,27 +32,68 @@
     <div class="lb-sky"></div>
     <div class="lb-stars lb-stars-a"></div>
     <div class="lb-stars lb-stars-b"></div>
-    <div class="lb-moon"></div>
-    <svg class="lb-castle" viewBox="0 0 160 64" preserveAspectRatio="xMidYMax meet" shape-rendering="crispEdges">
-      <g fill="#141629">
-        <rect x="30" y="34" width="100" height="30"/>
-        <rect x="30" y="30" width="4" height="4"/><rect x="40" y="30" width="4" height="4"/><rect x="50" y="30" width="4" height="4"/>
-        <rect x="106" y="30" width="4" height="4"/><rect x="116" y="30" width="4" height="4"/><rect x="126" y="30" width="4" height="4"/>
-        <rect x="20" y="18" width="18" height="46"/><rect x="20" y="14" width="4" height="4"/><rect x="27" y="14" width="4" height="4"/><rect x="34" y="14" width="4" height="4"/>
-        <rect x="122" y="18" width="18" height="46"/><rect x="122" y="14" width="4" height="4"/><rect x="129" y="14" width="4" height="4"/><rect x="136" y="14" width="4" height="4"/>
-        <rect x="62" y="12" width="36" height="52"/><rect x="62" y="8" width="4" height="4"/><rect x="70" y="8" width="4" height="4"/><rect x="86" y="8" width="4" height="4"/><rect x="94" y="8" width="4" height="4"/>
-        <rect x="76" y="2" width="8" height="10"/><rect x="79" y="-6" width="2" height="8"/>
+    <!-- the whole landscape is one pixel-art SVG, so the theme's square-corner rule can't flatten it -->
+    <svg class="lb-scene" viewBox="0 0 320 180" preserveAspectRatio="xMidYMax slice" shape-rendering="crispEdges">
+      <defs>
+        <radialGradient id="lbMoonGlow"><stop offset="0" stop-color="#ffcd75" stop-opacity="0.45"/><stop offset="0.5" stop-color="#ef7d57" stop-opacity="0.12"/><stop offset="1" stop-color="#ef7d57" stop-opacity="0"/></radialGradient>
+        <linearGradient id="lbMist" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7a3a4a" stop-opacity="0"/><stop offset="1" stop-color="#7a3a4a" stop-opacity="0.35"/></linearGradient>
+      </defs>
+      <!-- moon -->
+      <circle cx="262" cy="34" r="34" fill="url(#lbMoonGlow)" shape-rendering="geometricPrecision"/>
+      <g class="lb-moon-g">
+        <circle cx="262" cy="34" r="13" fill="#ffcd75"/>
+        <circle cx="260" cy="32" r="11" fill="#ffe2a0"/>
+        <circle cx="257" cy="29" r="5" fill="#fff3c4"/>
+        <circle cx="266" cy="30" r="2" fill="#f3c27e"/><circle cx="266.5" cy="30.5" r="1" fill="#e9ad6a"/>
+        <circle cx="258" cy="39" r="2.5" fill="#f3c27e"/><circle cx="258.5" cy="39.5" r="1.3" fill="#e9ad6a"/><circle cx="268" cy="38" r="1.2" fill="#f3c27e"/>
       </g>
-      <rect x="81" y="-6" width="7" height="4" fill="#b13e53"/>
+      <!-- far mountains -->
+      <polygon fill="#2b2148" points="0,112 14,100 22,104 38,86 50,96 62,90 80,72 94,88 104,82 118,96 132,90 146,100 160,84 172,92 186,78 198,90 212,86 226,98 240,80 252,92 266,88 280,100 294,90 308,98 320,92 320,180 0,180"/>
+      <polygon fill="#3a2a5a" points="80,72 86,78 82,80 76,76" />
+      <polygon fill="#3a2a5a" points="186,78 191,83 187,84 182,81" />
+      <polygon fill="#3a2a5a" points="240,80 245,85 241,86 236,83" />
+      <rect x="0" y="96" width="320" height="40" fill="url(#lbMist)"/>
+      <!-- mid hills -->
+      <polygon fill="#1f1936" points="0,128 18,122 36,124 56,116 76,118 98,112 118,118 140,122 160,118 182,121 204,116 228,120 250,114 272,118 296,112 320,116 320,180 0,180"/>
+      <!-- castle on the left hill -->
+      <g class="lb-castle-g" fill="#141629">
+        <rect x="22" y="100" width="64" height="22"/>
+        <rect x="22" y="97" width="3" height="3"/><rect x="29" y="97" width="3" height="3"/><rect x="36" y="97" width="3" height="3"/>
+        <rect x="69" y="97" width="3" height="3"/><rect x="76" y="97" width="3" height="3"/><rect x="83" y="97" width="3" height="3"/>
+        <rect x="14" y="88" width="12" height="34"/><rect x="14" y="85" width="3" height="3"/><rect x="18.5" y="85" width="3" height="3"/><rect x="23" y="85" width="3" height="3"/>
+        <rect x="82" y="88" width="12" height="34"/><rect x="82" y="85" width="3" height="3"/><rect x="86.5" y="85" width="3" height="3"/><rect x="91" y="85" width="3" height="3"/>
+        <rect x="42" y="80" width="24" height="42"/><rect x="42" y="77" width="3" height="3"/><rect x="48" y="77" width="3" height="3"/><rect x="57" y="77" width="3" height="3"/><rect x="63" y="77" width="3" height="3"/>
+        <rect x="50" y="70" width="8" height="10"/><polygon points="49,70 54,60 59,70"/>
+        <rect x="53.5" y="54" width="1" height="6"/>
+      </g>
+      <rect x="54.5" y="54" width="5" height="3" fill="#b13e53" class="lb-flag"/>
       <g fill="#ffcd75" class="lb-windows">
-        <rect x="27" y="24" width="4" height="5"/><rect x="129" y="24" width="4" height="5"/>
-        <rect x="69" y="20" width="4" height="6"/><rect x="87" y="20" width="4" height="6"/>
-        <rect x="78" y="30" width="4" height="5"/><rect x="44" y="42" width="3" height="4"/><rect x="113" y="42" width="3" height="4"/>
+        <rect x="18" y="93" width="3" height="4"/><rect x="87" y="93" width="3" height="4"/>
+        <rect x="46" y="86" width="3" height="4"/><rect x="59" y="86" width="3" height="4"/>
+        <rect x="53" y="73" width="2" height="3"/><rect x="31" y="106" width="2" height="3"/><rect x="75" y="106" width="2" height="3"/>
       </g>
-      <rect x="74" y="48" width="12" height="16" fill="#07080f"/>
+      <rect x="50" y="110" width="8" height="12" fill="#07080f"/>
+      <!-- ruined watchtower on the right -->
+      <g fill="#141629">
+        <rect x="270" y="92" width="12" height="26"/><rect x="270" y="89" width="3" height="3"/><rect x="279" y="87" width="3" height="5"/>
+        <rect x="266" y="114" width="20" height="6"/>
+      </g>
+      <rect x="275" y="98" width="2" height="3" fill="#ffcd75" class="lb-windows"/>
+      <!-- near hills with pines -->
+      <polygon fill="#141429" points="0,140 22,134 46,137 70,131 96,135 124,138 150,134 176,137 204,132 232,136 258,130 284,134 320,129 320,180 0,180"/>
+      <g fill="#0f1022">
+        <polygon points="6,140 11,124 16,140"/><polygon points="8,132 11,120 14,132"/>
+        <polygon points="104,138 109,121 114,138"/><polygon points="106,129 109,117 112,129"/>
+        <polygon points="116,139 120,127 124,139"/>
+        <polygon points="196,134 201,117 206,134"/><polygon points="198,125 201,113 204,125"/>
+        <polygon points="208,135 212,123 216,135"/>
+        <polygon points="300,131 305,114 310,131"/><polygon points="302,122 305,110 308,122"/>
+        <polygon points="232,137 236,126 240,137"/>
+      </g>
+      <!-- ground -->
+      <polygon fill="#0b0c18" points="0,156 40,152 90,155 140,151 190,154 240,150 290,153 320,151 320,180 0,180"/>
+      <g fill="#ef7d57" opacity="0.55"><rect x="62" y="158" width="2" height="1"/><rect x="171" y="160" width="1" height="1"/><rect x="248" y="157" width="2" height="1"/></g>
     </svg>
-    <div class="lb-hills lb-hills-back"></div>
-    <div class="lb-hills lb-hills-front"></div>
     <div class="lb-embers">
       <span></span><span></span><span></span><span></span><span></span><span></span>
       <span></span><span></span><span></span><span></span><span></span><span></span>
@@ -316,7 +359,7 @@
           <button class="menu-btn" id="btnOpenInventory"><span data-pxi="bag"></span> Bag [I]</button>
           <button class="menu-btn" id="btnOpenParty"><span data-pxi="shield"></span> Party [O]</button>
           <button class="menu-btn" id="btnOpenCrafting"><span data-pxi="hammer"></span> Craft [J]</button>
-          <button class="menu-btn" id="btnOpenEffects"><span data-pxi="star"></span> Effects</button>
+          <button class="menu-btn" id="btnOpenEffects"><span data-pxi="star"></span> Customize</button>
           <button class="menu-btn" id="btnOpenHelp"><span data-pxi="help"></span> Help [H]</button>
           <button class="menu-btn" id="btnGameMode" title="Fullscreen with browser shortcuts (Ctrl+W, Ctrl+T...) locked. Hold Esc to leave."><span data-pxi="lock"></span> <span class="game-mode-label">Game Mode [F10]</span></button>
           <button class="menu-btn" id="btnOpenAdmin" style="display: none;"><span data-pxi="crown"></span> Admin [F2]</button>
@@ -505,7 +548,12 @@
 
         <!-- STEP 2: Choose Class with 3D Preview -->
         <div id="regStepClass" style="display: none;">
-          <div class="join-step-label">STEP 2 / 2 &mdash; เลือกอาชีพตัวละคร</div>
+          <div class="join-step-label" id="regClassStepLabel">STEP 2 / 2 &mdash; เลือกอาชีพตัวละคร</div>
+          <!-- new character on a signed-in account: its name is asked here (register asks it in step 1) -->
+          <div class="form-group cs-full-name" id="csFullNameRow" style="display: none;">
+            <label class="field-label">HERO NAME (ชื่อตัวละคร)</label>
+            <input type="text" class="input-field" id="csFullName" placeholder="ชื่อตัวละคร (2-15 ตัวอักษร)..." maxlength="15">
+          </div>
           <div class="class-select-layout">
             <!-- 3D Hero Preview -->
             <div class="class-preview-pane">
@@ -685,6 +733,37 @@
             <button type="button" class="gui-scale-preset" data-lighting="smooth">Smooth</button>
             <button type="button" class="gui-scale-preset" data-lighting="simple">Simple</button>
             <button type="button" class="gui-scale-preset" data-lighting="off">Off</button>
+          </div>
+
+          <div class="settings-control-row" style="margin-top: 14px;">
+            <div class="settings-label-col">
+              <span class="settings-label-main">Other Players' Effects</span>
+              <span class="settings-label-sub">Reduced: their skills without particles &amp; shake. Own only: just your skills. Biggest boost in parties</span>
+            </div>
+            <div class="settings-value-col">
+              <span class="settings-badge" id="lblOtherFxVal">All</span>
+            </div>
+          </div>
+          <div class="gui-scale-presets">
+            <button type="button" class="gui-scale-preset active" data-otherfx="all">All</button>
+            <button type="button" class="gui-scale-preset" data-otherfx="reduced">Reduced</button>
+            <button type="button" class="gui-scale-preset" data-otherfx="own">Own Only</button>
+          </div>
+
+          <div class="settings-control-row" style="margin-top: 14px;">
+            <div class="settings-label-col">
+              <span class="settings-label-main">Render Distance</span>
+              <span class="settings-label-sub">Hide other heroes, monsters, townsfolk &amp; loot far from you (bosses and your target always show)</span>
+            </div>
+            <div class="settings-value-col">
+              <span class="settings-badge" id="lblRenderDistVal">Full</span>
+            </div>
+          </div>
+          <div class="gui-scale-presets">
+            <button type="button" class="gui-scale-preset active" data-renderdist="full">Full</button>
+            <button type="button" class="gui-scale-preset" data-renderdist="far">Far</button>
+            <button type="button" class="gui-scale-preset" data-renderdist="medium">Medium</button>
+            <button type="button" class="gui-scale-preset" data-renderdist="near">Near</button>
           </div>
         </div>
 
@@ -977,6 +1056,7 @@
             </div>
           </div>
 
+          <button type="button" class="wing-wardrobe-btn" id="btnWingWardrobe" title="Wings, trails and how your hero looks"><span data-pxi="feather"></span> CUSTOMIZE</button>
           <div class="gear-bonuses-bar" id="gearBonusesSummary"></div>
 
           <div class="quick-potions-row">
@@ -1251,6 +1331,9 @@
       <div class="portal-section-label" style="margin-top: 12px;">MODIFIERS <span class="dmod-reward" id="dmodReward">No bonus</span></div>
       <div class="dmod-grid" id="dmodGrid"></div>
 
+      <!-- Depth and the weekly challenge (js/dungeonFeatures.js) -->
+      <div id="dfPortalExtras"></div>
+
       <!-- Enter Button -->
       <div class="portal-actions">
         <button class="btn-primary btn-enter-portal" id="btnConfirmEnterDungeon">
@@ -1312,18 +1395,31 @@
     </div>
   </div>
 
-  <!-- Effects: customise how your hero looks in motion (trails for now) -->
+  <!-- Customize: how your hero looks (SP wings, trails). Tabs down the left side;
+       other players see your picks too. -->
   <div class="modal-overlay" id="effectsModal" style="display: none;">
-    <div class="hud-panel modal-card effects-card">
+    <div class="hud-panel modal-card effects-card customize-card">
       <button class="modal-close" id="btnCloseEffects">✕</button>
       <div class="modal-header">
-        <h2 class="modal-title">EFFECTS</h2>
-        <p class="modal-subtitle">Customize how your hero looks in motion. Other players see it too.</p>
+        <h2 class="modal-title">CUSTOMIZE</h2>
+        <p class="modal-subtitle">Customize how your hero looks. Other players see it too.</p>
       </div>
-      <div class="shop-tabs effects-tabs">
-        <button class="shop-tab active" type="button">TRAILING</button>
+      <div class="customize-layout">
+        <nav class="customize-nav" aria-label="Customize categories">
+          <button type="button" class="cz-tab active" data-cz="wings"><span data-pxi="feather"></span><span>Wings</span></button>
+          <button type="button" class="cz-tab" data-cz="trails"><span data-pxi="star"></span><span>Trails</span></button>
+        </nav>
+        <div class="customize-body">
+          <section class="cz-pane" data-cz="wings">
+            <div class="cz-pane-title">SP WINGS <small>worn while transformed with your SP card</small></div>
+            <div class="ww-body" id="customizeWings"></div>
+          </section>
+          <section class="cz-pane" data-cz="trails" style="display: none;">
+            <div class="cz-pane-title">TRAILS <small>what follows your hero as you move</small></div>
+            <div class="effects-grid" id="effectsTrailGrid"></div>
+          </section>
+        </div>
       </div>
-      <div class="effects-grid" id="effectsTrailGrid"></div>
     </div>
   </div>
 
@@ -1461,6 +1557,8 @@
   <script src="js/fpIsoFx.js"></script>
   <script src="js/firstPerson.js"></script>
   <script src="js/rift.js"></script>
+  <script src="js/dungeonFeatures.js"></script>
+  <script src="js/wingWardrobe.js"></script>
   <script src="js/crafting.js"></script>
   <script src="js/passiveTree.js"></script>
   <script src="js/forgeFx.js"></script>

@@ -6,11 +6,11 @@ const base = { id: 'sock1', accountUsername: null as any, accountSlot: 0, role: 
 
 const KEYS = [
   'accountSlot', 'accountUsername', 'attackCooldown', 'attackRange', 'attackSpeed', 'baseStats', 'berserkTimer', 'characterClass',
-  'def', 'dmg', 'equipment', 'equippedSkills', 'exp', 'expNext', 'facing', 'gold', 'hp', 'id', 'inventory', 'ironFortressTimer',
+  'def', 'dmg', 'dungeonDepth', 'equipment', 'equippedSkills', 'exp', 'expNext', 'facing', 'gold', 'hp', 'id', 'inventory', 'ironFortressTimer',
   'isAttacking', 'isDead', 'isMoving', 'jobExp', 'jobExpNext', 'jobLevel', 'level', 'maxHp', 'maxMp', 'moveDir', 'mp', 'name',
   'portalCooldown', 'respawnTimer', 'role', 'shieldHp', 'skillCooldown', 'skillCooldowns', 'skillPoints', 'skills', 'smokeScreenTimer',
   'speechBubble', 'speechTimer', 'speed', 'speedFactor', 'spCooldown', 'spLoadouts', 'spTransformed', 'sprintTimer', 'statusEffects',
-  'storage', 'swipe', 'targetX', 'targetY', 'x', 'y', 'zone',
+  'storage', 'swipe', 'targetX', 'targetY', 'wingSkins', 'wingStyle', 'x', 'y', 'zone',
 ].sort();
 
 test('createLivePlayer: a fresh player has exactly the expected fields', () => {

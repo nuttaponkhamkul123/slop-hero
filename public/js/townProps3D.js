@@ -23,6 +23,8 @@
   // Glowing parts (windows, lanterns, coals, runes) fade only a little.
   const AGE = { sat: 0.38, light: 0.72, lightLift: 0.05, warmHue: 30 / 360, warmPull: 0.22 };
   const AGE_GLOW = { sat: 0.55, light: 0.9, lightLift: 0, warmHue: 30 / 360, warmPull: 0.1 };
+  // houses keep more of their paint, so the streets read as many homes rather than one grey-brown
+  const AGE_HOUSE = { sat: 0.62, light: 0.82, lightLift: 0.04, warmHue: 30 / 360, warmPull: 0.14 };
   function aged(color, k = AGE) {
     const c = new THREE.Color(color), hsl = {};
     c.getHSL(hsl);
@@ -38,8 +40,9 @@
     if (!matCache.has(key)) {
       // flat faces without specular sheen: each face reads as one colour, as in pixel art
       const o = Object.assign({}, opts || {});
-      delete o.roughness; delete o.metalness;
-      const tint = aged(color, o.emissive ? AGE_GLOW : AGE);
+      const vivid = o.vivid;
+      delete o.roughness; delete o.metalness; delete o.vivid;
+      const tint = aged(color, o.emissive ? AGE_GLOW : vivid ? AGE_HOUSE : AGE);
       if (o.emissive) o.emissive = aged(o.emissive, AGE_GLOW);
       matCache.set(key, new THREE.MeshPhongMaterial(Object.assign({ color: tint, flatShading: true, shininess: 0, specular: 0x000000 }, o)));
     }
@@ -360,71 +363,328 @@
     };
   };
 
-  BUILDERS.house = (variant = 0) => {
-    const root = new THREE.Group();
-    const roofColors = ['#9c3b2e', '#3d5a80', '#5b6b3a'];
-    const plaster = ['#efe3c8', '#e8dcc4', '#f1e7d0'][variant % 3];
-    const timber = '#4a2f1d';
-    const W = 92, D = 72, H = 40;
+  // ---------- houses ----------
+  // Six builds, each in several colour schemes. The map gives a house a roof colour
+  // (variant 0-2); propVariant adds a build picked from where it stands, so the
+  // street mixes them: variant = roof + 3 * build. Every build keeps its door on the
+  // +Z face (the street side) and reports where its door and chimney top are, for
+  // the footpaths, cats and chimney smoke in townLife.js (houseInfo below).
+  const HOUSE_BUILDS = 6;
+  const V = { vivid: true };
+  const hmat = c => mat(c, V);
+  const shade = (c, k) => new THREE.Color(c).multiplyScalar(k).getStyle();
+  const HOUSE_ROOFS = ['#a8402f', '#3f5f8f', '#56703a'];
+  const HOUSE_PLASTER = ['#f1e4c4', '#e8cf9a', '#d8e1e6', '#efcfc0', '#e2e7cc'];
+  const TIMBER = '#4a2f1d', STONE = '#9a948a', STONE_DK = '#76716a', DOOR = '#5d3a1f', STRAW = '#c9a14a';
 
-    box(root, W + 4, 7, D + 4, '#7d7f84', 0, 0, 0);          // stone footing
-    box(root, W, H, D, plaster, 0, 7, 0);                    // walls
-    // timber frame on the two visible faces (+X and +Z)
-    for (const zx of [-W / 2, W / 2]) box(root, 3, H, 3, timber, zx, 7, D / 2);
-    for (const zz of [-D / 2, D / 2]) box(root, 3, H, 3, timber, W / 2, 7, zz);
-    box(root, W, 2.6, 1.6, timber, 0, 7 + H * 0.5, D / 2 + 0.6);
-    box(root, 1.6, 2.6, D, timber, W / 2 + 0.6, 7 + H * 0.5, 0);
-    box(root, W, 3, 1.6, timber, 0, 7 + H - 3, D / 2 + 0.6);
-    for (const bx of [-W / 2 + 14, W / 2 - 14]) {
-      const brace = box(root, 2.2, H * 0.6, 1.4, timber, bx, 7 + H * 0.5, D / 2 + 0.9);
-      brace.position.y = 7 + H * 0.75;
-      brace.rotation.z = bx < 0 ? 0.7 : -0.7;
-    }
-
-    // door + steps on the +Z face, windows with warm light and shutters
-    box(root, 15, 24, 2, '#5d3a1f', -W / 2 + 22, 7, D / 2 + 1);
-    box(root, 18, 2.4, 2.6, timber, -W / 2 + 22, 31, D / 2 + 1.2);
-    sphere(root, 1, '#d4a017', -W / 2 + 27, 19, D / 2 + 2.4, 6);
-    box(root, 20, 3, 6, '#7d7f84', -W / 2 + 22, 0, D / 2 + 4);
-    const windowAt = (x, y, z, facingX) => {
-      const pane = box(root, facingX ? 1 : 12, 11, facingX ? 12 : 1, glow('#ffcc70', 0.8), x, y, z);
-      const shutter = (off) => box(root, facingX ? 1.4 : 5, 12, facingX ? 5 : 1.4, roofColors[variant % 3], facingX ? x + 0.4 : x + off, y - 0.5, facingX ? z + off : z + 0.4);
-      shutter(-8.6); shutter(8.6);
-      box(root, facingX ? 3 : 14, 2.4, facingX ? 14 : 3, '#6d4423', facingX ? x + 1.2 : x, y - 3.4, facingX ? z : z + 1.2);
-      // flower box
-      for (let f = -1; f <= 1; f++) sphere(root, 1.8, f ? '#e57373' : '#fff176', facingX ? x + 2.2 : x + f * 4, y - 0.6, facingX ? z + f * 4 : z + 2.2, 6);
-      return pane;
-    };
-    windowAt(W / 2 - 22, 18, D / 2 + 0.6, false);
-    windowAt(W / 2 + 0.6, 18, -D / 2 + 20, true);
-    windowAt(W / 2 + 0.6, 18, D / 2 - 20, true);
-
-    // gabled roof, ridge along X
-    const roofY = 7 + H;
-    const pitch = 0.62;
-    const slopeLen = (D / 2 + 8) / Math.cos(pitch);
+  // Gabled roof over a W x D block whose walls end at y0, ridge along X (alongZ: along Z),
+  // laid in courses of alternating shade; returns the ridge height above y0
+  function gableRoof(parent, cx, cz, W, D, y0, pitch, color, ov = 7, alongZ = false, thick = 2.6, courses = 5) {
+    const g = new THREE.Group();
+    g.position.set(cx, 0, cz);
+    if (alongZ) { g.rotation.y = Math.PI / 2; [W, D] = [D, W]; }
+    parent.add(g);
+    const half = D / 2 + ov, len = half / Math.cos(pitch), t = Math.tan(pitch);
+    const yEave = y0 - ov * t, yRidge = y0 + (D / 2) * t;
     for (const side of [-1, 1]) {
       const slope = new THREE.Group();
-      slope.position.set(0, roofY + Math.tan(pitch) * (D / 2 + 8) / 2, side * (D / 4 + 2));
+      slope.position.set(0, (yEave + yRidge) / 2, side * half / 2);
       slope.rotation.x = side * pitch;
-      root.add(slope);
-      for (let r = 0; r < 5; r++) box(slope, W + 12, 2.6, slopeLen / 5 + 1, r % 2 ? roofColors[variant % 3] : new THREE.Color(roofColors[variant % 3]).multiplyScalar(0.82).getStyle(), 0, -1.3, -side * (slopeLen / 2 - (r + 0.5) * slopeLen / 5));
+      g.add(slope);
+      for (let r = 0; r < courses; r++) {
+        box(slope, W + ov * 2, thick, len / courses + 1, hmat(r % 2 ? color : shade(color, 0.84)), 0, -thick, -side * (len / 2 - (r + 0.5) * len / courses));
+      }
     }
-    // gable triangles
-    const ridgeH = Math.tan(pitch) * (D / 2);
+    box(g, W + ov * 2 + 1, 3, 4, hmat(shade(color, 0.7)), 0, yRidge - 0.5, 0);   // ridge cap
     const gable = new THREE.Shape();
-    gable.moveTo(-D / 2, 0); gable.lineTo(D / 2, 0); gable.lineTo(0, ridgeH); gable.lineTo(-D / 2, 0);
-    for (const gx of [-W / 2, W / 2]) {
-      const gm = new THREE.Mesh(new THREE.ShapeGeometry(gable), mat(plaster, { side: THREE.DoubleSide }));
+    gable.moveTo(-D / 2, 0); gable.lineTo(D / 2, 0); gable.lineTo(0, (D / 2) * t); gable.lineTo(-D / 2, 0);
+    return { ridge: (D / 2) * t, gable, ends: [-W / 2, W / 2], group: g };
+  }
+  // plaster (or stone) gable triangles closing the ends of a gableRoof
+  function gableEnds(roof, y0, color) {
+    for (const gx of roof.ends) {
+      const gm = new THREE.Mesh(new THREE.ShapeGeometry(roof.gable), hmat(color).clone());
+      gm.material.side = THREE.DoubleSide;
       gm.rotation.y = Math.PI / 2;
-      gm.position.set(gx, roofY, 0);
-      root.add(gm);
+      gm.position.set(gx, y0, 0);
+      roof.group.add(gm);
     }
-    // chimney
-    box(root, 9, 26, 9, '#8a5a44', -W / 2 + 18, roofY + 10, -D / 6);
-    box(root, 11, 2.4, 11, '#5b5f66', -W / 2 + 18, roofY + 36, -D / 6);
-    return { root };
-  };
+  }
+  // four-sided (hipped) roof: a square pyramid stretched over W x D
+  function hipRoof(parent, cx, cz, W, D, y0, h, color, ov = 7) {
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(Math.SQRT1_2, 1, 4, 1), hmat(color));
+    cone.rotation.y = Math.PI / 4;
+    const g = new THREE.Group();
+    g.add(cone);
+    g.scale.set(W + ov * 2, h, D + ov * 2);
+    g.position.set(cx, y0 + h / 2, cz);
+    parent.add(g);
+    box(parent, W + ov * 2, 2, D + ov * 2, hmat(shade(color, 0.75)), cx, y0 - 1, cz);   // eave band
+  }
+  // a window on the +Z face (facingX false) or +X face, glowing, with shutters, sill and flowers
+  function houseWindow(root, x, y, z, facingX, o = {}) {
+    const w = o.w || 12, h = o.h || 11;
+    box(root, facingX ? 1 : w, h, facingX ? w : 1, glow('#ffcc70', 0.8), x, y, z);
+    // mullion cross
+    box(root, facingX ? 1.6 : 1.4, h, facingX ? 1.4 : 1.6, hmat(TIMBER), facingX ? x + 0.4 : x, y, facingX ? z : z + 0.4);
+    box(root, facingX ? 1.6 : w, 1.4, facingX ? w : 1.6, hmat(TIMBER), facingX ? x + 0.4 : x, y + h / 2 - 0.7, facingX ? z : z + 0.4);
+    if (o.shutter) for (const off of [-(w / 2 + 2.6), w / 2 + 2.6]) box(root, facingX ? 1.4 : 5, h + 1, facingX ? 5 : 1.4, hmat(o.shutter), facingX ? x + 0.6 : x + off, y - 0.5, facingX ? z + off : z + 0.6);
+    if (o.arch) box(root, facingX ? 2 : w + 3, 3, facingX ? w + 3 : 2, hmat(o.arch), facingX ? x + 0.4 : x, y + h, facingX ? z : z + 0.4);
+    box(root, facingX ? 3 : w + 2, 2.2, facingX ? w + 2 : 3, hmat('#6d4423'), facingX ? x + 1.2 : x, y - 2.2, facingX ? z : z + 1.2);
+    if (o.flowers !== false) {
+      const cols = o.flowers || ['#e05a5a', '#f2d64b', '#e88ad0'];
+      for (let f = -1; f <= 1; f++) sphere(root, 1.9, hmat(cols[(f + 1) % cols.length]), facingX ? x + 2.4 : x + f * 4, y - 0.4, facingX ? z + f * 4 : z + 2.4, 6);
+    }
+  }
+  // door on the +Z face at (x, z), its bottom at y; arched or square, with a lantern beside it
+  function houseDoor(root, x, y, z, o = {}) {
+    const w = o.w || 15, h = o.h || 24;
+    box(root, w, h, 2, hmat(o.color || DOOR), x, y, z + 1);
+    for (const px of [-w / 2 + 3.5, 0, w / 2 - 3.5]) box(root, 0.8, h - 3, 2.4, hmat(shade(o.color || DOOR, 0.7)), x + px, y + 1, z + 1);
+    box(root, w + 3, 2.6, 2.8, hmat(o.frame || TIMBER), x, y + h, z + 1.2);
+    if (o.arch) { const a = cyl(root, w / 2 + 1.5, w / 2 + 1.5, 2.8, hmat(o.frame || TIMBER), x, y + h - 1, z + 1.2, 12); a.rotation.x = Math.PI / 2; a.position.y = y + h; }
+    sphere(root, 1, '#d4a017', x + w / 2 - 3, y + h * 0.48, z + 2.4, 6);
+    box(root, w + 6, 3, 7, hmat(STONE), x, y - 3, z + 4);                         // step
+    if (o.lantern !== false) {
+      box(root, 1.2, 5, 4, hmat('#2b2b2b'), x + w / 2 + 5, y + h - 6, z + 2.6);
+      box(root, 3, 4, 3, glow('#ffb347', 1.1), x + w / 2 + 5, y + h - 10, z + 4);
+    }
+  }
+  function chimney(root, x, y, z, h, color = '#8a5a44') {
+    box(root, 10, h, 10, hmat(color), x, y, z);
+    box(root, 12, 2.6, 12, hmat('#5b5f66'), x, y + h, z);
+    return [x, y + h + 2.6, z];
+  }
+  function barrel(root, x, z, s = 1) {
+    cyl(root, 5 * s, 4.4 * s, 11 * s, hmat('#7b4a22'), x, 0, z, 10);
+    for (const hy of [2.2, 8.2]) cyl(root, 5.2 * s, 5.2 * s, 1, hmat('#3a3a3a'), x, hy * s, z, 10);
+  }
+  function crate(root, x, z, s = 1, y = 0) {
+    box(root, 10 * s, 10 * s, 10 * s, hmat('#a5713d'), x, y, z);
+    box(root, 10.4 * s, 1.4 * s, 10.4 * s, hmat('#6b4423'), x, y + 4.3 * s, z);
+  }
+  function ivy(root, x, y, z, facingX, n = 9, seed = 1) {
+    for (let i = 0; i < n; i++) {
+      const a = hash(i, seed), b = hash(seed, i);
+      sphere(root, 2.4 + a * 1.6, hmat(a < 0.5 ? '#3f6b2f' : '#4f7f36'), facingX ? x + 1.4 : x + (a - 0.5) * 12, y + b * 22, facingX ? z + (a - 0.5) * 12 : z + 1.4, 6);
+    }
+  }
+  function sign(root, x, y, z, color, facingX) {
+    box(root, facingX ? 12 : 1.4, 1.4, facingX ? 1.4 : 12, hmat('#2b2b2b'), facingX ? x + 6 : x, y, facingX ? z : z + 6);
+    box(root, facingX ? 10 : 1.2, 8, facingX ? 1.2 : 10, hmat(color), facingX ? x + 8 : x, y - 9, facingX ? z : z + 8);
+    box(root, facingX ? 4 : 1.6, 4, facingX ? 1.6 : 4, hmat('#d4a017'), facingX ? x + 8 : x, y - 7, facingX ? z : z + 8);
+  }
+  // timber frame on a wall block's two visible faces: corner posts, rails, braces
+  function timberFrame(root, W, D, y0, H, cx = 0, cz = 0) {
+    for (const zx of [-W / 2, W / 2]) box(root, 3, H, 3, hmat(TIMBER), cx + zx, y0, cz + D / 2);
+    for (const zz of [-D / 2, D / 2]) box(root, 3, H, 3, hmat(TIMBER), cx + W / 2, y0, cz + zz);
+    box(root, W, 2.6, 1.6, hmat(TIMBER), cx, y0 + H * 0.5, cz + D / 2 + 0.6);
+    box(root, 1.6, 2.6, D, hmat(TIMBER), cx + W / 2 + 0.6, y0 + H * 0.5, cz);
+    box(root, W, 3, 1.6, hmat(TIMBER), cx, y0 + H - 3, cz + D / 2 + 0.6);
+    box(root, 1.6, 3, D, hmat(TIMBER), cx + W / 2 + 0.6, y0 + H - 3, cz);
+    for (const bx of [-W / 2 + 12, W / 2 - 12]) {
+      const br = box(root, 2.2, H * 0.55, 1.4, hmat(TIMBER), cx + bx, y0, cz + D / 2 + 0.9);
+      br.position.y = y0 + H * 0.73;
+      br.rotation.z = bx < 0 ? 0.7 : -0.7;
+    }
+  }
+
+  const HOUSE_STYLES = [
+    // 0 timber cottage: plaster and timber frame, a dormer and a bench by the door, ivy up the side
+    (root, c) => {
+      const W = 92, D = 72, H = 38, F = 7;
+      box(root, W + 4, F, D + 4, hmat(STONE_DK), 0, 0, 0);
+      box(root, W, H, D, hmat(c.plaster), 0, F, 0);
+      timberFrame(root, W, D, F, H);
+      houseDoor(root, -24, F, D / 2);
+      houseWindow(root, 18, F + 12, D / 2 + 0.6, false, { shutter: c.roof });
+      houseWindow(root, W / 2 + 0.6, F + 12, -16, true, { shutter: c.roof });
+      houseWindow(root, W / 2 + 0.6, F + 12, 18, true, { shutter: c.roof });
+      ivy(root, W / 2, F, D / 2 - 6, true, 10, 3);
+      // bench
+      box(root, 16, 1.6, 5, hmat('#7a5030'), 2, F + 5, D / 2 + 5);
+      for (const bx of [-5, 9]) box(root, 1.6, 5, 4, hmat('#5a3a20'), bx, F, D / 2 + 5);
+      const roof = gableRoof(root, 0, 0, W, D, F + H, 0.62, c.roof);
+      gableEnds(roof, F + H, c.plaster);
+      // dormer on the street-side slope
+      const dz = D / 2 - 14, dy = F + H + 8;
+      box(root, 16, 14, 14, hmat(c.plaster), 6, dy, dz);
+      houseWindow(root, 6, dy + 3, dz + 7.4, false, { w: 8, h: 8, flowers: false });
+      const dr = gableRoof(root, 6, dz, 14, 16, dy + 14, 0.7, c.roof, 3, true, 2, 3);
+      gableEnds(dr, dy + 14, c.plaster);
+      return { door: [-24, D / 2], chimney: chimney(root, -W / 2 + 18, F + H + 6, -D / 6, 30) };
+    },
+    // 1 jettied townhouse: stone shop floor, the timber upper floor overhanging it, gable end to the street
+    (root, c) => {
+      const W = 72, D = 82, H1 = 30, H2 = 30, F = 6, J = 5;
+      box(root, W + 4, F, D + 4, hmat(STONE_DK), 0, 0, 0);
+      box(root, W, H1, D, hmat(STONE), 0, F, 0);
+      for (let y = F + 7; y < F + H1; y += 7) box(root, W + 0.8, 1, D + 0.8, hmat(STONE_DK), 0, y, 0);
+      // upper floor juts out over the street side and the right side
+      box(root, W + J, 3, D + J, hmat(TIMBER), J / 2, F + H1, J / 2);
+      box(root, W + J, H2, D + J, hmat(c.plaster), J / 2, F + H1 + 3, J / 2);
+      timberFrame(root, W + J, D + J, F + H1 + 3, H2, J / 2, J / 2);
+      houseDoor(root, -14, F, D / 2, { arch: true, color: '#6b3b22', frame: STONE_DK });
+      houseWindow(root, 16, F + 8, D / 2 + 0.6, false, { w: 16, h: 13, arch: STONE_DK, flowers: false });
+      houseWindow(root, W / 2 + 0.6, F + 10, 10, true, { arch: STONE_DK, flowers: false });
+      for (const wx of [-16, 16]) houseWindow(root, wx + J / 2, F + H1 + 14, D / 2 + J + 0.6, false, { shutter: c.roof });
+      houseWindow(root, W / 2 + J + 0.6, F + H1 + 14, -12, true, { shutter: c.roof });
+      houseWindow(root, W / 2 + J + 0.6, F + H1 + 14, 20, true, { shutter: c.roof });
+      sign(root, W / 2 + J, F + H1 - 4, D / 2 - 10, c.roof, true);
+      const top = F + H1 + 3 + H2;
+      const roof = gableRoof(root, J / 2, J / 2, W + J, D + J, top, 0.82, c.roof, 6, true, 2.6, 6);
+      gableEnds(roof, top, c.plaster);
+      houseWindow(root, J / 2, top + 10, D / 2 + J + 0.6, false, { w: 9, h: 9, flowers: false });
+      return { door: [-14, D / 2], chimney: chimney(root, -W / 2 + 12, top + 10, -D / 4, 34, '#7c4a3a') };
+    },
+    // 2 stone house with a round corner tower under a cone roof and a pennant
+    (root, c) => {
+      const W = 88, D = 70, H = 40, F = 5;
+      box(root, W + 4, F, D + 4, hmat(STONE_DK), 0, 0, 0);
+      box(root, W, H, D, hmat(c.stone), 0, F, 0);
+      for (let y = F + 8; y < F + H; y += 8) box(root, W + 0.8, 1, D + 0.8, hmat(shade(c.stone, 0.8)), 0, y, 0);
+      for (const [qx, qz] of [[W / 2, D / 2], [-W / 2, D / 2], [W / 2, -D / 2]]) box(root, 6, H, 6, hmat(shade(c.stone, 0.88)), qx, F, qz);
+      houseDoor(root, -18, F, D / 2, { arch: true, color: '#4e2e1a', frame: STONE_DK, w: 16, h: 26 });
+      houseWindow(root, 14, F + 14, D / 2 + 0.6, false, { arch: STONE_DK, shutter: c.roof });
+      houseWindow(root, W / 2 + 0.6, F + 14, -10, true, { arch: STONE_DK, shutter: c.roof });
+      hipRoof(root, 0, 0, W, D, F + H, 34, c.roof, 6);
+      // the tower at the front-right corner, taller than the house
+      const tx = W / 2 - 4, tz = D / 2 - 4, tr = 17, th = F + H + 26;
+      cyl(root, tr, tr + 1, th, hmat(shade(c.stone, 1.05)), tx, 0, tz, 14);
+      for (let y = 14; y < th; y += 14) cyl(root, tr + 0.6, tr + 0.6, 1.2, hmat(shade(c.stone, 0.8)), tx, y, tz, 14);
+      for (const a of [Math.PI * 0.25, Math.PI * 0.6]) {
+        const wx = tx + Math.cos(a) * (tr + 0.4), wz = tz + Math.sin(a) * (tr + 0.4);
+        box(root, 3, 10, 3, glow('#ffcc70', 0.8), wx, th - 16, wz);
+        box(root, 3, 8, 3, glow('#ffcc70', 0.7), tx + Math.cos(a - 0.4) * (tr + 0.4), F + 18, tz + Math.sin(a - 0.4) * (tr + 0.4));
+      }
+      cyl(root, tr + 3, tr + 3, 3, hmat(shade(c.stone, 0.75)), tx, th, tz, 14);
+      const cone = new THREE.Mesh(new THREE.ConeGeometry(tr + 5, 38, 14), hmat(c.roof));
+      cone.position.set(tx, th + 3 + 19, tz);
+      root.add(cone);
+      cyl(root, 0.8, 0.8, 14, hmat('#3e2723'), tx, th + 40, tz, 6);
+      const flag = box(root, 1, 6, 11, hmat(c.flag), tx, th + 47, tz + 6);
+      flag.rotation.x = 0.1;
+      return { door: [-18, D / 2], chimney: chimney(root, -W / 2 + 16, F + H + 10, -D / 5, 30, '#6f6a62') };
+    },
+    // 3 thatched cottage: low whitewashed walls, a deep straw roof, round window, picket fence, woodpile
+    (root, c) => {
+      const W = 84, D = 64, H = 26, F = 4;
+      box(root, W + 4, F, D + 4, hmat(STONE_DK), 0, 0, 0);
+      box(root, W, H, D, hmat('#f2ede0'), 0, F, 0);
+      box(root, W + 0.6, 5, D + 0.6, hmat('#b9b2a2'), 0, F, 0);   // splash band
+      houseDoor(root, -22, F, D / 2, { color: '#3f6b8f', h: 21, lantern: false });
+      houseWindow(root, 14, F + 9, D / 2 + 0.6, false, { shutter: '#3f6b8f' });
+      houseWindow(root, W / 2 + 0.6, F + 9, 0, true, { shutter: '#3f6b8f' });
+      // thatch: a thick, rounded straw roof that sweeps low
+      const ov = 6, pitch = 0.78;
+      const roof = gableRoof(root, 0, 0, W, D, F + H, pitch, STRAW, ov, false, 7, 4);
+      gableEnds(roof, F + H, '#f2ede0');
+      // straw rolled thick along the ridge and both eaves, so the roof reads soft and heavy
+      const roll = (y, z, r, col) => {
+        const m = cyl(root, r, r, W + ov * 2 + 2, hmat(col), 0, 0, 0, 10);
+        m.rotation.z = Math.PI / 2;
+        m.position.set(0, y, z);
+      };
+      roll(F + H + roof.ridge + 1, 0, 5, '#a8843a');
+      for (const side of [-1, 1]) roll(F + H - ov * Math.tan(pitch) - 2, side * (D / 2 + ov), 4.2, '#b8913f');
+      // round attic window in the visible gable
+      const rw = cyl(root, 5, 5, 1.6, glow('#ffcc70', 0.7), W / 2 + 0.8, F + H + 9, 0, 12);
+      rw.rotation.z = Math.PI / 2;
+      // picket fence along the front garden, a gap at the door
+      for (let fx = -W / 2 - 4; fx <= W / 2 + 4; fx += 5) {
+        if (Math.abs(fx + 22) < 9) continue;
+        box(root, 1.8, 9, 1.8, hmat('#e9e2d0'), fx, 0, D / 2 + 16);
+      }
+      box(root, W + 8, 1.4, 1.2, hmat('#d8d0bb'), 0, 5, D / 2 + 16);
+      for (let i = 0; i < 6; i++) sphere(root, 2.2, hmat(['#e05a5a', '#f2d64b', '#e88ad0', '#7fb6e8'][i % 4]), 4 + i * 7, 2, D / 2 + 9, 6);
+      // woodpile against the right wall
+      for (let r = 0; r < 3; r++) for (let k = 0; k < 4 - r; k++) {
+        const lg = cyl(root, 2.2, 2.2, 18, hmat(k % 2 ? '#8a5a34' : '#a06c3e'), W / 2 + 4, 0, -14 + k * 4.6 + r * 2.3, 8);
+        lg.rotation.z = Math.PI / 2; lg.position.y = 2.2 + r * 4;
+      }
+      return { door: [-22, D / 2], chimney: chimney(root, -W / 2 + 14, F + H + 14, -D / 6, 22, '#9a6a4a') };
+    },
+    // 4 merchant's house: two painted storeys, a striped awning over the shop window, crates and barrels
+    (root, c) => {
+      const W = 90, D = 68, H = 54, F = 6;
+      box(root, W + 4, F, D + 4, hmat(STONE_DK), 0, 0, 0);
+      box(root, W, H, D, hmat(c.paint), 0, F, 0);
+      for (const [qx, qz] of [[W / 2, D / 2], [-W / 2, D / 2], [W / 2, -D / 2]]) box(root, 4, H, 4, hmat('#efe6d2'), qx, F, qz);
+      box(root, W + 1, 2.4, D + 1, hmat('#efe6d2'), 0, F + H / 2, 0);   // floor band
+      houseDoor(root, -26, F, D / 2, { color: '#2f5d4a' });
+      houseWindow(root, 10, F + 7, D / 2 + 0.6, false, { w: 26, h: 15, flowers: false });
+      // awning: striped slats sloping out over the shop window
+      for (let k = 0; k < 8; k++) {
+        const s = box(root, 4, 1.2, 14, hmat(k % 2 ? '#f3ead8' : c.awning), -4 + k * 4, 0, D / 2 + 7);
+        s.rotation.x = 0.45; s.position.y = F + 26;
+      }
+      for (let k = 0; k < 8; k++) box(root, 4, 3, 1, hmat(k % 2 ? '#f3ead8' : c.awning), -4 + k * 4, F + 20.5, D / 2 + 13);
+      for (const wx of [-24, 2, 26]) houseWindow(root, wx, F + H / 2 + 8, D / 2 + 0.6, false, { shutter: c.awning, w: 10 });
+      houseWindow(root, W / 2 + 0.6, F + 10, -8, true, { flowers: false });
+      houseWindow(root, W / 2 + 0.6, F + H / 2 + 8, -14, true, { shutter: c.awning, w: 10 });
+      houseWindow(root, W / 2 + 0.6, F + H / 2 + 8, 14, true, { shutter: c.awning, w: 10 });
+      // balcony on the right side
+      box(root, 6, 2, 34, hmat(TIMBER), W / 2 + 3, F + H / 2 + 2, 0);
+      for (let bz = -16; bz <= 16; bz += 4) box(root, 1.2, 8, 1.2, hmat(TIMBER), W / 2 + 5.5, F + H / 2 + 4, bz);
+      box(root, 1.6, 1.6, 34, hmat(TIMBER), W / 2 + 5.5, F + H / 2 + 11.5, 0);
+      crate(root, 30, D / 2 + 9); crate(root, 30, D / 2 + 9, 0.8, 10); barrel(root, 42, D / 2 + 8);
+      barrel(root, W / 2 + 8, D / 2 - 6, 0.9);
+      sign(root, -10, F + H / 2 + 2, D / 2, c.awning, false);
+      const roof = gableRoof(root, 0, 0, W, D, F + H, 0.5, c.roof, 6);
+      gableEnds(roof, F + H, c.paint);
+      return { door: [-26, D / 2], chimney: chimney(root, W / 2 - 18, F + H + 6, -D / 5, 24, '#8a5a44') };
+    },
+    // 5 manor: an L of a main hall and a wing, a pillared porch, two chimneys and a banner
+    (root, c) => {
+      const W = 96, D = 56, H = 42, F = 7, WW = 40, WD = 34;
+      // main hall along X at the back, wing coming forward on the right
+      box(root, W + 4, F, D + 4, hmat(STONE_DK), 0, 0, -12);
+      box(root, W, H, D, hmat(c.plaster), 0, F, -12);
+      timberFrame(root, W, D, F, H, 0, -12);
+      box(root, WW + 4, F, WD + 4, hmat(STONE_DK), W / 2 - WW / 2, 0, D / 2 - 12 + WD / 2);
+      box(root, WW, H - 6, WD, hmat(c.plaster), W / 2 - WW / 2, F, D / 2 - 12 + WD / 2);
+      timberFrame(root, WW, WD, F, H - 6, W / 2 - WW / 2, D / 2 - 12 + WD / 2);
+      const fz = D / 2 - 12;   // the hall's street face
+      houseDoor(root, -20, F, fz, { arch: true, w: 17, h: 27 });
+      // porch: slab roof on four pillars, steps
+      box(root, 30, 3, 18, hmat(shade(c.roof, 0.9)), -20, F + 31, fz + 9);
+      for (const [px, pz] of [[-33, fz + 16], [-7, fz + 16]]) {
+        cyl(root, 1.8, 2, 31, hmat('#ece4d2'), px, F, pz, 8);
+      }
+      box(root, 30, 3, 8, hmat(STONE), -20, 0, fz + 13);
+      for (const wx of [-42, 2]) houseWindow(root, wx, F + 14, fz + 0.6, false, { shutter: c.roof });
+      houseWindow(root, W / 2 - WW / 2, F + 14, fz + WD + 0.6, false, { shutter: c.roof });
+      houseWindow(root, W / 2 + 0.6, F + 14, fz + WD / 2, true, { shutter: c.roof });
+      houseWindow(root, W / 2 + 0.6, F + 14, -30, true, { shutter: c.roof });
+      // banner on the wing's front
+      box(root, 12, 26, 1, hmat('#9b1c1c'), W / 2 - WW / 2, F + 4, fz + WD + 1.2);
+      const em = box(root, 5, 5, 1.6, hmat('#f6c343'), W / 2 - WW / 2, F + 14, fz + WD + 1.4);
+      em.rotation.z = Math.PI / 4;
+      const r1 = gableRoof(root, 0, -12, W, D, F + H, 0.6, c.roof, 7);
+      gableEnds(r1, F + H, c.plaster);
+      const r2 = gableRoof(root, W / 2 - WW / 2, D / 2 - 12 + WD / 2, WD + 8, WW, F + H - 6, 0.7, c.roof, 5, true);
+      gableEnds(r2, F + H - 6, c.plaster);
+      chimney(root, W / 2 - 10, F + H + 10, -26, 30);
+      return { door: [-20, fz], chimney: chimney(root, -W / 2 + 14, F + H + 6, -26, 32) };
+    }
+  ];
+
+  // variant = roof (0-2) + 3 * build; colour scheme from the roof and the build together
+  function buildHouse(variant) {
+    const root = new THREE.Group();
+    const roofI = variant % 3, build = Math.floor(variant / 3) % HOUSE_BUILDS;
+    const c = {
+      roof: HOUSE_ROOFS[roofI],
+      plaster: HOUSE_PLASTER[(roofI * 2 + build) % HOUSE_PLASTER.length],
+      paint: ['#d98c5f', '#7fa7b8', '#c9b25a', '#b97a9a', '#8fae7a'][(roofI + build) % 5],
+      awning: ['#c0392b', '#2e6fb5', '#2f9e57', '#8e44ad'][(roofI + build) % 4],
+      stone: ['#a39d92', '#9aa0a6', '#b0a08a'][(roofI + build) % 3],
+      flag: ['#c53030', '#2b6cb0', '#d69e2e'][roofI]
+    };
+    const info = HOUSE_STYLES[build](root, c);
+    return { root, info };
+  }
+  BUILDERS.house = (variant = 0) => buildHouse(variant);
 
   function stoneTower(root, w, h) {
     box(root, w, h, w, '#8b9099', 0, 0, 0);
@@ -646,19 +906,60 @@
 
   // Market stalls south of the east-west boulevard (y 18-22) turn to face it
   const BOULEVARD_MID_Y = 20.5;
-  const propVariant = obs => (obs.type === 'market_stall' && obs.y > BOULEVARD_MID_Y ? (obs.variant || 0) + 4 : obs.variant);
+  // A house's build is picked from where it stands (the map only gives its roof colour);
+  // the salts are tuned so the town's 30 houses get every build 4-7 times, neighbours mostly differing
+  const houseBuild = obs => Math.floor(hash(Math.round(obs.x * 7) + 30.14, Math.round(obs.y * 13) + 64.02) * HOUSE_BUILDS);
+  const propVariant = obs => (obs.type === 'market_stall' && obs.y > BOULEVARD_MID_Y ? (obs.variant || 0) + 4
+    : obs.type === 'house' ? ((obs.variant || 0) % 3) + 3 * houseBuild(obs) : obs.variant);
+  // where a house's door and chimney top are, in model units from its anchor:
+  // door [x, z] on the +Z face, chimney [x, y, z]
+  const houseInfoCache = new Map();
+  const houseInfo = obs => {
+    const v = propVariant(obs);
+    if (!houseInfoCache.has(v)) houseInfoCache.set(v, buildHouse(v).info);
+    return houseInfoCache.get(v);
+  };
 
   // The raw prop models (game axes, TILE units, anchored at the obstacle), for
   // the first-person view (firstPerson.js), which places them in its own scene
   window.TownPropModels = {
     TILE,
     has: type => !!BUILDERS[type],
-    build: obs => (BUILDERS[obs.type] ? BUILDERS[obs.type](propVariant(obs) || 0) : null)
+    build: obs => (BUILDERS[obs.type] ? BUILDERS[obs.type](propVariant(obs) || 0) : null),
+    // for the 2D sprites baked from these models (pixelProps.js)
+    variant: obs => propVariant(obs) || 0,
+    buildVariant: (type, v) => (BUILDERS[type] ? BUILDERS[type](v || 0) : null),
+    houseInfo
   };
 
   // ---------- offscreen renderer ----------
   class TownProps3D {
     constructor() {
+      this.instances = new Map(); // key -> { tilt, prop, frame }
+      this.cache = new Map();     // key|zoom -> canvas
+      this.cacheZoom = null;
+      // set by the renderer: false while the camera zoom is still changing, when
+      // cached images are scaled instead of re-rendered through WebGL
+      this.zoomSettled = true;
+      // the town draws in 2D pixel sprites unless 3D props are switched on in the settings;
+      // until then no WebGL context is made at all
+      this.enabled = false;
+      this.renderer = null;
+    }
+
+    ensureGL() {
+      if (this.renderer) return true;
+      try {
+        this.initGL();
+        return true;
+      } catch (err) {
+        console.warn('3D town props unavailable, staying with 2D props:', err);
+        this.enabled = false;
+        return false;
+      }
+    }
+
+    initGL() {
       this.canvas = document.createElement('canvas');
       // no anti-aliasing and one buffer pixel per screen pixel: the pixel pass needs crisp edges
       this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, alpha: true, antialias: false });
@@ -680,14 +981,6 @@
       this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, -2000, 2000);
       this.camera.position.set(0, 0, 1000);
       this.camera.lookAt(0, 0, 0);
-
-      this.instances = new Map(); // key -> { tilt, prop, frame }
-      this.cache = new Map();     // key|zoom -> canvas
-      this.cacheZoom = null;
-      // set by the renderer: false while the camera zoom is still changing, when
-      // cached images are scaled instead of re-rendered through WebGL
-      this.zoomSettled = true;
-      this.enabled = true;
     }
 
     ensureBuffer(w, h) {
@@ -760,7 +1053,7 @@
     // 3D prop, otherwise { top, events } where top is the screen y of the
     // prop's highest point (for name tags).
     draw(ctx, obs, screenX, screenY, zoom, time, layer) {
-      if (!this.enabled) return null;
+      if (!this.enabled || !this.ensureGL()) return null;
       const inst = this.getInstance(obs.type, propVariant(obs), layer);
       if (!inst) return null;
       // a layer with nothing in it (e.g. the back of a stall whose counter faces us)

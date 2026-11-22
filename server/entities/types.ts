@@ -150,6 +150,11 @@ export interface DungeonRun {
   exp: number;
   revivalsUsed: number;
   maxRevivals: number;
+  // dungeonFeatures.ts: run-only boons and curses, and the boon pick waiting on the hero
+  boons?: Record<string, number>;
+  curses?: string[];
+  boonQueue?: number;
+  boonOffer?: { id: string; choices: string[] } | null;
 }
 
 /** What is written to accounts.json for one character (see AccountManager.saveCharacter). */
@@ -165,6 +170,11 @@ export interface SavedCharacter {
   equippedSkills: EquippedSkills | null;
   jobLevel?: number;
   spLoadouts?: Record<string, any>;
+  /** deepest Depth cleared per dungeon floor ("1" -> 3) */
+  dungeonDepth?: Record<string, number>;
+  /** SP wing skins unlocked, and the wings worn ('auto' | 'none' | 'tier:N' | skin id) */
+  wingSkins?: string[];
+  wingStyle?: string;
   jobExp?: number;
   equipment: EquipmentSlots;
   gold: number;
@@ -206,6 +216,9 @@ export interface Player {
   jobExp: number;
   jobExpNext: number;
   spLoadouts: Record<string, any>;
+  dungeonDepth?: Record<string, number>;
+  wingSkins?: string[];
+  wingStyle?: string;
   skills: Record<string, number>;
 
   // SP card
@@ -372,6 +385,8 @@ export interface Mob {
   elementResist?: Record<string, number>;
   buffs?: string[];
   isCommander?: boolean;
+  /** a split, summon or illusion (dungeonFeatures.ts): does not count toward the boss portal */
+  noProgress?: boolean;
   auraRadius?: number;
   hasCommanderBuff?: boolean;
   targetPlayerId?: string | null;
@@ -498,6 +513,9 @@ export interface DungeonInstance {
   totalTrashMobs: number;
   requiredKills: number;
   killedTrashCount: number;
+  /** dungeonFeatures.ts state: events, forks, secrets, depth, weekly */
+  df?: any;
+  totalWeight?: number;
   killPercent: number;
   bossPortalReady: boolean;
   bossPortalSpawned: boolean;

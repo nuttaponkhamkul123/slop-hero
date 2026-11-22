@@ -1,6 +1,7 @@
 // Monster behaviour each tick (respawn, status damage, aggro, wandering, chasing, returning) and how a monster blow lands on a hero.
 // Moved verbatim out of GameServer (Phase C of docs/REFACTOR_PLAN.md): `this` is the server, reached as this.gs;
 // GameServer keeps one-line forwarding methods, so no call site changed.
+import * as DF from '../dungeonFeatures';
 import type { GameServer } from '../gameServer';
 import { MOB_EFFECTS } from '../effects/mobEffects';
 import { calculateElementalMultiplier } from '../elements';
@@ -52,6 +53,8 @@ export class MobAISystem {
       if (diedOfEffect) continue;
       // Bosses run their telegraphed moveset; while one winds up, charges or roars it skips
       // the plain chase / melee below (bossMechanics.ts)
+      // Roles, behaviour affixes and miniboss traits (dungeonFeatures.ts)
+      if (mob.dfAI && zone === 'dungeon' && DF.mobAI(this.gs, mob, dt, instanceId)) continue;
       if (mob.mechanics && this.gs.bossMech.update(mob, zone, dt, instanceId)) continue;
 
       // Frozen solid (Cryo) or stopped in time (Chrono): no moving, no attacking

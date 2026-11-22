@@ -2,6 +2,8 @@
 // Moved verbatim out of GameServer (Phase C of docs/REFACTOR_PLAN.md): `this` is the server, reached as this.gs;
 // GameServer keeps one-line forwarding methods, so no call site changed.
 import type { GameServer } from '../gameServer';
+import * as DF from '../dungeonFeatures';
+import * as WINGS from '../wingSkins';
 import { rollDungeonLoot, DUNGEON_FLOORS, DUNGEON_TILES } from '../dungeonGenerator';
 import { baseExpCurve } from '../progression';
 import { dungeonProgressWeight, DUNGEON_SPAWN_MS, FAILED_RUN_LOOT_KEEP, RUN_PAR_BASE_SEC, RUN_PAR_PER_ROOM_SEC, RUN_RANK_MULT } from '../config/constants';
@@ -19,7 +21,8 @@ export class DungeonRunSystem {
     return {
       floor: inst.floor, difficulty: inst.difficulty, cleared, gold: 0, items: [] as any,
       startedAt: inst.startedAt || Date.now(), deaths: 0, kills: 0, exp: 0,
-      revivalsUsed: 0, maxRevivals: 10
+      revivalsUsed: 0, maxRevivals: 10,
+      boons: {} as Record<string, number>, curses: [] as string[], boonQueue: 0, boonOffer: null as any
     };
   }
 
@@ -46,14 +49,15 @@ export class DungeonRunSystem {
       }
       let progress = false;
       for (const i of inst.roomsSpawned) {
-        if (!inst.roomsCleared.has(i) && !alive.get(i)) {
+        if (!inst.roomsCleared.has(i) && !alive.get(i) && !DF.roomBusy(inst, i)) {
           inst.roomsCleared.add(i);
           newlyCleared.push(i);
           progress = true;
         }
       }
       for (const d of dung.doors) {
-        if (d.open || !inst.roomsCleared.has(d.from)) continue;
+        // a fork's doors wait for a hero to walk up to one; the other side's doors stay sealed
+        if (d.open || d.sealed || d.choice || !inst.roomsCleared.has(d.from) || DF.isSealed(inst, d.to)) continue;
         d.open = true;
         for (const [x, y] of d.tiles) dung.tiles[y][x] = DUNGEON_TILES.FLOOR;
         dung.obstacles = dung.obstacles.filter((o: any) => o.id !== d.id);
@@ -73,7 +77,7 @@ export class DungeonRunSystem {
 
     const bossIdx = dung.rooms.length - 1;
     // If all monster rooms are cleared, ensure killPercent is 100% and boss portal is ready
-    if (inst.roomsCleared && dung.rooms && inst.roomsCleared.size >= dung.rooms.length - 1) {
+    if (inst.roomsCleared && dung.rooms && inst.roomsCleared.size + DF.sealedCount(inst) >= dung.rooms.length - 1) {
       inst.killPercent = 100;
       if (!inst.bossPortalReady) {
         inst.bossPortalReady = true;
@@ -87,6 +91,7 @@ export class DungeonRunSystem {
       }
     }
     if (!inst.announce) return; // first pass at creation: nobody to tell yet
+    for (const i of newlyCleared) if (i !== bossIdx) DF.onRoomCleared(this.gs, inst, i);
     if (spawned.length) this.gs.emitZone('dungeon', 'dungeon_mobs_spawned', { mobs: spawned }, inst.id);
     for (const i of newlyCleared) {
       if (i === 0 || i === bossIdx || dung.rooms[i].rush) continue;
@@ -110,8 +115,10 @@ export class DungeonRunSystem {
   // Returns what clients need for that effect.
   spawnDungeonRoom(inst: DungeonInstance, roomIdx: any) {
     inst.roomsSpawned.add(roomIdx);
-    const list = (inst.pendingMobs && inst.pendingMobs.get(roomIdx)) || [];
+    const raw = (inst.pendingMobs && inst.pendingMobs.get(roomIdx)) || [];
     if (inst.pendingMobs) inst.pendingMobs.delete(roomIdx);
+    // ambush and ward rooms hold some monsters back (dungeonFeatures.ts)
+    const list = DF.filterRoomSpawn(this.gs, inst, roomIdx, raw);
     const until = inst.announce ? Date.now() + DUNGEON_SPAWN_MS : 0;
     return list.map((m: any) => {
       m.spawnUntil = until;
@@ -146,8 +153,12 @@ export class DungeonRunSystem {
 
     const dist = Math.hypot(chest.x - player.x, chest.y - player.y);
     if (dist <= 2.5) {
+      // a mimic bites back instead (its gold chest drops when it dies)
+      if (inst && DF.tryMimic(this.gs, inst, chest, player)) return;
       chest.openedBy.push(player.id);
       const loot = rollDungeonLoot(chest.isGold, chestFloor, player.characterClass);
+      const wing = chest.isGold ? WINGS.rollWingSkinDrop('chest', chestFloor) : null;
+      if (wing) loot.push({ type: 'item', itemId: wing, amount: 1 } as any);
       const socket = this.gs.io.sockets.sockets.get(socketId);
 
       // Chest loot is only secured once the dungeon is cleared: until the boss
@@ -206,7 +217,12 @@ export class DungeonRunSystem {
       killedMobs: inst ? (inst.killedTrashCount || 0) : 0,
       requiredMobs: inst ? (inst.requiredKills || 0) : 0,
       bossPortalReady: !!(inst && inst.bossPortalReady),
-      bossPortalSpawned: !!(inst && inst.bossPortalSpawned)
+      bossPortalSpawned: !!(inst && inst.bossPortalSpawned),
+      ...DF.runSummary(run),
+      events: DF.eventStatus(inst),
+      depth: inst && inst.df ? inst.df.depth || 0 : 0,
+      weekly: inst && inst.df ? inst.df.weekly : null,
+      sealedRooms: inst && inst.df ? [...inst.df.sealed] : []
     } : { active: false });
   }
 
@@ -248,6 +264,9 @@ export class DungeonRunSystem {
     this.gs.awardExp(player, bonusExp);
 
     const floorConfig: any = DUNGEON_FLOORS[run.floor - 1] || {};
+    const extra = DF.onRunComplete(this.gs, player, inst, { timeMs, rank, deaths: run.deaths || 0 });
+    const summary = DF.runSummary(run);
+    run.boonOffer = null; run.boonQueue = 0;
     const socket = this.gs.io.sockets.sockets.get(player.id);
     if (socket) {
       socket.emit('player_updated', player);
@@ -256,7 +275,8 @@ export class DungeonRunSystem {
         rank, timeMs, deaths: run.deaths || 0, kills: run.kills || 0,
         floor: run.floor, difficulty: run.difficulty, floorName: floorConfig.name, bossName: floorConfig.bossName,
         roomsTotal, roomsCleared: inst && inst.roomsCleared ? inst.roomsCleared.size : roomsTotal,
-        rewards: { chestGold, bonusGold, runExp, bonusExp }
+        rewards: { chestGold, bonusGold, runExp, bonusExp },
+        boons: summary.boons, curses: summary.curses, depth: extra.depth || 0, depthUnlocked: extra.unlocked, weekly: extra.weekly || null
       });
     }
     this.gs.emitDungeonRunUpdate(player, socket);
@@ -315,7 +335,7 @@ export class DungeonRunSystem {
   // Dungeon progress toward the boss portal: a weighted kill count (dungeonProgressWeight)
   countDungeonProgress(mob: Mob, instId: any, killerPlayer: Player) {
     const inst = instId ? this.gs.dungeonInstances.get(instId) : null;
-    if (!inst || inst.cleared || mob.progressCounted || mob.isBoss || mob.roomIdx === undefined || mob.roomIdx === inst.bossRoomIdx) return;
+    if (!inst || inst.cleared || mob.progressCounted || mob.noProgress || mob.isBoss || mob.roomIdx === undefined || mob.roomIdx === inst.bossRoomIdx) return;
     mob.progressCounted = true;
     inst.killedTrashCount = (inst.killedTrashCount || 0) + dungeonProgressWeight(mob);
     const req = Math.max(1, inst.requiredKills || 1);

@@ -30,6 +30,9 @@
       "armor": null
     },
     "gold": 1234,
+    "dungeonDepth": {},
+    "wingSkins": [],
+    "wingStyle": "auto",
     "inventory": {
       "healthPotions": 9,
       "manaPotions": 8,
@@ -68,6 +71,9 @@
     "jobExp": 0,
     "equipment": {},
     "gold": 0,
+    "dungeonDepth": {},
+    "wingSkins": [],
+    "wingStyle": "auto",
     "inventory": {
       "healthPotions": 3,
       "manaPotions": 2,
@@ -94,6 +100,9 @@
     "jobExp": 0,
     "equipment": {},
     "gold": 0,
+    "dungeonDepth": {},
+    "wingSkins": [],
+    "wingStyle": "auto",
     "inventory": {
       "healthPotions": 3,
       "manaPotions": 2,
@@ -124,6 +133,9 @@
     "jobExp": 0,
     "equipment": {},
     "gold": 0,
+    "dungeonDepth": {},
+    "wingSkins": [],
+    "wingStyle": "auto",
     "inventory": {
       "healthPotions": 3,
       "manaPotions": 2,
@@ -152,6 +164,9 @@
     "jobExp": 0,
     "equipment": {},
     "gold": 0,
+    "dungeonDepth": {},
+    "wingSkins": [],
+    "wingStyle": "auto",
     "inventory": {
       "healthPotions": 3,
       "manaPotions": 2,
@@ -180,6 +195,9 @@
     "jobExp": 0,
     "equipment": {},
     "gold": 0,
+    "dungeonDepth": {},
+    "wingSkins": [],
+    "wingStyle": "auto",
     "inventory": {
       "healthPotions": 3,
       "manaPotions": 2,
@@ -206,6 +224,9 @@
     "jobExp": 0,
     "equipment": {},
     "gold": 0,
+    "dungeonDepth": {},
+    "wingSkins": [],
+    "wingStyle": "auto",
     "inventory": {
       "healthPotions": 3,
       "manaPotions": 2,

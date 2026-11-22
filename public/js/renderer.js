@@ -207,6 +207,20 @@ function packCssColor(col) {
   }
   return ((a << 24) | (b << 16) | (g << 8) | r) >>> 0;
 }
+// the same colours as [r, g, b, alpha 0..1], cached (the texel buffer sees a few dozen a frame)
+const CSS_RGBA_CACHE = new Map();
+function cssRgba(col) {
+  // (named colours and gradients are left to the canvas)
+  if (typeof col !== 'string' || !(col[0] === '#' || col.startsWith('rgb'))) return null;
+  let c = CSS_RGBA_CACHE.get(col);
+  if (!c) {
+    const p = packCssColor(String(col));
+    c = [p & 255, (p >>> 8) & 255, (p >>> 16) & 255, (p >>> 24) / 255];
+    if (CSS_RGBA_CACHE.size > 4000) CSS_RGBA_CACHE.clear();
+    CSS_RGBA_CACHE.set(col, c);
+  }
+  return c;
+}
 // (every other shape draws its own element ground art from the motif kit)
 const FX_RUNE_CIRCLE_SHAPES = new Set(['detonate', 'orbit']);
 const PIXEL_HERO_DEATH_MS = 1100;
@@ -606,7 +620,11 @@ class IsometricRenderer {
     this.potatoMode = false;   // ultra-low spec preset (cuts down particles, townsfolk, shadow passes)
     this.maxParticles = 200;   // upper bound on concurrent particles
     this.particleScale = 1.0;  // multiplier on spawned particle count
-    this.disable3DProps = false; // force 2D sprite fallback for town structures
+    this.disable3DProps = true; // town structures draw as 2D pixel sprites unless 3D props are switched on
+    // Settings > Graphics: other heroes' skill effects ('all' | 'reduced' | 'own') and how far
+    // from the local hero other heroes, monsters, townsfolk, loot and effects are drawn (tiles)
+    this.otherFxMode = 'all';
+    this.renderDistance = Infinity;
     this.townPropsSetting = 'auto'; // 'auto' | 'on' | 'off'
     this.vfxSetting = 'auto';       // 'auto' | 'full' | 'reduced' | 'minimal'
     this.initCanvasSize();
@@ -799,10 +817,12 @@ class IsometricRenderer {
     }
   }
 
-  _applyQualityProps(disableInQuality) {
+  // Town props draw as 2D pixel sprites (no WebGL, no re-render on zoom) at every quality;
+  // the 3D models only when switched on in the settings
+  _applyQualityProps() {
     if (this.townPropsSetting === 'auto') {
-      this.disable3DProps = disableInQuality;
-      if (window.townProps3D) window.townProps3D.enabled = !disableInQuality;
+      this.disable3DProps = true;
+      if (window.townProps3D) window.townProps3D.enabled = false;
     }
   }
 
@@ -815,15 +835,39 @@ class IsometricRenderer {
       this.disable3DProps = false;
       if (window.townProps3D) window.townProps3D.enabled = true;
     } else {
-      // auto
-      this.disable3DProps = this.lowEffects;
-      if (window.townProps3D) window.townProps3D.enabled = !this.lowEffects;
+      // auto: 2D
+      this.disable3DProps = true;
+      if (window.townProps3D) window.townProps3D.enabled = false;
     }
   }
 
   // Settings > Lighting: 'auto' | 'smooth' | 'simple' | 'off'
   setLightingMode(mode) {
     this.lightingSetting = mode;
+  }
+
+  // Settings > Other Players' Effects: 'all', 'reduced' (their skills drawn without the
+  // particles, embers and screen shake), or 'own' (only your own skill effects drawn)
+  setOtherFxMode(mode) {
+    this.otherFxMode = mode === 'reduced' || mode === 'own' ? mode : 'all';
+  }
+
+  // Settings > Render Distance, in tiles from your hero (Infinity = everything on screen)
+  setRenderDistance(tiles) {
+    this.renderDistance = tiles > 0 ? tiles : Infinity;
+  }
+
+  // Beyond the render distance from the local hero (always false at Full)
+  isBeyondRenderDistance(x, y) {
+    const me = this._me;
+    if (!me || this.renderDistance === Infinity) return false;
+    const dx = x - me.x, dy = y - me.y;
+    return dx * dx + dy * dy > this.renderDistance * this.renderDistance;
+  }
+
+  // A skill effect cast by another hero (their effects follow Settings > Other Players' Effects)
+  isOtherHeroFx(fx) {
+    return !!(fx && fx.playerId && this.localPlayerId && fx.playerId !== this.localPlayerId);
   }
 
   // The lighting actually used this frame; auto follows the graphics quality
@@ -867,6 +911,7 @@ class IsometricRenderer {
   }
 
   triggerScreenShake(intensity = 6, duration = 0.16) {
+    if (this._fxQuiet) return;   // another hero's skill under Settings > Other Players' Effects
     this.shake.intensity = Math.max(this.shake.intensity, intensity);
     this.shake.duration = duration;
     this.shake.time = duration;
@@ -1106,10 +1151,15 @@ class IsometricRenderer {
     if (!playerId) return;
     const duration = (typeof data === 'object' && data.duration) || 320;
     const facing = (typeof data === 'object' && data.facing) || 'SE';
+    // blink: the hero teleports (folds away where they stood, unfolds where they land) instead of lunging
+    const blink = typeof data === 'object' && !!data.blink;
     this.dashes.set(playerId, {
       time: performance.now(),
       duration: duration,
-      facing: facing
+      facing: facing,
+      blink,
+      startX: blink ? data.startX : undefined,
+      startY: blink ? data.startY : undefined
     });
     this.triggerScreenShake(4, 0.14);
   }
@@ -1485,6 +1535,49 @@ class IsometricRenderer {
   }
 
   // Sprite frame for a hero, wearing their SP card costume when transformed
+  // A hero's sprite sheet is built per class, look and facing on first use (~80 ms each), which
+  // showed as a hitch the first time the hero dashed or turned a new way mid-fight. Build the
+  // local hero's sheets (and their SP card's transformed look) in idle time, one per slot.
+  prewarmHeroSheets(player) {
+    const PH = window.PixelHeroes;
+    if (!PH || !PH.ready || !player || !PH.VIEWS) return;
+    const cls = PH.classes.includes(player.characterClass) ? player.characterClass : 'warrior';
+    const sp = player.equipment && player.equipment.sp;
+    const key = cls + '|' + (this.gearKeyFor(player, cls) || '') + '|' + (sp ? sp.cardId : '');
+    if (this._warmKey === key) return;
+    this._warmKey = key;
+    const jobs = PH.VIEWS.map(view => () => this.heroFrameFor({ ...player, spTransformed: false }, view, 'idle', 0));
+    const card = sp && this.spCardDef(sp.cardId);
+    if (card) for (const view of PH.VIEWS) jobs.push(() => PH.variantFrame(cls, card.id, card.palette, view, 'idle', 0));
+    const idle = window.requestIdleCallback ? (f) => window.requestIdleCallback(f, { timeout: 3000 }) : (f) => setTimeout(f, 250);
+    const step = () => {
+      if (this._warmKey !== key) return;           // the look changed again: that run takes over
+      const job = jobs.shift();
+      if (!job) return;
+      try { job(); } catch (_) { /* a missing look just builds on demand */ }
+      idle(step);
+    };
+    idle(step);
+  }
+
+  // The wings a transformed hero wears (server wingSkins.ts checks what they may pick):
+  // 'auto' = the card's style for its level (+10 per tier), 'none', 'tier:N' = an earlier style
+  // in the card colour, or a skin id = that skin's style and colours at any card level
+  wingLookFor(player, card) {
+    const own = Math.max(0, Math.min(10, Math.floor((player.spLevel || 0) / 10)));
+    const style = player.wingStyle || 'auto';
+    if (style === 'none') return null;
+    if (style.startsWith('tier:')) {
+      const n = parseInt(style.slice(5), 10);
+      if (n >= 1 && n <= own) return { tier: n, color: card && card.color };
+    } else if (style !== 'auto') {
+      const cat = window.WING_SKINS;
+      const skin = cat && cat.skins.find(s => s.id === style);
+      if (skin) return { tier: skin.style, color: skin.color, skin: skin.id };
+    }
+    return own ? { tier: own, color: card && card.color } : null;
+  }
+
   heroFrameFor(player, view, action, idx) {
     const PH = window.PixelHeroes;
     const cls = PH.classes.includes(player.characterClass) ? player.characterClass : 'warrior';
@@ -1534,10 +1627,12 @@ class IsometricRenderer {
     if (!player.spTransformed || player.isDead || !window.SpWings) return;
     const card = this.spCardDef(player.spCardId || (player.equipment && player.equipment.sp && player.equipment.sp.cardId));
     if (!card) return;
-    const tier = Math.max(0, Math.min(SpWings.TIERS, Math.floor((player.spLevel || 0) / 10)));
-    if (!tier) return;
+    // which wings: the card's own for its level, or what the hero picked in the wardrobe
+    const look = this.wingLookFor(player, card);
+    if (!look) return;
+    const tier = look.tier;
     const fx = ELEMENT_FX[card.element] || ELEMENT_FX.neutral;
-    const color = card.color || fx.color;
+    const color = look.color || card.color || fx.color;
     const WG = window.SpWings;
     const s = PIXEL_HERO_SCALE * z;
     // The hero's turn (as in pixelHeroes: 0 side-on facing right, +PI/2 facing the
@@ -1545,8 +1640,9 @@ class IsometricRenderer {
     const phi = SP_WING_PHI[pose.view] !== undefined ? SP_WING_PHI[pose.view] : Math.PI / 2;
     const mirror = pose.flip ? -1 : 1;
     const c = Math.cos(phi), sn = Math.sin(phi);
-    // the wings join between the shoulder blades, a little behind the body when side-on
-    const rootX = x - mirror * c * 3 * s, rootY = y - 26 * s;
+    // the wings join between the shoulder blades (on the short chibi body, 18 sprite px up),
+    // a little behind the body when side-on
+    const rootX = x - mirror * c * 3 * s, rootY = y - 18 * s;
     // Each wing spreads out sideways and sweeps back: its span on screen is the
     // sideways part (sin phi) plus the backward sweep seen side-on (cos phi). Its
     // depth (toward the camera) decides whether it goes behind the body or over it.
@@ -1590,7 +1686,7 @@ class IsometricRenderer {
     if (layer === 'front') {
       // +100: a golden halo over the head
       if (tier >= 10) {
-        const hy = y - 51 * s + Math.sin(t * 2) * 1.2 * s;
+        const hy = y - 49 * s + Math.sin(t * 2) * 1.2 * s;   // just over the big chibi head
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
         ctx.lineWidth = 2 * s;
@@ -1675,6 +1771,8 @@ class IsometricRenderer {
       ctx.drawImage(PixelIcons.image(obs.boss ? 'skull' : 'lock'), Math.round((p1.x + p2.x) / 2 - size / 2), Math.round((p1.y + p2.y) / 2 - h * 0.5 - size / 2), size, size);
     }
     ctx.restore();
+    // a forked door's sign / a sealed door's boards (dungeonFeatures.js)
+    if (window.DungeonFeatures && (obs.choice || obs.sealed)) window.DungeonFeatures.drawDoorBadge(this, ctx, obs, p1, p2, h, z);
   }
 
   // Particle bursts for the armor set effects (server: applySetOnHit & co.)
@@ -1722,7 +1820,20 @@ class IsometricRenderer {
     }
   }
 
+  // Another hero's skill (Settings > Other Players' Effects / Render Distance): 'reduced' keeps
+  // the effect without its particles and screen shake (lite), 'own' and beyond the render distance
+  // drop it; either way the caster's cast pose, dash or leap still plays
   addSkillEffect(fx) {
+    if (!this.isOtherHeroFx(fx)) return this.addSkillEffectNow(fx);
+    const fxX = fx.x !== undefined ? fx.x : fx.startX, fxY = fx.y !== undefined ? fx.y : fx.startY;
+    const far = fxX !== undefined && this.isBeyondRenderDistance(fxX, fxY);
+    if (this.otherFxMode === 'all' && !far) return this.addSkillEffectNow(fx);
+    this._fxQuiet = true;
+    this._fxDrop = far || this.otherFxMode === 'own';
+    try { return this.addSkillEffectNow(fx); } finally { this._fxQuiet = false; this._fxDrop = false; }
+  }
+
+  addSkillEffectNow(fx) {
     if (!fx || !fx.type) return;
     // Eternal Rift Frost Spire pulse: a quiet ring of ice, no shake
     if (fx.type === 'rift_frost') {
@@ -1817,7 +1928,8 @@ class IsometricRenderer {
       maxLife: maxLife,
       emitTimer: 0
     };
-    this.animations.skillEffects.push(effect);
+    if (this._fxQuiet) effect.lite = true;
+    if (!this._fxDrop) this.animations.skillEffects.push(effect);
 
     // Elemental Rune Particle Burst!
     if (fx.rune && fx.rune !== 'none') {
@@ -1880,7 +1992,7 @@ class IsometricRenderer {
       this.addParticles(fx.x, fx.y, 'spark', 24);
       this.triggerScreenShake(7, 0.18);
     } else if (fx.type === 'arcane_blink') {
-      if (fx.playerId) this.triggerDashAnimation({ playerId: fx.playerId, duration: 300, facing: fx.facing });
+      if (fx.playerId) this.triggerDashAnimation({ playerId: fx.playerId, duration: 300, facing: fx.facing, blink: true, startX: fx.startX, startY: fx.startY });
       this.addParticles(fx.startX || fx.x, fx.startY || fx.y, 'arcane', 40);
       this.addParticles(fx.startX || fx.x, fx.startY || fx.y, 'spark', 20);
       this.addParticles(fx.x, fx.y, 'arcane', 45);
@@ -8341,7 +8453,13 @@ class IsometricRenderer {
     const cw = Math.ceil(dw / px), ch = Math.ceil(dh / px);
     if (!this[key]) {
       const c = document.createElement('canvas');
-      this[key] = { c, g: c.getContext('2d', { willReadFrequently: true }) };
+      const L = this[key] = { c, g: c.getContext('2d', { willReadFrequently: true }) };
+      // anything drawn on the canvas goes over the texels already in the buffer, as when
+      // they were canvas rects too: lay pending texels down first (just the box written since)
+      for (const m of ['fill', 'stroke', 'fillRect', 'strokeRect', 'drawImage', 'fillText', 'strokeText', 'putImageData']) {
+        const draw = L.g[m];
+        L.g[m] = (...a) => { if (L.dirty) this.fxFlushTexels(L); return draw.apply(L.g, a); };
+      }
     }
     const L = this[key];
     if (L.c.width < cw || L.c.height < ch) {
@@ -8359,7 +8477,124 @@ class IsometricRenderer {
     const m = ctx.getTransform();
     g.setTransform(m.a / px, m.b / px, m.c / px, m.d / px, (m.e - ox) / px, (m.f - oy) / px);
     Object.assign(L, { px, ox, oy, cw, ch, open: true });
+    // Texel buffer: the motif kit and the pixel particles write their one-texel squares here
+    // (fxTexels) instead of as thousands of canvas rects; endFxPixels lays it over the layer
+    const n = cw * ch * 4;
+    if (!L.pixBuf || L.pixBuf.length < n) L.pixBuf = new Uint8ClampedArray(n);
+    else if (L.used) L.pixBuf.fill(0, 0, L.usedLen);
+    L.pix = L.pixBuf.subarray(0, n);
+    // dirty: texels not yet laid down (flushed or merged); used: the buffer needs emptying next frame
+    L.dirty = false; L.used = false; L.usedLen = n;
+    L.bx0 = cw; L.by0 = ch; L.bx1 = -1; L.by1 = -1;
+    (this._fxLayerOf || (this._fxLayerOf = new Map())).set(g, L);
     return g;
+  }
+
+  // Where texels drawn on g can go straight into its layer's buffer: g must be an open
+  // effects layer, drawing plainly (normal blend, or additive when the caller handles it via
+  // T.add, no filter, no rotation). null = draw on the canvas.
+  fxTexelTarget(g, additiveOk) {
+    const L = this._fxLayerOf && this._fxLayerOf.get(g);
+    const op = g.globalCompositeOperation;
+    if (!L || !L.open || !L.pix || (op !== 'source-over' && !(additiveOk && op === 'lighter')) || (g.filter && g.filter !== 'none')) return null;
+    const m = g.getTransform();
+    if (m.b || m.c) return null;
+    return { L, a: m.a, d: m.d, e: m.e, f: m.f, alpha: g.globalAlpha, add: false };
+  }
+
+  // Squares of one colour into a layer's texel buffer: rects is a flat [x, y, size, ...] list in
+  // g's drawing units (as for g.rect), or [x, y, w, h, ...] with stride 4; blended over what the
+  // buffer already holds, or added to it (T.add, as the 'lighter' blend)
+  // (false: a colour the buffer cannot take, draw it on the canvas instead)
+  fxTexels(T, col, rects, stride = 3) {
+    const c = cssRgba(col);
+    if (!c) return false;
+    const A = c[3] * T.alpha;
+    if (A <= 0) return true;
+    const L = T.L, W = L.cw, H = L.ch, d = L.pix, inv = 1 - A;
+    const sr = c[0], sg = c[1], sb = c[2];
+    const add = T.add;
+    for (let i = 0; i < rects.length; i += stride) {
+      const sw = rects[i + 2], sh = stride === 4 ? rects[i + 3] : sw;
+      let x0 = Math.round(T.a * rects[i] + T.e), y0 = Math.round(T.d * rects[i + 1] + T.f);
+      let x1 = x0 + Math.max(1, Math.round(T.a * sw)), y1 = y0 + Math.max(1, Math.round(T.d * sh));
+      if (x0 < 0) x0 = 0; if (y0 < 0) y0 = 0; if (x1 > W) x1 = W; if (y1 > H) y1 = H;
+      if (x0 >= x1 || y0 >= y1) continue;
+      if (x0 < L.bx0) L.bx0 = x0; if (y0 < L.by0) L.by0 = y0; if (x1 - 1 > L.bx1) L.bx1 = x1 - 1; if (y1 - 1 > L.by1) L.by1 = y1 - 1;
+      for (let y = y0; y < y1; y++) {
+        let o = (y * W + x0) * 4;
+        for (let x = x0; x < x1; x++, o += 4) {
+          if (add && d[o + 3]) {
+            // light adds up: premultiplied sum, alpha saturating at 1
+            const da = d[o + 3] / 255, oa = Math.min(1, da + A);
+            d[o] = Math.min(255, d[o] * da + sr * A) / oa;
+            d[o + 1] = Math.min(255, d[o + 1] * da + sg * A) / oa;
+            d[o + 2] = Math.min(255, d[o + 2] * da + sb * A) / oa;
+            d[o + 3] = oa * 255;
+            continue;
+          }
+          if (A >= 1 || d[o + 3] === 0) { d[o] = sr; d[o + 1] = sg; d[o + 2] = sb; d[o + 3] = A >= 1 ? 255 : A * 255; continue; }
+          const da = d[o + 3] / 255, oa = A + da * inv;
+          d[o] = (sr * A + d[o] * da * inv) / oa;
+          d[o + 1] = (sg * A + d[o + 1] * da * inv) / oa;
+          d[o + 2] = (sb * A + d[o + 2] * da * inv) / oa;
+          d[o + 3] = oa * 255;
+        }
+      }
+    }
+    L.dirty = L.used = true;
+    return true;
+  }
+
+  // Lay the texels written since the last flush onto the layer's canvas (in order with the
+  // canvas drawing around them) and empty that part of the buffer
+  fxFlushTexels(L) {
+    L.dirty = false;
+    const x0 = L.bx0, y0 = L.by0, w = L.bx1 - x0 + 1, h = L.by1 - y0 + 1;
+    L.bx0 = L.cw; L.by0 = L.ch; L.bx1 = -1; L.by1 = -1;
+    if (w <= 0 || h <= 0) return;
+    // The scratch must be a CPU canvas like the layer (willReadFrequently): a GPU-backed one
+    // drawn into the layer made every later getImageData wait on the GPU, a 100-200 ms frame
+    // whenever the GPU was busy (first cast of a skill compiling its shaders, for one)
+    if (!this._fxTexelScratch) {
+      const c = document.createElement('canvas');
+      this._fxTexelScratch = { c, g: c.getContext('2d', { willReadFrequently: true }) };
+    }
+    const sc = this._fxTexelScratch.c, sg = this._fxTexelScratch.g;
+    if (sc.width < w || sc.height < h) { sc.width = Math.max(sc.width, w); sc.height = Math.max(sc.height, h); }
+    const img = sg.createImageData(w, h), W = L.cw;
+    for (let y = 0; y < h; y++) {
+      const from = ((y0 + y) * W + x0) * 4;
+      img.data.set(L.pix.subarray(from, from + w * 4), y * w * 4);
+      L.pix.fill(0, from, from + w * 4);
+    }
+    sg.putImageData(img, 0, 0);
+    const g = L.g;
+    g.save();
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.globalAlpha = 1;
+    g.globalCompositeOperation = 'source-over';
+    g.filter = 'none';
+    g.drawImage(sc, 0, 0, w, h, x0, y0, w, h);
+    g.restore();
+  }
+
+  // Lay a layer's texel buffer over pixels read back from it (img), within the written box
+  fxComposeTexels(L, data) {
+    if (!L.dirty) return;
+    const W = L.cw, s = L.pix;
+    for (let y = L.by0; y <= L.by1; y++) {
+      for (let o = (y * W + L.bx0) * 4, e = (y * W + L.bx1) * 4; o <= e; o += 4) {
+        const sa = s[o + 3];
+        if (!sa) continue;
+        if (sa === 255 || !data[o + 3]) { data[o] = s[o]; data[o + 1] = s[o + 1]; data[o + 2] = s[o + 2]; data[o + 3] = sa; continue; }
+        const a = sa / 255, da = data[o + 3] / 255, oa = a + da * (1 - a);
+        data[o] = (s[o] * a + data[o] * da * (1 - a)) / oa;
+        data[o + 1] = (s[o + 1] * a + data[o + 1] * da * (1 - a)) / oa;
+        data[o + 2] = (s[o + 2] * a + data[o + 2] * da * (1 - a)) / oa;
+        data[o + 3] = oa * 255;
+      }
+    }
   }
 
   endFxPixels(ctx, opts) {
@@ -8370,6 +8605,7 @@ class IsometricRenderer {
     if (this.lowEffects || this.potatoMode) {
       // low graphics: skip the read-back, ramp shading and glow; the layer is
       // still drawn on the texel grid, so it stays blocky
+      if (L.dirty) this.fxFlushTexels(L);
       ctx.save();
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.globalAlpha = 1;
@@ -8380,6 +8616,8 @@ class IsometricRenderer {
       return;
     }
     const img = g.getImageData(0, 0, cw, ch);
+    this.fxComposeTexels(L, img.data);
+    L.dirty = false;
     // light buffer: the bright pixels only, blurred into a soft additive glow
     const glow = (this.particleScale || 1) >= 0.9 ? this.fxGlowBuffer(cw, ch) : null;
     this.pixelateFx(img, glow && glow.img);
@@ -8580,6 +8818,7 @@ class IsometricRenderer {
   }
 
   pxSpawn(p) {
+    if (this._fxQuiet) return;
     const parts = this.pxParts || (this.pxParts = []);
     if (parts.length >= FX_PX_MAX * (this.particleScale || 1)) return;
     p.age = 0;
@@ -8809,7 +9048,9 @@ class IsometricRenderer {
         sq(s.x, s.y, 1 + Math.floor(t * 3), p.ramp[t < 0.4 ? 3 : 2]);
       }
     }
+    const T = batch.size ? this.fxTexelTarget(g) : null;
     for (const [col, a] of batch) {
+      if (T && this.fxTexels(T, col, a)) continue;
       g.fillStyle = col;
       g.beginPath();
       for (let i = 0; i < a.length; i += 3) g.rect(a[i], a[i + 1], a[i + 2], a[i + 2]);
@@ -8840,7 +9081,11 @@ class IsometricRenderer {
     const hash = (n) => { const s = Math.sin(n * 127.1 + seed0 * 0.013) * 43758.5453; return s - Math.floor(s); };
     const snap = (v) => Math.round(v / tex) * tex;
     const R = (k) => ramp[Math.max(0, Math.min(top, Math.round(k)))];
-    const px = (x, y, col, s = 1) => { ctx.fillStyle = col; ctx.fillRect(snap(x) - (s * tex) / 2, snap(y) - (s * tex) / 2, s * tex, s * tex); };
+    const px = (x, y, col, s = 1) => {
+      const T = this.fxTexelTarget(ctx);
+      if (T && this.fxTexels(T, col, [snap(x) - (s * tex) / 2, snap(y) - (s * tex) / 2, s * tex])) return;
+      ctx.fillStyle = col; ctx.fillRect(snap(x) - (s * tex) / 2, snap(y) - (s * tex) / 2, s * tex, s * tex);
+    };
     // texels queued per colour and filled as one path each (thousands of
     // fillRect calls a frame were the main cost); each motif flushes when done
     const batch = new Map();
@@ -8850,7 +9095,10 @@ class IsometricRenderer {
       a.push(x - (s * tex) / 2, y - (s * tex) / 2, s * tex);
     };
     const flush = () => {
+      // straight into the layer's texel buffer when it can take them, else as canvas rects
+      const T = batch.size ? this.fxTexelTarget(ctx) : null;
       for (const [col, a] of batch) {
+        if (T && this.fxTexels(T, col, a)) continue;
         ctx.fillStyle = col;
         ctx.beginPath();
         for (let i = 0; i < a.length; i += 3) ctx.rect(a[i], a[i + 1], a[i + 2], a[i + 2]);
@@ -10962,6 +11210,7 @@ class IsometricRenderer {
 
   // High-Performance Multi-Elemental Particle Spawner with Physical Dynamics
   addParticles(worldX, worldY, type = 'slash', count = 16, customOpts = {}) {
+    if (this._fxQuiet) return;
     if (this.potatoMode && (type === 'dust' || type === 'wind')) return;
     const maxP = this.maxParticles || 150;
     if (this.animations.particles.length >= maxP) return;
@@ -11264,6 +11513,8 @@ class IsometricRenderer {
     this.perfMark('setup');
     this.lastGameState = gameState;
     this.localPlayerId = localPlayerId;
+    this._me = (gameState && gameState.players && gameState.players.find(p => p.id === localPlayerId)) || null;
+    if (this._me) this.prewarmHeroSheets(this._me);
     this.animations.time += dt;
     this.updateCamera(dt);
     // While the zoom is still changing (wheel / pinch) the zoom-keyed caches
@@ -11385,7 +11636,9 @@ class IsometricRenderer {
     // Summoning circles lie on the floor, under everything standing on it
     if (this.mobSpawns.size) {
       // summon circles are ground effects: pixelated in their own layer, under the monsters
-      const g = this.potatoMode ? null : this.beginFxPixels(ctx);
+      const z = this.camera.zoom;
+      const area = this.fxAreaRect([...this.mobSpawns.values()].map(m => ({ x: m.x, y: m.y, r: m.boss ? 1.4 : 0.8, up: 40 * z })));
+      const g = this.potatoMode || area === null ? null : this.beginFxPixels(ctx, area);
       this.drawMobSpawnCircles(g || ctx);
       if (g) this.endFxPixels(ctx);
     }
@@ -11399,10 +11652,20 @@ class IsometricRenderer {
     if (window.TrailFx && !this.potatoMode) this.drawPlayerTrails(ctx, gameState.players, dt || 0.016, localPlayerId);
 
     const groundNovas = (this.animations.skillEffects || []).filter(fx => this.isGroundNova(fx) && fx.life > 0);
-    if (groundNovas.length) {
-      const g = this.beginFxPixels(ctx);
+    // (their own layer covers just them, not the whole view)
+    const novaArea = groundNovas.length ? this.fxAreaRect(groundNovas.flatMap(fx => {
+      const r = Math.min(8, Math.max(fx.radius || 0, fx.range || 0, fx.areaR || 0, fx.width || 0) + 1), up = 260 * this.camera.zoom;
+      const hero = fx.playerId && gameState.players ? gameState.players.find(p => p.id === fx.playerId) : null;
+      const spots = [{ x: fx.x, y: fx.y, r, up }, { x: fx.startX, y: fx.startY, r, up }];
+      if (hero) spots.push({ x: hero.x, y: hero.y, r, up });
+      for (const list of [fx.points, fx.bolts, fx.stars, fx.path]) if (Array.isArray(list)) for (const q of list) spots.push({ x: q.x, y: q.y, r: 1.5, up });
+      return spots;
+    })) : null;
+    if (groundNovas.length && novaArea !== null) {
+      const g = this.beginFxPixels(ctx, novaArea);
       if (g) {
         for (const fx of groundNovas) {
+          this._fxQuiet = !!fx.lite;
           const progress = 1.0 - (fx.life / fx.maxLife);
           const alpha = Math.max(0, fx.life / fx.maxLife);
           const base = g.getTransform();
@@ -11415,7 +11678,7 @@ class IsometricRenderer {
               this.drawBaseRogueSkill(g, fx, progress, alpha, toS, this.camera.zoom);
             } else {
               this.drawSpSkill(g, fx, progress, alpha);
-              this.drawFxPixelExtras(g, fx, progress, alpha);
+              if (!fx.lite) this.drawFxPixelExtras(g, fx, progress, alpha);
             }
           } catch (err) {
             this.reportDrawError('sp_skill:' + (fx.skillId || fx.shape || fx.type), err);
@@ -11423,6 +11686,7 @@ class IsometricRenderer {
             fx.life = 0;
           }
         }
+        this._fxQuiet = false;
         this.endFxPixels(ctx);
       }
     }
@@ -11495,6 +11759,7 @@ class IsometricRenderer {
     // 2. Ground Items
     if (gameState.groundItems) {
       for (const item of gameState.groundItems) {
+        if (this.isBeyondRenderDistance(item.x, item.y)) continue;
         renderList.push({
           type: 'ground_item',
           data: item,
@@ -11523,6 +11788,8 @@ class IsometricRenderer {
         const sx = (iso.x - this.camera.x) * zoom + w / 2;
         const sy = (iso.y - this.camera.y) * zoom + h / 2;
         if (sx < -220 * zoom || sx > w + 220 * zoom || sy < -120 * zoom || sy > h + 320 * zoom) continue;
+        // render distance: bosses and the selected target always show
+        if (!mob.isBoss && mob.id !== selectedTargetId && this.isBeyondRenderDistance(mob.x, mob.y)) continue;
         renderList.push({
           type: 'mob',
           data: mob,
@@ -11535,7 +11802,10 @@ class IsometricRenderer {
     if (gameState.players) {
       for (const p of gameState.players) {
         if (!p.minions) continue;
-        for (const m of p.minions) renderList.push({ type: 'minion', data: m, depth: Isometric.getDepth(m.x, m.y, 0, 50) });
+        for (const m of p.minions) {
+          if (p.id !== localPlayerId && this.isBeyondRenderDistance(m.x, m.y)) continue;
+          renderList.push({ type: 'minion', data: m, depth: Isometric.getDepth(m.x, m.y, 0, 50) });
+        }
       }
     }
 
@@ -11544,6 +11814,7 @@ class IsometricRenderer {
       for (const player of gameState.players) {
         // Dead heroes stay on the ground playing their death animation (2D sprites only)
         if (player.isDead && !this.usePixelHeroes()) continue;
+        if (player.id !== localPlayerId && player.id !== selectedTargetId && this.isBeyondRenderDistance(player.x, player.y)) continue;
         renderList.push({
           type: 'player',
           data: player,
@@ -11557,6 +11828,7 @@ class IsometricRenderer {
     if (this.currentTheme === 'town' && !this.potatoMode) {
       this.updateTownsfolk(dt || 0.016);
       for (const c of this.townsfolk.folk) {
+        if (this.isBeyondRenderDistance(c.x, c.y)) continue;
         renderList.push({ type: 'townsfolk', data: c, depth: Isometric.getDepth(c.x, c.y, 0, 55) });
       }
       if (townLife && !this.lowEffects) {
@@ -11564,6 +11836,7 @@ class IsometricRenderer {
         const walkers = this.townsfolk.folk.concat(gameState.players || []);
         townLife.update(dt || 0.016, this, walkers);
         for (const critter of townLife.critters()) {
+          if (this.isBeyondRenderDistance(critter.x, critter.y)) continue;
           renderList.push({ type: 'town_critter', data: critter, depth: Isometric.getDepth(critter.x, critter.y, 0, 54) });
         }
       }
@@ -11640,6 +11913,8 @@ class IsometricRenderer {
     if (townLife && !this.lowEffects) townLife.drawSky(ctx, this);
     // Low fog and floating dust / embers / spores in the dungeon air
     if (dungeonLife && !this.lowEffects) dungeonLife.drawAmbient(ctx, this);
+    // "Lights Out" rooms: darkness over everything but the heroes' light
+    if (isDungeon && window.DungeonFeatures) window.DungeonFeatures.drawOverlay(ctx, this, gameState, localPlayerId);
 
     // DRAW OVERLAYS & EFFECTS (Click Beacon, Particles, Floating Text)
     this.perfMark('effects');
@@ -11757,6 +12032,26 @@ class IsometricRenderer {
       }
     }
     ctx.restore();
+  }
+
+  // A few dungeon floor tiles changed in place (a lava trail, a collapsing floor): paint just
+  // them onto the cached ground instead of repainting the whole screen's worth. Returns false
+  // when the cache can't take it (another map, town / field ground): bump _tilesVersion then.
+  patchGroundTiles(map, changes) {
+    const g = this.groundCache;
+    if (!g || g.map !== map || g.version !== (map._tilesVersion || 0) || g.tex || this.fieldGroundOn(map, true)) return false;
+    const gctx = g.canvas.getContext('2d');
+    gctx.setTransform(g.bs, 0, 0, g.bs, 0, 0);
+    this._tileView = { camera: { x: g.camX, y: g.camY, zoom: g.zoom }, w: g.cssW, h: g.cssH };
+    this._dungeonMap = window.DungeonLife && window.DungeonLife.has(this.currentTheme) ? map : null;
+    const list = changes.slice().sort((a, b) => (a[0] + a[1]) - (b[0] + b[1]));
+    try {
+      for (const [x, y] of list) this.drawIsometricTile(gctx, x, y, map.tiles[y][x]);
+    } finally {
+      this._tileView = null;
+      this._dungeonMap = null;
+    }
+    return true;
   }
 
   // Paint the static ground into an offscreen canvas a margin larger than the
@@ -12940,8 +13235,12 @@ class IsometricRenderer {
     const PP = window.PixelProps;
     // town props carry their own variant (roof colour, awning); decorations pick one by position
     let variant = obs.variant !== undefined ? obs.variant : Math.floor(PP.hash2(Math.round(obs.x * 10), Math.round(obs.y * 10)) * 3);
-    // houses: roof colour from the map, one of four builds picked by where it stands
-    if (obs.type === 'house') variant = (variant % 3) + 3 * Math.floor(PP.hash2(Math.round(obs.x * 7), Math.round(obs.y * 13)) * 4);
+    // houses: roof colour from the map and a build picked by where it stands, as the 3D models
+    // pick it (the sprites are baked from them); the old four 2D builds without them
+    if (obs.type === 'house') {
+      variant = window.TownPropModels ? window.TownPropModels.variant(obs)
+        : (variant % 3) + 3 * Math.floor(PP.hash2(Math.round(obs.x * 7), Math.round(obs.y * 13)) * 4);
+    }
     // market stalls south of the boulevard are turned round to open onto it (variants 4+), as in townProps3D
     if (obs.type === 'market_stall' && obs.y > 20.5) variant = (variant % 4) + 4;
     const spr = PP.sprite(obs.type, variant);
@@ -13019,6 +13318,8 @@ class IsometricRenderer {
       this.drawDungeonDoor(ctx, obs, z);
       return;
     }
+    // ward, shrine, spring and secret cracks (dungeonFeatures.js)
+    if (window.DungeonFeatures && obs.type && obs.type.startsWith('dungeon_') && window.DungeonFeatures.drawObstacle(this, ctx, obs, screen, z)) return;
 
     if (obs.type === 'town_wall') {
       this.drawTownWall(ctx, obs, screen, z);
@@ -13989,12 +14290,19 @@ class IsometricRenderer {
         ctx.closePath();
         ctx.fill();
       } else {
-        ctx.font = '14px "DotGothic16", monospace';
-        ctx.textAlign = 'center';
-        ctx.fillStyle = '#000';
-        ctx.fillText('🗝️ Click to Open', x + 1, y - (img.anchorY - img.top + 6) * z + 1);
-        ctx.fillStyle = '#fff';
-        ctx.fillText('🗝️ Click to Open', x, y - (img.anchorY - img.top + 6) * z);
+        // a cached label sprite (two fillTexts per chest per frame before)
+        const ty = y - (img.anchorY - img.top + 6) * z;
+        const spr = this.labelSprite('Click to Open', '#fff', ctx);
+        if (spr) {
+          ctx.drawImage(spr, Math.round(x - spr.cssW / 2), Math.round(ty - spr.base), spr.cssW, spr.cssH);
+        } else {
+          ctx.font = '14px "DotGothic16", monospace';
+          ctx.textAlign = 'center';
+          ctx.fillStyle = '#000';
+          ctx.fillText('Click to Open', x + 1, ty + 1);
+          ctx.fillStyle = '#fff';
+          ctx.fillText('Click to Open', x, ty);
+        }
       }
       ctx.restore();
       return;
@@ -15137,7 +15445,7 @@ class IsometricRenderer {
         const beat = Math.sin(t * 2.2) * 0.12;
         for (const side of [-1, 1]) {
           ctx.beginPath();
-          const sx = x + side * 4 * z, sy = y - 30 * z;
+          const sx = x + side * 4 * z, sy = y - 22 * z;   // between the chibi shoulder blades
           ctx.moveTo(sx, sy);
           ctx.quadraticCurveTo(sx + side * 22 * z, sy - (26 + 30 * beat) * z, sx + side * 40 * z, sy - (20 + 26 * beat) * z);
           ctx.quadraticCurveTo(sx + side * 30 * z, sy - 4 * z, sx + side * 34 * z, sy + 8 * z);
@@ -15228,7 +15536,7 @@ class IsometricRenderer {
       ctx.beginPath(); ctx.arc(tx, ty, r, 0, Math.PI * 2); ctx.fill();
       if (L >= 14) {
         // arcs crackling from the grip up to the tip
-        const gx = x + (flip ? -1 : 1) * 4 * z, gy = y - 20 * z;
+        const gx = x + (flip ? -1 : 1) * 4 * z, gy = y - 15 * z;   // the grip, at the chibi hero's hands
         for (let n = 0; n < 2; n++) {
           if (Math.random() < 0.35) continue;
           ctx.beginPath();
@@ -15485,6 +15793,8 @@ class IsometricRenderer {
     const isAttacking = !!attack && now - attack.time < attack.duration;
     const dash = this.dashes.get(player.id);
     const isDashing = !!dash && now - dash.time < dash.duration;
+    // 0..1 through a blink (teleport), -1 otherwise
+    const blinkQ = isDashing && dash.blink ? (now - dash.time) / dash.duration : -1;
     const cast = this.casts.get(player.id);
     const isCasting = !!cast && now - cast.time < cast.duration;
     const hurtAge = player._hurtAt ? now - player._hurtAt : Infinity;
@@ -15500,7 +15810,7 @@ class IsometricRenderer {
     let action, idx;
     let swing = null; // warrior swing state: { q, lunge, impact }
     if (player.isDead) { action = 'death'; idx = progIdx('death', player._deathAt, PIXEL_HERO_DEATH_MS); }
-    else if (isDashing) { action = 'dash'; idx = progIdx('dash', dash.time, dash.duration); }
+    else if (isDashing && !dash.blink) { action = 'dash'; idx = progIdx('dash', dash.time, dash.duration); }
     else if (spinning) {
       action = 'attack'; idx = Math.floor(PH.meta(cls, 'attack').frames / 2);
       spinFacing = SPIN_FACINGS[((Math.round((t * 14) / (Math.PI / 4)) % 8) + 8) % 8];
@@ -15546,7 +15856,7 @@ class IsometricRenderer {
 
     // Dash afterimages: remember recent poses in world space, draw them fading out
     player._pixelGhosts = player._pixelGhosts || [];
-    if (isDashing && (!player._pixelGhostAt || now - player._pixelGhostAt > 45)) {
+    if (isDashing && !dash.blink && (!player._pixelGhostAt || now - player._pixelGhostAt > 45)) {
       player._pixelGhostAt = now;
       player._pixelGhosts.unshift({ wx: player.x, wy: player.y, frame, flip, time: now });
       if (player._pixelGhosts.length > 5) player._pixelGhosts.pop();
@@ -15596,7 +15906,26 @@ class IsometricRenderer {
     const impactAge = player._swingImpact ? now - player._swingImpact.at : Infinity;
     const impactLife = player._swingImpact && player._swingImpact.finisher ? SWING_FINISHER_IMPACT_MS : SWING_IMPACT_MS;
     const flash = hurtFlash > 0 ? 0 : Math.max(0, 1 - impactAge / 110);
-    if (flash > 0) {
+    // pinned at the feet: k 0 = normal, 1 = pulled into a thin bright sliver
+    const sliver = (sx, sy, k, alpha, tint, amt) => {
+      ctx.save();
+      ctx.translate(sx, sy);
+      ctx.scale(1 - 0.8 * k, 1 + 0.45 * k);
+      ctx.translate(-sx, -sy);
+      this.drawPixelHeroFrame(ctx, frame, sx, sy, s, flip, alpha, tint, amt);
+      ctx.restore();
+    };
+    if (blinkQ >= 0) {
+      // Blink: fold into a sliver of light where the jump began, then unfold out of it where it lands
+      if (blinkQ < 0.45) {
+        const k = blinkQ / 0.45;
+        const o = dash.startX !== undefined ? Isometric.worldToScreen(dash.startX, dash.startY, 0, this.camera, this.viewW, this.viewH) : { x, y };
+        sliver(Math.round(o.x), Math.round(o.y), k, 1 - k * k, '#d8b4fe', 0.3 + 0.7 * k);
+      } else {
+        const k = 1 - (blinkQ - 0.45) / 0.55;
+        sliver(x, y, k, 1 - k * 0.5, '#f5e8ff', k);
+      }
+    } else if (flash > 0) {
       // squash against the blow: wider and lower for a moment, pinned at the feet
       const sq = 0.07 * flash * (player._swingImpact.finisher ? 1.6 : 1);
       ctx.save();
@@ -16772,6 +17101,20 @@ class IsometricRenderer {
         ctx.fillStyle = '#fde047';
         ctx.fillRect(ax - 2 * z, ay - 2 * z, 4 * z, 4 * z);
       }
+      ctx.restore();
+    }
+
+    if (mob.shield > 0) {
+      // a Warden's (or Shielded Elites') barrier: a pale blue bubble
+      ctx.save();
+      const pulse = 0.35 + 0.15 * Math.sin(this.animations.time * 5 + (mob.x || 0));
+      ctx.beginPath();
+      ctx.ellipse(screen.x, screen.y - 14 * z, 16 * z, 20 * z, 0, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(96, 165, 250, ${pulse * 0.35})`;
+      ctx.fill();
+      ctx.strokeStyle = `rgba(147, 197, 253, ${pulse + 0.2})`;
+      ctx.lineWidth = Math.max(1, 1.2 * z);
+      ctx.stroke();
       ctx.restore();
     }
 
@@ -20119,14 +20462,49 @@ class IsometricRenderer {
   // A name label (black drop shadow + colour) painted once at the canvas'
   // current resolution. null until the pixel font has loaded, so the cache
   // never keeps fallback-font labels.
+  // A monster's affix badges as one sprite: dark tile, colour bar and icon per badge
+  affixBadgeStrip(icons, spacing) {
+    if (!window.PixelIcons) return null;
+    const key = icons.map(i => i.icon + i.color).join('|');
+    const cache = this._badgeStrips || (this._badgeStrips = new Map());
+    let c = cache.get(key);
+    if (c) return c.ready ? c.canvas : null;
+    const imgs = icons.map(i => PixelIcons.image(i.icon));
+    if (imgs.some(im => !im.complete || !im.naturalWidth)) return null;   // icons still loading: next frame
+    const canvas = document.createElement('canvas');
+    canvas.width = (icons.length - 1) * spacing + 16; canvas.height = 16;
+    const g = canvas.getContext('2d');
+    g.imageSmoothingEnabled = false;
+    icons.forEach((ic, idx) => {
+      const x = idx * spacing;
+      g.fillStyle = '#1a1c2c'; g.fillRect(x, 0, 16, 16);
+      g.fillStyle = ic.color; g.fillRect(x, 14, 16, 2);
+      g.drawImage(imgs[idx], x + 2, 1, 12, 12);
+    });
+    cache.set(key, { canvas, ready: true });
+    return canvas;
+  }
+
   labelSprite(text, color, ctx) {
-    // (fonts.check is slow: ask until the font is in, then remember it)
-    if (!this._labelFontReady) {
+    // (fonts.check is slow: ask until the font is in, then remember it). If the pixel font
+    // never reports in (offline, blocked), stop waiting after a few seconds and cache with the
+    // fallback font: drawing every name with fillText each frame costs far more. Once the font
+    // does arrive, the cache is rebuilt with it.
+    if (!this._labelFontReady || this._labelFontFallback) {
       const now = performance.now();
-      if (now - (this._labelFontAsked || 0) < 500) return null;
-      this._labelFontAsked = now;
-      if (!document.fonts || !document.fonts.check('15px "DotGothic16"')) return null;
-      this._labelFontReady = true;
+      if (!this._labelFontFirst) this._labelFontFirst = now;
+      if (now - (this._labelFontAsked || 0) >= 500) {
+        this._labelFontAsked = now;
+        if (document.fonts && document.fonts.check('15px "DotGothic16"')) {
+          if (this._labelFontFallback && this._labelCache) this._labelCache.clear();
+          this._labelFontReady = true;
+          this._labelFontFallback = false;
+        } else if (!this._labelFontReady && now - this._labelFontFirst > 3000) {
+          this._labelFontReady = true;
+          this._labelFontFallback = true;
+        }
+      }
+      if (!this._labelFontReady) return null;
     }
     const m = Math.max(0.25, Math.round((ctx.getTransform().a || 1) * 20) / 20);
     const cache = this._labelCache || (this._labelCache = new Map());
@@ -20266,22 +20644,22 @@ class IsometricRenderer {
         if (buffs.includes('frostbite')) icons.push({ icon: 'snow', color: '#41a6f6' });
         if (buffs.includes('venomous')) icons.push({ icon: 'poison', color: '#38b764' });
         if (buffs.includes('ignited')) icons.push({ icon: 'fire', color: '#ef7d57' });
+        if (buffs.includes('splitter')) icons.push({ icon: 'burst', color: '#a7f070' });
+        if (buffs.includes('blinker')) icons.push({ icon: 'whirl', color: '#9a5bd6' });
+        if (buffs.includes('warden')) icons.push({ icon: 'shield', color: '#41a6f6' });
+        if (buffs.includes('reflector')) icons.push({ icon: 'gem', color: '#f4f4f4' });
+        if (buffs.includes('summoner')) icons.push({ icon: 'skull', color: '#ef7d57' });
       }
 
       const iconSpacing = 16;
       const startX = screenX - ((icons.length - 1) * iconSpacing) / 2;
       const badgeY = screenY - 12;
 
+      // the row of badges is one cached sprite per combination (it was 3 canvas calls per
+      // badge per monster per frame)
       ctx.imageSmoothingEnabled = false;
-      icons.forEach((ic, idx) => {
-        const ix = Math.round(startX + idx * iconSpacing);
-        const iy = Math.round(badgeY);
-        ctx.fillStyle = '#1a1c2c';
-        ctx.fillRect(ix - 8, iy - 8, 16, 16);
-        ctx.fillStyle = ic.color;
-        ctx.fillRect(ix - 8, iy + 6, 16, 2);
-        if (window.PixelIcons) ctx.drawImage(PixelIcons.image(ic.icon), ix - 6, iy - 7, 12, 12);
-      });
+      const strip = this.affixBadgeStrip(icons, iconSpacing);
+      if (strip) ctx.drawImage(strip, Math.round(startX) - 8, Math.round(badgeY) - 8);
     }
 
     ctx.restore();
@@ -20327,6 +20705,25 @@ class IsometricRenderer {
   // Screen rect (px) that this frame's combat effects can reach, from every
   // live effect, projectile, impact and particle with generous margins (tall
   // pillars, falling meteors). null = nothing to draw; true = most of the view.
+  // Screen box around a few world spots ({ x, y, r: tiles, up: px drawn above the ground }), for a
+  // pixel layer that only needs to cover them: null when none is on screen, undefined (the whole
+  // view) when they cover most of it
+  fxAreaRect(spots) {
+    const W = this.viewW, H = this.viewH, z = this.camera.zoom, U = 32 * Math.SQRT2 * z;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const p of spots) {
+      if (p.x === undefined || p.y === undefined || isNaN(p.x) || isNaN(p.y)) continue;
+      const c = Isometric.worldToScreen(p.x, p.y, 0, this.camera, W, H);
+      const rx = (p.r || 0) * U + 70 * z, ry = (p.r || 0) * U * 0.5 + 40 * z;
+      x0 = Math.min(x0, c.x - rx); x1 = Math.max(x1, c.x + rx);
+      y0 = Math.min(y0, c.y - ry - (p.up || 0)); y1 = Math.max(y1, c.y + ry);
+    }
+    x0 = Math.max(0, x0); y0 = Math.max(0, y0); x1 = Math.min(W, x1); y1 = Math.min(H, y1);
+    if (!(x1 > x0 && y1 > y0)) return null;
+    if ((x1 - x0) * (y1 - y0) > W * H * 0.7) return undefined;
+    return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+  }
+
   fxLayerBounds() {
     const W = this.viewW, H = this.viewH, z = this.camera.zoom;
     const U = 32 * Math.SQRT2 * z;
@@ -20398,6 +20795,7 @@ class IsometricRenderer {
   }
 
   drawEffects(ctx, dt) {
+    this._fxQuiet = false;   // (cleared even if a broken effect left it set last frame)
     // Every combat effect (projectiles, impacts, skills, particles) draws into
     // one full-view pixel-art layer, composited before the floating texts.
     // Potato mode skips the layer (SP effects still open their own).
@@ -20460,6 +20858,8 @@ class IsometricRenderer {
 
         const progress = 1.0 - (fx.life / fx.maxLife);
         const alpha = Math.max(0, fx.life / fx.maxLife);
+        // another hero's skill under Settings > Other Players' Effects: drawn without its particles
+        this._fxQuiet = !!fx.lite;
 
         // Continuous Multi-Wave Particle Emitter for Active Skills
         fx.emitTimer = (fx.emitTimer || 0) + dt;
@@ -20477,7 +20877,7 @@ class IsometricRenderer {
           const base = g.getTransform();
           try {
             this.drawSpSkill(g, fx, progress, alpha);
-            this.drawFxPixelExtras(g, fx, progress, alpha);
+            if (!fx.lite) this.drawFxPixelExtras(g, fx, progress, alpha);
           } catch (err) {
             // drop the broken effect so it cannot fail again every frame
             this.reportDrawError('sp_skill:' + (fx.skillId || fx.shape), err);
@@ -20813,60 +21213,64 @@ class IsometricRenderer {
           }
           ctx.restore();
         } else if (fx.type === 'arcane_blink') {
-          // Mage Arcane Blink - Cosmic Portal Rifts & Spatial Distortion
-          const p1 = Isometric.worldToScreen(fx.startX || fx.x, fx.startY || fx.y, 0.4, this.camera, this.viewW, this.viewH);
-          const p2 = Isometric.worldToScreen(fx.x, fx.y, 0.4, this.camera, this.viewW, this.viewH);
+          // Mage Arcane Blink, in pixels like the SP effects: a rift closes where the hero vanished,
+          // a dotted streak of runes marks the jump, and a turning rune ring opens where they land
+          const M = this.spMotifs(ctx, fx._arcane || (fx._arcane = { element: 'dark' }), progress);
+          const { R, top, tex, px, ellipse, pillar } = M;
+          const sx = fx.startX !== undefined ? fx.startX : fx.x, sy = fx.startY !== undefined ? fx.startY : fx.y;
+          const toS = (wx, wy, h) => Isometric.worldToScreen(wx, wy, h, this.camera, this.viewW, this.viewH);
+          const easeOut = 1 - Math.pow(1 - Math.min(1, progress * 1.6), 3);
+          const spin = this.animations.time * 3;
+          // a 4-point twinkle of texels
+          const twinkle = (c, k) => {
+            for (let i = 1; i <= k; i++) {
+              const col = i === k ? R(top - 2) : R(top);
+              px(c.x + i * tex, c.y, col); px(c.x - i * tex, c.y, col);
+              if (i <= k / 2 + 0.5) { px(c.x, c.y + i * tex, col); px(c.x, c.y - i * tex, col); }
+            }
+            px(c.x, c.y, R(top), 2);
+          };
 
-          ctx.save();
-          ctx.globalCompositeOperation = 'lighter';
+          // origin: a slit of light and a ring collapsing in on it
+          const o = Math.max(0, 1 - progress / 0.55);
+          if (o > 0) {
+            const base = toS(sx, sy, 0);
+            pillar(base.x, base.y, 56 * z * o, Math.max(1, Math.round(3.5 * o)), o);
+            ellipse(sx, sy, 0.15 + 0.9 * o, R(top - 1), 2, 0.2);
+            ellipse(sx, sy, 0.1 + 0.55 * o, R(3), 1, 0.45);
+            if (progress < 0.25) twinkle(toS(sx, sy, 0.9), Math.round(5 * o));
+          }
 
-          // Outer Celestial Energy Rush Beam
-          ctx.beginPath();
-          ctx.moveTo(p1.x, p1.y);
-          ctx.lineTo(p2.x, p2.y);
-          ctx.strokeStyle = `rgba(168, 85, 247, ${alpha * 0.85})`;
-          ctx.lineWidth = 10 * z;
-          ctx.lineCap = 'round';
-          ctx.stroke();
+          // the jump: runes laid down from start to end, the tail fading first
+          const a = toS(sx, sy, 0.5), b = toS(fx.x, fx.y, 0.5);
+          const n = Math.max(4, Math.round(Math.hypot(b.x - a.x, b.y - a.y) / (tex * 6)));
+          for (let k = 1; k < n; k++) {
+            const t = k / n;
+            if (t > progress * 4) break;               // laid down quickly from the start point
+            if (t < progress * 1.6 - 0.6) continue;    // ...and eaten away from the tail
+            const bob = Math.round(Math.sin(t * 9 + spin * 2) * 2) * tex;
+            const x = a.x + (b.x - a.x) * t, y = a.y + (b.y - a.y) * t + bob;
+            if (k % 2 === 0) { px(x, y, R(top - 2), 3); px(x, y, R(top)); }
+            else px(x, y, R(top - 1), 2);
+          }
 
-          // Blinding Incandescent Core Laser
-          ctx.beginPath();
-          ctx.moveTo(p1.x, p1.y);
-          ctx.lineTo(p2.x, p2.y);
-          ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.98})`;
-          ctx.lineWidth = 3.5 * z;
-          ctx.stroke();
-
-          // Origin Collapsing Dimensional Rift
-          const r1 = 26 * z * (1.0 - progress);
-          ctx.beginPath();
-          ctx.ellipse(p1.x, p1.y, r1, r1 * 0.5, this.animations.time * 8, 0, Math.PI * 2);
-          ctx.strokeStyle = `rgba(192, 132, 252, ${alpha * 0.95})`;
-          ctx.lineWidth = 3 * z;
-          ctx.stroke();
-
-          // Destination Expanding Cosmic Nova Portal
-          const r2 = 34 * z * Math.min(1.0, progress * 1.5);
-          const destGrad = ctx.createRadialGradient(p2.x, p2.y, 2 * z, p2.x, p2.y, r2);
-          destGrad.addColorStop(0, `rgba(255, 255, 255, ${alpha * 0.98})`);
-          destGrad.addColorStop(0.35, `rgba(56, 189, 248, ${alpha * 0.85})`);
-          destGrad.addColorStop(0.75, `rgba(168, 85, 247, ${alpha * 0.5})`);
-          destGrad.addColorStop(1, 'rgba(15, 23, 42, 0)');
-          ctx.fillStyle = destGrad;
-          ctx.beginPath();
-          ctx.ellipse(p2.x, p2.y, r2, r2 * 0.5, 0, 0, Math.PI * 2);
-          ctx.fill();
-
-          // 4-Pointed Celestial Star Flare at Destination
-          const starLen = r2 * 1.4;
-          ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.95})`;
-          ctx.lineWidth = 2.2 * z;
-          ctx.beginPath();
-          ctx.moveTo(p2.x - starLen, p2.y); ctx.lineTo(p2.x + starLen, p2.y);
-          ctx.moveTo(p2.x, p2.y - starLen * 0.5); ctx.lineTo(p2.x, p2.y + starLen * 0.5);
-          ctx.stroke();
-
-          ctx.restore();
+          // landing: a rune ring opening and turning, a burst of light, a twinkle
+          const rr = 1.5 * easeOut;
+          ellipse(fx.x, fx.y, rr, R(top - 2), 3, 0.1 + 0.5 * progress);
+          ellipse(fx.x, fx.y, rr, R(top), 1, 0.25 + 0.5 * progress);
+          ellipse(fx.x, fx.y, rr * 0.62, R(4), 1, 0.4);
+          for (let k = 0; k < 8; k++) {
+            const ang = spin + k * Math.PI / 4;
+            const p = toS(fx.x + Math.cos(ang) * rr * 0.81, fx.y + Math.sin(ang) * rr * 0.81, 0);
+            px(p.x, p.y, R(top - 1), 2);
+            px(p.x, p.y, R(top));
+          }
+          const land = Math.max(0, 1 - Math.abs(progress - 0.3) / 0.3);
+          if (land > 0) {
+            const base = toS(fx.x, fx.y, 0);
+            pillar(base.x, base.y, 68 * z * land, Math.max(1, Math.round(4.5 * land)), land);
+            twinkle(toS(fx.x, fx.y, 1.1), Math.round(6 * land));
+          }
 
         } else if (fx.type === 'fan_of_knives') {
           // Rogue Fan of Knives - 12 Whirling Poison-Tipped Razor Daggers
@@ -22121,6 +22525,7 @@ class IsometricRenderer {
           ctx.restore();
         }
       }
+      this._fxQuiet = false;
       ctx = layerCtx;
       if (warriorG) this.endFxPixels(mainCtx, CHUNKY_FX_LAYER);
       // simulated SP particles join the same layer, which may still be closed
@@ -22201,6 +22606,7 @@ class IsometricRenderer {
 
       this.drawParticleItem(ctx, p, screen, z, alpha, prog);
     }
+    this._partTexels = undefined;   // looked up again next frame
     ctx.globalCompositeOperation = prevComposite;
     ctx.globalAlpha = prevAlpha;
 
@@ -22380,6 +22786,11 @@ class IsometricRenderer {
       ctx.globalCompositeOperation = blend;
     }
     ctx.globalAlpha = Math.min(1.0, alpha);
+    // the particle pass's texel buffer target (drawEffects), the blend and fade of this particle
+    let T = this._partTexels;
+    if (T === undefined) T = this._partTexels = this.fxTexelTarget(ctx, true);
+    if (T) { T.alpha = ctx.globalAlpha; T.add = blend === 'lighter'; if (blend !== 'lighter' && blend !== 'source-over') T = null; }
+    const quad = [0, 0, 0, 0];
 
     // Base pixel unit scaled with camera zoom (minimum 2px for crisp retro blocks)
     const px = Math.max(2, Math.round(z));
@@ -22387,6 +22798,10 @@ class IsometricRenderer {
     const oy = Math.round(screen.y);
     // Helper to draw a grid-snapped pixel rectangle at (gx, gy) of size (gw, gh) in pixel units
     const b = (gx, gy, gw, gh, col) => {
+      if (T) {
+        quad[0] = ox + gx * px; quad[1] = oy + gy * px; quad[2] = gw * px; quad[3] = gh * px;
+        if (this.fxTexels(T, col, quad, 4)) return;
+      }
       if (col) ctx.fillStyle = col;
       ctx.fillRect(ox + gx * px, oy + gy * px, gw * px, gh * px);
     };
@@ -22621,6 +23036,11 @@ class IsometricRenderer {
   // Radar Minimap
   renderMinimap(gameState, localPlayerId) {
     if (!this.minimapCtx || !gameState || !gameState.map) return;
+    // the minimap is a small HUD: ~15 updates a second look the same as 60+ and save a
+    // hundred-odd canvas calls a frame in a crowded zone (a new map draws at once)
+    const nowMs = performance.now();
+    if (this._miniMap === gameState.map && this._miniTilesV === (gameState.map._tilesVersion || 0) && nowMs - (this._miniAt || 0) < 66) return;
+    this._miniAt = nowMs; this._miniMap = gameState.map; this._miniTilesV = gameState.map._tilesVersion || 0;
     const mctx = this.minimapCtx;
     const map = gameState.map;
     const mw = this.minimapCanvas.width;

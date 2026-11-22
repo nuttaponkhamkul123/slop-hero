@@ -3017,7 +3017,11 @@
         "normal",
         false,
         "classic",
-        []
+        [],
+        {
+          "depth": 0,
+          "weekly": null
+        }
       ],
       [
         "socket",
@@ -3103,7 +3107,11 @@
               "kills": 0,
               "exp": 0,
               "revivalsUsed": 0,
-              "maxRevivals": 10
+              "maxRevivals": 10,
+              "boons": {},
+              "curses": [],
+              "boonQueue": 0,
+              "boonOffer": null
             },
             "_room": "dungeon:inst1"
           },
@@ -3132,7 +3140,11 @@
                 "kills": 0,
                 "exp": 0,
                 "revivalsUsed": 0,
-                "maxRevivals": 10
+                "maxRevivals": 10,
+                "boons": {},
+                "curses": [],
+                "boonQueue": 0,
+                "boonOffer": null
               },
               "_room": "dungeon:inst1"
             }
@@ -3195,7 +3207,11 @@
           "kills": 0,
           "exp": 0,
           "revivalsUsed": 0,
-          "maxRevivals": 10
+          "maxRevivals": 10,
+          "boons": {},
+          "curses": [],
+          "boonQueue": 0,
+          "boonOffer": null
         },
         "_room": "dungeon:inst1"
       }
@@ -3301,7 +3317,11 @@
         "normal",
         false,
         "classic",
-        []
+        [],
+        {
+          "depth": 0,
+          "weekly": null
+        }
       ],
       [
         "socket",
@@ -3387,7 +3407,11 @@
               "kills": 0,
               "exp": 0,
               "revivalsUsed": 0,
-              "maxRevivals": 10
+              "maxRevivals": 10,
+              "boons": {},
+              "curses": [],
+              "boonQueue": 0,
+              "boonOffer": null
             },
             "_room": "dungeon:inst1"
           },
@@ -3416,7 +3440,11 @@
                 "kills": 0,
                 "exp": 0,
                 "revivalsUsed": 0,
-                "maxRevivals": 10
+                "maxRevivals": 10,
+                "boons": {},
+                "curses": [],
+                "boonQueue": 0,
+                "boonOffer": null
               },
               "_room": "dungeon:inst1"
             }
@@ -3479,7 +3507,11 @@
           "kills": 0,
           "exp": 0,
           "revivalsUsed": 0,
-          "maxRevivals": 10
+          "maxRevivals": 10,
+          "boons": {},
+          "curses": [],
+          "boonQueue": 0,
+          "boonOffer": null
         },
         "_room": "dungeon:inst1"
       }
@@ -3495,7 +3527,11 @@
         "normal",
         false,
         "classic",
-        []
+        [],
+        {
+          "depth": 0,
+          "weekly": null
+        }
       ],
       [
         "socket",
@@ -3581,7 +3617,11 @@
               "kills": 0,
               "exp": 0,
               "revivalsUsed": 0,
-              "maxRevivals": 10
+              "maxRevivals": 10,
+              "boons": {},
+              "curses": [],
+              "boonQueue": 0,
+              "boonOffer": null
             },
             "_room": "dungeon:inst1"
           },
@@ -3610,7 +3650,11 @@
                 "kills": 0,
                 "exp": 0,
                 "revivalsUsed": 0,
-                "maxRevivals": 10
+                "maxRevivals": 10,
+                "boons": {},
+                "curses": [],
+                "boonQueue": 0,
+                "boonOffer": null
               },
               "_room": "dungeon:inst1"
             }
@@ -3673,7 +3717,11 @@
           "kills": 0,
           "exp": 0,
           "revivalsUsed": 0,
-          "maxRevivals": 10
+          "maxRevivals": 10,
+          "boons": {},
+          "curses": [],
+          "boonQueue": 0,
+          "boonOffer": null
         },
         "_room": "dungeon:inst1"
       }
@@ -3689,7 +3737,11 @@
         "normal",
         false,
         "classic",
-        []
+        [],
+        {
+          "depth": 0,
+          "weekly": null
+        }
       ],
       [
         "socket",
@@ -3775,7 +3827,11 @@
               "kills": 0,
               "exp": 0,
               "revivalsUsed": 0,
-              "maxRevivals": 10
+              "maxRevivals": 10,
+              "boons": {},
+              "curses": [],
+              "boonQueue": 0,
+              "boonOffer": null
             },
             "_room": "dungeon:inst1"
           },
@@ -3804,7 +3860,11 @@
                 "kills": 0,
                 "exp": 0,
                 "revivalsUsed": 0,
-                "maxRevivals": 10
+                "maxRevivals": 10,
+                "boons": {},
+                "curses": [],
+                "boonQueue": 0,
+                "boonOffer": null
               },
               "_room": "dungeon:inst1"
             }
@@ -3872,7 +3932,11 @@
           "kills": 0,
           "exp": 0,
           "revivalsUsed": 0,
-          "maxRevivals": 10
+          "maxRevivals": 10,
+          "boons": {},
+          "curses": [],
+          "boonQueue": 0,
+          "boonOffer": null
         },
         "_room": "dungeon:inst1"
       }
@@ -3890,7 +3954,11 @@
         "rush",
         [
           "volatile"
-        ]
+        ],
+        {
+          "depth": 0,
+          "weekly": null
+        }
       ],
       [
         "socket",
@@ -3987,7 +4055,11 @@
               "kills": 0,
               "exp": 0,
               "revivalsUsed": 0,
-              "maxRevivals": 10
+              "maxRevivals": 10,
+              "boons": {},
+              "curses": [],
+              "boonQueue": 0,
+              "boonOffer": null
             },
             "_room": "dungeon:inst1"
           },
@@ -4016,7 +4088,11 @@
                 "kills": 0,
                 "exp": 0,
                 "revivalsUsed": 0,
-                "maxRevivals": 10
+                "maxRevivals": 10,
+                "boons": {},
+                "curses": [],
+                "boonQueue": 0,
+                "boonOffer": null
               },
               "_room": "dungeon:inst1"
             }
@@ -4079,7 +4155,11 @@
           "kills": 0,
           "exp": 0,
           "revivalsUsed": 0,
-          "maxRevivals": 10
+          "maxRevivals": 10,
+          "boons": {},
+          "curses": [],
+          "boonQueue": 0,
+          "boonOffer": null
         },
         "_room": "dungeon:inst1"
       }
@@ -4095,7 +4175,11 @@
         "normal",
         false,
         "classic",
-        []
+        [],
+        {
+          "depth": 0,
+          "weekly": null
+        }
       ],
       [
         "socket",
@@ -4181,7 +4265,11 @@
               "kills": 0,
               "exp": 0,
               "revivalsUsed": 0,
-              "maxRevivals": 10
+              "maxRevivals": 10,
+              "boons": {},
+              "curses": [],
+              "boonQueue": 0,
+              "boonOffer": null
             },
             "_room": "dungeon:inst1"
           },
@@ -4210,7 +4298,11 @@
                 "kills": 0,
                 "exp": 0,
                 "revivalsUsed": 0,
-                "maxRevivals": 10
+                "maxRevivals": 10,
+                "boons": {},
+                "curses": [],
+                "boonQueue": 0,
+                "boonOffer": null
               },
               "_room": "dungeon:inst1"
             }
@@ -4273,7 +4365,11 @@
           "kills": 0,
           "exp": 0,
           "revivalsUsed": 0,
-          "maxRevivals": 10
+          "maxRevivals": 10,
+          "boons": {},
+          "curses": [],
+          "boonQueue": 0,
+          "boonOffer": null
         },
         "_room": "dungeon:inst1"
       }
@@ -7269,10 +7365,10 @@
     },
     "floor": 1,
     "diff": "normal",
-    "dungeonHash": "566354dddd48f5c26de3b1c80a6e014a05227113",
-    "mobCount": 105,
+    "dungeonHash": "b9ac3a487c1d3ae232a7021c475f559d669eb7af",
+    "mobCount": 47,
     "groundItems": 0,
-    "mobsHash": "46112780e657505d0240056df239e41fca115bbb"
+    "mobsHash": "3b42e719ace86c8771b722cc70adc152c7eb5a89"
   },
   "regen 3 hard": {
     "log": [
@@ -7299,10 +7395,10 @@
     },
     "floor": 3,
     "diff": "hard",
-    "dungeonHash": "40b2585f1469fd39d3a1f37b83251e02a7b8234b",
-    "mobCount": 239,
+    "dungeonHash": "75a621aea80f6fccc2171bbd3e183cb308d3e4b5",
+    "mobCount": 102,
     "groundItems": 0,
-    "mobsHash": "358657cfec73eafc97be990a556577a27ba4e415"
+    "mobsHash": "b39fb5e5bc84bbf9d706582c8e109f2f64e8911a"
   },
   "regen 8 nightmare": {
     "log": [
@@ -7329,10 +7425,10 @@
     },
     "floor": 8,
     "diff": "nightmare",
-    "dungeonHash": "d7a1c4e609e10f1835525e998de2afe67cd01dbb",
-    "mobCount": 790,
+    "dungeonHash": "b7f5b950752eb0361c3cfea7b67ba938d5a96d00",
+    "mobCount": 197,
     "groundItems": 0,
-    "mobsHash": "5bb24189ac8b12ebb57f6a1d28f60a591212fe3b"
+    "mobsHash": "cd386e149611df2ab1b7f9b9a3f746526a38cda2"
   },
   "regen 99 mystery": {
     "log": [
@@ -7359,10 +7455,10 @@
     },
     "floor": 99,
     "diff": "mystery",
-    "dungeonHash": "e738ec42086c32c2168d7aae9f36d382c9aef84c",
-    "mobCount": 369,
+    "dungeonHash": "3f22923302fe26bd3195a036cb09899318f8ca3f",
+    "mobCount": 85,
     "groundItems": 0,
-    "mobsHash": "a083455daee23cb4f1ffcc11a0d7507a9ad6e7a9"
+    "mobsHash": "30d723c88a7eb703cb64eeede5351252dd1741c4"
   },
   "regen default": {
     "log": [

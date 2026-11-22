@@ -245,7 +245,15 @@
       ctx.fill();
 
       // --- 4. 2D Pixel-Art Character Sprite ---
-      if (img && img.complete && img.naturalWidth > 0 && cfg) {
+      // the same chibi hero the game draws (pixelHeroes.js), idling in three-quarter view;
+      // the old painted strips only if that is not loaded
+      const PH = window.PixelHeroes;
+      if (PH && PH.ready) {
+        const frame = PH.frame(cls, 'S', 'idle', PH.loopIndex(cls, 'idle', this.animTime));
+        const s = 3.4;
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(frame, Math.round(centerX - PH.AX * s), Math.round(centerY - 4 - PH.AY * s), PH.W * s, PH.H * s);
+      } else if (img && img.complete && img.naturalWidth > 0 && cfg) {
         // 4-frame idle animation loop (~5.2 fps)
         const frameIndex = Math.floor((this.animTime * 5.2) % cfg.frameCount);
         const sx = frameIndex * cfg.frameWidth;

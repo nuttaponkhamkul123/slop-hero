@@ -496,6 +496,7 @@ document.addEventListener('DOMContentLoaded', () => {
       card.classList.add('selected');
       selectedDungeonFloor = parseInt(card.getAttribute('data-floor'), 10) || 1;
       showFloorDetail(card);
+      if (window.DungeonFeatures) window.DungeonFeatures.renderPortal(localPlayer);
       window.soundEngine.playCoin();
     });
     card.addEventListener('mouseenter', () => showFloorDetail(card));
@@ -519,6 +520,7 @@ document.addEventListener('DOMContentLoaded', () => {
       diffCards.forEach(c => c.classList.remove('selected'));
       card.classList.add('selected');
       selectedDungeonDifficulty = card.getAttribute('data-diff') || 'normal';
+      if (window.DungeonFeatures) window.DungeonFeatures.renderPortal(localPlayer);
       window.soundEngine.playCoin();
     });
   });
@@ -549,6 +551,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       dungeonPortalModal.style.display = 'flex';
       renderDungeonMods();
+      if (window.DungeonFeatures) window.DungeonFeatures.renderPortal(localPlayer);
       const sel = selectedFloorCard();
       showFloorDetail(sel);
       if (sel) sel.scrollIntoView({ block: 'nearest', inline: 'center' });
@@ -601,6 +604,7 @@ document.addEventListener('DOMContentLoaded', () => {
       difficulty: selectedDungeonDifficulty,
       mode: selectedDungeonMode,
       mods: selectedDungeonMods,
+      ...(window.DungeonFeatures ? window.DungeonFeatures.portalChoice() : {}),
       inviteParty
     });
     closeDungeonPortalModal();
@@ -669,8 +673,28 @@ document.addEventListener('DOMContentLoaded', () => {
     authAlertBanner.style.display = 'none';
   }
 
+  // Signed in: the card drops the login / register tabs and greets the account instead
+  function setSignedInCard(on) {
+    const card = document.querySelector('.auth-character-modal');
+    const sub = document.querySelector('.login-card-header .modal-subtitle');
+    if (card) card.classList.toggle('is-select', on);
+    if (!sub) return;
+    if (!sub.dataset.text) sub.dataset.text = sub.innerHTML;
+    if (on && authenticatedAccount) {
+      sub.innerHTML = '';
+      const who = document.createElement('span');
+      who.className = 'cs-welcome';
+      who.textContent = authenticatedAccount.username || 'hero';
+      sub.append('Welcome back, ', who, ' · choose your hero');
+    } else {
+      sub.innerHTML = sub.dataset.text;
+    }
+  }
+
   function switchAuthTab(mode) {
     clearAuthAlert();
+    setSignedInCard(false);
+    if (typeof setCreateMode === 'function') setCreateMode(false);
     if (mode === 'login') {
       if (tabAuthLogin) tabAuthLogin.classList.add('active');
       if (tabAuthRegister) tabAuthRegister.classList.remove('active');
@@ -734,6 +758,13 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnRegBackToAccount) {
     btnRegBackToAccount.addEventListener('click', () => {
       clearAuthAlert();
+      // creating a hero on a signed-in account: back to the character grid
+      if (creatingCharacter) {
+        setCreateMode(false);
+        if (authenticatedAccount) displayCharacterCard(authenticatedAccount);
+        window.soundEngine.playSkillWhoosh();
+        return;
+      }
       if (regStepClass) regStepClass.style.display = 'none';
       if (regStepAccount) regStepAccount.style.display = 'block';
       if (classPreview) classPreview.stop();
@@ -768,6 +799,13 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnSubmitRegister) {
     btnSubmitRegister.addEventListener('click', () => {
       clearAuthAlert();
+      if (creatingCharacter) {
+        const name = ((document.getElementById('csFullName') || {}).value || '').trim();
+        if (name.length < 2) { showAuthAlert('ชื่อตัวละครต้องมีอย่างน้อย 2 ตัวอักษร'); return; }
+        window.soundEngine.playLevelUp();
+        socket.emit('create_character', { token: authenticatedAccount && authenticatedAccount.token, name, characterClass: selectedClass });
+        return;
+      }
       const u = regUsername ? regUsername.value.trim() : '';
       const p = regPassword ? regPassword.value : '';
       const h = regHeroName ? regHeroName.value.trim() : '';
@@ -792,17 +830,59 @@ document.addEventListener('DOMContentLoaded', () => {
   const csList = document.getElementById('csList');
   const csCreate = document.getElementById('csCreate');
 
+  // "New character" opens the full class screen (register's step 2) with a name field on top;
+  // Back returns to the character grid and the main button creates the hero
+  var creatingCharacter = false;   // var: switchAuthTab may run before this line
+  const regClassStepLabel = document.getElementById('regClassStepLabel');
+  function setCreateMode(on) {
+    creatingCharacter = on;
+    const nameRow = document.getElementById('csFullNameRow');
+    if (nameRow) nameRow.style.display = on ? 'block' : 'none';
+    if (regClassStepLabel) {
+      if (!regClassStepLabel.dataset.text) regClassStepLabel.dataset.text = regClassStepLabel.innerHTML;
+      regClassStepLabel.innerHTML = on ? 'NEW CHARACTER &mdash; เลือกชื่อและอาชีพ' : regClassStepLabel.dataset.text;
+    }
+    if (btnRegBackToAccount) {
+      if (!btnRegBackToAccount.dataset.text) btnRegBackToAccount.dataset.text = btnRegBackToAccount.textContent;
+      btnRegBackToAccount.textContent = on ? 'ย้อนกลับ' : btnRegBackToAccount.dataset.text;
+    }
+    if (btnSubmitRegister) {
+      if (!btnSubmitRegister.dataset.text) btnSubmitRegister.dataset.text = btnSubmitRegister.textContent;
+      btnSubmitRegister.textContent = on ? 'สร้างตัวละคร' : btnSubmitRegister.dataset.text;
+    }
+  }
+  function openCreateCharacter() {
+    clearAuthAlert();
+    setCreateMode(true);
+    if (csCreate) csCreate.style.display = 'none';
+    if (viewCharSelect) viewCharSelect.style.display = 'none';
+    if (viewAuthLogin) viewAuthLogin.style.display = 'none';
+    if (viewAuthRegister) viewAuthRegister.style.display = 'block';
+    if (regStepAccount) regStepAccount.style.display = 'none';
+    if (regStepClass) regStepClass.style.display = 'block';
+    const nameInput = document.getElementById('csFullName');
+    if (nameInput) { nameInput.value = ''; nameInput.focus(); }
+    if (classPreview) {
+      classPreview.setClass(selectedClass);
+      classPreview.resize();
+      classPreview.start();
+    }
+    window.soundEngine.playSkillWhoosh();
+  }
+
   function displayCharacterCard(account, token) {
     authenticatedAccount = Object.assign({}, authenticatedAccount || {}, account, token ? { token } : {});
     const chars = authenticatedAccount.characters || [];
     if (selectedSlot >= chars.length) selectedSlot = Math.max(0, chars.length - 1);
     renderCharList();
-    if (csCreate) csCreate.style.display = chars.length ? 'none' : 'flex';
+    setCreateMode(false);
+    if (csCreate) csCreate.style.display = 'none';   // the old inline form; "New character" opens the full class screen
 
     if (viewAuthLogin) viewAuthLogin.style.display = 'none';
     if (viewAuthRegister) viewAuthRegister.style.display = 'none';
     if (viewCharSelect) viewCharSelect.style.display = 'block';
     if (classPreview) classPreview.stop();
+    setSignedInCard(true);
   }
 
   function renderCharList() {
@@ -815,13 +895,16 @@ document.addEventListener('DOMContentLoaded', () => {
     chars.forEach(c => {
       const row = document.createElement('div');
       row.className = `cs-row ${c.slot === selectedSlot ? 'selected' : ''}`;
-      const portrait = window.PixelHeroes ? PixelHeroes.portrait(c.characterClass, 40) : '';
-      row.innerHTML = `<img src="${portrait}" alt="">
+      const portrait = window.PixelHeroes ? PixelHeroes.portrait(c.characterClass, 56) : '';
+      const CLS_COLOR = { warrior: '#ef7d57', mage: '#9a5bd6', rogue: '#38b764' };
+      row.style.setProperty('--cls', CLS_COLOR[c.characterClass] || '#94b0c2');
+      row.innerHTML = `<img class="cs-portrait" src="${portrait}" alt="">
         <div class="cs-row-info">
-          <div class="cs-row-name"></div>
-          <div class="cs-row-meta">${(c.characterClass || '').toUpperCase()} - <b>Lv. ${c.level}</b> - Job ${c.jobLevel} - ${(c.gold || 0).toLocaleString()} Gold</div>
-        </div>`;
-      row.querySelector('.cs-row-name').textContent = c.name;
+          <div class="cs-row-name"><span class="cs-name-text"></span><span class="cs-class-tag">${escapeHtml((c.characterClass || '').toUpperCase())}</span></div>
+          <div class="cs-row-meta">Job ${c.jobLevel} &middot; ${(c.gold || 0).toLocaleString()} Gold</div>
+        </div>
+        <div class="cs-row-lv"><small>LEVEL</small>${c.level}</div>`;
+      row.querySelector('.cs-name-text').textContent = c.name;
       row.addEventListener('click', () => { selectedSlot = c.slot; renderCharList(); });
       row.addEventListener('dblclick', enterWorld);
       csList.appendChild(row);
@@ -829,12 +912,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (chars.length < max) {
       const add = document.createElement('div');
       add.className = 'cs-row cs-new';
-      add.textContent = '+ CREATE NEW CHARACTER';
-      add.addEventListener('click', () => {
-        if (csCreate) csCreate.style.display = 'flex';
-        const nameInput = document.getElementById('csNewName');
-        if (nameInput) nameInput.focus();
-      });
+      add.innerHTML = '<span class="cs-new-plus">+</span><span>NEW CHARACTER</span>';
+      add.addEventListener('click', openCreateCharacter);
       csList.appendChild(add);
     }
     const enterBtn = document.getElementById('btnEnterWorld');
@@ -1304,6 +1383,7 @@ document.addEventListener('DOMContentLoaded', () => {
     localPlayerId = data.playerId;
     spCatalog = data.spCatalog || null;
     window.SP_CATALOG = spCatalog;
+    if (data.wingSkins) window.WING_SKINS = data.wingSkins;
     enhanceRules = data.enhanceRules || null;
     gameState.map = data.map;
     gameState.players = data.players;
@@ -1335,6 +1415,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.SocketMax = data.socketMax || { weapon: 4, armor: 2 };
     if (window.Crafting) window.Crafting.setCatalog(data.crafting);
     if (data.dungeonMods) dungeonModCatalog = data.dungeonMods;
+    if (data.dungeonFeatures && window.DungeonFeatures) window.DungeonFeatures.setCatalog(data.dungeonFeatures);
     window.ArmorSetPieceNames = data.itemNames || {};
     window.getLocalPlayer = () => localPlayer;
     window.RiftUI.setCatalog(data.riftCatalog);
@@ -1648,6 +1729,7 @@ document.addEventListener('DOMContentLoaded', () => {
         existing.spTransformed = p.spTransformed;
         existing.spCardId = p.spCardId;
         existing.spLevel = p.spLevel;
+        existing.wingStyle = p.wingStyle || 'auto';   // SP wing wardrobe
         existing.ultCharge = p.ultCharge || 0;
         existing.spToggles = p.spToggles || [];
         existing.buffs = p.buffs || [];
@@ -1660,7 +1742,7 @@ document.addEventListener('DOMContentLoaded', () => {
         p.targetY = p.y;
         // a tick without the heavy fields: keep what we already know about ourselves
         if (p.id === localPlayerId && localPlayer) {
-          for (const k of ['inventory', 'equipment', 'baseStats', 'skills', 'equippedSkills', 'elementResist']) {
+          for (const k of ['inventory', 'equipment', 'baseStats', 'skills', 'equippedSkills', 'elementResist', 'wingSkins', 'dungeonDepth']) {
             if (p[k] === undefined) p[k] = localPlayer[k];
           }
         }
@@ -1721,6 +1803,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const me = gameState.players.find(p => p.id === localPlayerId);
       if (me) {
+        // fields only our own player_updated carries (not the shared snapshot): keep them
+        if (localPlayer && localPlayer !== me) {
+          for (const k of ['wingSkins', 'dungeonDepth']) if (localPlayer[k] !== undefined) me[k] = localPlayer[k];
+        }
         localPlayer = me;
         updatePlayerHUD(me);
         renderer.setCameraTarget(me.x, me.y);
@@ -1920,7 +2006,7 @@ document.addEventListener('DOMContentLoaded', () => {
   socket.on('boss_telegraph', (t) => {
     if (!renderer) return;
     renderer.addBossTelegraph(t);
-    setTimeout(() => { if (window.soundEngine) window.soundEngine.playExplosion(); }, t.delay || 1000);
+    if (!t.quiet) setTimeout(() => { if (window.soundEngine) window.soundEngine.playExplosion(); }, t.delay || 1000);
   });
   socket.on('boss_telegraph_cancel', (d) => { if (renderer && d) renderer.cancelBossTelegraphs(d.bossId); });
 
@@ -2126,6 +2212,17 @@ document.addEventListener('DOMContentLoaded', () => {
   runBagPanel.style.display = 'none';
   document.body.appendChild(runBagPanel);
 
+  // SP wing wardrobe (wingWardrobe.js)
+  if (window.WingWardrobe) {
+    window.WingWardrobe.bind(socket, () => localPlayer);
+    const wwBtn = document.getElementById('btnWingWardrobe');
+    if (wwBtn) wwBtn.addEventListener('click', () => window.WingWardrobe.open());
+  }
+
+  if (window.DungeonFeatures) {
+    window.DungeonFeatures.bind(socket, { gameState: () => gameState, renderer: () => renderer, localPlayer: () => localPlayer });
+  }
+
   socket.on('dungeon_doors_opened', (data) => {
     const map = gameState.map;
     if (!map || !map.isDungeon || !data || !data.doors) return;
@@ -2225,6 +2322,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return m ? `<span title="${escapeHtml(m.name + ': ' + m.desc)}">${m.icon}</span>` : '';
       }).join('')}<b>+${Math.round((st.modReward || 0) * 100)}%</b></div>` : ''}
       <div class="run-clock ${st.cleared ? 'is-cleared' : ''}" id="runTimerValue">${fmtDuration(time)}</div>
+      ${window.DungeonFeatures ? window.DungeonFeatures.runPanelHtml(st) : ''}
       <div class="run-kill-progress-box">
         <div class="run-kill-header">
           <span class="run-kill-title">💀 MONSTER PURGE</span>
@@ -2312,6 +2410,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="dr-reward-row"><span>Clear bonus (rank ${data.rank})</span><b>+${(r.bonusGold || 0).toLocaleString()} G</b></div>
             <div class="dr-reward-row"><span>EXP earned in the run</span><b>${(r.runExp || 0).toLocaleString()}</b></div>
             <div class="dr-reward-row"><span>Clear bonus EXP</span><b>+${(r.bonusExp || 0).toLocaleString()}</b></div>
+            ${window.DungeonFeatures ? window.DungeonFeatures.resultHtml(data) : ''}
           </div>
           <div class="dr-loot-section">
             <div class="dr-loot-title">✨ SECURED CHEST REWARDS (${keptList.length})</div>
@@ -2550,6 +2649,17 @@ document.addEventListener('DOMContentLoaded', () => {
           } else {
             socket.emit('player_input', { type: 'click_move', x: bossPortal.x, y: bossPortal.y });
           }
+          return;
+        }
+      }
+
+      // 1.6. The cursed shrine: walk up to it, or open its bargain when close
+      if (localPlayer.zone === 'dungeon' && window.DungeonFeatures) {
+        const shrine = ((gameState.map && gameState.map.obstacles) || []).find(o =>
+          o.type === 'dungeon_shrine' && !window.DungeonFeatures.shrineUsed.has(o.id) && Math.hypot(o.x - worldPos.x, o.y - worldPos.y) < 1.4);
+        if (shrine) {
+          if (Math.hypot(shrine.x - localPlayer.x, shrine.y - localPlayer.y) <= 2.2) window.DungeonFeatures.openShrine(shrine);
+          else socket.emit('player_input', { type: 'click_move', x: shrine.x, y: shrine.y + 1 });
           return;
         }
       }
@@ -3968,6 +4078,46 @@ document.addEventListener('DOMContentLoaded', () => {
     btn.addEventListener('click', () => applyLightingMode(btn.dataset.lighting));
   });
 
+  // Other players' skill effects (All, Reduced, Own only)
+  const otherFxPresets = document.querySelectorAll('.gui-scale-preset[data-otherfx]');
+  const lblOtherFxVal = document.getElementById('lblOtherFxVal');
+  const OTHER_FX_LABELS = { all: 'All', reduced: 'Reduced', own: 'Own Only' };
+  let otherFxMode = 'all';
+  try {
+    const saved = localStorage.getItem('slop_other_fx');
+    if (OTHER_FX_LABELS[saved]) otherFxMode = saved;
+  } catch (_) {}
+
+  function applyOtherFxMode(mode) {
+    otherFxMode = mode;
+    if (renderer && renderer.setOtherFxMode) renderer.setOtherFxMode(mode);
+    otherFxPresets.forEach(b => b.classList.toggle('active', b.dataset.otherfx === mode));
+    if (lblOtherFxVal) lblOtherFxVal.textContent = OTHER_FX_LABELS[mode];
+    try { localStorage.setItem('slop_other_fx', mode); } catch (_) {}
+  }
+  applyOtherFxMode(otherFxMode);
+  otherFxPresets.forEach(btn => btn.addEventListener('click', () => applyOtherFxMode(btn.dataset.otherfx)));
+
+  // Render distance (Full, Far, Medium, Near), in tiles from your hero
+  const renderDistPresets = document.querySelectorAll('.gui-scale-preset[data-renderdist]');
+  const lblRenderDistVal = document.getElementById('lblRenderDistVal');
+  const RENDER_DISTANCES = { full: { tiles: Infinity, label: 'Full' }, far: { tiles: 14, label: 'Far' }, medium: { tiles: 10, label: 'Medium' }, near: { tiles: 7, label: 'Near' } };
+  let renderDist = 'full';
+  try {
+    const saved = localStorage.getItem('slop_render_distance');
+    if (RENDER_DISTANCES[saved]) renderDist = saved;
+  } catch (_) {}
+
+  function applyRenderDistance(key) {
+    renderDist = key;
+    if (renderer && renderer.setRenderDistance) renderer.setRenderDistance(RENDER_DISTANCES[key].tiles);
+    renderDistPresets.forEach(b => b.classList.toggle('active', b.dataset.renderdist === key));
+    if (lblRenderDistVal) lblRenderDistVal.textContent = RENDER_DISTANCES[key].label;
+    try { localStorage.setItem('slop_render_distance', key); } catch (_) {}
+  }
+  applyRenderDistance(renderDist);
+  renderDistPresets.forEach(btn => btn.addEventListener('click', () => applyRenderDistance(btn.dataset.renderdist)));
+
   if (btnSettingsResetCamera) {
     btnSettingsResetCamera.addEventListener('click', () => {
       if (renderer && renderer.resetCamera) {
@@ -4532,6 +4682,20 @@ document.addEventListener('DOMContentLoaded', () => {
       el.classList.toggle('has-card', !!card);
       el.classList.toggle('is-active', !!p.spTransformed);
     });
+    // the T slot wears the equipped card's face; the plain card icon when there is none
+    const spIcon = document.getElementById('slotSpIcon');
+    if (spIcon && window.PixelIcons && PixelIcons.cardFaceUrl) {
+      const url = card ? PixelIcons.cardFaceUrl(card.id) : null;
+      if (url && spIcon.dataset.face !== card.id) {
+        delete spIcon.dataset.pxi; delete spIcon.dataset.pxiDone;
+        spIcon.innerHTML = `<img class="pxi sp-card-face" src="${url}" alt="" draggable="false">`;
+        spIcon.dataset.face = card.id;
+      } else if (!url && spIcon.dataset.face) {
+        spIcon.dataset.face = '';
+        spIcon.innerHTML = '';
+        spIcon.dataset.pxi = 'card';
+      }
+    }
     if (slot && window.GameTooltip) {
       GameTooltip.html(slot, () => card
         ? `<div class="tip-text"><b style="color:${card.color}">${escapeHtml(card.name)}${cardItem.upgradeLevel ? ' +' + cardItem.upgradeLevel : ''}</b><br>${p.spTransformed ? 'Transformed - press T to revert' : 'Press T to transform'}${(p.jobLevel || 1) < card.jobReq ? `<br><span style="color:#ff6b6b">Requires Job Lv. ${card.jobReq}</span>` : ''}</div>`
@@ -5387,6 +5551,9 @@ document.addEventListener('DOMContentLoaded', () => {
           drinkPotion({ itemId: item.id });
         } else if (item.id === 'town_scroll') {
           socket.emit('use_town_scroll', { itemIndex: index });
+        } else if (item.type === 'wing_skin') {
+          socket.emit('use_wing_skin', { itemIndex: index });
+          window.soundEngine.playLevelUp();
         }
       });
       invGrid.appendChild(cell);
@@ -5666,7 +5833,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (card.tier !== tier) { tier = card.tier; fgGroup(listEl, `Tier ${tier}`); }
         const owned = ownedCardLevel(card.id);
         fgRow(listEl, {
-          iconHtml: PixelIcons.html('card'), name: card.name, color: card.color,
+          iconHtml: PixelIcons.cardHtml(card.id), name: card.name, color: card.color,
           sub: `Job ${card.jobReq} · ${ELEMENT_NAMES[card.element] || card.element}`,
           badge: owned !== undefined ? `<span class="fg-tag is-owned">+${owned}</span>` : card.exchange ? '' : '<span class="fg-tag">Drop</span>',
           selected: card.id === enchSelected, onClick: () => pick(card.id)
@@ -5695,7 +5862,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const ex = card.exchange;
       const canTrade = ex && fragmentCount() >= ex.fragments && localPlayer.gold >= ex.gold;
       fgDetail(detailEl, `
-        ${fgHead(PixelIcons.html('card'), card.name, card.color, `${card.rarity.toUpperCase()} · TIER ${card.tier} · ${(ELEMENT_NAMES[card.element] || '').toUpperCase()} · JOB ${card.jobReq}${owned !== undefined ? ` · <span class="fg-ok">OWNED +${owned}</span>` : ''}`)}
+        ${fgHead(PixelIcons.cardHtml(card.id), card.name, card.color, `${card.rarity.toUpperCase()} · TIER ${card.tier} · ${(ELEMENT_NAMES[card.element] || '').toUpperCase()} · JOB ${card.jobReq}${owned !== undefined ? ` · <span class="fg-ok">OWNED +${owned}</span>` : ''}`)}
         <p class="fg-desc">${escapeHtml(card.desc)}</p>
         <div class="fg-section"><div class="fg-section-title">Base stats</div><div class="fg-stats">${stats}</div></div>
         <div class="fg-section"><div class="fg-section-title">Skills</div><div class="fg-skills">${skills}</div></div>
@@ -5707,7 +5874,7 @@ document.addEventListener('DOMContentLoaded', () => {
         : `<button class="fg-btn" disabled>Boss drop only</button>${fgResult()}`);
       const btn = document.getElementById('enchAction');
       if (btn) btn.addEventListener('click', () => {
-        if (!forgeStart(PixelIcons.html('card'), card.color)) return;
+        if (!forgeStart(PixelIcons.cardHtml(card.id), card.color)) return;
         pendingTradeName = card.name;
         socket.emit('sp_card_exchange', { cardId: card.id });
       });
@@ -5734,7 +5901,7 @@ document.addEventListener('DOMContentLoaded', () => {
         badge = pips ? `<span class="fg-pips">${pips}</span>` : '<span class="fg-tag">0 sockets</span>';
       } else if (enchTab === 'card') {
         const def = spCardDef(e.item.cardId);
-        if (def) { iconHtml = PixelIcons.html('card'); color = def.color; name = def.name; }
+        if (def) { iconHtml = PixelIcons.cardHtml(def.id); color = def.color; name = def.name; }
         badge = `<span class="fg-lvl">+${e.item.upgradeLevel || 0}</span>`;
       } else {
         badge = `<span class="fg-lvl">+${e.item.upgradeLevel || 0}</span>`;
@@ -5783,7 +5950,7 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       const enough = (localPlayer.gold || 0) >= info.gold && fragmentCount() >= info.fragments;
       fgDetail(detailEl, `
-        ${fgHead(PixelIcons.html('card'), card.name, card.color, `TIER ${card.tier} · ${(ELEMENT_NAMES[card.element] || '').toUpperCase()} · JOB ${card.jobReq}`)}
+        ${fgHead(PixelIcons.cardHtml(card.id), card.name, card.color, `TIER ${card.tier} · ${(ELEMENT_NAMES[card.element] || '').toUpperCase()} · JOB ${card.jobReq}`)}
         ${fgLevels(info.lvl, info.max)}
         ${maxed ? fgTable(now.map(s => ({ label: s.label, from: s.text })), ['Stat', `+${info.lvl}`]) : fgTable(rows, ['Stat', `+${info.lvl}`, `+${info.lvl + 1}`], 'On success')}
         ${maxed ? '<div class="fg-note">This card is fully empowered.</div>' : fgOdds([
@@ -5796,7 +5963,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <button class="fg-btn" id="enchAction" ${enough ? '' : 'disabled'}>Empower to +${info.lvl + 1}</button>${fgResult()}`);
       const btn = document.getElementById('enchAction');
       if (btn) btn.addEventListener('click', () => {
-        if (!forgeStart(PixelIcons.html('card'), card.color)) return;
+        if (!forgeStart(PixelIcons.cardHtml(card.id), card.color)) return;
         pendingCardLvl = info.lvl;
         socket.emit('sp_card_enhance', { target: sel.target, itemIndex: sel.itemIndex });
       });
@@ -7148,16 +7315,38 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     effectsRaf = requestAnimationFrame(effectsPreviewFrame);
   }
-  function openEffects() {
+  // Customize: tabs down the left side (Wings - the SP wing wardrobe, Trails - the effects above)
+  let customizeTab = 'wings';
+  try { const t = localStorage.getItem('slop_customize_tab'); if (t === 'wings' || t === 'trails') customizeTab = t; } catch (_) { /* ignore */ }
+  function showCustomizeTab(tab) {
+    customizeTab = tab;
+    try { localStorage.setItem('slop_customize_tab', tab); } catch (_) { /* ignore */ }
     if (!effectsModal) return;
-    renderEffectsDialog();
+    effectsModal.querySelectorAll('.cz-tab').forEach(b => b.classList.toggle('active', b.dataset.cz === tab));
+    effectsModal.querySelectorAll('.cz-pane').forEach(p => { p.style.display = p.dataset.cz === tab ? '' : 'none'; });
+    if (tab === 'trails') {
+      renderEffectsDialog();
+      if (!effectsRaf && effectsModal.style.display === 'flex') effectsRaf = requestAnimationFrame(effectsPreviewFrame);
+    } else {
+      // the trail previews only animate while their tab is showing
+      if (effectsRaf) { cancelAnimationFrame(effectsRaf); effectsRaf = 0; }
+      if (window.WingWardrobe) window.WingWardrobe.render();
+    }
+  }
+  if (effectsModal) effectsModal.querySelectorAll('.cz-tab').forEach(b => b.addEventListener('click', () => {
+    showCustomizeTab(b.dataset.cz);
+    if (window.soundEngine && window.soundEngine.playCoin) window.soundEngine.playCoin();
+  }));
+  function openEffects(tab) {
+    if (!effectsModal) return;
     effectsModal.style.display = 'flex';
-    if (!effectsRaf) effectsRaf = requestAnimationFrame(effectsPreviewFrame);
+    showCustomizeTab(tab || customizeTab);
   }
   function closeEffects() {
     if (effectsModal) effectsModal.style.display = 'none';
     if (effectsRaf) { cancelAnimationFrame(effectsRaf); effectsRaf = 0; }
   }
+  window.openCustomize = openEffects;
   const btnOpenEffects = document.getElementById('btnOpenEffects');
   if (btnOpenEffects) btnOpenEffects.addEventListener('click', () => (effectsModal.style.display === 'flex' ? closeEffects() : openEffects()));
   const btnCloseEffects = document.getElementById('btnCloseEffects');
@@ -7309,12 +7498,16 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (localPlayer.zone === 'dungeon') {
       const bossPortal = ((gameState.map && gameState.map.obstacles) || []).find(o =>
         o.type === 'dungeon_boss_portal' && Math.hypot(o.x - localPlayer.x, o.y - localPlayer.y) <= PORTAL_USE_RANGE);
+      const shrine = window.DungeonFeatures && window.DungeonFeatures.nearShrine(gameState, localPlayer);
+      if (window.DungeonFeatures) window.DungeonFeatures.noteHeroPosition(gameState, localPlayer);
       if (bossPortal) {
         targetInteract = {
           icon: 'door',
           label: bossPortal.isReturn ? 'RETURN' : 'BOSS',
           action: () => socket.emit('use_portal')
         };
+      } else if (shrine) {
+        targetInteract = { icon: 'chalice', label: 'SHRINE', action: () => window.DungeonFeatures.openShrine(shrine) };
       } else if (gameState.chests) {
         for (const chest of gameState.chests) {
           if (!chest.opened && Math.hypot(chest.x - localPlayer.x, chest.y - localPlayer.y) <= 2.2) {

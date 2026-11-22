@@ -1,0 +1,120 @@
+/* Dungeon features (js/dungeonFeatures.js): boon pick, event banners, shrine, portal depth / weekly, run panel extras */
+
+/* ---------- event banner (top centre) ---------- */
+.df-banner {
+  position: fixed; top: 86px; left: 50%; transform: translate(-50%, -12px); z-index: 60;
+  padding: 8px 18px; font-family: var(--font-px); font-size: 16px; color: var(--white); background: rgba(26, 28, 44, 0.92);
+  box-shadow: 0 0 0 2px var(--ink), inset 2px 2px 0 #3d4565, inset -2px -2px 0 #0d1020;
+  opacity: 0; pointer-events: none; transition: opacity 0.2s, transform 0.2s; white-space: nowrap; max-width: calc(100vw - 32px);
+  overflow: hidden; text-overflow: ellipsis;
+}
+.df-banner.show { opacity: 1; transform: translate(-50%, 0); }
+.df-banner b { font-family: var(--font-title-px); font-size: 20px; letter-spacing: 1px; font-weight: normal; }
+.df-banner em { color: var(--steel); font-style: normal; }
+.df-banner.is-gold b { color: var(--gold); }
+.df-banner.is-red b { color: #f87171; }
+.df-banner.is-violet b { color: #c4b5fd; }
+.df-timer { display: inline-block; min-width: 42px; text-align: right; color: var(--gold); }
+.df-timer.is-low { color: #f87171; animation: df-blink 0.5s steps(2) infinite; }
+@keyframes df-blink { 50% { opacity: 0.4; } }
+
+/* ---------- boon pick (bottom centre, does not block movement around it) ---------- */
+.df-boon-offer {
+  position: fixed; left: 50%; bottom: 150px; transform: translate(-50%, 20px); z-index: 61;
+  display: none; flex-direction: column; gap: 8px; padding: 10px 12px 12px; max-width: calc(100vw - 32px);
+  background: rgba(26, 28, 44, 0.95); box-shadow: 0 0 0 2px var(--ink), 0 0 0 4px #4a3a6b, 0 8px 24px rgba(0, 0, 0, 0.6);
+}
+.df-boon-offer.show { display: flex; animation: df-rise 0.25s ease-out forwards; }
+@keyframes df-rise { from { opacity: 0; transform: translate(-50%, 20px); } to { opacity: 1; transform: translate(-50%, 0); } }
+.df-boon-head { display: flex; align-items: baseline; gap: 10px; }
+.df-boon-head span { font-family: var(--font-title-px); font-size: 22px; color: var(--gold); letter-spacing: 1px; }
+.df-boon-head em { font-style: normal; color: var(--cyan); font-size: 13px; }
+.df-boon-head small { margin-left: auto; color: var(--slate); font-size: 11px; }
+.df-boon-row { display: grid; grid-template-columns: repeat(3, minmax(0, 170px)); gap: 8px; }
+.df-boon {
+  display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 8px; cursor: pointer; color: var(--white);
+  background: #1a2036; box-shadow: 0 0 0 2px var(--ink), inset 2px 2px 0 #3d4565, inset -2px -2px 0 #0d1020; text-align: center;
+  transition: transform 0.1s;
+}
+.df-boon:hover { transform: translateY(-3px); box-shadow: 0 0 0 2px var(--gold), inset 2px 2px 0 #5a6590, inset -2px -2px 0 #0d1020; }
+.df-boon.tier-2 { background: #14243a; }
+.df-boon.tier-3 { background: #2a1638; }
+.df-boon-icon { font-size: 26px; line-height: 1; }
+.df-boon-name { font-size: 15px; color: var(--gold); }
+.df-boon-name b { color: var(--cyan); font-weight: normal; }
+.df-boon-desc { font-size: 12px; color: var(--white); line-height: 1.3; min-height: 2.6em; }
+.df-boon-tier { font-size: 10px; color: var(--steel); text-transform: uppercase; letter-spacing: 1px; }
+.df-boon.tier-2 .df-boon-tier { color: var(--sky); }
+.df-boon.tier-3 .df-boon-tier { color: #c084fc; }
+@media (max-width: 600px) {
+  .df-boon-offer { bottom: 110px; }
+  .df-boon-row { grid-template-columns: 1fr; }
+  .df-boon { flex-direction: row; text-align: left; }
+  .df-boon-desc { min-height: 0; }
+}
+
+/* ---------- cursed shrine ---------- */
+.df-shrine-card { max-width: 440px; padding: 18px; }
+.df-shrine-title { font-family: var(--font-title-px); font-size: 26px; color: #c4b5fd; margin-bottom: 6px; }
+.df-shrine-card p { font-size: 13px; color: var(--white); line-height: 1.45; }
+.df-curse-list { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 10px 0 14px; }
+.df-curse-list span { display: flex; flex-direction: column; padding: 6px 8px; background: #241a30; box-shadow: 0 0 0 2px var(--ink); font-size: 13px; color: #e9d5ff; }
+.df-curse-list small { color: var(--steel); font-size: 11px; }
+.df-shrine-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ---------- dungeon portal: depth and weekly ---------- */
+#dfPortalExtras { margin-top: 12px; }
+.df-depth { display: flex; align-items: stretch; gap: 6px; }
+.df-depth-btn {
+  width: 38px; font-size: 20px; color: var(--white); cursor: pointer; background: #1a2036;
+  box-shadow: 0 0 0 2px var(--ink), inset 2px 2px 0 #3d4565, inset -2px -2px 0 #0d1020;
+}
+.df-depth-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.df-depth-val { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4px; background: #121626; box-shadow: 0 0 0 2px var(--ink); }
+.df-depth-val b { font-family: var(--font-title-px); font-size: 24px; font-weight: normal; color: var(--orange); line-height: 1; }
+.df-depth-val span { font-size: 11px; color: var(--steel); }
+.df-depth-note { margin-top: 4px; font-size: 11px; color: var(--slate); }
+.df-weekly-toggle {
+  width: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px 10px; cursor: pointer; text-align: left;
+  color: var(--white); background: #1a2036; box-shadow: 0 0 0 2px var(--ink), inset 2px 2px 0 #3d4565, inset -2px -2px 0 #0d1020;
+}
+.df-weekly-toggle b { font-size: 14px; font-weight: normal; color: var(--steel); }
+.df-weekly-toggle span { font-size: 11px; color: var(--slate); }
+.df-weekly-toggle.on { background: #2b2410; box-shadow: 0 0 0 2px var(--gold), inset 2px 2px 0 #6b5a20, inset -2px -2px 0 #120f04; }
+.df-weekly-toggle.on b { color: var(--gold); }
+.df-weekly-toggle.on span { color: var(--white); }
+.mode-card.df-locked, .dmod-chip.df-locked { opacity: 0.35; pointer-events: none; }
+.df-weekly-board { margin-top: 8px; }
+.df-weekly-board:empty { display: none; }
+.df-board-title { font-size: 12px; color: var(--gold); margin-bottom: 4px; }
+.df-weekly-board ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; max-height: 150px; overflow-y: auto; }
+.df-weekly-board li { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto auto; gap: 8px; align-items: baseline; padding: 3px 8px; background: #151a2c; font-size: 13px; }
+.df-weekly-board li b { font-weight: normal; color: var(--white); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.df-weekly-board li em { font-style: normal; color: var(--cyan); }
+.df-weekly-board li small { color: var(--slate); font-size: 11px; }
+.df-weekly-board .rank-S { color: var(--gold); } .df-weekly-board .rank-A { color: var(--lime); }
+.df-weekly-board .rank-B { color: var(--sky); } .df-weekly-board .rank-C { color: var(--steel); }
+.df-board-empty { font-size: 12px; color: var(--slate); padding: 4px 0; }
+
+/* ---------- run panel extras ---------- */
+.df-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.df-tag { font-size: 11px; padding: 2px 6px; box-shadow: 0 0 0 2px var(--ink); }
+.df-tag.depth { background: #3a1d10; color: var(--orange); }
+.df-tag.weekly { background: #2b2410; color: var(--gold); }
+.df-run-boons { display: flex; flex-wrap: wrap; gap: 4px; }
+.df-run-boons span { position: relative; width: 26px; height: 26px; display: grid; place-items: center; font-size: 15px; background: #1a2036; box-shadow: 0 0 0 2px var(--ink); cursor: help; }
+.df-run-boons span.tier-2 { background: #14243a; } .df-run-boons span.tier-3 { background: #2a1638; }
+.df-run-boons span.is-curse { background: #2a0f1a; box-shadow: 0 0 0 2px #6b1d33; }
+.df-run-boons b { position: absolute; right: -2px; bottom: -4px; font-size: 10px; font-weight: normal; color: var(--cyan); text-shadow: 1px 1px 0 var(--ink); }
+.df-run-event { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--white); }
+.df-run-event em { font-style: normal; color: #f87171; }
+.df-mini-bar { flex: 1; height: 6px; background: #121626; box-shadow: 0 0 0 1px var(--ink); }
+.df-mini-bar i { display: block; height: 100%; background: #a78bfa; }
+
+/* ---------- result card ---------- */
+.df-result-boons { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: baseline; margin-top: 6px; font-size: 12px; }
+.df-result-boons > span { color: var(--slate); margin-right: 4px; }
+.df-result-boons i { font-style: normal; padding: 2px 6px; background: #1a2036; box-shadow: 0 0 0 1px var(--ink); color: var(--white); }
+.df-result-boons i.tier-2 { color: var(--sky); } .df-result-boons i.tier-3 { color: #c084fc; }
+.df-result-boons.is-curse i { color: #fda4af; background: #2a0f1a; }
+.df-unlock { color: var(--lime); }

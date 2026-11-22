@@ -660,10 +660,28 @@
   };
 
   // ---------------------------------------------------------------- shopkeepers
+  // Chibi proportions, as the heroes: the body (heights, limb lengths, hand targets) at
+  // BODY_CB, the head and everything on it (hair, hats, beards, faces) at HEAD_CB
+  const BODY_CB = 0.7, HEAD_CB = 1.45;
+  // the scene seen through a magnifier about the head: points scale away from its
+  // centre and radii grow, so hat and hair callbacks written for the old head still fit
+  function headScene(S, head, k) {
+    const at = (p) => [head[0] + (p[0] - head[0]) * k, head[1] + (p[1] - head[1]) * k, head[2] + (p[2] - head[2]) * k];
+    return {
+      ball: (p, r, m, o) => S.ball(at(p), r * k, m, o),
+      limb: (a, b, r1, r2, m, o) => S.limb(at(a), at(b), r1 * k, r2 * k, m, o),
+      bone2: (a, j, b, r1, rj, r2, m, m2, o) => S.bone2(at(a), at(j), at(b), r1 * k, rj * k, r2 * k, m, m2, o),
+      shape: (pts, m, o) => S.shape(pts.map(at), m, o),
+      gem: (p, h, w, m, o) => S.gem(at(p), h * k, w * k, m, o),
+      px: (p, rgb, o) => S.px(at(p), rgb, o)
+    };
+  }
   // One human rig dressed per shopkeeper. pose: { near: hand, far: hand, lean, bob }
   function human(S, o, pose) {
-    const b = o.broad || 1, bob = pose.bob || 0, lean = pose.lean || 0;
-    const hipY = -17 + bob;
+    const b = o.broad || 1, bob = (pose.bob || 0) * BODY_CB, lean = pose.lean || 0;
+    const Y = (v) => v * BODY_CB;
+    const hand = (h) => [h[0], h[1] * BODY_CB, h[2]];
+    const hipY = Y(-17) + bob;
     if (o.robe) {
       S.limb([0, hipY, 0], [0.5, -2, 0], 6 * b, 8.5 * b, o.robe === true ? M.robe : o.robe, {});
       S.ball([1, -1.5, 0], 8.5 * b, o.robe === true ? M.robeDark : o.robe, { sy: 0.3, bias: 0.2 });
@@ -672,46 +690,50 @@
       for (const foot of feet) {
         const sz = foot[2] < 0 ? -1 : 1;
         const hip = [0, hipY, 3.2 * sz * b], ankle = [foot[0], foot[1] - 1.5, foot[2]];
-        const knee = joint(hip, ankle, 16, [1, 0, 0]);
+        const knee = joint(hip, ankle, Y(16), [1, 0, 0]);
         S.bone2(hip, knee, ankle, 2.7 * b, 2.5 * b, 2.4 * b, o.pants);
         S.ball([foot[0] + 1.1, foot[1] - 1.5, foot[2]], 2.9, o.boots, { sy: 0.65 });
       }
       if (o.dress) {
-        S.limb([0, hipY - 1, 0], [0.5, -6, 0], 6 * b, 8 * b, o.dress, { bias: 0.6 });
-        if (o.hem) S.ball([0.5, -6, 0], 8 * b, o.hem, { sy: 0.28, bias: 0.7 });
+        S.limb([0, hipY - 1, 0], [0.5, -6 * BODY_CB, 0], 6 * b, 8 * b, o.dress, { bias: 0.6 });
+        if (o.hem) S.ball([0.5, -6 * BODY_CB, 0], 8 * b, o.hem, { sy: 0.28, bias: 0.7 });
       }
     }
-    const chest = [lean, -29 + bob, 0];
+    const chest = [lean, Y(-29) + bob, 0];
     S.limb([0, hipY - 1, 0], chest, 6 * b, 6.6 * b, o.torso);
-    if (o.belly) S.ball([3, -21 + bob, 0], 6.5 * b, o.apron || o.torso, { bias: 1 });
-    if (o.shirtStrip) S.shape([[lean + 5.8 * b, -30 + bob, -2], [lean + 5.8 * b, -30 + bob, 2], [5.2 * b, hipY, 2], [5.2 * b, hipY, -2]], o.shirtStrip, { bias: 6 });
-    if (o.apron) S.shape([[lean + 5.6 * b, -24 + bob, -3.5], [lean + 5.6 * b, -24 + bob, 3.5], [6.4 * b, -9, 4.5], [6.4 * b, -9, -4.5]], o.apron, { bias: 7 });
+    if (o.belly) S.ball([3, Y(-21) + bob, 0], 6.5 * b, o.apron || o.torso, { bias: 1 });
+    if (o.shirtStrip) S.shape([[lean + 5.8 * b, Y(-30) + bob, -2], [lean + 5.8 * b, Y(-30) + bob, 2], [5.2 * b, hipY, 2], [5.2 * b, hipY, -2]], o.shirtStrip, { bias: 6 });
+    if (o.apron) S.shape([[lean + 5.6 * b, Y(-24) + bob, -3.5], [lean + 5.6 * b, Y(-24) + bob, 3.5], [6.4 * b, Y(-9), 4.5], [6.4 * b, Y(-9), -4.5]], o.apron, { bias: 7 });
     S.ball([0.3, hipY - 1.3, 0], 6.4 * b, o.belt, { sy: 0.3, bias: 1.5 });
-    if (o.buckle) S.px([6.4 * b, hipY - 1.6, 0], o.buckle, { w: 2, h: 2, bias: 8 });
-    // head
-    const head = [lean + 1, -37.5 + bob, 0];
+    if (o.buckle) S.px([6.4 * b, hipY - 1.3, 0], o.buckle, { w: 2, h: 2, bias: 8 });
+    // head, big: it sits on the chest with its chin just clearing the collar
+    const head = [lean + 1, chest[1] - 5.8 * HEAD_CB - 1.2, 0];
+    const H = headScene(S, head, HEAD_CB);
     S.limb(chest, head, 2.4, 2.4, o.skin, { bias: -0.5 });
-    if (o.hairBack) S.ball(V3(head, [-2.2, -1, 0], 1), 6.2, o.hair, { sy: 0.95, bias: -0.8 });
-    if (o.fringe) S.ball(V3(head, [-2.5, 0.5, 0], 1), 4.8, o.hair, { sy: 0.65, bias: -0.6 });
-    S.ball(head, 5.8, o.skin, { spec: true });
+    if (o.hairBack) H.ball(V3(head, [-2.2, -1, 0], 1), 6.2, o.hair, { sy: 0.95, bias: -0.8 });
+    if (o.fringe) H.ball(V3(head, [-2.5, 0.5, 0], 1), 4.8, o.hair, { sy: 0.65, bias: -0.6 });
+    H.ball(head, 5.8, o.skin, { spec: true });
     if (o.hairTop) {
       // cap of hair ending in bangs just above the eyes
-      S.ball(V3(head, [-0.6, -3.8, 0], 1), 6.4, o.hair, { sy: 0.55, bias: 0.3 });
+      // (drawn over the face, its lower edge just above the brows)
+      H.ball(V3(head, [-0.4, -4.6, 0], 1), 6.5, o.hair, { sy: 0.55, bias: 1.2 });
     }
     for (const sz of [-1, 1]) {
-      S.px(V3(head, [4.8, -0.6, 2.1 * sz], 1), C.eye, { h: 2, bias: 3 });
-      S.px(V3(head, [4.6, -2.4, 2.1 * sz], 1), o.brow, { w: 2, bias: 3 });
-      S.px(V3(head, [4.4, 1.6, 3.2 * sz], 1), C.blush, { bias: 2.6 });
+      // big chibi eyes: three pixels tall with a catch-light on top
+      H.px(V3(head, [4.8, -0.9, 2.1 * sz], 1), C.eye, { h: 3, bias: 3 });
+      H.px(V3(head, [4.85, -0.9, 2.1 * sz], 1), C.white, { bias: 3.05 });
+      H.px(V3(head, [4.6, -2.6, 2.1 * sz], 1), o.brow, { w: 2, bias: 3 });
+      H.px(V3(head, [4.4, 1.6, 3.2 * sz], 1), C.blush, { bias: 2.6 });
     }
-    S.px(V3(head, [6, 0.8, 0], 1), o.skin.d, { h: 2, bias: 3.2 });
-    if (o.moustache) S.limb(V3(head, [5.4, 2.6, -2.6], 1), V3(head, [5.4, 2.6, 2.6], 1), 1.1, 1.1, o.moustache, { bias: 3.4 });
-    if (o.beard) S.shape([V3(head, [4, 1.5, -4], 1), V3(head, [4, 1.5, 4], 1), V3(head, [6, 14, 0], 1)], o.beard, { bias: 3.3 });
-    if (o.hat) o.hat(S, head);
+    H.px(V3(head, [6, 1.2, 0], 1), o.skin.d, { bias: 3.2 });
+    if (o.moustache) H.limb(V3(head, [5.4, 2.6, -2.6], 1), V3(head, [5.4, 2.6, 2.6], 1), 1.1, 1.1, o.moustache, { bias: 3.4 });
+    if (o.beard) H.shape([V3(head, [4, 1.5, -4], 1), V3(head, [4, 1.5, 4], 1), V3(head, [6, 14, 0], 1)], o.beard, { bias: 3.3 });
+    if (o.hat) o.hat(H, head);
     // arms
-    for (const [sz, hand] of [[-1, pose.far], [1, pose.near]]) {
-      const sh = [lean, -28 + bob, 6.8 * sz * b];
-      const h2 = reach(sh, hand, 17);
-      const el = joint(sh, h2, 17, [-0.6, 0.6, 0.3 * sz]);
+    for (const [sz, h] of [[-1, pose.far], [1, pose.near]]) {
+      const sh = [lean, Y(-28) + bob, 6.8 * sz * b];
+      const h2 = reach(sh, hand(h), Y(17));
+      const el = joint(sh, h2, Y(17), [-0.6, 0.6, 0.3 * sz]);
       S.bone2(sh, el, h2, 2.5 * b, 2.3 * b, 2.1 * b, o.sleeve, o.forearm || o.sleeve);
       S.ball(h2, 2.1 * b, o.skin, { bias: 0.1 });
       if (sz > 0 && o.tool) o.tool(S, h2, pose);

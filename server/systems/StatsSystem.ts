@@ -1,6 +1,7 @@
 // Derived hero stats: recalculating everything from base stats, gear, runes, sets, passives and cards; the regen multiplier; rune counts; the cosmetic trail.
 // Moved verbatim out of GameServer (Phase C of docs/REFACTOR_PLAN.md): `this` is the server, reached as this.gs;
 // GameServer keeps one-line forwarding methods, so no call site changed.
+import * as DF from '../dungeonFeatures';
 import type { GameServer } from '../gameServer';
 import { isRangedClass } from '../data/heroClasses';
 import { ITEMS, weaponPower, ensureSockets, ARMOR_SOCKET_SLOTS, ARMOR_SETS, equippedSetCounts } from '../items';
@@ -238,6 +239,8 @@ export class StatsSystem {
       player.esMax = 0;
       player.es = 0;
     }
+    // Boons and curses of the dungeon run under way
+    DF.applyRunBoons(player);
   }
 
   // Defensive runes socketed in the worn armor pieces: { bulwark: 2, aegis: 1, ... }

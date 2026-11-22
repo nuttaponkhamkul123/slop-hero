@@ -164,8 +164,8 @@ export function createBossMechanics(gs: any) {
   }
 
   function cast(mob: any, zone: string, instId: string | null, st: BossState, heroes: any[]) {
-    const kit = mob.mechanics === 'miniboss' ? MINIBOSS_KIT : PHASE_KITS[st.phase];
-    const options = kit.filter(k => k !== st.last);
+    const kit = mob.mechanics === 'miniboss' ? (mob.minibossKit || MINIBOSS_KIT) : PHASE_KITS[st.phase];
+    const options = kit.filter((k: string) => k !== st.last);
     const kind = options[Math.floor(Math.random() * options.length)];
     st.last = kind;
     const wind = ATTACKS[kind].windup * (mob.mechWindup || 1);

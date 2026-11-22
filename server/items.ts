@@ -1,5 +1,6 @@
 // Item Database & Loot Tables for Slop Hero
 import { ELEMENT_INFO } from './elements';
+import { WING_SKIN_ITEMS } from './wingSkins';
 import { rollDropAttrs } from './itemAttributes';
 import consumables from './data/items/consumables.json';
 import materials from './data/items/materials.json';
@@ -35,6 +36,7 @@ const ITEM_CATEGORIES = {
 };
 
 const ITEMS: Record<string, any> = {
+  ...WING_SKIN_ITEMS,          // SP wing skins (wingSkins.ts)
   ...consumables,
   ...materials,
   ...treasures,

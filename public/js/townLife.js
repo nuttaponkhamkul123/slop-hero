@@ -112,14 +112,21 @@
     };
   }
 
+  // Where a house's door ([x, z] on its street face) and chimney top ([x, y, z]) are, in
+  // model units from its anchor: each of the 3D house builds has its own (townProps3D.js)
+  function houseInfo(o) {
+    const M = window.TownPropModels;
+    return (M && M.houseInfo && M.houseInfo(o)) || { door: [-24, 36], chimney: [-28, 85.4, -12] };
+  }
+
   // Worn dirt footpaths from each house door down to the street in front of it
   function buildFootpaths(map) {
     const buckets = new Map();
     const tileAt = (x, y) => (map.tiles[y] && map.tiles[y][x] !== undefined ? map.tiles[y][x] : -1);
     for (const o of map.obstacles || []) {
       if (o.type !== 'house') continue;
-      // door on the +y face, 24 model units west of centre (townProps3D house)
-      const dx = o.x - 24 / TILE_PX, dy = o.y + 36 / TILE_PX;
+      const door = houseInfo(o).door;
+      const dx = o.x + door[0] / TILE_PX, dy = o.y + door[1] / TILE_PX;
       const tx = Math.round(dx);
       let end = null;
       for (let k = 1; k <= 6; k++) {
@@ -770,12 +777,15 @@
       this.map = map;
       this.time = 0;
       const obs = map.obstacles || [];
-      this.houses = obs.filter(o => o.type === 'house').map(o => ({
-        o,
-        // chimney top on the 3D house: model (-28, 85.4, -12), 30 deg tilt
-        cx: o.x - 28 / TILE_PX, cy: o.y - 12 / TILE_PX, cz: (85.4 * Math.cos(Math.PI / 6)) / TH,
-        timer: hash2(Math.round(o.x * 10), Math.round(o.y * 10)) * 0.6
-      }));
+      this.houses = obs.filter(o => o.type === 'house').map(o => {
+        // chimney top on the 3D house, through the 30 deg tilt
+        const { door, chimney: ch } = houseInfo(o);
+        return {
+          o, door,
+          cx: o.x + ch[0] / TILE_PX, cy: o.y + ch[2] / TILE_PX, cz: (ch[1] * Math.cos(Math.PI / 6)) / TH,
+          timer: hash2(Math.round(o.x * 10), Math.round(o.y * 10)) * 0.6
+        };
+      });
       this.oaks = obs.filter(o => o.type === 'oak_tree').map(o => ({ o, timer: 1 + hash2(Math.round(o.x * 9), Math.round(o.y * 9)) * 5 }));
       this.smoke = [];
       this.leaves = [];
@@ -805,7 +815,7 @@
 
       // cats lounging on a few doorsteps
       this.cats = this.houses.filter((h, i) => i % 5 === 1).slice(0, 3).map((h, i) => ({
-        x: h.o.x - 24 / TILE_PX + 0.5, y: h.o.y + 36 / TILE_PX + 0.35, coat: i % CAT_COATS.length,
+        x: h.o.x + h.door[0] / TILE_PX + 0.5, y: h.o.y + h.door[1] / TILE_PX + 0.35, coat: i % CAT_COATS.length,
         flip: i % 2 === 0, phase: hash2(i, 77) * 10, blinkAt: 2 + hash2(i, 78) * 3
       }));
 

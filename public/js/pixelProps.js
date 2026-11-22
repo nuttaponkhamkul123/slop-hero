@@ -911,8 +911,194 @@
     return { img, ax: Math.round(OX + (Wx - Wy) / 2), ay: Math.round(OY + (Wx + Wy) / 4) };
   }
 
+  // ---- 3D town models baked into pixel sprites, on the CPU (no WebGL).
+  // The house models of townProps3D.js are built (just the scene graph) and every mesh, all
+  // convex (boxes, cylinders, cones, flat gables given a little depth), becomes a set of
+  // half-spaces in sprite axes (x = model X, y = model Z, z = model Y, scaled to sprite
+  // pixels). Each sprite pixel's ray is intersected with those exactly; the nearest face is
+  // lit by its normal like the other props, stepped through a ramp of its paint colour with a
+  // dither, and the sprite gets the dark outline and ground shadow of the rest.
+  const MODEL_K = 24.6 / (32 * Math.SQRT2);   // model units -> sprite pixels (a tile is ~24.6 px along x)
+  // a painted texture (the sign boards' canvases) stands in as its average colour
+  const mapColour = (m) => {
+    if (m._avgRgb) return m._avgRgb;
+    const im = m.map && m.map.image;
+    let out = null;
+    try {
+      const g = im && im.getContext && im.getContext('2d');
+      if (g) {
+        const d = g.getImageData(0, 0, im.width, im.height).data, s = [0, 0, 0];
+        for (let i = 0; i < d.length; i += 4) { s[0] += d[i]; s[1] += d[i + 1]; s[2] += d[i + 2]; }
+        out = s.map(v => v / (d.length / 4));
+      }
+    } catch (_) { out = null; }
+    return (m._avgRgb = out);
+  };
+  // front: a group inside root painted as its own layer (a booth's counter, drawn over its keeper)
+  function bakeModel(root, front) {
+    const T = window.THREE;
+    root.updateMatrixWorld(true);
+    const prims = [];
+    const a = new T.Vector3();
+    const toS = (v) => [v.x * MODEL_K, v.z * MODEL_K, v.y * MODEL_K];
+    const inFront = new Set();
+    if (front) front.traverse(o => inFront.add(o));
+    root.traverse(o => {
+      if (!o.isMesh || !o.visible) return;
+      const g = o.geometry, type = g.type;
+      const m = o.material, glowing = !!(m.emissive && m.emissiveIntensity && (m.emissive.r + m.emissive.g + m.emissive.b) > 0.05);
+      const col = (glowing ? m.emissive : m.color);
+      const base = (!glowing && mapColour(m)) || [col.r * 255, col.g * 255, col.b * 255];
+      // the mesh's corners in sprite axes
+      const pos = g.attributes.position, idx = g.index;
+      const pts = [];
+      for (let i = 0; i < pos.count; i++) pts.push(toS(a.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld)));
+      const planes = [];
+      const addPlane = (p0, p1, p2) => {
+        const ux = p1[0] - p0[0], uy = p1[1] - p0[1], uz = p1[2] - p0[2];
+        const vx = p2[0] - p0[0], vy = p2[1] - p0[1], vz = p2[2] - p0[2];
+        // the axis swap mirrors the model, so the outward normal is v x u
+        let nx = vy * uz - vz * uy, ny = vz * ux - vx * uz, nz = vx * uy - vy * ux;
+        const l = Math.hypot(nx, ny, nz);
+        if (l < 1e-6) return;
+        nx /= l; ny /= l; nz /= l;
+        const d = nx * p0[0] + ny * p0[1] + nz * p0[2];
+        for (const q of planes) if (q[0] * nx + q[1] * ny + q[2] * nz > 0.9995 && Math.abs(q[3] - d) < 0.05) return;
+        planes.push([nx, ny, nz, d]);
+      };
+      if (type === 'SphereGeometry') {
+        // little round things (flowers, ivy, knobs): a box of the sphere's girth
+        const ctr = toS(a.setFromMatrixPosition(o.matrixWorld)), r = g.parameters.radius * MODEL_K * 0.85;
+        for (const [ax, s] of [[0, 1], [0, -1], [1, 1], [1, -1], [2, 1], [2, -1]]) {
+          const nn = [0, 0, 0]; nn[ax] = s;
+          planes.push([nn[0], nn[1], nn[2], s * ctr[ax] + r]);
+        }
+      } else {
+        const tri = idx ? (k) => idx.getX(k) : (k) => k;
+        const cnt = idx ? idx.count : pos.count;
+        for (let k = 0; k < cnt; k += 3) addPlane(pts[tri(k)], pts[tri(k + 1)], pts[tri(k + 2)]);
+        const p0 = planes[0];
+        if (p0 && pts.every(p => Math.abs(p0[0] * p[0] + p0[1] * p[1] + p0[2] * p[2] - p0[3]) < 0.02)) {
+          // a flat piece (a gable triangle, a sign board): a slab half a pixel either side of
+          // its face, walled in along the convex outline of its corners
+          planes.length = 0;
+          planes.push([p0[0], p0[1], p0[2], p0[3] + 0.5], [-p0[0], -p0[1], -p0[2], -p0[3] + 0.5]);
+          const ref = Math.abs(p0[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0];
+          const cr = (u, v) => [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+          const nrm = (v) => { const l = Math.hypot(v[0], v[1], v[2]); return [v[0] / l, v[1] / l, v[2] / l]; };
+          const e1 = nrm(cr(p0, ref)), e2 = cr(p0, e1);
+          const uv = pts.map(p => [p[0] * e1[0] + p[1] * e1[1] + p[2] * e1[2], p[0] * e2[0] + p[1] * e2[1] + p[2] * e2[2]]);
+          // convex hull of the corners (monotone chain), counter-clockwise
+          const ord = uv.map((q, i) => i).sort((i, j) => uv[i][0] - uv[j][0] || uv[i][1] - uv[j][1]);
+          const turn = (o, p, q) => (uv[p][0] - uv[o][0]) * (uv[q][1] - uv[o][1]) - (uv[p][1] - uv[o][1]) * (uv[q][0] - uv[o][0]);
+          const half = (list) => { const h = []; for (const i of list) { while (h.length >= 2 && turn(h[h.length - 2], h[h.length - 1], i) <= 1e-9) h.pop(); h.push(i); } h.pop(); return h; };
+          const hull = half(ord).concat(half(ord.slice().reverse()));
+          const cu = hull.reduce((s, i) => [s[0] + uv[i][0] / hull.length, s[1] + uv[i][1] / hull.length], [0, 0]);
+          for (let k = 0; k < hull.length; k++) {
+            const A = uv[hull[k]], B = uv[hull[(k + 1) % hull.length]];
+            let nu = B[1] - A[1], nv = -(B[0] - A[0]);
+            const l = Math.hypot(nu, nv); if (l < 1e-6) continue;
+            nu /= l; nv /= l;
+            if (nu * (cu[0] - A[0]) + nv * (cu[1] - A[1]) > 0) { nu = -nu; nv = -nv; }
+            const n3 = [e1[0] * nu + e2[0] * nv, e1[1] * nu + e2[1] * nv, e1[2] * nu + e2[2] * nv];
+            planes.push([n3[0], n3[1], n3[2], n3[0] * pts[hull[k]][0] + n3[1] * pts[hull[k]][1] + n3[2] * pts[hull[k]][2]]);
+          }
+        }
+      }
+      if (!planes.length) return;
+      // screen rectangle of the hull's corners, for picking which prims a pixel can hit
+      const cs = type === 'SphereGeometry' ? null : pts;
+      let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+      const ext = cs || (() => { const ctr = toS(a.setFromMatrixPosition(o.matrixWorld)), r = g.parameters.radius * MODEL_K; const out = []; for (const dx of [-r, r]) for (const dy of [-r, r]) for (const dz of [-r, r]) out.push([ctr[0] + dx, ctr[1] + dy, ctr[2] + dz]); return out; })();
+      for (const p of ext) { const sx = p[0] - p[1], sy = (p[0] + p[1]) / 2 - p[2]; x0 = Math.min(x0, sx); x1 = Math.max(x1, sx); y0 = Math.min(y0, sy); y1 = Math.max(y1, sy); }
+      prims.push({ planes, base, glowing, rect: [x0, x1, y0, y1], seed: prims.length * 7.31, front: inFront.has(o) });
+    });
+    if (!prims.length) return null;
+    let X0 = Infinity, X1 = -Infinity, Y0 = Infinity, Y1 = -Infinity;
+    for (const p of prims) { X0 = Math.min(X0, p.rect[0]); X1 = Math.max(X1, p.rect[1]); Y0 = Math.min(Y0, p.rect[2]); Y1 = Math.max(Y1, p.rect[3]); }
+    const OX = Math.ceil(-X0) + 2, OY = Math.ceil(-Y0) + 2;
+    const W = Math.ceil(X1 - X0) + 5, H = Math.ceil(Y1 - Y0) + 5;
+    const shadow = { cx: OX, cy: OY, rx: (X1 - X0) * 0.36, ry: (X1 - X0) * 0.18 };
+    // one layer of the sprite (all of it, or the parts behind / in front of a keeper), in the shared frame
+    const layer = (subset, withShadow) => {
+    // buckets of 8 px columns x rows
+    const BS = 8, bw = Math.ceil(W / BS), bh = Math.ceil(H / BS), buckets = Array.from({ length: bw * bh }, () => []);
+    for (const p of subset) {
+      const bx0 = Math.max(0, Math.floor((p.rect[0] + OX) / BS)), bx1 = Math.min(bw - 1, Math.floor((p.rect[1] + OX) / BS));
+      const by0 = Math.max(0, Math.floor((p.rect[2] + OY) / BS)), by1 = Math.min(bh - 1, Math.floor((p.rect[3] + OY) / BS));
+      for (let by = by0; by <= by1; by++) for (let bx = bx0; bx <= bx1; bx++) buckets[by * bw + bx].push(p);
+    }
+    const shadeOf = (prim, nrm, px, py, hit) => {
+      if (prim.glowing) {
+        const k = 1.05 + (hash2(px, py) - 0.5) * 0.08;
+        return prim.base.map(v => Math.min(255, Math.round(v * k + 18)));
+      }
+      const lit = Math.max(0, nrm[0] * LIGHT[0] + nrm[1] * LIGHT[1] + nrm[2] * LIGHT[2]);
+      // 7 steps from deep shade to a sunlit highlight, with grain and grime
+      let s = 1.2 + lit * 4.2 + (hash2(Math.floor(hit[0] * 0.9) + prim.seed, Math.floor(hit[1] * 0.9 + hit[2] * 1.3)) - 0.5) * 0.7;
+      if (vn(hit[0] * 0.18, hit[1] * 0.18, hit[2] * 0.18) > 0.68) s -= 0.6;
+      s += (BAYER[(py & 3) * 4 + (px & 3)] / 16 - 0.5) * 0.9;
+      const k = [0.42, 0.56, 0.7, 0.84, 0.97, 1.08, 1.2][Math.max(0, Math.min(6, Math.round(s)))];
+      return prim.base.map(v => Math.max(0, Math.min(255, Math.round(v * k))));
+    };
+    // nearest face along each pixel's ray: ray p(t) = (sx + t, t, sx / 2 + t - sy), the camera at t -> +infinity
+    const hits = new Array(W * H).fill(null);
+    for (let py = 0; py < H; py++) {
+      for (let px = 0; px < W; px++) {
+        const sx = px + 0.5 - OX, sy = py + 0.5 - OY;
+        const list = buckets[Math.floor(py / BS) * bw + Math.floor(px / BS)];
+        let best = -Infinity, bp = null, bn = null;
+        const o0 = sx, o2 = sx / 2 - sy;
+        for (const p of list) {
+          if (sx < p.rect[0] - 1 || sx > p.rect[1] + 1 || sy < p.rect[2] - 1 || sy > p.rect[3] + 1) continue;
+          let tmin = -Infinity, tmax = Infinity, face = null;
+          for (const q of p.planes) {
+            const nd = q[0] + q[1] + q[2], c0 = q[3] - (q[0] * o0 + q[2] * o2);
+            if (Math.abs(nd) < 1e-9) { if (c0 < 0) { tmax = -Infinity; break; } continue; }
+            const t = c0 / nd;
+            if (nd > 0) { if (t < tmax) { tmax = t; face = q; } } else if (t > tmin) tmin = t;
+            if (tmin > tmax) break;
+          }
+          if (tmin <= tmax && tmax > best && face) { best = tmax; bp = p; bn = face; }
+        }
+        if (bp) hits[py * W + px] = { t: best, p: bp, col: shadeOf(bp, bn, px, py, [o0 + best, best, o2 + best]) };
+      }
+    }
+    // a dark line where a part stands well in front of what is behind it (a tower before the
+    // roof, a chimney before its slope), as the 3D pixel pass draws, so same-coloured parts part
+    const img = paint(W, H, (px, py) => {
+      const h = hits[py * W + px];
+      if (!h) return null;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const n = hits[(py + dy) * W + px + dx];
+        if (n && px + dx >= 0 && px + dx < W && n.p !== h.p && n.t - h.t > 2.5) return h.col.map(v => Math.round(v * 0.38));
+      }
+      return h.col;
+    }, '#16110c', withShadow ? shadow : null);
+    return img;
+    };
+    if (!front) return { img: layer(prims, true), ax: OX, ay: OY };
+    return { img: layer(prims.filter(p => !p.front), true), front: layer(prims.filter(p => p.front), false), ax: OX, ay: OY };
+  }
+  // A town prop's sprite baked from its 3D model when those are loaded, else the hand-drawn
+  // 2D one (fallback). Booths keep their counter as a front layer, over the keeper; moving
+  // parts are posed as at the start of their animation.
+  function baked(type, v, fallback) {
+    const M = window.TownPropModels;
+    if (!M || !M.buildVariant || !window.THREE) return fallback(v);
+    let built = null;
+    try {
+      built = M.buildVariant(type, v);
+      if (built && built.animate) built.animate(0, {});
+      return (built && bakeModel(built.root, built.front)) || fallback(v);
+    } catch (err) {
+      console.warn('baking the 3D ' + type + ' failed, drawing the 2D one:', err);
+      return fallback(v);
+    }
+  }
+
   const TOWN = {
-    house(v) { return buildHouse(v); },
+    house(v) { return baked('house', v, buildHouse); },
 
     gate_tower() {
       const W = 38, H = 88, cx = 18.5;
@@ -1265,6 +1451,12 @@
   TOWN.blacksmith = (v) => booth('blacksmith', v, '+x');
   TOWN.enchanter = (v) => booth('enchanter', v, '-x');
   TOWN.market_stall = (v) => booth('stall', v, v >= 4 ? '-y' : '+y');
+  // the town's structures are baked from their 3D models, the hand-drawn sprites above kept
+  // as the fallback; the street lamp stays hand-drawn for its flickering flame
+  for (const type of ['merchant', 'blacksmith', 'enchanter', 'market_stall', 'gate_tower', 'corner_keep', 'crates', 'flower_bed', 'bench', 'well']) {
+    const drawn = TOWN[type];
+    TOWN[type] = (v) => baked(type, v, drawn);
+  }
   Object.assign(BUILD, TOWN);
   // these read obs.variant as is (awning colours, house roofs) instead of a 0-2 hash
   const RAW_VARIANT = new Set(['house', 'crates', 'flower_bed', 'market_stall']);
@@ -1313,6 +1505,12 @@
   const warm = [];
   for (const t of Object.keys(ISO)) for (let v = 0; v < 3; v++) warm.push(() => sprite(t, v));
   for (const t of ['oak_tree', 'pine_tree']) for (let v = 0; v < 3; v++) warm.push(() => isoTree(t, v));
+  // the town's baked structures (10-40 ms each): the booths, towers and furniture, then every house build
+  for (const [t, vs] of [['merchant', [0]], ['blacksmith', [0]], ['enchanter', [0]], ['market_stall', [0, 1, 2, 3, 4, 5, 6, 7]],
+    ['gate_tower', [0]], ['corner_keep', [0]], ['crates', [0, 1]], ['flower_bed', [0, 1, 2]], ['bench', [0]], ['well', [0]]]) {
+    for (const v of vs) warm.push(() => sprite(t, v));
+  }
+  for (let v = 0; v < 18; v++) warm.push(() => sprite('house', v));
   const idle = window.requestIdleCallback || ((fn) => setTimeout(() => fn({ timeRemaining: () => 8 }), 200));
   const step = (dl) => {
     while (warm.length && dl.timeRemaining() > 4) warm.shift()();

@@ -11,7 +11,11 @@
       "kills": 0,
       "exp": 0,
       "revivalsUsed": 0,
-      "maxRevivals": 10
+      "maxRevivals": 10,
+      "boons": {},
+      "curses": [],
+      "boonQueue": 0,
+      "boonOffer": null
     },
     "withStart": {
       "floor": 4,
@@ -24,7 +28,11 @@
       "kills": 0,
       "exp": 0,
       "revivalsUsed": 0,
-      "maxRevivals": 10
+      "maxRevivals": 10,
+      "boons": {},
+      "curses": [],
+      "boonQueue": 0,
+      "boonOffer": null
     },
     "cleared": {
       "floor": 1,
@@ -37,7 +45,11 @@
       "kills": 0,
       "exp": 0,
       "revivalsUsed": 0,
-      "maxRevivals": 10
+      "maxRevivals": 10,
+      "boons": {},
+      "curses": [],
+      "boonQueue": 0,
+      "boonOffer": null
     }
   },
   "lookup": {
@@ -2232,7 +2244,14 @@
           "killedMobs": 0,
           "requiredMobs": 4,
           "bossPortalReady": false,
-          "bossPortalSpawned": false
+          "bossPortalSpawned": false,
+          "boons": [],
+          "curses": [],
+          "pendingBoons": 0,
+          "events": [],
+          "depth": 0,
+          "weekly": null,
+          "sealedRooms": []
         }
       ]
     ],
@@ -2322,7 +2341,14 @@
           "killedMobs": 0,
           "requiredMobs": 4,
           "bossPortalReady": false,
-          "bossPortalSpawned": false
+          "bossPortalSpawned": false,
+          "boons": [],
+          "curses": [],
+          "pendingBoons": 0,
+          "events": [],
+          "depth": 0,
+          "weekly": null,
+          "sealedRooms": []
         }
       ]
     ],
@@ -2413,7 +2439,14 @@
           "killedMobs": 0,
           "requiredMobs": 4,
           "bossPortalReady": false,
-          "bossPortalSpawned": false
+          "bossPortalSpawned": false,
+          "boons": [],
+          "curses": [],
+          "pendingBoons": 0,
+          "events": [],
+          "depth": 0,
+          "weekly": null,
+          "sealedRooms": []
         }
       ]
     ],
@@ -2579,7 +2612,14 @@
           "killedMobs": 2,
           "requiredMobs": 4,
           "bossPortalReady": true,
-          "bossPortalSpawned": true
+          "bossPortalSpawned": true,
+          "boons": [],
+          "curses": [],
+          "pendingBoons": 0,
+          "events": [],
+          "depth": 0,
+          "weekly": null,
+          "sealedRooms": []
         }
       ]
     ],
@@ -2670,7 +2710,14 @@
           "killedMobs": 0,
           "requiredMobs": 0,
           "bossPortalReady": false,
-          "bossPortalSpawned": false
+          "bossPortalSpawned": false,
+          "boons": [],
+          "curses": [],
+          "pendingBoons": 0,
+          "events": [],
+          "depth": 0,
+          "weekly": null,
+          "sealedRooms": []
         }
       ]
     ],
@@ -2778,7 +2825,9 @@
             "deaths": 0,
             "kills": 17,
             "exp": 900,
-            "clearedAt": 1700000000000
+            "clearedAt": 1700000000000,
+            "boonOffer": null,
+            "boonQueue": 0
           }
         }
       ],
@@ -2838,7 +2887,11 @@
             "bonusGold": 720,
             "runExp": 900,
             "bonusExp": 1312
-          }
+          },
+          "boons": [],
+          "curses": [],
+          "depth": 0,
+          "weekly": null
         }
       ],
       [
@@ -2867,7 +2920,14 @@
           "killedMobs": 0,
           "requiredMobs": 4,
           "bossPortalReady": false,
-          "bossPortalSpawned": false
+          "bossPortalSpawned": false,
+          "boons": [],
+          "curses": [],
+          "pendingBoons": 0,
+          "events": [],
+          "depth": 0,
+          "weekly": null,
+          "sealedRooms": []
         }
       ]
     ],
@@ -2897,7 +2957,9 @@
           "deaths": 0,
           "kills": 17,
           "exp": 900,
-          "clearedAt": 1700000000000
+          "clearedAt": 1700000000000,
+          "boonOffer": null,
+          "boonQueue": 0
         }
       }
     },
@@ -2911,7 +2973,9 @@
       "deaths": 0,
       "kills": 17,
       "exp": 900,
-      "clearedAt": 1700000000000
+      "clearedAt": 1700000000000,
+      "boonOffer": null,
+      "boonQueue": 0
     }
   },
   "complete with deaths (A/B)": {
@@ -2981,7 +3045,9 @@
             "deaths": 2,
             "kills": 17,
             "exp": 900,
-            "clearedAt": 1700000000000
+            "clearedAt": 1700000000000,
+            "boonOffer": null,
+            "boonQueue": 0
           }
         }
       ],
@@ -3041,7 +3107,11 @@
             "bonusGold": 540,
             "runExp": 900,
             "bonusExp": 984
-          }
+          },
+          "boons": [],
+          "curses": [],
+          "depth": 0,
+          "weekly": null
         }
       ],
       [
@@ -3070,7 +3140,14 @@
           "killedMobs": 0,
           "requiredMobs": 4,
           "bossPortalReady": false,
-          "bossPortalSpawned": false
+          "bossPortalSpawned": false,
+          "boons": [],
+          "curses": [],
+          "pendingBoons": 0,
+          "events": [],
+          "depth": 0,
+          "weekly": null,
+          "sealedRooms": []
         }
       ]
     ],
@@ -3100,7 +3177,9 @@
           "deaths": 2,
           "kills": 17,
           "exp": 900,
-          "clearedAt": 1700000000000
+          "clearedAt": 1700000000000,
+          "boonOffer": null,
+          "boonQueue": 0
         }
       }
     },
@@ -3114,7 +3193,9 @@
       "deaths": 2,
       "kills": 17,
       "exp": 900,
-      "clearedAt": 1700000000000
+      "clearedAt": 1700000000000,
+      "boonOffer": null,
+      "boonQueue": 0
     }
   },
   "complete many deaths (C)": {
@@ -3184,7 +3265,9 @@
             "deaths": 5,
             "kills": 17,
             "exp": 900,
-            "clearedAt": 1700000000000
+            "clearedAt": 1700000000000,
+            "boonOffer": null,
+            "boonQueue": 0
           }
         }
       ],
@@ -3244,7 +3327,11 @@
             "bonusGold": 360,
             "runExp": 900,
             "bonusExp": 656
-          }
+          },
+          "boons": [],
+          "curses": [],
+          "depth": 0,
+          "weekly": null
         }
       ],
       [
@@ -3273,7 +3360,14 @@
           "killedMobs": 0,
           "requiredMobs": 4,
           "bossPortalReady": false,
-          "bossPortalSpawned": false
+          "bossPortalSpawned": false,
+          "boons": [],
+          "curses": [],
+          "pendingBoons": 0,
+          "events": [],
+          "depth": 0,
+          "weekly": null,
+          "sealedRooms": []
         }
       ]
     ],
@@ -3303,7 +3397,9 @@
           "deaths": 5,
           "kills": 17,
           "exp": 900,
-          "clearedAt": 1700000000000
+          "clearedAt": 1700000000000,
+          "boonOffer": null,
+          "boonQueue": 0
         }
       }
     },
@@ -3317,7 +3413,9 @@
       "deaths": 5,
       "kills": 17,
       "exp": 900,
-      "clearedAt": 1700000000000
+      "clearedAt": 1700000000000,
+      "boonOffer": null,
+      "boonQueue": 0
     }
   },
   "complete slow clear": {
@@ -3387,7 +3485,9 @@
             "deaths": 0,
             "kills": 17,
             "exp": 900,
-            "clearedAt": 1700000000000
+            "clearedAt": 1700000000000,
+            "boonOffer": null,
+            "boonQueue": 0
           }
         }
       ],
@@ -3447,7 +3547,11 @@
             "bonusGold": 432,
             "runExp": 900,
             "bonusExp": 787
-          }
+          },
+          "boons": [],
+          "curses": [],
+          "depth": 0,
+          "weekly": null
         }
       ],
       [
@@ -3476,7 +3580,14 @@
           "killedMobs": 0,
           "requiredMobs": 4,
           "bossPortalReady": false,
-          "bossPortalSpawned": false
+          "bossPortalSpawned": false,
+          "boons": [],
+          "curses": [],
+          "pendingBoons": 0,
+          "events": [],
+          "depth": 0,
+          "weekly": null,
+          "sealedRooms": []
         }
       ]
     ],
@@ -3506,7 +3617,9 @@
           "deaths": 0,
           "kills": 17,
           "exp": 900,
-          "clearedAt": 1700000000000
+          "clearedAt": 1700000000000,
+          "boonOffer": null,
+          "boonQueue": 0
         }
       }
     },
@@ -3520,7 +3633,9 @@
       "deaths": 0,
       "kills": 17,
       "exp": 900,
-      "clearedAt": 1700000000000
+      "clearedAt": 1700000000000,
+      "boonOffer": null,
+      "boonQueue": 0
     }
   },
   "complete slow with a death": {
@@ -3590,7 +3705,9 @@
             "deaths": 1,
             "kills": 17,
             "exp": 900,
-            "clearedAt": 1700000000000
+            "clearedAt": 1700000000000,
+            "boonOffer": null,
+            "boonQueue": 0
           }
         }
       ],
@@ -3650,7 +3767,11 @@
             "bonusGold": 360,
             "runExp": 900,
             "bonusExp": 656
-          }
+          },
+          "boons": [],
+          "curses": [],
+          "depth": 0,
+          "weekly": null
         }
       ],
       [
@@ -3679,7 +3800,14 @@
           "killedMobs": 0,
           "requiredMobs": 4,
           "bossPortalReady": false,
-          "bossPortalSpawned": false
+          "bossPortalSpawned": false,
+          "boons": [],
+          "curses": [],
+          "pendingBoons": 0,
+          "events": [],
+          "depth": 0,
+          "weekly": null,
+          "sealedRooms": []
         }
       ]
     ],
@@ -3709,7 +3837,9 @@
           "deaths": 1,
           "kills": 17,
           "exp": 900,
-          "clearedAt": 1700000000000
+          "clearedAt": 1700000000000,
+          "boonOffer": null,
+          "boonQueue": 0
         }
       }
     },
@@ -3723,7 +3853,9 @@
       "deaths": 1,
       "kills": 17,
       "exp": 900,
-      "clearedAt": 1700000000000
+      "clearedAt": 1700000000000,
+      "boonOffer": null,
+      "boonQueue": 0
     }
   },
   "complete empty bag": {
@@ -3763,7 +3895,9 @@
             "deaths": 0,
             "kills": 17,
             "exp": 900,
-            "clearedAt": 1700000000000
+            "clearedAt": 1700000000000,
+            "boonOffer": null,
+            "boonQueue": 0
           }
         }
       ],
@@ -3792,7 +3926,11 @@
             "bonusGold": 720,
             "runExp": 900,
             "bonusExp": 1312
-          }
+          },
+          "boons": [],
+          "curses": [],
+          "depth": 0,
+          "weekly": null
         }
       ],
       [
@@ -3821,7 +3959,14 @@
           "killedMobs": 0,
           "requiredMobs": 4,
           "bossPortalReady": false,
-          "bossPortalSpawned": false
+          "bossPortalSpawned": false,
+          "boons": [],
+          "curses": [],
+          "pendingBoons": 0,
+          "events": [],
+          "depth": 0,
+          "weekly": null,
+          "sealedRooms": []
         }
       ]
     ],
@@ -3851,7 +3996,9 @@
           "deaths": 0,
           "kills": 17,
           "exp": 900,
-          "clearedAt": 1700000000000
+          "clearedAt": 1700000000000,
+          "boonOffer": null,
+          "boonQueue": 0
         }
       }
     },
@@ -3865,7 +4012,9 @@
       "deaths": 0,
       "kills": 17,
       "exp": 900,
-      "clearedAt": 1700000000000
+      "clearedAt": 1700000000000,
+      "boonOffer": null,
+      "boonQueue": 0
     }
   },
   "complete no start time": {
@@ -3934,7 +4083,9 @@
             "deaths": 0,
             "kills": 17,
             "exp": 900,
-            "clearedAt": 1700000000000
+            "clearedAt": 1700000000000,
+            "boonOffer": null,
+            "boonQueue": 0
           }
         }
       ],
@@ -3994,7 +4145,11 @@
             "bonusGold": 720,
             "runExp": 900,
             "bonusExp": 1312
-          }
+          },
+          "boons": [],
+          "curses": [],
+          "depth": 0,
+          "weekly": null
         }
       ],
       [
@@ -4022,7 +4177,14 @@
           "killedMobs": 0,
           "requiredMobs": 4,
           "bossPortalReady": false,
-          "bossPortalSpawned": false
+          "bossPortalSpawned": false,
+          "boons": [],
+          "curses": [],
+          "pendingBoons": 0,
+          "events": [],
+          "depth": 0,
+          "weekly": null,
+          "sealedRooms": []
         }
       ]
     ],
@@ -4051,7 +4213,9 @@
           "deaths": 0,
           "kills": 17,
           "exp": 900,
-          "clearedAt": 1700000000000
+          "clearedAt": 1700000000000,
+          "boonOffer": null,
+          "boonQueue": 0
         }
       }
     },
@@ -4064,7 +4228,9 @@
       "deaths": 0,
       "kills": 17,
       "exp": 900,
-      "clearedAt": 1700000000000
+      "clearedAt": 1700000000000,
+      "boonOffer": null,
+      "boonQueue": 0
     }
   },
   "complete no exp or kills": {
@@ -4110,7 +4276,9 @@
             "items": [],
             "floor": 1,
             "difficulty": "normal",
-            "clearedAt": 1700000000000
+            "clearedAt": 1700000000000,
+            "boonOffer": null,
+            "boonQueue": 0
           }
         }
       ],
@@ -4149,7 +4317,11 @@
             "bonusGold": 240,
             "runExp": 0,
             "bonusExp": 1312
-          }
+          },
+          "boons": [],
+          "curses": [],
+          "depth": 0,
+          "weekly": null
         }
       ],
       [
@@ -4177,7 +4349,14 @@
           "killedMobs": 0,
           "requiredMobs": 4,
           "bossPortalReady": false,
-          "bossPortalSpawned": false
+          "bossPortalSpawned": false,
+          "boons": [],
+          "curses": [],
+          "pendingBoons": 0,
+          "events": [],
+          "depth": 0,
+          "weekly": null,
+          "sealedRooms": []
         }
       ]
     ],
@@ -4203,7 +4382,9 @@
           "items": [],
           "floor": 1,
           "difficulty": "normal",
-          "clearedAt": 1700000000000
+          "clearedAt": 1700000000000,
+          "boonOffer": null,
+          "boonQueue": 0
         }
       }
     },
@@ -4213,7 +4394,9 @@
       "items": [],
       "floor": 1,
       "difficulty": "normal",
-      "clearedAt": 1700000000000
+      "clearedAt": 1700000000000,
+      "boonOffer": null,
+      "boonQueue": 0
     }
   },
   "complete already cleared": {
@@ -4366,7 +4549,9 @@
             "deaths": 0,
             "kills": 17,
             "exp": 900,
-            "clearedAt": 1700000000000
+            "clearedAt": 1700000000000,
+            "boonOffer": null,
+            "boonQueue": 0
           }
         }
       ],
@@ -4426,7 +4611,11 @@
             "bonusGold": 720,
             "runExp": 900,
             "bonusExp": 1312
-          }
+          },
+          "boons": [],
+          "curses": [],
+          "depth": 0,
+          "weekly": null
         }
       ],
       [
@@ -4455,7 +4644,14 @@
           "killedMobs": 0,
           "requiredMobs": 0,
           "bossPortalReady": false,
-          "bossPortalSpawned": false
+          "bossPortalSpawned": false,
+          "boons": [],
+          "curses": [],
+          "pendingBoons": 0,
+          "events": [],
+          "depth": 0,
+          "weekly": null,
+          "sealedRooms": []
         }
       ]
     ],
@@ -4485,7 +4681,9 @@
           "deaths": 0,
           "kills": 17,
           "exp": 900,
-          "clearedAt": 1700000000000
+          "clearedAt": 1700000000000,
+          "boonOffer": null,
+          "boonQueue": 0
         }
       }
     },
@@ -4499,7 +4697,9 @@
       "deaths": 0,
       "kills": 17,
       "exp": 900,
-      "clearedAt": 1700000000000
+      "clearedAt": 1700000000000,
+      "boonOffer": null,
+      "boonQueue": 0
     }
   },
   "complete no socket": {
@@ -4567,7 +4767,9 @@
           "deaths": 0,
           "kills": 17,
           "exp": 900,
-          "clearedAt": 1700000000000
+          "clearedAt": 1700000000000,
+          "boonOffer": null,
+          "boonQueue": 0
         }
       }
     },
@@ -4581,7 +4783,9 @@
       "deaths": 0,
       "kills": 17,
       "exp": 900,
-      "clearedAt": 1700000000000
+      "clearedAt": 1700000000000,
+      "boonOffer": null,
+      "boonQueue": 0
     }
   },
   "complete last floor": {
@@ -4651,7 +4855,9 @@
             "deaths": 0,
             "kills": 17,
             "exp": 900,
-            "clearedAt": 1700000000000
+            "clearedAt": 1700000000000,
+            "boonOffer": null,
+            "boonQueue": 0
           }
         }
       ],
@@ -4709,7 +4915,11 @@
             "bonusGold": 23760,
             "runExp": 900,
             "bonusExp": 1312
-          }
+          },
+          "boons": [],
+          "curses": [],
+          "depth": 0,
+          "weekly": null
         }
       ],
       [
@@ -4738,7 +4948,14 @@
           "killedMobs": 0,
           "requiredMobs": 4,
           "bossPortalReady": false,
-          "bossPortalSpawned": false
+          "bossPortalSpawned": false,
+          "boons": [],
+          "curses": [],
+          "pendingBoons": 0,
+          "events": [],
+          "depth": 0,
+          "weekly": null,
+          "sealedRooms": []
         }
       ]
     ],
@@ -4768,7 +4985,9 @@
           "deaths": 0,
           "kills": 17,
           "exp": 900,
-          "clearedAt": 1700000000000
+          "clearedAt": 1700000000000,
+          "boonOffer": null,
+          "boonQueue": 0
         }
       }
     },
@@ -4782,7 +5001,9 @@
       "deaths": 0,
       "kills": 17,
       "exp": 900,
-      "clearedAt": 1700000000000
+      "clearedAt": 1700000000000,
+      "boonOffer": null,
+      "boonQueue": 0
     }
   },
   "complete low level": {
@@ -4851,7 +5072,9 @@
             "deaths": 0,
             "kills": 17,
             "exp": 900,
-            "clearedAt": 1700000000000
+            "clearedAt": 1700000000000,
+            "boonOffer": null,
+            "boonQueue": 0
           }
         }
       ],
@@ -4911,7 +5134,11 @@
             "bonusGold": 720,
             "runExp": 900,
             "bonusExp": 15
-          }
+          },
+          "boons": [],
+          "curses": [],
+          "depth": 0,
+          "weekly": null
         }
       ],
       [
@@ -4940,7 +5167,14 @@
           "killedMobs": 0,
           "requiredMobs": 4,
           "bossPortalReady": false,
-          "bossPortalSpawned": false
+          "bossPortalSpawned": false,
+          "boons": [],
+          "curses": [],
+          "pendingBoons": 0,
+          "events": [],
+          "depth": 0,
+          "weekly": null,
+          "sealedRooms": []
         }
       ]
     ],
@@ -4969,7 +5203,9 @@
           "deaths": 0,
           "kills": 17,
           "exp": 900,
-          "clearedAt": 1700000000000
+          "clearedAt": 1700000000000,
+          "boonOffer": null,
+          "boonQueue": 0
         }
       }
     },
@@ -4983,7 +5219,9 @@
       "deaths": 0,
       "kills": 17,
       "exp": 900,
-      "clearedAt": 1700000000000
+      "clearedAt": 1700000000000,
+      "boonOffer": null,
+      "boonQueue": 0
     }
   },
   "end no run": {
@@ -6730,7 +6968,14 @@
           "killedMobs": 0,
           "requiredMobs": 4,
           "bossPortalReady": false,
-          "bossPortalSpawned": false
+          "bossPortalSpawned": false,
+          "boons": [],
+          "curses": [],
+          "pendingBoons": 0,
+          "events": [],
+          "depth": 0,
+          "weekly": null,
+          "sealedRooms": []
         }
       ],
       [
@@ -6797,7 +7042,11 @@
           "kills": 0,
           "exp": 0,
           "revivalsUsed": 0,
-          "maxRevivals": 10
+          "maxRevivals": 10,
+          "boons": {},
+          "curses": [],
+          "boonQueue": 0,
+          "boonOffer": null
         }
       }
     },
@@ -6905,7 +7154,14 @@
           "killedMobs": 0,
           "requiredMobs": 4,
           "bossPortalReady": false,
-          "bossPortalSpawned": false
+          "bossPortalSpawned": false,
+          "boons": [],
+          "curses": [],
+          "pendingBoons": 0,
+          "events": [],
+          "depth": 0,
+          "weekly": null,
+          "sealedRooms": []
         }
       ],
       [
@@ -6967,7 +7223,11 @@
           "kills": 0,
           "exp": 0,
           "revivalsUsed": 0,
-          "maxRevivals": 10
+          "maxRevivals": 10,
+          "boons": {},
+          "curses": [],
+          "boonQueue": 0,
+          "boonOffer": null
         }
       }
     },
@@ -7057,7 +7317,14 @@
           "killedMobs": 0,
           "requiredMobs": 4,
           "bossPortalReady": false,
-          "bossPortalSpawned": false
+          "bossPortalSpawned": false,
+          "boons": [],
+          "curses": [],
+          "pendingBoons": 0,
+          "events": [],
+          "depth": 0,
+          "weekly": null,
+          "sealedRooms": []
         }
       ],
       [
@@ -7150,7 +7417,11 @@
           "kills": 0,
           "exp": 0,
           "revivalsUsed": 0,
-          "maxRevivals": 10
+          "maxRevivals": 10,
+          "boons": {},
+          "curses": [],
+          "boonQueue": 0,
+          "boonOffer": null
         }
       }
     },
@@ -7279,7 +7550,14 @@
           "killedMobs": 0,
           "requiredMobs": 4,
           "bossPortalReady": false,
-          "bossPortalSpawned": false
+          "bossPortalSpawned": false,
+          "boons": [],
+          "curses": [],
+          "pendingBoons": 0,
+          "events": [],
+          "depth": 0,
+          "weekly": null,
+          "sealedRooms": []
         }
       ],
       [
@@ -7374,7 +7652,11 @@
           "kills": 0,
           "exp": 0,
           "revivalsUsed": 0,
-          "maxRevivals": 10
+          "maxRevivals": 10,
+          "boons": {},
+          "curses": [],
+          "boonQueue": 0,
+          "boonOffer": null
         }
       }
     },
@@ -7456,7 +7738,14 @@
           "killedMobs": 0,
           "requiredMobs": 4,
           "bossPortalReady": false,
-          "bossPortalSpawned": false
+          "bossPortalSpawned": false,
+          "boons": [],
+          "curses": [],
+          "pendingBoons": 0,
+          "events": [],
+          "depth": 0,
+          "weekly": null,
+          "sealedRooms": []
         }
       ],
       [
@@ -7620,7 +7909,14 @@
           "killedMobs": 0,
           "requiredMobs": 4,
           "bossPortalReady": false,
-          "bossPortalSpawned": false
+          "bossPortalSpawned": false,
+          "boons": [],
+          "curses": [],
+          "pendingBoons": 0,
+          "events": [],
+          "depth": 0,
+          "weekly": null,
+          "sealedRooms": []
         }
       ],
       [
@@ -7722,7 +8018,11 @@
           "kills": 0,
           "exp": 0,
           "revivalsUsed": 0,
-          "maxRevivals": 10
+          "maxRevivals": 10,
+          "boons": {},
+          "curses": [],
+          "boonQueue": 0,
+          "boonOffer": null
         }
       }
     },
@@ -7783,7 +8083,14 @@
           "killedMobs": 0,
           "requiredMobs": 0,
           "bossPortalReady": false,
-          "bossPortalSpawned": false
+          "bossPortalSpawned": false,
+          "boons": [],
+          "curses": [],
+          "pendingBoons": 0,
+          "events": [],
+          "depth": 0,
+          "weekly": null,
+          "sealedRooms": []
         }
       ],
       [
